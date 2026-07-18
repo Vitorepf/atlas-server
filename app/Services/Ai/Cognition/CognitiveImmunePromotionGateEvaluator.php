@@ -108,6 +108,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_GATE_UNKNOWN = 'gate_unknown';
     public const FIELD_OUTCOME_NOT_VALIDATED = 'outcome_not_validated';
     public const FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT = 'probation_negative_feedback_count';
+    public const FIELD_PROBATION_NEGATIVE_FEEDBACK_PRESENT = 'probation_negative_feedback_present';
+    public const FIELD_PROBATION_RECALL_ACTOR_COUNTS = 'probation_recall_actor_counts';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -359,7 +361,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($this->hasProbationNegativeFeedback($signals)) {
-            return [self::STATUS_PENDING, 'probation_negative_feedback_present'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_NEGATIVE_FEEDBACK_PRESENT];
         }
 
         if ($this->hasProbationSuperveningContradiction($signals)) {
@@ -555,7 +557,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function probationRecallActorCounts(array $signals): array
     {
         foreach ([
-            'probation_recall_actor_counts',
+            self::FIELD_PROBATION_RECALL_ACTOR_COUNTS,
             self::FIELD_RECALL_ACTOR_COUNTS,
             self::FIELD_RECALLS_BY_ACTOR,
         ] as $key) {

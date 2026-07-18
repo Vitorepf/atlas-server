@@ -339,6 +339,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR = 'context_retention_score_below_floor';
     public const FIELD_CRITICAL_MUST_KEEP_SHADOW_CUT = 'critical_must_keep_shadow_cut';
     public const FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED = 'cross_week_recall_lift_not_certified';
+    public const FIELD_GOVERNANCE_BYPASS_RATE_NONZERO = 'governance_bypass_rate_nonzero';
+    public const FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO = 'governance_false_positive_nonzero';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -842,8 +844,8 @@ final class AtlasAcosWatchdogHealthService
                     && (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0,
                 self::FIELD_BLOCKING => array_values(array_filter([
                     count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : 'governance_soak_volume_below_floor',
-                    $bypassRate === 0.0 ? null : 'governance_bypass_rate_nonzero',
-                    (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
+                    $bypassRate === 0.0 ? null : self::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO,
+                    (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0 ? null : self::FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO,
                 ])),
                 self::FIELD_RAW => [
                     self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,

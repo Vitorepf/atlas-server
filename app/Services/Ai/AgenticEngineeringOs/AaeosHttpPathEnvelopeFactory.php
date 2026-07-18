@@ -116,6 +116,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE = 'topology_plan_providers_min_1_available';
     public const FIELD_NO = 'no';
     public const FIELD_OBRA = 'obra';
+    public const FIELD_PLAN = 'plan';
+    public const FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1 = 'mission_foundation_optional_at_phase_1';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -170,7 +172,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phase: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
             receiptId: 'rcpt:aaeos.phase1.disambiguation.optional',
-            reason: 'mission_foundation_optional_at_phase_1',
+            reason: self::FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1,
         );
     }
 
@@ -265,7 +267,7 @@ final class AaeosHttpPathEnvelopeFactory
         $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
         $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
-        if (in_array($intent, ['plan', self::FIELD_FORGE, self::FIELD_OBRA], true) || in_array($routingTask, ['plan', self::FIELD_FORGE, self::FIELD_OBRA], true)) {
+        if (in_array($intent, [self::FIELD_PLAN, self::FIELD_FORGE, self::FIELD_OBRA], true) || in_array($routingTask, [self::FIELD_PLAN, self::FIELD_FORGE, self::FIELD_OBRA], true)) {
             return self::RISK_BAND_R3_PLUS;
         }
         if ($flowId === 'programming.forge' || $flowId === self::FIELD_ATLAS_FORGE) {

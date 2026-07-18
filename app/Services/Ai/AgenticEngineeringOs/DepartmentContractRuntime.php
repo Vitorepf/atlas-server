@@ -317,6 +317,8 @@ final class DepartmentContractRuntime
     public const FIELD_ACCEPTANCE_CRITERIA_MIN_3 = 'acceptance_criteria_min_3';
     public const FIELD_ACCEPTANCE_CRITERIA_PACK = 'acceptance_criteria_pack';
     public const FIELD_ADR_PUBLISHED = 'adr_published';
+    public const FIELD_ALLOW = 'allow';
+    public const FIELD_ARCHITECT_DECISION_RECEIPT = 'architect_decision_receipt';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -412,7 +414,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
+            self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', self::FIELD_ARCHITECT_DECISION_RECEIPT],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
@@ -550,7 +552,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
             self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, self::FIELD_THREAT_MODEL_PRESENT, 'sovereignty_boundary_respected'],
-            self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
+            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ALLOW, self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', self::FIELD_SECRET_SCAN_REPORT_HASH, 'dependency_audit_hash'],

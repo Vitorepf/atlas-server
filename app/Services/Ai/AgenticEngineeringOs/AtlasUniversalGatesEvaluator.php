@@ -12127,4 +12127,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B471).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosImplementationDocsAuthorityDepartmentCrossContractAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'md' => AtlasAaeosImplementationTruthService::FIELD_MD,
+            'archive' => AtlasAaeosImplementationTruthService::FIELD_ARCHIVE,
+            'like' => AtlasDocsAuthorityGraphService::FIELD_LIKE,
+            'archive' => AtlasDocsAuthorityGraphService::FIELD_ARCHIVE,
+            'already_at_max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ALREADY_AT_MAX_TIER,
+            'evidence_stale' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_EVIDENCE_STALE,
+            'dev' => AtlasCrossDepartmentChoreographyService::FIELD_DEV,
+            'delivery' => AtlasCrossDepartmentChoreographyService::FIELD_DELIVERY,
+            'allow' => DepartmentContractRuntime::FIELD_ALLOW,
+            'architect_decision_receipt' => DepartmentContractRuntime::FIELD_ARCHITECT_DECISION_RECEIPT,
+            'governance_bypass_rate_nonzero' => AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO,
+            'governance_false_positive_nonzero' => AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO,
+            'probation_negative_feedback_present' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_NEGATIVE_FEEDBACK_PRESENT,
+            'probation_recall_actor_counts' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_ACTOR_COUNTS,
+            'plan' => AaeosHttpPathEnvelopeFactory::FIELD_PLAN,
+            'mission_foundation_optional_at_phase_1' => AaeosHttpPathEnvelopeFactory::FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1,
+            'intent_clear' => AtlasAaeosGateSignalEvaluator::FIELD_INTENT_CLEAR,
+            'resolved_target_missing' => AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET_MISSING,
+            'aaeos_implementation_docs_authority_department_cross_contract_acos_floor_count' => 18,
+        ];
+    }
+
 }

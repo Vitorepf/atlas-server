@@ -9519,4 +9519,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['composed_obra_department_contract_acos_watchdog_immune_promotion_floor_count']);
     }
 
+    public function test_aaeos_implementation_docs_authority_department_cross_contract_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosImplementationDocsAuthorityDepartmentCrossContractAcosFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_MD, $out['md']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ARCHIVE, $out['archive']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_LIKE, $out['like']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ARCHIVE, $out['archive']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ALREADY_AT_MAX_TIER, $out['already_at_max_tier']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_EVIDENCE_STALE, $out['evidence_stale']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ALLOW, $out['allow']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ARCHITECT_DECISION_RECEIPT, $out['architect_decision_receipt']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO, $out['governance_bypass_rate_nonzero']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO, $out['governance_false_positive_nonzero']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_NEGATIVE_FEEDBACK_PRESENT, $out['probation_negative_feedback_present']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_ACTOR_COUNTS, $out['probation_recall_actor_counts']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PLAN, $out['plan']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1, $out['mission_foundation_optional_at_phase_1']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT_CLEAR, $out['intent_clear']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET_MISSING, $out['resolved_target_missing']);
+        $this->assertSame(18, $out['aaeos_implementation_docs_authority_department_cross_contract_acos_floor_count']);
+    }
+
 }

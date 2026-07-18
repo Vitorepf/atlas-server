@@ -84,6 +84,8 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_VALID_KIND = 'valid_kind';
     public const FIELD_DEV_OR_FORGE = 'dev_or_forge';
     public const FIELD_FORGE = 'forge';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_DELIVERY = 'delivery';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -91,9 +93,9 @@ class AtlasCrossDepartmentChoreographyService
      * @var array<string,array{propagates_to:array<int,string>, action:string, return_to:?string, final:bool}>
      */
     public const VETO_RULES = [
-        self::FIELD_SECURITY => [self::FIELD_PROPAGATES_TO => ['dev', self::FIELD_FORGE, 'delivery'], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
+        self::FIELD_SECURITY => [self::FIELD_PROPAGATES_TO => [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_DELIVERY], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
         self::TARGET_ARCHITECT => [self::FIELD_PROPAGATES_TO => [self::TARGET_PRODUCT], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::TARGET_PRODUCT, self::FIELD_FINAL => false],
-        self::FIELD_REVIEW => [self::FIELD_PROPAGATES_TO => ['dev', 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::FIELD_DEV_OR_FORGE, self::FIELD_FINAL => false],
+        self::FIELD_REVIEW => [self::FIELD_PROPAGATES_TO => [self::FIELD_DEV, 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::FIELD_DEV_OR_FORGE, self::FIELD_FINAL => false],
         self::TARGET_OPERATOR => [self::FIELD_PROPAGATES_TO => ['*'], self::FIELD_ACTION => self::ACTION_OVERRIDE, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => true],
     ];
 

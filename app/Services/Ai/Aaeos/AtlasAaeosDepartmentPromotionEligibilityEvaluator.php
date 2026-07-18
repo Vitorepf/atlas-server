@@ -50,6 +50,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_TARGET_THRESHOLD = 'target_threshold';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ALREADY_AT_MAX_TIER = 'already_at_max_tier';
+    public const FIELD_EVIDENCE_STALE = 'evidence_stale';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -102,11 +104,11 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         if (! $freshnessPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'freshness';
-            $blockingReasons[] = 'evidence_stale';
+            $blockingReasons[] = self::FIELD_EVIDENCE_STALE;
         }
 
         if ($atMaxTier) {
-            $blockingReasons[] = 'already_at_max_tier';
+            $blockingReasons[] = self::FIELD_ALREADY_AT_MAX_TIER;
         }
 
         $eligible = $failedPreconditions === [] && ! $atMaxTier;

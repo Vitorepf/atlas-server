@@ -67,6 +67,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_UPDATED_AT = 'updated_at';
     public const FIELD_ATLAS_DOCS_AUTHORITY_GRAPH = 'atlas_docs_authority_graph';
     public const FIELD_CAPABILITY = 'capability';
+    public const FIELD_LIKE = 'like';
+    public const FIELD_ARCHIVE = 'archive';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -186,9 +188,9 @@ class AtlasDocsAuthorityGraphService
         $fallback = AtlasDocsAuthorityGraph::query()
             ->where(function ($w) use ($variants): void {
                 foreach ($variants as $variant) {
-                    $w->orWhere('needle_normalized', 'like', '%'.$variant.'%')
-                        ->orWhere('owner_doc_path', 'like', '%'.$variant.'%')
-                        ->orWhere('owner_doc_id', 'like', '%'.$variant.'%');
+                    $w->orWhere('needle_normalized', self::FIELD_LIKE, '%'.$variant.'%')
+                        ->orWhere('owner_doc_path', self::FIELD_LIKE, '%'.$variant.'%')
+                        ->orWhere('owner_doc_id', self::FIELD_LIKE, '%'.$variant.'%');
                 }
             })
             ->orderByDesc('confidence')
@@ -269,7 +271,7 @@ class AtlasDocsAuthorityGraphService
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
             $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
-            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
+            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.self::FIELD_ARCHIVE.DIRECTORY_SEPARATOR)) {
                 continue;
             }
             $docs[] = [

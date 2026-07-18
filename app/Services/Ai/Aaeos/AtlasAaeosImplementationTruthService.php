@@ -124,6 +124,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_IMPLEMENTED_PARTIAL = 'implemented_partial';
     public const FIELD_RUNTIME_VERIFIED = 'runtime_verified';
+    public const FIELD_MD = 'md';
+    public const FIELD_ARCHIVE = 'archive';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -247,8 +249,8 @@ class AtlasAaeosImplementationTruthService
         if (File::isDirectory($root)) {
             foreach (File::allFiles($root) as $file) {
                 /** @var SplFileInfo $file */
-                if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md'
-                    || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
+                if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD
+                    || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.self::FIELD_ARCHIVE.DIRECTORY_SEPARATOR)) {
                     continue;
                 }
                 $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
@@ -379,7 +381,7 @@ class AtlasAaeosImplementationTruthService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD) {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
