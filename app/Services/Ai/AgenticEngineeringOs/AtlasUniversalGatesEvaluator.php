@@ -9211,4 +9211,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B377).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function preReviewHttpPathPhaseAdvanceCognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lift_high_over_low' => PreReviewAdvisoryBand::FIELD_LIFT_HIGH_OVER_LOW,
+            'medium' => PreReviewAdvisoryBand::FIELD_MEDIUM,
+            'policy_target' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_TARGET,
+            'provider' => AaeosHttpPathEnvelopeFactory::FIELD_PROVIDER,
+            'passed' => PhaseAdvanceVerdictClassifier::FIELD_PASSED,
+            'reason' => PhaseAdvanceVerdictClassifier::FIELD_REASON,
+            'dimensions' => AtlasCognitionScoreCardService::FIELD_DIMENSIONS,
+            'doc' => AtlasCognitionScoreCardService::FIELD_DOC,
+            'generated_at' => AtlasFrontierWaveLadder::FIELD_GENERATED_AT,
+            'note' => AtlasFrontierWaveLadder::FIELD_NOTE,
+            'max_age_days' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_AGE_DAYS,
+            'max_evidence_age_days' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_EVIDENCE_AGE_DAYS,
+            'runbook' => AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK,
+            'runtime_ready' => AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY,
+            'missing_answers' => AtlasAaeosGateSignalEvaluator::FIELD_MISSING_ANSWERS,
+            'no_phase_outputs' => AtlasAaeosGateSignalEvaluator::FIELD_NO_PHASE_OUTPUTS,
+            'receipt' => AtlasAaeosImplementationEvidenceResolver::FIELD_RECEIPT,
+            'ref' => AtlasAaeosImplementationEvidenceResolver::FIELD_REF,
+            'pre_review_http_path_phase_advance_cognition_score_floor_count' => 18,
+        ];
+    }
+
 }

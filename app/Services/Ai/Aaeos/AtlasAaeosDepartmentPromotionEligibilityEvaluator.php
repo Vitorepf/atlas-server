@@ -43,6 +43,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_FRESHNESS = 'freshness';
     public const FIELD_ID = 'id';
     public const FIELD_LAST_EVALUATION = 'last_evaluation';
+    public const FIELD_MAX_AGE_DAYS = 'max_age_days';
+    public const FIELD_MAX_EVIDENCE_AGE_DAYS = 'max_evidence_age_days';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -215,7 +217,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function evaluateFreshness(array $department, array $options): array
     {
-        $maxAgeDays = $this->intValue($options['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
+        $maxAgeDays = $this->intValue($options[self::FIELD_MAX_EVIDENCE_AGE_DAYS] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
         $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_LAST_EVALUATION] ?? null) ?? '';
         $asOf = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_AS_OF] ?? null) ?? date(DATE_ATOM);
 
@@ -225,7 +227,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         return [
             self::FIELD_PASSED => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
             self::FIELD_AGE_DAYS => $ageDays,
-            'max_age_days' => $maxAgeDays,
+            self::FIELD_MAX_AGE_DAYS => $maxAgeDays,
         ];
     }
 

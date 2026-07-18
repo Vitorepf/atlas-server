@@ -55,6 +55,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_EXTERNAL_EVENTS = 'external_events';
     public const FIELD_PRIOR_EVENTS = 'prior_events';
     public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_NOTE = 'note';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -135,10 +137,10 @@ final class AtlasFrontierWaveLadder
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'generated_at' => gmdate('c'),
+            self::FIELD_GENERATED_AT => gmdate('c'),
             self::FIELD_EVENT_THRESHOLD => self::EVENT_THRESHOLD,
             self::FIELD_WAVES => $waves,
-            'note' => 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.',
+            self::FIELD_NOTE => 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.',
         ];
     }
 

@@ -399,6 +399,7 @@ final class AtlasAaeosCommand extends Command
                             {--resource-budget-belief-cascade-citation-grounding-dev-procedural-floors-contract= : JSON file (any object) to observe resource/budget/belief/cascade/citation/grounding floors}
                             {--b375-n-capture-domain-lexical-evidence-vision-execution-context-floors-contract= : JSON file (any object) to observe n/capture/domain/lexical/evidence/vision floors}
                             {--aaeos-test-window-orchestrator-code-symbol-knowledge-item-floors-contract= : JSON file (any object) to observe aaeos/test/window/orchestrator/code/symbol floors}
+                            {--pre-review-http-path-phase-advance-cognition-score-floors-contract= : JSON file (any object) to observe pre/review/http/path/phase/advance floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -954,6 +955,7 @@ final class AtlasAaeosCommand extends Command
             ['resource-budget-belief-cascade-citation-grounding-dev-procedural-floors-contract', 'resource_budget_belief_cascade_citation_grounding_dev_procedural_floors_contract', fn (array $p) => $gates->resourceBudgetBeliefCascadeCitationGroundingDevProceduralFloorsContractObserve($p)],
             ['b375-n-capture-domain-lexical-evidence-vision-execution-context-floors-contract', 'b375_n_capture_domain_lexical_evidence_vision_execution_context_floors_contract', fn (array $p) => $gates->b375NCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve($p)],
             ['aaeos-test-window-orchestrator-code-symbol-knowledge-item-floors-contract', 'aaeos_test_window_orchestrator_code_symbol_knowledge_item_floors_contract', fn (array $p) => $gates->aaeosTestWindowOrchestratorCodeSymbolKnowledgeItemFloorsContractObserve($p)],
+            ['pre-review-http-path-phase-advance-cognition-score-floors-contract', 'pre_review_http_path_phase_advance_cognition_score_floors_contract', fn (array $p) => $gates->preReviewHttpPathPhaseAdvanceCognitionScoreFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -71,6 +71,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_PLACEMENT_FLOW = 'placement_flow';
     public const FIELD_PASSED = 'passed';
     public const FIELD_POLICY_ALLOWED = 'policy_allowed';
+    public const FIELD_POLICY_TARGET = 'policy_target';
+    public const FIELD_PROVIDER = 'provider';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -200,7 +202,7 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.policy_gate'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
-                'policy_target' => $target !== '' ? $target : 'none',
+                self::FIELD_POLICY_TARGET => $target !== '' ? $target : 'none',
                 self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
                 self::FIELD_POLICY_ALLOWED => $allowed ? 'yes' : 'no',
             ],
@@ -548,6 +550,6 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function systemActor(string $id): array
     {
-        return [self::FIELD_KIND => 'system', self::FIELD_ID => $id, 'provider' => null];
+        return [self::FIELD_KIND => 'system', self::FIELD_ID => $id, self::FIELD_PROVIDER => null];
     }
 }

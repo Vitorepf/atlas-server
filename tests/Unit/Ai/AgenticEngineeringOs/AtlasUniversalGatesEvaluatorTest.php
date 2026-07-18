@@ -7149,4 +7149,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_test_window_orchestrator_code_symbol_knowledge_item_floor_count']);
     }
 
+    public function test_pre_review_http_path_phase_advance_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->preReviewHttpPathPhaseAdvanceCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_LIFT_HIGH_OVER_LOW, $out['lift_high_over_low']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_TARGET, $out['policy_target']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PASSED, $out['passed']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_DIMENSIONS, $out['dimensions']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_DOC, $out['doc']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_NOTE, $out['note']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_AGE_DAYS, $out['max_age_days']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_EVIDENCE_AGE_DAYS, $out['max_evidence_age_days']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_MISSING_ANSWERS, $out['missing_answers']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_NO_PHASE_OUTPUTS, $out['no_phase_outputs']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_REF, $out['ref']);
+        $this->assertSame(18, $out['pre_review_http_path_phase_advance_cognition_score_floor_count']);
+    }
+
 }

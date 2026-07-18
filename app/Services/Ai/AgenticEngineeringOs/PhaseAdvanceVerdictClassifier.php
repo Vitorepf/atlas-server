@@ -40,6 +40,8 @@ final class PhaseAdvanceVerdictClassifier
     public const FIELD_BLOCKED_GATES = 'blocked_gates';
     public const FIELD_GATES = 'gates';
     public const FIELD_HIGH_BLOCKER_IDS = 'high_blocker_ids';
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_REASON = 'reason';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -90,7 +92,7 @@ final class PhaseAdvanceVerdictClassifier
 
         $gates = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_GATES] ?? null);
         $required = AiStringListNormalizer::trimmedStrings($gates['required'] ?? []);
-        $passed = AiStringListNormalizer::trimmedStrings($gates['passed'] ?? []);
+        $passed = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_PASSED] ?? []);
         $blockedGates = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_BLOCKED] ?? []);
 
         $blockers = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_BLOCKERS] ?? null);
@@ -113,7 +115,7 @@ final class PhaseAdvanceVerdictClassifier
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'verdict' => $verdict,
-            'reason' => $reason,
+            self::FIELD_REASON => $reason,
             self::FIELD_MISSING_GATES => $missingGates,
             self::FIELD_BLOCKED_GATES => $blockedGates,
             self::FIELD_HIGH_BLOCKER_IDS => $highBlockerIds,

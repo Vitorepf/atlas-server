@@ -56,6 +56,8 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_SIG = 'sig';
     public const FIELD_COMMAND = 'command';
     public const FIELD_KIND = 'kind';
+    public const FIELD_RECEIPT = 'receipt';
+    public const FIELD_REF = 'ref';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -279,14 +281,14 @@ class AtlasAaeosImplementationEvidenceResolver
             'route' => $this->matchTyped('route', $ref),
             self::FIELD_COMMAND => $this->matchTyped('cli_command', $ref),
             self::FIELD_TEST => $this->matchTest($ref),
-            'receipt' => $this->matchReceipt($ref),
+            self::FIELD_RECEIPT => $this->matchReceipt($ref),
             self::FIELD_MIGRATION => $this->matchTyped('migration_table', $ref),
             default => null,
         };
 
         return [
             self::FIELD_KIND => $kind,
-            'ref' => $ref,
+            self::FIELD_REF => $ref,
             'resolved' => $matched !== null,
             self::FIELD_MATCHED => $matched,
         ];

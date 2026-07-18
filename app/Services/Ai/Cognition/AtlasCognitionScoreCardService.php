@@ -155,6 +155,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_NOTES = 'notes';
     public const FIELD_BENCHMARK_CLAIM_ALLOWED = 'benchmark_claim_allowed';
     public const FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED = 'cognitive_immune_law_enforced';
+    public const FIELD_DIMENSIONS = 'dimensions';
+    public const FIELD_DOC = 'doc';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -448,14 +450,14 @@ class AtlasCognitionScoreCardService
 
         $overall = round(
             ($totals[self::FIELD_CODE][self::FIELD_SCORE_OUT_OF_10]
-                + $totals['doc'][self::FIELD_SCORE_OUT_OF_10]
+                + $totals[self::FIELD_DOC][self::FIELD_SCORE_OUT_OF_10]
                 + $totals['pipeline'][self::FIELD_SCORE_OUT_OF_10]) / 3,
             2
         );
 
         return [
             self::FIELD_OVERALL_OUT_OF_10 => $overall,
-            'dimensions' => $totals,
+            self::FIELD_DIMENSIONS => $totals,
         ];
     }
 

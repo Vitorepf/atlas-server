@@ -80,6 +80,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_MUTATES_PIPELINE = 'mutates_pipeline';
     public const FIELD_REORDERS_DIGEST_ONLY = 'reorders_digest_only';
     public const FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER = 'reuses_calibration_band_classifier';
+    public const FIELD_LIFT_HIGH_OVER_LOW = 'lift_high_over_low';
+    public const FIELD_MEDIUM = 'medium';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -134,7 +136,7 @@ final class PreReviewAdvisoryBand
         $probability += match ($riskBand) {
             self::FIELD_CRITICAL => 0.15,
             self::FIELD_HIGH => 0.08,
-            'medium' => 0.02,
+            self::FIELD_MEDIUM => 0.02,
             default => 0.0,
         };
         // Confidence nudge: low confidence ⇒ more likely revert; high confidence ⇒ less.
@@ -195,7 +197,7 @@ final class PreReviewAdvisoryBand
             self::FIELD_SCHEMA_VERSION => self::CALIBRATION_SCHEMA,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_CURVE => $curve,
-            'lift_high_over_low' => $lift,
+            self::FIELD_LIFT_HIGH_OVER_LOW => $lift,
             self::FIELD_LIFT_BASIS => $liftBasis,
             self::FIELD_DEATH_CRITERION => [
                 'min_n' => self::DEATH_MIN_N,
