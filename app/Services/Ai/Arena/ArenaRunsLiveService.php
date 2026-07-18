@@ -158,6 +158,8 @@ final class ArenaRunsLiveService
             }
         }
 
+        $workerEnabled = (bool) config('atlas_arena.worker_enabled', false);
+
         return [
             'status_code' => 202,
             'payload' => [
@@ -166,9 +168,13 @@ final class ArenaRunsLiveService
                 'receipt_hash' => hash('sha256', json_encode($planned, JSON_UNESCAPED_SLASHES)),
                 'runs_planned' => count($planned),
                 'started' => false,
-                'worker_implemented' => false,
+                // Worker existe (atlas:arena:drain); executa só quando o
+                // operador liga ATLAS_ARENA_WORKER_ENABLED (spend real).
+                'worker_implemented' => $workerEnabled,
                 'provider_invoked' => false,
-                'note' => 'measurement_worker_missing_enqueue_only',
+                'note' => $workerEnabled
+                    ? 'enqueued_for_scheduled_drain'
+                    : 'worker_disabled_enqueue_only',
             ],
         ];
     }

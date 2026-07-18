@@ -154,6 +154,31 @@ final class ArenaMeasurementStore
         ));
     }
 
+    /**
+     * Transição de status da fila (worker de drenagem) — reescreve o JSONL
+     * preservando as demais linhas cruas (inclusive as invisíveis ao público).
+     *
+     * @param  list<string>  $runIdsPublic
+     * @param  array<string, mixed>  $updates
+     */
+    public function updateQueuedRequests(array $runIdsPublic, array $updates): void
+    {
+        $path = $this->queuePath();
+        if ($runIdsPublic === [] || ! is_file($path)) {
+            return;
+        }
+        $lines = array_values(array_filter(explode(PHP_EOL, (string) file_get_contents($path))));
+        $rewritten = [];
+        foreach ($lines as $line) {
+            $decoded = json_decode($line, true);
+            if (is_array($decoded) && in_array($decoded['run_id_public'] ?? null, $runIdsPublic, true)) {
+                $line = json_encode(array_merge($decoded, $updates), JSON_UNESCAPED_SLASHES);
+            }
+            $rewritten[] = $line;
+        }
+        file_put_contents($path, implode(PHP_EOL, $rewritten).PHP_EOL, LOCK_EX);
+    }
+
     public function appendQueuedRequest(array $entry): void
     {
         RunPaths::ensureDir(dirname($this->queuePath()));

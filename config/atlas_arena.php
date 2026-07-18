@@ -33,6 +33,12 @@ return [
     'arm_pair_window_minutes' => 120,
     'live_stale_minutes' => 240,
 
+    // Worker de medição (M61/A12): drena a fila via pipeline Rivals real.
+    // Ligar = autorizar spend real de provider nas rodadas enfileiradas
+    // (o schedule repassa --approve-provider-spend). Default: desligado.
+    'worker_enabled' => (bool) env('ATLAS_ARENA_WORKER_ENABLED', false),
+    'worker_budget_per_run' => (int) env('ATLAS_ARENA_WORKER_BUDGET', 5),
+
     'capability_map' => [
         'terminal_bench' => [
             ['capability' => 'terminal_operation', 'weight' => 0.70],

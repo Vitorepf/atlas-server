@@ -24,6 +24,18 @@ Schedule::command(sprintf(
 // schedule:run; withoutOverlapping: nunca dois drenos simultâneos (o lock W-10
 // ainda protege workspace a workspace). stop-when-empty: o processo morre com
 // a fila seca — zero custo residente.
+// M61/A12 — worker de medição da Arena: drena arena/queued_runs.jsonl
+// executando o pipeline Rivals REAL (plan → native runner → import →
+// verify/report). Mesmo trilho dos demais drains: sem worker residente, o
+// schedule:run dispara uma passada; withoutOverlapping longo porque uma
+// suíte pode levar horas (swe_marathon 360min). Ligar
+// ATLAS_ARENA_WORKER_ENABLED = autorizar spend real.
+Schedule::command('atlas:arena:drain --approve-provider-spend')
+    ->everyMinute()
+    ->withoutOverlapping(480)
+    ->runInBackground()
+    ->when(static fn (): bool => (bool) config('atlas_arena.worker_enabled', false));
+
 Schedule::command('queue:work database-long --queue=folder-intel --stop-when-empty --max-time=1500 --timeout=1500 --tries=1')
     ->everyMinute()
     ->withoutOverlapping(30)
