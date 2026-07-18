@@ -16,6 +16,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AcosMaxParallelExecutionProtocol
 {
+    public const FIELD_META = 'meta';
+    public const FIELD_PROTOCOL = 'protocol';
     public const SCHEMA = 'acos_max.parallel_execution.v1';
 
     public const CLAIM_KIND = 'task';
@@ -94,8 +96,8 @@ final class AcosMaxParallelExecutionProtocol
             self::FIELD_TTL => $ttl,
             self::FIELD_WORKSPACE => $opts[self::FIELD_WORKSPACE] ?? null,
             self::FIELD_CWD => $opts[self::FIELD_CWD] ?? null,
-            'meta' => [
-                'protocol' => self::SCHEMA,
+            self::FIELD_META => [
+                self::FIELD_PROTOCOL => self::SCHEMA,
                 self::FIELD_LOTE => $lote,
                 self::FIELD_FAMILY => $family,
             ],

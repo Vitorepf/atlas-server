@@ -15,6 +15,8 @@ use Throwable;
 
 final class AcosMaxVerifiedShareService
 {
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_FREEZE_REQUIRED = 'freeze_required';
     public const SCHEMA_VERSION = 'atlas.acos_max.verified_share.v1';
 
     public const MEASURE_ID = 'acos.verified_share.v1';
@@ -110,7 +112,7 @@ final class AcosMaxVerifiedShareService
                 self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
                 self::FIELD_STATUS => self::STATUS_MISSING_FREEZE,
                 self::FIELD_REASON => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
-                'freeze_required' => self::freezePayload(),
+                self::FIELD_FREEZE_REQUIRED => self::freezePayload(),
             ];
         }
 
@@ -150,7 +152,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_STATUS => $this->status($aggregate, $denominatorMin, $shareMin),
             self::FIELD_WINDOW_DAYS => $windowDays,
-            'freeze' => [
+            self::FIELD_FREEZE => [
                 self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::MEASURE_ID,
                 self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_CONTENT_HASH] ?? null) ?? '',
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,

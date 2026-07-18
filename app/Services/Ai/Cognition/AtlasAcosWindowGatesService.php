@@ -26,6 +26,8 @@ use Throwable;
  */
 final class AtlasAcosWindowGatesService
 {
+    public const FIELD_COMPONENTS = 'components';
+    public const FIELD_FRESH = 'fresh';
     public const SCHEMA_VERSION = 'atlas.cognition.window_gates.v1';
 
     public const STATUS_UNKNOWN = 'unknown';
@@ -94,7 +96,7 @@ final class AtlasAcosWindowGatesService
             ]];
         }
 
-        $dims = AiValueNormalizer::arrayOrEmpty($card['components'] ?? null);
+        $dims = AiValueNormalizer::arrayOrEmpty($card[self::FIELD_COMPONENTS] ?? null);
 
         return [
             $this->dimension('D3_relation_density', $dims, 'relation_density', '>=70', 70, true),
@@ -174,7 +176,7 @@ final class AtlasAcosWindowGatesService
             self::FIELD_GATE => $gate,
             self::FIELD_STATUS => $certified && $fresh ? self::STATUS_CERTIFIED : self::STATUS_AGUARDANDO_JANELA,
             self::FIELD_CERTIFIED => $certified,
-            'fresh' => $fresh,
+            self::FIELD_FRESH => $fresh,
             'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             self::FIELD_GENERATED_AT => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_GENERATED_AT] ?? null) ?? ''),
         ];

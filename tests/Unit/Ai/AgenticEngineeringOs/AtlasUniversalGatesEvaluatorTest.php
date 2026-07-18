@@ -48,6 +48,13 @@ use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
 use Tests\TestCase;
+use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
+use App\Services\Ai\AcosMax\AcosMaxParallelExecutionProtocol;
+use App\Services\Ai\AcosMax\AcosProgramCockpitService;
+use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
+use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
+use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6622,6 +6629,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('ttl_days', $payload['freeze_field_ttl_days']);
         $this->assertSame('switch', $payload['freeze_field_switch']);
         $this->assertSame(18, $payload['memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floor_count']);
+    }
+
+    public function test_repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->repairParallelPromoterVerifiedCockpitDeferredWindowRemintScorecardFloorsContractObserve([]);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE, $out['escalate']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_META, $out['meta']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_PROTOCOL, $out['protocol']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_FRONTIER_PROMOTES, $out['frontier_promotes']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FREEZE_REQUIRED, $out['freeze_required']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_BRAKES, $out['brakes']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_CURRENT_LOTE, $out['current_lote']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED, $out['enqueued']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_AT, $out['enqueued_at']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_COMPONENTS, $out['components']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_FRESH, $out['fresh']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_COMMAND_ARGS, $out['command_args']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE, $out['governance']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GROUP, $out['group']);
+        $this->assertSame(18, $out['repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floor_count']);
     }
 
 }

@@ -8649,4 +8649,35 @@ final class AtlasUniversalGatesEvaluator
     {
         return self::UNIVERSAL_GATES;
     }
+    /**
+     * Observe-only floors contract for repair/parallel/promoter/verified/cockpit/deferred/window/remint/scorecard keys (B359).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function repairParallelPromoterVerifiedCockpitDeferredWindowRemintScorecardFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'escalate' => AtlasRepairLoopGuard::FIELD_ESCALATE,
+            'schema_version' => AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION,
+            'meta' => AcosMaxParallelExecutionProtocol::FIELD_META,
+            'protocol' => AcosMaxParallelExecutionProtocol::FIELD_PROTOCOL,
+            'frontier_promotes' => AcosMaxProceduralSkillPromoterService::FIELD_FRONTIER_PROMOTES,
+            'kind' => AcosMaxProceduralSkillPromoterService::FIELD_KIND,
+            'freeze' => AcosMaxVerifiedShareService::FIELD_FREEZE,
+            'freeze_required' => AcosMaxVerifiedShareService::FIELD_FREEZE_REQUIRED,
+            'brakes' => AcosProgramCockpitService::FIELD_BRAKES,
+            'current_lote' => AcosProgramCockpitService::FIELD_CURRENT_LOTE,
+            'enqueued' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED,
+            'enqueued_at' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_AT,
+            'components' => AtlasAcosWindowGatesService::FIELD_COMPONENTS,
+            'fresh' => AtlasAcosWindowGatesService::FIELD_FRESH,
+            'command' => AtlasCognitionRemintTouchedQueue::FIELD_COMMAND,
+            'command_args' => AtlasCognitionRemintTouchedQueue::FIELD_COMMAND_ARGS,
+            'governance' => AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE,
+            'group' => AtlasCognitionScoreCardV4Grouper::FIELD_GROUP,
+            'repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floor_count' => 18,
+        ];
+    }
+
 }

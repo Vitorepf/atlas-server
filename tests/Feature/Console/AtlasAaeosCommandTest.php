@@ -6759,6 +6759,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b359-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b359',
+                '--repair-parallel-promoter-verified-cockpit-deferred-window-remint-scorecard-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
 
 final class AcosMaxProceduralSkillPromoterService
 {
+    public const FIELD_FRONTIER_PROMOTES = 'frontier_promotes';
+    public const FIELD_KIND = 'kind';
     public const SCHEMA_VERSION = 'atlas.ai.procedural_skill_promoter.v1';
 
     public const SKILL_SCHEMA_VERSION = 'skill.v1';
@@ -222,7 +224,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'name' => $skillName,
                 self::FIELD_DESCRIPTION => $playbook->objective,
                 self::FIELD_SOURCE => [
-                    'kind' => self::KIND_PROCEDURAL_PLAYBOOK,
+                    self::FIELD_KIND => self::KIND_PROCEDURAL_PLAYBOOK,
                     self::FIELD_TASK_CATEGORY => $playbook->taskCategory,
                     self::FIELD_CASE_COUNT => $caseCount,
                 ],
@@ -269,7 +271,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_SOURCE => [
                         self::FIELD_SLICE => self::SLICE_MULTJ04,
                         self::FIELD_AUTHOR_ENGINE => 'procedural_skill_promoter',
-                        'frontier_promotes' => false,
+                        self::FIELD_FRONTIER_PROMOTES => false,
                         self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                     ],
                     self::FIELD_CASE_COUNT_FLOOR => $candidate[self::FIELD_CASE_COUNT_FLOOR],

@@ -34,6 +34,8 @@ use Illuminate\Support\Str;
  */
 final class AaeosDeferredPhaseDispatcherService
 {
+    public const FIELD_ENQUEUED = 'enqueued';
+    public const FIELD_ENQUEUED_AT = 'enqueued_at';
     public const SCHEMA_VERSION = 'atlas.aaeos.deferred_phase_dispatch.v1';
 
     public const PHASE_UNKNOWN = 'unknown';
@@ -86,7 +88,7 @@ final class AaeosDeferredPhaseDispatcherService
                 self::FIELD_OUTCOME_CAUSALITY => $this->observeCausality($env),
                 // Observe-only severity reduction (same gate as cockpit).
                 self::FIELD_BLOCKER_SIGNAL => $this->observeBlockerSignal($env),
-                'enqueued_at' => gmdate('c'),
+                self::FIELD_ENQUEUED_AT => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if ($line !== false) {
@@ -100,7 +102,7 @@ final class AaeosDeferredPhaseDispatcherService
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             'queue_path' => $path,
             'enqueued_count' => count($enqueued),
-            'enqueued' => $enqueued,
+            self::FIELD_ENQUEUED => $enqueued,
         ];
     }
 

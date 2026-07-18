@@ -15,6 +15,8 @@ use Throwable;
 
 final class AcosProgramCockpitService
 {
+    public const FIELD_BRAKES = 'brakes';
+    public const FIELD_CURRENT_LOTE = 'current_lote';
     public const SCHEMA_VERSION = 'atlas.acos.cockpit.v1';
 
     public const STATUS_UNAVAILABLE = 'unavailable';
@@ -62,8 +64,8 @@ final class AcosProgramCockpitService
                     'AtlasOperatorReviewDebtMeter::report(7)',
                     fn (): array => (new AtlasOperatorReviewDebtMeter)->report(7),
                 ),
-                'brakes' => $this->brakesSection(),
-                'current_lote' => $this->scoreboardSection($scoreboardPath),
+                self::FIELD_BRAKES => $this->brakesSection(),
+                self::FIELD_CURRENT_LOTE => $this->scoreboardSection($scoreboardPath),
             ],
         ];
     }

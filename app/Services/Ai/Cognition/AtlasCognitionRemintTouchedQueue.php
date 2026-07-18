@@ -11,6 +11,8 @@ use Throwable;
 
 final class AtlasCognitionRemintTouchedQueue
 {
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_COMMAND_ARGS = 'command_args';
     public const SCHEMA_VERSION = 'atlas.cognition.remint_touched.queue_item.v1';
 
     public const ENABLED_CONFIG_KEY = 'atlas.cognition.remint_touched_enabled';
@@ -76,8 +78,8 @@ final class AtlasCognitionRemintTouchedQueue
             'queued_at' => Carbon::now()->toIso8601String(),
             'task_packet_id' => $taskPacketId,
             self::FIELD_PATHS => $paths,
-            'command' => $command,
-            'command_args' => [
+            self::FIELD_COMMAND => $command,
+            self::FIELD_COMMAND_ARGS => [
                 self::FIELD_PATHS => $paths,
                 'json' => true,
             ],

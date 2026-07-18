@@ -11,6 +11,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasCognitionScoreCardV4Grouper
 {
+    public const FIELD_GOVERNANCE = 'governance';
+    public const FIELD_GROUP = 'group';
     public const SCHEMA_VERSION = 'atlas.cognition.scorecard.v4';
 
     public const STATUS_UNKNOWN = 'unknown';
@@ -79,7 +81,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         $buckets = [];
         foreach ($subsystems as $row) {
-            $group = (AiValueNormalizer::trimmedStringOrNull($row['group'] ?? null) ?? self::STATUS_UNKNOWN);
+            $group = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_GROUP] ?? null) ?? self::STATUS_UNKNOWN);
             $isConsumer = in_array($group, self::CONSUMER_GROUPS, true);
             if ($isConsumer !== $consumers) {
                 continue;
@@ -130,7 +132,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_MEMORY_CORE => 'MEMORY',
             self::FIELD_AUCRI => 'CONTEXT',
             'self_improvement', 'self_construction', 'cartography', 'programming', self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
-            'governance' => 'GOVERNANCE',
+            self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',
             'reality', self::FIELD_CROSS_DOMAIN => 'REALITY',
