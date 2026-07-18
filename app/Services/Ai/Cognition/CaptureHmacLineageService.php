@@ -108,6 +108,8 @@ final class CaptureHmacLineageService
     public const FIELD_METADATA = 'metadata';
     public const FIELD_SOURCE_HASH = 'source_hash';
     public const FIELD_PACKET = 'packet';
+    public const FIELD_MAXI_07 = 'MAXI-07';
+    public const FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE = 'cognitive_quarantine.lineage.hmac_lineage';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -229,7 +231,7 @@ final class CaptureHmacLineageService
         $chained = $recent->filter(function (object $row): bool {
             $metadata = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($row->metadata ?? '{}'), true));
 
-            return is_array(data_get($metadata, 'cognitive_quarantine.lineage.hmac_lineage'));
+            return is_array(data_get($metadata, self::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE));
         });
 
         $chainedCount = $chained->count();
@@ -319,7 +321,7 @@ final class CaptureHmacLineageService
     {
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_SLICE => 'MAXI-07',
+            self::FIELD_SLICE => self::FIELD_MAXI_07,
             self::FIELD_KEY_VERSION => 1,
             self::FIELD_THREAT_MODEL => self::THREAT_MODEL,
             self::FIELD_STAGES => $stages,
@@ -338,7 +340,7 @@ final class CaptureHmacLineageService
     {
         return [
             self::FIELD_SCHEMA_VERSION => $chain[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION,
-            self::FIELD_SLICE => $chain[self::FIELD_SLICE] ?? 'MAXI-07',
+            self::FIELD_SLICE => $chain[self::FIELD_SLICE] ?? self::FIELD_MAXI_07,
             self::FIELD_KEY_VERSION => $chain[self::FIELD_KEY_VERSION] ?? 1,
             self::FIELD_THREAT_MODEL => $chain[self::FIELD_THREAT_MODEL] ?? self::THREAT_MODEL,
             self::FIELD_STAGES => array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null)),
@@ -393,7 +395,7 @@ final class CaptureHmacLineageService
             return null;
         }
 
-        $chain = data_get($capture->metadata, 'cognitive_quarantine.lineage.hmac_lineage');
+        $chain = data_get($capture->metadata, self::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE);
 
         return is_array($chain) ? $chain : null;
     }

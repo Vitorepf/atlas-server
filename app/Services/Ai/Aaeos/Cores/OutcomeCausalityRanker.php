@@ -65,6 +65,8 @@ final class OutcomeCausalityRanker
     public const FIELD_PACKET_QUALITY_FAILED = 'packet_quality_failed';
     public const FIELD_MISSING_REQUIRED_SOURCES = 'missing_required_sources';
     public const FIELD_SUCCEEDED = 'succeeded';
+    public const FLOAT_0_45 = 0.45;
+    public const FLOAT_0_62 = 0.62;
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -287,8 +289,8 @@ final class OutcomeCausalityRanker
             self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH => 0.84,
             self::CAUSE_EXECUTION_FAILED_OR_BLOCKED, self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES => 0.78,
             self::CAUSE_PACKET_QUALITY_FAILURE => 0.76,
-            self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED => 0.62,
-            default => 0.45,
+            self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED => self::FLOAT_0_62,
+            default => self::FLOAT_0_45,
         };
     }
 }

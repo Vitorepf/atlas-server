@@ -115,6 +115,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_DEFAULT = 'default';
     public const FIELD_OPEN_EVIDENCE = 'open_evidence';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_PATTERN_DESIGN = 'pattern-design';
+    public const FIELD_COMPREHENSION_DEEPENING = 'comprehension-deepening';
 
     /**
      * @param  array<string,mixed>  $context
@@ -335,7 +337,7 @@ final class EvidenceVisionThesisComposer
                     self::FIELD_CONSECUTIVE_WINDOWS => 2,
                     self::FIELD_DESCRIBED_AT_BIRTH => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
                 ],
-                self::FIELD_ALIGNMENT_KEYS => [$series, $stage, 'pattern-design', 'frontier-harvest'],
+                self::FIELD_ALIGNMENT_KEYS => [$series, $stage, self::FIELD_PATTERN_DESIGN, 'frontier-harvest'],
                 self::FIELD_BORN_AT => $bornAt,
                 self::FIELD_TTL_DAYS => $ttlDays,
                 self::FIELD_EXPIRES_AT => self::expiresAt($bornAt, $ttlDays),
@@ -393,7 +395,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_THRESHOLD => $sweetRate - 0.15,
                 self::FIELD_DESCRIBED_AT_BIRTH => 'archive when high_band realized_rate >= sweet_band - 0.15',
             ],
-            self::FIELD_ALIGNMENT_KEYS => ['predicted-impact', 'pattern-design', 'comprehension-deepening'],
+            self::FIELD_ALIGNMENT_KEYS => ['predicted-impact', self::FIELD_PATTERN_DESIGN, self::FIELD_COMPREHENSION_DEEPENING],
             self::FIELD_BORN_AT => $bornAt,
             self::FIELD_TTL_DAYS => $ttlDays,
             self::FIELD_EXPIRES_AT => self::expiresAt($bornAt, $ttlDays),

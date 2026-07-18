@@ -12916,4 +12916,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B497).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b497HttpPathEvidenceVisionPreReviewOutcomeCausalityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas-ai' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI,
+            'aaeos.classification' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_CLASSIFICATION,
+            'pattern-design' => EvidenceVisionThesisComposer::FIELD_PATTERN_DESIGN,
+            'comprehension-deepening' => EvidenceVisionThesisComposer::FIELD_COMPREHENSION_DEEPENING,
+            '0.0' => PreReviewAdvisoryBand::FLOAT_0_0,
+            '-0.05' => PreReviewAdvisoryBand::FLOAT_NEG_0_05,
+            '0.45' => OutcomeCausalityRanker::FLOAT_0_45,
+            '0.62' => OutcomeCausalityRanker::FLOAT_0_62,
+            '1.0' => SegmentImportanceRanker::FLOAT_1_0,
+            '0.1' => SegmentImportanceRanker::FLOAT_0_1,
+            'MAXI-07' => CaptureHmacLineageService::FIELD_MAXI_07,
+            'cognitive_quarantine.lineage.hmac_lineage' => CaptureHmacLineageService::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE,
+            '2' => AtlasAaeosPhaseRouterService::INT_2,
+            '3' => AtlasAaeosPhaseRouterService::INT_3,
+            'atlas.loop.exploratory_bets_portfolio_enabled' => ExploratoryBetsPortfolio::FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED,
+            '0.0' => ExploratoryBetsPortfolio::FLOAT_0_0,
+            'TETO-10' => Teto10PredictedRevertReviewDigest::FIELD_TETO_10,
+            '2' => Teto10PredictedRevertReviewDigest::INT_2,
+            'b497_http_path_evidence_vision_pre_review_outcome_causality_floor_count' => 18,
+        ];
+    }
+
 }

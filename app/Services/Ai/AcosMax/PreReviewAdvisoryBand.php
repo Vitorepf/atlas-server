@@ -91,6 +91,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_OPS = 'ops';
     public const FIELD_UNKNOWN = 'unknown';
     public const FIELD_DEBUG = 'debug';
+    public const FLOAT_0_0 = 0.0;
+    public const FLOAT_NEG_0_05 = -0.05;
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -146,13 +148,13 @@ final class PreReviewAdvisoryBand
             self::FIELD_CRITICAL => 0.15,
             self::FIELD_HIGH => 0.08,
             self::FIELD_MEDIUM => 0.02,
-            default => 0.0,
+            default => self::FLOAT_0_0,
         };
         // Confidence nudge: low confidence ⇒ more likely revert; high confidence ⇒ less.
         $probability += match ($confidenceBand) {
             self::FIELD_LOW => 0.05,
-            self::FIELD_HIGH => -0.05,
-            default => 0.0,
+            self::FIELD_HIGH => self::FLOAT_NEG_0_05,
+            default => self::FLOAT_0_0,
         };
         $probability = AiValueNormalizer::clampUnit($probability);
 

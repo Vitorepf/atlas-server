@@ -120,6 +120,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1 = 'mission_foundation_optional_at_phase_1';
     public const FIELD_NONE = 'none';
     public const FIELD_NOT_REQUIRED = 'not_required';
+    public const FIELD_ATLAS_AI = 'atlas-ai';
+    public const FIELD_AAEOS_CLASSIFICATION = 'aaeos.classification';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -216,7 +218,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_PLACEMENT,
             phaseOut: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
-            actor: self::systemActor('aaeos.classification'),
+            actor: self::systemActor(self::FIELD_AAEOS_CLASSIFICATION),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_FLOW_ID => $flowId,
@@ -226,7 +228,7 @@ final class AaeosHttpPathEnvelopeFactory
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
-                : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => self::FIELD_MEDIUM, self::FIELD_OWNER => 'atlas-ai']],
+                : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => self::FIELD_MEDIUM, self::FIELD_OWNER => self::FIELD_ATLAS_AI]],
         );
     }
 
@@ -495,14 +497,14 @@ final class AaeosHttpPathEnvelopeFactory
                     continue;
                 }
                 $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null) ?? self::FIELD_HIGH;
-                $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? 'atlas-ai';
+                $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? self::FIELD_ATLAS_AI;
                 $blockers[] = [
                     self::FIELD_ID => $id,
                     self::FIELD_SEVERITY => $severity !== '' ? $severity : 'high',
-                    self::FIELD_OWNER => $owner !== '' ? $owner : 'atlas-ai',
+                    self::FIELD_OWNER => $owner !== '' ? $owner : self::FIELD_ATLAS_AI,
                 ];
             } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {
-                $blockers[] = [self::FIELD_ID => $id, self::FIELD_SEVERITY => self::FIELD_HIGH, self::FIELD_OWNER => 'atlas-ai'];
+                $blockers[] = [self::FIELD_ID => $id, self::FIELD_SEVERITY => self::FIELD_HIGH, self::FIELD_OWNER => self::FIELD_ATLAS_AI];
             }
         }
 
@@ -510,7 +512,7 @@ final class AaeosHttpPathEnvelopeFactory
             $blockers[] = [
                 self::FIELD_ID => self::FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT,
                 self::FIELD_SEVERITY => self::FIELD_HIGH,
-                self::FIELD_OWNER => 'atlas-ai',
+                self::FIELD_OWNER => self::FIELD_ATLAS_AI,
             ];
         }
 
@@ -528,7 +530,7 @@ final class AaeosHttpPathEnvelopeFactory
         return array_values(array_map(static fn (string $reason): array => [
             self::FIELD_ID => $reason,
             self::FIELD_SEVERITY => self::FIELD_HIGH,
-            self::FIELD_OWNER => 'atlas-ai',
+            self::FIELD_OWNER => self::FIELD_ATLAS_AI,
         ], array_filter($blockedWhen, self::FIELD_IS_STRING)));
     }
 

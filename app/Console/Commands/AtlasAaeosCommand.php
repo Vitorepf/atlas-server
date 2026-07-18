@@ -519,6 +519,7 @@ final class AtlasAaeosCommand extends Command
                             {--b494-cognition-score-watchdog-runner-acos-dead-disk-free-floors-contract= : JSON file (any object) to observe cognition/score/watchdog/runner/acos/dead floors}
                             {--b495-cognition-score-aaeos-http-spec-completeness-ledger-rotation-floors-contract= : JSON file (any object) to observe cognition/score/aaeos/http/spec/completeness floors}
                             {--b496-cognition-score-floors-contract= : JSON file (any object) to observe cognition/score floors}
+                            {--b497-http-path-evidence-vision-pre-review-outcome-causality-floors-contract= : JSON file (any object) to observe http/path/evidence/vision/pre/review floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1194,6 +1195,7 @@ final class AtlasAaeosCommand extends Command
             ['b494-cognition-score-watchdog-runner-acos-dead-disk-free-floors-contract', 'b494_cognition_score_watchdog_runner_acos_dead_disk_free_floors_contract', fn (array $p) => $gates->b494CognitionScoreWatchdogRunnerAcosDeadDiskFreeFloorsContractObserve($p)],
             ['b495-cognition-score-aaeos-http-spec-completeness-ledger-rotation-floors-contract', 'b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floors_contract', fn (array $p) => $gates->b495CognitionScoreAaeosHttpSpecCompletenessLedgerRotationFloorsContractObserve($p)],
             ['b496-cognition-score-floors-contract', 'b496_cognition_score_floors_contract', fn (array $p) => $gates->b496CognitionScoreFloorsContractObserve($p)],
+            ['b497-http-path-evidence-vision-pre-review-outcome-causality-floors-contract', 'b497_http_path_evidence_vision_pre_review_outcome_causality_floors_contract', fn (array $p) => $gates->b497HttpPathEvidenceVisionPreReviewOutcomeCausalityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

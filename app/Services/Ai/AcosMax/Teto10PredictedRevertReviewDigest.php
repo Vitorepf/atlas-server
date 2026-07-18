@@ -55,7 +55,7 @@ final class Teto10PredictedRevertReviewDigest
     public const BAND_RANK = [
         self::BAND_HIGH => 0,
         self::BAND_SWEET => 1,
-        self::BAND_LOW => 2,
+        self::BAND_LOW => self::INT_2,
         self::BAND_UNKNOWN => 3,
     ];
 
@@ -104,6 +104,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_PATCH_REF = 'patch_ref';
     public const FIELD_REVERSIBLE = 'reversible';
     public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
+    public const FIELD_TETO_10 = 'TETO-10';
+    public const INT_2 = 2;
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -139,7 +141,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
             self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
             self::FIELD_SOURCE => [
-                self::FIELD_SLICE => 'TETO-10',
+                self::FIELD_SLICE => self::FIELD_TETO_10,
                 self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
                 self::FIELD_MARKDOWN_CLI_ONLY => true,
                 self::FIELD_UI_CREATED => false,

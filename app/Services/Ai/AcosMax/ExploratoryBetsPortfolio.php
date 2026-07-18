@@ -76,6 +76,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_CURRENT_WINDOW = 'current_window';
     public const FIELD_OFF = 'off';
     public const FIELD_ORIGINATED_SLICE_SUB_POLICY = 'originated_slice_sub_policy';
+    public const FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED = 'atlas.loop.exploratory_bets_portfolio_enabled';
+    public const FLOAT_0_0 = 0.0;
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -259,7 +261,7 @@ final class ExploratoryBetsPortfolio
     {
         return (int) (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_N_TREAT] ?? null) ?? 0) >= self::MIN_N
             && (int) (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_N_BASE] ?? null) ?? 0) >= self::MIN_N
-            && (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_CI_HIGH] ?? null) ?? 0.0) < 0.0;
+            && (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_CI_HIGH] ?? null) ?? 0.0) < self::FLOAT_0_0;
     }
 
     /**
@@ -297,7 +299,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
             self::FIELD_SUSPENDS_ON_INSUFFICIENT_N => false,
             self::FIELD_DELETES_SUSPENDED_FAMILY => false,
-            self::FIELD_FLAG => 'atlas.loop.exploratory_bets_portfolio_enabled',
+            self::FIELD_FLAG => self::FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED,
             self::FIELD_FLAG_DEFAULT => self::FIELD_OFF,
         ];
     }

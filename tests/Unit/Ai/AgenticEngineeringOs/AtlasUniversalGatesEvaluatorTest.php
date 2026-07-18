@@ -10155,4 +10155,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(9, $out['b496_cognition_score_floor_count']);
     }
 
+    public function test_b497_http_path_evidence_vision_pre_review_outcome_causality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b497HttpPathEvidenceVisionPreReviewOutcomeCausalityFloorsContractObserve([]);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI, $out['atlas-ai']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_CLASSIFICATION, $out['aaeos.classification']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_PATTERN_DESIGN, $out['pattern-design']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_COMPREHENSION_DEEPENING, $out['comprehension-deepening']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_NEG_0_05, $out['-0.05']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_45, $out['0.45']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_62, $out['0.62']);
+        $this->assertSame(SegmentImportanceRanker::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(SegmentImportanceRanker::FLOAT_0_1, $out['0.1']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_MAXI_07, $out['MAXI-07']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE, $out['cognitive_quarantine.lineage.hmac_lineage']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_2, $out['2']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_3, $out['3']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED, $out['atlas.loop.exploratory_bets_portfolio_enabled']);
+        $this->assertSame(ExploratoryBetsPortfolio::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_TETO_10, $out['TETO-10']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::INT_2, $out['2']);
+        $this->assertSame(18, $out['b497_http_path_evidence_vision_pre_review_outcome_causality_floor_count']);
+    }
+
 }
