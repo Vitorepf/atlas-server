@@ -18590,4 +18590,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B682).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b682LoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'completed_e2e' => AcosMaxLote2MeasureService::FIELD_COMPLETED_E2E,
+            'completion_claim_allowed' => AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED,
+            'atlas.evidence.delta_attribution.v1' => AcosMaxLote2MeasureService::MAXL06_MEASURE_ID,
+            'atlas.originator.predicted_impact_calibration.v1' => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
+            'acos.flywheel.loops.v1' => AcosMaxLote2MeasureService::MULTX01_MEASURE_ID,
+            'acos.learning_latency.v1' => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
+            'acos.windows_orchestrator.v1' => AcosMaxLote2MeasureService::MULTX09_MEASURE_ID,
+            'atlas.ai.lesson_half_life.v2' => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
+            'atlas.ai.lesson_semantic_dedup.v1' => AcosMaxLote2MeasureService::MULTJ02_MEASURE_ID,
+            'atlas.ai.counterfactual_lift.v2' => AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID,
+            'atlas.ai.procedural_skill_promoter.v1' => AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID,
+            'atlas.ai.abstraction_ladder.v1' => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
+            'mission_e2e.v1' => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
+            'atlas.acos.lote2.measure_report.v1' => AcosMaxLote2MeasureService::REPORT_SCHEMA,
+            'never_delivered' => AcosMaxLote2MeasureService::FIELD_NEVER_DELIVERED,
+            'never_cited' => AcosMaxLote2MeasureService::FIELD_NEVER_CITED,
+            'rows' => AcosMaxLote2MeasureService::FIELD_ROWS,
+            'freeze' => AcosMaxLote2MeasureService::FIELD_FREEZE,
+            'b682_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

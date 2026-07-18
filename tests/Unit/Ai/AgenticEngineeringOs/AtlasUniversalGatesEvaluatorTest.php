@@ -14724,4 +14724,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b681_esp_independent_floor_count']);
     }
 
+    public function test_b682_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b682LoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETED_E2E, $out['completed_e2e']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED, $out['completion_claim_allowed']);
+        $this->assertSame(AcosMaxLote2MeasureService::MAXL06_MEASURE_ID, $out['atlas.evidence.delta_attribution.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID, $out['atlas.originator.predicted_impact_calibration.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTX01_MEASURE_ID, $out['acos.flywheel.loops.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTX06_MEASURE_ID, $out['acos.learning_latency.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTX09_MEASURE_ID, $out['acos.windows_orchestrator.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID, $out['atlas.ai.lesson_half_life.v2']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ02_MEASURE_ID, $out['atlas.ai.lesson_semantic_dedup.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID, $out['atlas.ai.counterfactual_lift.v2']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID, $out['atlas.ai.procedural_skill_promoter.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID, $out['atlas.ai.abstraction_ladder.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::TETO02_MEASURE_ID, $out['mission_e2e.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::REPORT_SCHEMA, $out['atlas.acos.lote2.measure_report.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NEVER_DELIVERED, $out['never_delivered']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NEVER_CITED, $out['never_cited']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ROWS, $out['rows']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(18, $out['b682_lote_measure_floor_count']);
+    }
+
 }
