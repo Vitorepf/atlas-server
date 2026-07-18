@@ -15174,4 +15174,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b699_procedural_skill_floor_count']);
     }
 
+    public function test_b700_acos_program_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b700AcosProgramFloorsContractObserve([]);
+        $this->assertSame(AcosProgramCockpitService::FIELD_BRAKES, $out['brakes']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_CURRENT_LOTE, $out['current_lote']);
+        $this->assertSame(AcosProgramCockpitService::SCHEMA_VERSION, $out['atlas.acos.cockpit.v1']);
+        $this->assertSame(AcosProgramCockpitService::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_OK, $out['ok']);
+        $this->assertSame(AcosProgramCockpitService::REASON_SOURCE_NOT_LANDED_YET, $out['source_not_landed_yet']);
+        $this->assertSame(AcosProgramCockpitService::REASON_SOURCE_UNAVAILABLE, $out['source_unavailable']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ERROR, $out['error']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_PAYLOAD, $out['payload']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_LINES, $out['lines']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_OK, $out['ok']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SECTIONS, $out['sections']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_LOOPS, $out['loops']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_FUNNEL, $out['funnel']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ROLLBACK_TRIGGERS, $out['rollback_triggers']);
+        $this->assertSame(18, $out['b700_acos_program_floor_count']);
+    }
+
 }

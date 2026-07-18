@@ -19148,4 +19148,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B700).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b700AcosProgramFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'brakes' => AcosProgramCockpitService::FIELD_BRAKES,
+            'current_lote' => AcosProgramCockpitService::FIELD_CURRENT_LOTE,
+            'atlas.acos.cockpit.v1' => AcosProgramCockpitService::SCHEMA_VERSION,
+            'unavailable' => AcosProgramCockpitService::STATUS_UNAVAILABLE,
+            'ok' => AcosProgramCockpitService::FIELD_OK,
+            'source_not_landed_yet' => AcosProgramCockpitService::REASON_SOURCE_NOT_LANDED_YET,
+            'source_unavailable' => AcosProgramCockpitService::REASON_SOURCE_UNAVAILABLE,
+            'error' => AcosProgramCockpitService::FIELD_ERROR,
+            'status' => AcosProgramCockpitService::FIELD_STATUS,
+            'source' => AcosProgramCockpitService::FIELD_SOURCE,
+            'payload' => AcosProgramCockpitService::FIELD_PAYLOAD,
+            'lines' => AcosProgramCockpitService::FIELD_LINES,
+            'ok' => AcosProgramCockpitService::FIELD_OK,
+            'reason' => AcosProgramCockpitService::FIELD_REASON,
+            'sections' => AcosProgramCockpitService::FIELD_SECTIONS,
+            'loops' => AcosProgramCockpitService::FIELD_LOOPS,
+            'funnel' => AcosProgramCockpitService::FIELD_FUNNEL,
+            'rollback_triggers' => AcosProgramCockpitService::FIELD_ROLLBACK_TRIGGERS,
+            'b700_acos_program_floor_count' => 18,
+        ];
+    }
+
 }
