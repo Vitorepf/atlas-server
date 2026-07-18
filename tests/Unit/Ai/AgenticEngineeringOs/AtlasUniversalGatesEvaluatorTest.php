@@ -155,6 +155,7 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
 use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverity;
+use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -15672,6 +15673,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CERTIFIED, $out['certified']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIXTURE_LIVE, $out['live']);
         $this->assertSame(18, $out['b719_acos_long_floor_count']);
+    }
+
+    public function test_b720_temporal_supersession_immune_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b720TemporalSupersessionImmuneSignatureFloorsContractObserve([]);
+        $this->assertSame(TemporalSupersessionClassifier::RELATION_COEXIST, $out['coexist']);
+        $this->assertSame(TemporalSupersessionClassifier::RELATION_A_SUPERSEDES_B, $out['a_supersedes_b']);
+        $this->assertSame(TemporalSupersessionClassifier::RELATION_B_SUPERSEDES_A, $out['b_supersedes_a']);
+        $this->assertSame(TemporalSupersessionClassifier::RELATION_TIE_SAME_TIMESTAMP, $out['tie_same_timestamp']);
+        $this->assertSame(ImmuneSignatureStore::TABLE, $out['immune_signature_store']);
+        $this->assertSame(ImmuneSignatureStore::SCHEMA_VERSION, $out['atlas.cognition.immune_signature_store.v1']);
+        $this->assertSame(ImmuneSignatureStore::MEASURE_ID, $out['atlas.immune.signature_store.v1']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_REVOKED, $out['revoked']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_DECAYED, $out['decayed']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_OK, $out['ok']);
+        $this->assertSame(ImmuneSignatureStore::STATUS_PENDING_WINDOW, $out['pending_window']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_STATUS, $out['status']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_HOSTILE_CLASS, $out['hostile_class']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_ORIGIN_REF, $out['origin_ref']);
+        $this->assertSame(18, $out['b720_temporal_supersession_immune_signature_floor_count']);
     }
 
 }
