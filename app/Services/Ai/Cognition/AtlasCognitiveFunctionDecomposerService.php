@@ -136,6 +136,12 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_PALETA = 'paleta';
     public const FIELD_PATCH = 'patch';
     public const FIELD_PENSE = 'pense';
+    public const FIELD_DESCREVA = 'descreva';
+    public const FIELD_NPM = 'npm';
+    public const FIELD_PESQUISE = 'pesquise';
+    public const FIELD_PEST = 'pest';
+    public const FIELD_PHP = 'php';
+    public const FIELD_PNG = 'png';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -159,26 +165,26 @@ final class AtlasCognitiveFunctionDecomposerService
             'raciocine', self::FIELD_INVESTIGUE, 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
-            'busque', 'procure', 'encontre', 'pesquise', 'mostre', self::FIELD_LISTE,
+            'busque', 'procure', 'encontre', self::FIELD_PESQUISE, 'mostre', self::FIELD_LISTE,
             'recupere', self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
             self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, 'search', self::FIELD_FIND, 'show',
         ],
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
             'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
-            self::FIELD_NARRE, 'descreva', self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
+            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, 'refatore', 'debug', 'teste',
-            self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', 'php', 'typescript', 'react',
+            self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', self::FIELD_PHP, 'typescript', 'react',
             self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
-            self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, 'npm', 'phpunit', 'pest',
+            self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, 'phpunit', self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
-            self::FIELD_MOCKUP, self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
+            self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', self::FIELD_PALETA, 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
         ],
         self::FIELD_AUDIT => [

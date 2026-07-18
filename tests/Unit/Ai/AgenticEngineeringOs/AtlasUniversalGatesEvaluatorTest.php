@@ -9243,4 +9243,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_measure_series_verified_share_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_evidence_vision_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractEvidenceVisionPreReviewFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DESCREVA, $out['descreva']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_NPM, $out['npm']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PESQUISE, $out['pesquise']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PEST, $out['pest']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PHP, $out['php']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PNG, $out['png']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPENDENCY_AUDIT_CLEAN, $out['dependency_audit_clean']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SOURCE_DATES_RECENT, $out['source_dates_recent']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, $out['spec_acceptance_criteria_complete']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_PACK_HASH, $out['spec_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SYNTHESIZE_FINDINGS, $out['synthesize_findings']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(RecallGapAggregator::FIELD_KNOWLEDGE_GAP, $out['knowledge_gap']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SYSTEM, $out['system']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_BREACH_METRICS, $out['breach_metrics']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_evidence_vision_pre_review_floor_count']);
+    }
+
 }

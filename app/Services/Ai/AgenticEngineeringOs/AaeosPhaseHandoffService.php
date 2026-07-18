@@ -70,6 +70,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
     public const FIELD_OPERATOR = 'operator';
     public const FIELD_PHASE = 'phase';
+    public const FIELD_SYSTEM = 'system';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -310,7 +311,7 @@ final class AaeosPhaseHandoffService
             self::FIELD_INTENT_ID => $intentId,
             self::FIELD_PHASE_IN => $phase,
             self::FIELD_PHASE_OUT => $phase,
-            self::FIELD_ACTOR => [self::FIELD_KIND => 'system', self::FIELD_ID => 'aaeos.phase_skip', self::FIELD_PROVIDER => null],
+            self::FIELD_ACTOR => [self::FIELD_KIND => self::FIELD_SYSTEM, self::FIELD_ID => 'aaeos.phase_skip', self::FIELD_PROVIDER => null],
             self::FIELD_INPUTS => [],
             self::FIELD_OUTPUTS => [],
             self::FIELD_EVIDENCE_HASHES => [],

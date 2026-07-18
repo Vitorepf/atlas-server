@@ -11785,4 +11785,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B460).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractEvidenceVisionPreReviewFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'descreva' => AtlasCognitiveFunctionDecomposerService::FIELD_DESCREVA,
+            'npm' => AtlasCognitiveFunctionDecomposerService::FIELD_NPM,
+            'pesquise' => AtlasCognitiveFunctionDecomposerService::FIELD_PESQUISE,
+            'pest' => AtlasCognitiveFunctionDecomposerService::FIELD_PEST,
+            'php' => AtlasCognitiveFunctionDecomposerService::FIELD_PHP,
+            'png' => AtlasCognitiveFunctionDecomposerService::FIELD_PNG,
+            'dependency_audit_clean' => DepartmentContractRuntime::FIELD_DEPENDENCY_AUDIT_CLEAN,
+            'source_dates_recent' => DepartmentContractRuntime::FIELD_SOURCE_DATES_RECENT,
+            'spec_acceptance_criteria_complete' => DepartmentContractRuntime::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE,
+            'spec_pack_hash' => DepartmentContractRuntime::FIELD_SPEC_PACK_HASH,
+            'synthesize_findings' => DepartmentContractRuntime::FIELD_SYNTHESIZE_FINDINGS,
+            'sha256' => EvidenceVisionThesisLifecycle::FIELD_SHA256,
+            'debug' => PreReviewAdvisoryBand::FIELD_DEBUG,
+            'knowledge_gap' => RecallGapAggregator::FIELD_KNOWLEDGE_GAP,
+            'summary' => Teto10PredictedRevertReviewDigest::FIELD_SUMMARY,
+            'system' => AaeosPhaseHandoffService::FIELD_SYSTEM,
+            'sha256' => AtlasMissionControlCockpitService::FIELD_SHA256,
+            'breach_metrics' => QualityBarTelemetryContract::FIELD_BREACH_METRICS,
+            'cognitive_function_department_contract_evidence_vision_pre_review_floor_count' => 18,
+        ];
+    }
+
 }

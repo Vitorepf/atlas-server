@@ -58,6 +58,7 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_SOURCE = 'source';
     public const FIELD_STAGE = 'stage';
     public const FIELD_DEFAULT = 'default';
+    public const FIELD_SHA256 = 'sha256';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -150,7 +151,7 @@ final class EvidenceVisionThesisLifecycle
             self::FIELD_ARCHIVED_AT_BASIS => $reason,
             self::FIELD_CLAIM => AiValueNormalizer::trimmedStringOrNull($thesis[self::FIELD_CLAIM] ?? null) ?? '',
             self::FIELD_DEATH_CRITERION => AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_DEATH_CRITERION] ?? null),
-            self::FIELD_RECEIPT_HASH => hash('sha256', json_encode([$thesisId, $reason, $thesis[self::FIELD_CLAIM] ?? ''], JSON_UNESCAPED_SLASHES)),
+            self::FIELD_RECEIPT_HASH => hash(self::FIELD_SHA256, json_encode([$thesisId, $reason, $thesis[self::FIELD_CLAIM] ?? ''], JSON_UNESCAPED_SLASHES)),
         ];
 
         $thesis[self::FIELD_STATUS] = self::STATUS_ARCHIVED;

@@ -90,10 +90,11 @@ final class PreReviewAdvisoryBand
     public const FIELD_SWEET = 'sweet';
     public const FIELD_OPS = 'ops';
     public const FIELD_UNKNOWN = 'unknown';
+    public const FIELD_DEBUG = 'debug';
 
     /**
      * @param  array<string,mixed>  $features required keys:
-     *   target_class: string (e.g. 'migrations', self::FIELD_OPS, 'debug', self::FIELD_UNKNOWN)
+     *   target_class: string (e.g. 'migrations', self::FIELD_OPS, self::FIELD_DEBUG, self::FIELD_UNKNOWN)
      *   risk_band: 'low'|'medium'|'high'|'critical'|null
      *   confidence_band: 'low'|'sweet'|'high'|null (declared self-model band)
      *   similar_revert_rate: float [0..1] (from MAXN-03)

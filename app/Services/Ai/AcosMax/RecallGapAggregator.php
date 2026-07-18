@@ -29,6 +29,7 @@ final class RecallGapAggregator
     public const FIELD_CANDIDATES = 'candidates';
     public const FIELD_QUERY = 'query';
     public const FIELD_TOP_SCORE = 'top_score';
+    public const FIELD_KNOWLEDGE_GAP = 'knowledge_gap';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -54,7 +55,7 @@ final class RecallGapAggregator
             if ($count >= $minOccurrences) {
                 $candidates[] = [
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-                    self::FIELD_CANDIDATE_TYPE => 'knowledge_gap',
+                    self::FIELD_CANDIDATE_TYPE => self::FIELD_KNOWLEDGE_GAP,
                     self::FIELD_QUERY_HASH => $hash,
                     self::FIELD_OCCURRENCES => $count,
                     self::FIELD_SOURCE => [self::FIELD_RAW_QUERY_STORED => false, self::FIELD_AUTO_CREATES_MEMORY => false],

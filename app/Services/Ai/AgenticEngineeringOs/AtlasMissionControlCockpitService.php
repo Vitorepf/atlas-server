@@ -104,6 +104,7 @@ final class AtlasMissionControlCockpitService
     public const FIELD_ORIGINATE_MORE_WORK = 'originate_more_work';
     public const FIELD_RECOVER_BLOCKED_BACKLOG = 'recover_blocked_backlog';
     public const FIELD_REPAIR_MALFORMED_PACKETS = 'repair_malformed_packets';
+    public const FIELD_SHA256 = 'sha256';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -174,7 +175,7 @@ final class AtlasMissionControlCockpitService
         if ($queueHealth !== null) {
             $payload[self::FIELD_QUEUE_HEALTH] = $queueHealth;
         }
-        $payload[self::FIELD_SNAPSHOT_HASH] = 'sha256:'.hash('sha256', json_encode([
+        $payload[self::FIELD_SNAPSHOT_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode([
             $intentId,
             array_column($journey, 'phase'),
             array_column($journey, 'status'),

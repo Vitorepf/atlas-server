@@ -96,6 +96,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_UNTITLED = 'untitled';
     public const FIELD_DIFF = 'diff';
     public const FIELD_REVERSE_HANDLE = 'reverse_handle';
+    public const FIELD_SUMMARY = 'summary';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -211,7 +212,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             self::FIELD_ID => $id !== '' ? $id : 'item-'.($index + 1),
-            self::FIELD_TITLE => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
+            self::FIELD_TITLE => self::firstString($item, ['title', self::FIELD_SUMMARY, 'description'], 'Untitled review item'),
             self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
             self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),

@@ -295,6 +295,11 @@ final class DepartmentContractRuntime
     public const FIELD_SECRET_SCAN_REPORT_HASH = 'secret_scan_report_hash';
     public const FIELD_SIGN_DELIVERY_HASH = 'sign_delivery_hash';
     public const FIELD_SOURCES_MIN_3 = 'sources_min_3';
+    public const FIELD_DEPENDENCY_AUDIT_CLEAN = 'dependency_audit_clean';
+    public const FIELD_SOURCE_DATES_RECENT = 'source_dates_recent';
+    public const FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE = 'spec_acceptance_criteria_complete';
+    public const FIELD_SPEC_PACK_HASH = 'spec_pack_hash';
+    public const FIELD_SYNTHESIZE_FINDINGS = 'synthesize_findings';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -386,7 +391,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
-            self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, 'spec_acceptance_criteria_complete', self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
+            self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -409,8 +414,8 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
             ],
-            self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, self::FIELD_SOURCES_MIN_3, 'source_dates_recent', 'no_hallucinated_links'],
-            self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
+            self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, self::FIELD_SOURCES_MIN_3, self::FIELD_SOURCE_DATES_RECENT, 'no_hallucinated_links'],
+            self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', self::FIELD_SYNTHESIZE_FINDINGS, 'propose_doc_promotion'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
@@ -527,7 +532,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
+            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, 'threat_model_present', 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
@@ -755,7 +760,7 @@ final class DepartmentContractRuntime
 
         $allowedKeys = [
             'risk_scope',
-            'spec_pack_hash',
+            self::FIELD_SPEC_PACK_HASH,
             'acceptance_criteria_present',
             self::FIELD_ROLLBACK_PLAN_PRESENT,
             self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
