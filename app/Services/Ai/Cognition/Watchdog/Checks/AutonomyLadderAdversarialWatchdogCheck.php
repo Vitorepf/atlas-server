@@ -124,6 +124,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK09_AUTH_TAMPERED_ = 'maxk09-auth-tampered-';
     public const FIELD_MAXK09_PROBE = 'maxk09-probe';
     public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
+    public const FIELD_NEVER_ISSUED = 'never-issued';
+    public const FLOAT_0_0 = 0.0;
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -245,7 +247,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $verdict = $ledger->verify(
             signature: 'operator',
             actor: self::FIELD_ATLAS_OPERATOR,
-            nonce: 'never-issued',
+            nonce: self::FIELD_NEVER_ISSUED,
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: self::FIELD_CAND_2,
@@ -458,7 +460,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
-            self::FIELD_REVERSAL_RATE => 0.0,
+            self::FIELD_REVERSAL_RATE => self::FLOAT_0_0,
             self::FIELD_N => self::INT_100,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,
         ]);

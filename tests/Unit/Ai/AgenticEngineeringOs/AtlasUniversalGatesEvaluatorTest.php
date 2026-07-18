@@ -10555,4 +10555,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b512_measure_series_lote_ledger_rotation_cognition_score_code_floor_count']);
     }
 
+    public function test_b513_measure_series_lote_ledger_rotation_acos_long_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b513MeasureSeriesLoteLedgerRotationAcosLongAutonomyFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXI_03, $out['MAXI-03']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXI_04, $out['MAXI-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MAXL06, $out['cursor-acos-max-maxl06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ01, $out['cursor-acos-max-multj01']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1, $out['atlas.esp_06.outcome_envelope.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1, $out['atlas.esp_09.challenger_advisory.v1']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SOURCES_SCORECARD_OVERALL, $out['sources.scorecard_overall']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_NEVER_ISSUED, $out['never-issued']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, $out['score.dimensions.pipeline.score_out_of_10']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCORE_OVERALL_OUT_OF_10, $out['score.overall_out_of_10']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TREND_LATEST_DELTA_FROM_PREVIOUS, $out['trend.latest_delta_from_previous']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TREND_STATUS_2, $out['trend.status']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS, $out['thresholds.denominator_min_executions']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_THRESHOLDS_VERIFIED_SHARE_MIN, $out['thresholds.verified_share_min']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS_I3, $out['TEOS-I3']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS_I4, $out['TEOS-I4']);
+        $this->assertSame(18, $out['b513_measure_series_lote_ledger_rotation_acos_long_autonomy_floor_count']);
+    }
+
 }

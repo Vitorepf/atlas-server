@@ -72,6 +72,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'atlas.decide.replay_divergence.v1';
     public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
     public const FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'atlas.decide.zero_weight_outcomes.v1';
+    public const FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 = 'atlas.esp_06.outcome_envelope.v1';
+    public const FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 = 'atlas.esp_09.challenger_advisory.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -221,13 +223,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-05 zero-weight outcomes',
             ],
-            'atlas.esp_06.outcome_envelope.v1' => [
+            self::FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-06 outcome envelope adapters',
             ],
-            'atlas.esp_09.challenger_advisory.v1' => [
+            self::FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

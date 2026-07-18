@@ -148,6 +148,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_MEASUREMENT_MEASUREMENT_READY = 'measurement.measurement_ready';
     public const FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT = 'measurement.with_recalled_memory.case_count';
     public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
+    public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
+    public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
     public const FLOAT_10_0 = 10.0;
 
     public function __construct(
@@ -177,7 +179,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_INTELIGENCIA_ENTREGUE => $inteligencia,
                 self::FIELD_AUTONOMIA => $autonomia,
             ],
-            self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
+            self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, self::FIELD_SCORE_OVERALL_OUT_OF_10, 0.0)) ?? 0.0,
             self::FIELD_NOTES => [
                 self::FIELD_METHOD => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
                 self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
@@ -196,7 +198,7 @@ class AtlasAcosEvolutionScoreService
      */
     private function execucaoProvada(array $card): array
     {
-        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($card, self::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, 0.0)) ?? 0.0;
 
         return [
             self::FIELD_SCORE => round($pipeline, 2),

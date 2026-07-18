@@ -103,6 +103,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_CODEX_ELEV12_JUDGE = 'codex-elev12-judge';
     public const FIELD_CURSOR_ACOS_MAX_ELEV12 = 'cursor-acos-max-elev12';
     public const FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED = 'engineering.execution.coverage.recorded';
+    public const FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS = 'thresholds.denominator_min_executions';
+    public const FIELD_THRESHOLDS_VERIFIED_SHARE_MIN = 'thresholds.verified_share_min';
 
 
     /** @return array<string,mixed> */
@@ -170,8 +172,8 @@ final class AcosMaxVerifiedShareService
         }
 
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
-        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? data_get($freeze, self::FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS, self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
+        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, self::FIELD_THRESHOLDS_VERIFIED_SHARE_MIN, self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
         $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
         $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '';
 

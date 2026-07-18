@@ -13412,4 +13412,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B513).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b513MeasureSeriesLoteLedgerRotationAcosLongAutonomyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXI-03' => AcosMaxMeasureSeriesRegistry::FIELD_MAXI_03,
+            'MAXI-04' => AcosMaxMeasureSeriesRegistry::FIELD_MAXI_04,
+            'cursor-acos-max-maxl06' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MAXL06,
+            'cursor-acos-max-multj01' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ01,
+            'atlas.esp_06.outcome_envelope.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1,
+            'atlas.esp_09.challenger_advisory.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1,
+            'sources.scorecard_overall' => AtlasAcosLongHorizonGateService::FIELD_SOURCES_SCORECARD_OVERALL,
+            '0.0' => AtlasAcosLongHorizonGateService::FLOAT_0_0,
+            'never-issued' => AutonomyLadderAdversarialWatchdogCheck::FIELD_NEVER_ISSUED,
+            '0.0' => AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_0,
+            'score.dimensions.pipeline.score_out_of_10' => AtlasAcosEvolutionScoreService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10,
+            'score.overall_out_of_10' => AtlasAcosEvolutionScoreService::FIELD_SCORE_OVERALL_OUT_OF_10,
+            'trend.latest_delta_from_previous' => AtlasAcosWatchdogHealthService::FIELD_TREND_LATEST_DELTA_FROM_PREVIOUS,
+            'trend.status' => AtlasAcosWatchdogHealthService::FIELD_TREND_STATUS_2,
+            'thresholds.denominator_min_executions' => AcosMaxVerifiedShareService::FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS,
+            'thresholds.verified_share_min' => AcosMaxVerifiedShareService::FIELD_THRESHOLDS_VERIFIED_SHARE_MIN,
+            'TEOS-I3' => AtlasCognitionScoreCardService::FIELD_TEOS_I3,
+            'TEOS-I4' => AtlasCognitionScoreCardService::FIELD_TEOS_I4,
+            'b513_measure_series_lote_ledger_rotation_acos_long_autonomy_floor_count' => 18,
+        ];
+    }
+
 }

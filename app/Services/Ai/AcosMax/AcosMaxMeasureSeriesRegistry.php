@@ -88,6 +88,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXG_01 = 'MAXG-01';
     public const FIELD_MAXH_01 = 'MAXH-01';
     public const FIELD_MAXI_02 = 'MAXI-02';
+    public const FIELD_MAXI_03 = 'MAXI-03';
+    public const FIELD_MAXI_04 = 'MAXI-04';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -229,7 +231,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'maxi-02-shadow-audit-v2',
             ],
             [
-                self::FIELD_SLICE => 'MAXI-03',
+                self::FIELD_SLICE => self::FIELD_MAXI_03,
                 self::FIELD_SERIES => ImmuneCalibrationService::MEASURE_ID,
                 self::FIELD_TABLE => ImmuneVerdictLedger::TABLE,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
@@ -507,7 +509,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'maxm-01-frozen-corpus-baseline',
             ],
             [
-                self::FIELD_SLICE => 'MAXI-04',
+                self::FIELD_SLICE => self::FIELD_MAXI_04,
                 self::FIELD_SERIES => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,

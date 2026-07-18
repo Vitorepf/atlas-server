@@ -187,6 +187,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
     public const FIELD_SOURCES_SCORECARD = 'sources.scorecard';
+    public const FIELD_SOURCES_SCORECARD_OVERALL = 'sources.scorecard_overall';
+    public const FLOAT_0_0 = 0.0;
     public const INT_10 = 10;
 
     /**
@@ -854,7 +856,7 @@ final class AtlasAcosLongHorizonGateService
     private function certificationWindowOverallScan(array $series, array $certificationWindowDates, float $minOverall): array
     {
         if ($certificationWindowDates === []) {
-            return [self::FIELD_MIN_OVERALL => 0.0, self::FIELD_DAYS_BELOW_FLOOR => 0];
+            return [self::FIELD_MIN_OVERALL => self::FLOAT_0_0, self::FIELD_DAYS_BELOW_FLOOR => 0];
         }
 
         $window = array_fill_keys($certificationWindowDates, true);
@@ -911,7 +913,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $count = 0;
         foreach ($series as $row) {
-            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard_overall')) ?? '';
+            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, self::FIELD_SOURCES_SCORECARD_OVERALL)) ?? '';
             if (str_contains($source, self::FIELD_RESOLVED_EVIDENCE_2)) {
                 $count++;
             }
