@@ -15,8 +15,22 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import rivals_lcb_verboo as base
+from datetime import datetime
+
+from lcb_runner.lm_styles import LanguageModel, LanguageModelStore, LMStyle
 from lcb_runner.runner.oai_runner import OpenAIRunner
 import lcb_runner.runner.main as main_module
+
+# model_repr PRÓPRIO: o output/<repr>/ é o cache do --continue_existing — com
+# o repr do bare, o braço Atlas "continuava" as gerações do bare e media o
+# OUTRO braço. Diretório separado = geração sempre do runtime governado.
+LanguageModelStore["kimi-k2.7"] = LanguageModel(
+    model_name="kimi-k2.7",
+    model_repr="kimi-k2.7-atlas",
+    model_style=LMStyle.OpenAIChat,
+    release_date=datetime(2026, 7, 1),
+    link="https://code.verboo.ai",
+)
 
 INSTRUCTION = (
     "Write the complete, final solution as a single Python program into the "
