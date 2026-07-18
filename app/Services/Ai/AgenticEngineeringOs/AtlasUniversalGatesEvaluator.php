@@ -19365,4 +19365,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B707).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b707CitationGroundingMaxaJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'provider_calls_made' => CitationGroundingMeter::FIELD_PROVIDER_CALLS_MADE,
+            'response' => CitationGroundingMeter::FIELD_RESPONSE,
+            'atlas.context.citation_grounding.v1' => CitationGroundingMeter::SCHEMA_VERSION,
+            'ok' => CitationGroundingMeter::STATUS_OK,
+            'insufficient_signal' => CitationGroundingMeter::STATUS_INSUFFICIENT_SIGNAL,
+            'citation_coverage' => CitationGroundingMeter::FIELD_CITATION_COVERAGE,
+            'delivered_refs' => CitationGroundingMeter::FIELD_DELIVERED_REFS,
+            'fuses_grounding_and_coverage' => CitationGroundingMeter::FIELD_FUSES_GROUNDING_AND_COVERAGE,
+            'grounding_rate' => CitationGroundingMeter::FIELD_GROUNDING_RATE,
+            'unsupported_citation_count' => CitationGroundingMeter::FIELD_UNSUPPORTED_CITATION_COUNT,
+            'measured_count' => CitationGroundingMeter::FIELD_MEASURED_COUNT,
+            'schema_version' => CitationGroundingMeter::FIELD_SCHEMA_VERSION,
+            'source' => CitationGroundingMeter::FIELD_SOURCE,
+            'status' => CitationGroundingMeter::FIELD_STATUS,
+            'total' => CitationGroundingMeter::FIELD_TOTAL,
+            'atlas.semantic.jina_v3_dual_read.v1' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            'app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'atlas.semantic_memory.jina_v3_dual_read_ledger_path' => Maxa04JinaV3DualReadLedger::LEDGER_PATH_CONFIG_KEY,
+            'b707_citation_grounding_maxa_jina_floor_count' => 18,
+        ];
+    }
+
 }

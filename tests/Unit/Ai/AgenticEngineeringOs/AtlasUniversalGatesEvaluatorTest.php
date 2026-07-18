@@ -15349,4 +15349,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b706_teto_predicted_floor_count']);
     }
 
+    public function test_b707_citation_grounding_maxa_jina_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b707CitationGroundingMaxaJinaFloorsContractObserve([]);
+        $this->assertSame(CitationGroundingMeter::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(CitationGroundingMeter::FIELD_RESPONSE, $out['response']);
+        $this->assertSame(CitationGroundingMeter::SCHEMA_VERSION, $out['atlas.context.citation_grounding.v1']);
+        $this->assertSame(CitationGroundingMeter::STATUS_OK, $out['ok']);
+        $this->assertSame(CitationGroundingMeter::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(CitationGroundingMeter::FIELD_CITATION_COVERAGE, $out['citation_coverage']);
+        $this->assertSame(CitationGroundingMeter::FIELD_DELIVERED_REFS, $out['delivered_refs']);
+        $this->assertSame(CitationGroundingMeter::FIELD_FUSES_GROUNDING_AND_COVERAGE, $out['fuses_grounding_and_coverage']);
+        $this->assertSame(CitationGroundingMeter::FIELD_GROUNDING_RATE, $out['grounding_rate']);
+        $this->assertSame(CitationGroundingMeter::FIELD_UNSUPPORTED_CITATION_COUNT, $out['unsupported_citation_count']);
+        $this->assertSame(CitationGroundingMeter::FIELD_MEASURED_COUNT, $out['measured_count']);
+        $this->assertSame(CitationGroundingMeter::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CitationGroundingMeter::FIELD_SOURCE, $out['source']);
+        $this->assertSame(CitationGroundingMeter::FIELD_STATUS, $out['status']);
+        $this->assertSame(CitationGroundingMeter::FIELD_TOTAL, $out['total']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::SCHEMA, $out['atlas.semantic.jina_v3_dual_read.v1']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::RELATIVE_PATH, $out['app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::LEDGER_PATH_CONFIG_KEY, $out['atlas.semantic_memory.jina_v3_dual_read_ledger_path']);
+        $this->assertSame(18, $out['b707_citation_grounding_maxa_jina_floor_count']);
+    }
+
 }
