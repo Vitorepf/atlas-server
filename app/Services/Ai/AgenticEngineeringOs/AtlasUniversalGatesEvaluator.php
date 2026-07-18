@@ -6861,6 +6861,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function deptQualityEvidenceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dept_field_level' => AaeosDepartmentLevelClassifier::FIELD_LEVEL,
+            'dept_field_comparator' => AaeosDepartmentLevelClassifier::FIELD_COMPARATOR,
+            'dept_field_metric' => AaeosDepartmentLevelClassifier::FIELD_METRIC,
+            'dept_field_threshold' => AaeosDepartmentLevelClassifier::FIELD_THRESHOLD,
+            'dept_field_observed' => AaeosDepartmentLevelClassifier::FIELD_OBSERVED,
+            'dept_field_evaluated_bands' => AaeosDepartmentLevelClassifier::FIELD_EVALUATED_BANDS,
+            'quality_field_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_LEVEL,
+            'quality_field_metric' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_METRIC,
+            'quality_field_comparator' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_COMPARATOR,
+            'quality_field_value' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_VALUE,
+            'quality_field_binding_breaches' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_BINDING_BREACHES,
+            'quality_field_evaluated_bands' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_BANDS,
+            'evidence_field_capability_id' => AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID,
+            'evidence_field_evidence_refs' => AtlasCognitionEvidenceResolver::FIELD_EVIDENCE_REFS,
+            'evidence_field_test_refs' => AtlasCognitionEvidenceResolver::FIELD_TEST_REFS,
+            'evidence_field_kind' => AtlasCognitionEvidenceResolver::FIELD_KIND,
+            'evidence_field_ref' => AtlasCognitionEvidenceResolver::FIELD_REF,
+            'dept_quality_evidence_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

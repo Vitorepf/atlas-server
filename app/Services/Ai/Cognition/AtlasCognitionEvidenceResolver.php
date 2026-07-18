@@ -73,6 +73,11 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_LATEST_RECEIPT_AGE_DAYS = 'latest_receipt_age_days';
     public const FIELD_GREEN_RECEIPT_COUNT = 'green_receipt_count';
     public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_TEST_REFS = 'test_refs';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_REF = 'ref';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -147,7 +152,7 @@ class AtlasCognitionEvidenceResolver
         // ref, so a non-resolving fallback simply does not count.
         $candidateTestRefs = [$short.'Test'];
         foreach ($owners as $owner) {
-            foreach ($owner['test_refs'] as $testRef) {
+            foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;
             }
         }
@@ -172,12 +177,12 @@ class AtlasCognitionEvidenceResolver
                 // decides) rather than crashing — hasGreenReceipt itself is degrade-safe
                 // (false when the receipts table is absent), so this never fabricates ready.
                 try {
-                    $hashes = $this->truth->freshnessHashes($owner['evidence_refs'], $testRef);
+                    $hashes = $this->truth->freshnessHashes($owner[self::FIELD_EVIDENCE_REFS], $testRef);
                 } catch (Throwable) {
                     $hashes = [self::FIELD_TEST_FILE_HASH => null, 'impl_files_hash' => null];
                 }
                 if ($this->testExecution->hasGreenReceipt(
-                    $owner['capability_id'],
+                    $owner[self::FIELD_CAPABILITY_ID],
                     $testRef,
                     $hashes[self::FIELD_TEST_FILE_HASH],
                     $hashes['impl_files_hash'],
@@ -217,7 +222,7 @@ class AtlasCognitionEvidenceResolver
 
         $ids = [];
         foreach ($this->ownerDocsForFqn($fqn) as $owner) {
-            $id = AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '';
+            $id = AiValueNormalizer::trimmedStringOrNull($owner[self::FIELD_CAPABILITY_ID] ?? null) ?? '';
             if ($id !== '') {
                 $ids[] = $id;
             }
@@ -264,13 +269,13 @@ class AtlasCognitionEvidenceResolver
                 $targets[$ownerDoc][] = $capabilityId;
             }
 
-            foreach (AiValueNormalizer::arrayOrEmpty($doc['evidence_refs'] ?? null) as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
+            foreach (AiValueNormalizer::arrayOrEmpty($doc[self::FIELD_EVIDENCE_REFS] ?? null) as $ref) {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
                     continue;
                 }
 
                 try {
-                    $filePaths = $this->resolver->resolveSymbolFilePaths((AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? ''));
+                    $filePaths = $this->resolver->resolveSymbolFilePaths((AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? ''));
                 } catch (Throwable) {
                     $filePaths = [];
                 }
@@ -318,7 +323,7 @@ class AtlasCognitionEvidenceResolver
             fn (string $testRef): bool => $this->testSymbolExists($testRef),
         ));
         $ownerIds = array_values(array_unique(array_filter(array_map(
-            static fn (array $owner): string => AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '',
+            static fn (array $owner): string => AiValueNormalizer::trimmedStringOrNull($owner[self::FIELD_CAPABILITY_ID] ?? null) ?? '',
             $owners,
         ))));
 
@@ -396,7 +401,7 @@ class AtlasCognitionEvidenceResolver
     {
         $candidateTestRefs = [$this->classBasename($fqn).'Test'];
         foreach ($owners as $owner) {
-            foreach ($owner['test_refs'] as $testRef) {
+            foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;
             }
         }
@@ -472,11 +477,11 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $evidenceRefs = $doc['evidence_refs'];
+            $evidenceRefs = $doc[self::FIELD_EVIDENCE_REFS];
             $testRefs = [];
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') === 'test') {
-                    $value = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') === 'test') {
+                    $value = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';
                     if ($value !== '') {
                         $testRefs[] = $value;
                     }
@@ -484,10 +489,10 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
                     continue;
                 }
-                $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
+                $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';
                 if ($symbolRef === '') {
                     continue;
                 }
@@ -496,11 +501,11 @@ class AtlasCognitionEvidenceResolver
                 // a coarse bucket, never the ownership decision.
                 $short = $this->classBasename($symbolRef);
                 $index[$short][] = [
-                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
+                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
                     'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc['path'] ?? null) ?? '',
                     'symbol_ref' => $symbolRef,
-                    'evidence_refs' => $evidenceRefs,
-                    'test_refs' => $testRefs,
+                    self::FIELD_EVIDENCE_REFS => $evidenceRefs,
+                    self::FIELD_TEST_REFS => $testRefs,
                 ];
             }
         }

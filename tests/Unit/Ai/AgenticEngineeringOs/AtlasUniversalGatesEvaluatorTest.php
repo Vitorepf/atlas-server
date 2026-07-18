@@ -5102,5 +5102,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['schema_aemor_lifecycle_floor_count']);
     }
 
+    public function test_dept_quality_evidence_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deptQualityEvidenceFloorsContractObserve([]);
+
+        $this->assertSame('level', $payload['dept_field_level']);
+        $this->assertSame('comparator', $payload['dept_field_comparator']);
+        $this->assertSame('metric', $payload['dept_field_metric']);
+        $this->assertSame('threshold', $payload['dept_field_threshold']);
+        $this->assertSame('observed', $payload['dept_field_observed']);
+        $this->assertSame('evaluated_bands', $payload['dept_field_evaluated_bands']);
+        $this->assertSame('level', $payload['quality_field_level']);
+        $this->assertSame('metric', $payload['quality_field_metric']);
+        $this->assertSame('comparator', $payload['quality_field_comparator']);
+        $this->assertSame('value', $payload['quality_field_value']);
+        $this->assertSame('binding_breaches', $payload['quality_field_binding_breaches']);
+        $this->assertSame('evaluated_bands', $payload['quality_field_evaluated_bands']);
+        $this->assertSame('capability_id', $payload['evidence_field_capability_id']);
+        $this->assertSame('evidence_refs', $payload['evidence_field_evidence_refs']);
+        $this->assertSame('test_refs', $payload['evidence_field_test_refs']);
+        $this->assertSame('kind', $payload['evidence_field_kind']);
+        $this->assertSame('ref', $payload['evidence_field_ref']);
+        $this->assertSame(17, $payload['dept_quality_evidence_floor_count']);
+    }
+
 
 }

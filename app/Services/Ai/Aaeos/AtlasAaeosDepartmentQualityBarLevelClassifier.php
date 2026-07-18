@@ -17,6 +17,12 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     public const FIELD_ALL_BANDS_SATISFIED = 'all_bands_satisfied';
     public const FIELD_NEXT_LEVEL = 'next_level';
     public const FIELD_PROMOTION_BLOCKED = 'promotion_blocked';
+    public const FIELD_LEVEL = 'level';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_COMPARATOR = 'comparator';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_BINDING_BREACHES = 'binding_breaches';
+    public const FIELD_EVALUATED_BANDS = 'evaluated_bands';
 
     /**
      * Deterministically classify a department against a caller-supplied, lowest-first
@@ -63,8 +69,8 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
                 self::FIELD_ALL_BANDS_SATISFIED => false,
                 self::FIELD_NEXT_LEVEL => null,
                 self::FIELD_PROMOTION_BLOCKED => false,
-                'binding_breaches' => [],
-                'evaluated_bands' => 0,
+                self::FIELD_BINDING_BREACHES => [],
+                self::FIELD_EVALUATED_BANDS => 0,
                 'evaluated_metrics' => $evaluatedMetrics,
             ]);
         }
@@ -75,7 +81,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
 
         foreach ($bands as $index => $band) {
             if ($this->bandSatisfied($band, $measuredMetrics)) {
-                $achievedLevel = $band['level'];
+                $achievedLevel = $band[self::FIELD_LEVEL];
                 $achievedBandIndex = $index;
 
                 continue;
@@ -92,7 +98,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
 
         if ($firstFailingIndex !== null) {
             $blockingBand = $bands[$firstFailingIndex];
-            $nextLevel = $blockingBand['level'];
+            $nextLevel = $blockingBand[self::FIELD_LEVEL];
             $bindingBreaches = $this->breachesFor($blockingBand, $measuredMetrics);
         }
 
@@ -101,17 +107,17 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
             self::FIELD_DEPARTMENT_ID => $departmentId,
             self::FIELD_ACHIEVED_LEVEL => $achievedLevel,
             self::FIELD_ACHIEVED_BAND_INDEX => $achievedBandIndex,
-            self::FIELD_HIGHEST_EVALUABLE_LEVEL => $bands[count($bands) - 1]['level'],
+            self::FIELD_HIGHEST_EVALUABLE_LEVEL => $bands[count($bands) - 1][self::FIELD_LEVEL],
             self::FIELD_ALL_BANDS_SATISFIED => $allBandsSatisfied,
             self::FIELD_NEXT_LEVEL => $nextLevel,
             self::FIELD_PROMOTION_BLOCKED => $bindingBreaches !== [],
-            'binding_breaches' => $bindingBreaches,
+            self::FIELD_BINDING_BREACHES => $bindingBreaches,
             // CONTRATO CONGELADO (teste de 01/06): evaluated_bands = total de
             // bandas do CONTRATO avaliado (consistente com highest_evaluable_
             // level acima), não "visitadas até a 1ª falha". Um auto-merge do
             // Loop em 13/06 (eb14ed9000, pré-O-3/reprove) trocou a semântica
             // sem reconciliar o teste — 5 testes vermelhos por 3 semanas.
-            'evaluated_bands' => count($bands),
+            self::FIELD_EVALUATED_BANDS => count($bands),
             'evaluated_metrics' => $evaluatedMetrics,
         ]);
     }
@@ -128,13 +134,13 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     private function bandSatisfied(array $band, array $measuredMetrics): bool
     {
         foreach ($band['thresholds'] as $threshold) {
-            $observed = $this->observedValue($measuredMetrics, $threshold['metric']);
+            $observed = $this->observedValue($measuredMetrics, $threshold[self::FIELD_METRIC]);
 
             if ($observed === null) {
                 return false;
             }
 
-            if (! $this->comparatorSatisfied($threshold['comparator'], $observed, $threshold['value'])) {
+            if (! $this->comparatorSatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold[self::FIELD_VALUE])) {
                 return false;
             }
         }
@@ -152,18 +158,18 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
         $breaches = [];
 
         foreach ($band['thresholds'] as $threshold) {
-            $observed = $this->observedValue($measuredMetrics, $threshold['metric']);
+            $observed = $this->observedValue($measuredMetrics, $threshold[self::FIELD_METRIC]);
             $missingMetric = $observed === null;
 
-            if (! $missingMetric && $this->comparatorSatisfied($threshold['comparator'], $observed, $threshold['value'])) {
+            if (! $missingMetric && $this->comparatorSatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold[self::FIELD_VALUE])) {
                 continue;
             }
 
             $breaches[] = [
-                'level' => $band['level'],
-                'metric' => $threshold['metric'],
-                'comparator' => $threshold['comparator'],
-                'threshold' => $threshold['value'],
+                self::FIELD_LEVEL => $band[self::FIELD_LEVEL],
+                self::FIELD_METRIC => $threshold[self::FIELD_METRIC],
+                self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
+                'threshold' => $threshold[self::FIELD_VALUE],
                 'observed' => $observed,
                 'satisfied' => false,
                 'missing_metric' => $missingMetric,

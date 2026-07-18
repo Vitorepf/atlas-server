@@ -17,6 +17,12 @@ final class AaeosDepartmentLevelClassifier
     public const FIELD_ALL_BANDS_SATISFIED = 'all_bands_satisfied';
     public const FIELD_CAPPING_METRIC = 'capping_metric';
     public const FIELD_MISSING_METRICS = 'missing_metrics';
+    public const FIELD_LEVEL = 'level';
+    public const FIELD_COMPARATOR = 'comparator';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_OBSERVED = 'observed';
+    public const FIELD_EVALUATED_BANDS = 'evaluated_bands';
 
     /**
      * Deterministically walk a caller-supplied (bottom-up ordered) band ladder and
@@ -53,7 +59,7 @@ final class AaeosDepartmentLevelClassifier
                 self::FIELD_ALL_BANDS_SATISFIED => false,
                 self::FIELD_CAPPING_METRIC => null,
                 self::FIELD_MISSING_METRICS => [],
-                'evaluated_bands' => [],
+                self::FIELD_EVALUATED_BANDS => [],
             ]);
         }
 
@@ -69,19 +75,19 @@ final class AaeosDepartmentLevelClassifier
             $failedThresholds = [];
 
             foreach ($band['thresholds'] as $threshold) {
-                $metric = $threshold['metric'];
+                $metric = $threshold[self::FIELD_METRIC];
                 $observed = $this->observedValue($metricsSnapshot, $metric);
 
                 if ($observed === null) {
                     $missingMetrics[] = $metric;
                 }
 
-                if ($observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold['comparator'], $observed, $threshold['value'])) {
+                if ($observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold['value'])) {
                     $failedThresholds[] = [
-                        'metric' => $metric,
-                        'comparator' => $threshold['comparator'],
-                        'threshold' => $threshold['value'],
-                        'observed' => $observed,
+                        self::FIELD_METRIC => $metric,
+                        self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
+                        self::FIELD_THRESHOLD => $threshold['value'],
+                        self::FIELD_OBSERVED => $observed,
                     ];
                 }
             }
@@ -89,28 +95,28 @@ final class AaeosDepartmentLevelClassifier
             $satisfied = $failedThresholds === [];
 
             if ($satisfied && $climbing) {
-                $earnedLevel = $band['level'];
+                $earnedLevel = $band[self::FIELD_LEVEL];
                 $earnedLevelIndex = $index;
             } elseif (! $satisfied && $climbing) {
                 $climbing = false;
                 $firstFailed = $failedThresholds[0];
                 $cappingMetric = [
-                    'level' => $band['level'],
-                    'metric' => $firstFailed['metric'],
-                    'comparator' => $firstFailed['comparator'],
-                    'threshold' => $firstFailed['threshold'],
-                    'observed' => $firstFailed['observed'],
+                    self::FIELD_LEVEL => $band[self::FIELD_LEVEL],
+                    self::FIELD_METRIC => $firstFailed[self::FIELD_METRIC],
+                    self::FIELD_COMPARATOR => $firstFailed[self::FIELD_COMPARATOR],
+                    self::FIELD_THRESHOLD => $firstFailed[self::FIELD_THRESHOLD],
+                    self::FIELD_OBSERVED => $firstFailed[self::FIELD_OBSERVED],
                 ];
             }
 
             $evaluatedBands[] = [
-                'level' => $band['level'],
+                self::FIELD_LEVEL => $band[self::FIELD_LEVEL],
                 'satisfied' => $satisfied,
                 'failed_thresholds' => $failedThresholds,
             ];
         }
 
-        $highestBandOffered = $bands[count($bands) - 1]['level'];
+        $highestBandOffered = $bands[count($bands) - 1][self::FIELD_LEVEL];
         $allBandsSatisfied = $earnedLevelIndex === count($bands) - 1;
 
         return $this->sortByKey([
@@ -122,7 +128,7 @@ final class AaeosDepartmentLevelClassifier
             self::FIELD_ALL_BANDS_SATISFIED => $allBandsSatisfied,
             self::FIELD_CAPPING_METRIC => $cappingMetric,
             self::FIELD_MISSING_METRICS => AtlasAaeosStringListNormalizer::uniqueSortedStrings($missingMetrics),
-            'evaluated_bands' => $evaluatedBands,
+            self::FIELD_EVALUATED_BANDS => $evaluatedBands,
         ]);
     }
 
