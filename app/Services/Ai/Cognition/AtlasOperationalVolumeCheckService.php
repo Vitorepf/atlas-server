@@ -49,6 +49,9 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_OK = 'ok';
     public const FIELD_VOLUME = 'volume';
     public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_END = 'end';
+    public const FIELD_LABEL = 'label';
+    public const FIELD_START = 'start';
 
     /** @var list<string> */
     public const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
@@ -102,9 +105,9 @@ final class AtlasOperationalVolumeCheckService
             ],
             'windows' => [
                 'dev' => [
-                    'label' => 'previous_business_day',
-                    'start' => $devWindowStart->toIso8601String(),
-                    'end' => $devWindowEnd->toIso8601String(),
+                    self::FIELD_LABEL => 'previous_business_day',
+                    self::FIELD_START => $devWindowStart->toIso8601String(),
+                    self::FIELD_END => $devWindowEnd->toIso8601String(),
                     self::FIELD_COUNT => $devCount[self::FIELD_COUNT],
                     self::FIELD_THRESHOLD => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                     self::FIELD_AVAILABLE => $devCount[self::FIELD_AVAILABLE],
@@ -112,9 +115,9 @@ final class AtlasOperationalVolumeCheckService
                     self::STATUS_ALERT => $devAlert,
                 ],
                 'forge' => [
-                    'label' => 'rolling_7d_ending_yesterday',
-                    'start' => $forgeWindowStart->toIso8601String(),
-                    'end' => $forgeWindowEnd->toIso8601String(),
+                    self::FIELD_LABEL => 'rolling_7d_ending_yesterday',
+                    self::FIELD_START => $forgeWindowStart->toIso8601String(),
+                    self::FIELD_END => $forgeWindowEnd->toIso8601String(),
                     self::FIELD_COUNT => $forgeCount[self::FIELD_COUNT],
                     self::FIELD_THRESHOLD => self::FORGE_CYCLES_PER_WEEK_MIN,
                     self::FIELD_AVAILABLE => $forgeCount[self::FIELD_AVAILABLE],

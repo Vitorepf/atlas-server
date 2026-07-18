@@ -18,22 +18,25 @@ final class DomainLexicalNormalizer
     public const FIELD_DECISAO = 'decisao';
     public const FIELD_DECISION = 'decision';
     public const FIELD_DETERMINISTIC = 'deterministic';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_EXECUTION = 'execution';
+    public const FIELD_MEMORY = 'memory';
 
     public const MAX_EXPANDED_TOKENS = 32;
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
-        'memoria' => ['memory'],
-        'memória' => ['memory'],
+        'memoria' => [self::FIELD_MEMORY],
+        'memória' => [self::FIELD_MEMORY],
         self::FIELD_CEREBRO => [self::FIELD_BRAIN],
         'cérebro' => [self::FIELD_BRAIN],
         'esteira' => ['pipeline'],
-        'execucao' => ['execution'],
-        'execução' => ['execution'],
+        'execucao' => [self::FIELD_EXECUTION],
+        'execução' => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
         'decisão' => [self::FIELD_DECISION],
-        'evidencia' => ['evidence'],
-        'evidência' => ['evidence'],
+        'evidencia' => [self::FIELD_EVIDENCE],
+        'evidência' => [self::FIELD_EVIDENCE],
         'verificacao' => ['verification'],
         'verificação' => ['verification'],
         self::FIELD_APRENDIZADO => ['learning'],

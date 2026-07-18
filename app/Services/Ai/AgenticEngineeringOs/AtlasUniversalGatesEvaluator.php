@@ -7502,6 +7502,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for lexical/rerank/maturity/budget/volume/immune.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function lexicalRerankMaturityBudgetVolumeImmuneFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lexical_field_evidence' => DomainLexicalNormalizer::FIELD_EVIDENCE,
+            'lexical_field_execution' => DomainLexicalNormalizer::FIELD_EXECUTION,
+            'lexical_field_memory' => DomainLexicalNormalizer::FIELD_MEMORY,
+            'rerank_field_precision_at_k' => AtlasConsolidationRerankGuard::FIELD_PRECISION_AT_K,
+            'rerank_field_reason' => AtlasConsolidationRerankGuard::FIELD_REASON,
+            'rerank_field_schema_version' => AtlasConsolidationRerankGuard::FIELD_SCHEMA_VERSION,
+            'maturity_field_comparator' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_COMPARATOR,
+            'maturity_field_metric' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_METRIC,
+            'maturity_field_value' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_VALUE,
+            'budget_field_components' => JointResourceBudgetWatchdogCheck::FIELD_COMPONENTS,
+            'budget_field_declared_paper_status' => JointResourceBudgetWatchdogCheck::FIELD_DECLARED_PAPER_STATUS,
+            'budget_field_measured_ram_mb' => JointResourceBudgetWatchdogCheck::FIELD_MEASURED_RAM_MB,
+            'volume_field_end' => AtlasOperationalVolumeCheckService::FIELD_END,
+            'volume_field_label' => AtlasOperationalVolumeCheckService::FIELD_LABEL,
+            'volume_field_start' => AtlasOperationalVolumeCheckService::FIELD_START,
+            'immune_hybrid_field_default_destination' => AtlasImmuneHybridInputClassifier::FIELD_DEFAULT_DESTINATION,
+            'immune_hybrid_field_embedding_allowed' => AtlasImmuneHybridInputClassifier::FIELD_EMBEDDING_ALLOWED,
+            'immune_hybrid_field_memory_eligible' => AtlasImmuneHybridInputClassifier::FIELD_MEMORY_ELIGIBLE,
+            'lexical_rerank_maturity_budget_volume_immune_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

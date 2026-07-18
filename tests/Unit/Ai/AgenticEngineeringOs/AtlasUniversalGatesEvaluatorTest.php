@@ -5646,5 +5646,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_deferred_runner_runbook_golden_floor_count']);
     }
 
+    public function test_lexical_rerank_maturity_budget_volume_immune_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lexicalRerankMaturityBudgetVolumeImmuneFloorsContractObserve([]);
+
+        $this->assertSame('evidence', $payload['lexical_field_evidence']);
+        $this->assertSame('execution', $payload['lexical_field_execution']);
+        $this->assertSame('memory', $payload['lexical_field_memory']);
+        $this->assertSame('precision_at_k', $payload['rerank_field_precision_at_k']);
+        $this->assertSame('reason', $payload['rerank_field_reason']);
+        $this->assertSame('schema_version', $payload['rerank_field_schema_version']);
+        $this->assertSame('comparator', $payload['maturity_field_comparator']);
+        $this->assertSame('metric', $payload['maturity_field_metric']);
+        $this->assertSame('value', $payload['maturity_field_value']);
+        $this->assertSame('components', $payload['budget_field_components']);
+        $this->assertSame('declared_paper_status', $payload['budget_field_declared_paper_status']);
+        $this->assertSame('measured_ram_mb', $payload['budget_field_measured_ram_mb']);
+        $this->assertSame('end', $payload['volume_field_end']);
+        $this->assertSame('label', $payload['volume_field_label']);
+        $this->assertSame('start', $payload['volume_field_start']);
+        $this->assertSame('default_destination', $payload['immune_hybrid_field_default_destination']);
+        $this->assertSame('embedding_allowed', $payload['immune_hybrid_field_embedding_allowed']);
+        $this->assertSame('memory_eligible', $payload['immune_hybrid_field_memory_eligible']);
+        $this->assertSame(18, $payload['lexical_rerank_maturity_budget_volume_immune_floor_count']);
+    }
+
 
 }

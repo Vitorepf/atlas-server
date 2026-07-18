@@ -29,6 +29,9 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
     public const FIELD_QUALIFIED_BAND = 'qualified_band';
     public const FIELD_QUALIFIED_RANK = 'qualified_rank';
     public const FIELD_PROMOTION_BLOCKED = 'promotion_blocked';
+    public const FIELD_COMPARATOR = 'comparator';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_VALUE = 'value';
 
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first
@@ -127,15 +130,15 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         $breaches = [];
 
         foreach ($thresholds as $threshold) {
-            $metric = $threshold['metric'];
+            $metric = $threshold[self::FIELD_METRIC];
             $missing = ! array_key_exists($metric, $metricsSnapshot);
             $observed = $this->observedValue($metricsSnapshot, $metric);
 
-            if ($missing || $observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold['comparator'], $observed, $threshold['value'])) {
+            if ($missing || $observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold[self::FIELD_VALUE])) {
                 $breaches[] = [
-                    'metric' => $metric,
-                    'comparator' => $threshold['comparator'],
-                    'threshold' => $threshold['value'],
+                    self::FIELD_METRIC => $metric,
+                    self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
+                    'threshold' => $threshold[self::FIELD_VALUE],
                     'observed' => $observed,
                     self::FIELD_MISSING => $missing || $observed === null,
                 ];

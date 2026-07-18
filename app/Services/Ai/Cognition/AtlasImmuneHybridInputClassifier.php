@@ -67,6 +67,9 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_ORIGIN_REF = 'origin_ref';
     public const FIELD_HIT_COUNT_AFTER = 'hit_count_after';
     public const FIELD_REASON = 'reason';
+    public const FIELD_DEFAULT_DESTINATION = 'default_destination';
+    public const FIELD_EMBEDDING_ALLOWED = 'embedding_allowed';
+    public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -135,9 +138,9 @@ final class AtlasImmuneHybridInputClassifier
                 $baseResult[self::FIELD_MATCHED_SIGNALS],
                 'known_poison_signature',
             );
-            $baseResult['memory_eligible'] = false;
-            $baseResult['embedding_allowed'] = false;
-            $baseResult['default_destination'] = self::hostileDestination($hostileClass);
+            $baseResult[self::FIELD_MEMORY_ELIGIBLE] = false;
+            $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
+            $baseResult[self::FIELD_DEFAULT_DESTINATION] = self::hostileDestination($hostileClass);
             $signatureBlock[self::FIELD_ENFORCE_APPLIED] = true;
             $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
             $baseResult[self::FIELD_HYBRID_ARM] = $this->offHybridArm($baseResult);
@@ -202,9 +205,9 @@ final class AtlasImmuneHybridInputClassifier
             $baseResult[self::FIELD_INPUT_CLASS] = $winner;
             $baseResult[self::FIELD_REASON] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
             $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], 'semantic_arm_hit');
-            $baseResult['memory_eligible'] = false;
-            $baseResult['embedding_allowed'] = false;
-            $baseResult['default_destination'] = self::hostileDestination($winner);
+            $baseResult[self::FIELD_MEMORY_ELIGIBLE] = false;
+            $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
+            $baseResult[self::FIELD_DEFAULT_DESTINATION] = self::hostileDestination($winner);
         } elseif ($winner !== null && $winner === $lexicalHostile) {
             $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? 'agreement' : 'lexical';
         }
