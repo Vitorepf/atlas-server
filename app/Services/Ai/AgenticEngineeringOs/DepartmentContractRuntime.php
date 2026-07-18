@@ -450,6 +450,15 @@ final class DepartmentContractRuntime
     public const FIELD_INCIDENT_DETECTED_TRUE = 'incident_detected=true';
     public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV = 'intent_classification.target_department=dev';
     public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE = 'intent_classification.target_department=forge';
+    public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT = 'intent_classification.target_department=product';
+    public const FIELD_LEARNING_CAPSULE_EMITTED_TRUE = 'learning_capsule_emitted=true';
+    public const FIELD_MULTI_MODULE_DETECTED_TRUE = 'multi_module_detected=true';
+    public const FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE = 'operator_intent_raw_received=true';
+    public const FIELD_PRODUCTION_ALERT_TRUE = 'production_alert=true';
+    public const FIELD_RELEASE_PACK_DRAFTED_TRUE = 'release_pack_drafted=true';
+    public const FIELD_SECURITY_PATH_TOUCHED_TRUE = 'security_path_touched=true';
+    public const FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE = 'self_construction.gap_detected=true';
+    public const FIELD_SESSION_HANDOFF_REQUESTED_TRUE = 'session_handoff_requested=true';
     public const INT_11 = 11;
 
     /**
@@ -487,7 +496,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_EXECUTIVE_INTAKE,
             self::FIELD_DESCRIPTION => 'Receives ambiguous human intent; emits canonical mission envelope.',
             self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
-            self::FIELD_TRIGGERS => ['operator_intent_raw_received=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_INTENT_RAW, self::FIELD_SCHEMA => self::SCHEMA_INTENT_RAW],
             ],
@@ -510,7 +519,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_PRODUCT_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Turns intent into product spec + acceptance criteria.',
             self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
-            self::FIELD_TRIGGERS => ['intent_classification.target_department=product'],
+            self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_RAW, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
             ],
@@ -558,7 +567,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_RESEARCH_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Investigates unknowns before commit; never modifies runtime.',
             self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
-            self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', self::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE],
+            self::FIELD_TRIGGERS => [self::FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE, self::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_QUESTION, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
             ],
@@ -606,7 +615,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
-            self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, 'test_red_after_green=true', 'production_alert=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, 'test_red_after_green=true', self::FIELD_PRODUCTION_ALERT_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
@@ -676,7 +685,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_SECURITY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Security review; OWASP, secrets, dependency CVEs.',
             self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
-            self::FIELD_TRIGGERS => ['security_path_touched=true', 'intent_class_in=[sensitive,secret,cyber]', 'release_pack_drafted=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_SECURITY_PATH_TOUCHED_TRUE, 'intent_class_in=[sensitive,secret,cyber]', self::FIELD_RELEASE_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_REQUEST, self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
             ],
@@ -699,7 +708,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_FORGE_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Heavy Obras with provider topology + multi-agent scheduler.',
             self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
-            self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, 'scope>=R3', 'multi_module_detected=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, 'scope>=R3', self::FIELD_MULTI_MODULE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_TOPOLOGY_PLAN, self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
@@ -747,7 +756,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_MEMORY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Evidence ledger, learning, compounding signal extraction.',
             self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
-            self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', self::FIELD_CONTEXT_PACK_REQUEST_TRUE],
+            self::FIELD_TRIGGERS => [self::FIELD_LEARNING_CAPSULE_EMITTED_TRUE, self::FIELD_SESSION_HANDOFF_REQUESTED_TRUE, self::FIELD_CONTEXT_PACK_REQUEST_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_LEARNING_CAPSULE, self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],
             ],

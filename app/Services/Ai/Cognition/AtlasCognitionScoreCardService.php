@@ -301,6 +301,15 @@ class AtlasCognitionScoreCardService
     public const FIELD_G1 = 'G1';
     public const FIELD_G2 = 'G2';
     public const FIELD_G3 = 'G3';
+    public const FIELD_G4 = 'G4';
+    public const FIELD_G5 = 'G5';
+    public const FIELD_G6 = 'G6';
+    public const FIELD_G7 = 'G7';
+    public const FIELD_G8 = 'G8';
+    public const FIELD_GRAPH_RETRIEVAL_NETWORK = 'Graph Retrieval Network';
+    public const FIELD_HYBRID_RETRIEVAL_INFRASTRUCTURE = 'Hybrid Retrieval Infrastructure';
+    public const FIELD_KNOWLEDGE_INGESTION_FABRIC = 'Knowledge Ingestion Fabric';
+    public const FIELD_LEARNING_MUTATION_RUNTIME = 'Learning Mutation Runtime';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -354,11 +363,11 @@ class AtlasCognitionScoreCardService
         [self::FIELD_G1,     self::FIELD_EVIDENCE_PROMOTION_GATE,     self::FIELD_COGNITIVE_IMMUNE, AtlasAemorRuntimeService::class],
         [self::FIELD_G2,     'Learning Signal Extraction',  self::FIELD_COGNITIVE_IMMUNE, AtlasLearningDistiller::class],
         [self::FIELD_G3,     'Memory Promotion',            self::FIELD_COGNITIVE_IMMUNE, AiMemoryDeltaProposer::class],
-        ['G4',     self::FIELD_CONTEXT_GATE,                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
-        ['G5',     self::FIELD_DECISION_GATE,               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
-        ['G6',     'Outcome Replay',              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
-        ['G7',     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
-        ['G8',     self::FIELD_COMPOUNDING_EFFECT,          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
+        [self::FIELD_G4,     self::FIELD_CONTEXT_GATE,                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
+        [self::FIELD_G5,     self::FIELD_DECISION_GATE,               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
+        [self::FIELD_G6,     'Outcome Replay',              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
+        [self::FIELD_G7,     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
+        [self::FIELD_G8,     self::FIELD_COMPOUNDING_EFFECT,          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
         [self::FIELD_MEM_CORE,   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
@@ -367,19 +376,19 @@ class AtlasCognitionScoreCardService
 
         // AUCRI 18 blocks
         [self::FIELD_ASEF,  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
-        [self::FIELD_AHRI,  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
+        [self::FIELD_AHRI,  self::FIELD_HYBRID_RETRIEVAL_INFRASTRUCTURE,   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
         [self::FIELD_AARF,  self::FIELD_AGENTIC_RAG_FRAMEWORK,             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         [self::FIELD_ACRS,  self::FIELD_CONTEXT_RANKING_SYSTEM,            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
         [self::FIELD_ACFQ,  self::FIELD_CONTEXT_FRESHNESS_QUALITY_GATE,    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         [self::FIELD_ARFL,  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
-        [self::FIELD_AGRN,  'Graph Retrieval Network',           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
+        [self::FIELD_AGRN,  self::FIELD_GRAPH_RETRIEVAL_NETWORK,           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
         [self::FIELD_AURG,  'Unified Reality Graph',             self::FIELD_AUCRI, AtlasUnifiedRealityGraphService::class],
         [self::FIELD_APDR,  'Python Data Retrieval Runtime',     self::FIELD_AUCRI, AtlasPythonDataRetrievalRuntimeService::class],
         [self::FIELD_AREBA, 'Retrieval Evaluation Arena',        self::FIELD_AUCRI, AtlasRetrievalEvaluationBenchmarkArenaService::class],
         [self::FIELD_ARCLG, 'Retrieval Cost Latency Governor',   self::FIELD_AUCRI, AtlasRetrievalCostLatencyGovernorService::class],
         [self::FIELD_ACOP,  self::FIELD_CONTEXT_OBSERVABILITY_PLANE,       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
         [self::FIELD_ARPTL, 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
-        [self::FIELD_AKIF,  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
+        [self::FIELD_AKIF,  self::FIELD_KNOWLEDGE_INGESTION_FABRIC,        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
         [self::FIELD_ACMF,  self::FIELD_COGNITIVE_MEMORY_FABRIC,           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
         [self::FIELD_ACCR,  self::FIELD_CONTEXT_COMPILER_RUNTIME,          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         [self::FIELD_ATER,  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
@@ -440,7 +449,7 @@ class AtlasCognitionScoreCardService
         // Domain runtimes — Research (review-only, source-grounded)
         [self::FIELD_ARDR,  'Research Domain Runtime',               self::FIELD_RESEARCH_DOMAIN, ResearchRuntimeService::class],
         [self::FIELD_ABDD,  self::FIELD_BDD_ACCEPTANCE_RUNTIME,                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
-        [self::FIELD_ALMR,  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
+        [self::FIELD_ALMR,  self::FIELD_LEARNING_MUTATION_RUNTIME,             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
         [self::FIELD_APCP,  'Programming Cartography Publisher',     self::FIELD_PROGRAMMING,     AtlasProgrammingCartographyPublisherService::class],
     ];
 

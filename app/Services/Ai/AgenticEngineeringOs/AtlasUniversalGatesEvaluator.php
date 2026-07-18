@@ -14702,4 +14702,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B555).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b555CognitionScoreDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'G4' => AtlasCognitionScoreCardService::FIELD_G4,
+            'G5' => AtlasCognitionScoreCardService::FIELD_G5,
+            'G6' => AtlasCognitionScoreCardService::FIELD_G6,
+            'G7' => AtlasCognitionScoreCardService::FIELD_G7,
+            'G8' => AtlasCognitionScoreCardService::FIELD_G8,
+            'Graph Retrieval Network' => AtlasCognitionScoreCardService::FIELD_GRAPH_RETRIEVAL_NETWORK,
+            'Hybrid Retrieval Infrastructure' => AtlasCognitionScoreCardService::FIELD_HYBRID_RETRIEVAL_INFRASTRUCTURE,
+            'Knowledge Ingestion Fabric' => AtlasCognitionScoreCardService::FIELD_KNOWLEDGE_INGESTION_FABRIC,
+            'Learning Mutation Runtime' => AtlasCognitionScoreCardService::FIELD_LEARNING_MUTATION_RUNTIME,
+            'intent_classification.target_department=product' => DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT,
+            'learning_capsule_emitted=true' => DepartmentContractRuntime::FIELD_LEARNING_CAPSULE_EMITTED_TRUE,
+            'multi_module_detected=true' => DepartmentContractRuntime::FIELD_MULTI_MODULE_DETECTED_TRUE,
+            'operator_intent_raw_received=true' => DepartmentContractRuntime::FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE,
+            'production_alert=true' => DepartmentContractRuntime::FIELD_PRODUCTION_ALERT_TRUE,
+            'release_pack_drafted=true' => DepartmentContractRuntime::FIELD_RELEASE_PACK_DRAFTED_TRUE,
+            'security_path_touched=true' => DepartmentContractRuntime::FIELD_SECURITY_PATH_TOUCHED_TRUE,
+            'self_construction.gap_detected=true' => DepartmentContractRuntime::FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE,
+            'session_handoff_requested=true' => DepartmentContractRuntime::FIELD_SESSION_HANDOFF_REQUESTED_TRUE,
+            'b555_cognition_score_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

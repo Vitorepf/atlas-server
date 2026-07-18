@@ -11593,4 +11593,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b554_cognition_score_department_contract_floor_count']);
     }
 
+    public function test_b555_cognition_score_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b555CognitionScoreDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G4, $out['G4']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G5, $out['G5']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G6, $out['G6']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G7, $out['G7']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G8, $out['G8']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_GRAPH_RETRIEVAL_NETWORK, $out['Graph Retrieval Network']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_HYBRID_RETRIEVAL_INFRASTRUCTURE, $out['Hybrid Retrieval Infrastructure']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_KNOWLEDGE_INGESTION_FABRIC, $out['Knowledge Ingestion Fabric']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_LEARNING_MUTATION_RUNTIME, $out['Learning Mutation Runtime']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT, $out['intent_classification.target_department=product']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LEARNING_CAPSULE_EMITTED_TRUE, $out['learning_capsule_emitted=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MULTI_MODULE_DETECTED_TRUE, $out['multi_module_detected=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE, $out['operator_intent_raw_received=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRODUCTION_ALERT_TRUE, $out['production_alert=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RELEASE_PACK_DRAFTED_TRUE, $out['release_pack_drafted=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_PATH_TOUCHED_TRUE, $out['security_path_touched=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE, $out['self_construction.gap_detected=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SESSION_HANDOFF_REQUESTED_TRUE, $out['session_handoff_requested=true']);
+        $this->assertSame(18, $out['b555_cognition_score_department_contract_floor_count']);
+    }
+
 }
