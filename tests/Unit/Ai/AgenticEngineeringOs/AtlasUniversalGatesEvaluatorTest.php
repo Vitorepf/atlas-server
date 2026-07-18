@@ -15624,4 +15624,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b717_fact_pair_consolidation_rerank_floor_count']);
     }
 
+    public function test_b718_consolidation_rerank_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b718ConsolidationRerankFloorsContractObserve([]);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_HASH, $out['hash']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_LABEL, $out['label']);
+        $this->assertSame(AtlasConsolidationRerankGuard::SCHEMA_VERSION, $out['atlas.cognition.rerank_guard.v1']);
+        $this->assertSame(AtlasConsolidationRerankGuard::EPSILON, $out['0.0005']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_NO_BASELINE, $out['no_baseline']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_UNMEASURED, $out['unmeasured']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_PRECISION_AT_K, $out['precision_at_k']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_CURRENT_PRECISION_AT_K, $out['current_precision_at_k']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_BASELINE_PRECISION_AT_K, $out['baseline_precision_at_k']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_HEALTHY, $out['healthy']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_FROZEN_AT, $out['frozen_at']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED, $out['promote_allowed']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(18, $out['b718_consolidation_rerank_floor_count']);
+    }
+
 }

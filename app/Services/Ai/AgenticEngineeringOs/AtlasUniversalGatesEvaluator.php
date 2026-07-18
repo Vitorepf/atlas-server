@@ -19706,4 +19706,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B718).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b718ConsolidationRerankFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'hash' => AtlasConsolidationRerankGuard::FIELD_HASH,
+            'label' => AtlasConsolidationRerankGuard::FIELD_LABEL,
+            'atlas.cognition.rerank_guard.v1' => AtlasConsolidationRerankGuard::SCHEMA_VERSION,
+            '0.0005' => AtlasConsolidationRerankGuard::EPSILON,
+            'no_baseline' => AtlasConsolidationRerankGuard::STATUS_NO_BASELINE,
+            'unmeasured' => AtlasConsolidationRerankGuard::STATUS_UNMEASURED,
+            'ok' => AtlasConsolidationRerankGuard::STATUS_OK,
+            'precision_at_k' => AtlasConsolidationRerankGuard::FIELD_PRECISION_AT_K,
+            'reason' => AtlasConsolidationRerankGuard::FIELD_REASON,
+            'schema_version' => AtlasConsolidationRerankGuard::FIELD_SCHEMA_VERSION,
+            'current_precision_at_k' => AtlasConsolidationRerankGuard::FIELD_CURRENT_PRECISION_AT_K,
+            'baseline_precision_at_k' => AtlasConsolidationRerankGuard::FIELD_BASELINE_PRECISION_AT_K,
+            'ok' => AtlasConsolidationRerankGuard::STATUS_OK,
+            'healthy' => AtlasConsolidationRerankGuard::STATUS_HEALTHY,
+            'frozen_at' => AtlasConsolidationRerankGuard::FIELD_FROZEN_AT,
+            'promote_allowed' => AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED,
+            'status' => AtlasConsolidationRerankGuard::FIELD_STATUS,
+            'verdict' => AtlasConsolidationRerankGuard::FIELD_VERDICT,
+            'b718_consolidation_rerank_floor_count' => 18,
+        ];
+    }
+
 }
