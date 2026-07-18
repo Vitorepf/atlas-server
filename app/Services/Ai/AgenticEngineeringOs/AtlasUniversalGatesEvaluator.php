@@ -18063,4 +18063,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B665).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b665CompoundingOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'compounding' => CompoundingOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'verified' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'learning_required' => CompoundingOutcomeEnvelopeAdapter::FIELD_LEARNING_REQUIRED,
+            'human_override' => CompoundingOutcomeEnvelopeAdapter::FIELD_HUMAN_OVERRIDE,
+            'verified_basis' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS,
+            'passed' => CompoundingOutcomeEnvelopeAdapter::STATUS_PASSED,
+            'absent' => CompoundingOutcomeEnvelopeAdapter::STATUS_ABSENT,
+            'run_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_RUN_ID,
+            'retrieval_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_RETRIEVAL_QUALITY,
+            'missed_signals' => CompoundingOutcomeEnvelopeAdapter::FIELD_MISSED_SIGNALS,
+            'flow_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_QUALITY,
+            'flow_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_ID,
+            'execution_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_EXECUTION_QUALITY,
+            'evidence_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_EVIDENCE_QUALITY,
+            'status' => CompoundingOutcomeEnvelopeAdapter::FIELD_STATUS,
+            'provider' => CompoundingOutcomeEnvelopeAdapter::FIELD_PROVIDER,
+            'task_category' => CompoundingOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY,
+            'certified_receipt_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID,
+            'b665_compounding_outcome_floor_count' => 18,
+        ];
+    }
+
 }

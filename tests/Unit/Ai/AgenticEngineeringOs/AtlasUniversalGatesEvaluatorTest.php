@@ -14299,4 +14299,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b664_predicted_impact_floor_count']);
     }
 
+    public function test_b665_compounding_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b665CompoundingOutcomeFloorsContractObserve([]);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::ADAPTER_KIND, $out['compounding']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_LEARNING_REQUIRED, $out['learning_required']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_HUMAN_OVERRIDE, $out['human_override']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS, $out['verified_basis']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::STATUS_PASSED, $out['passed']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::STATUS_ABSENT, $out['absent']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_RUN_ID, $out['run_id']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_RETRIEVAL_QUALITY, $out['retrieval_quality']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_MISSED_SIGNALS, $out['missed_signals']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_QUALITY, $out['flow_quality']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_ID, $out['flow_id']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_EXECUTION_QUALITY, $out['execution_quality']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_EVIDENCE_QUALITY, $out['evidence_quality']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_STATUS, $out['status']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY, $out['task_category']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID, $out['certified_receipt_id']);
+        $this->assertSame(18, $out['b665_compounding_outcome_floor_count']);
+    }
+
 }
