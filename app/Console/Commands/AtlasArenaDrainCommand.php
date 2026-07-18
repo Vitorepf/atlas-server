@@ -123,12 +123,17 @@ class AtlasArenaDrainCommand extends Command
             $group['arms']
         );
         $budget = max(1, (int) config('atlas_arena.worker_budget_per_run', 5));
+        $maxCases = max(1, (int) config('atlas_arena.worker_max_cases_per_run', 10));
         $out = $this->artisanJson([
             'atlas:rivals', 'plan',
             '--suite='.$group['suite'],
             '--arms='.implode(',', $armIds),
             '--repetitions=1', '--seed=1',
             '--budget='.$budget,
+            '--max-cases='.$maxCases,
+            // Suites da Arena são todas externas (sem snapshot git por case):
+            // mesmo trilho da battery (FrozenUnitManifest allowSynthetic).
+            '--allow-synthetic-frozen',
             '--approve-provider-spend', '--json',
         ], 600);
         $runId = (string) ($out['run_id'] ?? '');
@@ -202,12 +207,15 @@ class AtlasArenaDrainCommand extends Command
         $process->setTimeout($timeout);
         $process->run();
         $decoded = json_decode(trim((string) $process->getOutput()), true);
-        if (! $process->isSuccessful() && ! is_array($decoded)) {
+        if (! is_array($decoded)) {
+            // Artisan pode renderizar exceção no stdout com exit 0 — sem JSON
+            // é falha, e o motivo real (stdout+stderr) vai no erro.
             throw new RuntimeException(
-                'arena_drain_stage_failed: '.implode(' ', $args).' :: '.mb_substr((string) $process->getErrorOutput(), -200)
+                'arena_drain_stage_failed: '.implode(' ', $args)
+                .' :: '.mb_substr(trim((string) $process->getOutput()."\n".(string) $process->getErrorOutput()), 0, 300)
             );
         }
 
-        return is_array($decoded) ? $decoded : [];
+        return $decoded;
     }
 }

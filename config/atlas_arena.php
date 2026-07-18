@@ -38,6 +38,10 @@ return [
     // (o schedule repassa --approve-provider-spend). Default: desligado.
     'worker_enabled' => (bool) env('ATLAS_ARENA_WORKER_ENABLED', false),
     'worker_budget_per_run' => (int) env('ATLAS_ARENA_WORKER_BUDGET', 5),
+    // Rodada bounded: suites externas têm centenas de cases; o worker corta
+    // em N por rodada (determinístico) — cobertura cresce por rodadas, não
+    // por uma maratona de horas por drain.
+    'worker_max_cases_per_run' => (int) env('ATLAS_ARENA_WORKER_MAX_CASES', 10),
 
     'capability_map' => [
         'terminal_bench' => [

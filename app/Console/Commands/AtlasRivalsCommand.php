@@ -53,10 +53,12 @@ class AtlasRivalsCommand extends Command
         {--mode=bare : (battery) bare|uplift|atlas|model_matrix|status|prepare|execute}
         {--kind=bare : (battery prepare/execute) bare|uplift|atlas|model_matrix}
         {--cases= : (plan) comma-separated case ids; default all imported cases}
+        {--max-cases= : (plan) corta a lista de cases em N (rodada bounded, ordem determinística)}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--file= : (import-cases/import-results) arquivo ou diretório de origem}
         {--source-repo= : (import-cases/plan) source_repo de proveniência}
         {--judge-config= : (plan) path JSON de judge_config}
+        {--allow-synthetic-frozen : (plan) suites externas sem snapshot git — mesmo trilho da battery (FrozenUnitManifest allowSynthetic)}
         {--budget= : (plan) budget USD}
         {--max-minutes= : (plan) hard wall-clock cap per native execution}
         {--approve-provider-spend : (plan) aprovação explícita de spend}
@@ -884,6 +886,11 @@ class AtlasRivalsCommand extends Command
         if ($cases === []) {
             return ['status' => 'error', 'error' => 'no_cases_available_mine_first'];
         }
+        $maxCases = (int) ($this->option('max-cases') ?? 0);
+        if ($maxCases > 0 && count($cases) > $maxCases) {
+            // Determinístico (ordem do listCases): rodada bounded, nunca amostra oculta.
+            $cases = array_slice($cases, 0, $maxCases);
+        }
 
         $budgetUsd = $this->option('budget') !== null && $this->option('budget') !== ''
             ? (float) $this->option('budget')
@@ -954,7 +961,11 @@ class AtlasRivalsCommand extends Command
         $preregistration->persist();
         $freeze = null;
         if (in_array($suiteId, (new SuiteRegistry)->externalSuiteIds(), true)) {
-            $freeze = FrozenUnitManifest::fromPlan($plan, $cases, app()->environment('testing'));
+            $freeze = FrozenUnitManifest::fromPlan(
+                $plan,
+                $cases,
+                app()->environment('testing') || (bool) $this->option('allow-synthetic-frozen')
+            );
             $freeze->persist();
         }
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED, [
