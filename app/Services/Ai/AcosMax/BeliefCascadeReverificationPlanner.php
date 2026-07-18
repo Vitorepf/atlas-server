@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class BeliefCascadeReverificationPlanner
 {
+    public const FIELD_CYCLE_SAFE = 'cycle_safe';
+    public const FIELD_ID = 'id';
     public const SCHEMA_VERSION = 'atlas.memory.belief_cascade_reverification.v1';
 
     public const DEFAULT_DEPTH_CAP = 3;
@@ -45,7 +47,7 @@ final class BeliefCascadeReverificationPlanner
                     continue;
                 }
                 $seen[$child] = true;
-                $marked[] = ['id' => $child, self::FIELD_NEEDS_REVERIFICATION => true, self::FIELD_CASCADE_ORIGIN => $origin];
+                $marked[] = [self::FIELD_ID => $child, self::FIELD_NEEDS_REVERIFICATION => true, self::FIELD_CASCADE_ORIGIN => $origin];
                 $queue[] = [$child, $depth + 1];
             }
         }
@@ -57,7 +59,7 @@ final class BeliefCascadeReverificationPlanner
             'source' => [
                 self::FIELD_DELETES_DESCENDANTS => false,
                 'sync_write_path' => false,
-                'cycle_safe' => true,
+                self::FIELD_CYCLE_SAFE => true,
             ],
         ];
     }

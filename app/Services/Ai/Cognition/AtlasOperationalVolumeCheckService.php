@@ -26,6 +26,8 @@ use Throwable;
  */
 final class AtlasOperationalVolumeCheckService
 {
+    public const FIELD_DEV = 'dev';
+    public const FIELD_FORGE = 'forge';
     public const SCHEMA_VERSION = 'atlas.acos.operational_volume.v1';
 
     /** @var int PIN — ≥3 Dev runs per business day (plan VOL-01). */
@@ -108,7 +110,7 @@ final class AtlasOperationalVolumeCheckService
                 ],
             ],
             'windows' => [
-                'dev' => [
+                self::FIELD_DEV => [
                     self::FIELD_LABEL => 'previous_business_day',
                     self::FIELD_START => $devWindowStart->toIso8601String(),
                     self::FIELD_END => $devWindowEnd->toIso8601String(),
@@ -118,7 +120,7 @@ final class AtlasOperationalVolumeCheckService
                     self::FIELD_SOURCES => $devCount[self::FIELD_SOURCES],
                     self::STATUS_ALERT => $devAlert,
                 ],
-                'forge' => [
+                self::FIELD_FORGE => [
                     self::FIELD_LABEL => 'rolling_7d_ending_yesterday',
                     self::FIELD_START => $forgeWindowStart->toIso8601String(),
                     self::FIELD_END => $forgeWindowEnd->toIso8601String(),

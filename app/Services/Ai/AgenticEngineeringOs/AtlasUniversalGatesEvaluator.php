@@ -8711,4 +8711,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B361).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function deliveryPackResourceBudgetBeliefCascadeCitationGroundingFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => DeliveryPackCompletenessScorer::FIELD_STATUS,
+            'delivery_hash' => DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH,
+            'measured_headroom_mb' => AtlasResourceBudgetService::FIELD_MEASURED_HEADROOM_MB,
+            'measured_ram_mb' => AtlasResourceBudgetService::FIELD_MEASURED_RAM_MB,
+            'cycle_safe' => BeliefCascadeReverificationPlanner::FIELD_CYCLE_SAFE,
+            'id' => BeliefCascadeReverificationPlanner::FIELD_ID,
+            'provider_calls_made' => CitationGroundingMeter::FIELD_PROVIDER_CALLS_MADE,
+            'response' => CitationGroundingMeter::FIELD_RESPONSE,
+            'episode_id' => DevProceduralOutcomeEnvelopeAdapter::FIELD_EPISODE_ID,
+            'fields' => DevProceduralOutcomeEnvelopeAdapter::FIELD_FIELDS,
+            'evaluated_at' => AutonomousWorkExecutionOs::FIELD_EVALUATED_AT,
+            'goal' => AutonomousWorkExecutionOs::FIELD_GOAL,
+            'claim_policy' => AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY,
+            'debug' => AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG,
+            'acceptance' => AtlasImmuneSignatureFreeze::FIELD_ACCEPTANCE,
+            'cells_with_hit_count_gte_2' => AtlasImmuneSignatureFreeze::FIELD_CELLS_WITH_HIT_COUNT_GTE_2,
+            'dev' => AtlasOperationalVolumeCheckService::FIELD_DEV,
+            'forge' => AtlasOperationalVolumeCheckService::FIELD_FORGE,
+            'delivery_pack_resource_budget_belief_cascade_citation_grounding_floor_count' => 18,
+        ];
+    }
+
 }

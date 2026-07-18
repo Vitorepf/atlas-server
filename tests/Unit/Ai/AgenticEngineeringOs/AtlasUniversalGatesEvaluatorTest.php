@@ -61,6 +61,12 @@ use App\Services\Ai\AcosMax\AemorOutcomeEnvelopeAdapter;
 use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
 use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
+use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
+use App\Services\Ai\AcosMax\DevProceduralOutcomeEnvelopeAdapter;
+use App\Services\Ai\AgenticEngineeringOs\AutonomousWorkExecutionOs;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
+use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6685,6 +6691,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_READY, $out['doc_ready']);
         $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_STATUS, $out['doc_status']);
         $this->assertSame(18, $out['obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floor_count']);
+    }
+
+    public function test_delivery_pack_resource_budget_belief_cascade_citation_grounding_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->deliveryPackResourceBudgetBeliefCascadeCitationGroundingFloorsContractObserve([]);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_STATUS, $out['status']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH, $out['delivery_hash']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_MEASURED_HEADROOM_MB, $out['measured_headroom_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_MEASURED_RAM_MB, $out['measured_ram_mb']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_CYCLE_SAFE, $out['cycle_safe']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_ID, $out['id']);
+        $this->assertSame(CitationGroundingMeter::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(CitationGroundingMeter::FIELD_RESPONSE, $out['response']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_EPISODE_ID, $out['episode_id']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_EVALUATED_AT, $out['evaluated_at']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_GOAL, $out['goal']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY, $out['claim_policy']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_ACCEPTANCE, $out['acceptance']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_CELLS_WITH_HIT_COUNT_GTE_2, $out['cells_with_hit_count_gte_2']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(18, $out['delivery_pack_resource_budget_belief_cascade_citation_grounding_floor_count']);
     }
 
 }

@@ -383,6 +383,7 @@ final class AtlasAaeosCommand extends Command
         {--memory-budget-recall-maxa-corpus-esp09-dogfood-autonomy-runner-freeze-floors-contract= : JSON file (any object) to observe memory/budget/recall/maxa/corpus/esp09/dogfood/autonomy/runner/freeze residual floors}
                             {--repair-parallel-promoter-verified-cockpit-deferred-window-remint-scorecard-floors-contract= : JSON file (any object) to observe repair/parallel/promoter/verified/cockpit/deferred/window/remint/scorecard floors}
                             {--obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract= : JSON file (any object) to observe obra/dept/nudge/aemor/ambition/flywheel/quality/runbook/function floors}
+                            {--delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract= : JSON file (any object) to observe delivery/pack/resource/budget/belief/cascade floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -922,6 +923,7 @@ final class AtlasAaeosCommand extends Command
             ['memory-budget-recall-maxa-corpus-esp09-dogfood-autonomy-runner-freeze-floors-contract', 'memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floors_contract', fn (array $p) => $gates->memoryBudgetRecallMaxaCorpusEsp09DogfoodAutonomyRunnerFreezeFloorsContractObserve($p)],
             ['repair-parallel-promoter-verified-cockpit-deferred-window-remint-scorecard-floors-contract', 'repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floors_contract', fn (array $p) => $gates->repairParallelPromoterVerifiedCockpitDeferredWindowRemintScorecardFloorsContractObserve($p)],
             ['obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract', 'obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floors_contract', fn (array $p) => $gates->obraDeptNudgeAemorAmbitionFlywheelQualityRunbookFunctionFloorsContractObserve($p)],
+            ['delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract', 'delivery_pack_resource_budget_belief_cascade_citation_grounding_floors_contract', fn (array $p) => $gates->deliveryPackResourceBudgetBeliefCascadeCitationGroundingFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class CitationGroundingMeter
 {
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_RESPONSE = 'response';
     public const SCHEMA_VERSION = 'atlas.context.citation_grounding.v1';
 
     public const STATUS_OK = 'ok';
@@ -33,7 +35,7 @@ final class CitationGroundingMeter
 
         foreach ($responses as $response) {
             $delivered = array_fill_keys(array_map('strval', AiValueNormalizer::arrayOrEmpty($response[self::FIELD_DELIVERED_REFS] ?? null)), true);
-            $refs = self::refs(AiValueNormalizer::trimmedStringOrNull($response['response'] ?? null) ?? '');
+            $refs = self::refs(AiValueNormalizer::trimmedStringOrNull($response[self::FIELD_RESPONSE] ?? null) ?? '');
             if ($refs !== []) {
                 $withCitation++;
             }
@@ -57,7 +59,7 @@ final class CitationGroundingMeter
             'total' => count($responses),
             'source' => [
                 self::FIELD_FUSES_GROUNDING_AND_COVERAGE => false,
-                'provider_calls_made' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }

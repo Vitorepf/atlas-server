@@ -41,6 +41,8 @@ use DateTimeZone;
  */
 final class AtlasCognitiveFunctionDecomposerService
 {
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_DEBUG = 'debug';
     public const SCHEMA = 'atlas.cognitive_function.decomposition.v1';
 
     public const REASON_EMPTY_INPUT = 'empty_input';
@@ -268,8 +270,8 @@ final class AtlasCognitiveFunctionDecomposerService
             ],
             self::FIELD_WEIGHTS => $weights,
             'dominant_function' => $dominant,
-            'debug' => $debug,
-            'claim_policy' => $this->claimPolicy(),
+            self::FIELD_DEBUG => $debug,
+            self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
         ];
         $envelope['decomposition_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA,

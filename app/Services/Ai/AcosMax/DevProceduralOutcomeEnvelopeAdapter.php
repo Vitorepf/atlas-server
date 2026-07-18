@@ -12,6 +12,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
+    public const FIELD_EPISODE_ID = 'episode_id';
+    public const FIELD_FIELDS = 'fields';
     public const ADAPTER_KIND = 'dev_procedural';
 
     public const NATIVE_SCHEMA_VERSION = 'atlas.dev.outcome_memory.v1';
@@ -75,7 +77,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             self::FIELD_VERIFIED_SOURCE_PRESENT => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $context[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             self::FIELD_EVIDENCE_REF_COUNT => count($evidenceKinds),
-            'episode_id' => null,
+            self::FIELD_EPISODE_ID => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [
             self::FIELD_OUTCOME_STATUS => (AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_OUTCOME_STATUS] ?? null) ?? ''),
@@ -93,7 +95,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent'][self::FIELD_FIELDS] ?? null);
 
         return [
             'schema_version' => self::NATIVE_SCHEMA_VERSION,

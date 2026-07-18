@@ -21,6 +21,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AutonomousWorkExecutionOs
 {
+    public const FIELD_EVALUATED_AT = 'evaluated_at';
+    public const FIELD_GOAL = 'goal';
     public const SCHEMA_VERSION = 'atlas.autonomous_work_execution_os.cycle.v1';
 
     public const AUTONOMY_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'];
@@ -97,7 +99,7 @@ final class AutonomousWorkExecutionOs
             $blocking[] = "invalid autonomy_level '{$level}' (must be L0..L7)";
         }
 
-        $goal = AiValueNormalizer::trimmedStringOrNull($request['goal'] ?? null) ?? '';
+        $goal = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_GOAL] ?? null) ?? '';
         if ($goal === '') {
             $blocking[] = 'goal text required';
         }
@@ -132,7 +134,7 @@ final class AutonomousWorkExecutionOs
             'may_proceed' => $mayProceed,
             self::FIELD_BLOCKING_REASONS => $blocking,
             self::FIELD_STAGES => $stages,
-            'evaluated_at' => now()->toAtomString(),
+            self::FIELD_EVALUATED_AT => now()->toAtomString(),
         ];
     }
 

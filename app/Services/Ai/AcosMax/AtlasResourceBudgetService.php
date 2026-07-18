@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasResourceBudgetService
 {
+    public const FIELD_MEASURED_HEADROOM_MB = 'measured_headroom_mb';
+    public const FIELD_MEASURED_RAM_MB = 'measured_ram_mb';
     public const SCHEMA = 'atlas.resource_budget.v1';
 
     public const BUDGET_CONFIG_KEY = 'atlas_resource_budget';
@@ -148,8 +150,8 @@ final class AtlasResourceBudgetService
             self::FIELD_HOST_RAM_MB => $hostMb,
             self::FIELD_DECLARED_PAPER_STATUS => $paperStatus,
             'paper_headroom_mb' => $paperHeadroom,
-            'measured_ram_mb' => $anyMeasured ? $measuredSum : null,
-            'measured_headroom_mb' => $measuredHeadroom,
+            self::FIELD_MEASURED_RAM_MB => $anyMeasured ? $measuredSum : null,
+            self::FIELD_MEASURED_HEADROOM_MB => $measuredHeadroom,
             'over_cap_components' => array_values(array_unique($overCap)),
             self::FIELD_COMPONENTS => $rows,
         ];

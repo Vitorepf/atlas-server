@@ -15,6 +15,8 @@ use InvalidArgumentException;
  */
 final class DeliveryPackCompletenessScorer
 {
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DELIVERY_HASH = 'delivery_hash';
     public const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
 
     public const STATUS_PASSED = 'passed';
@@ -94,7 +96,7 @@ final class DeliveryPackCompletenessScorer
         $riskRegisterPresent = $this->boolValue($composition[self::FIELD_RISK_REGISTER_PRESENT]);
         $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);
 
-        $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition['delivery_hash'] ?? null) !== null;
+        $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition[self::FIELD_DELIVERY_HASH] ?? null) !== null;
         $hasEvidenceHashes = $evidenceHashes !== [];
 
         $factors = [
@@ -120,7 +122,7 @@ final class DeliveryPackCompletenessScorer
         return [
             'schema' => self::SCHEMA,
             self::FIELD_RATIO => $ratio,
-            'status' => $this->resolveStatus($blockers, $ratio),
+            self::FIELD_STATUS => $this->resolveStatus($blockers, $ratio),
             'factors' => $factors,
             self::FIELD_BLOCKERS => $blockers,
             'hash_signed' => $hashSigned,
@@ -136,7 +138,7 @@ final class DeliveryPackCompletenessScorer
     {
         $report = $this->score($composition);
 
-        return ($report['status'] ?? '') === self::STATUS_PASSED
+        return ($report[self::FIELD_STATUS] ?? '') === self::STATUS_PASSED
             && (AiValueNormalizer::finiteFloatOrNull($report[self::FIELD_RATIO] ?? null) ?? 0.0) >= $minRatio;
     }
 
