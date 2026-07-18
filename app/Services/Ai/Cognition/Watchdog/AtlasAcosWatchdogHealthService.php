@@ -111,6 +111,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WINDOW_DAYS = 'window_days';
     public const FIELD_CASE_COUNTS = 'case_counts';
     public const FIELD_ACRONYM = 'acronym';
+    public const FIELD_SERVICE_CLASS = 'service_class';
+    public const FIELD_BYPASS_RATE = 'bypass_rate';
+    public const FIELD_DAYS_IN_BLOCK = 'days_in_block';
+    public const FIELD_WINDOWED_CONCENTRATION_RATIO = 'windowed_concentration_ratio';
+    public const FIELD_SNAPSHOT_AGE_HOURS = 'snapshot_age_hours';
+    public const FIELD_MAX_AGE_HOURS = 'max_age_hours';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -200,14 +206,14 @@ final class AtlasAcosWatchdogHealthService
                 'required' => 100,
             ], 'memory_freshness_below_full'),
             $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
-                'windowed_concentration_ratio' => $concentration,
+                self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,
                 'demotion_enabled' => $demotionEnabled,
                 'recall_usage_total' => $recallUsageTotal,
             ], 'recall_concentration_high_without_demotion'),
             $this->checkRow('snapshot_fresh', $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
-                'snapshot_age_hours' => $snapshotAgeHours,
-                'max_age_hours' => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
+                self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
+                self::FIELD_MAX_AGE_HOURS => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
                 'latest_snapshot_at' => $latestSnapshotAt?->toIso8601String(),
             ], 'memory_quality_snapshot_stale'),
         ];
@@ -222,8 +228,8 @@ final class AtlasAcosWatchdogHealthService
                 'score' => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard['score'] ?? null) ?? 0),
                 self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($scorecard[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
                 'freshness' => $freshness,
-                'windowed_concentration_ratio' => $concentration,
-                'snapshot_age_hours' => $snapshotAgeHours,
+                self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
+                self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 'recall_usage_total' => $recallUsageTotal,
             ],
             'alert_detail' => $failed === [] ? null : [
@@ -581,7 +587,7 @@ final class AtlasAcosWatchdogHealthService
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
         $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN);
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
-        $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row['days_in_block'] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
+        $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DAYS_IN_BLOCK] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
         if ($stalled !== []) {
             $blocking[] = 'lift_blocker_stalled';
@@ -618,10 +624,10 @@ final class AtlasAcosWatchdogHealthService
             if (($row['pipeline_status'] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
                 continue;
             }
-            $diagnosis = $resolver->resolvePipelineDiagnosis((AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''));
+            $diagnosis = $resolver->resolvePipelineDiagnosis((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERVICE_CLASS] ?? null) ?? ''));
             $partials[] = [
                 self::FIELD_ACRONYM => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''),
-                'service_class' => (AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''),
+                self::FIELD_SERVICE_CLASS => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERVICE_CLASS] ?? null) ?? ''),
                 'diagnosis' => $diagnosis,
             ];
         }
@@ -662,7 +668,7 @@ final class AtlasAcosWatchdogHealthService
         $governanceByExecutor = $this->countExecutors($windowCoverageRows);
         $forgePromoted = $this->forgePromotedCycles();
         $admlRoutes = $this->admlReadyRoutes($liveRows);
-        $bypassRate = AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 1.0;
+        $bypassRate = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 1.0;
         $flips = [
             'governance_enforce' => [
                 self::STATUS_READY => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
@@ -676,7 +682,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_RAW => [
                     self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
                     'by_executor' => $governanceByExecutor,
-                    'bypass_rate' => AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 0.0,
+                    self::FIELD_BYPASS_RATE => AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 0.0,
                     self::FIELD_FALSE_POSITIVE_TOTAL => (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0),
                     'fp_definition' => (AiValueNormalizer::trimmedStringOrNull($summary['fp_definition'] ?? null) ?? ''),
                 ],
@@ -781,7 +787,7 @@ final class AtlasAcosWatchdogHealthService
         return $this->checkRow($id, $age !== null && $age <= $maxAgeHours, [
             'last_at' => $at?->toIso8601String(),
             'age_hours' => $age,
-            'max_age_hours' => $maxAgeHours,
+            self::FIELD_MAX_AGE_HOURS => $maxAgeHours,
         ], $id.'_stale_or_missing');
     }
 
@@ -865,7 +871,7 @@ final class AtlasAcosWatchdogHealthService
         if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return array_map(static fn (string $blocker): array => [
                 'blocker' => $blocker,
-                'days_in_block' => 0,
+                self::FIELD_DAYS_IN_BLOCK => 0,
                 'first_seen_at' => null,
             ], $blockers);
         }
@@ -889,7 +895,7 @@ final class AtlasAcosWatchdogHealthService
             $series[] = [
                 'blocker' => $blocker,
                 'first_seen_at' => $first?->occurred_at?->toIso8601String(),
-                'days_in_block' => (int) floor($firstAt->diffInHours(CarbonImmutable::now('UTC')) / 24),
+                self::FIELD_DAYS_IN_BLOCK => (int) floor($firstAt->diffInHours(CarbonImmutable::now('UTC')) / 24),
             ];
         }
 

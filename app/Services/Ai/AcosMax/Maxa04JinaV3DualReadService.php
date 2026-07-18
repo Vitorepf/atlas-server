@@ -60,6 +60,12 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_CANDIDATE_PRECISION_AT_5_MEAN = 'candidate_precision_at_5_mean';
     public const FIELD_CANDIDATE_RECALL_AT_5 = 'candidate_recall_at_5';
     public const FIELD_CANDIDATE_RECALL_AT_5_MEAN = 'candidate_recall_at_5_mean';
+    public const FIELD_QUERY_ID = 'query_id';
+    public const FIELD_CURRENT_RECALL_AT_5 = 'current_recall_at_5';
+    public const FIELD_CURRENT_PRECISION_AT_5 = 'current_precision_at_5';
+    public const FIELD_CURRENT_RECALL_AT_5_MEAN = 'current_recall_at_5_mean';
+    public const FIELD_CURRENT_PRECISION_AT_5_MEAN = 'current_precision_at_5_mean';
+    public const FIELD_LIVE_FLIP_PERFORMED = 'live_flip_performed';
 
 
     /** @return array<string,mixed> */
@@ -175,16 +181,16 @@ final class Maxa04JinaV3DualReadService
     {
         $normalized = [];
         foreach ($cases as $case) {
-            $queryId = AiValueNormalizer::trimmedStringOrNull($case['query_id'] ?? $case['id'] ?? null) ?? '';
+            $queryId = AiValueNormalizer::trimmedStringOrNull($case[self::FIELD_QUERY_ID] ?? $case['id'] ?? null) ?? '';
             if ($queryId === '') {
                 continue;
             }
 
             $normalized[] = [
-                'query_id' => $queryId,
-                'current_recall_at_5' => $this->unitOrNull($case['current_recall_at_5'] ?? null),
+                self::FIELD_QUERY_ID => $queryId,
+                self::FIELD_CURRENT_RECALL_AT_5 => $this->unitOrNull($case[self::FIELD_CURRENT_RECALL_AT_5] ?? null),
                 self::FIELD_CANDIDATE_RECALL_AT_5 => $this->unitOrNull($case[self::FIELD_CANDIDATE_RECALL_AT_5] ?? null),
-                'current_precision_at_5' => $this->unitOrNull($case['current_precision_at_5'] ?? null),
+                self::FIELD_CURRENT_PRECISION_AT_5 => $this->unitOrNull($case[self::FIELD_CURRENT_PRECISION_AT_5] ?? null),
                 self::FIELD_CANDIDATE_PRECISION_AT_5 => $this->unitOrNull($case[self::FIELD_CANDIDATE_PRECISION_AT_5] ?? null),
                 self::FIELD_TARGETS_AVAILABLE => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($case[self::FIELD_TARGETS_AVAILABLE] ?? null) ?? 0)),
             ];
@@ -202,9 +208,9 @@ final class Maxa04JinaV3DualReadService
         return [
             self::FIELD_CASES => $count,
             self::FIELD_TARGETS_AVAILABLE => $targets,
-            'current_recall_at_5_mean' => $this->mean($cases, 'current_recall_at_5'),
+            self::FIELD_CURRENT_RECALL_AT_5_MEAN => $this->mean($cases, 'current_recall_at_5'),
             self::FIELD_CANDIDATE_RECALL_AT_5_MEAN => $this->mean($cases, 'candidate_recall_at_5'),
-            'current_precision_at_5_mean' => $this->mean($cases, 'current_precision_at_5'),
+            self::FIELD_CURRENT_PRECISION_AT_5_MEAN => $this->mean($cases, 'current_precision_at_5'),
             self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN => $this->mean($cases, 'candidate_precision_at_5'),
         ];
     }
@@ -217,9 +223,9 @@ final class Maxa04JinaV3DualReadService
         }
 
         $candidateRecall = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CANDIDATE_RECALL_AT_5_MEAN] ?? null);
-        $currentRecall = AiValueNormalizer::finiteFloatOrNull($summary['current_recall_at_5_mean'] ?? null);
+        $currentRecall = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CURRENT_RECALL_AT_5_MEAN] ?? null);
         $candidatePrecision = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN] ?? null);
-        $currentPrecision = AiValueNormalizer::finiteFloatOrNull($summary['current_precision_at_5_mean'] ?? null);
+        $currentPrecision = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CURRENT_PRECISION_AT_5_MEAN] ?? null);
 
         $recallOk = $candidateRecall !== null
             && $currentRecall !== null
@@ -240,7 +246,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_ALLOWED => false,
             self::FIELD_BASIS => self::STATUS_PENDING_WINDOW,
             self::FIELD_DEFAULT_PROMOTED => false,
-            'live_flip_performed' => false,
+            self::FIELD_LIVE_FLIP_PERFORMED => false,
             self::FIELD_REASON => 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.',
         ];
     }

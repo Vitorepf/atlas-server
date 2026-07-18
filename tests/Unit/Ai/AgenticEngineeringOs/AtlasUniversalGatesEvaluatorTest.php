@@ -5296,5 +5296,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['immune_window_evidence_floor_count']);
     }
 
+    public function test_health_canary_maxa04_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthCanaryMaxa04FloorsContractObserve([]);
+
+        $this->assertSame('service_class', $payload['health_field_service_class']);
+        $this->assertSame('bypass_rate', $payload['health_field_bypass_rate']);
+        $this->assertSame('days_in_block', $payload['health_field_days_in_block']);
+        $this->assertSame('windowed_concentration_ratio', $payload['health_field_windowed_concentration_ratio']);
+        $this->assertSame('snapshot_age_hours', $payload['health_field_snapshot_age_hours']);
+        $this->assertSame('max_age_hours', $payload['health_field_max_age_hours']);
+        $this->assertSame('flows_available', $payload['canary_field_flows_available']);
+        $this->assertSame('entries', $payload['canary_field_entries']);
+        $this->assertSame('non_canonical', $payload['canary_field_non_canonical']);
+        $this->assertSame('by_kind', $payload['canary_field_by_kind']);
+        $this->assertSame('memory_recall_golden_versions', $payload['canary_field_memory_recall_golden_versions']);
+        $this->assertSame('ref_stability_floor', $payload['canary_field_ref_stability_floor']);
+        $this->assertSame('query_id', $payload['maxa04_field_query_id']);
+        $this->assertSame('current_recall_at_5', $payload['maxa04_field_current_recall_at_5']);
+        $this->assertSame('current_precision_at_5', $payload['maxa04_field_current_precision_at_5']);
+        $this->assertSame('current_recall_at_5_mean', $payload['maxa04_field_current_recall_at_5_mean']);
+        $this->assertSame('current_precision_at_5_mean', $payload['maxa04_field_current_precision_at_5_mean']);
+        $this->assertSame('live_flip_performed', $payload['maxa04_field_live_flip_performed']);
+        $this->assertSame(18, $payload['health_canary_maxa04_floor_count']);
+    }
+
 
 }

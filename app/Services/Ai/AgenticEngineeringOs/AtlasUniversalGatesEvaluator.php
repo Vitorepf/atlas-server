@@ -7068,6 +7068,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for watchdog health / canary / maxa04 peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function healthCanaryMaxa04FloorsContractObserve(array $input = []): array
+    {
+        return [
+            'health_field_service_class' => AtlasAcosWatchdogHealthService::FIELD_SERVICE_CLASS,
+            'health_field_bypass_rate' => AtlasAcosWatchdogHealthService::FIELD_BYPASS_RATE,
+            'health_field_days_in_block' => AtlasAcosWatchdogHealthService::FIELD_DAYS_IN_BLOCK,
+            'health_field_windowed_concentration_ratio' => AtlasAcosWatchdogHealthService::FIELD_WINDOWED_CONCENTRATION_RATIO,
+            'health_field_snapshot_age_hours' => AtlasAcosWatchdogHealthService::FIELD_SNAPSHOT_AGE_HOURS,
+            'health_field_max_age_hours' => AtlasAcosWatchdogHealthService::FIELD_MAX_AGE_HOURS,
+            'canary_field_flows_available' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_AVAILABLE,
+            'canary_field_entries' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_ENTRIES,
+            'canary_field_non_canonical' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_NON_CANONICAL,
+            'canary_field_by_kind' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_BY_KIND,
+            'canary_field_memory_recall_golden_versions' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_MEMORY_RECALL_GOLDEN_VERSIONS,
+            'canary_field_ref_stability_floor' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REF_STABILITY_FLOOR,
+            'maxa04_field_query_id' => Maxa04JinaV3DualReadService::FIELD_QUERY_ID,
+            'maxa04_field_current_recall_at_5' => Maxa04JinaV3DualReadService::FIELD_CURRENT_RECALL_AT_5,
+            'maxa04_field_current_precision_at_5' => Maxa04JinaV3DualReadService::FIELD_CURRENT_PRECISION_AT_5,
+            'maxa04_field_current_recall_at_5_mean' => Maxa04JinaV3DualReadService::FIELD_CURRENT_RECALL_AT_5_MEAN,
+            'maxa04_field_current_precision_at_5_mean' => Maxa04JinaV3DualReadService::FIELD_CURRENT_PRECISION_AT_5_MEAN,
+            'maxa04_field_live_flip_performed' => Maxa04JinaV3DualReadService::FIELD_LIVE_FLIP_PERFORMED,
+            'health_canary_maxa04_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

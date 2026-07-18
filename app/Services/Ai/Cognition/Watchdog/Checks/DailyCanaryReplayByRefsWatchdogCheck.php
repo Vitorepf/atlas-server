@@ -82,6 +82,12 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FLOWS_AVAILABLE_IN_WINDOW = 'flows_available_in_window';
     public const FIELD_REFS_BY_KIND = 'refs_by_kind';
     public const FIELD_REF_STABILITY = 'ref_stability';
+    public const FIELD_FLOWS_AVAILABLE = 'flows_available';
+    public const FIELD_ENTRIES = 'entries';
+    public const FIELD_NON_CANONICAL = 'non_canonical';
+    public const FIELD_BY_KIND = 'by_kind';
+    public const FIELD_MEMORY_RECALL_GOLDEN_VERSIONS = 'memory_recall_golden_versions';
+    public const FIELD_REF_STABILITY_FLOOR = 'ref_stability_floor';
 
 
     public function __construct(
@@ -106,7 +112,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $now = $this->now();
         $window = $this->deliveredWindow($now);
 
-        $refCounts = $this->refCounts($window['entries']);
+        $refCounts = $this->refCounts($window[self::FIELD_ENTRIES]);
         $refStability = $refCounts[self::FIELD_REFS_TOTAL] > 0
             ? round($refCounts[self::FIELD_REFS_CANONICAL] / $refCounts[self::FIELD_REFS_TOTAL], 4)
             : null;
@@ -119,12 +125,12 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_WINDOW_HOURS => max(1, $this->windowHours),
             self::FIELD_TOP_N_FLOWS => max(1, $this->topNFlows),
             self::FIELD_FLOWS_CHECKED => $window[self::FIELD_FLOWS_CHECKED],
-            self::FIELD_FLOWS_AVAILABLE_IN_WINDOW => $window['flows_available'],
+            self::FIELD_FLOWS_AVAILABLE_IN_WINDOW => $window[self::FIELD_FLOWS_AVAILABLE],
             self::FIELD_REFS_TOTAL => $refCounts[self::FIELD_REFS_TOTAL],
             self::FIELD_REFS_CANONICAL => $refCounts[self::FIELD_REFS_CANONICAL],
-            self::FIELD_REFS_BY_KIND => $refCounts['by_kind'],
+            self::FIELD_REFS_BY_KIND => $refCounts[self::FIELD_BY_KIND],
             self::FIELD_REF_STABILITY => $refStability,
-            'ref_stability_floor' => self::REF_STABILITY_ALERT_FLOOR,
+            self::FIELD_REF_STABILITY_FLOOR => self::REF_STABILITY_ALERT_FLOOR,
             'golden_version' => $golden[self::FIELD_VERSION],
             'golden_recall_at_5' => $golden[self::FIELD_RECALL_AT_5],
             self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
@@ -171,8 +177,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         // is on ref stability + golden — the top-N sample is honest by contract.
         return [
             self::FIELD_FLOWS_CHECKED => count($entries),
-            'flows_available' => count($entries),
-            'entries' => $entries,
+            self::FIELD_FLOWS_AVAILABLE => count($entries),
+            self::FIELD_ENTRIES => $entries,
         ];
     }
 
@@ -184,7 +190,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     {
         $total = 0;
         $canonical = 0;
-        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, 'graph' => 0, 'non_canonical' => 0];
+        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, 'graph' => 0, self::FIELD_NON_CANONICAL => 0];
 
         foreach ($entries as $entry) {
             foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
@@ -194,7 +200,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 }
                 $total++;
                 if (! AtlasCanonicalContextRef::isCanonical($ref)) {
-                    $byKind['non_canonical']++;
+                    $byKind[self::FIELD_NON_CANONICAL]++;
 
                     continue;
                 }
@@ -209,7 +215,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_REFS_TOTAL => $total,
             self::FIELD_REFS_CANONICAL => $canonical,
-            'by_kind' => $byKind,
+            self::FIELD_BY_KIND => $byKind,
         ];
     }
 
@@ -238,8 +244,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             ];
         }
 
-        $versions = is_array($report['memory_recall_golden_versions'] ?? null)
-            ? $report['memory_recall_golden_versions']
+        $versions = is_array($report[self::FIELD_MEMORY_RECALL_GOLDEN_VERSIONS] ?? null)
+            ? $report[self::FIELD_MEMORY_RECALL_GOLDEN_VERSIONS]
             : $report;
 
         // Prefer the highest version available (v2 > v1); fall back to v1 for legacy.
