@@ -94,6 +94,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ATLAS_DEV = 'atlas_dev';
     public const FIELD_ATLAS_FORGE = 'atlas_forge';
     public const FIELD_AUTONOMOUS = 'autonomous';
+    public const FIELD_ATLAS_AUTONOMOS = 'atlas_autonomos';
 
 
     /** @return array<string,mixed> */
@@ -343,7 +344,7 @@ final class AcosMaxVerifiedShareService
         return match (true) {
             in_array($value, ['dev', self::FIELD_ATLAS_DEV, 'atlas-dev'], true) => self::FIELD_DEV,
             in_array($value, ['forge', self::FIELD_ATLAS_FORGE, 'atlas-forge'], true) => self::FIELD_FORGE,
-            in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, 'atlas_autonomos', 'atlas-autonomos'], true) => self::FIELD_AUTONOMOS,
+            in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, 'atlas-autonomos'], true) => self::FIELD_AUTONOMOS,
             default => null,
         };
     }

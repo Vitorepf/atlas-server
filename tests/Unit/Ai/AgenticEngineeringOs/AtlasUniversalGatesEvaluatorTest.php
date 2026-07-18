@@ -142,6 +142,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdo
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -9366,6 +9367,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TECHNICAL_CONTEXT, $out['technical_context']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITHOUT, $out['without']);
         $this->assertSame(18, $out['cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floor_count']);
+    }
+
+    public function test_cognitive_function_memory_recall_verified_share_knowledge_item_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionMemoryRecallVerifiedShareKnowledgeItemFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CHEQUE, $out['cheque']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REACT, $out['react']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_TELA, $out['tela']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_WHY, $out['why']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_WRITE, $out['write']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_AUTONOMOS, $out['atlas_autonomos']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED, $out['provenance_columns_not_migrated']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_DOCUMENTED, $out['breaking_change_documented']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STEP_EXECUTED, $out['step_executed']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_COVERAGE_MIN_THRESHOLD, $out['coverage_min_threshold']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE_REQUIRED, $out['operator_signature_required']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVALUATED_AT, $out['evaluated_at']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_USED, $out['used']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_WATCH_STARTED_AT, $out['watch_started_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_WINDOWED_CONCENTRATION_GUARDED, $out['windowed_concentration_guarded']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(18, $out['cognitive_function_memory_recall_verified_share_knowledge_item_floor_count']);
     }
 
 }

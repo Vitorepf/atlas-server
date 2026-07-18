@@ -176,6 +176,11 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_VERIFY = 'verify';
     public const FIELD_VISUAL = 'visual';
     public const FIELD_VISUALIZE = 'visualize';
+    public const FIELD_CHEQUE = 'cheque';
+    public const FIELD_REACT = 'react';
+    public const FIELD_TELA = 'tela';
+    public const FIELD_WHY = 'why';
+    public const FIELD_WRITE = 'write';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -196,7 +201,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
             self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
-            self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, 'why', 'reason',
+            self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, 'reason',
         ],
         self::FIELD_RETRIEVAL => [
             'busque', self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
@@ -206,11 +211,11 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_GENERATION => [
             'escreva', self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
             self::FIELD_SINTETIZE, self::FIELD_RESUMA, self::FIELD_TRANSFORME, self::FIELD_REESCREVA, self::FIELD_CONTINUE,
-            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', self::FIELD_SUMMARIZE,
+            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, 'draft', self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
-            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, 'react',
+            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, self::FIELD_REACT,
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
@@ -218,11 +223,11 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, self::FIELD_VISUALIZE, self::FIELD_DESIGN, self::FIELD_LAYOUT,
-            self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, self::FIELD_SVG, 'tela', 'ui ', 'ux ',
+            self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, self::FIELD_SVG, self::FIELD_TELA, 'ui ', 'ux ',
             'cor ', self::FIELD_PALETA, self::FIELD_VISUAL, self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],
         self::FIELD_AUDIT => [
-            'audite', self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, 'cheque',
+            'audite', self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, self::FIELD_CHEQUE,
             self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, self::FIELD_INVARIANT, self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
             self::FIELD_INTEGRITY, self::FIELD_TAMPER, self::FIELD_SHA256, 'hash ', self::FIELD_VERIFY,

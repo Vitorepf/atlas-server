@@ -44,6 +44,7 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_ROLLBACK_PLAN = 'rollback_plan';
     public const FIELD_BREAKING_CHANGE_MATRIX = 'breaking_change_matrix';
     public const FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE = 'spec_acceptance_criteria_complete';
+    public const FIELD_BREAKING_CHANGE_DOCUMENTED = 'breaking_change_documented';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -65,7 +66,7 @@ final class ArchitectAgentSpecPackGateContract
         'adr_published',
         self::FIELD_BOUNDARY_VALIDATED,
         self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE,
-        'breaking_change_documented',
+        self::FIELD_BREAKING_CHANGE_DOCUMENTED,
         self::FIELD_ROLLBACK_PER_SLICE,
     ];
 

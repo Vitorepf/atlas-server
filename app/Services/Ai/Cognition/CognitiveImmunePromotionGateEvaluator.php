@@ -99,6 +99,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_RECALLS_BY_ACTOR = 'recalls_by_actor';
     public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
     public const FIELD_RETENTION_OK = 'retention_ok';
+    public const FIELD_WATCH_STARTED_AT = 'watch_started_at';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -485,7 +486,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         $startedAt = $this->timestampValue($signals, self::FIELD_PROBATION_ENTERED_AT)
-            ?? $this->timestampValue($signals, 'watch_started_at')
+            ?? $this->timestampValue($signals, self::FIELD_WATCH_STARTED_AT)
             ?? $this->timestampValue($signals, self::FIELD_PROBATION_STARTED_AT);
         $evaluatedAt = $this->timestampValue($signals, self::FIELD_PROBATION_EVALUATED_AT)
             ?? $this->timestampValue($signals, self::FIELD_EVALUATED_AT);

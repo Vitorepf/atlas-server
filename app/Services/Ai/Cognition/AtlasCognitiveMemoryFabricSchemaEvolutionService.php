@@ -94,6 +94,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_BASE_PATH = 'base_path';
     public const FIELD_APP = 'app';
     public const FIELD_NOW = 'now';
+    public const FIELD_STORAGE_PATH = 'storage_path';
 
     private ?string $proposalsLogOverride = null;
 
@@ -112,7 +113,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if ($this->proposalsLogOverride !== null) {
             return $this->proposalsLogOverride;
         }
-        $base = function_exists('storage_path')
+        $base = function_exists(self::FIELD_STORAGE_PATH)
             ? storage_path('atlas/acmf')
             : sys_get_temp_dir().'/atlas/acmf';
 

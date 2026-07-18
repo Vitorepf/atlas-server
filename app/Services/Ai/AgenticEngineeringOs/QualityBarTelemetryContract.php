@@ -43,6 +43,7 @@ final class QualityBarTelemetryContract
     public const FIELD_INPUTS = 'inputs';
     public const FIELD_TELEMETRY_FIELDS = 'telemetry_fields';
     public const FIELD_BREACH_METRICS = 'breach_metrics';
+    public const FIELD_EVALUATED_AT = 'evaluated_at';
 
     /**
      * Gate evidence required — not boolean-only pass/fail.
@@ -52,7 +53,7 @@ final class QualityBarTelemetryContract
     public const EVIDENCE_REQUIRED = [
         'quality_bar_report_hash',
         self::FIELD_BREACH_METRICS,
-        'evaluated_at',
+        self::FIELD_EVALUATED_AT,
     ];
 
     /**

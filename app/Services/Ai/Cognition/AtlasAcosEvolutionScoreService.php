@@ -138,6 +138,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_MISSION = 'mission';
     public const FIELD_PROMOTE = 'promote';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_USED = 'used';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -446,7 +447,7 @@ class AtlasAcosEvolutionScoreService
                         $normalized = AiValueNormalizer::trimmedScalarStringOrNull($status) !== null
                             ? AiValueNormalizer::lowerTrimmedString($status)
                             : '';
-                        if (in_array($normalized, ['included', 'used', 'useful'], true)) {
+                        if (in_array($normalized, ['included', self::FIELD_USED, 'useful'], true)) {
                             return true;
                         }
                     }

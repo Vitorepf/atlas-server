@@ -308,6 +308,7 @@ final class DepartmentContractRuntime
     public const FIELD_REVIEW_GATE = 'review_gate';
     public const FIELD_TESTS_GREEN = 'tests_green';
     public const FIELD_VERIFICATION_COMPLETE = 'verification_complete';
+    public const FIELD_COVERAGE_MIN_THRESHOLD = 'coverage_min_threshold';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -517,7 +518,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_TEST_PACK, self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
-            self::FIELD_GATES => ['regression_green', self::FIELD_VERIFICATION_COMPLETE, 'coverage_min_threshold', self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
+            self::FIELD_GATES => ['regression_green', self::FIELD_VERIFICATION_COMPLETE, self::FIELD_COVERAGE_MIN_THRESHOLD, self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['write_tests', self::FIELD_REQUEST_TEST_DATA, 'block_on_coverage_drop'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],

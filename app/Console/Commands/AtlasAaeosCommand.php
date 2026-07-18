@@ -487,6 +487,7 @@ final class AtlasAaeosCommand extends Command
                             {--cognitive-function-department-contract-phase-advance-immune-check-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/phase/advance floors}
                             {--cognitive-function-autonomy-ladder-compaction-recovery-daily-canary-floors-contract= : JSON file (any object) to observe cognitive/function/autonomy/ladder/compaction/recovery floors}
                             {--cognitive-function-substrate-restore-outcome-envelope-aaeos-department-floors-contract= : JSON file (any object) to observe cognitive/function/substrate/restore/outcome/envelope floors}
+                            {--cognitive-function-memory-recall-verified-share-knowledge-item-floors-contract= : JSON file (any object) to observe cognitive/function/memory/recall/verified/share floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1130,6 +1131,7 @@ final class AtlasAaeosCommand extends Command
             ['cognitive-function-department-contract-phase-advance-immune-check-floors-contract', 'cognitive_function_department_contract_phase_advance_immune_check_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractPhaseAdvanceImmuneCheckFloorsContractObserve($p)],
             ['cognitive-function-autonomy-ladder-compaction-recovery-daily-canary-floors-contract', 'cognitive_function_autonomy_ladder_compaction_recovery_daily_canary_floors_contract', fn (array $p) => $gates->cognitiveFunctionAutonomyLadderCompactionRecoveryDailyCanaryFloorsContractObserve($p)],
             ['cognitive-function-substrate-restore-outcome-envelope-aaeos-department-floors-contract', 'cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floors_contract', fn (array $p) => $gates->cognitiveFunctionSubstrateRestoreOutcomeEnvelopeAaeosDepartmentFloorsContractObserve($p)],
+            ['cognitive-function-memory-recall-verified-share-knowledge-item-floors-contract', 'cognitive_function_memory_recall_verified_share_knowledge_item_floors_contract', fn (array $p) => $gates->cognitiveFunctionMemoryRecallVerifiedShareKnowledgeItemFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

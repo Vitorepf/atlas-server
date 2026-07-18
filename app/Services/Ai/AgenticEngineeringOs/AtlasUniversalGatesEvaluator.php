@@ -145,6 +145,7 @@ use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -11937,6 +11938,37 @@ final class AtlasUniversalGatesEvaluator
             'technical_context' => AtlasMemoryRecallRelevanceScorer::FIELD_TECHNICAL_CONTEXT,
             'without' => AcosMaxLote2MeasureService::FIELD_WITHOUT,
             'cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B465).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionMemoryRecallVerifiedShareKnowledgeItemFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'cheque' => AtlasCognitiveFunctionDecomposerService::FIELD_CHEQUE,
+            'react' => AtlasCognitiveFunctionDecomposerService::FIELD_REACT,
+            'tela' => AtlasCognitiveFunctionDecomposerService::FIELD_TELA,
+            'why' => AtlasCognitiveFunctionDecomposerService::FIELD_WHY,
+            'write' => AtlasCognitiveFunctionDecomposerService::FIELD_WRITE,
+            'command' => AtlasMemoryRecallRelevanceScorer::FIELD_COMMAND,
+            'atlas_autonomos' => AcosMaxVerifiedShareService::FIELD_ATLAS_AUTONOMOS,
+            'provenance_columns_not_migrated' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED,
+            'breaking_change_documented' => ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_DOCUMENTED,
+            'step_executed' => AutonomousWorkExecutionOs::FIELD_STEP_EXECUTED,
+            'coverage_min_threshold' => DepartmentContractRuntime::FIELD_COVERAGE_MIN_THRESHOLD,
+            'operator_signature_required' => PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE_REQUIRED,
+            'evaluated_at' => QualityBarTelemetryContract::FIELD_EVALUATED_AT,
+            'used' => AtlasAcosEvolutionScoreService::FIELD_USED,
+            'storage_path' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_STORAGE_PATH,
+            'watch_started_at' => CognitiveImmunePromotionGateEvaluator::FIELD_WATCH_STARTED_AT,
+            'windowed_concentration_guarded' => AtlasAcosWatchdogHealthService::FIELD_WINDOWED_CONCENTRATION_GUARDED,
+            'medium' => AtlasAaeosValueNormalizer::FIELD_MEDIUM,
+            'cognitive_function_memory_recall_verified_share_knowledge_item_floor_count' => 18,
         ];
     }
 

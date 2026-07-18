@@ -94,6 +94,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_COLUMNS_MISSING = 'columns_missing';
     public const FIELD_CONTENT_HASH = 'content_hash';
     public const FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS = 'no_active_knowledge_items';
+    public const FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED = 'provenance_columns_not_migrated';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -136,7 +137,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             && DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedded_content_hash');
 
         if (! $columnsReady) {
-            return $this->emptyReport(self::FIELD_COLUMNS_MISSING, 'provenance_columns_not_migrated', $freeze);
+            return $this->emptyReport(self::FIELD_COLUMNS_MISSING, self::FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED, $freeze);
         }
 
         $baseQuery = AtlasEngineeringKnowledgeItem::query()

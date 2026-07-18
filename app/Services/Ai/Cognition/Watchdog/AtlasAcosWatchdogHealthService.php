@@ -330,6 +330,7 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_SNAPSHOT_FRESH = 'snapshot_fresh';
     public const FIELD_SURFACE_ID = 'surface_id';
     public const FIELD_UTILITY_REAL_SHARE = 'utility_real_share';
+    public const FIELD_WINDOWED_CONCENTRATION_GUARDED = 'windowed_concentration_guarded';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -362,7 +363,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_FRESHNESS_COMPONENT => $freshness,
                 self::FIELD_REQUIRED => 100,
             ], self::FIELD_MEMORY_FRESHNESS_BELOW_FULL),
-            $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
+            $this->checkRow(self::FIELD_WINDOWED_CONCENTRATION_GUARDED, $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,
                 self::FIELD_DEMOTION_ENABLED => $demotionEnabled,

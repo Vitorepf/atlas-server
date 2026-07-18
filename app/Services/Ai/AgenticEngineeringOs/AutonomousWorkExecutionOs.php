@@ -31,7 +31,7 @@ final class AutonomousWorkExecutionOs
         'goal_recorded',
         self::FIELD_CYCLE_PLANNED,
         self::FIELD_STEPS_DECOMPOSED,
-        'step_executed',
+        self::FIELD_STEP_EXECUTED,
         self::FIELD_CERTIFICATION_EVALUATED,
         self::FIELD_LEARNING_EXTRACTED,
     ];
@@ -69,6 +69,7 @@ final class AutonomousWorkExecutionOs
     public const FIELD_CERTIFICATION_EVALUATED = 'certification_evaluated';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STEPS_DECOMPOSED = 'steps_decomposed';
+    public const FIELD_STEP_EXECUTED = 'step_executed';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
