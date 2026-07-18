@@ -245,7 +245,18 @@ $process = new Process($cliDevArgv, base_path(), $env);
 $process->setTimeout((float) $timeout);
 $process->run();
 $finishedAt = now();
-$outputPayload = json_decode(trim($process->getOutput()), true);
+// Decode tolerante: o artisan pode emitir warnings/log em volta do objeto, e
+// json_decode estrito virava "Atlas não rodou" com o Atlas TENDO rodado e
+// respondido (3/4 unidades do run 20260718_180605 — o JSON estava lá inteiro).
+$rawOutput = trim($process->getOutput());
+$outputPayload = json_decode($rawOutput, true);
+if (! is_array($outputPayload)) {
+    $first = strpos($rawOutput, '{');
+    $last = strrpos($rawOutput, '}');
+    if ($first !== false && $last !== false && $last > $first) {
+        $outputPayload = json_decode(substr($rawOutput, $first, $last - $first + 1), true);
+    }
+}
 $providerCall = is_array($outputPayload)
     ? (array) data_get($outputPayload, 'run.provider_call', [])
     : [];
