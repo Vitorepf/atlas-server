@@ -488,11 +488,11 @@ class SpecComposer
             // read_only_answer com referência de OUTRO workspace — visto ao
             // vivo em tb_fix_git, run 20260718_181509) e matava a unidade.
             // Vale para TODO risco, não só R4/R5: em R2 o misfire passava reto.
-            return match ($classification->taskKind) {
-                TaskClassification::KIND_REPAIR => self::MODE_REPAIR,
-                TaskClassification::KIND_FRONTEND => self::MODE_FRONTEND_VISUAL,
-                default => self::MODE_PATCH,
-            };
+            // E TODO kind vira PATCH: o contrato medido do benchmark é UM —
+            // "gere o patch" — e MODE_REPAIR com escopo vazio bloqueava o
+            // plano (dev_plan_blocked, visto ao vivo); o caminho PATCH é o
+            // único blindado ponta a ponta (adoção de escopo no kernel).
+            return self::MODE_PATCH;
         }
 
         if ($riskLevel === RiskLevelScorer::R4 || $riskLevel === RiskLevelScorer::R5) {
@@ -1406,7 +1406,7 @@ class SpecComposer
      * Runtime isolado do Rivals — MESMO predicado do RoutingDecisionEngine:167.
      *
      * As duas cópias discordavam, e a discordância matava a medição em silêncio:
-     * o roteamento aceitava ['atlas_forge_rivals', 'atlas_cli_dev'] e liberava o
+     * o roteamento aceitava ['atlas_forge_rivals', 'atlas_cli_dev', 'atlas_dev_execution'] e liberava o
      * R4 para o fast path; esta aceitava só o Forge. O bridge chama
      * `atlas:cli:dev` (superfície atlas_cli_dev), então passava na rota e
      * emperrava aqui — e o efeito era invisível: MAX_FILES_BY_RISK[R4] = 0, ou
@@ -1425,7 +1425,7 @@ class SpecComposer
      */
     private function allowsRivalsIsolatedRuntimeExecution(OperationEnvelope $envelope): bool
     {
-        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev'], true)) {
+        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev', 'atlas_dev_execution'], true)) {
             return false;
         }
         if (! $envelope->preflight->operatorExplicit) {

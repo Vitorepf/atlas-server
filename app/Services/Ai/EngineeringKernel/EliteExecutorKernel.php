@@ -399,13 +399,27 @@ final class EliteExecutorKernel
             }
         }
         try {
-            $provider = ($this->providerPort ?? app(AgentExecutionProviderPortAdapter::class))->invoke([
+            $port = $this->providerPort ?? app(AgentExecutionProviderPortAdapter::class);
+            $basePrompt = $this->mutativePrompt($order);
+            $request = [
                 'execute_provider' => true,
                 'provider' => (string) ($order->providerRoute['provider'] ?? ''),
                 'model' => (string) ($order->providerRoute['model'] ?? ''),
-                'prompt' => $this->mutativePrompt($order),
+                'prompt' => $basePrompt,
                 'claim' => ['allowed_files' => $order->allowedScope],
-            ]);
+            ];
+            $provider = $port->invoke($request);
+            // Repair declarado (1 tentativa) que o port nunca exercia: resposta
+            // fora do contrato ganha UMA re-chamada com o erro nomeado. Sob
+            // rivals é medição da política declarada do Atlas, não inflação.
+            $invalid = in_array((string) ($provider['status'] ?? ''), ['invalid_provider_contract', 'invalid_provider_scope', 'invalid_provider_patch'], true);
+            if ($invalid
+                && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+                $request['prompt'] = $basePrompt
+                    ."\n\n# Retry\nYour previous reply was rejected: ".(string) $provider['status']
+                    .'. Reply with ONLY the JSON object, exactly as specified — no prose, no fences.';
+                $provider = $port->invoke($request);
+            }
         } catch (\Throwable $e) {
             return VerifiedMutativeCandidate::blocked($order, ['provider_exception:'.$e::class]);
         }

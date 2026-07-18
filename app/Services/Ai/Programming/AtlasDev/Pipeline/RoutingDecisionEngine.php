@@ -179,7 +179,7 @@ class RoutingDecisionEngine
     {
         // Bridge invokes atlas:cli:dev (surface atlas_cli_dev). Forge rivals
         // path uses atlas_forge_rivals. Both are valid when the operator opts in.
-        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev'], true)) {
+        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev', 'atlas_dev_execution'], true)) {
             return false;
         }
         if (! $envelope->preflight->operatorExplicit) {
