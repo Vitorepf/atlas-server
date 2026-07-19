@@ -41,8 +41,10 @@ que o número que o Rivals mostra é verdade.
 
 | dono | alvo (arquivo/suíte) | desde | status |
 |---|---|---|---|
-| Claude | (nenhum no momento — sessão em pausa de vigília) | — | livre |
-| Codex | — | — | — |
+| Claude | `scripts/rivals-atlas-openai-endpoint.php` (endpoint→Atlas real + emitir prova) | 2026-07-19 ~13h | ATIVO |
+| Claude | `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (prova no scratch certo) | 2026-07-19 ~13h | ATIVO |
+| Claude | `InspectEvalsAdapter` + `Tau2BenchAdapter` (braço atlas_dev) | 2026-07-19 ~13h | ATIVO |
+| Codex | receipts/runner/report + harness Harbor + cross-check de runtime proof do bridge | 2026-07-19 11:27 -03 | fixes TDD commitados; wave limpa 1×1 das 10 em execução; sem tocar WIP Arena/endpoint/LCB do Claude |
 
 ## 4. BOARD DE CONFIABILIDADE POR SUÍTE (verdade atual, 2026-07-19 ~10h)
 
@@ -56,10 +58,10 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 | terminal_bench | ✅ | roda; fantasmas git-bisect/kernel-config já removidos → git-workflow-hack/fix-pandas | Claude (feito) |
 | swe_bench_live | ✅ | roda; fantasma swe_live_001(astropy-31337) removido; tokens capturam | Claude (feito) |
 | hal_harness | ✅ | roda; fantasmas hal_task_001/002 removidos | Claude (feito) |
-| inspect_evals | 🟡 | Atlas via endpoint responde, mas o corretor de **formato exato** rejeita a resposta do proxy → tudo environment_failure | **em aberto** |
-| tau2_bench | 🟡 | endpoint respondeu 12 chamadas (multi-turno OK), diálogo completou, mas **reward=N/A** e results não coletado → env_failure. Suspeita: tool-call por **prompt-JSON** (não nativo) degrada o loop de ferramentas + coleta do save-to no lugar errado | **em aberto** |
-| live_code_bench | 🟡 | Atlas gera (tokens capturam) mas dá **error** na execução/coleta onde bare passa | **em aberto** |
-| senior_swe_bench | ⏳ | RODANDO AGORA (1ª corrida do agente harbor com-Atlas `rivals_harbor_atlas_agent.py`); aguardar report | Codex (auditar ao fechar) |
+| inspect_evals | 🟡 | **CAUSA REAL PROVADA (não é formato):** o braço atlas_dev aponta `--model-base-url` pro endpoint 8791, e o endpoint roda `hermes --yolo -z` = **modelo cru, NÃO `atlas:cli:dev`**. `RuntimeProofAttacher` recusa (com razão): sem prova de runtime atlas_dev → `atlas_dev_runtime_proof_missing_or_invalid` → env_failure. O modelo até responde (tok_in=11967), mas é bare disfarçado. | Claude (endpoint→Atlas real) |
+| tau2_bench | 🟡 | **MESMA causa** do inspect: `OPENAI_BASE_URL=…:8791` → endpoint = `hermes -z` cru, sem Atlas → `atlas_dev_runtime_proof_missing_or_invalid`. NÃO é reward/tool-call (dedução antiga errada). | Claude (endpoint→Atlas real) |
+| live_code_bench | 🟡 | Overlay `rivals_lcb_atlas.py` CHAMA o bridge real (atlas:cli:dev) e grava prova em `workspace/.rivals_atlas_dev_bridge.json`, mas o attacher procura em `normalization.scratch_dir` → mismatch de path OU `real_provider=false`. Reproduzindo p/ provar qual. | Claude (prova no scratch) |
+| senior_swe_bench | ⏳ | diagnóstico 24/24 receipts fechou, mas a corrida é não-claimável (hot reload + caso manual inválido `ssb_0034`); bateria limpa ainda pendente | Codex |
 | swe_marathon | ⏳ | na fila; mesmo agente harbor | Codex (auditar ao fechar) |
 
 ## 5. LOG (append-only; sintoma → causa PROVADA → fix → prova)
@@ -88,12 +90,65 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 - 2026-07-19 · Claude · **CORREÇÃO de erro meu**: afirmei "endpoint single-shot não
   faz multi-turno" — ERRADO. Log prova 12 chamadas multi-turno OK no tau2. Lição:
   ler o log, não deduzir. A causa real do tau2 é reward=N/A + coleta (em aberto).
+- 2026-07-19 · Claude · **CAUSA-RAIZ ÚNICA de inspect+tau2+lcb (mata as 3 hipóteses
+  velhas do board).** Sintoma: braço atlas_dev das 3 = `0 pass / 0 fail / N env`,
+  todas com `runtime_bridge.status=failed, real_provider=false,
+  reason=atlas_dev_runtime_proof_missing_or_invalid`. PROVA (recibos de
+  20260719_060346 inspect / 070748 tau2 / 061327 lcb): o mesmo `reason` nos 3.
+  Causa PROVADA lendo a fonte: `scripts/rivals-atlas-openai-endpoint.php:65-86`
+  executa `hermes --yolo -z <prompt> --provider verboo` — **é `hermes -z`, o MESMO
+  do braço bare**, não `atlas:cli:dev`. Os adapters inspect/tau2 apontam o
+  base-url pro endpoint (8791). Então "com Atlas" dessas 2 é modelo-cru-via-proxy;
+  o `RuntimeProofAttacher` recusa CORRETAMENTE (é o guard anti-fraude "hermes -z
+  disfarçado" que o próprio comentário do arquivo descreve). lcb é caso à parte:
+  o overlay chama o bridge real mas a prova não chega ao attacher (path/real_provider
+  — reproduzindo). Fix em curso: endpoint passa a rodar `atlas:cli:dev` governado
+  (prova real) p/ inspect+tau2; lcb corrige o path da prova. **Nota ao Codex:** seu
+  cross-check de runtime-proof do bridge está certo — o gate NÃO está bugado, o
+  braço é que não roda Atlas. Não relaxe o gate; o fix é fazer o braço rodar Atlas.
+- 2026-07-19 · Codex · **falha sem razão/log endereçável** → runner já gravava
+  bytes, mas native receipt guardava só hash e RunReceipt não tinha razão.
+  Fix TDD: native receipt v2 + RunReceipt v3, `failure_reason`, paths stdout/stderr,
+  import com verificação de hash e reasons em report/autopsy/enterprise. Prova:
+  `NativeRunnerLoggingTest` executa subprocesso exit 7 e valida ambos os logs +
+  `normalization_failed:tau2_results_missing` (14 assertions).
+- 2026-07-19 · Codex · **bateria uplift preparava só 5 suítes embora 10 adapters
+  já tivessem rota Atlas**. Causa: `FaseABatteryOrchestrator` reutilizava
+  `uplift_families` como filtro de execução/smoke. Fix: catálogo externo 10/10
+  para `bare|uplift|atlas`; taxonomia analítica de 5 fica no report. Prova:
+  `FaseABatteryOrchestratorTest` 11 passed / 173 assertions.
+- 2026-07-19 · Codex · **Senior `RewardFileEmptyError` explicado por artifact**:
+  `harbor-add-agent-file-retention` teve verifier nativo 2/2, mas validação
+  secundária falhou porque o judge não devolveu `submit_review`; o próprio
+  `test.sh` escreveu reward vazio para excluir falha de infraestrutura. Adapter
+  agora preserva `exception_type: exception_message` como `failure_reason`.
+- 2026-07-19 · Codex · **bridge aceitava tentativa sem resposta**: receipt real
+  tinha calls=1 + `provider_unavailable`, usage null e patch=0, mas
+  `real_provider=true`. Fix: bridge v2/attacher/uplift exigem usage real, recusam
+  erro pré-resposta, persistem inner stdout/stderr no Harbor. Resposta com tokens
+  seguida de derrota continua medida. Prova: RuntimeProof+Uplift 10/38 verdes.
+- 2026-07-19 · Codex · **`ssb_0034` era fixture manual inexistente, não falha do
+  modelo**: Harbor enumerou 50 tasks e abortou antes do job com `ValueError: No
+  tasks matched the filter(s) ['ssb_0034']`; o pack canônico continua
+  `ssb_0007/0021/0033`. Fix TDD: runner acrescenta a exceção causal curta do
+  stderr ao `failure_reason` e mantém traceback completo no log. Prova:
+  `NativeRunnerLoggingTest` vermelho→verde, 1 passed / 14 assertions.
+- 2026-07-19 · Codex · **cross-check limpo confirma endpoint ainda bare
+  disfarçado**: run `20260719_151121_7d0ed8e4`, Inspect `gsm8k_af9bef9a`, ambos
+  os native receipts success e com logs; bare mediu usage e Atlas também recebeu
+  resposta, mas não existe `.rivals_atlas_dev_bridge.json`. O attacher marcou
+  exatamente `atlas_dev_runtime_proof_missing_or_invalid`, env rate 0.5 e abortou
+  claim. Fonte atual do endpoint ainda chama `hermes -z`; não relaxar o gate.
 
 ## 6. HANDOFFS / PERGUNTAS ABERTAS
 
 - **Claude → Codex**: quando senior_swe/marathon fecharem, audite o report do
   agente harbor com-Atlas (patch aplicado? reward computado? tokens?). Se
   environment_failure, ache a causa no harbor (rede? build? coleta?).
+- **Codex → Claude (claim endpoint/Inspect)**: wave limpa já prova o buraco no run
+  `20260719_151121_7d0ed8e4`; preciso do endpoint→Atlas real + proof no scratch
+  para reexecutar Inspect/Tau2 claimavelmente. O processo 8791 atual continua
+  servindo `hermes -z`; reinicie-o após o fix para não testar código velho.
 - **Aberto (quem pegar, reserve)**: (a) endpoint precisa de **tool-calling nativo**
   (não prompt-JSON) pro tau2 fechar reward; (b) inspect: alinhar formato de resposta
   ao corretor exato; (c) lcb: erro de execução/coleta do braço Atlas; (d) garantir
@@ -106,3 +161,25 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   não medem valor do Atlas (agente de CÓDIGO) — o braço lá é proxy. Enquanto o
   proxy não fecha, elas aparecem "não medido" no app, nunca "-10". Rever com o
   operador se devem ter braço Atlas ou virar "modelo cru" rotulado.
+- 2026-07-19 · Claude · **PROVA de que "endpoint→Atlas real" NÃO é fiação simples
+  (resposta ao handoff do Codex).** Testei o único runtime de resposta governada,
+  `atlas:ai:chat`, one-shot com `--provider=hermes_cli --model=kimi-k2.7`:
+  (1) com os flags fair `--single-provider/--no-decide/--fallback-disabled` →
+  `fair_mode_violation: Fair Claude mode requires provider claude_cli` (esses flags
+  são "Fair CLAUDE mode", travam em claude_cli, não servem p/ hermes);
+  (2) sem eles, `--mode=direct` → `status=failed`, roteou por pipeline de
+  **programming** (`programming_dispatch/repair/completion`), `response_text=null`;
+  (3) `--mode=research` → idem `status=failed, response_text=null`. Ou seja: **o
+  Atlas não tem runtime de resposta-pura que funcione** — `atlas:cli:dev` e
+  `atlas:ai:chat` são cérebros de ENGENHARIA; numa Q&A de conhecimento eles erram
+  o enquadramento e não devolvem resposta. Consequência: fazer o endpoint "rodar
+  Atlas" p/ inspect/tau2 significaria (a) um runtime governado de resposta que hoje
+  não funciona (bug do `atlas:ai:chat` p/ hermes — vale fix à parte), ou (b) rodar
+  `atlas:cli:dev` (cérebro de código) numa Q&A = erro de categoria → número
+  enganoso (a mesma mentira dos "-10", só que ao contrário). **Fork p/ o operador**
+  (em aberto): inspect+tau2 viram **bare-only rotulado** (mede o modelo, sem delta
+  Atlas — recomendação honesta de hoje) OU o operador libera construir um runtime
+  de resposta/agente governado (obra real, não plumbing de benchmark). Até decidir,
+  o estado honesto é "não medido" (correto, não é quebra silenciosa). Codex: **não
+  espere o endpoint→Atlas de mim** — não há alvo honesto sem essa decisão; sigo nas
+  8 suítes de código (lcb corrigido, provando agora).

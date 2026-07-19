@@ -83,6 +83,18 @@ class BridgeCompletions:
         if process.returncode != 0 or proof.get("real_provider") is not True:
             tail = (process.stderr or process.stdout or "")[-400:]
             raise RuntimeError(f"atlas_dev_bridge_failed:{tail}")
+        # A prova REAL nasceu no tempdir que já foi apagado ao sair do `with`.
+        # O RuntimeProofAttacher procura .rivals_atlas_dev_bridge.json no
+        # scratch_dir da unidade — o pai do usage-file é esse scratch. Sem isto,
+        # o Atlas roda de verdade (real_provider=true) mas a prova some, o
+        # attacher não acha e reprova o braço como env_failure
+        # "atlas_dev_runtime_proof_missing_or_invalid". Persiste a prova lá.
+        if base.usage_file:
+            durable = Path(base.usage_file).parent / ".rivals_atlas_dev_bridge.json"
+            try:
+                durable.write_text(json.dumps(proof))
+            except OSError:
+                pass
         usage = proof.get("usage") or {}
 
         return SimpleNamespace(
