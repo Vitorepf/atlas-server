@@ -120,6 +120,7 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                         '{atlas_cli_model}' => (string) $binding['cli_model'],
                         '{native_agent}' => (string) $binding['native_agent'],
                         '{runtime}' => (string) $binding['runtime'],
+                        '{suite_id}' => $this->suiteId(),
                         '{rep}' => (string) $rep,
                         '{output_path}' => $nativeOutputPath,
                         '{output_parent}' => $scratchDir,

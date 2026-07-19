@@ -6,6 +6,7 @@ use App\Services\Ai\Rivals\Adapters\AtlasBenchSuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\External\AiderBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\BfclAdapter;
+use App\Services\Ai\Rivals\Adapters\External\EngineeringNativeSuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\External\HalHarnessAdapter;
 use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter;
@@ -25,6 +26,40 @@ use RuntimeException;
  */
 final class SuiteRegistry
 {
+    /** @var list<string> */
+    private const FASE_A_SUITE_IDS = [
+        'tau2_bench',
+        'bfcl',
+        'terminal_bench',
+        'senior_swe_bench',
+        'swe_bench_live',
+        'live_code_bench',
+        'inspect_evals',
+        'hal_harness',
+        'aider_polyglot',
+        'swe_marathon',
+    ];
+
+    /** @var list<string> */
+    private const ENGINEERING_NATIVE_SUITE_IDS = [
+        'bfcl',
+        'live_code_bench',
+        'aider_polyglot',
+        'archbench',
+        'cruxeval',
+        'classeval',
+        'repobench',
+        'locagent',
+        'debug_gym',
+        'testeval',
+        'evalplus',
+        'crosscodeeval',
+        'bigcodebench',
+        'deveval',
+        'long_code_arena',
+        'reval',
+    ];
+
     /** @var array<string, class-string<BenchmarkSuiteAdapter>> */
     private const EXTERNAL_ADAPTERS = [
         'tau2_bench' => Tau2BenchAdapter::class,
@@ -37,12 +72,54 @@ final class SuiteRegistry
         'hal_harness' => HalHarnessAdapter::class,
         'aider_polyglot' => AiderBenchAdapter::class,
         'swe_marathon' => SweMarathonAdapter::class,
+        'archbench' => EngineeringNativeSuiteAdapter::class,
+        'cruxeval' => EngineeringNativeSuiteAdapter::class,
+        'classeval' => EngineeringNativeSuiteAdapter::class,
+        'repobench' => EngineeringNativeSuiteAdapter::class,
+        'locagent' => EngineeringNativeSuiteAdapter::class,
+        'debug_gym' => EngineeringNativeSuiteAdapter::class,
+        'testeval' => EngineeringNativeSuiteAdapter::class,
+        'evalplus' => EngineeringNativeSuiteAdapter::class,
+        'crosscodeeval' => EngineeringNativeSuiteAdapter::class,
+        'bigcodebench' => EngineeringNativeSuiteAdapter::class,
+        'deveval' => EngineeringNativeSuiteAdapter::class,
+        'long_code_arena' => EngineeringNativeSuiteAdapter::class,
+        'reval' => EngineeringNativeSuiteAdapter::class,
     ];
 
     /** @return list<string> */
     public function externalSuiteIds(): array
     {
+        return $this->profileSuiteIds('fase_a');
+    }
+
+    /** @return list<string> */
+    public function registeredSuiteIds(): array
+    {
         return array_keys(self::EXTERNAL_ADAPTERS);
+    }
+
+    /** @return list<string> */
+    public function profileSuiteIds(string $profile): array
+    {
+        $configured = config("atlas_rivals.profiles.{$profile}.suite_ids");
+        $suiteIds = is_array($configured)
+            ? array_values(array_map('strval', $configured))
+            : match ($profile) {
+                'fase_a' => self::FASE_A_SUITE_IDS,
+                'engineering_native' => self::ENGINEERING_NATIVE_SUITE_IDS,
+                default => throw new InvalidArgumentException("unknown_rivals_profile:{$profile}"),
+            };
+        if ($suiteIds === [] || count($suiteIds) !== count(array_unique($suiteIds))) {
+            throw new RuntimeException("invalid_rivals_profile_suite_ids:{$profile}");
+        }
+        foreach ($suiteIds as $suiteId) {
+            if (! isset(self::EXTERNAL_ADAPTERS[$suiteId])) {
+                throw new RuntimeException("rivals_profile_unknown_suite:{$profile}:{$suiteId}");
+            }
+        }
+
+        return $suiteIds;
     }
 
     /** @return array<string, string> */
@@ -108,18 +185,18 @@ final class SuiteRegistry
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function catalog(): array
+    public function catalog(string $profile = 'fase_a'): array
     {
         $repos = (array) config('atlas_rivals.benchmarks.repos', []);
         $rows = [];
-        foreach ($this->externalSuiteIds() as $suiteId) {
+        foreach ($this->profileSuiteIds($profile) as $suiteId) {
             $spec = $repos[$suiteId] ?? null;
             if (! is_array($spec)) {
                 throw new RuntimeException("registry_missing_repo:{$suiteId}");
             }
             $configuredAdapter = (string) ($spec['adapter'] ?? $suiteId);
             $class = self::EXTERNAL_ADAPTERS[$suiteId];
-            $instance = new $class;
+            $instance = $this->makeExternal($suiteId);
             if ($instance->suiteId() !== $suiteId) {
                 throw new RuntimeException("adapter_suite_mismatch:{$suiteId}:{$instance->suiteId()}");
             }
@@ -144,10 +221,10 @@ final class SuiteRegistry
     public function assertComplete(): void
     {
         $repos = (array) config('atlas_rivals.benchmarks.repos', []);
-        if (count($repos) !== 10) {
+        if (count($repos) !== count(self::EXTERNAL_ADAPTERS)) {
             throw new RuntimeException('registry_repo_count_mismatch:'.count($repos));
         }
-        foreach ($this->externalSuiteIds() as $suiteId) {
+        foreach ($this->registeredSuiteIds() as $suiteId) {
             if (! isset($repos[$suiteId])) {
                 throw new RuntimeException("registry_missing_repo:{$suiteId}");
             }
@@ -167,6 +244,8 @@ final class SuiteRegistry
             throw new InvalidArgumentException("unknown_suite:{$suiteId}");
         }
 
-        return new $class;
+        return $class === EngineeringNativeSuiteAdapter::class
+            ? new EngineeringNativeSuiteAdapter($suiteId)
+            : new $class;
     }
 }

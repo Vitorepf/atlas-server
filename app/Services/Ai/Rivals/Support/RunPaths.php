@@ -126,29 +126,32 @@ class RunPaths
         return self::root().'/fase_a_closure_receipt.json';
     }
 
-    public static function enterpriseDir(): string
+    public static function enterpriseDir(string $profile = 'fase_a'): string
     {
-        return self::root().'/enterprise';
+        self::assertIdentifier($profile, 'enterprise_profile');
+
+        return self::root().'/enterprise'
+            .($profile === 'fase_a' ? '' : '/'.$profile);
     }
 
-    public static function enterpriseReportPath(): string
+    public static function enterpriseReportPath(string $profile = 'fase_a'): string
     {
-        return self::enterpriseDir().'/report.json';
+        return self::enterpriseDir($profile).'/report.json';
     }
 
-    public static function enterpriseMarkdownPath(): string
+    public static function enterpriseMarkdownPath(string $profile = 'fase_a'): string
     {
-        return self::enterpriseDir().'/report.md';
+        return self::enterpriseDir($profile).'/report.md';
     }
 
-    public static function enterpriseCsvPath(): string
+    public static function enterpriseCsvPath(string $profile = 'fase_a'): string
     {
-        return self::enterpriseDir().'/report.csv';
+        return self::enterpriseDir($profile).'/report.csv';
     }
 
-    public static function enterpriseHtmlPath(): string
+    public static function enterpriseHtmlPath(string $profile = 'fase_a'): string
     {
-        return self::enterpriseDir().'/report.html';
+        return self::enterpriseDir($profile).'/report.html';
     }
 
     public static function eventsPath(string $runId): string

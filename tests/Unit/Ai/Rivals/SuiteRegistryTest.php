@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Adapters\External\BfclAdapter;
+use App\Services\Ai\Rivals\Adapters\External\EngineeringNativeSuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\Tau2BenchAdapter;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
@@ -48,5 +49,49 @@ class SuiteRegistryTest extends TestCase
             $registry->adapterFor('tau2_bench')::class,
             $registry->adapterFor('bfcl')::class
         );
+    }
+
+    public function test_engineering_native_profile_is_explicit_and_resolves_all_sixteen_suites(): void
+    {
+        $registry = new SuiteRegistry;
+
+        $expected = [
+            'bfcl',
+            'live_code_bench',
+            'aider_polyglot',
+            'archbench',
+            'cruxeval',
+            'classeval',
+            'repobench',
+            'locagent',
+            'debug_gym',
+            'testeval',
+            'evalplus',
+            'crosscodeeval',
+            'bigcodebench',
+            'deveval',
+            'long_code_arena',
+            'reval',
+        ];
+
+        $this->assertSame($expected, $registry->profileSuiteIds('engineering_native'));
+        $this->assertCount(16, $registry->catalog('engineering_native'));
+        $this->assertSame(
+            $expected,
+            array_column($registry->catalog('engineering_native'), 'suite_id'),
+        );
+        foreach (array_slice($expected, 3) as $suiteId) {
+            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
+            $this->assertInstanceOf(EngineeringNativeSuiteAdapter::class, $adapter);
+            $this->assertSame($suiteId, $adapter->suiteId());
+        }
+    }
+
+    public function test_unknown_profile_fails_closed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('unknown_rivals_profile:not_real');
+
+        (new SuiteRegistry)->profileSuiteIds('not_real');
     }
 }

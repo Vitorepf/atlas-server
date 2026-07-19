@@ -29,6 +29,19 @@ class BenchmarkRepoManager
         return (array) config('atlas_rivals.benchmarks.repos', []);
     }
 
+    public function directoryFor(string $id): string
+    {
+        $spec = $this->registry()[$id] ?? throw new RuntimeException("unknown_benchmark_repo:{$id}");
+        $relative = trim((string) ($spec['directory'] ?? $id));
+        try {
+            RunPaths::assertRelativePath($relative);
+        } catch (\Throwable) {
+            throw new RuntimeException("benchmark_repo_directory_invalid:{$id}");
+        }
+
+        return $this->root().'/'.$relative;
+    }
+
     /** Status honesto de todos os repos do registry (deriva do último receipt). */
     public function status(): array
     {
@@ -58,7 +71,7 @@ class BenchmarkRepoManager
     public function smoke(string $id): array
     {
         $spec = $this->registry()[$id] ?? throw new RuntimeException("unknown_benchmark_repo:{$id}");
-        $dir = $this->root().'/'.$id;
+        $dir = $this->directoryFor($id);
         $startedAt = date('c');
         $t0 = microtime(true);
         $steps = [];
@@ -108,7 +121,7 @@ class BenchmarkRepoManager
 
     private function repoStatus(string $id, array $spec): array
     {
-        $dir = $this->root().'/'.$id;
+        $dir = $this->directoryFor($id);
         $cloned = is_dir($dir.'/.git');
         $latest = $this->latestReceipt($id);
         $suiteId = $id;

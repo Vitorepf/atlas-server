@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Services\Ai\Rivals\Adapters\External\EngineeringNativeSuiteAdapter;
 use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\EventsLifecycleContract;
 use App\Services\Ai\Rivals\Support\RunPaths;
@@ -13,6 +14,8 @@ use RuntimeException;
  */
 class EnterpriseReportBuilder
 {
+    private string $profile = 'fase_a';
+
     /** Rótulos humanos (PT) das famílias de uplift — fonte única para fatos, perfil e dashboard. */
     public const FAMILY_LABELS = [
         'long_horizon' => 'Trabalho longo (HAL)',
@@ -241,10 +244,13 @@ class EnterpriseReportBuilder
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 
-    public function build(): array
+    public function build(string $profile = 'fase_a'): array
     {
-        $suiteIds = (new SuiteRegistry)->externalSuiteIds();
-        $upliftFamilies = (array) config('atlas_rivals.uplift_families', []);
+        $this->profile = $profile;
+        $suiteIds = (new SuiteRegistry)->profileSuiteIds($profile);
+        $upliftFamilies = $profile === 'engineering_native'
+            ? array_combine($suiteIds, $suiteIds)
+            : (array) config('atlas_rivals.uplift_families', []);
         $primaryModel = (string) config('atlas_rivals.fase_a.primary_model', 'verboo_kimi_k2_7');
 
         $runs = $this->scanRuns();
@@ -308,7 +314,7 @@ class EnterpriseReportBuilder
                 'status' => 'dual_arm_supported',
                 'reason' => 'outside_five_family_analytical_slice',
             ],
-            array_diff((new SuiteRegistry)->externalSuiteIds(), array_values($upliftFamilies)),
+            array_diff($suiteIds, array_values($upliftFamilies)),
         ));
 
         $modelMatrix = count($modelIds) >= 2
@@ -332,10 +338,11 @@ class EnterpriseReportBuilder
 
         $facts = $this->buildMeasuredFacts($primaryModel, $suiteRows, $atlasUplift, $counts);
 
-        $deliveryInventory = EnterpriseSuiteDeliveryCatalog::all();
+        $deliveryInventory = EnterpriseSuiteDeliveryCatalog::all($profile);
 
         $report = [
             'schema_version' => SchemaContract::ENTERPRISE_REPORT,
+            'profile' => $profile,
             'built_at' => now()->toIso8601String(),
             'claim_allowed' => false,
             'claim_blockers' => ['aggregate_view_claims_live_per_run'],
@@ -394,13 +401,19 @@ class EnterpriseReportBuilder
         }
 
         AtomicWriter::write(
-            RunPaths::enterpriseReportPath(),
+            RunPaths::enterpriseReportPath($profile),
             json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION),
         );
         $presenter = new EnterpriseReportPresenter;
-        AtomicWriter::write(RunPaths::enterpriseMarkdownPath(), $presenter->markdown($report, $runs));
-        AtomicWriter::write(RunPaths::enterpriseCsvPath(), $this->csv($report));
-        AtomicWriter::write(RunPaths::enterpriseHtmlPath(), $presenter->html($report, $runs));
+        AtomicWriter::write(
+            RunPaths::enterpriseMarkdownPath($profile),
+            $presenter->markdown($report, $runs),
+        );
+        AtomicWriter::write(RunPaths::enterpriseCsvPath($profile), $this->csv($report));
+        AtomicWriter::write(
+            RunPaths::enterpriseHtmlPath($profile),
+            $presenter->html($report, $runs),
+        );
 
         return $report;
     }
@@ -502,7 +515,7 @@ class EnterpriseReportBuilder
     /** @return array<string, mixed> */
     private function emptySuiteRow(string $suiteId): array
     {
-        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId);
+        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId, $this->profile);
 
         return [
             'suite_id' => $suiteId,
@@ -557,7 +570,7 @@ class EnterpriseReportBuilder
         $report = $meta['report'];
         $pipelineValid = ($adj['pipeline_valid'] ?? false) === true;
         $internalAllowed = ($adj['internal_claim_allowed'] ?? $adj['claim_allowed'] ?? false) === true;
-        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId);
+        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId, $this->profile);
 
         $metrics = $this->aggregateReportMetrics(is_array($report) ? $report : []);
         $missing = $metrics['missing_fields'];
@@ -911,6 +924,7 @@ class EnterpriseReportBuilder
         $bareAll = [];
         $barePaired = [];
         $atlasPaired = [];
+        $pairsValidCount = 0;
 
         foreach ($suiteRows as $row) {
             $suiteId = (string) ($row['suite_id'] ?? '');
@@ -918,6 +932,9 @@ class EnterpriseReportBuilder
                 continue;
             }
             $scores = $this->armScoresForSuite($suiteId, $primaryModel, $runs);
+            $family = $familyBySuite[$suiteId] ?? null;
+            $continuous = is_array($family)
+                && ($family['primary_outcome'] ?? null) === 'native_score';
             $bare = $scores['bare'] ?? (($row['intelligence_rate'] ?? null) === null
                 ? null
                 : (float) $row['intelligence_rate']);
@@ -926,15 +943,18 @@ class EnterpriseReportBuilder
                 $bare = (float) $row['success_rate_itt'];
             }
             $atlas = $scores['atlas'] ?? null;
-            $family = $familyBySuite[$suiteId] ?? null;
             $upliftStatus = is_array($family) ? (string) ($family['status'] ?? 'not_run') : 'not_applicable';
-            $comparable = $upliftStatus === 'real_uplift'
-                && $bare !== null
-                && ($family['atlas_intelligence'] ?? $atlas) !== null;
+            $comparable = $continuous
+                ? $upliftStatus === 'real_uplift'
+                    && is_numeric($family['bare_native_score'] ?? null)
+                    && is_numeric($family['atlas_native_score'] ?? null)
+                : $upliftStatus === 'real_uplift'
+                    && $bare !== null
+                    && ($family['atlas_intelligence'] ?? $atlas) !== null;
 
             $atlasShown = null;
             $delta = null;
-            if ($comparable) {
+            if ($comparable && ! $continuous) {
                 $atlasShown = isset($family['atlas_intelligence'])
                     ? (float) $family['atlas_intelligence']
                     : (float) $atlas;
@@ -945,16 +965,27 @@ class EnterpriseReportBuilder
                 $barePaired[] = $bareForDelta;
                 $atlasPaired[] = $atlasShown;
             }
+            if ($comparable) {
+                $pairsValidCount++;
+            }
 
-            if ($bare !== null) {
+            if ($bare !== null && ! $continuous) {
                 $bareAll[] = (float) $bare;
             }
 
             $perSuite[] = [
                 'suite_id' => $suiteId,
                 'status' => $row['status'] ?? null,
-                'bare_intelligence' => $bare,
-                'atlas_intelligence' => $comparable ? $atlasShown : null,
+                'primary_outcome' => $family['primary_outcome'] ?? 'artifact_status',
+                'native_score_metric' => $family['native_score_metric'] ?? null,
+                'bare_native_score' => $continuous ? $family['bare_native_score'] : null,
+                'atlas_native_score' => $continuous ? $family['atlas_native_score'] : null,
+                'delta_native_score' => $continuous ? $family['delta_native_score'] : null,
+                'delta_native_score_ci_95' => $continuous
+                    ? $family['delta_native_score_ci_95']
+                    : null,
+                'bare_intelligence' => $continuous ? null : $bare,
+                'atlas_intelligence' => $continuous ? null : ($comparable ? $atlasShown : null),
                 'delta_intelligence' => $delta,
                 'uplift_status' => $upliftStatus,
                 'comparable' => $comparable,
@@ -963,7 +994,7 @@ class EnterpriseReportBuilder
         }
 
         $avg = static fn (array $vals): ?float => $vals === [] ? null : round(array_sum($vals) / count($vals), 4);
-        $pairsValid = count($barePaired);
+        $pairsValid = $pairsValidCount;
         $pairsTotal = count((array) ($atlasUplift['families'] ?? []));
 
         $row = [
@@ -1082,9 +1113,45 @@ class EnterpriseReportBuilder
         $better = 0;
         $worse = 0;
         $deltaSum = 0.0;
+        $binaryMeasured = 0;
+        $continuousMeasured = 0;
 
         foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
             $name = self::familyLabel((string) ($family['family'] ?? $family['suite_id'] ?? '?'));
+            if (($family['status'] ?? '') === 'real_uplift'
+                && ($family['primary_outcome'] ?? null) === 'native_score'
+                && is_numeric($family['bare_native_score'] ?? null)
+                && is_numeric($family['atlas_native_score'] ?? null)
+                && is_numeric($family['delta_native_score'] ?? null)) {
+                $metric = (string) ($family['native_score_metric'] ?? 'native_score');
+                $metricLabel = match ($metric) {
+                    'rougeL' => 'ROUGE-L',
+                    'pass@1' => 'pass@1',
+                    default => $metric,
+                };
+                $bareScore = round((float) $family['bare_native_score'], 6);
+                $atlasScore = round((float) $family['atlas_native_score'], 6);
+                $nativeDelta = (float) $family['delta_native_score'];
+                $sign = $nativeDelta >= 0 ? '+' : '';
+                $samples = (int) data_get($family, 'delta_native_score_ci_95.samples', 0);
+                $line = "{$name}: {$metricLabel} {$bareScore} → {$atlasScore} "
+                    ."({$sign}".round($nativeDelta, 6).')'
+                    .($samples < 2 ? ' · N=1, sem CI inferencial' : '');
+                if (($family['diagnostic_only'] ?? false) === true) {
+                    $diagnostic[] = $line.' · diagnóstico';
+
+                    continue;
+                }
+                $measured[] = $line;
+                $continuousMeasured++;
+                if ($nativeDelta > 0) {
+                    $better++;
+                } elseif ($nativeDelta < 0) {
+                    $worse++;
+                }
+
+                continue;
+            }
             if (($family['status'] ?? '') === 'real_uplift'
                 && ($family['bare_intelligence'] ?? null) !== null
                 && ($family['atlas_intelligence'] ?? null) !== null) {
@@ -1104,6 +1171,7 @@ class EnterpriseReportBuilder
                     continue;
                 }
                 $measured[] = $line;
+                $binaryMeasured++;
                 $deltaSum += $delta;
                 if ($delta > 0) {
                     $better++;
@@ -1137,13 +1205,19 @@ class EnterpriseReportBuilder
         // relatório mente por spin. 2↑/1↓ com saldo médio NEGATIVO (uma regressão
         // grande concentrada) não é "melhorou mais vezes": é dividido. Mesma
         // lógica da capa. O saldo médio (pp) é o árbitro do sinal.
-        $meanPp = $confirmed > 0 ? round(($deltaSum / $confirmed) * 100, 1) : 0.0;
+        $meanPp = $binaryMeasured > 0 ? round(($deltaSum / $binaryMeasured) * 100, 1) : 0.0;
         $countSign = $better <=> $worse;
         $meanSign = $meanPp <=> 0.0;
         $tally = "{$better}↑ / {$worse}↓, saldo médio ".($meanPp >= 0 ? '+' : '')."{$meanPp} pp";
         if ($confirmed === 0) {
             $diagNote = $diagnostic === [] ? '' : ' ('.count($diagnostic).' par(es) só diagnóstico)';
             $headline = "{$primaryModel}: ainda sem pares bare×Atlas confirmados{$diagNote}.";
+        } elseif ($continuousMeasured > 0) {
+            $binaryNote = $binaryMeasured > 0
+                ? " e {$binaryMeasured} par(es) binário(s)"
+                : '';
+            $headline = "{$primaryModel}: {$continuousMeasured} par(es) contínuo(s){$binaryNote} "
+                ."medido(s) ({$better}↑ / {$worse}↓); métricas heterogêneas não são somadas num placar global.";
         } elseif ($countSign !== 0 && $countSign === $meanSign) {
             $verb = $meanSign > 0 ? 'melhorou' : 'piorou';
             $headline = "{$primaryModel}: nos {$confirmed} pares confirmados, Atlas {$verb} em contagem e em saldo médio ({$tally}).";
@@ -1856,9 +1930,35 @@ class EnterpriseReportBuilder
             $bareIntel = null;
             $atlasIntel = null;
             $delta = null;
+            $primaryOutcome = 'artifact_status';
+            $successSemantics = 'benchmark_success';
+            $nativeScoreMetric = null;
+            $bareNativeScore = null;
+            $atlasNativeScore = null;
+            $deltaNativeScore = null;
+            $deltaNativeScoreCi = null;
+            $outcome = null;
             $deltas = (array) ($uplift['deltas'] ?? []);
             if ($deltas !== [] && is_array($deltas[0] ?? null)) {
                 $d0 = $deltas[0];
+                $primaryOutcome = (string) ($d0['primary_outcome'] ?? 'artifact_status');
+                $successSemantics = (string) ($d0['success_semantics'] ?? 'benchmark_success');
+                $nativeScoreMetric = is_string($d0['native_score_metric'] ?? null)
+                    ? $d0['native_score_metric']
+                    : null;
+                $bareNativeScore = is_numeric(data_get($d0, 'base.avg_native_score'))
+                    ? (float) data_get($d0, 'base.avg_native_score')
+                    : null;
+                $atlasNativeScore = is_numeric(data_get($d0, 'atlas.avg_native_score'))
+                    ? (float) data_get($d0, 'atlas.avg_native_score')
+                    : null;
+                $deltaNativeScore = is_numeric($d0['delta_native_score'] ?? null)
+                    ? (float) $d0['delta_native_score']
+                    : null;
+                $deltaNativeScoreCi = is_array($d0['delta_native_score_ci_95'] ?? null)
+                    ? $d0['delta_native_score_ci_95']
+                    : null;
+                $outcome = is_string($d0['outcome'] ?? null) ? $d0['outcome'] : null;
                 if (isset($d0['base']['success_rate']) && is_numeric($d0['base']['success_rate'])) {
                     $bareIntel = round((float) $d0['base']['success_rate'], 4);
                 }
@@ -1868,19 +1968,28 @@ class EnterpriseReportBuilder
                 if (isset($d0['delta_success_rate']) && is_numeric($d0['delta_success_rate'])) {
                     $delta = round((float) $d0['delta_success_rate'], 4);
                 }
+                if ($primaryOutcome === 'native_score') {
+                    // `status=success` means the native artifact was valid. It is
+                    // not a 100% capability score for continuous benchmarks.
+                    $bareIntel = null;
+                    $atlasIntel = null;
+                    $delta = null;
+                }
             }
 
-            $armScores = $this->armScoresForSuite($suiteId, $primaryModel, [$run]);
-            $bareIntel ??= $armScores['bare'];
-            if ($status === 'real_uplift') {
-                $atlasIntel ??= $armScores['atlas'];
-                if ($delta === null && $bareIntel !== null && $atlasIntel !== null) {
-                    $delta = round($atlasIntel - $bareIntel, 4);
+            if ($primaryOutcome !== 'native_score') {
+                $armScores = $this->armScoresForSuite($suiteId, $primaryModel, [$run]);
+                $bareIntel ??= $armScores['bare'];
+                if ($status === 'real_uplift') {
+                    $atlasIntel ??= $armScores['atlas'];
+                    if ($delta === null && $bareIntel !== null && $atlasIntel !== null) {
+                        $delta = round($atlasIntel - $bareIntel, 4);
+                    }
+                } else {
+                    // Unsupported: never publish atlas score as comparable fact (avoids 0% falso).
+                    $atlasIntel = null;
+                    $delta = null;
                 }
-            } else {
-                // Unsupported: never publish atlas score as comparable fact (avoids 0% falso).
-                $atlasIntel = null;
-                $delta = null;
             }
 
             $excluded = array_values(array_map('strval', (array) ($uplift['excluded_pair_keys'] ?? [])));
@@ -1899,6 +2008,14 @@ class EnterpriseReportBuilder
                 'diagnostic_only' => $diagnosticOnly,
                 'proven_pair_count' => $provenPairCount,
                 'excluded_pair_keys' => $excluded,
+                'primary_outcome' => $primaryOutcome,
+                'success_semantics' => $successSemantics,
+                'native_score_metric' => $nativeScoreMetric,
+                'bare_native_score' => $bareNativeScore,
+                'atlas_native_score' => $atlasNativeScore,
+                'delta_native_score' => $deltaNativeScore,
+                'delta_native_score_ci_95' => $deltaNativeScoreCi,
+                'outcome' => $outcome,
                 'bare_intelligence' => $bareIntel,
                 'atlas_intelligence' => $atlasIntel,
                 'delta_intelligence' => $delta,
@@ -1919,6 +2036,14 @@ class EnterpriseReportBuilder
             'diagnostic_only' => false,
             'proven_pair_count' => 0,
             'excluded_pair_keys' => [],
+            'primary_outcome' => null,
+            'success_semantics' => null,
+            'native_score_metric' => null,
+            'bare_native_score' => null,
+            'atlas_native_score' => null,
+            'delta_native_score' => null,
+            'delta_native_score_ci_95' => null,
+            'outcome' => null,
             'bare_intelligence' => null,
             'atlas_intelligence' => null,
             'delta_intelligence' => null,
@@ -2112,6 +2237,29 @@ class EnterpriseReportBuilder
      */
     private function extractNativeRows(string $suiteId, array $payload): array
     {
+        if (in_array($suiteId, EngineeringNativeSuiteAdapter::SUITE_IDS, true)) {
+            $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId, $this->profile);
+
+            return array_map(static fn (array $row): array => [
+                'case_id' => $row['case_id'] ?? null,
+                'repetition' => $row['repetition'] ?? null,
+                'status' => $row['status'] ?? null,
+                'failure_reason' => $row['failure_reason'] ?? null,
+                'measurement_type' => $row['measurement_type']
+                    ?? $delivery['measurement_type']
+                    ?? null,
+                'score_metric' => $row['score_metric']
+                    ?? $delivery['primary_metric']
+                    ?? null,
+                'score' => $row['score'] ?? null,
+                'native_metrics' => $row['native_metrics'] ?? null,
+                'wall_ms' => $row['wall_ms'] ?? null,
+                'tokens_in' => $row['tokens_in'] ?? null,
+                'tokens_out' => $row['tokens_out'] ?? null,
+                'native_artifact' => $row['native_artifact'] ?? null,
+            ], array_values(array_filter((array) ($payload['results'] ?? []), 'is_array')));
+        }
+
         return match ($suiteId) {
             'tau2_bench' => array_map(static function (array $sim): array {
                 $usage = (array) ($sim['usage'] ?? []);

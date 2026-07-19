@@ -52,6 +52,7 @@ class AtlasRivalsCommand extends Command
         {--suite=local_fake}
         {--mode=bare : (battery) bare|uplift|atlas|model_matrix|status|prepare|execute}
         {--kind=bare : (battery prepare/execute) bare|uplift|atlas|model_matrix}
+        {--profile=fase_a : (battery) fase_a|engineering_native}
         {--cases= : (plan) comma-separated case ids; default all imported cases}
         {--max-cases= : (plan) corta a lista de cases em N (rodada bounded, ordem determinística)}
         {--limit=5 : (mine) máximo de cases a minerar}
@@ -154,7 +155,9 @@ class AtlasRivalsCommand extends Command
                 return $report;
             }, lock: true),
             'report-all' => (new ReportBuilder)->buildAll(),
-            'report-enterprise' => (new EnterpriseReportBuilder)->build(),
+            'report-enterprise' => (new EnterpriseReportBuilder)->build(
+                (string) $this->option('profile'),
+            ),
             'battery' => $this->runBattery(),
             'uplift' => $this->withRun(function ($runId) {
                 (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::ADJUDICATED);
@@ -222,6 +225,7 @@ class AtlasRivalsCommand extends Command
                     (bool) $this->option('dry-run'),
                     $fast,
                     $onlySuites,
+                    (string) ($this->option('profile') ?: 'fase_a'),
                 );
             } catch (\Throwable $e) {
                 return [
@@ -239,6 +243,7 @@ class AtlasRivalsCommand extends Command
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
                     $fast,
+                    (string) ($this->option('profile') ?: 'fase_a'),
                 );
             } catch (\Throwable $e) {
                 return ['status' => 'error', 'error' => $e->getMessage()];
@@ -246,7 +251,11 @@ class AtlasRivalsCommand extends Command
         }
 
         try {
-            return $orchestrator->dryRun($mode, $fast) + ['status' => 'ok'];
+            return $orchestrator->dryRun(
+                $mode,
+                $fast,
+                (string) ($this->option('profile') ?: 'fase_a'),
+            ) + ['status' => 'ok'];
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
         }

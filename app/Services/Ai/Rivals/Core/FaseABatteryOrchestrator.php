@@ -20,7 +20,11 @@ class FaseABatteryOrchestrator
     /**
      * @return array<string, mixed>
      */
-    public function dryRun(string $mode = 'bare', bool $fast = false): array
+    public function dryRun(
+        string $mode = 'bare',
+        bool $fast = false,
+        string $batteryProfile = 'fase_a',
+    ): array
     {
         $mode = $this->assertMode($mode);
         if ($mode === 'model_matrix') {
@@ -31,12 +35,14 @@ class FaseABatteryOrchestrator
         $primary = (string) config('atlas_rivals.fase_a.primary_model', 'verboo_kimi_k2_7');
         $this->assertHermesModel($primary);
 
-        // Execution coverage is always the complete external-suite catalog.
-        // `uplift_families` remains an analytical/reporting taxonomy; it must
-        // not silently remove suites from the 10 × 2 native battery.
-        $suites = $this->suites->externalSuiteIds();
+        // O conjunto executado é parte explícita do plano. Nunca trocar o
+        // significado de uma bateria histórica porque o registry cresceu.
+        $suites = $this->suites->profileSuiteIds($batteryProfile);
 
-        $casePacks = (array) config('atlas_rivals.fase_a.case_packs', []);
+        $casePacks = (array) config(
+            "atlas_rivals.profiles.{$batteryProfile}.case_packs",
+            config('atlas_rivals.fase_a.case_packs', []),
+        );
         $profile = $this->applyFastProfile($fast);
         $repetitions = $profile['repetitions'];
         $minCases = $profile['min_distinct_cases'];
@@ -68,6 +74,7 @@ class FaseABatteryOrchestrator
             };
             $plans[] = [
                 'suite_id' => $suiteId,
+                'battery_profile' => $batteryProfile,
                 'cases' => $cases,
                 'case_count' => count($cases),
                 'arms' => $arms,
@@ -83,6 +90,7 @@ class FaseABatteryOrchestrator
             'mode' => $mode,
             'fast' => $fast,
             'profile' => $profile['name'],
+            'battery_profile' => $batteryProfile,
             'primary_model' => $primary,
             'provider_binding' => 'hermes+verboo',
             'execute_allowed_here' => false,
@@ -123,7 +131,12 @@ class FaseABatteryOrchestrator
      *
      * @return array<string, mixed>
      */
-    public function prepare(string $mode = 'bare', bool $approveProviderSpend = false, bool $fast = false): array
+    public function prepare(
+        string $mode = 'bare',
+        bool $approveProviderSpend = false,
+        bool $fast = false,
+        string $batteryProfile = 'fase_a',
+    ): array
     {
         if (! (bool) config('atlas_rivals.enabled', false)) {
             throw new RuntimeException('atlas_rivals_disabled');
@@ -135,7 +148,7 @@ class FaseABatteryOrchestrator
             throw new RuntimeException('rivals_provider_spend_not_allowed');
         }
 
-        $dry = $this->dryRun($mode, $fast);
+        $dry = $this->dryRun($mode, $fast, $batteryProfile);
         $prepared = [];
         $errors = [];
         foreach ($dry['plans'] as $planSpec) {
@@ -152,6 +165,7 @@ class FaseABatteryOrchestrator
             'mode' => $mode,
             'fast' => $fast,
             'profile' => $dry['profile'],
+            'battery_profile' => $batteryProfile,
             'primary_model' => $dry['primary_model'],
             'execute_allowed_here' => false,
             'claim_ready' => false,
@@ -386,6 +400,7 @@ class FaseABatteryOrchestrator
         bool $unitsDryRun = false,
         bool $fast = false,
         array $onlySuites = [],
+        string $batteryProfile = 'fase_a',
     ): array {
         $this->assertExecuteAllowed($unitsDryRun);
 
@@ -404,8 +419,8 @@ class FaseABatteryOrchestrator
 
         $smokeGate = $unitsDryRun
             ? ['required_suites' => [], 'running' => 0, 'blocked' => [], 'note' => 'smoke skipped for --dry-run']
-            : $this->assertSmokesReady($mode);
-        $prepared = $this->prepare($mode, $approveProviderSpend, $fast);
+            : $this->assertSmokesReady($mode, $batteryProfile);
+        $prepared = $this->prepare($mode, $approveProviderSpend, $fast, $batteryProfile);
         if (($prepared['status'] ?? null) !== 'ok') {
             return $prepared + [
                 'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',
@@ -461,7 +476,7 @@ class FaseABatteryOrchestrator
             // Reconsolida mesmo com erros parciais: as suítes que completaram
             // devem aparecer na tela definitiva; erro fica no envelope.
             try {
-                $enterprise = (new EnterpriseReportBuilder)->build();
+                $enterprise = (new EnterpriseReportBuilder)->build($batteryProfile);
             } catch (\Throwable $e) {
                 $errors[] = ['suite_id' => null, 'run_id' => null, 'error' => 'enterprise_report_failed: '.$e->getMessage()];
             }
@@ -472,6 +487,7 @@ class FaseABatteryOrchestrator
             'mode' => $mode,
             'fast' => $fast,
             'profile' => $prepared['profile'] ?? ($fast ? 'fast' : 'default'),
+            'battery_profile' => $batteryProfile,
             'units_dry_run' => $unitsDryRun,
             'execute_allowed_here' => ! $unitsDryRun,
             'claim_ready' => false,
@@ -480,7 +496,7 @@ class FaseABatteryOrchestrator
             'suite_results' => $suiteResults,
             'errors' => $errors,
             'enterprise_report' => $enterprise === null ? null : [
-                'path' => RunPaths::enterpriseReportPath(),
+                'path' => RunPaths::enterpriseReportPath($batteryProfile),
                 'report_hash' => $enterprise['report_hash'] ?? null,
                 'suites_ok' => $enterprise['executive_summary']['suites_ok'] ?? null,
                 'suites_not_run' => $enterprise['executive_summary']['suites_not_run'] ?? null,
@@ -532,10 +548,10 @@ class FaseABatteryOrchestrator
     /**
      * @return array<string, mixed>
      */
-    private function assertSmokesReady(string $mode): array
+    private function assertSmokesReady(string $mode, string $batteryProfile = 'fase_a'): array
     {
         $repos = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
-        $needed = $this->suites->externalSuiteIds();
+        $needed = $this->suites->profileSuiteIds($batteryProfile);
         $byId = [];
         foreach ((array) ($repos['repos'] ?? []) as $row) {
             $byId[(string) ($row['repo_id'] ?? '')] = $row;
@@ -576,7 +592,8 @@ class FaseABatteryOrchestrator
         if (! is_file($manifestPath)) {
             throw new RuntimeException("rivals_battery_execute_manifest_missing:{$runId}");
         }
-        $cwd = rtrim((string) config('atlas_rivals.benchmarks.root'), '/').'/'.$suiteId;
+        $cwd = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)
+            ->directoryFor($suiteId);
         $manifest = NativeExecutionManifest::load($runId);
         EventStream::append($runId, 'battery_started', [
             'suite_id' => $suiteId,

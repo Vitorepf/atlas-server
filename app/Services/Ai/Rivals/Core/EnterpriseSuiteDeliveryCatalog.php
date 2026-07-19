@@ -11,14 +11,17 @@ final class EnterpriseSuiteDeliveryCatalog
     /**
      * @return array<string, array<string, mixed>>
      */
-    public static function all(): array
+    public static function all(string $profile = 'fase_a'): array
     {
         $uplift = (array) config('atlas_rivals.uplift_families', []);
         $familyBySuite = [];
         foreach ($uplift as $family => $suiteId) {
             $familyBySuite[(string) $suiteId] = (string) $family;
         }
-        $casePacks = (array) config('atlas_rivals.fase_a.case_packs', []);
+        $casePacks = (array) config(
+            "atlas_rivals.profiles.{$profile}.case_packs",
+            config('atlas_rivals.fase_a.case_packs', []),
+        );
 
         $catalog = [
             'tau2_bench' => [
@@ -217,9 +220,24 @@ final class EnterpriseSuiteDeliveryCatalog
             ],
         ];
 
+        $catalog = array_replace($catalog, self::engineeringNativeCatalog());
+        $profileSuiteIds = (new SuiteRegistry)->profileSuiteIds($profile);
+        $catalog = array_intersect_key($catalog, array_flip($profileSuiteIds));
+        foreach ($profileSuiteIds as $suiteId) {
+            if (! isset($catalog[$suiteId])) {
+                $catalog[$suiteId] = self::unknownSuite($suiteId);
+            }
+        }
+        $catalog = array_replace(array_flip($profileSuiteIds), $catalog);
         foreach ($catalog as $suiteId => &$entry) {
             $entry['suite_id'] = $suiteId;
-            $entry['fase_a_case_pack'] = array_values(array_map('strval', (array) ($casePacks[$suiteId] ?? [])));
+            $entry['profile'] = $profile;
+            $entry['profile_case_pack'] = array_values(array_map(
+                'strval',
+                (array) ($casePacks[$suiteId] ?? []),
+            ));
+            // Compatibilidade de leitura com presenter/consumidores históricos.
+            $entry['fase_a_case_pack'] = $entry['profile_case_pack'];
             $entry['uplift_family'] = $familyBySuite[$suiteId] ?? null;
             $entry['uplift_eligible'] = isset($familyBySuite[$suiteId]);
         }
@@ -246,9 +264,84 @@ final class EnterpriseSuiteDeliveryCatalog
     }
 
     /** @return array<string, mixed> */
-    public static function forSuite(string $suiteId): array
+    public static function forSuite(string $suiteId, string $profile = 'fase_a'): array
     {
-        return self::all()[$suiteId] ?? [
+        return self::all($profile)[$suiteId] ?? self::unknownSuite($suiteId) + [
+            'profile' => $profile,
+            'profile_case_pack' => [],
+        ];
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private static function engineeringNativeCatalog(): array
+    {
+        $specs = [
+            'archbench' => ['Architecture', 'ArchBench', 'Architecture decision records', 'architecture_design', 'native_artifact.json', 'continuous', 'rougeL'],
+            'cruxeval' => ['Reasoning', 'CRUXEval', 'Code execution and output reasoning', 'general_reasoning', 'native_artifact.json', 'binary', 'accuracy'],
+            'classeval' => ['Coding', 'ClassEval', 'Class-level code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass_rate'],
+            'repobench' => ['Repository', 'RepoBench', 'Cross-file repository completion', 'coding_patch', 'native_artifact.json', 'continuous', 'edit_similarity'],
+            'locagent' => ['Repository', 'LocAgent', 'Repository-level fault localization', 'bug_investigation', 'native_artifact.json', 'continuous', 'localization_recall'],
+            'debug_gym' => ['Debugging', 'debug-gym', 'Interactive debugging and repair', 'repair_regression_fixing', 'native_artifact.json', 'binary', 'resolved'],
+            'testeval' => ['Testing', 'TestEval', 'Unit-test generation', 'coding_patch', 'native_artifact.json', 'continuous', 'line_coverage'],
+            'evalplus' => ['Coding', 'EvalPlus', 'HumanEval+ code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass@1'],
+            'crosscodeeval' => ['Coding', 'CrossCodeEval', 'Cross-file code completion', 'coding_patch', 'native_artifact.json', 'continuous', 'edit_similarity'],
+            'bigcodebench' => ['Coding', 'BigCodeBench', 'Library-rich code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass@1'],
+            'deveval' => ['Engineering', 'DevEval', 'Repository-level software development', 'long_horizon_engineering', 'native_artifact.json', 'binary', 'pass_rate'],
+            'long_code_arena' => ['Long context', 'Long Code Arena', 'Long-context repository code generation', 'long_horizon_engineering', 'native_artifact.json', 'continuous', 'task_score'],
+            'reval' => ['Reasoning', 'REval', 'Repository-aware code reasoning', 'general_reasoning', 'native_artifact.json', 'binary', 'accuracy'],
+        ];
+        $catalog = [];
+        foreach ($specs as $suiteId => $spec) {
+            [$category, $title, $purpose, $taskType, $artifact, $measurementType, $primaryMetric] = $spec;
+            $catalog[$suiteId] = [
+                'category' => $category,
+                'title' => $title,
+                'origin' => (string) config("atlas_rivals.benchmarks.repos.{$suiteId}.url"),
+                'purpose' => $purpose,
+                'task_types' => [$taskType],
+                'native_artifact' => $artifact,
+                'native_metrics' => [
+                    $primaryMetric,
+                    'status',
+                    'failure_reason',
+                    'tokens_in',
+                    'tokens_out',
+                    'wall_ms',
+                    'runtime_bridge',
+                ],
+                'measurement_type' => $measurementType,
+                'primary_metric' => $primaryMetric,
+                'atlas_report_metrics' => array_merge(
+                    self::sharedReportMetrics(),
+                    ['native_score', 'native_score_ci_95', 'delta_native_score'],
+                ),
+                'capability_dimensions' => [$taskType],
+                'native_categories' => [$suiteId],
+                'per_run_reports' => [
+                    'report.json',
+                    'report.md',
+                    'report.csv',
+                    'adjudication.json',
+                    'evidence_pack.json',
+                    'uplift.json',
+                ],
+                'graphs' => ['enterprise_native_score_delta'],
+                'notes' => [
+                    $measurementType === 'continuous'
+                        ? 'Primary capability outcome is the paired native score, not artifact-valid status.'
+                        : 'Primary capability outcome is the native binary metric.',
+                    'Bare and Atlas require exact case×repetition pairing.',
+                ],
+            ];
+        }
+
+        return $catalog;
+    }
+
+    /** @return array<string, mixed> */
+    private static function unknownSuite(string $suiteId): array
+    {
+        return [
             'suite_id' => $suiteId,
             'category' => 'Unknown',
             'title' => $suiteId,
@@ -264,6 +357,7 @@ final class EnterpriseSuiteDeliveryCatalog
             'graphs' => ['enterprise_aggregate_only'],
             'notes' => [],
             'fase_a_case_pack' => [],
+            'profile_case_pack' => [],
             'uplift_family' => null,
             'uplift_eligible' => false,
         ];

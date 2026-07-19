@@ -28,8 +28,62 @@ final class NativeResultNormalizer
             'hal_harness' => $this->hal($entry),
             'aider_polyglot' => $this->aider($entry, $suiteRoot),
             'swe_marathon' => $this->sweMarathon($entry),
+            'archbench',
+            'cruxeval',
+            'classeval',
+            'repobench',
+            'locagent',
+            'debug_gym',
+            'testeval',
+            'evalplus',
+            'crosscodeeval',
+            'bigcodebench',
+            'deveval',
+            'long_code_arena',
+            'reval' => $this->engineeringNative($suiteId, $entry),
             default => throw new RuntimeException("rivals_native_normalizer_unknown_suite:{$suiteId}"),
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function engineeringNative(string $suiteId, array $entry): array
+    {
+        $scratch = (string) data_get($entry, 'normalization.scratch_dir');
+        $native = $this->json($scratch.'/native_result.json');
+        if (($native['schema_version'] ?? null) !== 'atlas.rivals2.engineering_native_unit.v1') {
+            throw new RuntimeException($suiteId.'_engineering_native_schema_invalid');
+        }
+        if (($native['suite_id'] ?? null) !== $suiteId) {
+            throw new RuntimeException($suiteId.'_engineering_native_suite_mismatch');
+        }
+        $results = array_values((array) ($native['results'] ?? []));
+        $row = $results[0] ?? [];
+        if (count($results) !== 1
+            || ($row['case_id'] ?? null) !== ($entry['case_id'] ?? null)
+            || (int) ($row['repetition'] ?? 0) !== (int) ($entry['repetition'] ?? 0)) {
+            throw new RuntimeException($suiteId.'_engineering_native_identity_mismatch');
+        }
+        $artifact = (array) ($row['native_artifact'] ?? []);
+        $artifactPath = trim((string) ($artifact['path'] ?? ''));
+        if ($artifactPath === '') {
+            throw new RuntimeException($suiteId.'_engineering_native_artifact_missing');
+        }
+        if (! str_starts_with($artifactPath, '/')) {
+            $artifactPath = $scratch.'/'.ltrim($artifactPath, '/');
+        }
+        $scratchReal = realpath($scratch);
+        $artifactReal = realpath($artifactPath);
+        if ($scratchReal === false
+            || $artifactReal === false
+            || ($artifactReal !== $scratchReal && ! str_starts_with($artifactReal, $scratchReal.'/'))) {
+            throw new RuntimeException($suiteId.'_engineering_native_artifact_outside_scratch');
+        }
+        if (! hash_equals((string) ($artifact['sha256'] ?? ''), hash_file('sha256', $artifactReal))) {
+            throw new RuntimeException($suiteId.'_engineering_native_artifact_hash_mismatch');
+        }
+        $native['results'][0]['native_artifact']['path'] = $artifactReal;
+
+        return $native;
     }
 
     private function tau2(array $entry, string $root): array

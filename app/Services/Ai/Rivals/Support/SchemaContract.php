@@ -160,6 +160,17 @@ class SchemaContract
     private static function validateEnterpriseReport(array $payload): array
     {
         $violations = [];
+        $profile = is_string($payload['profile'] ?? null)
+            ? (string) $payload['profile']
+            : 'fase_a';
+        try {
+            $expected = count((new \App\Services\Ai\Rivals\Core\SuiteRegistry)->profileSuiteIds(
+                $profile,
+            ));
+        } catch (\Throwable) {
+            $expected = 0;
+            $violations[] = 'enterprise_profile_invalid:'.$profile;
+        }
         if (array_key_exists('claim_allowed', $payload) && $payload['claim_allowed'] !== false) {
             $violations[] = 'enterprise_claim_allowed_must_be_false';
         }
@@ -168,7 +179,6 @@ class SchemaContract
                 $violations[] = 'invalid_array:suite_rows';
             } else {
                 $count = count($payload['suite_rows']);
-                $expected = count((array) config('atlas_rivals.benchmarks.repos', []));
                 if ($expected <= 0) {
                     $expected = 10;
                 }
@@ -183,7 +193,6 @@ class SchemaContract
             }
         }
         if (array_key_exists('delivery_inventory', $payload) && is_array($payload['delivery_inventory'])) {
-            $expected = count((array) config('atlas_rivals.benchmarks.repos', []));
             if ($expected <= 0) {
                 $expected = 10;
             }

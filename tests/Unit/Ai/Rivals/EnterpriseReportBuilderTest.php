@@ -62,6 +62,163 @@ class EnterpriseReportBuilderTest extends TestCase
         );
     }
 
+    public function test_engineering_native_profile_emits_its_exact_sixteen_suite_contract(): void
+    {
+        $report = (new EnterpriseReportBuilder)->build('engineering_native');
+
+        $this->assertSame('engineering_native', $report['profile']);
+        $this->assertCount(16, $report['suite_rows']);
+        $this->assertSame(
+            (new SuiteRegistry)->profileSuiteIds('engineering_native'),
+            array_column($report['suite_rows'], 'suite_id'),
+        );
+        $this->assertCount(16, $report['delivery_inventory']);
+        $this->assertFileExists(RunPaths::enterpriseReportPath('engineering_native'));
+        $this->assertFileDoesNotExist(RunPaths::enterpriseReportPath());
+        $archbench = collect($report['delivery_inventory'])->firstWhere(
+            'suite_id',
+            'archbench',
+        );
+        $this->assertSame('continuous', $archbench['measurement_type']);
+        $this->assertSame('rougeL', $archbench['primary_metric']);
+    }
+
+    public function test_enterprise_schema_uses_the_declared_profile_suite_count(): void
+    {
+        $payload = $this->minimalEnterprisePayload(suiteCount: 16);
+        $payload['profile'] = 'engineering_native';
+        $this->assertSame(
+            [],
+            SchemaContract::validate($payload, SchemaContract::ENTERPRISE_REPORT),
+        );
+
+        $payload['suite_rows'] = array_slice($payload['suite_rows'], 0, 15);
+        $this->assertContains(
+            'enterprise_suite_rows_count:15',
+            SchemaContract::validate($payload, SchemaContract::ENTERPRISE_REPORT),
+        );
+    }
+
+    public function test_engineering_report_surfaces_paired_continuous_score_without_calling_it_binary_uplift(): void
+    {
+        $registry = new ArmRegistry;
+        $plan = RunPlan::make(
+            'archbench',
+            ['archbench_adr_000'],
+            [
+                $registry->parse('verboo_kimi_k2_7@bare', 'archbench'),
+                $registry->parse('verboo_kimi_k2_7@atlas_dev', 'archbench'),
+            ],
+            1,
+            ['max_usd' => 10.0, 'max_minutes' => 30],
+            1,
+        );
+        $runId = $plan->persist();
+        file_put_contents(RunPaths::adjudicationPath($runId), json_encode([
+            'pipeline_valid' => true,
+            'internal_claim_allowed' => false,
+            'claim_scope' => [
+                'suite' => 'archbench',
+                'models' => ['verboo_kimi_k2_7'],
+                'runtimes' => ['bare', 'atlas_dev'],
+            ],
+        ]));
+        file_put_contents(RunPaths::reportPath($runId), json_encode([
+            'rows' => [
+                [
+                    'task_type' => 'architecture_design',
+                    'arm_id' => 'verboo_kimi_k2_7@bare',
+                    'n' => 1,
+                    'successes' => 1,
+                    'success_rate_itt' => 1.0,
+                    'intelligence_rate' => 1.0,
+                    'median_wall_ms' => 1000,
+                    'avg_tokens_in' => 100,
+                    'avg_tokens_out' => 20,
+                    'tokens_per_task' => 120,
+                    'tokens_per_second' => 120,
+                    'total_tokens' => 120,
+                    'cost_per_task' => 0.0,
+                    'environment_failure_rate' => 0.0,
+                    'tokens_coverage' => ['n' => 1, 'in' => 1, 'out' => 1],
+                ],
+                [
+                    'task_type' => 'architecture_design',
+                    'arm_id' => 'verboo_kimi_k2_7@atlas_dev',
+                    'n' => 1,
+                    'successes' => 1,
+                    'success_rate_itt' => 1.0,
+                    'intelligence_rate' => 1.0,
+                    'median_wall_ms' => 2000,
+                    'avg_tokens_in' => 200,
+                    'avg_tokens_out' => 40,
+                    'tokens_per_task' => 240,
+                    'tokens_per_second' => 120,
+                    'total_tokens' => 240,
+                    'cost_per_task' => 0.0,
+                    'environment_failure_rate' => 0.0,
+                    'tokens_coverage' => ['n' => 1, 'in' => 1, 'out' => 1],
+                ],
+            ],
+        ]));
+        File::ensureDirectoryExists(RunPaths::runDir($runId).'/external_results/units');
+        file_put_contents(
+            RunPaths::runDir($runId).'/external_results/units/archbench.json',
+            json_encode([
+                'schema_version' => 'atlas.rivals2.engineering_native_unit.v1',
+                'suite_id' => 'archbench',
+                'model' => 'kimi-k2.7',
+                'results' => [[
+                    'case_id' => 'archbench_adr_000',
+                    'repetition' => 1,
+                    'status' => 'success',
+                    'measurement_type' => 'continuous',
+                    'score_metric' => 'rougeL',
+                    'score' => 0.42,
+                    'native_metrics' => ['rougeL' => 0.42],
+                ]],
+            ]),
+        );
+        file_put_contents(RunPaths::runDir($runId).'/uplift.json', json_encode([
+            'uplift_supported' => true,
+            'uplift_kind' => 'real_uplift',
+            'diagnostic_only' => false,
+            'proven_pair_count' => 1,
+            'excluded_pair_keys' => [],
+            'internal_claim_allowed' => false,
+            'stop_the_line' => true,
+            'deltas' => [[
+                'primary_outcome' => 'native_score',
+                'success_semantics' => 'valid_native_artifact',
+                'native_score_metric' => 'rougeL',
+                'base' => ['success_rate' => 1.0, 'avg_native_score' => 0.42],
+                'atlas' => ['success_rate' => 1.0, 'avg_native_score' => 0.30],
+                'delta_success_rate' => 0.0,
+                'delta_native_score' => -0.12,
+                'delta_native_score_ci_95' => ['low' => -0.12, 'high' => -0.12, 'samples' => 1],
+                'outcome' => 'possible_negative',
+            ]],
+        ]));
+
+        $report = (new EnterpriseReportBuilder)->build('engineering_native');
+        $archbench = collect($report['suite_rows'])->firstWhere('suite_id', 'archbench');
+        $uplift = collect($report['atlas_uplift']['families'])->firstWhere(
+            'suite_id',
+            'archbench',
+        );
+
+        $this->assertSame('continuous', $archbench['delivery']['measurement_type']);
+        $this->assertSame(0.42, $archbench['native_signals'][0]['score']);
+        $this->assertSame('native_score', $uplift['primary_outcome']);
+        $this->assertSame('rougeL', $uplift['native_score_metric']);
+        $this->assertSame(-0.12, $uplift['delta_native_score']);
+        $this->assertNull($uplift['delta_intelligence']);
+        $this->assertStringContainsString(
+            'ROUGE-L 0.42 → 0.3',
+            implode(' ', $report['facts']['measured']),
+        );
+    }
+
     public function test_marks_pipeline_valid_run_as_ok_and_others_not_run(): void
     {
         $runId = $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true);

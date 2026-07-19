@@ -73,6 +73,73 @@ class AtlasUpliftRunnerTest extends TestCase
         $this->assertNotNull($uplift['claim_scope']);
     }
 
+    public function test_continuous_native_score_is_the_primary_outcome_not_artifact_validity(): void
+    {
+        $registry = new ArmRegistry;
+        $plan = RunPlan::make(
+            'local_fake',
+            ['archbench_adr_000'],
+            [
+                $registry->parse('local_fake_model@bare'),
+                $registry->parse('local_fake_model@atlas_dev'),
+            ],
+            1,
+            ['max_usd' => 0.0, 'max_minutes' => 5],
+            42,
+        );
+        $runId = $plan->persist();
+        foreach (['bare' => 0.5, 'atlas_dev' => 0.3] as $runtime => $score) {
+            RunReceipt::fromArray([
+                'schema_version' => SchemaContract::RUN_RECEIPT,
+                'run_id' => $runId,
+                'case_id' => 'archbench_adr_000',
+                'task_type' => 'architecture_design',
+                'arm_id' => 'local_fake_model@'.$runtime,
+                'repetition' => 1,
+                'status' => 'success',
+                'failure_class' => null,
+                'failure_reason' => null,
+                'wall_ms' => 1000,
+                'tokens_in' => 10,
+                'tokens_out' => 2,
+                'cost_usd' => 0.0,
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => null],
+                ],
+                'claim_tier' => 'harness',
+                'harness_only' => true,
+                'artifacts' => [],
+                'started_at' => null,
+                'finished_at' => null,
+                'metadata' => [
+                    'native' => [
+                        'measurement_type' => 'continuous',
+                        'score_metric' => 'rougeL',
+                        'score' => $score,
+                    ],
+                ],
+            ])->append();
+        }
+
+        $uplift = (new AtlasUpliftRunner)->compare($runId, 'local_fake_model');
+        $delta = $uplift['deltas'][0];
+
+        $this->assertSame('native_score', $delta['primary_outcome']);
+        $this->assertSame('valid_native_artifact', $delta['success_semantics']);
+        $this->assertSame('rougeL', $delta['native_score_metric']);
+        $this->assertEqualsWithDelta(-0.2, $delta['delta_native_score'], 0.000001);
+        $this->assertSame(
+            ['low' => -0.2, 'high' => -0.2, 'samples' => 1],
+            $delta['delta_native_score_ci_95'],
+        );
+        $this->assertSame(0.0, $delta['delta_success_rate']);
+        $this->assertSame('possible_negative', $delta['outcome']);
+        $this->assertTrue($uplift['stop_the_line']);
+    }
+
     public function test_missing_runtime_command_blocks_non_harness_uplift(): void
     {
         // Arms may be created while a command exists; compare must still fail-closed

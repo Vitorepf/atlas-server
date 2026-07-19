@@ -1,0 +1,1 @@
+{"case_id":"repobench_python_001","native_task_id":"python:cross_file_first:2k:1","native_index":1,"subset":"cross_file_first","level":"2k","language":"python","task_type":"coding_patch","title":"RepoBench Python cross-file 1","suite_id":"repobench","source_repo":"repobench"}

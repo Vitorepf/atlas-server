@@ -44,8 +44,9 @@ que o número que o Rivals mostra é verdade.
 | Claude | `scripts/rivals-atlas-openai-endpoint.php` (endpoint) | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: 10 suítes ficam; Codex constrói runtime governado de resposta (cérebro Atlas c/ Hermes dentro), não `hermes -z` cru |
 | Claude | `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (prova no scratch certo) | 2026-07-19 ~13h | ATIVO — fix commitado (`d48cd222fb`), provando end-to-end na run arq_f40e |
 | Claude | `InspectEvalsAdapter` + `Tau2BenchAdapter` | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: ficam no perfil (10 suítes); Codex constrói o braço governado. Adapters/registry intactos |
-| Codex | receipts/runner/report + harness Harbor + cross-check de runtime proof do bridge | 2026-07-19 11:27 -03 | fixes TDD commitados; wave limpa 1×1 das 10 em execução; sem tocar WIP Arena/endpoint/LCB do Claude |
-| Codex | runtime governado de resposta + endpoint/Inspect/Tau2 | 2026-07-19 13:05 -03 | ATIVO após liberação; contrato 10×2 restaurado em `188bcc60c`; não tocar LCB |
+| Codex | receipts/runner/report + harness Harbor + cross-check de runtime proof do bridge | 2026-07-19 11:27 -03 | ESTACIONADO pela decisão native-only da §7; fixes/logs preservados, nenhum número Docker/x86 entra no perfil |
+| Codex | runtime governado de resposta + endpoint/Inspect/Tau2 | 2026-07-19 13:05 -03 | LIBERADO — fora do novo perfil Engenharia & Arquitetura; prova histórica preservada |
+| Codex | pipeline/normalizador/report + wiring de adapters para o perfil nativo de Engenharia & Arquitetura (`bfcl`, `aider_polyglot` e `_prova/{archbench,cruxeval,classeval,repobench,locagent,debug_gym,testeval,evalplus,crosscodeeval,bigcodebench,deveval,long_code_arena,reval}`); arquivos reservados: `config/atlas_rivals.php`, `AtlasRivalsCommand`, `SuiteRegistry`, `BenchmarkRepoManager`, `FaseABatteryOrchestrator`, `NativeResultNormalizer`, `AtlasUpliftRunner`, `EnterpriseReportBuilder`, `EnterpriseSuiteDeliveryCatalog`, `AbstractExternalSuiteAdapter`, adapters novos em `Adapters/External`, executor novo em `scripts/rivals-engineering-*`, fixtures/testes Rivals e docs canônicos Rivals | 2026-07-19 18:56 -03 | ATIVO — inventário/contratos primeiro; exclui `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (claim Claude), WIP Arena do Claude, `config/atlas_arena.php`, views/app nativo e `r2abench` |
 
 ## 4. BOARD DE CONFIABILIDADE POR SUÍTE (verdade atual, 2026-07-19 ~10h)
 
@@ -64,6 +65,31 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 | live_code_bench | 🟡→✅? | Overlay gravava prova num tempdir efêmero (apagado antes do attacher ler) → env_failure falso com Atlas rodando de verdade. Fix `d48cd222fb`: persiste a prova em `<scratch>/.rivals_atlas_dev_bridge.json`. Provando na run arq_f40e. | Claude (feito, provando) |
 | senior_swe_bench | ⏳ | diagnóstico 24/24 receipts fechou, mas a corrida é não-claimável (hot reload + caso manual inválido `ssb_0034`); bateria limpa ainda pendente | Codex |
 | swe_marathon | ⏳ | na fila; mesmo agente harbor | Codex (auditar ao fechar) |
+
+### 4.1 BOARD VIGENTE — perfil nativo Engenharia & Arquitetura (2026-07-19 18:56 -03)
+
+O quadro de 10 suítes acima fica como histórico da missão anterior. A decisão
+native-only da §7 e o objetivo ativo substituem o escopo operacional por este
+perfil. `R2ABench` está fora porque não há avaliador público.
+
+| suíte | integração 2 braços | prova atual | volume + CI | dono |
+|---|---|---|---|---|
+| bfcl | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
+| aider_polyglot | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
+| live_code_bench | existente | **não medido**: clean-wave reciclou cache, usage/proof ausentes | pendente | Claude |
+| archbench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| cruxeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| classeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| repobench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| locagent | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| debug_gym | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| testeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| evalplus | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| crosscodeeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| bigcodebench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| deveval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| long_code_arena | pendente | clone preparado; contrato de execução ainda a provar | pendente | Codex |
+| reval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
 
 ## 5. LOG (append-only; sintoma → causa PROVADA → fix → prova)
 
@@ -312,3 +338,53 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   No claim LCB, isole o output por `execution_id`/braço (ou desative
   `--continue_existing_with_eval`), exija `remaining > 0` + usage e proof antes
   de success. Não atribuir este pass@1 ao Atlas nem ao bare.
+- 2026-07-19 · Codex · **job Docker antigo encerrado ao ativar o perfil
+  native-only**: a única execução ainda viva era Marathon
+  `20260719_145914_92d74864/ne_5d75b107b601104b9cb53465`, task `wasm-simd`,
+  container exato `wasm-simd__ffd35r8__env-main-1`. Stop gracioso do container
+  fez Harbor fechar e o runner gravar os dois streams com hash. O native receipt
+  veio `status=success/exit_code=0`, mas o `result.json.stats` prova
+  `n_errored_trials=1`, `NonZeroAgentExitCodeError`, tokens nulos. Logo esta
+  unidade é **não medida/estacionada**, nunca sucesso de benchmark; nenhum outro
+  processo, container ou artefato foi tocado.
+- 2026-07-19 · Codex · **placement resolvido por REUSE, não por runtime novo**:
+  `atlas:ai:place-feature` bloqueou a descrição ampla porque encontrou exatamente
+  `AtlasRivalsCommand`, `FaseABatteryOrchestrator` e
+  `EnterpriseReportDashboardHtml` como colisões. A decisão explícita é estender o
+  owner existente `app/Services/Ai/Rivals` e os contratos
+  `atlas-rivals-{product,structure,external-suites,claims-and-reporting}-v1`;
+  não criar pipeline, registry, report ou capability paralelo. Os 13 adapters
+  novos entram no mesmo `SuiteRegistry`/`NativeResultNormalizer`, com testes
+  antes do código e perfil `engineering_native` separado do histórico Fase A.
+- 2026-07-19 · Codex · **perfil native-only fecha smoke 16/16 sem provider**:
+  `atlas:rivals benchmarks --json` reporta `running`, clone presente e erro nulo
+  para as 16 suítes de `engineering_native`. EvalPlus e BigCodeBench inicialmente
+  pareciam bloqueadas porque seus CLIs Fire retornam 2 para `--help`; o smoke foi
+  corrigido para importar os avaliadores Python reais, sem converter código 2 em
+  sucesso genérico. R2ABench continua explicitamente fora do perfil.
+- 2026-07-19 · Codex · **primeiro par ArchBench recuperado sem duplicar unidade**:
+  run `20260719_221842_18486068`, caso `archbench_adr_000`, repetição 1. A
+  primeira tentativa morreu antes de provider porque o executor exigia
+  `realpath(scratch)` antes de o native runner criar o diretório; os dois
+  native receipts falhos permanecem em `attempts/*/attempt-0001.*`. Depois do
+  fix, bare e Atlas executaram de verdade. `import-results --replace-import`
+  abriu a revisão 2 e substituiu os dois receipts canônicos falhos por exatamente
+  dois receipts de sucesso, sem pseudorreplicação; o replay verifica o evidence
+  hash. Bare: ROUGE-L 0,142384, 4.587/1.232 tokens, 49.895 ms. Atlas:
+  ROUGE-L 0,132366, 33.681/2.887 tokens, 615.911 ms. Delta pontual Atlas−bare:
+  −0,010018 ROUGE-L; N=1, sem claim.
+- 2026-07-19 · Codex · **proof Atlas é real, mas carrega diagnóstico pós-resposta**:
+  o receipt canônico tem `execution=atlas_cli_dev_efficient`, provider Hermes,
+  modelo `kimi-k2.7`, fair mode íntegro, usage presente e streams verificados.
+  Também preserva `task_ok=false`, `completion_state=blocked`, exit 1 e
+  `candidate_preparation_blocked:sandbox_sandbox_apply_failed:create_target_already_exists:decision.md`.
+  O artefato `decision.md` foi de fato preenchido e o avaliador nativo produziu
+  métrica válida; portanto é medição contínua com fricção Atlas registrada, não
+  falha de ambiente nem “100% de sucesso”. A adjudicação permanece
+  `claim_allowed=false` por 1 caso, 1 repetição, CI largo e worktree dirty.
+- 2026-07-19 · Codex · **hardcode histórico de 10 suítes bloqueia o relatório novo**:
+  a execução fast encontrou
+  `enterprise_suite_rows_count:10,enterprise_delivery_inventory_count:10`.
+  A correção será perfil explícito no builder/catalog/schema: `fase_a` conserva
+  o relatório histórico de 10; `engineering_native` reporta suas 16, com métrica
+  contínua e pareamento, sem inflar “artefato válido” para capacidade perfeita.

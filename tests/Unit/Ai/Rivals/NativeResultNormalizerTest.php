@@ -300,6 +300,63 @@ class NativeResultNormalizerTest extends TestCase
         $this->assertSame([false, true], $aiderUnit['results'][0]['tests_outcomes']);
     }
 
+    public function test_engineering_native_unit_requires_exact_identity_and_preserves_usage_and_failure_reason(): void
+    {
+        $entry = $this->entry('archbench_adr_000', ['task_type' => 'architecture_design']);
+        $nativeArtifact = $this->scratch.'/native_artifact.json';
+        $this->writeJson($nativeArtifact, ['native_metric' => 0.42]);
+        $this->writeJson($this->scratch.'/native_result.json', [
+            'schema_version' => 'atlas.rivals2.engineering_native_unit.v1',
+            'suite_id' => 'archbench',
+            'model' => 'claude-sonnet-5',
+            'results' => [[
+                'case_id' => 'archbench_adr_000',
+                'repetition' => 2,
+                'task_type' => 'architecture_design',
+                'status' => 'failure',
+                'failure_class' => 'model_failure',
+                'failure_reason' => 'native_metric_below_threshold',
+                'score' => 0.42,
+                'tokens_in' => 120,
+                'tokens_out' => 30,
+                'cost_usd' => 0.0,
+                'native_artifact' => [
+                    'path' => $nativeArtifact,
+                    'sha256' => hash_file('sha256', $nativeArtifact),
+                ],
+            ]],
+        ]);
+
+        $unit = (new NativeResultNormalizer)->normalize('archbench', $entry, $this->root);
+
+        $this->assertSame('archbench_adr_000', $unit['results'][0]['case_id']);
+        $this->assertSame('native_metric_below_threshold', $unit['results'][0]['failure_reason']);
+        $this->assertSame(150, $unit['results'][0]['tokens_in'] + $unit['results'][0]['tokens_out']);
+        $this->assertSame(0.42, $unit['results'][0]['score']);
+    }
+
+    public function test_engineering_native_unit_rejects_a_result_from_another_case(): void
+    {
+        $entry = $this->entry('archbench_adr_000', ['task_type' => 'architecture_design']);
+        $this->writeJson($this->scratch.'/native_result.json', [
+            'schema_version' => 'atlas.rivals2.engineering_native_unit.v1',
+            'suite_id' => 'archbench',
+            'model' => 'claude-sonnet-5',
+            'results' => [[
+                'case_id' => 'archbench_adr_other',
+                'repetition' => 2,
+                'task_type' => 'architecture_design',
+                'status' => 'success',
+                'score' => 1.0,
+            ]],
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('archbench_engineering_native_identity_mismatch');
+
+        (new NativeResultNormalizer)->normalize('archbench', $entry, $this->root);
+    }
+
     /** @return array<string, mixed> */
     private function entry(string $caseId, array $case): array
     {

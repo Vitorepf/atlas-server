@@ -111,4 +111,30 @@ class BenchmarkRepoManagerTest extends TestCase
     {
         $this->artisan('atlas:rivals benchmarks --json')->assertExitCode(0);
     }
+
+    public function test_repo_directory_can_point_to_a_prepared_native_clone_below_root(): void
+    {
+        config()->set('atlas_rivals.benchmarks.repos.ok_repo.directory', '_prova/ok_repo');
+
+        $manager = new BenchmarkRepoManager;
+        $result = $manager->smoke('ok_repo');
+
+        $this->assertSame('running', $result['status']);
+        $this->assertSame(
+            $this->benchRoot.'/_prova/ok_repo',
+            $manager->directoryFor('ok_repo'),
+        );
+        $this->assertDirectoryExists($this->benchRoot.'/_prova/ok_repo/.git');
+        $this->assertDirectoryDoesNotExist($this->benchRoot.'/ok_repo');
+    }
+
+    public function test_repo_directory_cannot_escape_benchmark_root(): void
+    {
+        config()->set('atlas_rivals.benchmarks.repos.ok_repo.directory', '../outside');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('benchmark_repo_directory_invalid:ok_repo');
+
+        (new BenchmarkRepoManager)->directoryFor('ok_repo');
+    }
 }

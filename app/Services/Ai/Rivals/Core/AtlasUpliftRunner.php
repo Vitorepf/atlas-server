@@ -167,6 +167,7 @@ class AtlasUpliftRunner
 
         $deltas = [];
         $stopTheLine = false;
+        $measurementBlockers = [];
         foreach ($baseMetrics as $taskType => $base) {
             $atlas = $atlasMetrics[$taskType];
             $pairs = [];
@@ -182,6 +183,27 @@ class AtlasUpliftRunner
                     'atlas_cost_usd' => (float) $byArm['atlas'][$key]['cost_usd'],
                     'base_wall_ms' => (float) $baseReceipt['wall_ms'],
                     'atlas_wall_ms' => (float) $byArm['atlas'][$key]['wall_ms'],
+                    'base_measurement_type' => data_get(
+                        $baseReceipt,
+                        'metadata.native.measurement_type',
+                    ),
+                    'atlas_measurement_type' => data_get(
+                        $byArm['atlas'][$key],
+                        'metadata.native.measurement_type',
+                    ),
+                    'base_score_metric' => data_get(
+                        $baseReceipt,
+                        'metadata.native.score_metric',
+                    ),
+                    'atlas_score_metric' => data_get(
+                        $byArm['atlas'][$key],
+                        'metadata.native.score_metric',
+                    ),
+                    'base_native_score' => data_get($baseReceipt, 'metadata.native.score'),
+                    'atlas_native_score' => data_get(
+                        $byArm['atlas'][$key],
+                        'metadata.native.score',
+                    ),
                 ];
             }
             $successDeltas = array_map(
@@ -193,12 +215,54 @@ class AtlasUpliftRunner
                 crc32($runId.'|'.$taskType.'|success'),
             );
             $deltaSuccess = round($atlas['success_rate'] - $base['success_rate'], 4);
-            $outcome = match (true) {
-                ($successCi['high'] ?? 0) < 0 => 'confirmed_negative',
-                $deltaSuccess < 0 => 'possible_negative',
-                abs($deltaSuccess) <= 0.05 => 'neutral',
-                default => 'positive',
-            };
+            $continuousDeclared = count(array_filter(
+                $pairs,
+                static fn (array $pair): bool => $pair['base_measurement_type'] === 'continuous'
+                    || $pair['atlas_measurement_type'] === 'continuous',
+            )) > 0;
+            $continuousPairs = array_values(array_filter(
+                $pairs,
+                static fn (array $pair): bool => $pair['base_measurement_type'] === 'continuous'
+                    && $pair['atlas_measurement_type'] === 'continuous'
+                    && is_numeric($pair['base_native_score'])
+                    && is_numeric($pair['atlas_native_score'])
+                    && is_string($pair['base_score_metric'])
+                    && $pair['base_score_metric'] !== ''
+                    && $pair['base_score_metric'] === $pair['atlas_score_metric'],
+            ));
+            $continuousComplete = $continuousDeclared && count($continuousPairs) === count($pairs);
+            if ($continuousDeclared && ! $continuousComplete) {
+                $measurementBlockers[] = "continuous_native_score_pair_incomplete:{$taskType}";
+            }
+            $nativeScoreDeltas = array_map(
+                static fn (array $pair): float => (float) $pair['atlas_native_score']
+                    - (float) $pair['base_native_score'],
+                $continuousPairs,
+            );
+            $nativeScoreCi = $continuousComplete
+                ? $this->pairedBootstrapMeanCi(
+                    $nativeScoreDeltas,
+                    crc32($runId.'|'.$taskType.'|native_score'),
+                )
+                : ['low' => null, 'high' => null, 'samples' => 0];
+            $deltaNativeScore = $continuousComplete
+                ? array_sum($nativeScoreDeltas) / count($nativeScoreDeltas)
+                : null;
+            $outcome = $continuousComplete
+                ? match (true) {
+                    ($nativeScoreCi['samples'] ?? 0) > 1
+                        && ($nativeScoreCi['high'] ?? 0) < 0 => 'confirmed_negative',
+                    $deltaNativeScore < 0 => 'possible_negative',
+                    $deltaNativeScore === 0.0 => 'neutral',
+                    default => 'positive',
+                }
+                : match (true) {
+                    ($successCi['samples'] ?? 0) > 1
+                        && ($successCi['high'] ?? 0) < 0 => 'confirmed_negative',
+                    $deltaSuccess < 0 => 'possible_negative',
+                    abs($deltaSuccess) <= 0.05 => 'neutral',
+                    default => 'positive',
+                };
             $stopTheLine = $stopTheLine
                 || in_array($outcome, ['confirmed_negative', 'possible_negative'], true);
             $deltas[] = [
@@ -207,13 +271,32 @@ class AtlasUpliftRunner
                 'atlas' => $atlas,
                 'pairs' => count($pairs),
                 'pair_keys' => array_column($pairs, 'key'),
+                'primary_outcome' => $continuousComplete ? 'native_score' : 'artifact_status',
+                'success_semantics' => $continuousDeclared
+                    ? 'valid_native_artifact'
+                    : 'benchmark_success',
+                'native_score_metric' => $continuousComplete
+                    ? $continuousPairs[0]['base_score_metric']
+                    : null,
+                'native_score_pairs' => count($continuousPairs),
+                'delta_native_score' => $deltaNativeScore,
+                'delta_native_score_ci_95' => $nativeScoreCi,
                 'delta_success_rate' => $deltaSuccess,
                 'delta_success_rate_ci_95' => $successCi,
                 'delta_avg_cost_usd' => round($atlas['avg_cost_usd'] - $base['avg_cost_usd'], 6),
                 'delta_avg_wall_ms' => $atlas['avg_wall_ms'] - $base['avg_wall_ms'],
-                'improved_pairs' => count(array_filter($successDeltas, fn (float $d): bool => $d > 0)),
-                'regressed_pairs' => count(array_filter($successDeltas, fn (float $d): bool => $d < 0)),
-                'unchanged_pairs' => count(array_filter($successDeltas, fn (float $d): bool => $d === 0.0)),
+                'improved_pairs' => count(array_filter(
+                    $continuousComplete ? $nativeScoreDeltas : $successDeltas,
+                    fn (float $d): bool => $d > 0,
+                )),
+                'regressed_pairs' => count(array_filter(
+                    $continuousComplete ? $nativeScoreDeltas : $successDeltas,
+                    fn (float $d): bool => $d < 0,
+                )),
+                'unchanged_pairs' => count(array_filter(
+                    $continuousComplete ? $nativeScoreDeltas : $successDeltas,
+                    fn (float $d): bool => $d === 0.0,
+                )),
                 'outcome' => $outcome,
             ];
         }
@@ -221,6 +304,7 @@ class AtlasUpliftRunner
         $internalAllowed = ! $harnessOnly
             && ! $stopTheLine
             && $excluded === []
+            && $measurementBlockers === []
             && (($adjudication['internal_claim_allowed'] ?? $adjudication['claim_allowed'] ?? false) === true);
 
         $blockers = $harnessOnly
@@ -232,6 +316,7 @@ class AtlasUpliftRunner
                 $stopTheLine ? ['negative_multiplier_stop_the_line'] : [],
                 $excluded !== [] ? ['uplift_pairs_filtered_to_proven_runtime', 'diagnostic_only'] : [],
                 $excluded,
+                $measurementBlockers,
             )));
 
         return $this->persist($runId, [
@@ -248,6 +333,7 @@ class AtlasUpliftRunner
                 && (($adjudication['public_claim_allowed'] ?? false) === true),
             'claim_allowed' => $internalAllowed,
             'claim_blockers' => $blockers,
+            'measurement_blockers' => $measurementBlockers,
             'claim_scope' => $adjudication['claim_scope'] ?? null,
             'excluded_pair_keys' => $excluded === [] ? [] : array_values(array_unique(array_map(
                 static function (string $blocker): string {
@@ -259,7 +345,7 @@ class AtlasUpliftRunner
         ]);
     }
 
-    /** @return array<string, array{n:int, success_rate:float, avg_cost_usd:float, avg_wall_ms:int}> */
+    /** @return array<string, array<string, int|float|null>> */
     private function metrics(array $receipts): array
     {
         $groups = [];
@@ -269,11 +355,25 @@ class AtlasUpliftRunner
         $out = [];
         foreach ($groups as $taskType => $items) {
             $n = count($items);
+            $nativeScores = array_values(array_filter(
+                array_map(
+                    static fn (array $receipt): mixed => data_get(
+                        $receipt,
+                        'metadata.native.score',
+                    ),
+                    $items,
+                ),
+                'is_numeric',
+            ));
             $out[$taskType] = [
                 'n' => $n,
                 'success_rate' => round(count(array_filter($items, fn ($r) => $r['status'] === 'success')) / $n, 4),
                 'avg_cost_usd' => round(array_sum(array_column($items, 'cost_usd')) / $n, 6),
                 'avg_wall_ms' => (int) round(array_sum(array_column($items, 'wall_ms')) / $n),
+                'native_score_n' => count($nativeScores),
+                'avg_native_score' => $nativeScores === []
+                    ? null
+                    : array_sum(array_map('floatval', $nativeScores)) / count($nativeScores),
             ];
         }
 

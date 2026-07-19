@@ -79,6 +79,52 @@ class FaseABatteryOrchestratorTest extends TestCase
         }
     }
 
+    public function test_engineering_native_profile_is_sixteen_native_suites_with_dual_real_arms(): void
+    {
+        $payload = (new FaseABatteryOrchestrator)->dryRun(
+            mode: 'uplift',
+            fast: true,
+            batteryProfile: 'engineering_native',
+        );
+
+        $this->assertSame('engineering_native', $payload['battery_profile']);
+        $this->assertSame(16, $payload['suite_count']);
+        $this->assertSame(
+            (new SuiteRegistry)->profileSuiteIds('engineering_native'),
+            array_column($payload['plans'], 'suite_id'),
+        );
+        foreach ($payload['plans'] as $plan) {
+            $this->assertSame(1, $plan['case_count'], $plan['suite_id']);
+            $this->assertSame(
+                ['verboo_kimi_k2_7@bare', 'verboo_kimi_k2_7@atlas_dev'],
+                $plan['arms'],
+                $plan['suite_id'],
+            );
+            $this->assertSame('engineering_native', $plan['battery_profile']);
+        }
+    }
+
+    public function test_engineering_native_fast_prepare_freezes_all_sixteen_manifests_without_spend(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+
+        $payload = (new FaseABatteryOrchestrator)->prepare(
+            mode: 'uplift',
+            approveProviderSpend: true,
+            fast: true,
+            batteryProfile: 'engineering_native',
+        );
+
+        $this->assertSame('ok', $payload['status'], json_encode($payload['errors'] ?? []));
+        $this->assertSame('engineering_native', $payload['battery_profile']);
+        $this->assertCount(16, $payload['prepared']);
+        foreach ($payload['prepared'] as $row) {
+            $this->assertSame(2, $row['units_expected'], $row['suite_id']);
+            $this->assertFileExists($row['native_manifest_path']);
+        }
+    }
+
     public function test_battery_cli_dry_run_action(): void
     {
         config()->set('atlas_rivals.enabled', false);
