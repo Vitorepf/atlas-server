@@ -496,9 +496,9 @@ class ArenaRunControllerTest extends TestCase
         ], JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND);
     }
 
-    private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
+    private function receipt(string $armId, string $caseId, string $status, string $finishedAt, ?string $failureClass = null): array
     {
-        return [
+        $r = [
             'arm_id' => $armId,
             'case_id' => $caseId,
             'repetition' => 1,
@@ -506,5 +506,45 @@ class ArenaRunControllerTest extends TestCase
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
         ];
+        if ($failureClass !== null) {
+            $r['failure_class'] = $failureClass;
+        }
+
+        return $r;
+    }
+
+    public function test_environment_failures_are_unmeasured_not_a_zero_score(): void
+    {
+        // Veto do operador ('mostre só o Atlas real'): falha de AMBIENTE
+        // (caso quebrado / proxy / integração) não é nota do modelo. O braço
+        // com-Atlas todo em environment_failure deve ser NÃO MEDIDO (score
+        // ausente), nunca 0 — senão o app pinta -10 catastrófico onde não houve
+        // medição. Regressão do bug `=== 'environment'` que nunca casava com
+        // o texto real `environment_failure`.
+        $runId = '20260719_020000_arena';
+        $this->writeRun($runId, 'terminal_bench', [
+            $this->receipt('verboo_kimi_k2_7@bare', 'tb_hello', 'success', '2026-07-19T02:01:00Z'),
+            $this->receipt('verboo_kimi_k2_7@atlas_dev', 'tb_hello', 'error', '2026-07-19T02:02:00Z', 'environment_failure'),
+            $this->receipt('verboo_kimi_k2_7@atlas_dev', 'tb_fix_git', 'error', '2026-07-19T02:03:00Z', 'environment_failure'),
+        ]);
+
+        $rows = (new ArenaMeasurementStore)->measurements();
+        $bare = null;
+        $atlas = null;
+        foreach ($rows as $row) {
+            if (($row['suite'] ?? '') !== 'terminal_bench') {
+                continue;
+            }
+            if (($row['arm'] ?? '') === 'baseline') {
+                $bare = $row;
+            }
+            if (($row['arm'] ?? '') === 'with_atlas') {
+                $atlas = $row;
+            }
+        }
+
+        $this->assertNotNull($bare, 'baseline com resultado real deve existir');
+        $this->assertSame(1.0, (float) $bare['score'], 'baseline 1/1 (env não polui)');
+        $this->assertNull($atlas, 'braço com-Atlas só com env_failure = NÃO MEDIDO (sem row), nunca score 0');
     }
 }

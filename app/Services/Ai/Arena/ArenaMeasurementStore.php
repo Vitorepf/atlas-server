@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Arena;
 
 use App\Services\Ai\Rivals\Core\ModelRegistry;
+use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use RuntimeException;
 
@@ -76,7 +77,13 @@ final class ArenaMeasurementStore
             /** @var array<string, array<string, mixed>> $groups */
             $groups = [];
             foreach ($receipts as $receipt) {
-                if (($receipt['failure_class'] ?? null) === 'environment') {
+                // Falha de AMBIENTE (caso quebrado, integração, proxy) não é nota
+                // do modelo — não conta como falha de nenhum braço. O texto real
+                // no recibo é `environment_failure`; o `=== 'environment'` antigo
+                // NUNCA casava, então os artefatos viravam "0" e o app pintava o
+                // braço com-Atlas como -10 catastrófico onde na verdade era NÃO
+                // MEDIDO (inspect/tau2/lcb via proxy quebrado). Legacy incluído.
+                if (in_array($receipt['failure_class'] ?? null, ['environment', 'environment_failure'], true)) {
                     continue;
                 }
                 $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
@@ -163,26 +170,147 @@ final class ArenaMeasurementStore
      */
     public function updateQueuedRequests(array $runIdsPublic, array $updates): void
     {
-        $path = $this->queuePath();
-        if ($runIdsPublic === [] || ! is_file($path)) {
+        if ($runIdsPublic === []) {
             return;
         }
-        $lines = array_values(array_filter(explode(PHP_EOL, (string) file_get_contents($path))));
-        $rewritten = [];
-        foreach ($lines as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && in_array($decoded['run_id_public'] ?? null, $runIdsPublic, true)) {
-                $line = json_encode(array_merge($decoded, $updates), JSON_UNESCAPED_SLASHES);
+
+        $this->mutateQueuedRequestsAtomically(
+            static function (array $entries) use ($runIdsPublic, $updates): array {
+                foreach ($entries as &$entry) {
+                    if (in_array($entry['run_id_public'] ?? null, $runIdsPublic, true)) {
+                        $entry = array_merge($entry, $updates);
+                    }
+                }
+                unset($entry);
+
+                return ['entries' => $entries, 'result' => null];
             }
-            $rewritten[] = $line;
+        );
+    }
+
+    /**
+     * @param  list<string>  $runIdsPublic
+     * @param  list<string>  $fromStatuses
+     * @param  array<string,mixed>  $updates
+     * @return list<string>
+     */
+    public function transitionQueuedRequests(
+        array $runIdsPublic,
+        array $fromStatuses,
+        array $updates
+    ): array {
+        if ($runIdsPublic === []) {
+            return [];
         }
-        file_put_contents($path, implode(PHP_EOL, $rewritten).PHP_EOL, LOCK_EX);
+
+        return $this->mutateQueuedRequestsAtomically(
+            static function (array $entries) use ($runIdsPublic, $fromStatuses, $updates): array {
+                $transitioned = [];
+                foreach ($entries as &$entry) {
+                    $runId = (string) ($entry['run_id_public'] ?? '');
+                    if (in_array($runId, $runIdsPublic, true)
+                        && in_array((string) ($entry['status'] ?? ''), $fromStatuses, true)) {
+                        $entry = array_merge($entry, $updates);
+                        $transitioned[] = $runId;
+                    }
+                }
+                unset($entry);
+
+                return ['entries' => $entries, 'result' => $transitioned];
+            }
+        );
+    }
+
+    public function measurementHasStatus(string $measurementId, string $status): bool
+    {
+        foreach ($this->queuedRequests() as $entry) {
+            if (($entry['measurement_id_public'] ?? null) === $measurementId
+                && ($entry['status'] ?? null) === $status) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    public function acknowledgeMeasurementStop(string $measurementId, string $stoppedAt): array
+    {
+        return $this->mutateQueuedRequestsAtomically(
+            static function (array $entries) use ($measurementId, $stoppedAt): array {
+                $stopped = [];
+                foreach ($entries as &$entry) {
+                    if (($entry['measurement_id_public'] ?? null) !== $measurementId
+                        || ($entry['status'] ?? null) !== 'stopping') {
+                        continue;
+                    }
+                    $entry = array_merge($entry, [
+                        'status' => 'stopped',
+                        'stopped_at' => $stoppedAt,
+                        'drained_at' => $stoppedAt,
+                        'terminal_receipt_hash' => $entry['stop_receipt_hash'] ?? null,
+                    ]);
+                    $stopped[] = (string) ($entry['run_id_public'] ?? '');
+                }
+                unset($entry);
+
+                return ['entries' => $entries, 'result' => $stopped];
+            }
+        );
     }
 
     public function appendQueuedRequest(array $entry): void
     {
-        RunPaths::ensureDir(dirname($this->queuePath()));
-        file_put_contents($this->queuePath(), json_encode($entry, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        $this->withQueueLock(function () use ($entry): void {
+            $path = $this->queuePath();
+            $existing = is_file($path) ? rtrim((string) file_get_contents($path), PHP_EOL) : '';
+            $contents = ($existing === '' ? '' : $existing.PHP_EOL)
+                .json_encode($entry, JSON_UNESCAPED_SLASHES).PHP_EOL;
+            AtomicWriter::write($path, $contents);
+        });
+    }
+
+    /**
+     * Linearizable read-modify-write for lifecycle transitions.
+     *
+     * The callback must preserve the number and order of decoded entries.
+     * Malformed/raw lines remain byte-for-byte untouched.
+     */
+    public function mutateQueuedRequestsAtomically(callable $mutation): mixed
+    {
+        return $this->withQueueLock(function () use ($mutation): mixed {
+            $path = $this->queuePath();
+            $lines = is_file($path)
+                ? array_values(array_filter(explode(PHP_EOL, (string) file_get_contents($path))))
+                : [];
+            $entries = [];
+            foreach ($lines as $line) {
+                $decoded = json_decode($line, true);
+                if (is_array($decoded)) {
+                    $entries[] = $decoded;
+                }
+            }
+
+            $outcome = $mutation($entries);
+            $nextEntries = is_array($outcome) ? ($outcome['entries'] ?? null) : null;
+            if (! is_array($nextEntries) || count($nextEntries) !== count($entries)) {
+                throw new RuntimeException('arena_queue_mutation_must_preserve_entries');
+            }
+
+            $entryIndex = 0;
+            $rewritten = [];
+            foreach ($lines as $line) {
+                if (is_array(json_decode($line, true))) {
+                    $line = json_encode($nextEntries[$entryIndex++], JSON_UNESCAPED_SLASHES);
+                }
+                $rewritten[] = $line;
+            }
+            if ($rewritten !== []) {
+                AtomicWriter::write($path, implode(PHP_EOL, $rewritten).PHP_EOL);
+            }
+
+            return $outcome['result'] ?? null;
+        });
     }
 
     public function queuePath(): string
@@ -193,6 +321,23 @@ final class ArenaMeasurementStore
     public function publicRunId(string $runId): string
     {
         return 'ar_'.substr(hash('sha256', $runId), 0, 20);
+    }
+
+    private function withQueueLock(callable $operation): mixed
+    {
+        $path = $this->queuePath().'.lock';
+        RunPaths::ensureDir(dirname($path));
+        $handle = fopen($path, 'c+');
+        if ($handle === false || ! flock($handle, LOCK_EX)) {
+            throw new RuntimeException('arena_queue_lock_failed');
+        }
+
+        try {
+            return $operation();
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     /** @return list<string> */
