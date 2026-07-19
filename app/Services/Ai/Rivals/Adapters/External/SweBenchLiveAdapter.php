@@ -32,6 +32,18 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
                 ($inst['resolved'] ?? null) === false => 'failure',
                 default => 'error',
             };
+            $failedChecks = array_values(array_unique(array_filter(array_map(
+                static fn (mixed $value): string => trim((string) $value),
+                (array) ($inst['failed_checks'] ?? []),
+            ))));
+            $failureReason = match (true) {
+                $status === 'success' => null,
+                $failedChecks !== [] => 'swe_bench_live:failed_checks='.implode('|', $failedChecks),
+                is_string($inst['verdict_reason'] ?? null)
+                    && trim((string) $inst['verdict_reason']) !== '' => 'swe_bench_live:'
+                        .trim((string) $inst['verdict_reason']),
+                default => 'swe_bench_live:benchmark_verdict_not_resolved',
+            };
             $hasTokens = isset($inst['usage']['input_tokens'], $inst['usage']['output_tokens'], $inst['usage']['cost_usd']);
             $receipts[] = [
                 'case_id' => $instanceId,
@@ -44,6 +56,7 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
                     'failure' => 'model_failure',
                     default => 'environment_failure',
                 },
+                'failure_reason' => $failureReason,
                 'wall_ms' => (int) round((float) ($inst['duration_sec'] ?? 0) * 1000),
                 'tokens_in' => (int) ($inst['usage']['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($inst['usage']['output_tokens'] ?? 0),

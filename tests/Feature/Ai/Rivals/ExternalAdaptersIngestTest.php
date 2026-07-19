@@ -190,6 +190,34 @@ class ExternalAdaptersIngestTest extends TestCase
         );
     }
 
+    public function test_swe_live_model_failure_names_the_failed_native_checks(): void
+    {
+        $adapter = new SweBenchLiveAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'instances' => [[
+                'instance_id' => 'geopandas__geopandas-3132',
+                'model_name_or_path' => 'kimi-k2.7',
+                'resolved' => false,
+                'eval_status' => 'ok',
+                'failed_checks' => ['test_geojson_no_bbox', 'test_geojson_bbox'],
+                'duration_sec' => 1.0,
+                'usage' => [
+                    'input_tokens' => 100,
+                    'output_tokens' => 20,
+                    'cost_usd' => 0.0,
+                ],
+            ]],
+        ]);
+
+        $this->assertSame('failure', $receipts[0]['status']);
+        $this->assertSame(
+            'swe_bench_live:failed_checks=test_geojson_no_bbox|test_geojson_bbox',
+            $receipts[0]['failure_reason'],
+        );
+    }
+
     public function test_truncated_answer_is_not_measured_never_a_safe_verdict(): void
     {
         // ⚠️ FALSO SEGURO — a armadilha real, medida no agentic_misalignment:

@@ -180,6 +180,26 @@ class NativeResultNormalizerTest extends TestCase
         $this->assertTrue($sweUnit['instances'][0]['resolved']);
         $this->assertSame('swe_case', $sweUnit['instances'][0]['instance_id']);
 
+        $this->writeJson(
+            $this->scratch.'/astropy__astropy-1/report.json',
+            [
+                'instance_id' => 'astropy__astropy-1',
+                'resolved' => false,
+                'FAIL_TO_PASS' => ['failure' => ['test_target_a', 'test_target_b']],
+                'PASS_TO_PASS' => ['failure' => []],
+            ],
+        );
+        $failedSweUnit = (new NativeResultNormalizer)->normalize(
+            'swe_bench_live',
+            $swe,
+            $this->root,
+        );
+        $this->assertFalse($failedSweUnit['instances'][0]['resolved']);
+        $this->assertSame(
+            ['test_target_a', 'test_target_b'],
+            $failedSweUnit['instances'][0]['failed_checks'],
+        );
+
         $lcb = $this->entry('lcb_case', ['native_task_id' => 'lcb_native_1']);
         File::ensureDirectoryExists($this->root.'/output/model');
         $this->writeJson(

@@ -327,17 +327,39 @@ final class NativeResultNormalizer
             $report = $this->json($reportPath);
             $resolved = $report['resolved'] ?? null;
             $evalStatus = array_key_exists('resolved', $report) ? 'ok' : 'error';
+            $failedChecks = array_values(array_unique(array_filter(array_map(
+                'strval',
+                array_merge(
+                    (array) data_get($report, 'FAIL_TO_PASS.failure', []),
+                    (array) data_get($report, 'PASS_TO_PASS.failure', []),
+                ),
+            ))));
+            $verdictReason = $resolved === false
+                ? ($failedChecks === [] ? 'official_verifier_unresolved' : 'official_failed_checks')
+                : ($resolved === true ? null : 'evaluation_report_missing_resolved');
         } else {
             $summary = $this->json("{$scratch}/results.json");
-            $resolved = in_array($nativeTask, (array) ($summary['success_ids'] ?? []), true)
+            $successIds = (array) ($summary['success_ids'] ?? []);
+            $failureIds = (array) ($summary['failure_ids'] ?? []);
+            $emptyPatchIds = (array) ($summary['empty_patch_ids'] ?? []);
+            $errorIds = (array) ($summary['error_ids'] ?? []);
+            $resolved = in_array($nativeTask, $successIds, true)
                 ? true
                 : (in_array($nativeTask, array_merge(
-                    (array) ($summary['failure_ids'] ?? []),
-                    (array) ($summary['empty_patch_ids'] ?? []),
+                    $failureIds,
+                    $emptyPatchIds,
                 ), true) ? false : null);
-            $evalStatus = in_array($nativeTask, (array) ($summary['error_ids'] ?? []), true)
+            $evalStatus = in_array($nativeTask, $errorIds, true)
                 ? 'error'
                 : 'ok';
+            $failedChecks = [];
+            $verdictReason = match (true) {
+                in_array($nativeTask, $emptyPatchIds, true) => 'empty_patch',
+                in_array($nativeTask, $failureIds, true) => 'official_verifier_unresolved',
+                in_array($nativeTask, $errorIds, true) => 'evaluation_error',
+                in_array($nativeTask, $successIds, true) => null,
+                default => 'evaluation_verdict_missing',
+            };
         }
         $usagePath = "{$scratch}/predictions.usage.json";
         $usage = is_file($usagePath) ? $this->json($usagePath) : [];
@@ -348,6 +370,8 @@ final class NativeResultNormalizer
                 'instance_id' => $entry['case_id'],
                 'resolved' => $resolved,
                 'eval_status' => $evalStatus,
+                'verdict_reason' => $verdictReason,
+                'failed_checks' => $failedChecks,
                 'model_name_or_path' => $entry['cli_model'],
                 'repetition' => $entry['repetition'],
                 'duration_sec' => (float) ($usage['duration_sec'] ?? 0),

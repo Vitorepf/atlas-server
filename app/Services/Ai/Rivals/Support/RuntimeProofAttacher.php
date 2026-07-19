@@ -22,7 +22,8 @@ final class RuntimeProofAttacher
             || ! is_file(RunPaths::nativeManifestPath($runId))) {
             return $receipt;
         }
-        $entry = collect(NativeExecutionManifest::load($runId)->entries())->first(
+        $manifest = NativeExecutionManifest::load($runId);
+        $entry = collect($manifest->entries())->first(
             fn (array $candidate): bool => $candidate['expected_result_path'] === $resultPath,
         );
         $nativeReceipt = collect(NativeExecutionReceipt::loadAll($runId))->first(
@@ -116,6 +117,19 @@ final class RuntimeProofAttacher
                 $receipt['failure_reason'] = $proofReason;
                 if (($receipt['status'] ?? null) === 'success') {
                     $receipt['status'] = 'error';
+                }
+            } elseif (($receipt['status'] ?? null) !== 'success'
+                && data_get($proof, 'task_ok') === false) {
+                $errorCodes = array_values(array_unique(array_filter(
+                    array_map(
+                        static fn (mixed $value): string => trim((string) $value),
+                        (array) data_get($proof, 'provider_call.error_codes', []),
+                    ),
+                    static fn (string $value): bool => $value !== '',
+                )));
+                if ($errorCodes !== []) {
+                    $receipt['failure_reason'] = (string) $manifest->data['suite_id']
+                        .':atlas_bridge_error_codes='.implode('|', $errorCodes);
                 }
             }
         }

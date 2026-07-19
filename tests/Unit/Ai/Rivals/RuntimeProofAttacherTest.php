@@ -118,6 +118,12 @@ class RuntimeProofAttacherTest extends TestCase
                 // Isto é uma derrota medida, não uma falha de ambiente.
                 'task_ok' => false,
                 'completion_state' => 'blocked',
+                'provider_call' => [
+                    'provider_calls' => 1,
+                    'error_codes' => [
+                        'candidate_preparation_blocked:sandbox_sandbox_git_clone_failed',
+                    ],
+                ],
                 'usage' => [
                     'input_tokens' => 100,
                     'output_tokens' => 20,
@@ -127,8 +133,13 @@ class RuntimeProofAttacherTest extends TestCase
             ]),
         );
 
+        $receipt = $this->receipt($binding) + [
+            'status' => 'failure',
+            'failure_class' => 'model_failure',
+            'failure_reason' => 'swe_bench_live:benchmark_verdict_not_resolved',
+        ];
         $attached = (new RuntimeProofAttacher)->attach(
-            $this->receipt($binding),
+            $receipt,
             $binding,
             $plan->runId(),
             $entry['expected_result_path'],
@@ -142,6 +153,10 @@ class RuntimeProofAttacherTest extends TestCase
             \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
             $attached['failure_class'] ?? null,
             'derrota do Atlas é medição, não falha de ambiente — tem de contar no denominador',
+        );
+        $this->assertSame(
+            'terminal_bench:atlas_bridge_error_codes=candidate_preparation_blocked:sandbox_sandbox_git_clone_failed',
+            $attached['failure_reason'] ?? null,
         );
     }
 
