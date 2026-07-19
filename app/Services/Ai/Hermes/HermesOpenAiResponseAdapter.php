@@ -350,9 +350,11 @@ final class HermesOpenAiResponseAdapter
             $outputTokens = array_sum(array_column($calls, 'output_tokens'));
             $successful = count(array_filter($calls, fn (array $call): bool => $call['status'] === 'passed'));
             $errorCodes = array_values(array_unique(array_filter(array_column($calls, 'error_code'))));
-            $priorFailure = is_string($existing['failure_reason'] ?? null) ? $existing['failure_reason'] : null;
-            $aggregatePassed = $passed && ($existing['status'] ?? 'passed') !== 'failed';
-            $aggregateFailure = $aggregatePassed ? null : ($priorFailure ?: $failureReason ?: 'atlas_runtime_call_failed');
+            // The aggregate reflects the latest attempt: native harnesses may
+            // retry a transient endpoint failure. Earlier failures remain in
+            // calls[] and provider_call.error_codes for auditability.
+            $aggregatePassed = $passed;
+            $aggregateFailure = $aggregatePassed ? null : ($failureReason ?: 'atlas_runtime_call_failed');
 
             $proof = [
                 'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',

@@ -288,4 +288,126 @@ class AtlasUpliftRunnerTest extends TestCase
         $this->assertSame([], $uplift['deltas'], 'nenhum delta pode ser publicado sobre um Atlas que não rodou');
         $this->assertFalse($uplift['claim_allowed']);
     }
+
+    public function test_governed_v2_runtime_proof_supports_real_uplift_without_legacy_flag(): void
+    {
+        $registry = new ArmRegistry;
+        $plan = RunPlan::make(
+            'inspect_evals',
+            ['gsm8k_probe'],
+            [$registry->parse('claude_sonnet_5@bare'), $registry->parse('claude_sonnet_5@atlas_dev')],
+            1,
+            ['max_usd' => 10.0, 'max_minutes' => 30],
+            1,
+        );
+        $runId = $plan->persist();
+        $atlasProof = $this->governedV2Proof('claude-sonnet-5');
+        $this->persistProofStreams($runId, $atlasProof);
+        foreach (['bare', 'atlas_dev'] as $runtime) {
+            RunReceipt::fromArray([
+                'schema_version' => SchemaContract::RUN_RECEIPT,
+                'run_id' => $runId,
+                'case_id' => 'gsm8k_probe',
+                'task_type' => 'reasoning',
+                'arm_id' => 'claude_sonnet_5@'.$runtime,
+                'repetition' => 1,
+                'status' => 'success',
+                'failure_class' => null,
+                'failure_reason' => null,
+                'wall_ms' => 1000,
+                'tokens_in' => 120,
+                'tokens_out' => 20,
+                'cost_usd' => 0.1,
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => null],
+                ],
+                'claim_tier' => 'production',
+                'harness_only' => false,
+                'artifacts' => [],
+                'started_at' => null,
+                'finished_at' => null,
+                'metadata' => $runtime === 'bare'
+                    ? ['direct_provider' => ['real_provider' => true, 'model' => 'claude-sonnet-5']]
+                    : ['runtime_bridge' => $atlasProof],
+            ])->append();
+        }
+        file_put_contents(RunPaths::adjudicationPath($runId), json_encode([
+            'internal_claim_allowed' => true,
+            'public_claim_allowed' => false,
+            'internal_claim_blockers' => [],
+            'claim_scope' => ['suite' => 'inspect_evals'],
+        ]));
+
+        $uplift = (new AtlasUpliftRunner)->compare($runId, 'claude_sonnet_5');
+
+        $this->assertTrue($uplift['uplift_supported']);
+        $this->assertSame('real_uplift', $uplift['uplift_kind']);
+        $this->assertSame(1, $uplift['proven_pair_count']);
+        $this->assertNotContains('atlas_runtime_proof_missing:gsm8k_probe|1', $uplift['claim_blockers']);
+    }
+
+    /** @return array<string,mixed> */
+    private function governedV2Proof(string $model): array
+    {
+        return [
+            'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
+            'status' => 'passed',
+            'failure_reason' => null,
+            'real_provider' => true,
+            'provider' => 'hermes_cli',
+            'model' => $model,
+            'execution_id' => 'ne_governed_response',
+            'runtime_contract' => 'atlas.hermes_cli_provider.v1',
+            'fair_mode' => [
+                'single_provider' => true,
+                'decide_disabled' => true,
+                'fallback_disabled' => true,
+            ],
+            'governance' => [
+                'atlas_is_sovereign' => true,
+                'executive_mission_schema' => 'atlas.hermes.executive_mission.v1',
+                'result_packet_schema' => 'atlas.hermes.result_packet.v1',
+                'safe_mode' => true,
+            ],
+            'provider_call' => [
+                'provider_calls' => 1,
+                'successful_responses' => 1,
+                'error_codes' => [],
+            ],
+            'usage' => [
+                'input_tokens' => 120,
+                'output_tokens' => 20,
+                'cost_usd' => 0.0,
+                'present' => true,
+            ],
+            'calls' => [[
+                'sequence' => 1,
+                'status' => 'passed',
+                'failure_reason' => null,
+                'input_tokens' => 120,
+                'output_tokens' => 20,
+                'stdout_path' => 'native_scratch/ne_governed_response/atlas-response-calls/call-0001.stdout.log',
+                'stderr_path' => 'native_scratch/ne_governed_response/atlas-response-calls/call-0001.stderr.log',
+                'executive_mission_hash' => hash('sha256', 'mission'),
+                'result_packet_hash' => hash('sha256', 'result'),
+            ]],
+        ];
+    }
+
+    /** @param array<string,mixed> $proof */
+    private function persistProofStreams(string $runId, array $proof): void
+    {
+        foreach ($proof['calls'] as $call) {
+            foreach (['stdout_path', 'stderr_path'] as $field) {
+                $path = RunPaths::runDir($runId).'/'.$call[$field];
+                if (! is_dir(dirname($path))) {
+                    mkdir(dirname($path), 0777, true);
+                }
+                file_put_contents($path, "atlas.rivals2.captured_stream.v1\n");
+            }
+        }
+    }
 }

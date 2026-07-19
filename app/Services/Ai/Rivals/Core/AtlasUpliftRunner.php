@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Services\Ai\Rivals\Support\AtlasRuntimeProofValidator;
 use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use InvalidArgumentException;
@@ -96,25 +97,19 @@ class AtlasUpliftRunner
             foreach ($byArm['base'] as $key => $receipt) {
                 $atlasReceipt = $byArm['atlas'][$key] ?? null;
                 $bareOk = data_get($receipt, 'metadata.direct_provider.real_provider') === true;
-                // ⚠️ O ATLAS RODOU? Esta linha é a diferença entre medir o Atlas e
-                // medir outra coisa com o nome dele. Sem ela o portão aceitava o
-                // braço `hermes_cli_oneshot` — Hermes CLI puro, sem artisan, sem
-                // memória, sem Decide — e o relatório publicava o delta como
-                // "com Atlas". Era comparação de HARNESS DE AGENTE (hermes vs o
-                // harness nativo do benchmark), não a contribuição do Atlas:
-                // 107 recibos assim, em todas as datas medidas.
-                //
-                // Os outros campos não salvavam porque o bridge os escrevia
-                // hardcoded `true`: o portão conferia a autodeclaração do próprio
-                // medido. `atlas_runtime` é derivado do caminho REALMENTE
-                // executado, então não pode ser afirmado por quem não rodou.
-                $atlasOk = is_array($atlasReceipt)
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.atlas_runtime') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.real_provider') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.single_provider') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.decide_disabled') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.fallback_disabled') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.usage.present') === true;
+                // v2 proves the actual Atlas path with the Hermes provider
+                // contract, ExecutiveMission/ResultPacket governance hashes and
+                // readable per-call stream paths. Legacy receipts still require
+                // the independently-derived atlas_runtime marker.
+                $atlasProof = is_array($atlasReceipt)
+                    ? data_get($atlasReceipt, 'metadata.runtime_bridge')
+                    : null;
+                $atlasOk = is_array($atlasProof)
+                    && (new AtlasRuntimeProofValidator)->valid(
+                        $atlasProof,
+                        (string) data_get($receipt, 'metadata.direct_provider.model'),
+                        RunPaths::runDir($runId),
+                    );
                 $modelMatch = is_array($atlasReceipt)
                     && data_get($receipt, 'metadata.direct_provider.model') === data_get(
                         $atlasReceipt,
@@ -123,6 +118,7 @@ class AtlasUpliftRunner
                 if ($bareOk && $atlasOk && $modelMatch) {
                     $provenBase[$key] = $receipt;
                     $provenAtlas[$key] = $atlasReceipt;
+
                     continue;
                 }
                 if (! $bareOk || ! $modelMatch) {

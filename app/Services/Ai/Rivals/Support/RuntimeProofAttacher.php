@@ -6,6 +6,7 @@ use App\Services\Ai\Rivals\Core\FailureClass;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
+use App\Services\Ai\Rivals\Core\VerbooEnvironment;
 
 /** Binds external-suite receipts to the solver runtime that actually executed. */
 final class RuntimeProofAttacher
@@ -47,7 +48,7 @@ final class RuntimeProofAttacher
                 && ($providerBinding['native_model'] ?? null) === ($binding['native_model'] ?? null)
                 && ($providerBinding['base_url_sha256'] ?? null) === hash(
                     'sha256',
-                    \App\Services\Ai\Rivals\Core\VerbooEnvironment::BASE_URL,
+                    VerbooEnvironment::BASE_URL,
                 )
                 && ($tokensIn + $tokensOut) > 0;
             $metadata['direct_provider'] = [
@@ -80,14 +81,11 @@ final class RuntimeProofAttacher
             // observable response boundary. A task may still fail after that
             // response and remains a measured model/Atlas outcome.
             $valid = is_array($proof)
-                && ($proof['status'] ?? null) === 'passed'
-                && ($proof['real_provider'] ?? false) === true
-                && ($proof['provider'] ?? null) === 'hermes_cli'
-                && ($proof['model'] ?? null) === ($binding['cli_model'] ?? null)
-                && data_get($proof, 'fair_mode.single_provider') === true
-                && data_get($proof, 'fair_mode.decide_disabled') === true
-                && data_get($proof, 'fair_mode.fallback_disabled') === true
-                && data_get($proof, 'usage.present') === true;
+                && (new AtlasRuntimeProofValidator)->valid(
+                    $proof,
+                    (string) ($binding['cli_model'] ?? ''),
+                    RunPaths::runDir($runId),
+                );
             $proofReason = is_array($proof) && is_string($proof['failure_reason'] ?? null)
                 && trim((string) $proof['failure_reason']) !== ''
                     ? trim((string) $proof['failure_reason'])

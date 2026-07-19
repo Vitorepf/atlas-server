@@ -131,6 +131,48 @@ class HermesOpenAiResponseAdapterTest extends TestCase
         );
     }
 
+    public function test_successful_retry_recovers_unit_status_and_preserves_failed_attempt(): void
+    {
+        [$plan, $entry] = $this->manifest();
+        $provider = Mockery::mock(HermesCliProvider::class);
+        $provider->shouldReceive('runStreaming')->twice()->andReturn(
+            new AiProviderResult(
+                ok: false,
+                output: '',
+                command: ['hermes', '-z', '[prompt:redacted]'],
+                exitCode: 1,
+                durationMs: 55,
+                stdout: 'partial stdout',
+                stderr: 'transient provider failure',
+                errorCode: 'provider_unavailable',
+                errorMessage: 'transient provider failure',
+                metadata: [],
+            ),
+            $this->providerResult(),
+        );
+        $adapter = new HermesOpenAiResponseAdapter($provider);
+        $body = [
+            'model' => 'kimi-k2.7',
+            'messages' => [['role' => 'user', 'content' => 'probe']],
+        ];
+        $headers = $this->headers($plan, $entry);
+
+        $first = $adapter->complete($body, $headers);
+        $second = $adapter->complete($body, $headers);
+
+        $this->assertSame(502, $first['status']);
+        $this->assertSame(200, $second['status']);
+        $proof = json_decode((string) file_get_contents(
+            $entry['normalization']['scratch_dir'].'/.rivals_atlas_dev_bridge.json',
+        ), true);
+        $this->assertSame('passed', $proof['status']);
+        $this->assertNull($proof['failure_reason']);
+        $this->assertSame(['failed', 'passed'], array_column($proof['calls'], 'status'));
+        $this->assertSame(['provider_unavailable'], data_get($proof, 'provider_call.error_codes'));
+        $this->assertSame(1, data_get($proof, 'provider_call.successful_responses'));
+        $this->assertTrue(data_get($proof, 'usage.present'));
+    }
+
     public function test_request_without_exact_manifest_binding_fails_before_provider_spend(): void
     {
         $provider = Mockery::mock(HermesCliProvider::class);

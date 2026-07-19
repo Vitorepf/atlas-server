@@ -4,9 +4,11 @@ namespace Tests\Unit\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\FailureClass;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
 use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\VerbooEnvironment;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\RuntimeProofAttacher;
 use Illuminate\Support\Facades\File;
@@ -60,31 +62,16 @@ class RuntimeProofAttacherTest extends TestCase
         );
         $this->assertFalse(data_get($missing, 'metadata.runtime_bridge.real_provider'));
         $this->assertSame(
-            \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
+            FailureClass::ENVIRONMENT,
             $missing['failure_class'] ?? null,
         );
 
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
+        $proof = $this->governedProof();
+        $this->persistProofStreams($plan, $proof);
         file_put_contents(
             data_get($entry, 'normalization.scratch_dir').'/.rivals_atlas_dev_bridge.json',
-            json_encode([
-                'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
-                'status' => 'passed',
-                'real_provider' => true,
-                'provider' => 'hermes_cli',
-                'model' => 'kimi-k2.7',
-                'fair_mode' => [
-                    'single_provider' => true,
-                    'decide_disabled' => true,
-                    'fallback_disabled' => true,
-                ],
-                'usage' => [
-                    'input_tokens' => 100,
-                    'output_tokens' => 20,
-                    'cost_usd' => 0.0,
-                    'present' => true,
-                ],
-            ]),
+            json_encode($proof),
         );
         $attached = $attacher->attach(
             $this->receipt($binding),
@@ -101,36 +88,21 @@ class RuntimeProofAttacherTest extends TestCase
         [$plan, $manifest, $binding, $entry] = $this->manifest('atlas_dev');
         $this->persistNativeReceipt($plan, $manifest, $entry, 'execute');
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
+        $proof = array_replace_recursive($this->governedProof(), [
+            'task_ok' => false,
+            'completion_state' => 'blocked',
+            'provider_call' => [
+                'provider_calls' => 1,
+                'successful_responses' => 1,
+                'error_codes' => [
+                    'candidate_preparation_blocked:sandbox_sandbox_git_clone_failed',
+                ],
+            ],
+        ]);
+        $this->persistProofStreams($plan, $proof);
         file_put_contents(
             data_get($entry, 'normalization.scratch_dir').'/.rivals_atlas_dev_bridge.json',
-            (string) json_encode([
-                'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
-                'status' => 'passed',
-                'real_provider' => true,
-                'provider' => 'hermes_cli',
-                'model' => 'kimi-k2.7',
-                'fair_mode' => [
-                    'single_provider' => true,
-                    'decide_disabled' => true,
-                    'fallback_disabled' => true,
-                ],
-                // O provider respondeu, mas o Atlas bloqueou/rejeitou a tarefa.
-                // Isto é uma derrota medida, não uma falha de ambiente.
-                'task_ok' => false,
-                'completion_state' => 'blocked',
-                'provider_call' => [
-                    'provider_calls' => 1,
-                    'error_codes' => [
-                        'candidate_preparation_blocked:sandbox_sandbox_git_clone_failed',
-                    ],
-                ],
-                'usage' => [
-                    'input_tokens' => 100,
-                    'output_tokens' => 20,
-                    'cost_usd' => 0.0,
-                    'present' => true,
-                ],
-            ]),
+            (string) json_encode($proof),
         );
 
         $receipt = $this->receipt($binding) + [
@@ -150,7 +122,7 @@ class RuntimeProofAttacherTest extends TestCase
             'o Atlas rodou — errar a tarefa não desprova a execução',
         );
         $this->assertNotSame(
-            \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
+            FailureClass::ENVIRONMENT,
             $attached['failure_class'] ?? null,
             'derrota do Atlas é medição, não falha de ambiente — tem de contar no denominador',
         );
@@ -203,13 +175,73 @@ class RuntimeProofAttacherTest extends TestCase
 
         $this->assertFalse(data_get($attached, 'metadata.runtime_bridge.real_provider'));
         $this->assertSame(
-            \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
+            FailureClass::ENVIRONMENT,
             $attached['failure_class'] ?? null,
         );
         $this->assertSame(
             'atlas_dev_runtime_proof_usage_missing',
             $attached['failure_reason'] ?? null,
         );
+    }
+
+    /** @return array<string,mixed> */
+    private function governedProof(): array
+    {
+        return [
+            'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
+            'status' => 'passed',
+            'failure_reason' => null,
+            'real_provider' => true,
+            'provider' => 'hermes_cli',
+            'model' => 'kimi-k2.7',
+            'execution_id' => 'ne_runtime_proof_test',
+            'runtime_contract' => 'atlas.hermes_cli_provider.v1',
+            'fair_mode' => [
+                'single_provider' => true,
+                'decide_disabled' => true,
+                'fallback_disabled' => true,
+            ],
+            'governance' => [
+                'atlas_is_sovereign' => true,
+                'executive_mission_schema' => 'atlas.hermes.executive_mission.v1',
+                'result_packet_schema' => 'atlas.hermes.result_packet.v1',
+                'safe_mode' => true,
+            ],
+            'provider_call' => [
+                'provider_calls' => 1,
+                'successful_responses' => 1,
+                'error_codes' => [],
+            ],
+            'usage' => [
+                'input_tokens' => 100,
+                'output_tokens' => 20,
+                'cost_usd' => 0.0,
+                'present' => true,
+            ],
+            'calls' => [[
+                'sequence' => 1,
+                'status' => 'passed',
+                'failure_reason' => null,
+                'input_tokens' => 100,
+                'output_tokens' => 20,
+                'stdout_path' => 'native_scratch/ne_runtime_proof_test/call-0001.stdout.log',
+                'stderr_path' => 'native_scratch/ne_runtime_proof_test/call-0001.stderr.log',
+                'executive_mission_hash' => hash('sha256', 'mission'),
+                'result_packet_hash' => hash('sha256', 'result'),
+            ]],
+        ];
+    }
+
+    /** @param array<string,mixed> $proof */
+    private function persistProofStreams(RunPlan $plan, array $proof): void
+    {
+        foreach ($proof['calls'] as $call) {
+            foreach (['stdout_path', 'stderr_path'] as $field) {
+                $path = RunPaths::runDir($plan->runId()).'/'.$call[$field];
+                File::ensureDirectoryExists(dirname($path));
+                file_put_contents($path, "atlas.rivals2.captured_stream.v1\n");
+            }
+        }
     }
 
     /** @return array{RunPlan, NativeExecutionManifest, array<string,mixed>, array<string,mixed>} */
@@ -282,7 +314,7 @@ class RuntimeProofAttacherTest extends TestCase
                 'native_model' => $entry['native_model'],
                 'base_url_sha256' => hash(
                     'sha256',
-                    \App\Services\Ai\Rivals\Core\VerbooEnvironment::BASE_URL,
+                    VerbooEnvironment::BASE_URL,
                 ),
             ],
         ])->persist();
