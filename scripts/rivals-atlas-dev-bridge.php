@@ -231,6 +231,10 @@ if ($useHermesOnesHot) {
     exit(0);
 }
 
+// Sink de usage: o provider_call do fast-path não carrega tokens no path
+// hermes; o adaptador espelha o usage capturado aqui e nós o lemos abaixo.
+$usageSink = tempnam(sys_get_temp_dir(), 'rivals-usage-sink-');
+@unlink($usageSink); // só o caminho; o adaptador cria com os tokens acumulados
 $env = array_merge(
     array_filter($_ENV, fn ($v) => is_string($v) || is_numeric($v) || is_bool($v)),
     [
@@ -238,6 +242,7 @@ $env = array_merge(
         'ATLAS_DEV_HERMES_EXECUTION_TRANSPORT' => 'cli',
         'ATLAS_DEV_PROVIDER_CONSULT_DECIDE' => 'false',
         'ATLAS_RIVALS_RUNTIME_EXECUTION' => 'true',
+        'ATLAS_RIVALS_USAGE_SINK' => $usageSink,
         'PATH' => $path,
     ],
 );
@@ -351,6 +356,24 @@ $outputTokens = is_numeric($providerCall['tokens_out'] ?? null)
 $costUsd = is_numeric($providerCall['estimated_cost_usd'] ?? null)
     ? (float) $providerCall['estimated_cost_usd']
     : null;
+// Fallback: o kernel não surfou tokens no provider_call → lê o sink que o
+// adaptador preencheu com o usage real capturado pelo hermes. Sem isto o
+// gate de claim trava eternamente em "provider_usage_empty" com o braço OK.
+if (($inputTokens === null || $outputTokens === null) && is_file($usageSink)) {
+    $sink = json_decode((string) file_get_contents($usageSink), true) ?: [];
+    if ($inputTokens === null && ($sink['input_tokens'] ?? 0) > 0) {
+        $inputTokens = (int) $sink['input_tokens'];
+    }
+    if ($outputTokens === null && ($sink['output_tokens'] ?? 0) > 0) {
+        $outputTokens = (int) $sink['output_tokens'];
+    }
+    // Verboo é custo marginal de assinatura: com tokens capturados, o custo
+    // HONESTO é 0.0 (os adapters já tratam assim), destravando `present`.
+    if ($costUsd === null && $atlasRuntimeProven && ($inputTokens !== null || $outputTokens !== null)) {
+        $costUsd = 0.0;
+    }
+}
+@unlink($usageSink);
 $receipt = [
     'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
     // `status` do BRIDGE: ele conseguiu rodar o Atlas? Não é a nota da tarefa.

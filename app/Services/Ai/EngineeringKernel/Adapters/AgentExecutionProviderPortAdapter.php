@@ -48,12 +48,24 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             $raw = ($this->providerInvoker)($providerKey, $model, $prompt);
         } else {
             $provider = ($this->providers ?? app(AiProviderManager::class))->get($providerKey);
+            $payload = ['provider' => $providerKey, 'model' => $model, 'route' => ['provider' => $providerKey, 'model' => $model]];
+            // Rivals: geração de patch-plan é turno ÚNICO stateless — o modo
+            // one-shot (-z) com --usage-file captura os tokens que o chat não
+            // emite (mesma resposta do modelo; caminho do endpoint e do agente
+            // harbor). Só assim o metadata['hermes_usage'] nasce preenchido.
+            // Gated pela env do rivals: fora dela, comportamento byte-idêntico.
+            $usageFile = null;
+            if (filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+                $usageFile = tempnam(sys_get_temp_dir(), 'rivals-hermes-usage-');
+                @unlink($usageFile);
+                $payload['hermes'] = ['cli_oneshot' => true, 'usage_file' => $usageFile];
+            }
             $job = new AiJob([
                 'type' => 'atlas_self_construction_native_patch_plan',
                 'status' => 'running',
                 'provider' => $providerKey,
                 'model' => $model,
-                'payload' => ['provider' => $providerKey, 'model' => $model, 'route' => ['provider' => $providerKey, 'model' => $model]],
+                'payload' => $payload,
             ]);
             $result = $provider->run($job, $prompt);
             $raw = [
@@ -63,6 +75,13 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 'model' => (string) ($result->metadata['model'] ?? $result->metadata['actual_model'] ?? $job->model ?? ''),
                 'error' => $result->errorMessage,
             ];
+            // Rivals: o provider_call do fast-path não carrega tokens no path
+            // hermes (só o adaptador Sonnet os preenche), e sem tokens TODO
+            // relatório do braço com-Atlas trava no gate por usage vazio, mesmo
+            // com o braço perfeito. O hermes JÁ captura o usage no metadata
+            // (hermes_usage/acp_usage) — aqui só o espelho num sink que o bridge
+            // lê. Gated 100% pela env do rivals: zero impacto fora da medição.
+            $this->recordRivalsUsageToSink($result->metadata);
         }
 
         if (($raw['ok'] ?? false) !== true) {
@@ -133,6 +152,51 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             'model' => $model,
             'output_hash' => hash('sha256', (string) ($raw['output'] ?? '')),
         ];
+    }
+
+    /**
+     * Espelha o usage capturado pelo provider (hermes) num arquivo-sink que o
+     * bridge do rivals lê, contornando o provider_call do fast-path que não
+     * carrega tokens no path hermes. Acumula (o kernel pode chamar o port 2×:
+     * inicial + repair). No-op fora do rivals (env ausente).
+     *
+     * @param  array<string,mixed>  $metadata
+     */
+    private function recordRivalsUsageToSink(array $metadata): void
+    {
+        $sink = getenv('ATLAS_RIVALS_USAGE_SINK');
+        if (! is_string($sink) || $sink === '') {
+            return;
+        }
+        if (! filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+        $usage = $metadata['hermes_usage'] ?? $metadata['acp_usage'] ?? null;
+        if (! is_array($usage) || $usage === []) {
+            return;
+        }
+        $pick = static function (array $src, array $keys): ?int {
+            foreach ($keys as $k) {
+                if (is_numeric($src[$k] ?? null)) {
+                    return (int) $src[$k];
+                }
+            }
+
+            return null;
+        };
+        $in = $pick($usage, ['input_tokens', 'prompt_tokens', 'tokens_in']);
+        $out = $pick($usage, ['output_tokens', 'completion_tokens', 'tokens_out']);
+        if ($in === null && $out === null) {
+            return;
+        }
+        $prev = is_file($sink)
+            ? (json_decode((string) file_get_contents($sink), true) ?: [])
+            : [];
+        @file_put_contents($sink, json_encode([
+            'input_tokens' => (int) ($prev['input_tokens'] ?? 0) + (int) ($in ?? 0),
+            'output_tokens' => (int) ($prev['output_tokens'] ?? 0) + (int) ($out ?? 0),
+            'calls' => (int) ($prev['calls'] ?? 0) + 1,
+        ], JSON_UNESCAPED_SLASHES), LOCK_EX);
     }
 
     /** @return array<string,mixed>|null */
