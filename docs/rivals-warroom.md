@@ -224,6 +224,21 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 
 ## 7. DECISÕES
 
+- 2026-07-19 · **DECISÃO DO OPERADOR — SÓ BENCHMARKS NATIVOS (100% local).** Depois
+  da prova de que Docker x86 emulado em arm64 corrompe o resultado (gold do
+  SWE-bench Verified falha), o operador escolheu: rodar SÓ os benchmarks que rodam
+  **nativos no arm64** (venv/toolchain), sem nuvem. **Nativo/confiável:** bfcl,
+  live_code_bench, aider_polyglot (+ inspect/tau2 bare, que não são engenharia).
+  **Docker/x86 → ESTACIONADOS até haver x86 (não deletar):** swe_bench_live,
+  senior_swe_bench, swe_marathon, terminal_bench, hal_harness.
+  **Codex:** sua obra de harbor/SWE + terminal/hal está PARADA por ora (não é
+  descartada — espera x86); seu `ArenaConfigurationTest` que exige 10 suítes vai
+  precisar refletir o perfil nativo. NÃO gaste mais rodando as de Docker aqui — o
+  número é mentira no arm64. Consequência honesta a resolver com o operador: quase
+  TODO benchmark AGÊNTICO de engenharia (SWE/terminal/hal) precisa de execução
+  isolada = Docker/x86; nativo-só deixa o perfil em nível code-gen/edição (bfcl,
+  lcb, aider + novos EvalPlus/BigCodeBench/CRUXEval). Expandir agêntico de verdade
+  = precisa de x86. Ver memória `swe-bench-arm64-emulacao`.
 - 2026-07-19 · Claude · Suítes de **conhecimento puro** (inspect Q&A, tau2 diálogo)
   não medem valor do Atlas (agente de CÓDIGO) — o braço lá é proxy. Enquanto o
   proxy não fecha, elas aparecem "não medido" no app, nunca "-10". Rever com o
