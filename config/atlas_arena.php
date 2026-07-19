@@ -40,6 +40,13 @@ return [
     // eternamente bloqueado.
     'worker_repetitions' => (int) env('ATLAS_ARENA_WORKER_REPETITIONS', 3),
 
+    // Piso de casos (por braço) para uma capacidade valer como MEDIDA no app.
+    // Abaixo disto o perfil marca confidence='low' e o app mostra "baixa
+    // confiança" em vez de cravar o número — lei: número não confiável = não
+    // medido, nunca falso. A cada braço acompanha seu N e o IC 95% (Wilson), que
+    // é a verdade contínua; este piso só separa "medido" de "poucos casos".
+    'min_cases_for_confidence' => (int) env('ATLAS_ARENA_MIN_CASES_CONFIDENCE', 10),
+
     'capability_map' => [
         'bfcl' => [
             ['capability' => 'tool_use', 'weight' => 1.00],

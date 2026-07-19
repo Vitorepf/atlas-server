@@ -77,7 +77,7 @@ class ArenaRunControllerTest extends TestCase
 
         $this->getJson('/arena/capabilities?engine=codex_cli', $this->headers)
             ->assertOk()
-            ->assertJsonPath('schema_version', 'atlas.arena.capabilities.v1')
+            ->assertJsonPath('schema_version', 'atlas.arena.capabilities.v2')
             ->assertJsonPath('capabilities.0.capability', 'terminal_operation')
             ->assertJsonPath('capabilities.0.with_atlas', 1);
 
