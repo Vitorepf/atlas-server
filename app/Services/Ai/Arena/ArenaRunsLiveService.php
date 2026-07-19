@@ -7,28 +7,74 @@ use App\Services\Ai\Rivals\Support\RunPaths;
 
 final class ArenaRunsLiveService
 {
+    /** @var list<string> */
+    private const PUBLIC_FAILURE_CODES = [
+        'with_atlas_runtime_unsupported',
+        'plan_failed',
+        'native_execution_failed',
+        'pipeline_failed',
+        'internal_error',
+    ];
+
     public function __construct(private readonly ArenaMeasurementStore $store = new ArenaMeasurementStore) {}
 
     /** @return array<string, mixed> */
     public function live(): array
     {
         $runs = [];
-        foreach ($this->store->queuedRequests() as $entry) {
-            if (($entry['status'] ?? null) !== 'queued') {
+        $queuedEntries = $this->store->queuedRequests();
+        $representedNativeRuns = [];
+        foreach ($queuedEntries as $entry) {
+            $nativeRunIdPublic = $entry['native_run_id_public'] ?? null;
+            if (is_string($nativeRunIdPublic) && $nativeRunIdPublic !== '') {
+                $representedNativeRuns[$nativeRunIdPublic] = true;
+            }
+            $storedStatus = (string) ($entry['status'] ?? '');
+            $status = match ($storedStatus) {
+                'queued' => 'queued',
+                'running' => 'running',
+                'stopping' => 'stopping',
+                'stopped' => 'stopped',
+                'done' => 'completed',
+                'failed' => 'failed',
+                default => null,
+            };
+            if ($status === null) {
                 continue;
             }
-            $runs[] = [
+            $nativeRunId = is_string($entry['native_run_id'] ?? null)
+                ? (string) $entry['native_run_id']
+                : null;
+            $nativeManifest = $nativeRunId !== null
+                ? $this->readJson(RunPaths::nativeManifestPath($nativeRunId))
+                : [];
+            $runs[] = array_filter([
                 'run_id_public' => $entry['run_id_public'] ?? null,
+                'measurement_id_public' => $entry['measurement_id_public'] ?? null,
                 'suite' => $entry['suite'] ?? null,
                 'engine' => $entry['engine'] ?? null,
                 'arm' => $entry['arm'] ?? null,
-                'status' => 'queued',
+                'status' => $status,
+                'cases_done' => $nativeRunId !== null ? $this->casesDone($nativeRunId) : null,
+                'cases_total' => $nativeRunId !== null ? $this->casesTotal($nativeManifest) : null,
                 'queued_at' => $entry['queued_at'] ?? null,
+                'started_at' => $entry['drain_started_at'] ?? null,
+                'completed_at' => $storedStatus === 'done' ? ($entry['drained_at'] ?? null) : null,
+                'stop_requested_at' => $entry['stop_requested_at'] ?? null,
+                'stopped_at' => $entry['stopped_at'] ?? null,
+                'failure_code' => $storedStatus === 'failed'
+                    ? $this->publicFailureCode($entry['failure_code'] ?? null)
+                    : null,
+                'terminal_receipt_hash' => $entry['terminal_receipt_hash'] ?? null,
+                'can_stop' => in_array($storedStatus, ['queued', 'running'], true),
                 'origin' => $entry['origin'] ?? null,
-            ];
+            ], static fn ($value): bool => $value !== null);
         }
 
         foreach ($this->liveRunIds() as $runId) {
+            if (isset($representedNativeRuns[$this->store->publicRunId($runId)])) {
+                continue;
+            }
             $state = $this->readJson(RunPaths::runDir($runId).'/state.json');
             $manifest = $this->readJson(RunPaths::nativeManifestPath($runId));
             $latest = $this->latestMeasurementForRun($runId);
@@ -64,6 +110,13 @@ final class ArenaRunsLiveService
             'generated_at' => now()->toIso8601String(),
             'runs' => $runs,
         ];
+    }
+
+    private function publicFailureCode(mixed $value): string
+    {
+        return is_string($value) && in_array($value, self::PUBLIC_FAILURE_CODES, true)
+            ? $value
+            : 'internal_error';
     }
 
     /**
@@ -142,10 +195,20 @@ final class ArenaRunsLiveService
         $origin = in_array($origin, ['iphone', 'ipad', 'mac', 'cli'], true) ? $origin : null;
 
         $queuedAt = now()->toIso8601String();
+        $measurementIdPublic = 'am_'.substr(hash('sha256', json_encode([
+            'queued_at' => $queuedAt,
+            'actor_hash' => hash('sha256', $actor),
+            'reason_hash' => hash('sha256', $reason),
+            'engine' => $engine,
+            'suites' => $suites,
+            'arms' => $arms,
+            'origin' => $origin,
+        ], JSON_UNESCAPED_SLASHES)), 0, 20);
         $planned = [];
         foreach ($suites as $suite) {
             foreach ($arms as $arm) {
                 $seed = array_filter([
+                    'measurement_id_public' => $measurementIdPublic,
                     'suite' => $suite,
                     'engine' => $engine,
                     'arm' => $arm,
@@ -171,6 +234,7 @@ final class ArenaRunsLiveService
             'payload' => [
                 'schema_version' => 'atlas.arena.start_receipt.v1',
                 'status' => 'enqueued',
+                'measurement_id_public' => $measurementIdPublic,
                 'receipt_hash' => hash('sha256', json_encode($planned, JSON_UNESCAPED_SLASHES)),
                 'runs_planned' => count($planned),
                 'started' => false,
@@ -266,15 +330,25 @@ final class ArenaRunsLiveService
         if (! is_file($path)) {
             return 0;
         }
-        $done = 0;
+        // Unidades DISTINTAS, não soma de eventos: cada unidade emite tanto
+        // `unit_finished` quanto `native_execution_finished`, e somar os tipos
+        // DOBRAVA a contagem (12 unidades → 24 = "100%" com metade feita, o
+        // app mentindo progresso). Dedupe por execution_id.
+        $finished = [];
         foreach (array_filter(explode(PHP_EOL, (string) file_get_contents($path))) as $line) {
             $event = json_decode($line, true);
-            if (is_array($event) && in_array(($event['event_type'] ?? null), ['unit_finished', 'native_execution_finished', 'case_finished'], true)) {
-                $done++;
+            if (! is_array($event)
+                || ! in_array(($event['event_type'] ?? null), ['unit_finished', 'native_execution_finished', 'case_finished'], true)) {
+                continue;
             }
+            $key = (string) (data_get($event, 'data.execution_id')
+                ?? data_get($event, 'data.unit_hash')
+                ?? data_get($event, 'data.case_id').'|'.data_get($event, 'data.repetition')
+                ?? $line);
+            $finished[$key] = true;
         }
 
-        return $done;
+        return count($finished);
     }
 
     /** @param array<string, mixed> $manifest */

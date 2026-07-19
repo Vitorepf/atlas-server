@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\Arena;
 
+use App\Services\Ai\Arena\ArenaMeasurementStore;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use Tests\TestCase;
 
@@ -183,7 +184,7 @@ class ArenaRunControllerTest extends TestCase
 
     public function test_live_hides_previously_queued_harness_only_runs(): void
     {
-        $store = new \App\Services\Ai\Arena\ArenaMeasurementStore;
+        $store = new ArenaMeasurementStore;
         $store->appendQueuedRequest([
             'schema_version' => 'atlas.arena.queued_run.v1',
             'status' => 'queued',
@@ -226,13 +227,238 @@ class ArenaRunControllerTest extends TestCase
             ->assertJsonPath('worker_implemented', false);
 
         $this->assertNotSame('', (string) $response->json('receipt_hash'));
+        $this->assertMatchesRegularExpression('/^am_[a-f0-9]{20}$/', (string) $response->json('measurement_id_public'));
 
         $this->getJson('/arena/runs/live', $this->headers)
             ->assertOk()
             ->assertJsonPath('runs.0.status', 'queued')
+            ->assertJsonPath('runs.0.measurement_id_public', $response->json('measurement_id_public'))
             ->assertJsonPath('runs.0.suite', 'terminal_bench')
             ->assertJsonPath('runs.0.engine', 'codex_cli')
-            ->assertJsonPath('runs.0.arm', 'baseline');
+            ->assertJsonPath('runs.0.arm', 'baseline')
+            ->assertJsonPath('runs.0.can_stop', true);
+    }
+
+    public function test_stop_is_idempotent_and_terminal_state_remains_visible(): void
+    {
+        $start = $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline', 'with_atlas'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'janela governada',
+        ], $this->headers)->assertStatus(202);
+
+        $measurementId = (string) $start->json('measurement_id_public');
+        $payload = [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'interromper janela',
+        ];
+        $first = $this->postJson("/arena/measurements/{$measurementId}/stop", $payload, $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.arena.stop_receipt.v1')
+            ->assertJsonPath('measurement_id_public', $measurementId)
+            ->assertJsonPath('status', 'stopped')
+            ->assertJsonPath('accepted', true)
+            ->assertJsonPath('queued_stopped', 2)
+            ->assertJsonPath('running_stop_requested', 0);
+
+        $second = $this->postJson("/arena/measurements/{$measurementId}/stop", [
+            'operator_actor' => 'outro-operador',
+            'operator_reason' => 'retry com outro corpo',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'stopped');
+
+        $this->assertSame($first->json('receipt_hash'), $second->json('receipt_hash'));
+        $this->assertSame($first->json('requested_at'), $second->json('requested_at'));
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.measurement_id_public', $measurementId)
+            ->assertJsonPath('runs.0.status', 'stopped')
+            ->assertJsonPath('runs.0.can_stop', false)
+            ->assertJsonPath('runs.0.terminal_receipt_hash', $first->json('receipt_hash'));
+    }
+
+    public function test_stop_requests_running_measurement_and_live_projects_stopping(): void
+    {
+        $start = $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'janela governada',
+        ], $this->headers)->assertStatus(202);
+
+        $measurementId = (string) $start->json('measurement_id_public');
+        $store = new ArenaMeasurementStore;
+        $entry = $store->queuedRequests()[0];
+        $store->updateQueuedRequests([(string) $entry['run_id_public']], [
+            'status' => 'running',
+            'drain_started_at' => now()->toIso8601String(),
+        ]);
+
+        $this->postJson("/arena/measurements/{$measurementId}/stop", [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'interromper após o caso atual',
+        ], $this->headers)
+            ->assertStatus(202)
+            ->assertJsonPath('status', 'stopping')
+            ->assertJsonPath('accepted', true)
+            ->assertJsonPath('queued_stopped', 0)
+            ->assertJsonPath('running_stop_requested', 1);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.status', 'stopping')
+            ->assertJsonPath('runs.0.can_stop', false)
+            ->assertJsonPath('runs.0.measurement_id_public', $measurementId);
+    }
+
+    public function test_late_stop_preserves_completed_measurement_and_is_idempotent(): void
+    {
+        $start = $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'janela governada',
+        ], $this->headers)->assertStatus(202);
+
+        $measurementId = (string) $start->json('measurement_id_public');
+        $store = new ArenaMeasurementStore;
+        $entry = $store->queuedRequests()[0];
+        $store->updateQueuedRequests([(string) $entry['run_id_public']], [
+            'status' => 'done',
+            'drained_at' => now()->toIso8601String(),
+        ]);
+
+        $first = $this->postJson("/arena/measurements/{$measurementId}/stop", [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'pedido tardio',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('accepted', false);
+
+        $second = $this->postJson("/arena/measurements/{$measurementId}/stop", [
+            'operator_actor' => 'outro-operador',
+            'operator_reason' => 'retry diferente',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('accepted', false);
+
+        $this->assertSame($first->json('receipt_hash'), $second->json('receipt_hash'));
+        $this->assertSame($first->json('requested_at'), $second->json('requested_at'));
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.status', 'completed');
+    }
+
+    public function test_late_stop_preserves_failed_measurement(): void
+    {
+        $start = $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'janela governada',
+        ], $this->headers)->assertStatus(202);
+
+        $measurementId = (string) $start->json('measurement_id_public');
+        $store = new ArenaMeasurementStore;
+        $entry = $store->queuedRequests()[0];
+        $store->updateQueuedRequests([(string) $entry['run_id_public']], [
+            'status' => 'failed',
+            'failure_code' => 'provider_secret_failure',
+            'failure_reason' => 'segredo interno que a API não pode publicar',
+            'drained_at' => now()->toIso8601String(),
+        ]);
+
+        $this->postJson("/arena/measurements/{$measurementId}/stop", [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'pedido tardio',
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('status', 'failed')
+            ->assertJsonPath('accepted', false);
+
+        $live = $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.status', 'failed')
+            ->assertJsonPath('runs.0.failure_code', 'internal_error');
+
+        $this->assertArrayNotHasKey('failure_reason', $live->json('runs.0'));
+    }
+
+    public function test_live_does_not_duplicate_queue_run_backed_by_native_run(): void
+    {
+        $runId = '20260718_120000_arena';
+        $this->writeRun($runId, 'terminal_bench', [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-18T12:01:00Z'),
+        ], state: 'native_running');
+        $this->appendEvent($runId, 'unit_finished', ['execution_id' => 'case-1']);
+
+        $store = new ArenaMeasurementStore;
+        $store->appendQueuedRequest([
+            'schema_version' => 'atlas.arena.queued_run.v1',
+            'status' => 'running',
+            'run_id_public' => 'arq_queue00000000000000',
+            'measurement_id_public' => 'am_measurement00000000',
+            'native_run_id' => $runId,
+            'native_run_id_public' => $store->publicRunId($runId),
+            'suite' => 'terminal_bench',
+            'engine' => 'codex_cli',
+            'arm' => 'baseline',
+            'queued_at' => '2026-07-18T12:00:00Z',
+            'drain_started_at' => '2026-07-18T12:00:10Z',
+        ]);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'runs')
+            ->assertJsonPath('runs.0.run_id_public', 'arq_queue00000000000000')
+            ->assertJsonPath('runs.0.status', 'running')
+            ->assertJsonPath('runs.0.cases_done', 1)
+            ->assertJsonPath('runs.0.cases_total', 1);
+    }
+
+    public function test_live_counts_each_unit_once_despite_multiple_finish_events(): void
+    {
+        // Regressão: cada unidade emite unit_finished E native_execution_finished;
+        // somar os tipos dobrava cases_done (12 unidades → 24 = "100%" com metade
+        // feita, o app nativo mentindo progresso ao vivo). O operador vetou:
+        // "no app nativo está com erro, não permita isso".
+        $runId = '20260719_010000_arena';
+        $this->writeRun($runId, 'swe_bench_live', [
+            $this->receipt('verboo_kimi_k2_7@bare', 'c1', 'success', '2026-07-19T01:01:00Z'),
+            $this->receipt('verboo_kimi_k2_7@atlas_dev', 'c1', 'success', '2026-07-19T01:02:00Z'),
+        ], state: 'native_running');
+        // 2 unidades, cada uma com AMBOS os eventos de término.
+        foreach (['ne_unit_one', 'ne_unit_two'] as $executionId) {
+            $this->appendEvent($runId, 'native_execution_finished', ['execution_id' => $executionId]);
+            $this->appendEvent($runId, 'unit_finished', ['execution_id' => $executionId]);
+        }
+
+        $store = new ArenaMeasurementStore;
+        $store->appendQueuedRequest([
+            'schema_version' => 'atlas.arena.queued_run.v1',
+            'status' => 'running',
+            'run_id_public' => 'arq_dedupe0000000000000',
+            'measurement_id_public' => 'am_dedupe000000000000',
+            'native_run_id' => $runId,
+            'native_run_id_public' => $store->publicRunId($runId),
+            'suite' => 'swe_bench_live',
+            'engine' => 'verboo_kimi_k2_7',
+            'arm' => 'baseline',
+            'queued_at' => '2026-07-19T01:00:00Z',
+            'drain_started_at' => '2026-07-19T01:00:10Z',
+        ]);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.cases_done', 2); // 2, não 4 (double-count morto)
     }
 
     /** @param list<array<string, mixed>> $receipts */
