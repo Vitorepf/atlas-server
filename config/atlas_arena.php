@@ -47,7 +47,14 @@ return [
     // é a verdade contínua; este piso só separa "medido" de "poucos casos".
     'min_cases_for_confidence' => (int) env('ATLAS_ARENA_MIN_CASES_CONFIDENCE', 10),
 
+    // O perfil (ArenaCapabilityProfileService) só mostra uma capacidade quando a
+    // suíte tem casos medidos — então mapear uma suíte sem dado é inócuo (não
+    // aparece até rodar). SÓ entram suítes de métrica BINÁRIA (pass@1/sucesso): o
+    // store conta status success/failure, então uma suíte CONTÍNUA (archbench =
+    // rougeL) viraria ~100% de "completou" (falso). archbench fica FORA até haver
+    // tratamento contínuo (média do score, não taxa binária) — ver §8 warroom.
     'capability_map' => [
+        // Integradas (2 braços provados, dado limpo).
         'bfcl' => [
             ['capability' => 'tool_use', 'weight' => 1.00],
         ],
@@ -58,11 +65,35 @@ return [
         'aider_polyglot' => [
             ['capability' => 'code_editing', 'weight' => 1.00],
         ],
+        // Nativas de engenharia (braço com-Atlas = atlas:cli:dev governado, prova
+        // v2 verificada em archbench/cruxeval). Métrica binária pass@1. Aparecem
+        // no app conforme drenam (cruxeval já tem dado; as outras enchem por rodada).
+        'cruxeval' => [
+            ['capability' => 'code_reasoning', 'weight' => 1.00],
+        ],
+        'evalplus' => [
+            ['capability' => 'code_generation', 'weight' => 1.00],
+        ],
+        'bigcodebench' => [
+            ['capability' => 'code_generation', 'weight' => 1.00],
+        ],
+        'classeval' => [
+            ['capability' => 'code_generation', 'weight' => 1.00],
+        ],
+        'deveval' => [
+            ['capability' => 'code_generation', 'weight' => 1.00],
+        ],
+        'debug_gym' => [
+            ['capability' => 'debugging', 'weight' => 1.00],
+        ],
     ],
 
     'capability_labels_pt' => [
         'code_editing' => 'Edição de código',
         'reasoning' => 'Raciocínio',
         'tool_use' => 'Uso de ferramentas',
+        'code_reasoning' => 'Raciocínio sobre código',
+        'code_generation' => 'Geração de código',
+        'debugging' => 'Depuração',
     ],
 ];
