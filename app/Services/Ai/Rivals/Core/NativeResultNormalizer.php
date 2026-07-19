@@ -212,10 +212,23 @@ final class NativeResultNormalizer
             $inputTokens = $this->tokenQuantity($tokenMatch[1], $tokenMatch[2]);
             $outputTokens = $this->tokenQuantity($tokenMatch[3], $tokenMatch[4]);
         }
-        $environmentFailure = preg_match(
-            '/(?:AuthenticationError|BadRequestError|LLM Provider NOT provided|HTTP 401|invalid or expired token)/i',
+        $environmentError = null;
+        if (preg_match(
+            '/^.*(?:AuthenticationError|BadRequestError|LLM Provider NOT provided|HTTP 401|invalid or expired token).*$/mi',
             $agentLog,
-        ) === 1;
+            $environmentMatch,
+        ) === 1) {
+            $environmentError = preg_replace('/\s+/', ' ', trim($environmentMatch[0]))
+                ?? trim($environmentMatch[0]);
+            $environmentError = mb_substr($environmentError, 0, 512);
+        }
+        $environmentFailure = $environmentError !== null;
+        $failedChecks = [];
+        foreach ((array) ($row['parser_results'] ?? []) as $check => $verdict) {
+            if (! in_array(strtolower((string) $verdict), ['passed', 'success', 'true', '1'], true)) {
+                $failedChecks[] = (string) $check;
+            }
+        }
         $isVerboo = ((new ModelRegistry)->get((string) ($entry['model_id'] ?? ''))['provider'] ?? null)
             === 'hermes';
         $exitStatus = match (true) {
@@ -235,6 +248,8 @@ final class NativeResultNormalizer
                 'trial' => $entry['repetition'],
                 'exit_status' => $exitStatus,
                 'failure_mode' => $failureMode,
+                'failed_checks' => $failedChecks,
+                'environment_error' => $environmentError,
                 'duration_sec' => $this->durationSeconds(
                     $row['trial_started_at'] ?? null,
                     $row['trial_ended_at'] ?? null,

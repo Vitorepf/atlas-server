@@ -163,6 +163,33 @@ class ExternalAdaptersIngestTest extends TestCase
         );
     }
 
+    public function test_terminal_model_failure_names_the_failed_native_checks(): void
+    {
+        $adapter = new HarborTerminalBenchAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'episodes' => [[
+                'episode_id' => 'tb_hello',
+                'agent' => 'aider',
+                'model' => 'openai/kimi-k2.7',
+                'trial' => 1,
+                'exit_status' => 'failed',
+                'failure_mode' => 'unset',
+                'failed_checks' => ['test_hello_file_content'],
+                'duration_sec' => 1,
+                'input_tokens' => 10,
+                'output_tokens' => 2,
+            ]],
+        ]);
+
+        $this->assertSame('model_failure', $receipts[0]['failure_class']);
+        $this->assertSame(
+            'terminal_bench:failed_checks=test_hello_file_content',
+            $receipts[0]['failure_reason'],
+        );
+    }
+
     public function test_truncated_answer_is_not_measured_never_a_safe_verdict(): void
     {
         // ⚠️ FALSO SEGURO — a armadilha real, medida no agentic_misalignment:

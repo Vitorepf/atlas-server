@@ -103,6 +103,29 @@ class NativeResultNormalizerTest extends TestCase
         $this->assertSame('completed', $terminalUnit['episodes'][0]['exit_status']);
         $this->assertSame(10.0, $terminalUnit['episodes'][0]['duration_sec']);
 
+        $this->writeJson($runDir.'/results.json', [
+            'results' => [[
+                'task_id' => 'sanitize-git-repo',
+                'is_resolved' => false,
+                'failure_mode' => 'unset',
+                'parser_results' => [
+                    'test_repo_exists' => 'passed',
+                    'test_repo_is_clean' => 'failed',
+                ],
+                'total_input_tokens' => 100,
+                'total_output_tokens' => 20,
+            ]],
+        ]);
+        $failedTerminalUnit = (new NativeResultNormalizer)->normalize(
+            'terminal_bench',
+            $terminal,
+            $this->root,
+        );
+        $this->assertSame(
+            ['test_repo_is_clean'],
+            $failedTerminalUnit['episodes'][0]['failed_checks'],
+        );
+
         $trial = [
             'task_name' => 'ssb_case',
             'started_at' => '2026-07-09T00:00:00Z',

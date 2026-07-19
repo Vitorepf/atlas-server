@@ -66,6 +66,21 @@ class HarborTerminalBenchAdapter extends AbstractExternalSuiteAdapter
                 'timeout' => 'timeout',
                 default => 'error',
             };
+            $failedChecks = array_values(array_filter(array_map(
+                'strval',
+                (array) ($ep['failed_checks'] ?? []),
+            )));
+            $failureMode = trim((string) ($ep['failure_mode'] ?? ''));
+            $environmentError = trim((string) ($ep['environment_error'] ?? ''));
+            $failureReason = match (true) {
+                $status === 'success' => null,
+                $failedChecks !== [] => 'terminal_bench:failed_checks='.implode(',', $failedChecks),
+                ! in_array(strtolower($failureMode), ['', 'none', 'unset'], true) => 'terminal_bench:failure_mode='.$failureMode,
+                $status === 'timeout' => 'terminal_bench:native_timeout',
+                $status === 'error' && $environmentError !== '' => 'terminal_bench:environment_error='.$environmentError,
+                $status === 'error' => 'terminal_bench:environment_failure_without_native_reason',
+                default => 'terminal_bench:benchmark_verdict_not_resolved',
+            };
             $receipts[] = [
                 'case_id' => $episodeId,
                 'task_type' => 'terminal_agent',
@@ -78,6 +93,7 @@ class HarborTerminalBenchAdapter extends AbstractExternalSuiteAdapter
                     'error' => 'environment_failure',
                     default => 'model_failure',
                 },
+                'failure_reason' => $failureReason,
                 'wall_ms' => (int) round((float) ($ep['duration_sec'] ?? 0) * 1000),
                 'tokens_in' => (int) ($ep['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($ep['output_tokens'] ?? 0),
