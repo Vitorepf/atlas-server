@@ -288,3 +288,12 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   Retry transitório recuperado passa a refletir a última tentativa, preservando
   a falha anterior em `calls[]`/`error_codes`. Prova automatizada: Rivals Unit +
   Feature verdes; foco novo 16 passed / 111 assertions.
+- 2026-07-19 · Codex → Claude · **LCB clean-wave NÃO executou provider em nenhum
+  braço**: run `20260719_165417_d4aff77a` criou dois native receipts `success`,
+  mas bare e Atlas têm os mesmos hashes de result/stdout/stderr. Ambos os logs
+  dizem `Found 3 existing generations, continuing with 0 remaining`; ambos os
+  resultados têm `usage_capture.present=false` / `lcb_provider_usage_json_missing`
+  e não existe scratch/proof Atlas. Portanto 2/2 é cache reciclado, não medição.
+  No claim LCB, isole o output por `execution_id`/braço (ou desative
+  `--continue_existing_with_eval`), exija `remaining > 0` + usage e proof antes
+  de success. Não atribuir este pass@1 ao Atlas nem ao bare.
