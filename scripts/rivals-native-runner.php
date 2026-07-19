@@ -31,6 +31,62 @@ if ($manifestPath === '' || ! is_file($manifestPath) || $cwd === false || ! is_d
     exit(2);
 }
 
+/**
+ * Capture the prior Atlas proof inside the archived receipt, then remove it so
+ * the next attempt cannot be credited with stale runtime evidence.
+ *
+ * @return list<array<string, mixed>>
+ */
+$archiveRuntimeProofs = static function (array $entry, string $runId): array {
+    $scratch = (string) data_get($entry, 'normalization.scratch_dir', '');
+    $scratchReal = $scratch !== '' ? realpath($scratch) : false;
+    $runReal = realpath(RunPaths::runDir($runId));
+    if ($scratchReal === false) {
+        return [];
+    }
+    if ($runReal === false
+        || ($scratchReal !== $runReal && ! str_starts_with($scratchReal, $runReal.'/'))) {
+        throw new RuntimeException('rivals_native_runner_retry_scratch_outside_run');
+    }
+
+    $proofs = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($scratchReal, RecursiveDirectoryIterator::SKIP_DOTS),
+    );
+    foreach ($iterator as $file) {
+        if (! $file->isFile() || $file->getFilename() !== '.rivals_atlas_dev_bridge.json') {
+            continue;
+        }
+        if ($file->isLink()) {
+            throw new RuntimeException('rivals_native_runner_retry_proof_symlink_forbidden');
+        }
+        $proofPath = $file->getPathname();
+        $bytes = file_get_contents($proofPath);
+        if (! is_string($bytes)) {
+            throw new RuntimeException('rivals_native_runner_retry_proof_read_failed');
+        }
+        $payload = json_decode($bytes, true);
+        $proof = [
+            'path' => substr($proofPath, strlen($runReal) + 1),
+            'sha256' => hash('sha256', $bytes),
+            'payload' => is_array($payload) ? $payload : null,
+        ];
+        if (! is_array($payload)) {
+            $proof['raw_json'] = $bytes;
+        }
+        $proofs[] = $proof;
+        if (! unlink($proofPath)) {
+            throw new RuntimeException('rivals_native_runner_retry_proof_remove_failed');
+        }
+    }
+    usort($proofs, static fn (array $left, array $right): int => strcmp(
+        (string) $left['path'],
+        (string) $right['path'],
+    ));
+
+    return $proofs;
+};
+
 try {
     $manifest = NativeExecutionManifest::fromArray(
         json_decode((string) file_get_contents($manifestPath), true) ?? []
@@ -147,6 +203,7 @@ try {
             }
             $archived['archived_result_path'] = $relativeAttemptDir.'/'.$attemptPrefix.'.result.json';
             $archived['retry_attempt'] = $attemptNumber;
+            $archived['archived_runtime_proofs'] = $archiveRuntimeProofs($entry, $runId);
             foreach (['stdout', 'stderr'] as $stream) {
                 $source = RunPaths::runDir($runId).'/'.$archived[$stream]['path'];
                 $archivedStreamPath = $attemptDir.'/'.$attemptPrefix.'.'.$stream.'.log';

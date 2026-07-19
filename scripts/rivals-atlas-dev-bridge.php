@@ -118,6 +118,12 @@ if ($provider !== null) {
 if ($ai !== null) {
     $cliDevArgv[] = '--ai='.$ai;
 }
+$atlasRuntimeEnv = [
+    // The outer bridge timeout is the suite contract. Without forwarding it,
+    // PipelineRunExecutor silently fell back to the global 600s Hermes ceiling
+    // and turned valid long SWE tasks into provider_failure:timeout.
+    'ATLAS_AI_HERMES_TIMEOUT_SECONDS' => (string) $timeout,
+];
 
 $argv = $useHermesOnesHot ? $hermesArgv : $cliDevArgv;
 
@@ -129,6 +135,8 @@ if (array_key_exists('dry-run', $options)) {
         'provider' => $provider,
         'ai' => $ai,
         'execution' => $useHermesOnesHot ? 'hermes_cli_oneshot' : 'atlas_cli_dev_efficient',
+        'provider_timeout_seconds' => $timeout,
+        'runtime_env' => $useHermesOnesHot ? [] : $atlasRuntimeEnv,
         'fair_mode' => [
             'single_provider' => true,
             'decide_disabled' => true,
@@ -158,7 +166,7 @@ if ($useHermesOnesHot) {
     $oneShotException = null;
     try {
         $process->run();
-    } catch (\Throwable $exception) {
+    } catch (Throwable $exception) {
         $oneShotException = $exception;
     }
     $finishedAt = now();
@@ -170,7 +178,7 @@ if ($useHermesOnesHot) {
     $providerLockVerified = $oneShotException === null && $process->isSuccessful()
         && (($usage['completed'] ?? false) === true || ($inputTokens !== null && $outputTokens !== null));
     $oneShotFailureReason = $providerLockVerified ? null : (
-        $oneShotException instanceof \Throwable
+        $oneShotException instanceof Throwable
             ? 'hermes_oneshot_process_exception:'.$oneShotException::class.':'
                 .mb_substr(preg_replace('/\s+/', ' ', $oneShotException->getMessage()) ?: 'unknown', 0, 600)
             : 'hermes_oneshot_failed_or_usage_missing'
@@ -249,6 +257,7 @@ $usageSink = tempnam(sys_get_temp_dir(), 'rivals-usage-sink-');
 @unlink($usageSink); // só o caminho; o adaptador cria com os tokens acumulados
 $env = array_merge(
     array_filter($_ENV, fn ($v) => is_string($v) || is_numeric($v) || is_bool($v)),
+    $atlasRuntimeEnv,
     [
         'ATLAS_DEV_DETERMINISTIC_FAST_PATH_ENABLED' => 'false',
         'ATLAS_DEV_HERMES_EXECUTION_TRANSPORT' => 'cli',
@@ -263,7 +272,7 @@ $process->setTimeout((float) $timeout);
 $processException = null;
 try {
     $process->run();
-} catch (\Throwable $exception) {
+} catch (Throwable $exception) {
     // A timeout/process exception must still produce a readable bridge receipt.
     // The outer native runner will persist this script's stdout/stderr as well.
     $processException = $exception;
@@ -354,7 +363,7 @@ foreach ($providerErrors as $providerError) {
     }
 }
 $runtimeFailureReason = match (true) {
-    $processException instanceof \Throwable => 'atlas_dev_process_exception:'
+    $processException instanceof Throwable => 'atlas_dev_process_exception:'
         .$processException::class.':'
         .mb_substr(preg_replace('/\s+/', ' ', $processException->getMessage()) ?: 'unknown', 0, 600),
     $expectedProvider === null => 'atlas_dev_expected_provider_unresolved',

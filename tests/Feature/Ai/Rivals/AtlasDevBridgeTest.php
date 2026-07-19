@@ -75,6 +75,7 @@ class AtlasDevBridgeTest extends TestCase
             '--workspace='.$this->workspace,
             '--prompt-file='.$this->workspace.'/.rivals_task.md',
             '--model=kimi-k2.7',
+            '--timeout=1801',
             '--dry-run',
         ], base_path());
         $process->run();
@@ -91,6 +92,11 @@ class AtlasDevBridgeTest extends TestCase
         $this->assertContains('--single-provider', $payload['argv']);
         $this->assertContains('--no-decide', $payload['argv']);
         $this->assertContains('--fallback-disabled', $payload['argv']);
+        $this->assertSame(1801, $payload['provider_timeout_seconds']);
+        $this->assertSame(
+            '1801',
+            data_get($payload, 'runtime_env.ATLAS_AI_HERMES_TIMEOUT_SECONDS'),
+        );
     }
 
     public function test_hermes_oneshot_stays_reachable_only_as_explicit_operator_escape(): void

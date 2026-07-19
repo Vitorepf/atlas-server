@@ -134,6 +134,16 @@ class NativeRunnerLoggingTest extends TestCase
             $runnerPayload['executions'][0]['failure_reason'] ?? null,
         );
 
+        $scratch = (string) data_get($entry, 'normalization.scratch_dir');
+        File::ensureDirectoryExists($scratch);
+        $staleProof = $scratch.'/.rivals_atlas_dev_bridge.json';
+        file_put_contents($staleProof, json_encode([
+            'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
+            'status' => 'passed',
+            'failure_reason' => null,
+            'attempt_marker' => 'must_be_archived_not_reused',
+        ]));
+
         $retry = new Process($runnerArgs, base_path(), [
             'ATLAS_RIVALS2_STORAGE' => $this->storage,
         ]);
@@ -149,6 +159,11 @@ class NativeRunnerLoggingTest extends TestCase
         $archived = json_decode((string) file_get_contents($attempts[0]), true);
         $this->assertSame('environment_failure', $archived['status'] ?? null);
         $this->assertNotEmpty($archived['failure_reason'] ?? null);
+        $this->assertSame(
+            'must_be_archived_not_reused',
+            data_get($archived, 'archived_runtime_proofs.0.payload.attempt_marker'),
+        );
+        $this->assertFileDoesNotExist($staleProof);
         $this->assertFileIsReadable(
             RunPaths::runDir($plan->runId()).'/'.$archived['archived_result_path'],
         );
