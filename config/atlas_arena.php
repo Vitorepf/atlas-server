@@ -3,16 +3,13 @@
 return [
     'schema_prefix' => 'atlas.arena',
 
-    // Perfil = 8 suítes de ENGENHARIA. inspect_evals (Q&A de conhecimento) e
-    // tau2_bench (diálogo/atendimento) foram removidos: o Atlas é executor de
-    // engenharia e não tem runtime de resposta pura — o "com Atlas" lá só podia
-    // ser o modelo cru disfarçado (fraude que o RuntimeProofAttacher recusa) ou
-    // o cérebro de código forçado numa Q&A (erro de categoria → número que
-    // mente). Medir o Atlas onde ele NÃO opera é ruído, não capacidade. Os
-    // adapters/registry seguem em config/atlas_rivals.php p/ reativar se um dia
-    // existir um runtime de resposta governado. Ver docs/rivals-warroom.md §7.
+    // O perfil público segue a bateria externa completa. Uma suíte sem runtime
+    // Atlas confiável deve aparecer como não medida até o runtime existir; ela
+    // não pode desaparecer do contrato 10×2 nem virar bare disfarçado.
     'suites' => [
         'terminal_bench',
+        'inspect_evals',
+        'tau2_bench',
         'bfcl',
         'senior_swe_bench',
         'swe_bench_live',
@@ -22,18 +19,18 @@ return [
         'swe_marathon',
     ],
 
-    // Public, versioned composite weights. Must sum to 1.0. Renormalizado para
-    // 8 suítes ao remover inspect_evals(0.10)+tau2_bench(0.08); ordem preservada
-    // (terminal maior; bfcl/lcb os menores).
+    // Public, versioned composite weights. Must sum to 1.0.
     'weights' => [
-        'terminal_bench' => 0.18,
-        'bfcl' => 0.11,
-        'senior_swe_bench' => 0.12,
-        'swe_bench_live' => 0.12,
-        'live_code_bench' => 0.11,
-        'hal_harness' => 0.12,
-        'aider_polyglot' => 0.12,
-        'swe_marathon' => 0.12,
+        'terminal_bench' => 0.15,
+        'inspect_evals' => 0.10,
+        'tau2_bench' => 0.08,
+        'bfcl' => 0.08,
+        'senior_swe_bench' => 0.10,
+        'swe_bench_live' => 0.10,
+        'live_code_bench' => 0.09,
+        'hal_harness' => 0.10,
+        'aider_polyglot' => 0.10,
+        'swe_marathon' => 0.10,
     ],
 
     'arm_pair_window_minutes' => 120,
@@ -56,6 +53,16 @@ return [
         'terminal_bench' => [
             ['capability' => 'terminal_operation', 'weight' => 0.70],
             ['capability' => 'code_editing', 'weight' => 0.30],
+        ],
+        'inspect_evals' => [
+            ['capability' => 'reasoning', 'weight' => 0.45],
+            ['capability' => 'context_retrieval', 'weight' => 0.20],
+            ['capability' => 'instruction_following', 'weight' => 0.20],
+            ['capability' => 'security_knowledge', 'weight' => 0.15],
+        ],
+        'tau2_bench' => [
+            ['capability' => 'tool_use', 'weight' => 0.60],
+            ['capability' => 'agentic_dialogue', 'weight' => 0.40],
         ],
         'bfcl' => [
             ['capability' => 'tool_use', 'weight' => 1.00],
@@ -88,7 +95,11 @@ return [
         'code_editing' => 'Edição de código',
         'bug_fixing' => 'Correção de bugs',
         'reasoning' => 'Raciocínio',
+        'context_retrieval' => 'Recuperação de contexto',
         'tool_use' => 'Uso de ferramentas',
+        'agentic_dialogue' => 'Diálogo agêntico',
+        'instruction_following' => 'Seguir instruções',
+        'security_knowledge' => 'Segurança defensiva',
         'long_horizon' => 'Trabalho de longo prazo',
     ],
 ];
