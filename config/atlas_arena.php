@@ -3,34 +3,25 @@
 return [
     'schema_prefix' => 'atlas.arena',
 
-    // O perfil público segue a bateria externa completa. Uma suíte sem runtime
-    // Atlas confiável deve aparecer como não medida até o runtime existir; ela
-    // não pode desaparecer do contrato 10×2 nem virar bare disfarçado.
+    // Perfil = só o que roda NATIVO e CONFIÁVEL no Mac arm64 com braço Atlas real.
+    // As suítes de Docker/x86 (terminal_bench, swe_bench_live, senior_swe_bench,
+    // swe_marathon, hal_harness) rodam por emulação x86 e CORROMPEM o resultado no
+    // arm64 (provado: até o patch gold do SWE-bench falha) — ficam estacionadas até
+    // haver x86, fora do perfil, pra nunca mostrar número falso (era o "-10" de
+    // Operação de terminal). inspect_evals/tau2_bench são conhecimento/diálogo (não
+    // engenharia) e não têm braço Atlas — saem também (eram as capacidades órfãs).
+    // Ver docs/rivals-warroom.md, memória swe-bench-arm64-emulacao e benchmarks/.
     'suites' => [
-        'terminal_bench',
-        'inspect_evals',
-        'tau2_bench',
         'bfcl',
-        'senior_swe_bench',
-        'swe_bench_live',
         'live_code_bench',
-        'hal_harness',
         'aider_polyglot',
-        'swe_marathon',
     ],
 
     // Public, versioned composite weights. Must sum to 1.0.
     'weights' => [
-        'terminal_bench' => 0.15,
-        'inspect_evals' => 0.10,
-        'tau2_bench' => 0.08,
-        'bfcl' => 0.08,
-        'senior_swe_bench' => 0.10,
-        'swe_bench_live' => 0.10,
-        'live_code_bench' => 0.09,
-        'hal_harness' => 0.10,
-        'aider_polyglot' => 0.10,
-        'swe_marathon' => 0.10,
+        'aider_polyglot' => 0.40,
+        'live_code_bench' => 0.35,
+        'bfcl' => 0.25,
     ],
 
     'arm_pair_window_minutes' => 120,
@@ -50,56 +41,21 @@ return [
     'worker_repetitions' => (int) env('ATLAS_ARENA_WORKER_REPETITIONS', 3),
 
     'capability_map' => [
-        'terminal_bench' => [
-            ['capability' => 'terminal_operation', 'weight' => 0.70],
-            ['capability' => 'code_editing', 'weight' => 0.30],
-        ],
-        'inspect_evals' => [
-            ['capability' => 'reasoning', 'weight' => 0.45],
-            ['capability' => 'context_retrieval', 'weight' => 0.20],
-            ['capability' => 'instruction_following', 'weight' => 0.20],
-            ['capability' => 'security_knowledge', 'weight' => 0.15],
-        ],
-        'tau2_bench' => [
-            ['capability' => 'tool_use', 'weight' => 0.60],
-            ['capability' => 'agentic_dialogue', 'weight' => 0.40],
-        ],
         'bfcl' => [
             ['capability' => 'tool_use', 'weight' => 1.00],
-        ],
-        'senior_swe_bench' => [
-            ['capability' => 'code_editing', 'weight' => 0.60],
-            ['capability' => 'bug_fixing', 'weight' => 0.40],
-        ],
-        'swe_bench_live' => [
-            ['capability' => 'bug_fixing', 'weight' => 1.00],
         ],
         'live_code_bench' => [
             ['capability' => 'code_editing', 'weight' => 0.50],
             ['capability' => 'reasoning', 'weight' => 0.50],
         ],
-        'hal_harness' => [
-            ['capability' => 'long_horizon', 'weight' => 1.00],
-        ],
         'aider_polyglot' => [
             ['capability' => 'code_editing', 'weight' => 1.00],
-        ],
-        'swe_marathon' => [
-            ['capability' => 'long_horizon', 'weight' => 0.70],
-            ['capability' => 'code_editing', 'weight' => 0.30],
         ],
     ],
 
     'capability_labels_pt' => [
-        'terminal_operation' => 'Operação de terminal',
         'code_editing' => 'Edição de código',
-        'bug_fixing' => 'Correção de bugs',
         'reasoning' => 'Raciocínio',
-        'context_retrieval' => 'Recuperação de contexto',
         'tool_use' => 'Uso de ferramentas',
-        'agentic_dialogue' => 'Diálogo agêntico',
-        'instruction_following' => 'Seguir instruções',
-        'security_knowledge' => 'Segurança defensiva',
-        'long_horizon' => 'Trabalho de longo prazo',
     ],
 ];
