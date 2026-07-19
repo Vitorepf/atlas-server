@@ -53,6 +53,18 @@ class FaseABatteryOrchestratorTest extends TestCase
         }
     }
 
+    public function test_default_marathon_pack_is_runnable_on_configured_docker_environment(): void
+    {
+        config()->set('atlas_rivals.native_execution.swe_marathon_environment', 'docker');
+
+        $payload = (new FaseABatteryOrchestrator)->dryRun('uplift');
+        $marathon = collect($payload['plans'])->firstWhere('suite_id', 'swe_marathon');
+
+        $this->assertIsArray($marathon);
+        $this->assertNotContains('embedding-eval', $marathon['cases']);
+        $this->assertContains('zstd-decoder', $marathon['cases']);
+    }
+
     public function test_dry_run_fast_is_one_case_one_rep_ten_suites(): void
     {
         $payload = (new FaseABatteryOrchestrator)->dryRun('bare', true);

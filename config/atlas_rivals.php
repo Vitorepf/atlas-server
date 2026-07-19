@@ -97,7 +97,10 @@ return [
             ], require __DIR__.'/atlas_rivals_inspect_cases.php'),
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
-            'swe_marathon' => ['slack-clone', 'nextjs-vite-rewrite', 'embedding-eval'],
+            // O ambiente padrão é Docker local. embedding-eval exige T4/Modal e
+            // portanto não pode entrar silenciosamente no pack claimável local.
+            // zstd-decoder é uma task oficial CPU (gpus=0) já congelada/importada.
+            'swe_marathon' => ['slack-clone', 'nextjs-vite-rewrite', 'zstd-decoder'],
         ],
     ],
 
