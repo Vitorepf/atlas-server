@@ -49,6 +49,33 @@ class RuntimeProofAttacherTest extends TestCase
         $this->assertSame('kimi-k2.7', data_get($attached, 'metadata.direct_provider.model'));
     }
 
+    public function test_bare_success_without_usage_becomes_an_environment_error(): void
+    {
+        [$plan, $manifest, $binding, $entry] = $this->manifest('bare');
+        $this->persistNativeReceipt($plan, $manifest, $entry, 'execute');
+        $receipt = array_replace($this->receipt($binding), [
+            'status' => 'success',
+            'tokens_in' => 0,
+            'tokens_out' => 0,
+        ]);
+
+        $attached = (new RuntimeProofAttacher)->attach(
+            $receipt,
+            $binding,
+            $plan->runId(),
+            $entry['expected_result_path'],
+        );
+
+        $this->assertFalse(data_get($attached, 'metadata.direct_provider.real_provider'));
+        $this->assertSame('error', $attached['status']);
+        $this->assertSame(FailureClass::ENVIRONMENT, $attached['failure_class']);
+        $this->assertSame('bare_runtime_proof_usage_missing', $attached['failure_reason']);
+        $this->assertSame(
+            'bare_runtime_proof_usage_missing',
+            data_get($attached, 'metadata.direct_provider.reason'),
+        );
+    }
+
     public function test_atlas_proof_is_fail_closed_then_accepts_exact_fair_bridge(): void
     {
         [$plan, $manifest, $binding, $entry] = $this->manifest('atlas_dev');

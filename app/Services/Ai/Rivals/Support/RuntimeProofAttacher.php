@@ -51,6 +51,11 @@ final class RuntimeProofAttacher
                     VerbooEnvironment::BASE_URL,
                 )
                 && ($tokensIn + $tokensOut) > 0;
+            $proofReason = $real
+                ? null
+                : (($tokensIn + $tokensOut) <= 0
+                    ? 'bare_runtime_proof_usage_missing'
+                    : 'bare_runtime_proof_missing_or_invalid');
             $metadata['direct_provider'] = [
                 'schema_version' => 'atlas.rivals2.direct_provider_proof.v1',
                 'real_provider' => $real,
@@ -66,8 +71,15 @@ final class RuntimeProofAttacher
                     'cost_usd' => (float) ($receipt['cost_usd'] ?? 0),
                     'present' => ($tokensIn + $tokensOut) > 0,
                 ],
-                'reason' => $real ? null : 'native_provider_execution_not_proven',
+                'reason' => $proofReason,
             ];
+            if (! $real) {
+                $receipt['failure_class'] = FailureClass::ENVIRONMENT;
+                $receipt['failure_reason'] = $proofReason;
+                if (($receipt['status'] ?? null) === 'success') {
+                    $receipt['status'] = 'error';
+                }
+            }
         } elseif ($runtime === 'atlas_dev') {
             $proof = is_array(data_get($receipt, 'metadata.runtime_bridge'))
                 ? data_get($receipt, 'metadata.runtime_bridge')
