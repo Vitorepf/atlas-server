@@ -22,6 +22,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -369,7 +370,7 @@ final class EliteExecutorKernel
             && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
             return "# Task\n{$goal}\n\n# Files in scope\n(nenhum arquivo pré-selecionado: proponha você o conjunto mínimo)\n"
                 ."# Output contract (mandatory)\n"
-                ."You are NOT editing files and need no write permission: you only OUTPUT a JSON "
+                .'You are NOT editing files and need no write permission: you only OUTPUT a JSON '
                 ."plan; Atlas applies it in a hermetic sandbox. Emitting this JSON is always allowed.\n"
                 ."Reply with ONLY this JSON object — no prose, no markdown fences:\n"
                 .'{"patch_plan":{"allowed_files":["<relative path>", "..."],"patches":[{"path":"<one of allowed_files>","mode":"create|modify","next":"<the complete new file content>"}]}}'."\n"
@@ -379,7 +380,7 @@ final class EliteExecutorKernel
 
         return "# Task\n{$goal}\n\n# Files in scope (current content)\n{$files}\n"
             ."# Output contract (mandatory)\n"
-            ."You are NOT editing files and need no write permission: you only OUTPUT a JSON "
+            .'You are NOT editing files and need no write permission: you only OUTPUT a JSON '
             ."plan; Atlas applies it in a hermetic sandbox. Emitting this JSON is always allowed.\n"
             ."Reply with ONLY this JSON object — no prose, no markdown fences:\n"
             .'{"patch_plan":{"allowed_files":'.$allowedJson.',"patches":[{"path":"<one of allowed_files>","mode":"create|modify","next":"<the complete new file content>"}]}}'."\n"
@@ -424,7 +425,15 @@ final class EliteExecutorKernel
             return VerifiedMutativeCandidate::blocked($order, ['provider_exception:'.$e::class]);
         }
         if (($provider['status'] ?? null) !== 'ok') {
-            return VerifiedMutativeCandidate::blocked($order, ['provider_'.(string) ($provider['status'] ?? 'refused')], $provider);
+            $providerFailure = trim(str_replace(
+                ["\r", "\n", '|'],
+                [' ', ' ', '/'],
+                (string) ($provider['failure_reason'] ?? ''),
+            ));
+            $blocker = 'provider_'.(string) ($provider['status'] ?? 'refused')
+                .($providerFailure !== '' ? ':'.mb_substr($providerFailure, 0, 500) : '');
+
+            return VerifiedMutativeCandidate::blocked($order, [$blocker], $provider);
         }
 
         $providerFiles = array_values(array_map('strval', (array) data_get($provider, 'patch_plan.allowed_files', [])));
@@ -1023,7 +1032,7 @@ final class EliteExecutorKernel
             return app(TaskLaneMergeActuatorAdapter::class);
         }
 
-        return new TaskLaneMergeActuatorAdapter(new \App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator(
+        return new TaskLaneMergeActuatorAdapter(new AtlasTaskMergeActuator(
             repoRootOverride: $order->workspace,
             leaseValidator: static fn (string $leaseId, int $fencingToken): bool => str_starts_with($leaseId, 'dev-') && $fencingToken === 1,
         ));

@@ -142,6 +142,43 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         self::assertSame('codex_cli', $receipt['provider']);
     }
 
+    public function test_real_provider_failure_preserves_exact_error_code_and_receipt_details(): void
+    {
+        $provider = \Mockery::mock(AiProvider::class);
+        $provider->shouldReceive('key')->andReturn('hermes_cli');
+        $provider->shouldReceive('run')->once()->andReturn(new AiProviderResult(
+            ok: false,
+            output: '',
+            command: ['hermes', '[redacted]'],
+            exitCode: 29,
+            durationMs: 421,
+            stdout: '',
+            stderr: 'provider quota resets in 15 seconds',
+            errorCode: 'rate_limited',
+            errorMessage: 'provider quota resets in 15 seconds',
+        ));
+        $manager = \Mockery::mock(AiProviderManager::class);
+        $manager->shouldReceive('get')->once()->with('hermes_cli')->andReturn($provider);
+
+        $receipt = (new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            $manager,
+        ))->invoke([
+            'execute_provider' => true,
+            'provider' => 'hermes_cli',
+            'model' => 'kimi-k2.7',
+            'prompt' => 'plan',
+            'claim' => ['allowed_files' => ['app/X.php']],
+        ]);
+
+        self::assertSame('unavailable', $receipt['status']);
+        self::assertSame('provider_failure:rate_limited', $receipt['failure_reason']);
+        self::assertSame('rate_limited', $receipt['error_code']);
+        self::assertSame('provider quota resets in 15 seconds', $receipt['error_message']);
+        self::assertSame(29, $receipt['exit_code']);
+        self::assertSame(421, $receipt['duration_ms']);
+    }
+
     public function test_normalize_only_receipt_is_explicitly_not_a_provider_execution(): void
     {
         $adapter = new AgentExecutionProviderPortAdapter(new AgentExecutionProviderPortService);

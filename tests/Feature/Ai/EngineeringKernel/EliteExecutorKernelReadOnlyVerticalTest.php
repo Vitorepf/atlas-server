@@ -41,6 +41,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\RealExecution\RealExecutionHash;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Engineering\CodeGraph\CodeGraphSecretScanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -100,7 +101,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->app->forgetInstance(EliteExecutorKernel::class);
         $actuator = $this->createMock(MergeActuator::class);
         $actuator->expects($this->never())->method('act');
-        $sentinel = $this->createMock(\App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel::class);
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
         $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
         $engagement = $company->createEngagement('mutative orchestrator provider refusal');
         $cycle = $company->createCycle($engagement);
@@ -114,7 +115,10 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('blocked', $result['status']);
         $this->assertSame('blocked', $result['candidate']->status);
         $this->assertNull($result['governance']);
-        $this->assertSame('candidate_preparation_blocked', $result['actuation']['reason']);
+        $this->assertSame(
+            'candidate_preparation_blocked:provider_unavailable',
+            $result['actuation']['reason'],
+        );
     }
 
     public function test_public_execute_returns_canonical_blocked_mutative_outcome_and_replays_it(): void
@@ -144,7 +148,10 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     {
         $provider = $this->createMock(ProviderPort::class);
         $provider->expects($this->once())->method('invoke')->willReturn([
-            'status' => 'unavailable', 'provider_invoked' => true, 'executes_provider' => true,
+            'status' => 'unavailable',
+            'failure_reason' => 'provider_failure:rate_limited',
+            'provider_invoked' => true,
+            'executes_provider' => true,
         ]);
         $this->app->instance(ProviderPort::class, $provider);
         $this->app->forgetInstance(EliteExecutorKernel::class);
@@ -157,7 +164,10 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('blocked', $candidate->status);
         $this->assertFalse($candidate->authorityEligible);
         $this->assertSame('', $candidate->sandboxRoot);
-        $this->assertContains('provider_unavailable', $candidate->blockers);
+        $this->assertContains(
+            'provider_unavailable:provider_failure:rate_limited',
+            $candidate->blockers,
+        );
     }
 
     public function test_mutative_candidate_provider_timeout_has_zero_sandbox_candidate(): void
@@ -993,7 +1003,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $forged->forceFill(['output' => $forgedOutput])->save();
         $this->assertInvalidArgumentMessage(
             fn () => $authority->issueMutativeRoleDisposition($forged, $qualityCase, []),
-            'kernel_mutative_role_receipt_binding_invalid',
+            'kernel_mutative_role_receipt_binding_invalid:product_strategy',
         );
         $this->assertSame('block', app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase)->status);
         $wrongDomain = $persisted->firstWhere('role_id', 'domain_research');

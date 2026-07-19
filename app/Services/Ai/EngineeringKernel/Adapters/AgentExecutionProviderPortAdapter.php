@@ -8,7 +8,9 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
+use App\Support\AtlasSecurity;
 use Closure;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Second Engineering Kernel adapter: pure delegation to the existing, already-proven
@@ -74,6 +76,10 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 'provider' => (string) ($result->metadata['provider'] ?? $result->metadata['provider_key'] ?? $provider->key()),
                 'model' => (string) ($result->metadata['model'] ?? $result->metadata['actual_model'] ?? $job->model ?? ''),
                 'error' => $result->errorMessage,
+                'error_code' => $result->errorCode,
+                'error_message' => $result->errorMessage,
+                'exit_code' => $result->exitCode,
+                'duration_ms' => $result->durationMs,
             ];
             // Rivals: o provider_call do fast-path não carrega tokens no path
             // hermes (só o adaptador Sonnet os preenche), e sem tokens TODO
@@ -85,14 +91,33 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         }
 
         if (($raw['ok'] ?? false) !== true) {
-            return ['status' => 'unavailable', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+            $errorCode = trim((string) ($raw['error_code'] ?? ''));
+            $errorCode = preg_replace('/[^A-Za-z0-9._-]+/', '_', $errorCode) ?: 'unknown';
+            $errorCode = substr($errorCode, 0, 120);
+            $errorMessage = trim(preg_replace(
+                '/\s+/',
+                ' ',
+                AtlasSecurity::redactString((string) ($raw['error_message'] ?? $raw['error'] ?? '')),
+            ) ?: '');
+
+            return [
+                'status' => 'unavailable',
+                'failure_reason' => 'provider_failure:'.$errorCode,
+                'error_code' => $errorCode,
+                'error_message' => mb_substr($errorMessage, 0, 500),
+                'exit_code' => is_numeric($raw['exit_code'] ?? null) ? (int) $raw['exit_code'] : null,
+                'duration_ms' => is_numeric($raw['duration_ms'] ?? null) ? (int) $raw['duration_ms'] : null,
+                'provider_invoked' => true,
+                'executes_provider' => true,
+                'exhausted' => true,
+            ];
         }
         if (($raw['provider'] ?? null) !== $providerKey || ($raw['model'] ?? null) !== $model) {
             return ['status' => 'provider_route_mismatch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
         $decoded = $this->decodeContract((string) ($raw['output'] ?? ''));
         if ($decoded === null) {
-            \Illuminate\Support\Facades\Log::warning('provider_contract_decode_failed', [
+            Log::warning('provider_contract_decode_failed', [
                 'provider' => $providerKey,
                 'model' => $model,
                 'output_bytes' => strlen((string) ($raw['output'] ?? '')),
@@ -131,7 +156,7 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             }
         }
 
-        \Illuminate\Support\Facades\Log::info('provider_patch_plan_decoded', [
+        Log::info('provider_patch_plan_decoded', [
             'provider' => $providerKey,
             'model' => $model,
             'allowed_files' => $decoded['patch_plan']['allowed_files'] ?? null,
