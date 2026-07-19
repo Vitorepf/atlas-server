@@ -204,4 +204,17 @@ class ExternalCommandContractTest extends TestCase
         $this->assertStringContainsString('atlas-bridge.stderr.log', $harborAgent);
         $this->assertStringContainsString('environment.upload_file', $harborAgent);
     }
+
+    public function test_python_runtime_agents_emit_captured_bridge_streams(): void
+    {
+        foreach ([
+            'scripts/rivals_hal_atlas_agent.py',
+            'scripts/rivals_hal_agent/rivals_hal_atlas_agent.py',
+            'scripts/rivals_tb_atlas_agent.py',
+        ] as $path) {
+            $source = (string) file_get_contents(base_path($path));
+            $this->assertStringContainsString('def emit_process_logs(', $source, $path);
+            $this->assertStringContainsString('emit_process_logs(process)', $source, $path);
+        }
+    }
 }

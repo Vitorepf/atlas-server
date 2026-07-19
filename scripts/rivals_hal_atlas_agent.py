@@ -3,8 +3,22 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+
+def emit_process_logs(process: subprocess.CompletedProcess[str]) -> None:
+    """Forward captured bridge streams into the unit's durable native logs."""
+    if process.stdout:
+        print(process.stdout, end="" if process.stdout.endswith("\n") else "\n", flush=True)
+    if process.stderr:
+        print(
+            process.stderr,
+            end="" if process.stderr.endswith("\n") else "\n",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def run(input: dict[str, dict], **kwargs) -> dict:
@@ -92,6 +106,7 @@ def _run(input: dict[str, dict], runtime: str, **kwargs) -> dict:
             text=True,
             timeout=3700,
         )
+        emit_process_logs(process)
         proof_path = workspace / (
             ".rivals_atlas_dev_bridge.json"
             if runtime == "atlas_dev"

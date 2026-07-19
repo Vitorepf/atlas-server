@@ -5,12 +5,26 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
 
 from terminal_bench.agents.base_agent import AgentResult, BaseAgent
 from terminal_bench.agents.failure_mode import FailureMode
+
+
+def emit_process_logs(process: subprocess.CompletedProcess[str]) -> None:
+    """Forward captured bridge streams into Terminal-Bench's durable agent log."""
+    if process.stdout:
+        print(process.stdout, end="" if process.stdout.endswith("\n") else "\n", flush=True)
+    if process.stderr:
+        print(
+            process.stderr,
+            end="" if process.stderr.endswith("\n") else "\n",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 class AtlasDevAgent(BaseAgent):
@@ -81,6 +95,7 @@ class AtlasDevAgent(BaseAgent):
                 text=True,
                 timeout=3700,
             )
+            emit_process_logs(process)
             proof_path = workspace / ".rivals_atlas_dev_bridge.json"
             proof = json.loads(proof_path.read_text()) if proof_path.is_file() else {}
             if proof_path.is_file():
