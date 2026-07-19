@@ -77,6 +77,60 @@ try {
         RunPaths::ensureDir($logDir);
         $stdoutPath = $logDir.'/'.$executionId.'.stdout.log';
         $stderrPath = $logDir.'/'.$executionId.'.stderr.log';
+        $existingReceiptPath = RunPaths::nativeReceiptsDir($runId).'/'.$executionId.'.json';
+        if (! array_key_exists('normalize-only', $options) && is_file($existingReceiptPath)) {
+            $existing = NativeExecutionReceipt::fromArray(
+                json_decode((string) file_get_contents($existingReceiptPath), true) ?? [],
+            );
+            foreach ([
+                'run_id' => $runId,
+                'execution_id' => $executionId,
+                'manifest_hash' => $manifest->hash(),
+                'command_hash' => (string) $entry['command_hash'],
+                'expected_result_path' => (string) $entry['expected_result_path'],
+            ] as $field => $expected) {
+                if (($existing->data[$field] ?? null) !== $expected) {
+                    throw new RuntimeException(
+                        "rivals_native_runner_existing_receipt_binding_mismatch:{$executionId}:{$field}",
+                    );
+                }
+            }
+            if (! is_file($resultPath)
+                || hash_file('sha256', $resultPath) !== $existing->data['result_sha256']) {
+                throw new RuntimeException(
+                    "rivals_native_runner_existing_receipt_result_invalid:{$executionId}",
+                );
+            }
+            foreach (['stdout', 'stderr'] as $stream) {
+                $streamProof = (array) ($existing->data[$stream] ?? []);
+                $relative = is_string($streamProof['path'] ?? null) ? $streamProof['path'] : '';
+                $absolute = $relative !== '' ? RunPaths::runDir($runId).'/'.$relative : '';
+                if (($streamProof['present'] ?? false) !== true
+                    || $absolute === ''
+                    || ! is_readable($absolute)
+                    || hash_file('sha256', $absolute) !== ($streamProof['sha256'] ?? null)) {
+                    throw new RuntimeException(
+                        "rivals_native_runner_existing_receipt_stream_invalid:{$executionId}:{$stream}",
+                    );
+                }
+            }
+            EventStream::append($runId, 'native_execution_reused', [
+                'execution_id' => $executionId,
+                'status' => $existing->data['status'],
+                'receipt_path' => $existingReceiptPath,
+            ]);
+            $summary[] = [
+                'execution_id' => $executionId,
+                'status' => $existing->data['status'],
+                'failure_reason' => $existing->data['failure_reason'],
+                'exit_code' => $existing->data['exit_code'],
+                'receipt_path' => $existingReceiptPath,
+                'runner_mode' => $existing->data['runner']['mode'] ?? null,
+                'idempotent_replay' => true,
+            ];
+
+            continue;
+        }
         $startedAt = now();
         $startedMonotonic = hrtime(true);
         EventStream::append($runId, 'native_execution_started', [

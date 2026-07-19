@@ -133,4 +133,110 @@ class NativeRunnerLoggingTest extends TestCase
             $runnerPayload['executions'][0]['failure_reason'] ?? null,
         );
     }
+
+    public function test_completed_manifest_unit_is_reused_without_reexecuting_command(): void
+    {
+        $adapter = new class implements BenchmarkSuiteAdapter
+        {
+            public function suiteId(): string
+            {
+                return 'tau2_bench';
+            }
+
+            public function listCases(array $filters = []): array
+            {
+                return [['case_id' => 'reuse_probe', 'task_type' => 'tool_use', 'title' => 'reuse probe']];
+            }
+
+            public function planCommands(RunPlan $plan): array
+            {
+                return [];
+            }
+
+            public function ingestResults(string $runDir): array
+            {
+                return [];
+            }
+        };
+        $arm = (new ArmRegistry)->parse('claude_sonnet_5@bare', 'tau2_bench');
+        $plan = RunPlan::make(
+            'tau2_bench',
+            ['reuse_probe'],
+            [$arm],
+            1,
+            ['max_usd' => 0.0, 'max_minutes' => 1],
+            42,
+        );
+        $planData = $plan->data;
+        $planData['environment']['approve_provider_spend'] = true;
+        $plan = RunPlan::fromArray($planData);
+        $plan->persist();
+        $manifest = NativeExecutionManifest::fromPlan($plan, $adapter, [[
+            'case_id' => 'reuse_probe',
+            'arm_id' => $arm['arm_id'],
+            'repetition' => 1,
+            'command' => 'must never execute',
+            'argv' => [PHP_BINARY, '-r', 'exit(99);'],
+            'normalization' => [
+                'case' => ['native_task_id' => 'reuse_probe'],
+                'scratch_dir' => RunPaths::runDir($plan->runId()).'/native_scratch/reuse',
+            ],
+        ]]);
+        $manifestPath = $manifest->persist();
+        $entry = $manifest->entries()[0];
+        $resultPath = RunPaths::runDir($plan->runId()).'/'.$entry['expected_result_path'];
+        File::ensureDirectoryExists(dirname($resultPath));
+        file_put_contents($resultPath, '{"already":"complete"}');
+        $logDir = RunPaths::nativeReceiptsDir($plan->runId()).'/logs';
+        File::ensureDirectoryExists($logDir);
+        $stdoutPath = $logDir.'/'.$entry['execution_id'].'.stdout.log';
+        $stderrPath = $logDir.'/'.$entry['execution_id'].'.stderr.log';
+        file_put_contents($stdoutPath, 'persisted stdout');
+        file_put_contents($stderrPath, '');
+        NativeExecutionReceipt::fromArray([
+            'schema_version' => NativeExecutionReceipt::SCHEMA,
+            'run_id' => $plan->runId(),
+            'execution_id' => $entry['execution_id'],
+            'manifest_hash' => $manifest->hash(),
+            'command_hash' => $entry['command_hash'],
+            'expected_result_path' => $entry['expected_result_path'],
+            'result_sha256' => hash_file('sha256', $resultPath),
+            'status' => 'success',
+            'failure_reason' => null,
+            'exit_code' => 0,
+            'started_at' => now()->toIso8601String(),
+            'finished_at' => now()->toIso8601String(),
+            'wall_ms' => 1,
+            'cost_usd' => 0.0,
+            'stdout' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stdout.log',
+                'sha256' => hash_file('sha256', $stdoutPath),
+            ],
+            'stderr' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stderr.log',
+                'sha256' => hash_file('sha256', $stderrPath),
+            ],
+            'runner' => ['version' => 'rivals-native-runner-v2', 'mode' => 'execute'],
+            'provider_binding' => null,
+        ])->persist();
+
+        $process = new Process([
+            PHP_BINARY,
+            base_path('scripts/rivals-native-runner.php'),
+            '--manifest='.$manifestPath,
+            '--cwd='.base_path(),
+            '--execution-id='.$entry['execution_id'],
+            '--approve-provider-spend',
+        ], base_path(), ['ATLAS_RIVALS2_STORAGE' => $this->storage]);
+        $process->setTimeout(30);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+        $payload = json_decode($process->getOutput(), true);
+        $this->assertSame('success', data_get($payload, 'executions.0.status'));
+        $this->assertTrue(data_get($payload, 'executions.0.idempotent_replay'));
+        $this->assertSame('{"already":"complete"}', file_get_contents($resultPath));
+    }
 }
