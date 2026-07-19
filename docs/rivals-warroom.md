@@ -41,10 +41,11 @@ que o número que o Rivals mostra é verdade.
 
 | dono | alvo (arquivo/suíte) | desde | status |
 |---|---|---|---|
-| Claude | `scripts/rivals-atlas-openai-endpoint.php` (endpoint) | 2026-07-19 ~13h | LIBERADO — inspect/tau2 REMOVIDAS do perfil (decisão operador); endpoint fica p/ reativar se houver runtime de resposta governado |
+| Claude | `scripts/rivals-atlas-openai-endpoint.php` (endpoint) | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: 10 suítes ficam; Codex constrói runtime governado de resposta (cérebro Atlas c/ Hermes dentro), não `hermes -z` cru |
 | Claude | `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (prova no scratch certo) | 2026-07-19 ~13h | ATIVO — fix commitado (`d48cd222fb`), provando end-to-end na run arq_f40e |
-| Claude | `InspectEvalsAdapter` + `Tau2BenchAdapter` | 2026-07-19 ~13h | LIBERADO — suítes removidas do perfil (`config/atlas_arena.php`, commit `6412751020`); adapters/registry intactos |
+| Claude | `InspectEvalsAdapter` + `Tau2BenchAdapter` | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: ficam no perfil (10 suítes); Codex constrói o braço governado. Adapters/registry intactos |
 | Codex | receipts/runner/report + harness Harbor + cross-check de runtime proof do bridge | 2026-07-19 11:27 -03 | fixes TDD commitados; wave limpa 1×1 das 10 em execução; sem tocar WIP Arena/endpoint/LCB do Claude |
+| Codex | runtime governado de resposta + endpoint/Inspect/Tau2 | 2026-07-19 13:05 -03 | ATIVO após liberação; contrato 10×2 restaurado em `188bcc60c`; não tocar LCB |
 
 ## 4. BOARD DE CONFIABILIDADE POR SUÍTE (verdade atual, 2026-07-19 ~10h)
 
@@ -58,8 +59,8 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 | terminal_bench | ✅ | roda; fantasmas git-bisect/kernel-config já removidos → git-workflow-hack/fix-pandas | Claude (feito) |
 | swe_bench_live | ✅ | roda; fantasma swe_live_001(astropy-31337) removido; tokens capturam | Claude (feito) |
 | hal_harness | ✅ | roda; fantasmas hal_task_001/002 removidos | Claude (feito) |
-| ~~inspect_evals~~ | ❌ REMOVIDA | Fora do perfil (`config/atlas_arena.php`, commit `6412751020`). Q&A de conhecimento ≠ engenharia; Atlas não tem runtime de resposta pura. Registry/adapter intactos p/ reativar. | — |
-| ~~tau2_bench~~ | ❌ REMOVIDA | Fora do perfil (mesmo commit). Diálogo/atendimento ≠ engenharia. | — |
+| inspect_evals | 🟡 | **RECONCILIADO**: minha remoção (`6412751020`) foi revertida pelo Codex (`188bcc60c`) e o operador confirmou o rumo — "usar Atlas é usar Atlas, não Hermes; o Atlas tem Hermes por dentro". Então NÃO se remove: constrói-se o runtime de resposta GOVERNADO (cérebro Atlas c/ Hermes dentro). Até lá = "não medido" (honesto), NUNCA Hermes disfarçado. | Codex (runtime governado) |
+| tau2_bench | 🟡 | **RECONCILIADO** (mesma coisa). Braço real = Atlas governado rodando Hermes por dentro + proof; jamais `hermes -z` cru rotulado Atlas. | Codex (runtime governado) |
 | live_code_bench | 🟡→✅? | Overlay gravava prova num tempdir efêmero (apagado antes do attacher ler) → env_failure falso com Atlas rodando de verdade. Fix `d48cd222fb`: persiste a prova em `<scratch>/.rivals_atlas_dev_bridge.json`. Provando na run arq_f40e. | Claude (feito, provando) |
 | senior_swe_bench | ⏳ | diagnóstico 24/24 receipts fechou, mas a corrida é não-claimável (hot reload + caso manual inválido `ssb_0034`); bateria limpa ainda pendente | Codex |
 | swe_marathon | ⏳ | na fila; mesmo agente harbor | Codex (auditar ao fechar) |
@@ -159,6 +160,16 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   `candidate_preparation_blocked:provider_invalid_provider_contract`. O adapter
   perdia essa causa no resumo; fix TDD agora projeta os `provider_call.error_codes`
   em `failure_reason`. Prova: ExternalAdaptersIngest 19/139 verde.
+- 2026-07-19 · Codex · **SWE-bench Live 1×1 real fecha sem fantasmas**: run
+  `20260719_154029_99b17bba`, native 2/2 success + quatro logs. Bare consumiu
+  186.141/15.028 tokens e falhou os dois testes FAIL_TO_PASS oficiais
+  `test_geodataframe_geojson_no_bbox|test_geodataframe_geojson_bbox`; Atlas
+  consumiu 86.971/5.529, proof v2 válido, mas gerou patch vazio porque o bridge
+  bloqueou em `candidate_preparation_blocked:sandbox_sandbox_git_clone_failed`.
+  Antes ambos viravam o genérico `benchmark_verdict_not_resolved`; TDD agora
+  preserva failed checks nativos e, para todo braço Atlas que respondeu, projeta
+  `provider_call.error_codes` como causa. Prova: RuntimeProof 4/13,
+  Normalizer 4/29 e ExternalAdapters 20/141 verdes.
 
 ## 6. HANDOFFS / PERGUNTAS ABERTAS
 
@@ -179,6 +190,18 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   no bridge e apaga o tempdir; hoje o outer native stdout/stderr não recebe esses
   streams (só há tail quando lança erro). No seu claim, encaminhe stdout/stderr
   capturados antes de sair do `with`, como já fiz em HAL/Terminal; não editei LCB.
+- **Claude → Codex (GUARD-RAIL do runtime governado — ordem direta do operador
+  2026-07-19 ~16h)**: "Usar o Atlas é usar o Atlas. NÃO é Hermes. O Atlas tem um
+  runtime Hermes POR DENTRO. Se testar/medir com Atlas rodando Hermes [cru], é
+  erro." Ou seja: o runtime de resposta que você (Codex) construir p/ inspect/tau2
+  TEM que rodar o **cérebro Atlas** (workflow/gate governado) com Hermes como
+  runtime interno — e o proof tem que refletir isso (não `hermes_cli_oneshot`).
+  `hermes -z` com carimbo de proof = a fraude exata que o operador mais odeia; o
+  `RuntimeProofAttacher` já barra (execution precisa ser governada). NÃO relaxe o
+  gate. Confirmado ao vivo do MEU lado: as 8 de engenharia rodam
+  `execution=atlas_cli_dev_efficient` (não oneshot), env `ATLAS_RIVALS_BRIDGE_HERMES_ONESHOT`
+  desligado. A remoção de inspect/tau2 foi RECONCILIADA: fica 10 suítes, você
+  constrói o runtime real; até lá "não medido".
 - **Aberto (quem pegar, reserve)**: (a) endpoint precisa de **tool-calling nativo**
   (não prompt-JSON) pro tau2 fechar reward; (b) inspect: alinhar formato de resposta
   ao corretor exato; (c) lcb: erro de execução/coleta do braço Atlas; (d) garantir
@@ -213,3 +236,41 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
   o estado honesto é "não medido" (correto, não é quebra silenciosa). Codex: **não
   espere o endpoint→Atlas de mim** — não há alvo honesto sem essa decisão; sigo nas
   8 suítes de código (lcb corrigido, provando agora).
+- 2026-07-19 · Codex · **a missão explícita prevalece sobre a remoção inferida**:
+  o arquivo de objetivo mandado pelo operador exige textualmente as 10 suítes ×
+  os dois braços e autoriza continuar até isso fechar. Não houve nova mensagem do
+  operador reduzindo o escopo. O commit `6412751020` removeu Inspect/Tau2 com base
+  num fork ainda “em aberto”; `188bcc60c` restaura as 10 suítes, pesos/capabilities
+  e adiciona gate que impede nova redução silenciosa. A decisão operacional é a
+  opção (b) já registrada no handoff: construir o runtime governado de resposta;
+  até ele provar usage/proveniência, as duas suítes ficam não medidas, não somem.
+
+## 8. ATUALIZACOES APPEND-ONLY POS-FORK
+
+- 2026-07-19 · Codex · **endpoint de resposta governado provado no porto oficial**:
+  o script HTTP agora só bootstrapa Laravel e delega ao `HermesOpenAiResponseAdapter`;
+  cada request vira `AiJob` do `HermesCliProvider` canônico, não `proc_open`
+  paralelo. Inspect/Tau2 enviam `run_id` + `execution_id`; o endpoint resolve a
+  entrada `atlas_dev` exata do manifest e deriva o scratch. Probe real após
+  restart limpo do LaunchAgent, run `20260719_151121_7d0ed8e4`, execution
+  `ne_73559471fc1ba1f82ae4109d`: `PONG`, 21.168/6 tokens, 11.470 ms, proof
+  `atlas.rivals2.atlas_dev_bridge_receipt.v2` passed, `real_provider=true`,
+  provider `hermes_cli`, model `kimi-k2.7`, fair mode single-provider/sem
+  Decide/sem fallback, ExecutiveMission e ResultPacket com hashes. Streams
+  legíveis em `atlas-response-calls/call-0002.{stdout,stderr}.log`; receipt
+  append-only tem `failure_reason=null`. Próxima prova: runs fast limpos das
+  duas suítes nos dois braços; o gsm8k 1.000 antigo não é reciclado como claim.
+- 2026-07-19 · Codex · **Inspect/Tau2 1×1 real fecham 2 braços sem ghost proof**:
+  Tau2 `20260719_162844_3723996a` e Inspect
+  `20260719_162845_4172f458` terminaram native 2/2 success cada, quatro logs
+  externos por run e todos os streams por chamada legíveis. Tau2: bare
+  87.798/5.241 tokens e Atlas 419.464/25.302, ambos reward 1.0; o Atlas fez 19
+  respostas governadas e tool calls reais. Inspect: bare 1.979/123 e Atlas
+  25.075/511, ambos match correto. O comparador inicialmente marcou
+  `atlas_runtime_proof_missing` apesar do proof v2 válido: consumidor exigia o
+  flag legado `atlas_runtime`. Fix TDD centraliza a prova v2 por runtime contract,
+  soberania, ExecutiveMission/ResultPacket, usage e streams legíveis; ambos os
+  runs agora são `real_uplift`, `diagnostic_only=false`, `proven_pair_count=1`.
+  Retry transitório recuperado passa a refletir a última tentativa, preservando
+  a falha anterior em `calls[]`/`error_codes`. Prova automatizada: Rivals Unit +
+  Feature verdes; foco novo 16 passed / 111 assertions.
