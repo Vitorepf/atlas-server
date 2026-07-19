@@ -139,6 +139,9 @@ class AtlasUpliftRunnerTest extends TestCase
                         'repetition' => $rep,
                         'status' => ($runtime === 'bare' ? $bareSuccess : $atlasSuccess) ? 'success' : 'failure',
                         'failure_class' => ($runtime === 'bare' ? $bareSuccess : $atlasSuccess) ? null : 'model_failure',
+                        'failure_reason' => ($runtime === 'bare' ? $bareSuccess : $atlasSuccess)
+                            ? null
+                            : 'benchmark_verdict_not_resolved',
                         'wall_ms' => $runtime === 'bare' ? 1000 : 1200,
                         'tokens_in' => 10,
                         'tokens_out' => 2,
@@ -165,6 +168,12 @@ class AtlasUpliftRunnerTest extends TestCase
                                         'single_provider' => true,
                                         'decide_disabled' => true,
                                         'fallback_disabled' => true,
+                                    ],
+                                    'usage' => [
+                                        'input_tokens' => 10,
+                                        'output_tokens' => 2,
+                                        'cost_usd' => 0.12,
+                                        'present' => true,
                                     ],
                                 ],
                             ]
@@ -231,6 +240,7 @@ class AtlasUpliftRunnerTest extends TestCase
                 'repetition' => 1,
                 'status' => 'success',
                 'failure_class' => null,
+                'failure_reason' => null,
                 'wall_ms' => 1000,
                 'tokens_in' => 10,
                 'tokens_out' => 2,

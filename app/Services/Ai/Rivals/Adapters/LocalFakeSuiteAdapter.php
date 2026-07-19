@@ -92,6 +92,10 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
                 'repetition' => $cmd['repetition'],
                 'status' => $status,
                 'failure_class' => RunReceipt::defaultFailureClass($status),
+                'failure_reason' => RunReceipt::defaultFailureReason(
+                    $status,
+                    RunReceipt::defaultFailureClass($status),
+                ),
                 'wall_ms' => $status === 'timeout' ? 5000 : $wallMs,
                 'tokens_in' => 1000,
                 'tokens_out' => 200,

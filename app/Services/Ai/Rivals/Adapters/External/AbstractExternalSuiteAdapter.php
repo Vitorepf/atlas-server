@@ -309,6 +309,7 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             'repetition' => (int) $entry['repetition'],
             'status' => 'error',
             'failure_class' => 'environment_failure',
+            'failure_reason' => $reason,
             'wall_ms' => 0,
             'tokens_in' => 0,
             'tokens_out' => 0,
@@ -377,6 +378,7 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             'tokens_out' => 0,
             'cost_usd' => 0.0,
             'failure_class' => null,
+            'failure_reason' => null,
             'field_presence' => [
                 'wall_ms' => ['present' => false, 'reason' => 'undeclared'],
                 'tokens_in' => ['present' => false, 'reason' => 'undeclared'],
@@ -426,6 +428,24 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             if (! array_key_exists('failure_class', $overrides)) {
                 $merged['failure_class'] = RunReceipt::defaultFailureClass((string) $merged['status']);
             }
+            if (($merged['status'] ?? null) === 'success') {
+                $merged['failure_reason'] = null;
+            } elseif (! is_string($merged['failure_reason'] ?? null)
+                || trim((string) $merged['failure_reason']) === '') {
+                $environmentError = $merged['environment_error'] ?? null;
+                $merged['failure_reason'] = is_string($environmentError)
+                    && trim($environmentError) !== ''
+                        ? trim($environmentError)
+                        : RunReceipt::defaultFailureReason(
+                            (string) $merged['status'],
+                            is_string($merged['failure_class'] ?? null)
+                                ? $merged['failure_class']
+                                : null,
+                        );
+                if ($merged['failure_reason'] !== null) {
+                    $merged['failure_reason'] = $this->suiteId().':'.$merged['failure_reason'];
+                }
+            }
             $modelId = explode('@', (string) ($merged['arm_id'] ?? ''), 2)[0];
             $harnessOnly = ($merged['harness_only'] ?? false) === true
                 || $models->isHarnessOnly($modelId);
@@ -439,6 +459,24 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
         }
 
         return $receipts;
+    }
+
+    /** @param array<string, mixed> $exception */
+    protected function nativeExceptionReason(array $exception, string $fallback): string
+    {
+        $type = trim((string) ($exception['exception_type'] ?? $exception['type'] ?? ''));
+        $message = trim((string) ($exception['exception_message'] ?? $exception['message'] ?? ''));
+        if ($type !== '' && $message !== '') {
+            return $type.': '.$message;
+        }
+        if ($type !== '') {
+            return $type;
+        }
+        if ($message !== '') {
+            return $message;
+        }
+
+        return $fallback;
     }
 
     /**

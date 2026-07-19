@@ -66,6 +66,7 @@ final class NativeExecutionBundleImporter
         }
 
         $imported = 0;
+        $logsImported = 0;
         foreach ($receiptFiles as $receiptPath) {
             $receipt = NativeExecutionReceipt::fromArray(
                 json_decode((string) file_get_contents($receiptPath), true) ?? []
@@ -102,6 +103,29 @@ final class NativeExecutionBundleImporter
             if (realpath($sourceResult) !== realpath($dest) && ! copy($sourceResult, $dest)) {
                 throw new RuntimeException("rivals_native_result_copy_failed:{$executionId}");
             }
+            foreach (['stdout', 'stderr'] as $stream) {
+                if (($receipt->data[$stream]['present'] ?? false) !== true) {
+                    continue;
+                }
+                $relativeLog = (string) ($receipt->data[$stream]['path'] ?? '');
+                try {
+                    $sourceLog = RunPaths::resolveContained($source, $relativeLog);
+                } catch (\Throwable) {
+                    throw new RuntimeException("rivals_native_log_missing:{$executionId}:{$stream}");
+                }
+                if (! hash_equals(
+                    (string) $receipt->data[$stream]['sha256'],
+                    hash_file('sha256', $sourceLog),
+                )) {
+                    throw new RuntimeException("rivals_native_log_hash_mismatch:{$executionId}:{$stream}");
+                }
+                $destLog = RunPaths::runDir($runId).'/'.$relativeLog;
+                RunPaths::ensureDir(dirname($destLog));
+                if (realpath($sourceLog) !== realpath($destLog) && ! copy($sourceLog, $destLog)) {
+                    throw new RuntimeException("rivals_native_log_copy_failed:{$executionId}:{$stream}");
+                }
+                $logsImported++;
+            }
             $receipt->persist();
             $imported++;
         }
@@ -111,6 +135,7 @@ final class NativeExecutionBundleImporter
             'manifest_hash' => $manifest->hash(),
             'results_imported' => $imported,
             'native_receipts_imported' => $imported,
+            'native_logs_imported' => $logsImported,
         ];
     }
 }

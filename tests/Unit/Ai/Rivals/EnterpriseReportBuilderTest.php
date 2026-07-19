@@ -244,6 +244,11 @@ class EnterpriseReportBuilderTest extends TestCase
         foreach ($report['atlas_uplift']['families'] as $family) {
             $this->assertSame('not_run', $family['status']);
         }
+        $this->assertSame([], $report['atlas_uplift']['bare_only_suites']);
+        $this->assertCount(5, $report['atlas_uplift']['additional_dual_arm_suites']);
+        foreach ($report['atlas_uplift']['additional_dual_arm_suites'] as $suite) {
+            $this->assertSame('dual_arm_supported', $suite['status']);
+        }
     }
 
     public function test_trust_contract_exposes_four_axes_and_events_complete(): void
@@ -805,6 +810,7 @@ class EnterpriseReportBuilderTest extends TestCase
                 'repetition' => 1,
                 'status' => 'success',
                 'failure_class' => null,
+                'failure_reason' => null,
                 'wall_ms' => 1000,
                 'tokens_in' => 100,
                 'tokens_out' => 20,
@@ -1014,6 +1020,7 @@ class EnterpriseReportBuilderTest extends TestCase
                 'repetition' => 1,
                 'status' => 'success',
                 'failure_class' => null,
+                'failure_reason' => null,
                 'wall_ms' => 1000 * ($i + 1),
                 'tokens_in' => $tokensPresent ? 100 * ($i + 1) : 0,
                 'tokens_out' => $tokensPresent ? 20 * ($i + 1) : 0,

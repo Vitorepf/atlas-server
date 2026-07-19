@@ -86,6 +86,7 @@ try {
 
         $timedOut = false;
         $exitCode = 0;
+        $maxSeconds = max(1, (int) $entry['max_seconds']);
         $model = (new ModelRegistry)->get((string) ($entry['model_id'] ?? '')) ?? [];
         if (! array_key_exists('normalize-only', $options)
             && ! array_key_exists('dry-run', $options)
@@ -150,7 +151,6 @@ try {
             }
 
             $lastStatus = proc_get_status($process);
-            $maxSeconds = max(1, (int) $entry['max_seconds']);
             while ($lastStatus['running']) {
                 if (((hrtime(true) - $startedMonotonic) / 1_000_000_000) >= $maxSeconds) {
                     proc_terminate($process);
@@ -203,6 +203,37 @@ try {
             $resultPresent => 'success',
             default => 'environment_failure',
         };
+        $stderrCause = null;
+        if ($status !== 'success' && is_file($stderrPath)) {
+            $stderrText = (string) file_get_contents($stderrPath);
+            $stderrText = preg_replace('/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -\\/]*[@-~])/', '', $stderrText)
+                ?? $stderrText;
+            $stderrLines = preg_split('/\R/', $stderrText) ?: [];
+            foreach (array_reverse($stderrLines) as $stderrLine) {
+                $stderrLine = trim($stderrLine);
+                if ($stderrLine === '' || str_starts_with($stderrLine, '[rivals-normalizer]')) {
+                    continue;
+                }
+                if (preg_match(
+                    '/^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Failure|Timeout|Fault)):\s*(.+)$/',
+                    $stderrLine,
+                    $matches,
+                ) === 1) {
+                    $stderrCause = preg_replace('/\s+/', ' ', trim($matches[0])) ?? trim($matches[0]);
+                    $stderrCause = mb_substr($stderrCause, 0, 512);
+                    break;
+                }
+            }
+        }
+        $failureReason = match (true) {
+            $status === 'success' => null,
+            $timedOut => "native_execution_timeout_after_{$maxSeconds}s",
+            is_string($normalizationError) && $normalizationError !== '' => 'normalization_failed:'.$normalizationError,
+            default => "native_result_not_created:exit_code={$exitCode}",
+        };
+        if (is_string($failureReason) && $stderrCause !== null) {
+            $failureReason .= '; native_stderr_cause='.$stderrCause;
+        }
         $exitNonzeroPromoted = $status === 'success' && $exitCode !== 0;
         if (! $resultPresent) {
             file_put_contents($resultPath, json_encode([
@@ -210,7 +241,7 @@ try {
                     'execution_id' => $executionId,
                     'status' => $status,
                     'exit_code' => $exitCode,
-                    'reason' => $normalizationError ?? 'native_result_not_created',
+                    'reason' => $failureReason,
                 ],
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
@@ -224,6 +255,7 @@ try {
             'expected_result_path' => (string) $entry['expected_result_path'],
             'result_sha256' => hash_file('sha256', $resultPath),
             'status' => $status,
+            'failure_reason' => $failureReason,
             'exit_code' => $exitCode,
             'exit_nonzero_promoted' => $exitNonzeroPromoted,
             'started_at' => $startedAt->toIso8601String(),
@@ -232,14 +264,16 @@ try {
             'cost_usd' => 0.0,
             'stdout' => [
                 'present' => is_file($stdoutPath),
+                'path' => 'native_execution_receipts/logs/'.$executionId.'.stdout.log',
                 'sha256' => is_file($stdoutPath) ? hash_file('sha256', $stdoutPath) : null,
             ],
             'stderr' => [
                 'present' => is_file($stderrPath),
+                'path' => 'native_execution_receipts/logs/'.$executionId.'.stderr.log',
                 'sha256' => is_file($stderrPath) ? hash_file('sha256', $stderrPath) : null,
             ],
             'runner' => [
-                'version' => 'rivals-native-runner-v1',
+                'version' => 'rivals-native-runner-v2',
                 'mode' => array_key_exists('normalize-only', $options) ? 'normalize_only' : 'execute',
                 'php' => PHP_VERSION,
                 'cwd' => realpath($cwd) ?: $cwd,
@@ -258,11 +292,14 @@ try {
         EventStream::append($runId, 'native_execution_finished', [
             'execution_id' => $executionId,
             'status' => $status,
+            'failure_reason' => $failureReason,
             'exit_code' => $exitCode,
             'result_sha256' => $receipt->data['result_sha256'],
             'runner_mode' => $receipt->data['runner']['mode'] ?? null,
             'stdout_sha256' => is_file($stdoutPath) ? hash_file('sha256', $stdoutPath) : null,
+            'stdout_path' => 'native_execution_receipts/logs/'.$executionId.'.stdout.log',
             'stderr_sha256' => is_file($stderrPath) ? hash_file('sha256', $stderrPath) : null,
+            'stderr_path' => 'native_execution_receipts/logs/'.$executionId.'.stderr.log',
             'stdout_bytes' => is_file($stdoutPath) ? filesize($stdoutPath) : null,
             'stderr_bytes' => is_file($stderrPath) ? filesize($stderrPath) : null,
         ]);
@@ -283,6 +320,7 @@ try {
         $summary[] = [
             'execution_id' => $executionId,
             'status' => $status,
+            'failure_reason' => $failureReason,
             'exit_code' => $exitCode,
             'receipt_path' => $receiptPath,
         ];

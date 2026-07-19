@@ -22,11 +22,21 @@ class RunReceipt
             if ($violations !== []) {
                 throw new InvalidArgumentException('rivals_invalid_receipt: '.implode(',', $violations));
             }
-            $data['schema_version'] = SchemaContract::RUN_RECEIPT;
             $data['claim_tier'] = ClaimTier::forLegacyReceipt($data);
             $data['harness_only'] = ($data['claim_tier'] ?? null) === ClaimTier::HARNESS;
             $data['failure_class'] = self::defaultFailureClass((string) $data['status']);
             $data['field_presence'] = self::defaultFieldPresence($data);
+            $data['schema_version'] = SchemaContract::RUN_RECEIPT_V2;
+            $schema = SchemaContract::RUN_RECEIPT_V2;
+        }
+
+        if ($schema === SchemaContract::RUN_RECEIPT_V2) {
+            $violations = SchemaContract::validate($data, SchemaContract::RUN_RECEIPT_V2);
+            if ($violations !== []) {
+                throw new InvalidArgumentException('rivals_invalid_receipt: '.implode(',', $violations));
+            }
+            $data['schema_version'] = SchemaContract::RUN_RECEIPT;
+            $data['failure_reason'] = self::legacyFailureReason($data);
         }
 
         $violations = SchemaContract::validate($data, SchemaContract::RUN_RECEIPT);
@@ -76,6 +86,36 @@ class RunReceipt
             'failure' => FailureClass::MODEL,
             default => FailureClass::INVALID_RESULT,
         };
+    }
+
+    public static function defaultFailureReason(string $status, ?string $failureClass): ?string
+    {
+        if ($status === 'success') {
+            return null;
+        }
+
+        return match ($failureClass) {
+            FailureClass::TIMEOUT => 'execution_timeout',
+            FailureClass::ENVIRONMENT => 'environment_failure_without_native_reason',
+            FailureClass::MODEL => 'benchmark_verdict_not_resolved',
+            FailureClass::INVALID_RESULT => 'benchmark_result_invalid_or_incomplete',
+            default => 'benchmark_execution_failed:'.$status,
+        };
+    }
+
+    private static function legacyFailureReason(array $data): ?string
+    {
+        if (($data['status'] ?? null) === 'success') {
+            return null;
+        }
+
+        $metadataReason = data_get($data, 'metadata.native.runner_reason');
+        if (is_string($metadataReason) && trim($metadataReason) !== '') {
+            return trim($metadataReason);
+        }
+
+        return 'legacy_receipt_without_failure_reason:'
+            .((string) ($data['failure_class'] ?? 'unknown_failure'));
     }
 
     /** @return array<string, array{present: bool, reason: ?string}> */

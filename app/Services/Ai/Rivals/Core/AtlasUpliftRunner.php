@@ -113,7 +113,8 @@ class AtlasUpliftRunner
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.real_provider') === true
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.single_provider') === true
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.decide_disabled') === true
-                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.fallback_disabled') === true;
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.fallback_disabled') === true
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.usage.present') === true;
                 $modelMatch = is_array($atlasReceipt)
                     && data_get($receipt, 'metadata.direct_provider.model') === data_get(
                         $atlasReceipt,

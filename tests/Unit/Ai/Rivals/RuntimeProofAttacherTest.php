@@ -96,20 +96,8 @@ class RuntimeProofAttacherTest extends TestCase
         $this->assertSame('hermes_cli', data_get($attached, 'metadata.runtime_bridge.provider'));
     }
 
-    public function test_atlas_that_ran_and_failed_the_task_is_measured_not_discarded(): void
+    public function test_atlas_that_responded_and_failed_the_task_is_measured_not_discarded(): void
     {
-        // Bug REAL: este portão exigia `usage.present === true`, e os caminhos de
-        // run BLOQUEADO do Atlas Dev gravam tokens null cravado. Bloqueado é
-        // exatamente o que acontece quando o Atlas ERRA a tarefa — então toda
-        // derrota do Atlas virava environment_failure e sumia do denominador. O
-        // braço só registrava acerto: 100% por construção.
-        //
-        // A assimetria denunciava: o bare é `hermes -z`, reporta usage e passa
-        // sempre. O portão reprovava só o lado que existia para medir. E nunca
-        // pegou a fraude que importava — `hermes -z` disfarçado de Atlas passava,
-        // porque reportava usage.
-        //
-        // Token é telemetria; prova de runtime é provider + modelo + chamada.
         [$plan, $manifest, $binding, $entry] = $this->manifest('atlas_dev');
         $this->persistNativeReceipt($plan, $manifest, $entry, 'execute');
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
@@ -126,14 +114,15 @@ class RuntimeProofAttacherTest extends TestCase
                     'decide_disabled' => true,
                     'fallback_disabled' => true,
                 ],
-                // O Atlas rodou e ERROU: run bloqueado, telemetria ausente.
+                // O provider respondeu, mas o Atlas bloqueou/rejeitou a tarefa.
+                // Isto é uma derrota medida, não uma falha de ambiente.
                 'task_ok' => false,
                 'completion_state' => 'blocked',
                 'usage' => [
-                    'input_tokens' => null,
-                    'output_tokens' => null,
-                    'cost_usd' => null,
-                    'present' => false,
+                    'input_tokens' => 100,
+                    'output_tokens' => 20,
+                    'cost_usd' => 0.0,
+                    'present' => true,
                 ],
             ]),
         );
@@ -153,6 +142,58 @@ class RuntimeProofAttacherTest extends TestCase
             \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
             $attached['failure_class'] ?? null,
             'derrota do Atlas é medição, não falha de ambiente — tem de contar no denominador',
+        );
+    }
+
+    public function test_atlas_attempt_without_usage_is_not_a_proven_provider_response(): void
+    {
+        // Evidência real de 19/07: provider_calls=1 era contador de tentativa.
+        // O recibo também dizia provider_unavailable, tokens null e patch=0.
+        // Aceitá-lo mede uma ausência de resposta como se fosse o Atlas.
+        [$plan, $manifest, $binding, $entry] = $this->manifest('atlas_dev');
+        $this->persistNativeReceipt($plan, $manifest, $entry, 'execute');
+        File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
+        file_put_contents(
+            data_get($entry, 'normalization.scratch_dir').'/.rivals_atlas_dev_bridge.json',
+            (string) json_encode([
+                'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
+                'status' => 'passed',
+                'real_provider' => true,
+                'provider' => 'hermes_cli',
+                'model' => 'kimi-k2.7',
+                'fair_mode' => [
+                    'single_provider' => true,
+                    'decide_disabled' => true,
+                    'fallback_disabled' => true,
+                ],
+                'provider_call' => [
+                    'provider_calls' => 1,
+                    'error_codes' => ['candidate_preparation_blocked:provider_unavailable'],
+                ],
+                'usage' => [
+                    'input_tokens' => null,
+                    'output_tokens' => null,
+                    'cost_usd' => null,
+                    'present' => false,
+                ],
+            ]),
+        );
+
+        $attached = (new RuntimeProofAttacher)->attach(
+            $this->receipt($binding),
+            $binding,
+            $plan->runId(),
+            $entry['expected_result_path'],
+        );
+
+        $this->assertFalse(data_get($attached, 'metadata.runtime_bridge.real_provider'));
+        $this->assertSame(
+            \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
+            $attached['failure_class'] ?? null,
+        );
+        $this->assertSame(
+            'atlas_dev_runtime_proof_usage_missing',
+            $attached['failure_reason'] ?? null,
         );
     }
 
@@ -202,13 +243,22 @@ class RuntimeProofAttacherTest extends TestCase
             'expected_result_path' => $entry['expected_result_path'],
             'result_sha256' => hash_file('sha256', $resultPath),
             'status' => 'success',
+            'failure_reason' => null,
             'exit_code' => 0,
             'started_at' => now()->toIso8601String(),
             'finished_at' => now()->toIso8601String(),
             'wall_ms' => 1,
             'cost_usd' => 0.0,
-            'stdout' => ['present' => true, 'sha256' => hash('sha256', 'stdout')],
-            'stderr' => ['present' => true, 'sha256' => hash('sha256', '')],
+            'stdout' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stdout.log',
+                'sha256' => hash('sha256', 'stdout'),
+            ],
+            'stderr' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stderr.log',
+                'sha256' => hash('sha256', ''),
+            ],
             'runner' => ['version' => 'rivals-native-runner-v1', 'mode' => $mode],
             'provider_binding' => [
                 'provider' => 'verboo',

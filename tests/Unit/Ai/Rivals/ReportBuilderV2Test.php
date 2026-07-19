@@ -59,6 +59,7 @@ class ReportBuilderV2Test extends TestCase
                 'repetition' => ($index % 3) + 1,
                 'status' => $status,
                 'failure_class' => $failureClass,
+                'failure_reason' => RunReceipt::defaultFailureReason($status, $failureClass),
                 'wall_ms' => ($index + 1) * 1000,
                 'tokens_in' => ($index + 1) * 10,
                 'tokens_out' => ($index + 1) * 2,
@@ -101,6 +102,9 @@ class ReportBuilderV2Test extends TestCase
         $this->assertSame(3.5, $row['median_cost_usd']);
         $this->assertSame(3500.0, $row['median_wall_ms']);
         $this->assertEqualsWithDelta(1 / 6, $row['environment_failure_rate'], 0.0001);
+        $this->assertSame(1, $row['failure_reasons']['benchmark_verdict_not_resolved']);
+        $this->assertSame(1, $row['failure_reasons']['environment_failure_without_native_reason']);
+        $this->assertSame(1, $row['failure_reasons']['execution_timeout']);
         $this->assertSame(5, $row['tokens_coverage']['in']);
         $this->assertNotNull($row['tokens_per_task']);
         $this->assertNotNull($row['tokens_per_second']);
@@ -121,11 +125,13 @@ class ReportBuilderV2Test extends TestCase
         $this->assertStringContainsString('tokens_cov_in/out', $markdown);
         $this->assertStringContainsString('tokens/task', $markdown);
         $this->assertStringContainsString('tok/s', $markdown);
+        $this->assertStringContainsString('## Failure reasons', $markdown);
         $csv = (string) file_get_contents(RunPaths::reportCsvPath($runId));
         $this->assertStringContainsString('tokens_coverage_in', $csv);
         $this->assertStringContainsString('tokens_per_task', $csv);
         $this->assertStringContainsString('tokens_per_second', $csv);
         $this->assertStringContainsString('internal_claim_allowed', $csv);
+        $this->assertStringContainsString('failure_reasons', $csv);
 
         $all = (new ReportBuilder)->buildAll();
         $this->assertFalse($all['claim_allowed']);

@@ -299,13 +299,14 @@ class EnterpriseReportBuilder
             }
         }
 
-        // Suítes fora de uplift_families são bare-only POR CONSTRUÇÃO (sem bridge
-        // Atlas); declarar explícito em vez de deixar como gap silencioso.
-        $atlasUplift['bare_only_suites'] = array_values(array_map(
+        // `uplift_families` is the five-family analytical slice, not execution
+        // support. All ten external suites now have distinct Atlas routes.
+        $atlasUplift['bare_only_suites'] = [];
+        $atlasUplift['additional_dual_arm_suites'] = array_values(array_map(
             static fn (string $suiteId): array => [
                 'suite_id' => $suiteId,
-                'status' => 'bare_only',
-                'reason' => 'atlas_runtime_not_supported',
+                'status' => 'dual_arm_supported',
+                'reason' => 'outside_five_family_analytical_slice',
             ],
             array_diff((new SuiteRegistry)->externalSuiteIds(), array_values($upliftFamilies)),
         ));
@@ -2553,14 +2554,22 @@ class EnterpriseReportBuilder
         foreach (NativeExecutionReceipt::loadAll($runId) as $nr) {
             $file = basename((string) ($nr->data['expected_result_path'] ?? ''));
             $key = preg_replace('/__[0-9a-f]+\.json$/', '', $file) ?: $file;
-            $logDir = RunPaths::nativeReceiptsDir($runId).'/logs';
-            $stderrPath = $logDir.'/'.($nr->data['execution_id'] ?? '').'.stderr.log';
+            $stdoutRelative = $nr->data['stdout']['path'] ?? null;
+            $stderrRelative = $nr->data['stderr']['path'] ?? null;
+            $stdoutPath = is_string($stdoutRelative)
+                ? RunPaths::runDir($runId).'/'.$stdoutRelative
+                : null;
+            $stderrPath = is_string($stderrRelative)
+                ? RunPaths::runDir($runId).'/'.$stderrRelative
+                : null;
             $native[$key] = [
                 'execution_id' => $nr->data['execution_id'] ?? null,
                 'exit_code' => $nr->data['exit_code'] ?? null,
                 'exit_nonzero_promoted' => (bool) ($nr->data['exit_nonzero_promoted'] ?? false),
+                'failure_reason' => $nr->data['failure_reason'] ?? null,
                 'wall_ms' => $nr->data['wall_ms'] ?? null,
-                'stderr_path' => is_file($stderrPath) ? $stderrPath : null,
+                'stdout_path' => is_string($stdoutPath) && is_file($stdoutPath) ? $stdoutPath : null,
+                'stderr_path' => is_string($stderrPath) && is_file($stderrPath) ? $stderrPath : null,
             ];
         }
 
@@ -2613,6 +2622,7 @@ class EnterpriseReportBuilder
                 'repetition' => $r->data['repetition'] ?? null,
                 'status' => $status,
                 'failure_class' => $bucket === 'environment_failure' ? FailureClass::ENVIRONMENT : ($failureClass ?: null),
+                'failure_reason' => $r->data['failure_reason'] ?? ($nat['failure_reason'] ?? null),
                 'reclassified_from' => $reclassified,
                 'blame' => match ($bucket) {
                     'success' => 'success',
@@ -2623,6 +2633,7 @@ class EnterpriseReportBuilder
                 'exit_code' => $nat['exit_code'] ?? null,
                 'exit_nonzero_promoted' => $nat['exit_nonzero_promoted'] ?? false,
                 'wall_ms' => $r->data['wall_ms'] ?? ($nat['wall_ms'] ?? null),
+                'stdout_log' => $nat['stdout_path'] ?? null,
                 'stderr_log' => $nat['stderr_path'] ?? null,
                 'stderr_tail' => $stderrTail,
             ];

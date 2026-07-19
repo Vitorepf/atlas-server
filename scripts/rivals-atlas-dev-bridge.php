@@ -155,18 +155,30 @@ if ($useHermesOnesHot) {
         'ATLAS_AI_HERMES_MODEL' => $model,
     ]);
     $process->setTimeout((float) $timeout);
-    $process->run();
+    $oneShotException = null;
+    try {
+        $process->run();
+    } catch (\Throwable $exception) {
+        $oneShotException = $exception;
+    }
     $finishedAt = now();
     $usage = is_file($usagePath)
         ? (json_decode((string) file_get_contents($usagePath), true) ?? [])
         : [];
     $inputTokens = is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : null;
     $outputTokens = is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : null;
-    $providerLockVerified = $process->isSuccessful()
+    $providerLockVerified = $oneShotException === null && $process->isSuccessful()
         && (($usage['completed'] ?? false) === true || ($inputTokens !== null && $outputTokens !== null));
+    $oneShotFailureReason = $providerLockVerified ? null : (
+        $oneShotException instanceof \Throwable
+            ? 'hermes_oneshot_process_exception:'.$oneShotException::class.':'
+                .mb_substr(preg_replace('/\s+/', ' ', $oneShotException->getMessage()) ?: 'unknown', 0, 600)
+            : 'hermes_oneshot_failed_or_usage_missing'
+    );
     $receipt = [
-        'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
+        'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
         'status' => $providerLockVerified ? 'passed' : 'failed',
+        'failure_reason' => $oneShotFailureReason,
         'real_provider' => $providerLockVerified,
         'workspace' => $workspace,
         'model' => $model,
@@ -225,7 +237,7 @@ if ($useHermesOnesHot) {
     );
     echo $process->getOutput();
     if (! $providerLockVerified) {
-        fwrite(STDERR, $process->getErrorOutput());
+        fwrite(STDERR, trim($process->getErrorOutput()."\n".(string) $oneShotFailureReason)."\n");
         exit(1);
     }
     exit(0);
@@ -248,7 +260,14 @@ $env = array_merge(
 );
 $process = new Process($cliDevArgv, base_path(), $env);
 $process->setTimeout((float) $timeout);
-$process->run();
+$processException = null;
+try {
+    $process->run();
+} catch (\Throwable $exception) {
+    // A timeout/process exception must still produce a readable bridge receipt.
+    // The outer native runner will persist this script's stdout/stderr as well.
+    $processException = $exception;
+}
 $finishedAt = now();
 // Decode tolerante: o artisan pode emitir warnings/log em volta do objeto, e
 // json_decode estrito virava "Atlas não rodou" com o Atlas TENDO rodado e
@@ -273,6 +292,38 @@ $providerExitCode = is_numeric($providerCall['exit_code'] ?? null)
     : null;
 $providerErrors = array_values(array_filter((array) ($providerCall['error_codes'] ?? [])));
 $expectedProvider = $ai === 'hermes' ? 'hermes_cli' : $provider;
+$inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
+    ? (int) $providerCall['tokens_in']
+    : null;
+$outputTokens = is_numeric($providerCall['tokens_out'] ?? null)
+    ? (int) $providerCall['tokens_out']
+    : null;
+$costUsd = is_numeric($providerCall['estimated_cost_usd'] ?? null)
+    ? (float) $providerCall['estimated_cost_usd']
+    : null;
+// Fallback: o kernel não surfou tokens no provider_call → lê o sink que o
+// adaptador preencheu com o usage real capturado pelo hermes. Sem isto o
+// gate de claim trava eternamente em "provider_usage_empty" com o braço OK.
+if (($inputTokens === null || $outputTokens === null) && is_file($usageSink)) {
+    $sink = json_decode((string) file_get_contents($usageSink), true) ?: [];
+    if ($inputTokens === null && is_numeric($sink['input_tokens'] ?? null)) {
+        $inputTokens = (int) $sink['input_tokens'];
+    }
+    if ($outputTokens === null && is_numeric($sink['output_tokens'] ?? null)) {
+        $outputTokens = (int) $sink['output_tokens'];
+    }
+}
+$providerUsageObserved = $inputTokens !== null
+    && $outputTokens !== null
+    && ($inputTokens + $outputTokens) > 0;
+// Verboo é custo marginal de assinatura: com tokens capturados, o custo
+// HONESTO é 0.0 (os adapters já tratam assim), destravando `present`.
+if ($costUsd === null && $providerUsageObserved && $ai === 'hermes') {
+    $costUsd = 0.0;
+}
+$usagePresent = $providerUsageObserved && $costUsd !== null;
+@unlink($usageSink);
+
 // DUAS PERGUNTAS DIFERENTES, E JUNTÁ-LAS APAGA A MEDIÇÃO.
 //
 // "O Atlas rodou?" é prova de runtime: o provider certo, o modelo certo, e uma
@@ -287,14 +338,36 @@ $expectedProvider = $ai === 'hermes' ? 'hermes_cli' : $provider;
 // só conseguia registrar acerto: 100% por construção. O primeiro bug fazia a
 // coluna "com Atlas" medir Hermes; este a faria medir só as vitórias.
 //
-// Provado no runtime, não deduzido: `provider_calls: 1` com
-// `exit_code: 1, error_codes: [candidate_preparation_blocked:...]` — o provider
-// respondeu, e a falha veio depois, na governança do EliteExecutorKernel. São
-// camadas distintas e o portão não pode confundi-las.
-$atlasRuntimeProven = $expectedProvider !== null
-    && $actualProvider === $expectedProvider
-    && $actualModel === $model
-    && $providerCalls > 0;
+// `provider_calls` conta tentativas, não garante uma RESPOSTA. Em 19/07 um
+// receipt veio com calls=1 + candidate_preparation_blocked:provider_unavailable
+// + tokens null e foi aceito como Atlas real. A prova agora exige usage real e
+// recusa explicitamente erros pré-resposta; falhas depois de uma resposta
+// continuam sendo resultado válido da tarefa.
+$preResponseError = null;
+foreach ($providerErrors as $providerError) {
+    $providerError = (string) $providerError;
+    if (str_contains($providerError, 'provider_unavailable')
+        || str_contains($providerError, 'provider_driver_not_configured')
+        || str_contains($providerError, 'provider_route_mismatch')) {
+        $preResponseError = $providerError;
+        break;
+    }
+}
+$runtimeFailureReason = match (true) {
+    $processException instanceof \Throwable => 'atlas_dev_process_exception:'
+        .$processException::class.':'
+        .mb_substr(preg_replace('/\s+/', ' ', $processException->getMessage()) ?: 'unknown', 0, 600),
+    $expectedProvider === null => 'atlas_dev_expected_provider_unresolved',
+    $actualProvider !== $expectedProvider => 'atlas_dev_provider_mismatch:expected='.(string) $expectedProvider
+        .':actual='.($actualProvider !== '' ? $actualProvider : 'missing'),
+    $actualModel !== $model => 'atlas_dev_model_mismatch:expected='.$model
+        .':actual='.($actualModel !== '' ? $actualModel : 'missing'),
+    $providerCalls <= 0 => 'atlas_dev_provider_call_absent',
+    $preResponseError !== null => 'atlas_dev_provider_pre_response_failure:'.$preResponseError,
+    ! $usagePresent => 'atlas_dev_provider_usage_missing_after_call',
+    default => null,
+};
+$atlasRuntimeProven = $runtimeFailureReason === null && $usagePresent;
 // Resultado da tarefa: vira DADO no recibo, nunca portão. Errar é medição
 // válida; não ter rodado é que não é.
 $taskOk = $providerExitCode === 0 && $providerErrors === [];
@@ -347,37 +420,11 @@ if ($atlasRuntimeProven) {
         }
     }
 }
-$inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
-    ? (int) $providerCall['tokens_in']
-    : null;
-$outputTokens = is_numeric($providerCall['tokens_out'] ?? null)
-    ? (int) $providerCall['tokens_out']
-    : null;
-$costUsd = is_numeric($providerCall['estimated_cost_usd'] ?? null)
-    ? (float) $providerCall['estimated_cost_usd']
-    : null;
-// Fallback: o kernel não surfou tokens no provider_call → lê o sink que o
-// adaptador preencheu com o usage real capturado pelo hermes. Sem isto o
-// gate de claim trava eternamente em "provider_usage_empty" com o braço OK.
-if (($inputTokens === null || $outputTokens === null) && is_file($usageSink)) {
-    $sink = json_decode((string) file_get_contents($usageSink), true) ?: [];
-    if ($inputTokens === null && ($sink['input_tokens'] ?? 0) > 0) {
-        $inputTokens = (int) $sink['input_tokens'];
-    }
-    if ($outputTokens === null && ($sink['output_tokens'] ?? 0) > 0) {
-        $outputTokens = (int) $sink['output_tokens'];
-    }
-    // Verboo é custo marginal de assinatura: com tokens capturados, o custo
-    // HONESTO é 0.0 (os adapters já tratam assim), destravando `present`.
-    if ($costUsd === null && $atlasRuntimeProven && ($inputTokens !== null || $outputTokens !== null)) {
-        $costUsd = 0.0;
-    }
-}
-@unlink($usageSink);
 $receipt = [
-    'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
+    'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
     // `status` do BRIDGE: ele conseguiu rodar o Atlas? Não é a nota da tarefa.
     'status' => $atlasRuntimeProven ? 'passed' : 'failed',
+    'failure_reason' => $runtimeFailureReason,
     'real_provider' => $atlasRuntimeProven,
     'workspace' => $workspace,
     // O modelo EFETIVO, não o pedido: o hermes cai de kimi para qwen sozinho, e
@@ -421,7 +468,7 @@ $receipt = [
         'input_tokens' => $inputTokens,
         'output_tokens' => $outputTokens,
         'cost_usd' => $costUsd,
-        'present' => $inputTokens !== null && $outputTokens !== null && $costUsd !== null,
+        'present' => $usagePresent,
     ],
     'stdout_sha256' => hash('sha256', $process->getOutput()),
     'stderr_sha256' => hash('sha256', $process->getErrorOutput()),
@@ -441,7 +488,7 @@ echo $process->getOutput();
 // Sair 1 aqui faria o agente HAL levantar "runtime proof missing", e o erro do
 // Atlas viraria "falha de ambiente" — descartado do denominador.
 if (! $atlasRuntimeProven) {
-    fwrite(STDERR, $process->getErrorOutput());
+    fwrite(STDERR, trim($process->getErrorOutput()."\n".(string) $runtimeFailureReason)."\n");
     exit(1);
 }
 exit(0);

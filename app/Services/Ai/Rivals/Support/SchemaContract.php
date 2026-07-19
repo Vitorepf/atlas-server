@@ -18,7 +18,9 @@ class SchemaContract
 
     public const RUN_RECEIPT_V1 = 'atlas.rivals2.run_receipt.v1';
 
-    public const RUN_RECEIPT = 'atlas.rivals2.run_receipt.v2';
+    public const RUN_RECEIPT_V2 = 'atlas.rivals2.run_receipt.v2';
+
+    public const RUN_RECEIPT = 'atlas.rivals2.run_receipt.v3';
 
     public const EVIDENCE_PACK_V1 = 'atlas.rivals2.evidence_pack.v1';
 
@@ -51,11 +53,17 @@ class SchemaContract
             'status', 'wall_ms', 'tokens_in', 'tokens_out', 'cost_usd',
             'artifacts', 'started_at', 'finished_at',
         ],
-        self::RUN_RECEIPT => [
+        self::RUN_RECEIPT_V2 => [
             'schema_version', 'run_id', 'case_id', 'task_type', 'arm_id', 'repetition',
             'status', 'wall_ms', 'tokens_in', 'tokens_out', 'cost_usd',
             'artifacts', 'started_at', 'finished_at', 'claim_tier', 'harness_only',
             'failure_class', 'field_presence',
+        ],
+        self::RUN_RECEIPT => [
+            'schema_version', 'run_id', 'case_id', 'task_type', 'arm_id', 'repetition',
+            'status', 'wall_ms', 'tokens_in', 'tokens_out', 'cost_usd',
+            'artifacts', 'started_at', 'finished_at', 'claim_tier', 'harness_only',
+            'failure_class', 'failure_reason', 'field_presence',
         ],
         self::EVIDENCE_PACK_V1 => [
             'schema_version', 'run_id', 'plan_hash', 'receipts_hash',
@@ -118,7 +126,7 @@ class SchemaContract
             }
         }
 
-        if (in_array($schemaId, [self::RUN_RECEIPT_V1, self::RUN_RECEIPT], true)
+        if (in_array($schemaId, [self::RUN_RECEIPT_V1, self::RUN_RECEIPT_V2, self::RUN_RECEIPT], true)
             && array_key_exists('status', $payload)
             && ! in_array($payload['status'], self::RECEIPT_STATUSES, true)) {
             $violations[] = 'invalid_status:'.$payload['status'];
@@ -131,7 +139,7 @@ class SchemaContract
         if (in_array($schemaId, [self::RUN_PLAN_V1, self::RUN_PLAN], true)) {
             $violations = array_merge($violations, self::validatePlan($payload, $schemaId));
         }
-        if (in_array($schemaId, [self::RUN_RECEIPT_V1, self::RUN_RECEIPT], true)) {
+        if (in_array($schemaId, [self::RUN_RECEIPT_V1, self::RUN_RECEIPT_V2, self::RUN_RECEIPT], true)) {
             $violations = array_merge($violations, self::validateReceipt($payload, $schemaId));
         }
         if ($schemaId === self::ADJUDICATION) {
@@ -265,7 +273,7 @@ class SchemaContract
                 $violations[] = 'invalid_timestamp_order';
             }
         }
-        if ($schemaId === self::RUN_RECEIPT) {
+        if (in_array($schemaId, [self::RUN_RECEIPT_V2, self::RUN_RECEIPT], true)) {
             if (array_key_exists('claim_tier', $payload)
                 && ! in_array($payload['claim_tier'], ClaimTier::all(), true)) {
                 $violations[] = 'invalid_claim_tier:'.(string) $payload['claim_tier'];
@@ -283,6 +291,15 @@ class SchemaContract
             }
             if (array_key_exists('field_presence', $payload) && ! is_array($payload['field_presence'])) {
                 $violations[] = 'invalid_array:field_presence';
+            }
+        }
+        if ($schemaId === self::RUN_RECEIPT && array_key_exists('failure_reason', $payload)) {
+            $reason = $payload['failure_reason'];
+            $isSuccess = ($payload['status'] ?? null) === 'success';
+            if ($isSuccess && $reason !== null) {
+                $violations[] = 'success_failure_reason_must_be_null';
+            } elseif (! $isSuccess && (! is_string($reason) || trim($reason) === '')) {
+                $violations[] = 'invalid_failure_reason';
             }
         }
 

@@ -133,6 +133,36 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertNotNull($receipts[0]['environment_error'] ?? null);
     }
 
+    public function test_senior_swe_environment_failure_preserves_native_exception_reason(): void
+    {
+        $adapter = new SeniorSweBenchAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'coverage' => SeniorSweBenchAdapter::COVERAGE,
+            'judge_config' => ['judge_model' => 'verboo/kimi-k2.7'],
+            'tasks' => [[
+                'task_id' => 'ssb_0007',
+                'task' => 'feature',
+                'agent' => 'AtlasDev',
+                'model' => 'verboo/kimi-k2.7',
+                'attempt' => 1,
+                'resolved' => false,
+                'verdicts' => [],
+                'exception_info' => [
+                    'exception_type' => 'RewardFileEmptyError',
+                    'exception_message' => 'reward file is empty',
+                ],
+            ]],
+        ]);
+
+        $this->assertSame('environment_failure', $receipts[0]['failure_class']);
+        $this->assertSame(
+            'RewardFileEmptyError: reward file is empty',
+            $receipts[0]['failure_reason'],
+        );
+    }
+
     public function test_truncated_answer_is_not_measured_never_a_safe_verdict(): void
     {
         // ⚠️ FALSO SEGURO — a armadilha real, medida no agentic_misalignment:

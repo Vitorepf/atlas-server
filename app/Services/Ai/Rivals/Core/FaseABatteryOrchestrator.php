@@ -31,11 +31,10 @@ class FaseABatteryOrchestrator
         $primary = (string) config('atlas_rivals.fase_a.primary_model', 'verboo_kimi_k2_7');
         $this->assertHermesModel($primary);
 
-        // atlas = braço atlas_dev sozinho; só faz sentido nas suítes com bridge
-        // Atlas (uplift_families) — nas demais o plano falha fast pré-spend.
-        $suites = in_array($mode, ['uplift', 'atlas'], true)
-            ? array_values(array_unique(array_values((array) config('atlas_rivals.uplift_families', []))))
-            : $this->suites->externalSuiteIds();
+        // Execution coverage is always the complete external-suite catalog.
+        // `uplift_families` remains an analytical/reporting taxonomy; it must
+        // not silently remove suites from the 10 × 2 native battery.
+        $suites = $this->suites->externalSuiteIds();
 
         $casePacks = (array) config('atlas_rivals.fase_a.case_packs', []);
         $profile = $this->applyFastProfile($fast);
@@ -365,7 +364,7 @@ class FaseABatteryOrchestrator
     }
 
     /**
-     * Run the 10 (or 5 uplift) prepared suites via rivals-native-runner, then
+     * Run the 10 prepared suites via rivals-native-runner, then
      * import → verify → adjudicate → report per run, then consolidate enterprise.
      *
      * Real spend: Mac (Darwin) or ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE=true.
@@ -536,9 +535,7 @@ class FaseABatteryOrchestrator
     private function assertSmokesReady(string $mode): array
     {
         $repos = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
-        $needed = in_array($mode, ['uplift', 'atlas'], true)
-            ? array_values(array_unique(array_values((array) config('atlas_rivals.uplift_families', []))))
-            : (new SuiteRegistry)->externalSuiteIds();
+        $needed = $this->suites->externalSuiteIds();
         $byId = [];
         foreach ((array) ($repos['repos'] ?? []) as $row) {
             $byId[(string) ($row['repo_id'] ?? '')] = $row;

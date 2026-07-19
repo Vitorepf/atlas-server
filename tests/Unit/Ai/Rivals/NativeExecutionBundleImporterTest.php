@@ -56,10 +56,19 @@ class NativeExecutionBundleImporterTest extends TestCase
 
         $this->assertSame('manifest_bound', $summary['mode']);
         $this->assertSame(1, $summary['results_imported']);
+        $this->assertSame(2, $summary['native_logs_imported']);
         $this->assertFileExists(
             RunPaths::runDir($plan->runId()).'/'.$entry['expected_result_path']
         );
         $this->assertCount(1, NativeExecutionReceipt::loadAll($plan->runId()));
+        $this->assertFileExists(
+            RunPaths::runDir($plan->runId())
+                .'/native_execution_receipts/logs/'.$entry['execution_id'].'.stdout.log',
+        );
+        $this->assertFileExists(
+            RunPaths::runDir($plan->runId())
+                .'/native_execution_receipts/logs/'.$entry['execution_id'].'.stderr.log',
+        );
     }
 
     public function test_tampered_result_is_rejected_before_copy(): void
@@ -118,6 +127,13 @@ class NativeExecutionBundleImporterTest extends TestCase
         array $entry,
         string $resultPath,
     ): NativeExecutionReceipt {
+        $logDir = $this->bundle.'/native_execution_receipts/logs';
+        File::ensureDirectoryExists($logDir);
+        $stdout = $logDir.'/'.$entry['execution_id'].'.stdout.log';
+        $stderr = $logDir.'/'.$entry['execution_id'].'.stderr.log';
+        file_put_contents($stdout, "readable stdout\n");
+        file_put_contents($stderr, "readable stderr\n");
+
         return NativeExecutionReceipt::fromArray([
             'schema_version' => NativeExecutionReceipt::SCHEMA,
             'run_id' => $runId,
@@ -127,13 +143,22 @@ class NativeExecutionBundleImporterTest extends TestCase
             'expected_result_path' => $entry['expected_result_path'],
             'result_sha256' => hash_file('sha256', $resultPath),
             'status' => 'success',
+            'failure_reason' => null,
             'exit_code' => 0,
             'started_at' => now()->toIso8601String(),
             'finished_at' => now()->toIso8601String(),
             'wall_ms' => 1,
             'cost_usd' => 0.01,
-            'stdout' => ['present' => false, 'sha256' => null],
-            'stderr' => ['present' => false, 'sha256' => null],
+            'stdout' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stdout.log',
+                'sha256' => hash_file('sha256', $stdout),
+            ],
+            'stderr' => [
+                'present' => true,
+                'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stderr.log',
+                'sha256' => hash_file('sha256', $stderr),
+            ],
             'runner' => ['version' => 'test'],
         ]);
     }

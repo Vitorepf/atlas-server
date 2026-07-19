@@ -74,6 +74,7 @@ final class RunAutopsy
                     'repetition' => $row['repetition'] ?? null,
                     'status' => $row['status'] ?? null,
                     'failure_class' => $row['failure_class'] ?? null,
+                    'failure_reason' => $row['failure_reason'] ?? null,
                     'tokens_in_present' => ($row['field_presence']['tokens_in']['present'] ?? null),
                     'tokens_in_reason' => ($row['field_presence']['tokens_in']['reason'] ?? null),
                     'tokens_out_reason' => ($row['field_presence']['tokens_out']['reason'] ?? null),

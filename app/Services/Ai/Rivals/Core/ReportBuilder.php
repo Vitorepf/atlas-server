@@ -222,10 +222,16 @@ class ReportBuilder
             }
         }
         $failureClasses = [];
+        $failureReasons = [];
         foreach ($items as $item) {
             $cls = $item['failure_class'] ?? ($item['status'] === 'success' ? null : 'model_failure');
             if ($cls !== null) {
                 $failureClasses[$cls] = ($failureClasses[$cls] ?? 0) + 1;
+            }
+            $reason = $item['failure_reason'] ?? null;
+            if ($item['status'] !== 'success' && is_string($reason) && trim($reason) !== '') {
+                $reason = trim($reason);
+                $failureReasons[$reason] = ($failureReasons[$reason] ?? 0) + 1;
             }
         }
         $dimensions = $this->dimensionsAggregate($items);
@@ -362,6 +368,7 @@ class ReportBuilder
             'median_wall_ci_95' => $this->bootstrapMedianCi($walls, crc32($taskType.'|'.$armId.'|wall')),
             'stability' => round(1.0 - sqrt($variance), 4),
             'failure_classes' => $failureClasses,
+            'failure_reasons' => $failureReasons,
             'dimensions' => $dimensions,
             'avg_patch_bloat' => ($bloats = array_filter(array_column($items, 'patch_bloat_ratio'), 'is_numeric')) === []
                 ? null
@@ -561,6 +568,15 @@ class ReportBuilder
                 .' | '.($row['p95_wall_ms'] ?? 'n/a')." | {$covLabel} | {$row['environment_failure_rate']} | {$row['stability']} |\n";
         }
 
+        $md .= "\n## Failure reasons\n\n";
+        foreach ($report['rows'] as $row) {
+            $reasons = (array) ($row['failure_reasons'] ?? []);
+            if ($reasons !== []) {
+                $md .= '- `'.$row['task_type'].'` / `'.$row['arm_id'].'`: `'
+                    .json_encode($reasons, JSON_UNESCAPED_SLASHES).'`'."\n";
+            }
+        }
+
         return $md."\nEscopo do claim: ".json_encode($report['claim_scope'], JSON_UNESCAPED_SLASHES)."\n";
     }
 
@@ -604,6 +620,7 @@ class ReportBuilder
             'environment_failure_rate',
             'stability',
             'failure_classes',
+            'failure_reasons',
             'dimensions',
         ]);
         foreach ($report['rows'] as $row) {
@@ -645,6 +662,7 @@ class ReportBuilder
                 $row['environment_failure_rate'],
                 $row['stability'] ?? null,
                 json_encode($row['failure_classes'], JSON_UNESCAPED_SLASHES),
+                json_encode($row['failure_reasons'] ?? [], JSON_UNESCAPED_SLASHES),
                 json_encode($row['dimensions'], JSON_UNESCAPED_SLASHES),
             ]);
         }

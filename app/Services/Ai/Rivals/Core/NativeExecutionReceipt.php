@@ -8,7 +8,9 @@ use InvalidArgumentException;
 /** Evidence emitted by the thin native runner for one manifest entry. */
 final class NativeExecutionReceipt
 {
-    public const SCHEMA = 'atlas.rivals2.native_execution_receipt.v1';
+    public const SCHEMA_V1 = 'atlas.rivals2.native_execution_receipt.v1';
+
+    public const SCHEMA = 'atlas.rivals2.native_execution_receipt.v2';
 
     private const STATUSES = [
         'success',
@@ -23,6 +25,7 @@ final class NativeExecutionReceipt
 
     public static function fromArray(array $data): self
     {
+        $schema = (string) ($data['schema_version'] ?? '');
         foreach ([
             'schema_version', 'run_id', 'execution_id', 'manifest_hash',
             'command_hash', 'expected_result_path', 'result_sha256', 'status',
@@ -33,8 +36,11 @@ final class NativeExecutionReceipt
                 throw new InvalidArgumentException("rivals_native_receipt_missing:{$field}");
             }
         }
-        if ($data['schema_version'] !== self::SCHEMA) {
+        if (! in_array($schema, [self::SCHEMA_V1, self::SCHEMA], true)) {
             throw new InvalidArgumentException('rivals_native_receipt_schema_mismatch');
+        }
+        if ($schema === self::SCHEMA && ! array_key_exists('failure_reason', $data)) {
+            throw new InvalidArgumentException('rivals_native_receipt_missing:failure_reason');
         }
         if (! in_array($data['status'], self::STATUSES, true)) {
             throw new InvalidArgumentException('rivals_native_receipt_invalid_status');
@@ -56,6 +62,36 @@ final class NativeExecutionReceipt
                 || (($data[$stream]['present'] ?? false)
                     && ! preg_match('/^[a-f0-9]{64}$/', (string) ($data[$stream]['sha256'] ?? '')))) {
                 throw new InvalidArgumentException("rivals_native_receipt_invalid_stream:{$stream}");
+            }
+            if ($schema === self::SCHEMA && ($data[$stream]['present'] ?? false)) {
+                $path = $data[$stream]['path'] ?? null;
+                if (! is_string($path) || $path === '') {
+                    throw new InvalidArgumentException("rivals_native_receipt_stream_path_required:{$stream}");
+                }
+                try {
+                    RunPaths::assertRelativePath($path);
+                } catch (InvalidArgumentException) {
+                    throw new InvalidArgumentException("rivals_native_receipt_stream_path_unsafe:{$stream}");
+                }
+            }
+        }
+        if ($schema === self::SCHEMA) {
+            $reason = $data['failure_reason'];
+            if ($data['status'] === 'success' && $reason !== null) {
+                throw new InvalidArgumentException('rivals_native_receipt_success_reason_must_be_null');
+            }
+            if ($data['status'] !== 'success' && (! is_string($reason) || trim($reason) === '')) {
+                throw new InvalidArgumentException('rivals_native_receipt_failure_reason_required');
+            }
+        } else {
+            $data['schema_version'] = self::SCHEMA;
+            $data['failure_reason'] = $data['status'] === 'success'
+                ? null
+                : 'legacy_native_receipt_without_failure_reason:'.$data['status'];
+            foreach (['stdout', 'stderr'] as $stream) {
+                $data[$stream]['path'] = ($data[$stream]['present'] ?? false)
+                    ? 'native_execution_receipts/logs/'.$data['execution_id'].'.'.$stream.'.log'
+                    : null;
             }
         }
 

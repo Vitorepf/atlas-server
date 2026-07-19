@@ -119,6 +119,7 @@ class ExternalTenSuitePipelineTest extends TestCase
                     'expected_result_path' => $entry['expected_result_path'],
                     'result_sha256' => hash_file('sha256', $resultPath),
                     'status' => 'success',
+                    'failure_reason' => null,
                     'exit_code' => 0,
                     'started_at' => now()->toIso8601String(),
                     'finished_at' => now()->toIso8601String(),

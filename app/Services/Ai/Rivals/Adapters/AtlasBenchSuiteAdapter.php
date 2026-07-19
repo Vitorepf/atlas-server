@@ -325,6 +325,10 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'repetition' => $rep,
                 'status' => $status,
                 'failure_class' => RunReceipt::defaultFailureClass($status),
+                'failure_reason' => RunReceipt::defaultFailureReason(
+                    $status,
+                    RunReceipt::defaultFailureClass($status),
+                ),
                 'wall_ms' => (int) round((microtime(true) - $t0) * 1000),
                 'tokens_in' => (int) (data_get($providerReceipt, 'usage.input_tokens') ?? 0),
                 'tokens_out' => (int) (data_get($providerReceipt, 'usage.output_tokens') ?? 0),

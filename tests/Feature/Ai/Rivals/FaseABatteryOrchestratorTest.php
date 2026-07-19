@@ -40,10 +40,11 @@ class FaseABatteryOrchestratorTest extends TestCase
         }
     }
 
-    public function test_dry_run_uplift_uses_five_family_suites_and_dual_arms(): void
+    public function test_dry_run_uplift_uses_all_ten_suites_and_dual_arms(): void
     {
         $payload = (new FaseABatteryOrchestrator)->dryRun('uplift');
-        $this->assertSame(5, $payload['suite_count']);
+        $this->assertSame(10, $payload['suite_count']);
+        $this->assertSame((new SuiteRegistry)->externalSuiteIds(), array_column($payload['plans'], 'suite_id'));
         foreach ($payload['plans'] as $plan) {
             $this->assertSame(
                 ['verboo_kimi_k2_7@bare', 'verboo_kimi_k2_7@atlas_dev'],
@@ -106,14 +107,18 @@ class FaseABatteryOrchestratorTest extends TestCase
         (new FaseABatteryOrchestrator)->prepare('bare', false);
     }
 
-    public function test_prepare_kind_uplift_emits_five_dual_arm_steps(): void
+    public function test_prepare_kind_uplift_emits_ten_dual_arm_steps(): void
     {
         config()->set('atlas_rivals.enabled', true);
         config()->set('atlas_rivals.provider_spend_allowed', true);
         $payload = (new FaseABatteryOrchestrator)->prepare('uplift', true);
         $this->assertSame('uplift', $payload['mode']);
         $this->assertSame('ok', $payload['status'], json_encode($payload['errors'] ?? []));
-        $this->assertCount(5, $payload['prepared']);
+        $this->assertCount(10, $payload['prepared']);
+        $this->assertSame(
+            (new SuiteRegistry)->externalSuiteIds(),
+            array_column($payload['prepared'], 'suite_id'),
+        );
         $this->assertStringContainsString('atlas_dev', $payload['prepared'][0]['plan']['arms']);
         $this->assertFileExists(RunPaths::nativeManifestPath($payload['prepared'][0]['run_id']));
         $this->assertGreaterThan(0, $payload['prepared'][0]['budget_usd_cap']);

@@ -133,6 +133,7 @@ class StatisticalPolicyTest extends TestCase
             'repetition' => $rep,
             'status' => $status,
             'failure_class' => $failureClass,
+            'failure_reason' => RunReceipt::defaultFailureReason($status, $failureClass),
             'wall_ms' => 1,
             'tokens_in' => 10,
             'tokens_out' => 2,

@@ -72,30 +72,12 @@ final class RuntimeProofAttacher
                 : (is_array($entry)
                     ? $this->atlasProof((string) data_get($entry, 'normalization.scratch_dir'))
                     : null);
-            // TOKEN NÃO É PROVA DE QUE O ATLAS RODOU — é telemetria.
-            //
-            // Isto exigia `usage.present === true`, e o efeito era apagar o braço
-            // inteiro: os caminhos de run BLOQUEADO do Atlas Dev gravam
-            // `tokens_in => null` cravado (PipelineRunExecutor:4116 e :4259,
-            // KernelRunExecutor:118 — todos `completionState: 'blocked'`). Como
-            // bloqueado é exatamente o que acontece quando o Atlas ERRA ou RECUSA
-            // a tarefa, toda derrota do Atlas caía aqui, virava
-            // environment_failure e sumia do denominador. O braço só conseguia
-            // registrar acerto: 100% por construção.
-            //
-            // A assimetria é o que denuncia: o braço bare é `hermes -z`, que
-            // reporta usage e passa sempre. Ou seja, o portão reprovava só o lado
-            // que ele deveria medir.
-            //
-            // E ele nunca protegeu contra a fraude real: quando a coluna "com
-            // Atlas" rodava `hermes -z` disfarçado, o usage vinha presente e o
-            // portão aprovava alegremente. Não pega fraude; só apaga derrota.
-            //
-            // A prova de runtime que vale é a de baixo, e ela é derivada do que o
-            // `atlas:cli:dev --json` de fato devolveu: provider hermes_cli, o
-            // modelo pedido, e uma chamada de provider que aconteceu. O usage
-            // segue gravado como dado — com `present: false` quando faltar, que é
-            // telemetria ausente, não execução ausente.
+            // `provider_calls` is an attempt counter, not proof of a response.
+            // A real 19/07 receipt had calls=1 + provider_unavailable + no usage
+            // and was incorrectly accepted. Since the Rivals bridge now captures
+            // usage for successful provider responses, usage.present is the
+            // observable response boundary. A task may still fail after that
+            // response and remains a measured model/Atlas outcome.
             $valid = is_array($proof)
                 && ($proof['status'] ?? null) === 'passed'
                 && ($proof['real_provider'] ?? false) === true
@@ -103,26 +85,35 @@ final class RuntimeProofAttacher
                 && ($proof['model'] ?? null) === ($binding['cli_model'] ?? null)
                 && data_get($proof, 'fair_mode.single_provider') === true
                 && data_get($proof, 'fair_mode.decide_disabled') === true
-                && data_get($proof, 'fair_mode.fallback_disabled') === true;
+                && data_get($proof, 'fair_mode.fallback_disabled') === true
+                && data_get($proof, 'usage.present') === true;
+            $proofReason = is_array($proof) && is_string($proof['failure_reason'] ?? null)
+                && trim((string) $proof['failure_reason']) !== ''
+                    ? trim((string) $proof['failure_reason'])
+                    : (is_array($proof) && data_get($proof, 'usage.present') !== true
+                        ? 'atlas_dev_runtime_proof_usage_missing'
+                        : 'atlas_dev_runtime_proof_missing_or_invalid');
             $metadata['runtime_bridge'] = $valid
                 ? $proof
                 : [
-                    'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
+                    'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
                     'status' => 'failed',
+                    'failure_reason' => $proofReason,
                     'real_provider' => false,
                     'model' => (string) ($binding['cli_model'] ?? ''),
-                    'reason' => 'atlas_dev_runtime_proof_missing_or_invalid',
+                    'reason' => $proofReason,
                 ];
             EventStream::append($runId, $valid ? 'bridge_proof_attached' : 'bridge_proof_missing', [
                 'case_id' => $receipt['case_id'] ?? null,
                 'arm_id' => $receipt['arm_id'] ?? null,
                 'repetition' => $receipt['repetition'] ?? null,
                 'runtime' => 'atlas_dev',
-                'reason' => $valid ? null : 'atlas_dev_runtime_proof_missing_or_invalid',
+                'reason' => $valid ? null : $proofReason,
             ]);
             if (! $valid) {
                 // Missing bridge is an environment/runtime proof failure — not model stupidity.
                 $receipt['failure_class'] = FailureClass::ENVIRONMENT;
+                $receipt['failure_reason'] = $proofReason;
                 if (($receipt['status'] ?? null) === 'success') {
                     $receipt['status'] = 'error';
                 }

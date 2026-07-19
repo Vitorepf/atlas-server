@@ -159,10 +159,10 @@ class ExternalCommandContractTest extends TestCase
         $this->assertStringContainsString('--max-tokens', $tpl);
     }
 
-    public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void
+    public function test_all_ten_suites_use_distinct_bare_and_atlas_solver_paths(): void
     {
         $registry = new SuiteRegistry;
-        foreach ((array) config('atlas_rivals.uplift_families') as $family => $suiteId) {
+        foreach ($registry->externalSuiteIds() as $suiteId) {
             $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
             $case = $adapter->listCases()[0];
             $plan = RunPlan::make(
@@ -178,47 +178,30 @@ class ExternalCommandContractTest extends TestCase
             );
             $commands = $adapter->planCommands($plan);
 
-            $this->assertCount(2, $commands, $family);
+            $this->assertCount(2, $commands, $suiteId);
             $byArm = collect($commands)->keyBy('arm_id');
             $bare = $byArm['verboo_kimi_k2_7@bare']['argv'];
             $atlas = $byArm['verboo_kimi_k2_7@atlas_dev']['argv'];
-            $this->assertNotSame($bare, $atlas, "{$family}: atlas_dev relabels bare argv");
-            $this->assertStringContainsString(
-                'atlas',
-                strtolower(implode(' ', $atlas)),
-                "{$family}: Atlas solver absent",
+            $this->assertNotSame($bare, $atlas, "{$suiteId}: atlas_dev relabels bare argv");
+            $atlasCommand = strtolower(implode(' ', $atlas));
+            $this->assertMatchesRegularExpression(
+                '/atlas|127\.0\.0\.1:8791/',
+                $atlasCommand,
+                "{$suiteId}: Atlas solver/endpoint absent",
             );
         }
     }
 
-    public function test_atlas_dev_arm_fails_fast_on_suites_without_atlas_runtime(): void
+    public function test_atlas_bridge_requires_real_usage_and_harbor_preserves_inner_logs(): void
     {
-        $registry = new SuiteRegistry;
-        $upliftSuites = array_values((array) config('atlas_rivals.uplift_families'));
-        foreach ($registry->externalSuiteIds() as $suiteId) {
-            if (in_array($suiteId, $upliftSuites, true)) {
-                continue;
-            }
-            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
-            $case = $adapter->listCases()[0];
-            $plan = RunPlan::make(
-                $suiteId,
-                [$case['case_id']],
-                [(new ArmRegistry)->parse('verboo_kimi_k2_7@atlas_dev', $suiteId)],
-                1,
-                ['max_usd' => 0.0, 'max_minutes' => 30],
-                42,
-            );
-            try {
-                $adapter->planCommands($plan);
-                $this->fail("{$suiteId}: atlas_dev arm should fail fast pre-spend");
-            } catch (\RuntimeException $e) {
-                $this->assertStringContainsString(
-                    'runtime_unsupported:atlas_dev',
-                    $e->getMessage(),
-                    $suiteId,
-                );
-            }
-        }
+        $bridge = (string) file_get_contents(base_path('scripts/rivals-atlas-dev-bridge.php'));
+        $this->assertStringContainsString('$usagePresent =', $bridge);
+        $this->assertStringContainsString('&& $usagePresent', $bridge);
+        $this->assertStringContainsString("'failure_reason' => \$runtimeFailureReason", $bridge);
+
+        $harborAgent = (string) file_get_contents(base_path('scripts/rivals_harbor_atlas_agent.py'));
+        $this->assertStringContainsString('atlas-bridge.stdout.log', $harborAgent);
+        $this->assertStringContainsString('atlas-bridge.stderr.log', $harborAgent);
+        $this->assertStringContainsString('environment.upload_file', $harborAgent);
     }
 }

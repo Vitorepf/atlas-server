@@ -64,6 +64,15 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
             $status = isset($task['resolved']) ? ($task['resolved'] ? 'success' : 'failure') : 'error';
             $hasEnvironmentError = is_array($task['exception_info'] ?? null)
                 && $task['exception_info'] !== [];
+            $failureReason = match (true) {
+                $status === 'success' => null,
+                $hasEnvironmentError => $this->nativeExceptionReason(
+                    (array) $task['exception_info'],
+                    'senior_swe_bench:environment_failure_without_exception_text',
+                ),
+                $status === 'error' => 'senior_swe_bench:result_missing_resolved_verdict',
+                default => 'senior_swe_bench:verifier_did_not_resolve_task',
+            };
             $tokensIn = (int) ($task['usage']['input_tokens'] ?? 0);
             $tokensOut = (int) ($task['usage']['output_tokens'] ?? 0);
             $tokensPresent = ($tokensIn + $tokensOut) > 0;
@@ -81,6 +90,7 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
                     $status === 'error' => 'invalid_result',
                     default => 'model_failure',
                 },
+                'failure_reason' => $failureReason,
                 'wall_ms' => (int) round((float) ($task['duration_seconds'] ?? 0) * 1000),
                 'tokens_in' => $tokensIn,
                 'tokens_out' => $tokensOut,
