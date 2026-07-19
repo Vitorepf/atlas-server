@@ -95,6 +95,68 @@ class NativeExecutionBundleImporterTest extends TestCase
         );
     }
 
+    public function test_retry_attempt_history_is_validated_and_preserved(): void
+    {
+        [$plan, $manifest] = $this->manifest();
+        $entry = $manifest->entries()[0];
+        $sourceResult = $this->bundle.'/'.$entry['expected_result_path'];
+        File::ensureDirectoryExists(dirname($sourceResult));
+        file_put_contents($sourceResult, json_encode(['native' => 'success']));
+        $receipt = $this->receipt($plan->runId(), $manifest, $entry, $sourceResult);
+        File::ensureDirectoryExists($this->bundle.'/native_execution_receipts');
+        file_put_contents(
+            $this->bundle.'/native_execution_receipts/'.$entry['execution_id'].'.json',
+            json_encode($receipt->data),
+        );
+
+        $relativeAttemptDir = 'native_execution_receipts/attempts/'.$entry['execution_id'];
+        $attemptDir = $this->bundle.'/'.$relativeAttemptDir;
+        File::ensureDirectoryExists($attemptDir);
+        $attemptResult = $attemptDir.'/attempt-0001.result.json';
+        $attemptStdout = $attemptDir.'/attempt-0001.stdout.log';
+        $attemptStderr = $attemptDir.'/attempt-0001.stderr.log';
+        file_put_contents($attemptResult, json_encode(['native' => 'failed-attempt']));
+        file_put_contents($attemptStdout, "failed attempt stdout\n");
+        file_put_contents($attemptStderr, "provider_unavailable\n");
+        $attemptReceipt = $receipt->data;
+        $attemptReceipt['status'] = 'environment_failure';
+        $attemptReceipt['failure_reason'] = 'candidate_preparation_blocked:provider_unavailable';
+        $attemptReceipt['result_sha256'] = hash_file('sha256', $attemptResult);
+        $attemptReceipt['archived_result_path'] = $relativeAttemptDir.'/attempt-0001.result.json';
+        $attemptReceipt['retry_attempt'] = 1;
+        $attemptReceipt['stdout'] = [
+            'present' => true,
+            'path' => $relativeAttemptDir.'/attempt-0001.stdout.log',
+            'sha256' => hash_file('sha256', $attemptStdout),
+        ];
+        $attemptReceipt['stderr'] = [
+            'present' => true,
+            'path' => $relativeAttemptDir.'/attempt-0001.stderr.log',
+            'sha256' => hash_file('sha256', $attemptStderr),
+        ];
+        file_put_contents(
+            $attemptDir.'/attempt-0001.receipt.json',
+            json_encode($attemptReceipt),
+        );
+
+        $summary = (new NativeExecutionBundleImporter)->import(
+            $plan->runId(),
+            'tau2_bench',
+            $this->bundle,
+        );
+
+        $destination = RunPaths::runDir($plan->runId()).'/'.$relativeAttemptDir;
+        $this->assertSame(1, $summary['native_attempt_receipts_imported']);
+        $this->assertSame(2, $summary['native_attempt_logs_imported']);
+        $this->assertFileExists($destination.'/attempt-0001.receipt.json');
+        $this->assertFileExists($destination.'/attempt-0001.result.json');
+        $this->assertSame(
+            "provider_unavailable\n",
+            file_get_contents($destination.'/attempt-0001.stderr.log'),
+        );
+        $this->assertCount(1, NativeExecutionReceipt::loadAll($plan->runId()));
+    }
+
     /** @return array{RunPlan, NativeExecutionManifest} */
     private function manifest(): array
     {
