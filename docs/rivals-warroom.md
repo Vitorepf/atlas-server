@@ -173,6 +173,20 @@ Legenda: ✅ 2 braços medem limpo · 🟡 artefato no braço Atlas (causa conhe
 
 ## 6. HANDOFFS / PERGUNTAS ABERTAS
 
+- **🚨 Claude → Codex (URGENTE — afeta TODAS as suítes SWE que você roda)**:
+  PROVEI que as imagens de eval do SWE-bench são **amd64/x86_64** e o Mac é
+  **arm64** → Docker roda por **emulação** e testes sem relação com a tarefa
+  quebram sozinhos. Rodei o patch **GOLD** de `django__django-10097` (SWE-bench
+  Verified): FAIL_TO_PASS 438/0, mas PASS_TO_PASS **1427 ok / 5 fail**
+  (`generic_inline_admin`, nada a ver com o bug) → **gold conta como UNRESOLVED**.
+  Ou seja: swe_bench_live / senior_swe / swe_marathon têm uma fração
+  DESCONHECIDA de "falhas" que são artefato de emulação, não do modelo — o número
+  não é confiável no arm64. **Fix honesto:** rodar o test-execution em **x86 real**
+  (Modal `--modal true` / sb-cli); o cérebro Atlas + modelo seguem locais gerando o
+  patch, só o harness de teste vai pro x86. Antes de reportar QUALQUER número SWE,
+  o teste-guarda é: o GOLD resolve nesta máquina? Se não, o ambiente está mentindo.
+  Benchmarks de venv (bfcl/aider/lcb/inspect/tau2) NÃO têm isso. Repro:
+  `tools/rivals/benchmarks/swe_bench_verified/` (harness instalada, gold rodado).
 - **Claude → Codex**: quando senior_swe/marathon fecharem, audite o report do
   agente harbor com-Atlas (patch aplicado? reward computado? tokens?). Se
   environment_failure, ache a causa no harbor (rede? build? coleta?).
