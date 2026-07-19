@@ -87,6 +87,43 @@ $archiveRuntimeProofs = static function (array $entry, string $runId): array {
     return $proofs;
 };
 
+/** Return the exact failed Atlas bridge reason for the current attempt. */
+$runtimeProofFailureCause = static function (array $entry, string $runId): ?string {
+    $scratch = (string) data_get($entry, 'normalization.scratch_dir', '');
+    $scratchReal = $scratch !== '' ? realpath($scratch) : false;
+    $runReal = realpath(RunPaths::runDir($runId));
+    if ($scratchReal === false) {
+        return null;
+    }
+    if ($runReal === false
+        || ($scratchReal !== $runReal && ! str_starts_with($scratchReal, $runReal.'/'))) {
+        throw new RuntimeException('rivals_native_runner_proof_scratch_outside_run');
+    }
+
+    $proofPaths = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($scratchReal, RecursiveDirectoryIterator::SKIP_DOTS),
+    );
+    foreach ($iterator as $file) {
+        if ($file->isFile() && ! $file->isLink()
+            && $file->getFilename() === '.rivals_atlas_dev_bridge.json') {
+            $proofPaths[] = $file->getPathname();
+        }
+    }
+    sort($proofPaths, SORT_STRING);
+    foreach ($proofPaths as $proofPath) {
+        $proof = json_decode((string) file_get_contents($proofPath), true);
+        $reason = is_array($proof) && is_string($proof['failure_reason'] ?? null)
+            ? trim((string) $proof['failure_reason'])
+            : '';
+        if ($reason !== '') {
+            return mb_substr(preg_replace('/\s+/', ' ', $reason) ?: $reason, 0, 512);
+        }
+    }
+
+    return null;
+};
+
 try {
     $manifest = NativeExecutionManifest::fromArray(
         json_decode((string) file_get_contents($manifestPath), true) ?? []
@@ -383,6 +420,13 @@ try {
         };
         if (is_string($failureReason) && $stderrCause !== null) {
             $failureReason .= '; native_stderr_cause='.$stderrCause;
+        }
+        $runtimeProofCause = $status !== 'success'
+            ? $runtimeProofFailureCause($entry, $runId)
+            : null;
+        if (is_string($failureReason) && $runtimeProofCause !== null
+            && ! str_contains($failureReason, $runtimeProofCause)) {
+            $failureReason .= '; runtime_proof_cause='.$runtimeProofCause;
         }
         $exitNonzeroPromoted = $status === 'success' && $exitCode !== 0;
         if (! $resultPresent) {

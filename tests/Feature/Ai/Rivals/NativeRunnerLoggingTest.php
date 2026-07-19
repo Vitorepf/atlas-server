@@ -66,6 +66,20 @@ class NativeRunnerLoggingTest extends TestCase
         $planData['environment']['approve_provider_spend'] = true;
         $plan = RunPlan::fromArray($planData);
         $plan->persist();
+        $scratch = RunPaths::runDir($plan->runId()).'/native_scratch/probe';
+        $proofFailure = 'atlas_dev_provider_pre_response_failure:'
+            .'candidate_preparation_blocked:provider_unavailable:provider_failure:timeout';
+        $proofJson = json_encode([
+            'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
+            'status' => 'failed',
+            'failure_reason' => $proofFailure,
+        ], JSON_THROW_ON_ERROR);
+        $probeCode = '@mkdir('.var_export($scratch, true).', 0755, true); '
+            .'file_put_contents('.var_export($scratch.'/.rivals_atlas_dev_bridge.json', true)
+            .', '.var_export($proofJson, true).'); '
+            .'fwrite(STDOUT, "unit stdout\\n"); '
+            .'fwrite(STDERR, "Traceback (most recent call last):\\nValueError: No tasks matched the filter ssb_0034\\n"); '
+            .'exit(7);';
         $commands = [[
             'case_id' => 'runner_log_probe',
             'arm_id' => $arm['arm_id'],
@@ -74,11 +88,11 @@ class NativeRunnerLoggingTest extends TestCase
             'argv' => [
                 PHP_BINARY,
                 '-r',
-                'fwrite(STDOUT, "unit stdout\\n"); fwrite(STDERR, "Traceback (most recent call last):\\nValueError: No tasks matched the filter ssb_0034\\n"); exit(7);',
+                $probeCode,
             ],
             'normalization' => [
                 'case' => ['native_task_id' => 'runner_log_probe'],
-                'scratch_dir' => RunPaths::runDir($plan->runId()).'/native_scratch/probe',
+                'scratch_dir' => $scratch,
             ],
         ]];
         $manifest = NativeExecutionManifest::fromPlan($plan, $adapter, $commands);
@@ -107,10 +121,10 @@ class NativeRunnerLoggingTest extends TestCase
         );
         $receipt = $receipts[0];
         $this->assertSame('environment_failure', $receipt->data['status']);
-        $this->assertSame(
-            'normalization_failed:tau2_results_missing; native_stderr_cause=ValueError: No tasks matched the filter ssb_0034',
-            $receipt->data['failure_reason'],
-        );
+        $expectedFailureReason =
+            'normalization_failed:tau2_results_missing; native_stderr_cause=ValueError: No tasks matched the filter ssb_0034'
+            .'; runtime_proof_cause='.$proofFailure;
+        $this->assertSame($expectedFailureReason, $receipt->data['failure_reason']);
         foreach (['stdout', 'stderr'] as $stream) {
             $this->assertTrue($receipt->data[$stream]['present']);
             $this->assertNotEmpty($receipt->data[$stream]['path']);
@@ -129,12 +143,8 @@ class NativeRunnerLoggingTest extends TestCase
         $this->assertStringContainsString('[rivals-normalizer] tau2_results_missing', $stderr);
 
         $runnerPayload = json_decode($process->getOutput(), true);
-        $this->assertSame(
-            'normalization_failed:tau2_results_missing; native_stderr_cause=ValueError: No tasks matched the filter ssb_0034',
-            $runnerPayload['executions'][0]['failure_reason'] ?? null,
-        );
+        $this->assertSame($expectedFailureReason, $runnerPayload['executions'][0]['failure_reason'] ?? null);
 
-        $scratch = (string) data_get($entry, 'normalization.scratch_dir');
         File::ensureDirectoryExists($scratch);
         $staleProof = $scratch.'/.rivals_atlas_dev_bridge.json';
         file_put_contents($staleProof, json_encode([
@@ -163,7 +173,9 @@ class NativeRunnerLoggingTest extends TestCase
             'must_be_archived_not_reused',
             data_get($archived, 'archived_runtime_proofs.0.payload.attempt_marker'),
         );
-        $this->assertFileDoesNotExist($staleProof);
+        $liveProof = json_decode((string) file_get_contents($staleProof), true);
+        $this->assertSame($proofFailure, $liveProof['failure_reason'] ?? null);
+        $this->assertArrayNotHasKey('attempt_marker', $liveProof);
         $this->assertFileIsReadable(
             RunPaths::runDir($plan->runId()).'/'.$archived['archived_result_path'],
         );
