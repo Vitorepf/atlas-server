@@ -442,6 +442,43 @@ class ExternalAdaptersIngestTest extends TestCase
         (new HalHarnessAdapter)->ingestResults($runDir);
     }
 
+    public function test_hal_harness_atlas_failure_names_the_bridge_error_code(): void
+    {
+        $this->importCase('hal_harness', 'django__django-11790', 'long_horizon_engineering');
+        $adapter = new HalHarnessAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'runs' => [[
+                'task_id' => 'django__django-11790',
+                'trial' => 1,
+                'success' => false,
+                'total_cost_usd' => 0.0,
+                'latency_sec' => 315.177,
+                'input_tokens' => 80056,
+                'output_tokens' => 15389,
+                'model' => 'openai/kimi-k2.7',
+                'agent' => 'rivals_hal_agent',
+                'runtime_bridge' => [
+                    'status' => 'passed',
+                    'task_ok' => false,
+                    'completion_state' => 'blocked',
+                    'provider_call' => [
+                        'error_codes' => [
+                            'candidate_preparation_blocked:provider_invalid_provider_contract',
+                        ],
+                    ],
+                ],
+            ]],
+        ]);
+
+        $this->assertSame('failure', $receipts[0]['status']);
+        $this->assertSame(
+            'hal_harness:atlas_bridge_error_codes=candidate_preparation_blocked:provider_invalid_provider_contract',
+            $receipts[0]['failure_reason'],
+        );
+    }
+
     public function test_list_cases_is_empty_when_nothing_imported(): void
     {
         $this->assertSame([], (new Tau2BenchAdapter)->listCases());

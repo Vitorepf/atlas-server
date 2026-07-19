@@ -54,6 +54,7 @@ class HalHarnessAdapter extends AbstractExternalSuiteAdapter
                 'repetition' => (int) ($run['trial'] ?? 1),
                 'status' => $status,
                 'failure_class' => $status === 'success' ? null : 'model_failure',
+                'failure_reason' => $status === 'success' ? null : $this->failureReason($run),
                 'wall_ms' => (int) round((float) $run['latency_sec'] * 1000),
                 'tokens_in' => (int) ($run['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($run['output_tokens'] ?? 0),
@@ -75,5 +76,28 @@ class HalHarnessAdapter extends AbstractExternalSuiteAdapter
         }
 
         return $receipts;
+    }
+
+    /** @param array<string, mixed> $run */
+    private function failureReason(array $run): string
+    {
+        $bridge = is_array($run['runtime_bridge'] ?? null) ? $run['runtime_bridge'] : [];
+        $errorCodes = array_values(array_unique(array_filter(
+            array_map(
+                static fn (mixed $value): string => trim((string) $value),
+                (array) data_get($bridge, 'provider_call.error_codes', []),
+            ),
+            static fn (string $value): bool => $value !== '',
+        )));
+        if ($errorCodes !== []) {
+            return 'hal_harness:atlas_bridge_error_codes='.implode('|', $errorCodes);
+        }
+
+        $bridgeReason = trim((string) ($bridge['failure_reason'] ?? ''));
+        if ($bridgeReason !== '') {
+            return 'hal_harness:atlas_bridge_failure='.$bridgeReason;
+        }
+
+        return 'hal_harness:benchmark_verdict_not_resolved';
     }
 }
