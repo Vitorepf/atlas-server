@@ -85,14 +85,15 @@ class NativeRunnerLoggingTest extends TestCase
         $manifestPath = $manifest->persist();
         $entry = $manifest->entries()[0];
 
-        $process = new Process([
+        $runnerArgs = [
             PHP_BINARY,
             base_path('scripts/rivals-native-runner.php'),
             '--manifest='.$manifestPath,
             '--cwd='.base_path(),
             '--execution-id='.$entry['execution_id'],
             '--approve-provider-spend',
-        ], base_path(), [
+        ];
+        $process = new Process($runnerArgs, base_path(), [
             'ATLAS_RIVALS2_STORAGE' => $this->storage,
         ]);
         $process->setTimeout(30);
@@ -132,6 +133,30 @@ class NativeRunnerLoggingTest extends TestCase
             'normalization_failed:tau2_results_missing; native_stderr_cause=ValueError: No tasks matched the filter ssb_0034',
             $runnerPayload['executions'][0]['failure_reason'] ?? null,
         );
+
+        $retry = new Process($runnerArgs, base_path(), [
+            'ATLAS_RIVALS2_STORAGE' => $this->storage,
+        ]);
+        $retry->setTimeout(30);
+        $retry->run();
+
+        $this->assertSame(1, $retry->getExitCode());
+        $attempts = glob(
+            RunPaths::nativeReceiptsDir($plan->runId()).'/attempts/'
+                .$entry['execution_id'].'/attempt-*.receipt.json',
+        ) ?: [];
+        $this->assertCount(1, $attempts);
+        $archived = json_decode((string) file_get_contents($attempts[0]), true);
+        $this->assertSame('environment_failure', $archived['status'] ?? null);
+        $this->assertNotEmpty($archived['failure_reason'] ?? null);
+        $this->assertFileIsReadable(
+            RunPaths::runDir($plan->runId()).'/'.$archived['archived_result_path'],
+        );
+        foreach (['stdout', 'stderr'] as $stream) {
+            $this->assertFileIsReadable(
+                RunPaths::runDir($plan->runId()).'/'.$archived[$stream]['path'],
+            );
+        }
     }
 
     public function test_completed_manifest_unit_is_reused_without_reexecuting_command(): void

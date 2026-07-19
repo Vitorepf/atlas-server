@@ -114,22 +114,61 @@ try {
                     );
                 }
             }
-            EventStream::append($runId, 'native_execution_reused', [
-                'execution_id' => $executionId,
-                'status' => $existing->data['status'],
-                'receipt_path' => $existingReceiptPath,
-            ]);
-            $summary[] = [
-                'execution_id' => $executionId,
-                'status' => $existing->data['status'],
-                'failure_reason' => $existing->data['failure_reason'],
-                'exit_code' => $existing->data['exit_code'],
-                'receipt_path' => $existingReceiptPath,
-                'runner_mode' => $existing->data['runner']['mode'] ?? null,
-                'idempotent_replay' => true,
-            ];
+            if ($existing->data['status'] === 'success') {
+                EventStream::append($runId, 'native_execution_reused', [
+                    'execution_id' => $executionId,
+                    'status' => $existing->data['status'],
+                    'receipt_path' => $existingReceiptPath,
+                ]);
+                $summary[] = [
+                    'execution_id' => $executionId,
+                    'status' => $existing->data['status'],
+                    'failure_reason' => $existing->data['failure_reason'],
+                    'exit_code' => $existing->data['exit_code'],
+                    'receipt_path' => $existingReceiptPath,
+                    'runner_mode' => $existing->data['runner']['mode'] ?? null,
+                    'idempotent_replay' => true,
+                ];
 
-            continue;
+                continue;
+            }
+
+            $attemptDir = RunPaths::nativeReceiptsDir($runId).'/attempts/'.$executionId;
+            RunPaths::ensureDir($attemptDir);
+            $attemptNumber = count(glob($attemptDir.'/attempt-*.receipt.json') ?: []) + 1;
+            $attemptPrefix = sprintf('attempt-%04d', $attemptNumber);
+            $archived = $existing->data;
+            $relativeAttemptDir = 'native_execution_receipts/attempts/'.$executionId;
+            $archivedResultPath = $attemptDir.'/'.$attemptPrefix.'.result.json';
+            if (! copy($resultPath, $archivedResultPath)) {
+                throw new RuntimeException(
+                    "rivals_native_runner_retry_archive_result_failed:{$executionId}",
+                );
+            }
+            $archived['archived_result_path'] = $relativeAttemptDir.'/'.$attemptPrefix.'.result.json';
+            $archived['retry_attempt'] = $attemptNumber;
+            foreach (['stdout', 'stderr'] as $stream) {
+                $source = RunPaths::runDir($runId).'/'.$archived[$stream]['path'];
+                $archivedStreamPath = $attemptDir.'/'.$attemptPrefix.'.'.$stream.'.log';
+                if (! copy($source, $archivedStreamPath)) {
+                    throw new RuntimeException(
+                        "rivals_native_runner_retry_archive_stream_failed:{$executionId}:{$stream}",
+                    );
+                }
+                $archived[$stream]['path'] = $relativeAttemptDir.'/'.$attemptPrefix.'.'.$stream.'.log';
+            }
+            $archivedReceiptPath = $attemptDir.'/'.$attemptPrefix.'.receipt.json';
+            file_put_contents(
+                $archivedReceiptPath,
+                json_encode($archived, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            );
+            EventStream::append($runId, 'native_execution_retry', [
+                'execution_id' => $executionId,
+                'attempt' => $attemptNumber + 1,
+                'prior_status' => $existing->data['status'],
+                'prior_failure_reason' => $existing->data['failure_reason'],
+                'archived_receipt_path' => $archivedReceiptPath,
+            ]);
         }
         $startedAt = now();
         $startedMonotonic = hrtime(true);
