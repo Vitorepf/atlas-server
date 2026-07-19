@@ -42,7 +42,8 @@ que o número que o Rivals mostra é verdade.
 | dono | alvo (arquivo/suíte) | desde | status |
 |---|---|---|---|
 | Claude | `scripts/rivals-atlas-openai-endpoint.php` (endpoint) | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: 10 suítes ficam; Codex constrói runtime governado de resposta (cérebro Atlas c/ Hermes dentro), não `hermes -z` cru |
-| Claude | `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (prova no scratch certo) | 2026-07-19 ~13h | ATIVO — fix commitado (`d48cd222fb`), provando end-to-end na run arq_f40e |
+| Claude | `scripts/rivals_lcb_atlas.py` + `LiveCodeBenchAdapter` (prova no scratch certo) | 2026-07-19 ~13h | **PROVADO** — d48cd222fb validado ao vivo (2727: proof v2 passed) + warm-cache skip morto (`_force_fresh_generation`, prova nova 22086/972 tokens). Adapter reservado p/ o handoff EOF (§8). Aberto: metadata passthrough do normalizer (Codex) |
+| Claude | `ArenaCapabilityProfileService` + `config/atlas_arena.php` + modelo/views Arena do app (perfil de Capacidades) | 2026-07-19 ~19h | **PROVADO** — volume (pool de rodadas) + IC de Wilson + delta Newcombe + confidence gate (server `17dcde973d`, app `359f23a7`). Fora do claim Codex por construção |
 | Claude | `InspectEvalsAdapter` + `Tau2BenchAdapter` | 2026-07-19 ~13h | LIBERADO p/ Codex — RECONCILIADO: ficam no perfil (10 suítes); Codex constrói o braço governado. Adapters/registry intactos |
 | Codex | receipts/runner/report + harness Harbor + cross-check de runtime proof do bridge | 2026-07-19 11:27 -03 | ESTACIONADO pela decisão native-only da §7; fixes/logs preservados, nenhum número Docker/x86 entra no perfil |
 | Codex | runtime governado de resposta + endpoint/Inspect/Tau2 | 2026-07-19 13:05 -03 | LIBERADO — fora do novo perfil Engenharia & Arquitetura; prova histórica preservada |
@@ -76,7 +77,7 @@ perfil. `R2ABench` está fora porque não há avaliador público.
 |---|---|---|---|---|
 | bfcl | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
 | aider_polyglot | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
-| live_code_bench | existente | **não medido**: clean-wave reciclou cache, usage/proof ausentes | pendente | Claude |
+| live_code_bench | **braço Atlas OK** | prova validada ao vivo (2727: proof v2 passed, real_provider, execution=atlas_cli_dev_efficient, usage 22086/972); warm-cache skip morto (`_force_fresh_generation`). RESSALVA: harness zera questão FUNCIONAL correta (EOF -4) → handoff §8 p/ o volume | Claude |
 | archbench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
 | cruxeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
 | classeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
@@ -388,3 +389,59 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   A correção será perfil explícito no builder/catalog/schema: `fase_a` conserva
   o relatório histórico de 10; `engineering_native` reporta suas 16, com métrica
   contínua e pareamento, sem inflar “artefato válido” para capacidade perfeita.
+- 2026-07-19 · Claude · **perfil de Capacidades mostrava número de baixa
+  confiança como VERDADE** (viola "número não confiável = não medido"). Sintoma:
+  `ArenaCapabilityProfileService::profile()` usava `latestBySuiteArm` (só a última
+  rodada por suite/braço) → jogava fora a repetição que dá confiança, e cravava
+  score de 1-2 casos sem IC nenhum (tool_use 100% de 1 caso, code_editing de 2).
+  Causa PROVADA lendo a fonte: sem pooling de volume, sem Wilson, sem gate. Fix
+  (`17dcde973d`): pool de casos sobre TODAS as rodadas (N soma → volume real), IC
+  95% de Wilson por braço (reusa `StatisticalPolicy::wilson`), delta com-vs-sem
+  Atlas com IC de Newcombe (`newcombeDiff`) + flag `significant` (IC não cruza 0),
+  e `confidence` measured/low/unmeasured (piso `min_cases_for_confidence`=10).
+  Schema v2: app não-atualizado falha ALTO, nunca mostra número pelado. App
+  (`atlas-native` `359f23a7`): linha de confiança por capacidade — "Atlas melhora
+  +X · confirmado (N 51)" em ouro, "piora" em alert (regressão honesta), "dentro
+  do ruído", "poucos casos · baixa confiança", "Atlas ainda não rodou aqui";
+  VoiceOver fala o mesmo. Prova: 7 testes do serviço (pooling soma rodadas, IC
+  estreita com volume, low não vira verdade, delta signif. em vitória clara,
+  unmeasured sem braço) + ArenaRunController v2; 29 passed/174 assertions.
+  AtlasCoreChecks verde (decodifica IC/delta/confiança) + make build 0 erros.
+  Alvo do claim: `ArenaCapabilityProfileService` + `config/atlas_arena.php`
+  (fora do claim Codex) + modelo/views Arena do app (WIP Claude).
+- 2026-07-19 · Claude · **LCB braço Atlas: prova validada + warm-cache skip
+  morto (fecha o "não medido" reciclado que o Codex apontou).** Duas causas
+  provadas ao vivo na questão 2727 (codegeneration, temp 0.2, spend real):
+  (1) **d48cd222fb VALIDADO** — a prova durável aterrissa em
+  `<scratch>/.rivals_atlas_dev_bridge.json` `status=passed, real_provider=true,
+  execution=atlas_cli_dev_efficient, atlas_runtime=true`, fair-mode
+  single-provider/sem-Decide/sem-fallback, `usage.present=true`. O
+  RuntimeProofAttacher aceita → o braço vira linha `with_atlas`, não env_failure.
+  (2) **warm-cache skip** (`--continue_existing_with_eval`, lcb_runner
+  main.py:44-56): quando a questão-alvo já está no cache de output daquela
+  temperatura, o runner PULA a geração → `create()` do bridge não roda → a prova
+  não nasce no scratch DESTA run → env_failure falso com o Atlas tendo rodado
+  antes. Fix (`rivals_lcb_atlas.py`, `_force_fresh_generation`): purga só a
+  questão-alvo do output do braço atlas antes do `main()` → geração fresca +
+  prova nova a cada run; cache de outras questões intacto (execução sequencial).
+  PROVA: 2727 estava em cache (repro anterior 70/356 tokens); a run purgou-a
+  ("continuing with 1 remaining") e REGEROU com prova válida NOVA (22086/972
+  tokens — run governada fresca, não replay). `task_ok=false` +
+  `candidate_preparation_blocked:...:create_target_already_exists:solution.py` é a
+  MESMA fricção Atlas não-fatal que você registrou p/ decision.md: o patch_plan
+  ainda surfa, o código correto chega ao eval (countSeniors correto no cache).
+  Self-check do purge: gen+eval_all all-dict purgados, _eval.json posicional
+  intocado, idempotente, missing-dir safe.
+- 2026-07-19 · Claude → Codex · **LCB HARNESS zera código funcional CORRETO
+  (risco p/ o volume #19).** 2727 (LeetCode funcional, `class Solution`) gerou
+  `countSeniors` CORRETO nos dois braços, mas o eval nativo deu `pass@1=0.0` com
+  `metadata error_code:-4 "EOF when reading a line"` — o harness rodou o código
+  funcional em modo STDIN (esperando input()). É falha do HARNESS, não do modelo;
+  simétrica nos dois braços, mas 0.0 FALSO (código certo). O par medido HOJE são
+  questões stdin (1873_A/B/D, harness OK), então não corrompe o número atual — é
+  risco LATENTE se o volume puxar questões funcionais. **Handoff:** ou (a) o
+  normalizer passa `metadata.error_code` do `_eval.json` p/ o `LiveCodeBenchAdapter`
+  classificar `-4`/EOF em questão funcional como `environment_failure` (fora do
+  score, como as outras env-failures), ou (b) restringir a seleção de casos LCB a
+  questões stdin até o harness funcional ser verificado. Reservo o Adapter; o
+  passthrough de metadata no normalizer é seu.

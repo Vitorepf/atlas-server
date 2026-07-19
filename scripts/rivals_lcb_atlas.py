@@ -111,7 +111,42 @@ OpenAIRunner.client = SimpleNamespace(
     chat=SimpleNamespace(completions=base.TrackingCompletions(BridgeCompletions()))
 )
 
+
+def _force_fresh_generation():
+    """Warm-cache guard (mata o skip que zera a prova).
+
+    `--continue_existing_with_eval` faz o lcb_runner PULAR a geração quando a
+    questão-alvo já está no cache de output desta temperatura (main.py:44-56).
+    Um skip = `create()` não roda = a prova governada (.rivals_atlas_dev_bridge.json)
+    não nasce no scratch DESTA run = o RuntimeProofAttacher reprova o braço como
+    env_failure com o Atlas TENDO rodado numa run anterior. Cada run do braço
+    Atlas PRECISA gerar fresco (prova + usage novos), então removemos a questão-alvo
+    do output antes de rodar. Só a questão-alvo — o cache de outras questões fica
+    intacto (execução sequencial, sem corrida). Sem `--use_cache` o response-cache
+    não existe; este é o único caminho de skip.
+    """
+    qid = str(base.question_id)
+    out_dir = Path("output") / "kimi-k2.7-atlas"
+    if not out_dir.is_dir():
+        return
+    # A decisão de skip (main.py:31-42) lê SÓ o arquivo de geração
+    # (Scenario...json) e, como fallback, o _eval_all.json — ambos com entradas
+    # 100% dict. O _eval.json tem estrutura POSICIONAL (list+dict pareados);
+    # remover por question_id o desalinha. Só purga arquivos all-dict.
+    for path in out_dir.glob("*.json"):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, list) or not all(isinstance(e, dict) for e in data):
+            continue
+        kept = [e for e in data if str(e.get("question_id")) != qid]
+        if len(kept) != len(data):
+            path.write_text(json.dumps(kept))
+
+
 if __name__ == "__main__":
     if not base.question_id:
         raise SystemExit("missing --rivals-question-id")
+    _force_fresh_generation()
     main_module.main()
