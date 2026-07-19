@@ -110,6 +110,13 @@ Todo plan externo produz `native_execution_manifest.json` com uma unidade por
 `NativeResultNormalizer` projeta os artifacts oficiais para um unit JSON
 hash-pinado; fixture agregada e somente harness/legado.
 
+Cada unidade também produz `native_execution_receipt.v2` com `failure_reason`
+obrigatório em status não-success e caminhos relativos hash-pinados para
+`native_execution_receipts/logs/<execution_id>.stdout.log` e `.stderr.log`.
+O resultado normalizado vira `run_receipt.v3`, que preserva a razão legível;
+relatórios agregam o histograma de razões em vez de mostrar apenas a classe.
+Bundles só importam logs presentes cujo hash confere.
+
 - tau2: `--save-to`, `--num-trials 1`, seed por rep; Results nativo.
 - BFCL: generate por category + evaluate; result/score JSONL.
 - terminal_bench: binary `tb`, `--output-path`, run id e attempt unicos;
@@ -117,16 +124,17 @@ hash-pinado; fixture agregada e somente harness/legado.
 - senior_swe_bench / swe_marathon: Harbor jobs-dir/job-name e TrialResult.
 - swe_bench_live: predictions + evaluation (`--patch_dir`/`--output_dir`).
 - live_code_bench: `--evaluate --n 1`; extracao do `_eval_all.json`.
-- inspect_evals: `--sample-id --epochs 1 --log-dir`; OpenAI-compatible força
-  `responses_api=false`; leitura `.eval`.
+- inspect_evals: `--sample-id --epochs 1 --log-dir`; provider
+  `openai-api/verboo/...` e leitura `.eval` (não forçar `responses_api=false`).
 - hal_harness: agent dir/function/name, task id e `_UPLOAD.json`.
 - aider_polyglot: reps sao runs `--new`; `--tries` continua interno ao aider.
 
 ### Solver swap para uplift
 
-As cinco familias configuradas (`hal_harness`, `swe_bench_live`,
-`terminal_bench`, `bfcl`, `aider_polyglot`) preservam o grader nativo, mas
-trocam somente o solver:
+As dez suítes externas têm rota distinta `bare`/`atlas_dev` e preservam o
+grader nativo, trocando somente o solver. `uplift_families` continua sendo a
+taxonomia analítica de cinco famílias no relatório; não limita a cobertura de
+execução da bateria 10×2.
 
 | runtime | prova obrigatoria |
 |---|---|

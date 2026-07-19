@@ -173,6 +173,9 @@ Loop externo tipico: `import-cases` → `plan` → executar comandos nativos for
 `native_execution_manifest.json`. Production import aceita somente bundle
 manifest-bound com unit result + native execution receipt por
 `case×arm×rep`; JSON agregado permanece harness/legado non-claim.
+O native receipt v2 aponta para stdout/stderr legíveis por unidade e exige
+`failure_reason` em timeout/environment failure. O RunReceipt v3 carrega essa
+razão até autopsy, CSV, Markdown e relatório enterprise.
 
 Modelo real homologado para as baterias Fase A: `verboo_kimi_k2_7`
 (`cli_model=kimi-k2.7`). O runner carrega `VERBOO_API_KEY` do Hermes sem
@@ -198,8 +201,9 @@ php scripts/rivals-native-runner.php \
 ### Uplift
 
 `runtime_commands` (`atlas_dev`, `forge`, `loop`, `autonomous`) precisam estar setados; senao uplift reporta `uplift_supported=false`.
-Nos cinco uplifts Fase A, bare e `atlas_dev` usam o mesmo Kimi/Verboo e
-**solver paths diferentes**. O braço Atlas só é aceito com
+Nas dez suítes, bare e `atlas_dev` usam o mesmo Kimi/Verboo e **solver paths
+diferentes**. As cinco `uplift_families` permanecem um recorte analítico do
+enterprise report, não um filtro da bateria. O braço Atlas só é aceito com
 `.rivals_atlas_dev_bridge.json` provando `hermes_cli`, modelo exato,
 single-provider, Decide desabilitado, fallback desabilitado e usage real.
 
@@ -258,7 +262,7 @@ php artisan atlas:rivals battery --mode=execute --kind=bare --approve-provider-s
 # 3) EXECUTE real nos 10 (Hermes+Verboo) + pipeline + enterprise report
 php artisan atlas:rivals battery --mode=execute --kind=bare --approve-provider-spend --json
 
-# 4) uplift Atlas × modelo (5 famílias) + consolidar de novo
+# 4) executar os dois braços nas 10 suítes; consolidar as 5 famílias analíticas
 php artisan atlas:rivals battery --mode=execute --kind=uplift --approve-provider-spend --json
 php artisan atlas:rivals report-enterprise --json
 php artisan atlas:rivals closure --verify --json

@@ -12,9 +12,10 @@
   `terminal-bench-core==0.1.1` (`git-bisect`, `kernel-config`) → `git-multibranch`.
 - Provider-lock estrito restaurado no bridge (caminho atlas:cli:dev).
 - Ledger semântico re-apontado após quarentena de epoch (13/07 16:53); chain verified.
-- Report enterprise agora declara `atlas_uplift.bare_only_suites` (5/10 suítes sem
-  família de uplift são bare-only POR CONSTRUÇÃO, não gap silencioso).
-- Modo oficial `battery --mode/kind=atlas` (atlas_dev-only nas uplift_families).
+- Desde 19/07, os 10 adapters têm rota Atlas distinta. O report mantém cinco
+  `uplift_families` como recorte analítico e lista as outras cinco em
+  `additional_dual_arm_suites`; `bare_only_suites` fica vazio.
+- Modo oficial `battery --mode/kind=atlas` executa atlas_dev nas 10 suítes.
 - Kernel Atlas Dev mutativo destravado em 8 camadas (venv semantic_rag, 57 tabelas
   wiped re-migradas, prompt real com goal+arquivos+contrato, parser tolerante a
   stream de raciocínio, preimage do sandbox, lint poliglota, behavioral opcional,

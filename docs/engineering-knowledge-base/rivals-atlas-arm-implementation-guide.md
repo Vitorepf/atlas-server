@@ -164,3 +164,21 @@ unit-script BFCL standalone gravou `input_token_count=42133 out=642` no result
 file que o normalizador soma. Corridas pré-fix (bfcl/aider/hal já concluídas)
 têm tokens=0 e foram RE-enfileiradas para dados claim-eligible; suítes pesadas
 (swe-live/harbor) precisam de re-wave limpa para token completo.
+
+## Prova de resposta, logs internos e Harbor (2026-07-19)
+
+`provider_calls > 0` sozinho não prova resposta: a corrida Senior
+`20260719_074951_7c96f46e`, unidade `ne_ce2e58db68daf0d1f4997f35`, produziu
+`provider_calls=1`, `candidate_preparation_blocked:provider_unavailable`, zero
+tokens e zero patch, mas o bridge antigo marcou `real_provider=true`. O bridge
+v2 agora exige provider/model exatos **e usage real**, recusa erros
+pré-resposta e grava `failure_reason`. Falhar a tarefa depois de uma resposta
+com tokens continua sendo medição válida.
+
+O agente Harbor persiste também `agent/atlas-bridge.stdout.log` e
+`agent/atlas-bridge.stderr.log`, com hashes referenciados no bridge receipt.
+No Senior, `RewardFileEmptyError` pode ser a exclusão deliberada do próprio
+benchmark: no caso `harbor-add-agent-file-retention`, o juiz de validação não
+produziu o `submit_review` estruturado e o `test.sh` esvaziou `reward.txt` para
+marcar falha de infraestrutura, não score do modelo. O normalizador preserva o
+tipo e a mensagem como `failure_reason`.

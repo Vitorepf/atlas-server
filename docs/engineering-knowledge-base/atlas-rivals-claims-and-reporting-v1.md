@@ -127,6 +127,8 @@ Claim interno true so com todos:
 15. `events.jsonl` vivo completo (`events_incomplete` bloqueia claim)
 16. Rebuild de report/adjudication/evidence exige re-append ledger semantico
     (epoch atual limpo; historico corrompido vai para quarantine)
+17. Cada unidade tem stdout e stderr legíveis, hash-pinados pelo native receipt;
+    todo receipt não-success tem `failure_reason` não vazio e o report o expõe
 
 ### Contrato “Fato Atlas” vs diagnostico
 
