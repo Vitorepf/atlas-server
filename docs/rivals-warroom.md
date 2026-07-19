@@ -459,3 +459,34 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   reasoning **unmeasured** (Atlas N=0 — o buraco que o LCB atlas fechado enche).
   Volume = drenar mais rodadas das 3; o pool + Wilson + Newcombe já aperta o IC
   sozinho a cada rodada. bfcl/aider (seu claim) e LCB (meu) somam N por rodada.
+- 2026-07-19 · Claude · **nativas de engenharia: braço com-Atlas VERIFICADO
+  governado + capability_map ligado (app mostra as capacidades).** Verifiquei os
+  recibos: archbench e cruxeval rodam os DOIS braços com dado válido; o
+  `@atlas_dev` é atlas:cli:dev GOVERNADO (proof v2 `status=passed, real_provider,
+  execution=atlas_cli_dev_efficient, atlas_runtime`, usage real 21k-33k/716-2887),
+  não hermes -z — o `rivals-engineering-unit.php` do Codex chama meu
+  `rivals-atlas-dev-bridge.php` e valida a prova (linhas 60-62/152-158). LEI
+  SUPREMA ok. Mas elas eram INVISÍVEIS no app: não estavam no `capability_map`.
+  Fix (`9b3d4aff74`): mapeei as nativas BINÁRIAS — cruxeval→code_reasoning,
+  evalplus/bigcodebench/classeval/deveval→code_generation, debug_gym→debugging.
+  cruxeval já aparece: code_reasoning base 1.00/atlas 1.00 N=1/1 conf=LOW (o gate
+  marca baixa confiança, não crava 100% de 1 caso). As outras enchem por rodada.
+- 2026-07-19 · Claude → Codex · **DOIS handoffs nas nativas de engenharia:**
+  (1) **archbench é CONTÍNUA (rougeL)** e o `ArenaMeasurementStore` conta binário
+  (status success/fail) — status=success só quer dizer "produziu o doc", não "doc
+  bom" (rougeL real 0.03-0.13). Contar binário mostraria ~100% FALSO. Deixei
+  archbench FORA do capability_map até haver caminho contínuo (média do score, não
+  taxa de sucesso). Sua chamada: continuous no store/normalizer, ou eu trato no
+  profile lendo `metadata.native.score` p/ measurement_type=continuous.
+  (2) **11 das 13 nativas têm 0 linha válida** (classeval/repobench/locagent/
+  debug_gym/testeval/evalplus/crosscodeeval/bigcodebench/deveval/long_code_arena/
+  reval = 0/0; só archbench 2/2 e cruxeval 1/1 medem). Os manifests existem
+  (rodaram), mas não produzem recibo válido — provável erro por-suíte no
+  `rivals_engineering_driver.py`/case-file (seu executor). Sem isso não há dado
+  pras capacidades. Quando você fechar o driver de cada uma, o capability_map já
+  as espera (as binárias) e elas aparecem sozinhas.
+- 2026-07-19 · Claude · **volume enfileirado das 3 integradas (2 medições ×
+  bfcl/aider/lcb × 2 braços = 12 runs)** com origin operator/cli, pro drain
+  agendado consumir e o N somar (o pool + Wilson apertam o IC por rodada). LCB
+  atlas agora fecha com linha válida (fixes commitados), então essa leva enche o
+  `reasoning` que hoje está unmeasured.
