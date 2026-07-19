@@ -373,6 +373,7 @@ O que existe no codigo:
 | Runtime provider | `app/Services/Ai/HermesCliProvider.php` | Executa `hermes chat --quiet --query` |
 | Executive Mission | `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php` | Separa objetivo, scope, contexto, runtime, memoria e aprovacao |
 | Result Packet | `app/Services/Ai/Hermes/HermesResultPacketFactory.php` | Resume output, evidence, memory, procedure e schedule gates (transport-agnostico: CLI e ACP alimentam o mesmo builder) |
+| OpenAI response adapter | `app/Services/Ai/Hermes/HermesOpenAiResponseAdapter.php` | Traduz chamadas de unidades Rivals preregistradas para o mesmo `HermesCliProvider`; nunca executa provider por conta propria |
 | Memory Adapter | `app/Services/Ai/Hermes/HermesMemoryAdapter.php` | Persiste MemoryDeltaCandidate como AiMemoryDelta pending quando policy permite |
 | Schedule Adapter | `app/Services/Ai/Hermes/HermesScheduleAdapter.php` | Persiste ScheduleCandidate como AiScheduledTask candidate desligado quando policy permite |
 | Procedure Adapter | `app/Services/Ai/Hermes/HermesProcedureAdapter.php` | Persiste ProcedureCandidate como skill candidato revisavel; promocao so via SkillPackPromotionGate |
@@ -422,6 +423,9 @@ Contrato operacional implementado:
 - `--provider`, `--toolsets`, `--skills`, `--source`, `--max-turns`,
   `--resume`, `--continue` e `--image` sao governados pelo payload/config ATLS.
 - Args inseguros ou stale vindos de config sao removidos antes da chamada.
+- Adapters response-only podem pedir `hermes.safe_mode=true`: o provider
+  canonico adiciona `--safe-mode`, desliga regras/plugins/MCP/config e fallback
+  do usuario, mantendo provider/model fixos no contrato da missao. E default-off.
 - Memory policy default e `off`; candidatos retornados ficam em quarentena ate
   Atlas Memory Gate aprovar.
 - Schedule policy default e `off`; candidatos retornados ficam revisaveis ate
@@ -466,6 +470,7 @@ promover skill ou entregar gateway sem o gate ATLS dedicado; auto-routing fora d
 - `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php`.
 - `app/Services/Ai/Hermes/HermesMemoryAdapter.php`.
 - `app/Services/Ai/Hermes/HermesResultPacketFactory.php`.
+- `app/Services/Ai/Hermes/HermesOpenAiResponseAdapter.php`.
 - `app/Services/Ai/Hermes/HermesScheduleAdapter.php`.
 - `app/Services/Ai/Provider/Drivers/HermesCliProviderDriver.php`.
 - `app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php`.
@@ -474,6 +479,8 @@ promover skill ou entregar gateway sem o gate ATLS dedicado; auto-routing fora d
   permissao, model/provider/toolsets/skills, mission, result packet, candidate gates, Memory Adapter e Schedule Adapter.
 - `tests/Unit/Ai/HermesExecutiveRuntimePacketEvidenceTest.php` cobre referencia
   mission/result packet e adapter receipts em `ProviderUsagePayload`.
+- `tests/Unit/Ai/Hermes/HermesOpenAiResponseAdapterTest.php` cobre binding exato
+  de unidade, uso real, streams persistidos, falha nomeada e prova agregada.
 - `tests/Unit/Ai/Provider/ProviderDriverWrappersTest.php` cobre manifest e
   identity fragment.
 - `tests/Unit/Ai/AiProviderManagerTest.php` cobre resolucao do provider.

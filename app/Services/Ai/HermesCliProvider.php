@@ -744,6 +744,14 @@ class HermesCliProvider implements AiProvider
             $args[] = '--worktree';
         }
 
+        // Response-only adapters (for example a benchmark harness that owns
+        // the tool loop) must not inherit user rules, plugins, MCP servers or
+        // a configured fallback chain. This is explicit and default-off so
+        // every existing Hermes caller remains byte-identical.
+        if (data_get($job->payload, 'hermes.safe_mode') === true) {
+            $args[] = '--safe-mode';
+        }
+
         if (in_array($mode, ['write', 'danger'], true)) {
             if ((bool) ($provider['accept_hooks'] ?? true)) {
                 $args[] = '--accept-hooks';

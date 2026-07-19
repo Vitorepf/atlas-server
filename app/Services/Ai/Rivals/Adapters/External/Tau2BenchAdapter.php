@@ -25,8 +25,14 @@ class Tau2BenchAdapter extends AbstractExternalSuiteAdapter
         // exigiria binding de modelo por-braço no plano; promover se o ruído
         // do user-sim governado aparecer nas medições.
         if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
+            $llmArgs = '{"temperature":0.0,"extra_headers":{'
+                .'"X-Atlas-Rivals-Run-Id":"{run_id}",'
+                .'"X-Atlas-Rivals-Execution-Id":"{execution_id}"}}';
+
             return 'env OPENAI_BASE_URL=http://127.0.0.1:8791/v1 OPENAI_API_BASE=http://127.0.0.1:8791/v1 '
-                .$this->commandTemplate();
+                .$this->commandTemplate()
+                .' --agent-llm-args '.$llmArgs
+                .' --user-llm-args '.$llmArgs;
         }
 
         return parent::commandTemplateForArm($binding);

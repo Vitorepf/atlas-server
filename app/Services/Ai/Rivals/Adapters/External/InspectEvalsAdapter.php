@@ -78,7 +78,7 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
      * Composto não declarado FALHA ALTO (foi o que pegou este caso: o ifeval
      * derrubou a ingestão da suíte inteira em vez de virar "modelo falhou").
      *
-     * @var array<string, string>  task => campo booleano que define sucesso
+     * @var array<string, string> task => campo booleano que define sucesso
      */
     private const COMPOSITE_SCORES = [
         'ifeval' => 'prompt_level_strict',
@@ -138,11 +138,19 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         // OpenAI-compatível local na frente do runtime governado
         // (scripts/rivals-atlas-openai-endpoint.php, launchd 8791).
         if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
-            return str_replace(
+            $template = str_replace(
                 '--model-base-url https://code.verboo.ai/router/v1',
                 '--model-base-url http://127.0.0.1:8791/v1',
                 $this->commandTemplate(),
             );
+
+            // `default_headers` is a native OpenAI client argument accepted by
+            // Inspect's openai-api provider. The endpoint resolves the exact
+            // manifest entry from these identifiers; callers never choose an
+            // arbitrary proof path.
+            return $template
+                .' -M default_headers={"X-Atlas-Rivals-Run-Id":"{run_id}",'
+                .'"X-Atlas-Rivals-Execution-Id":"{execution_id}"}';
         }
 
         return parent::commandTemplateForArm($binding);

@@ -159,6 +159,59 @@ class ExternalCommandContractTest extends TestCase
         $this->assertStringContainsString('--max-tokens', $tpl);
     }
 
+    public function test_openai_compatible_atlas_arms_bind_every_request_to_the_native_unit(): void
+    {
+        $registry = new SuiteRegistry;
+        foreach (['inspect_evals', 'tau2_bench'] as $suiteId) {
+            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
+            $case = $adapter->listCases()[0];
+            $plan = RunPlan::make(
+                $suiteId,
+                [$case['case_id']],
+                [(new ArmRegistry)->parse('verboo_kimi_k2_7@atlas_dev', $suiteId)],
+                1,
+                ['max_usd' => 0.0, 'max_minutes' => 120],
+                42,
+            );
+
+            $command = $adapter->planCommands($plan)[0];
+            $argv = $command['argv'];
+            $serialized = implode(' ', $argv);
+
+            $this->assertStringContainsString($plan->runId(), $serialized, $suiteId);
+            $this->assertStringContainsString('X-Atlas-Rivals-Run-Id', $serialized, $suiteId);
+            $this->assertStringContainsString('X-Atlas-Rivals-Execution-Id', $serialized, $suiteId);
+
+            if ($suiteId === 'inspect_evals') {
+                $this->assertStringContainsString($command['normalization']['scratch_dir'], $serialized);
+                $modelArg = collect($argv)->first(
+                    fn (string $arg): bool => str_starts_with($arg, 'default_headers='),
+                );
+                $this->assertIsString($modelArg);
+                $headers = json_decode(substr($modelArg, strlen('default_headers=')), true);
+                $this->assertSame($plan->runId(), $headers['X-Atlas-Rivals-Run-Id'] ?? null);
+                $this->assertSame(
+                    basename($command['normalization']['scratch_dir']),
+                    $headers['X-Atlas-Rivals-Execution-Id'] ?? null,
+                );
+            } else {
+                foreach (['--agent-llm-args', '--user-llm-args'] as $flag) {
+                    $index = array_search($flag, $argv, true);
+                    $this->assertNotFalse($index, $flag);
+                    $args = json_decode($argv[$index + 1], true);
+                    $this->assertSame(
+                        $plan->runId(),
+                        data_get($args, 'extra_headers.X-Atlas-Rivals-Run-Id'),
+                    );
+                    $this->assertSame(
+                        basename($command['normalization']['scratch_dir']),
+                        data_get($args, 'extra_headers.X-Atlas-Rivals-Execution-Id'),
+                    );
+                }
+            }
+        }
+    }
+
     public function test_all_ten_suites_use_distinct_bare_and_atlas_solver_paths(): void
     {
         $registry = new SuiteRegistry;
@@ -203,6 +256,10 @@ class ExternalCommandContractTest extends TestCase
         $this->assertStringContainsString('atlas-bridge.stdout.log', $harborAgent);
         $this->assertStringContainsString('atlas-bridge.stderr.log', $harborAgent);
         $this->assertStringContainsString('environment.upload_file', $harborAgent);
+
+        $endpoint = (string) file_get_contents(base_path('scripts/rivals-atlas-openai-endpoint.php'));
+        $this->assertStringContainsString('HermesOpenAiResponseAdapter', $endpoint);
+        $this->assertStringNotContainsString('proc_open', $endpoint);
     }
 
     public function test_python_runtime_agents_emit_captured_bridge_streams(): void

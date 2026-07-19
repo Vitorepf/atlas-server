@@ -396,6 +396,39 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotContains('-z', $result->command);
     }
 
+    public function test_hermes_explicit_response_only_oneshot_uses_safe_mode_without_changing_defaults(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+
+        $job = $this->job([
+            'hermes' => [
+                'source' => 'rivals',
+                'cli_oneshot' => true,
+                'safe_mode' => true,
+            ],
+            'tool_permissions' => [
+                'mode' => 'read',
+                'workspace' => $this->workspace,
+                'allowed_roots' => [$this->workspace],
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+        $job->model = 'kimi-k2.7';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'response-only probe');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('-z', $result->command);
+        $this->assertContains('--safe-mode', $result->command);
+        $this->assertNotContains('--yolo', $result->command);
+    }
+
     public function test_hermes_memory_adapter_persists_candidates_for_atlas_review(): void
     {
         Schema::dropIfExists('ai_memory_deltas');

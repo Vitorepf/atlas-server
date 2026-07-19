@@ -58,9 +58,27 @@ do LCB espera, reaproveitando o avaliador nativo. Estimativa: ~120 linhas + over
 Esses frameworks dirigem a API DO MODELO diretamente (`inspect eval --model`,
 `tau2 run --agent-llm`): não há workspace para o bridge. O braço Atlas exige
 expor o Atlas como endpoint OpenAI-compatível (`/v1/chat/completions` na frente
-do runtime governado) e apontar `{cli_model}` do braço para ele. É a peça que
-NÃO existe hoje — decisão de arquitetura da lane do servidor (AP próprio).
-Até lá: baseline mede, braço degrada dito.
+do runtime governado) e apontar `{cli_model}` do braço para ele.
+
+Implementacao vigente (2026-07-19): o script HTTP e somente uma borda; ele
+bootstrapa Laravel e delega a `HermesOpenAiResponseAdapter`, que converte cada
+request em `AiJob` e chama o `HermesCliProvider` canonico. Nao existe segundo
+runtime nem `proc_open` paralelo. Toda resposta valida exige simultaneamente:
+
+1. `run_id` + `execution_id` enviados como headers nativos do cliente;
+2. entrada exata `atlas_dev` no `NativeExecutionManifest` (o endpoint deriva o
+   scratch; nunca aceita path escolhido pelo caller);
+3. provider/model fixos `hermes_cli` + `kimi-k2.7`, `safe_mode`, sem Decide
+   dinamico e sem fallback, preservando o arm preregistrado;
+4. `atlas.hermes.executive_mission.v1`,
+   `atlas.hermes.result_packet.v1` e `usage` nao vazio;
+5. stdout e stderr de cada chamada em `atlas-response-calls/`, mais recibo
+   agregado `.rivals_atlas_dev_bridge.json` v2 e linha append-only em
+   `endpoint_receipts.jsonl` com `failure_reason` quando falha.
+
+Inspect envia os headers via `-M default_headers=...`; Tau2 envia os mesmos
+headers em `extra_headers` tanto no agent LLM quanto no user simulator. Request
+sem binding exato falha antes de gastar provider.
 
 ## Operação (o que estava desligando o Rivals inteiro)
 
@@ -117,12 +135,13 @@ Os 10/10 braços com-Atlas existem em código. Peças novas:
   auto-inicia — sempre `launchctl kickstart` após bootstrap.
 - **com.atlas.rivals-openai-endpoint** (LaunchAgent, KeepAlive):
   `php -S 127.0.0.1:8791 scripts/rivals-atlas-openai-endpoint.php`,
-  PHP_CLI_SERVER_WORKERS=4. Cada /v1/chat/completions = hermes one-shot
-  (--safe-mode, --ignore-user-config, HERMES_HOME isolado) → Verboo; recibos
-  em `storage/atlas/rivals/endpoint_receipts.jsonl`. Tool-calls bridgeados
+  PHP_CLI_SERVER_WORKERS=4. Desde 2026-07-19, cada `/v1/chat/completions`
+  passa pelo `HermesCliProvider` com ExecutiveMission + ResultPacket e prova
+  vinculada a manifest; a implementacao anterior chamava o binario cru e nao
+  provava Atlas. Tool-calls continuam bridgeados
   por prompt-JSON (smoked com get_reservation). PROVA inspect: gsm8k_af9bef9a
-  accuracy 1.000 via endpoint (13.170 tokens in — overhead do runtime visível
-  e medido).
+  accuracy 1.000 de 18/07 prova compatibilidade do protocolo, mas nao e prova
+  do novo runtime governado; exige nova corrida limpa.
 - **Drain com repetições ≥3** (`worker_repetitions`, env
   ATLAS_ARENA_WORKER_REPETITIONS): 1 rep carimbava repetitions_below_min em
   todo relatório do app.

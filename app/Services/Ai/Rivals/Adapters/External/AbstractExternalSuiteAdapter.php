@@ -168,7 +168,11 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                         str_getcsv($template, ' ', '"', '\\'),
                     );
                     $unresolved = implode(' ', $argv);
-                    if (str_contains($unresolved, '{') || str_contains($unresolved, '}')) {
+                    // Only typed template placeholders are unresolved. JSON/YAML
+                    // values are legitimate argv (Inspect model args and Tau2 LLM
+                    // args both use them), so rejecting every brace would make
+                    // structured native arguments impossible.
+                    if (preg_match('/\{[a-z][a-z0-9_]*\}/i', $unresolved) === 1) {
                         throw new RuntimeException($this->suiteId().'_unresolved_placeholders:'.$unresolved);
                     }
                     if (str_contains($template, '{arm_id}')) {
