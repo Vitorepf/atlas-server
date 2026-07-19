@@ -39,6 +39,55 @@ class AtlasRuntimeProofValidatorTest extends TestCase
         $this->assertTrue($validator->valid($proof, 'kimi-k2.7', $this->runDir));
     }
 
+    public function test_code_bridge_v2_requires_canonical_atlas_path_and_verified_native_streams(): void
+    {
+        $proof = [
+            'schema_version' => AtlasRuntimeProofValidator::SCHEMA_V2,
+            'status' => 'passed',
+            'failure_reason' => null,
+            'atlas_runtime' => true,
+            'execution' => 'atlas_cli_dev_efficient',
+            'real_provider' => true,
+            'provider' => 'hermes_cli',
+            'model' => 'kimi-k2.7',
+            'fair_mode' => [
+                'single_provider' => true,
+                'decide_disabled' => true,
+                'fallback_disabled' => true,
+            ],
+            'provider_call' => [
+                'provider_calls' => 1,
+                'error_codes' => ['candidate_preparation_blocked:sandbox_apply_failed'],
+            ],
+            'usage' => [
+                'input_tokens' => 100,
+                'output_tokens' => 20,
+                'cost_usd' => 0.0,
+                'present' => true,
+            ],
+        ];
+        $validator = new AtlasRuntimeProofValidator;
+
+        $this->assertFalse($validator->valid($proof, 'kimi-k2.7', $this->runDir));
+
+        foreach (['stdout', 'stderr'] as $stream) {
+            $relative = "native_execution_receipts/logs/ne_code.{$stream}.log";
+            $path = $this->runDir.'/'.$relative;
+            File::ensureDirectoryExists(dirname($path));
+            file_put_contents($path, "captured {$stream}\n");
+            $proof['native_streams'][$stream] = [
+                'present' => true,
+                'verified' => true,
+                'path' => $relative,
+                'sha256' => hash_file('sha256', $path),
+            ];
+        }
+
+        $this->assertTrue($validator->valid($proof, 'kimi-k2.7', $this->runDir));
+        $proof['execution'] = 'hermes_cli_oneshot';
+        $this->assertFalse($validator->valid($proof, 'kimi-k2.7', $this->runDir));
+    }
+
     /** @return array<string,mixed> */
     private function proof(): array
     {

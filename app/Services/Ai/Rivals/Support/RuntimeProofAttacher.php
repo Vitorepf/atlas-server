@@ -74,6 +74,9 @@ final class RuntimeProofAttacher
                 : (is_array($entry)
                     ? $this->atlasProof((string) data_get($entry, 'normalization.scratch_dir'))
                     : null);
+            if (is_array($proof)) {
+                $proof['native_streams'] = $this->nativeStreams($nativeReceipt, $runId);
+            }
             // `provider_calls` is an attempt counter, not proof of a response.
             // A real 19/07 receipt had calls=1 + provider_unavailable + no usage
             // and was incorrectly accepted. Since the Rivals bridge now captures
@@ -160,5 +163,31 @@ final class RuntimeProofAttacher
         }
 
         return null;
+    }
+
+    /** @return array<string,array<string,mixed>> */
+    private function nativeStreams(?NativeExecutionReceipt $receipt, string $runId): array
+    {
+        $streams = [];
+        foreach (['stdout', 'stderr'] as $stream) {
+            $evidence = $receipt instanceof NativeExecutionReceipt
+                ? (array) ($receipt->data[$stream] ?? [])
+                : [];
+            $path = is_string($evidence['path'] ?? null) ? $evidence['path'] : '';
+            $absolute = $path !== '' ? RunPaths::runDir($runId).'/'.$path : '';
+            $verified = ($evidence['present'] ?? false) === true
+                && $absolute !== ''
+                && is_readable($absolute)
+                && is_string($evidence['sha256'] ?? null)
+                && hash_file('sha256', $absolute) === $evidence['sha256'];
+            $streams[$stream] = [
+                'present' => ($evidence['present'] ?? false) === true,
+                'verified' => $verified,
+                'path' => $path !== '' ? $path : null,
+                'sha256' => $evidence['sha256'] ?? null,
+            ];
+        }
+
+        return $streams;
     }
 }

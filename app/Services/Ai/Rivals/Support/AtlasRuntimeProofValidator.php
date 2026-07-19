@@ -28,8 +28,23 @@ final class AtlasRuntimeProofValidator
 
         if (($proof['status'] ?? null) !== 'passed'
             || ($proof['failure_reason'] ?? null) !== null
-            || ($proof['provider'] ?? null) !== 'hermes_cli'
-            || ! $this->nonEmpty($proof['execution_id'] ?? null)
+            || ($proof['provider'] ?? null) !== 'hermes_cli') {
+            return false;
+        }
+
+        if (($proof['runtime_contract'] ?? null) === 'atlas.hermes_cli_provider.v1') {
+            return $this->validResponseProof($proof, $runDir);
+        }
+
+        return ($proof['atlas_runtime'] ?? false) === true
+            && ($proof['execution'] ?? null) === 'atlas_cli_dev_efficient'
+            && (int) data_get($proof, 'provider_call.provider_calls', 0) > 0
+            && $this->validNativeStreams($proof, $runDir);
+    }
+
+    private function validResponseProof(array $proof, ?string $runDir): bool
+    {
+        if (! $this->nonEmpty($proof['execution_id'] ?? null)
             || ($proof['runtime_contract'] ?? null) !== 'atlas.hermes_cli_provider.v1'
             || data_get($proof, 'governance.atlas_is_sovereign') !== true
             || data_get($proof, 'governance.executive_mission_schema') !== 'atlas.hermes.executive_mission.v1'
@@ -72,6 +87,27 @@ final class AtlasRuntimeProofValidator
         }
 
         return $observedSuccessful === $successful;
+    }
+
+    private function validNativeStreams(array $proof, ?string $runDir): bool
+    {
+        foreach (['stdout', 'stderr'] as $stream) {
+            $evidence = data_get($proof, "native_streams.{$stream}");
+            if (! is_array($evidence)
+                || ($evidence['present'] ?? false) !== true
+                || ($evidence['verified'] ?? false) !== true
+                || ! $this->nonEmpty($evidence['path'] ?? null)
+                || ! preg_match('/^[a-f0-9]{64}$/', (string) ($evidence['sha256'] ?? ''))
+                || ! $this->readableStream($runDir, (string) ($evidence['path'] ?? ''))) {
+                return false;
+            }
+            if ($runDir !== null
+                && hash_file('sha256', rtrim($runDir, '/').'/'.$evidence['path']) !== $evidence['sha256']) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function nonEmpty(mixed $value): bool

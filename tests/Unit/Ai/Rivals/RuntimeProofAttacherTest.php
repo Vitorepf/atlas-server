@@ -67,8 +67,7 @@ class RuntimeProofAttacherTest extends TestCase
         );
 
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
-        $proof = $this->governedProof();
-        $this->persistProofStreams($plan, $proof);
+        $proof = $this->codeBridgeProof();
         file_put_contents(
             data_get($entry, 'normalization.scratch_dir').'/.rivals_atlas_dev_bridge.json',
             json_encode($proof),
@@ -81,6 +80,8 @@ class RuntimeProofAttacherTest extends TestCase
         );
         $this->assertTrue(data_get($attached, 'metadata.runtime_bridge.real_provider'));
         $this->assertSame('hermes_cli', data_get($attached, 'metadata.runtime_bridge.provider'));
+        $this->assertTrue(data_get($attached, 'metadata.runtime_bridge.native_streams.stdout.verified'));
+        $this->assertTrue(data_get($attached, 'metadata.runtime_bridge.native_streams.stderr.verified'));
     }
 
     public function test_atlas_that_responded_and_failed_the_task_is_measured_not_discarded(): void
@@ -88,7 +89,7 @@ class RuntimeProofAttacherTest extends TestCase
         [$plan, $manifest, $binding, $entry] = $this->manifest('atlas_dev');
         $this->persistNativeReceipt($plan, $manifest, $entry, 'execute');
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
-        $proof = array_replace_recursive($this->governedProof(), [
+        $proof = array_replace_recursive($this->codeBridgeProof(), [
             'task_ok' => false,
             'completion_state' => 'blocked',
             'provider_call' => [
@@ -99,7 +100,6 @@ class RuntimeProofAttacherTest extends TestCase
                 ],
             ],
         ]);
-        $this->persistProofStreams($plan, $proof);
         file_put_contents(
             data_get($entry, 'normalization.scratch_dir').'/.rivals_atlas_dev_bridge.json',
             (string) json_encode($proof),
@@ -185,31 +185,24 @@ class RuntimeProofAttacherTest extends TestCase
     }
 
     /** @return array<string,mixed> */
-    private function governedProof(): array
+    private function codeBridgeProof(): array
     {
         return [
             'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v2',
             'status' => 'passed',
             'failure_reason' => null,
+            'atlas_runtime' => true,
+            'execution' => 'atlas_cli_dev_efficient',
             'real_provider' => true,
             'provider' => 'hermes_cli',
             'model' => 'kimi-k2.7',
-            'execution_id' => 'ne_runtime_proof_test',
-            'runtime_contract' => 'atlas.hermes_cli_provider.v1',
             'fair_mode' => [
                 'single_provider' => true,
                 'decide_disabled' => true,
                 'fallback_disabled' => true,
             ],
-            'governance' => [
-                'atlas_is_sovereign' => true,
-                'executive_mission_schema' => 'atlas.hermes.executive_mission.v1',
-                'result_packet_schema' => 'atlas.hermes.result_packet.v1',
-                'safe_mode' => true,
-            ],
             'provider_call' => [
                 'provider_calls' => 1,
-                'successful_responses' => 1,
                 'error_codes' => [],
             ],
             'usage' => [
@@ -218,30 +211,7 @@ class RuntimeProofAttacherTest extends TestCase
                 'cost_usd' => 0.0,
                 'present' => true,
             ],
-            'calls' => [[
-                'sequence' => 1,
-                'status' => 'passed',
-                'failure_reason' => null,
-                'input_tokens' => 100,
-                'output_tokens' => 20,
-                'stdout_path' => 'native_scratch/ne_runtime_proof_test/call-0001.stdout.log',
-                'stderr_path' => 'native_scratch/ne_runtime_proof_test/call-0001.stderr.log',
-                'executive_mission_hash' => hash('sha256', 'mission'),
-                'result_packet_hash' => hash('sha256', 'result'),
-            ]],
         ];
-    }
-
-    /** @param array<string,mixed> $proof */
-    private function persistProofStreams(RunPlan $plan, array $proof): void
-    {
-        foreach ($proof['calls'] as $call) {
-            foreach (['stdout_path', 'stderr_path'] as $field) {
-                $path = RunPaths::runDir($plan->runId()).'/'.$call[$field];
-                File::ensureDirectoryExists(dirname($path));
-                file_put_contents($path, "atlas.rivals2.captured_stream.v1\n");
-            }
-        }
     }
 
     /** @return array{RunPlan, NativeExecutionManifest, array<string,mixed>, array<string,mixed>} */
@@ -281,6 +251,12 @@ class RuntimeProofAttacherTest extends TestCase
         $resultPath = RunPaths::runDir($plan->runId()).'/'.$entry['expected_result_path'];
         File::ensureDirectoryExists(dirname($resultPath));
         file_put_contents($resultPath, '{}');
+        $logDir = RunPaths::runDir($plan->runId()).'/native_execution_receipts/logs';
+        File::ensureDirectoryExists($logDir);
+        $stdoutPath = $logDir.'/'.$entry['execution_id'].'.stdout.log';
+        $stderrPath = $logDir.'/'.$entry['execution_id'].'.stderr.log';
+        file_put_contents($stdoutPath, 'stdout');
+        file_put_contents($stderrPath, '');
         NativeExecutionReceipt::fromArray([
             'schema_version' => NativeExecutionReceipt::SCHEMA,
             'run_id' => $plan->runId(),
@@ -299,12 +275,12 @@ class RuntimeProofAttacherTest extends TestCase
             'stdout' => [
                 'present' => true,
                 'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stdout.log',
-                'sha256' => hash('sha256', 'stdout'),
+                'sha256' => hash_file('sha256', $stdoutPath),
             ],
             'stderr' => [
                 'present' => true,
                 'path' => 'native_execution_receipts/logs/'.$entry['execution_id'].'.stderr.log',
-                'sha256' => hash('sha256', ''),
+                'sha256' => hash_file('sha256', $stderrPath),
             ],
             'runner' => ['version' => 'rivals-native-runner-v1', 'mode' => $mode],
             'provider_binding' => [
