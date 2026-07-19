@@ -16,6 +16,13 @@
 
 declare(strict_types=1);
 
+// O php -S impõe max_execution_time=30s por request, e uma pergunta dura de
+// tau2/inspect leva mais que isso no hermes → fatal na linha da chamada, e o
+// worker do endpoint caía (last exit 124), derrubando o braço com-Atlas dessas
+// suítes. O teto real de tempo é o do hermes (request_timeout 900s); aqui só
+// tiramos o gatilho prematuro do PHP.
+set_time_limit(0);
+
 const ENDPOINT_MODEL_DEFAULT = 'kimi-k2.7';
 
 $root = dirname(__DIR__);
