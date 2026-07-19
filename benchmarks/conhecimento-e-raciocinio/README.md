@@ -1,18 +1,10 @@
-# Conhecimento e Raciocínio
+# Conhecimento & raciocínio
 
-Benchmarks de **conhecimento puro, raciocínio e recusa apropriada** — não são
-tarefas de engenharia. Ficam num intuito próprio (não em Engenharia de Software)
-justamente porque medem outra coisa.
+Q&A de conhecimento, raciocínio e diálogo. Rodam **nativo no Mac**, mas medem o
+**modelo cru** — o braço "com Atlas" aqui é o runtime governado de resposta, que
+ainda não existe (o Atlas é executor de engenharia). Até existir, aparecem "não
+medido" para o Atlas, nunca Hermes cru disfarçado. Ver `docs/rivals-warroom.md` §7.
 
-> **Estado do braço "com Atlas" aqui:** em aberto. O Atlas é executor de
-> engenharia; o braço `with_atlas` honesto para uma Q&A exige um **runtime de
-> resposta governado** (cérebro Atlas com Hermes por dentro, respondendo — não o
-> `atlas:cli:dev` de código, que erra o enquadramento). Enquanto esse runtime não
-> existir, estas suítes aparecem **"não medido"** para o Atlas — nunca um número
-> de Hermes cru disfarçado. Ver `docs/rivals-warroom.md` §6/§7.
-
-## Benchmarks
-
-| benchmark | mede | repo oficial |
-|---|---|---|
-| [inspect_evals](inspect_evals/) | Q&A de conhecimento (MMLU), raciocínio (MUSR), recusa (coconot), seguir instruções (ifeval) | UKGovernmentBEIS/inspect_evals |
+## Integrados (rodando, só braço cru)
+- [inspect_evals](inspect_evals/) — MMLU, MUSR, coconot (recusa), ifeval
+- [tau2_bench](tau2_bench/) — diálogo agêntico com ferramentas (atendimento)
