@@ -134,3 +134,33 @@ Os 10/10 braços com-Atlas existem em código. Peças novas:
 - Teto conhecido (tau2): o user-sim TAMBÉM passa pelo endpoint governado
   (litellm resolve base por env, sem split por papel). Simétrico e dito;
   separar exige binding de modelo por-braço no plano.
+
+## Captura de tokens do braço com-Atlas (2026-07-19, commit 9e80947a7e)
+
+**Quebra silenciosa que a auditoria pegou:** o braço com-Atlas via bridge
+rodava e acertava, mas o relatório mostrava `tokens_coverage in:0` → 46
+bloqueios `provider_usage_empty`/`field_not_present:tokens` por suíte → o
+claim gate travava ETERNAMENTE, mesmo com o braço perfeito. Afetava TODOS os
+braços via bridge (bfcl, aider, hal, swe-live, terminal, senior, marathon, lcb);
+só inspect/tau2 (via endpoint com `--usage-file`) capturavam.
+
+**Causa-raiz:** o `provider_call` do fast-path só recebe tokens no adaptador
+Sonnet (`ProviderCallResult::fromStdout`); no path hermes fica null. E o kernel
+roda hermes em CLI-**chat** (`useCliOneShot`=false por config), que NÃO escreve
+`--usage-file` nem popula `metadata` → zero token em lugar nenhum.
+
+**Fix (cirúrgico, só bridge+adaptador, gated por `ATLAS_RIVALS_RUNTIME_EXECUTION`,
+zero mudança no kernel/transporte):**
+- `AgentExecutionProviderPortAdapter`: no modo rivals, o AiJob pede
+  `hermes.cli_oneshot=true` + `hermes.usage_file` (geração de patch-plan é turno
+  único stateless — mesma resposta do modelo; caminho já usado pelo endpoint e
+  pelo agente harbor). Depois espelha `metadata[hermes_usage]` num arquivo-sink.
+- `rivals-atlas-dev-bridge.php`: cria o sink, passa via env `ATLAS_RIVALS_USAGE_SINK`,
+  e o lê como fallback quando o kernel devolve tokens null. Custo 0.0 honesto pro
+  Verboo (marginal de assinatura) destrava `usage.present`.
+
+**Prova fim-a-fim:** bridge probe `usage.present=false → true` (in=43994 out=5975);
+unit-script BFCL standalone gravou `input_token_count=42133 out=642` no result
+file que o normalizador soma. Corridas pré-fix (bfcl/aider/hal já concluídas)
+têm tokens=0 e foram RE-enfileiradas para dados claim-eligible; suítes pesadas
+(swe-live/harbor) precisam de re-wave limpa para token completo.
