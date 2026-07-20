@@ -10,6 +10,7 @@ descartável cujo solution.py é devolvido como a "resposta do modelo".
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -94,12 +95,22 @@ class BridgeCompletions:
         # o Atlas roda de verdade (real_provider=true) mas a prova some, o
         # attacher não acha e reprova o braço como env_failure
         # "atlas_dev_runtime_proof_missing_or_invalid". Persiste a prova lá.
-        if base.usage_file:
-            durable = Path(base.usage_file).parent / ".rivals_atlas_dev_bridge.json"
+        # Env-first como o TrackingCompletions (workers re-importados perdem argv).
+        target = os.environ.get("RIVALS_LCB_USAGE_FILE") or base.usage_file
+        if target:
+            durable = Path(target).parent / ".rivals_atlas_dev_bridge.json"
             try:
+                # O scratch ainda NÃO existe aqui — quem o criava era o tracking,
+                # DEPOIS deste ponto. Sem o mkdir, write_text morria em
+                # FileNotFoundError engolido pelo except e NENHUMA prova LCB
+                # jamais persistiu (provado ao vivo em ne_ca0666, 2026-07-20).
+                durable.parent.mkdir(parents=True, exist_ok=True)
                 durable.write_text(json.dumps(proof))
-            except OSError:
-                pass
+            except OSError as error:
+                print(
+                    f"[rivals-lcb-atlas] proof persist FAILED: {error}",
+                    file=sys.stderr,
+                )
         usage = proof.get("usage") or {}
 
         return SimpleNamespace(

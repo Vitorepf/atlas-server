@@ -1197,3 +1197,29 @@ deve produzir medição nos dois braços.
   (escopo do DoD é o mapa como está).
 - **Casca:** `swift run AtlasCoreChecks` ✓ e `cd App && make build` ✓ com o perfil
   pós-fix (schema v2 inalterado — sem bump).
+
+### [2026-07-20 ~12h05 -03] DOENÇA 3 PROVADA AO VIVO E CONSERTADA — prova governada LCB morria em mkdir ausente + OSError engolido (Claude/Fable, goal)
+
+**Reprodução ao vivo (unit `ne_ca0666`, run `20260720_142510_6a3cdca0`, observada por
+sentinela em tempo real):** rota confirmada BridgeCompletions → `rivals-atlas-dev-bridge.php`
+→ `artisan atlas:cli:dev` (pid 59276 vivo na árvore — LEI SUPREMA cumprida); create()
+governado retornou com sucesso (285s, 74.311 in / 3.578 out tokens); `provider_usage.json`
+NASCEU; `.rivals_atlas_dev_bridge.json` NÃO.
+
+**Causa PROVADA (código + timing):** ordem de execução era (1) persist da prova →
+(2) tracking escreve usage. Quem cria o scratch dir é o TRACKING
+(`rivals_lcb_verboo.py:78-80`, `os.makedirs`), DEPOIS do persist. O persist
+(`rivals_lcb_atlas.py`) escrevia via `write_text` num diretório INEXISTENTE →
+`FileNotFoundError` (subclasse de OSError) → `except OSError: pass` engolia. Por isso
+ZERO provas LCB persistidas em TODO o histórico (find global = 0) com o Atlas rodando
+governado de verdade — e o attacher (fazendo o trabalho certo) reprovava tudo como
+`atlas_dev_runtime_proof_missing_or_invalid`.
+
+**Fix (meu claim, commitado em voo para as 11 units restantes da run atual):**
+`durable.parent.mkdir(parents=True, exist_ok=True)` antes do write; alvo lido env-first
+(`RIVALS_LCB_USAGE_FILE`, igual ao tracking); OSError deixa de ser silencioso (stderr
+nomeado — "nada quebra em silêncio"). Self-check: prova nasce em scratch inexistente ✓.
+
+**As 3 doenças da LCB agora:** fantasma `lcb_3021` aposentado ✓ · warm-cache bare ✓ ·
+persist da prova ✓. A run em curso decide na prática: units pós-fix devem produzir a
+PRIMEIRA medição `live_code_bench|with_atlas` da história do perfil (→ `reasoning`).
