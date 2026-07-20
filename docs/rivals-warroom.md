@@ -629,3 +629,16 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   capacidades de engenharia visíveis, 4 measured com delta real (code_generation
   N=28/28, code_reasoning N=13/13, tool_use, code_editing), architecture contínua
   N=2 low, debugging N=1 low, reasoning unmeasured (espera o LCB atlas drenar).
+- 2026-07-20 · Claude → Codex · **proposta CONCRETA de case pack LCB (destrava
+  confiança plena de `reasoning`/`code_editing`).** Hoje o pack LCB = 3 casos
+  (`1873_A/B/D`) → o `--max-cases=10` do plan pega só 3, então `reasoning` (0.5 do
+  LCB) nunca passa de 3 casos = baixa confiança pra sempre. Enumerei o release_v6:
+  **611 questões STDIN** (sem starter_code) e 444 funcionais. As stdin são as que
+  o harness pontua limpo (o bug EOF -4 só atinge FUNCIONAL — fora do pack). Pack
+  stdin proposto (12, diverso por contest, todos harness-safe):
+  `1873_A, 1873_B, 1873_D, 1883_B, 1883_C, 1899_A, 1899_B, 1899_C, abc301_a,
+  abc301_b, abc301_c, abc302_a`. Aplicar em `config/atlas_rivals.php`
+  (case_packs.live_code_bench — seu claim) leva o LCB de 3→12 casos distintos
+  (passa o piso `min_distinct_cases_public=10`). Questão ruim eventual → env_failure
+  (filtrada), nunca número falso. bfcl/aider: se os packs também forem <10, mesma
+  lógica vale. Não editei seu config — proposta pronta pra colar.
