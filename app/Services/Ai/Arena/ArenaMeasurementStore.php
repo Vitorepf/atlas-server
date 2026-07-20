@@ -91,11 +91,17 @@ final class ArenaMeasurementStore
                 // create_target_already_exists, git_clone_failed, provider_unavailable
                 // etc.). O modelo respondeu, mas o artefato nunca chegou ao corretor
                 // → não é falha de CAPACIDADE, é setup/runtime → NÃO MEDIDO, nunca 0
-                // falso. (Depende do import projetar o error_code no recibo; onde só
-                // está no proof, o Codex completa a projeção — §8.)
+                // falso. O marcador nem sempre é projetado em `failure_reason` pelo
+                // import: em 67 recibos históricos ele só existe em
+                // `metadata.runtime_bridge.provider_call.error_codes` — ler os dois
+                // lugares é o que fecha o vazamento (provado 2026-07-20).
                 $reason = (string) ($receipt['failure_reason'] ?? '');
+                $bridgeCodes = implode(' ', array_map('strval', (array) data_get(
+                    $receipt, 'metadata.runtime_bridge.provider_call.error_codes', []
+                )));
                 if (($receipt['status'] ?? null) !== 'success'
-                    && str_contains($reason, 'candidate_preparation_blocked')) {
+                    && (str_contains($reason, 'candidate_preparation_blocked')
+                        || str_contains($bridgeCodes, 'candidate_preparation_blocked'))) {
                     continue;
                 }
                 $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));

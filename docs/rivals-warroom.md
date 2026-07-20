@@ -1107,3 +1107,35 @@ silêncio". Dono natural: Codex (orchestrator é alvo reservado dele).
 battery suíte a suíte via CLI + logs em `storage/atlas/rivals/battery_*.log`. Sem tocar
 nos arquivos reservados do Codex; ordem planejada: testeval (rodando) → classeval
 (re-medição descontaminada) → deveval → long_code_arena (braço atlas ausente) → demais.
+
+### [2026-07-20 ~11h -03] 67 ZEROS FALSOS contra o Atlas vazavam pela exclusão que só lia `failure_reason` (Claude/Fable, goal ponta-a-ponta)
+
+**Sintoma:** DoD exige pool limpo; auditoria field-level achou 83 recibos com
+`create_target_already_exists` em `receipts.jsonl`, e **76 escapavam da exclusão** do
+`ArenaMeasurementStore` — 67 deles com `status=failure` + `failure_class=model_failure`
+→ contavam como DERROTA do braço Atlas sendo bloqueio de setup.
+
+**Causa PROVADA:** o marcador `candidate_preparation_blocked` desses recibos históricos
+mora em `metadata.runtime_bridge.provider_call.error_codes[]` — `failure_reason` vem
+NULO (a projeção do import que a §8 esperava do Codex nunca aconteceu nesses runs).
+A exclusão só lia `failure_reason` → nunca disparava. Grep de linha enganava (o texto
+está na linha, mas no campo errado); só verificação de CAMPO revelou.
+Por suíte: terminal_bench 21 · aider_polyglot 17 · hal_harness 10 · swe_bench_live 10 ·
+bfcl 9.
+
+**Fix (meu arquivo, meu claim):** `ArenaMeasurementStore::measurements()` agora lê o
+marcador nos DOIS lugares (`failure_reason` E `provider_call.error_codes`); exclusão
+continua restrita a `status != success` (sucesso pontuado jamais é apagado — teste
+cobre). Regressão nova: `tests/Unit/Ai/Arena/ArenaMeasurementStoreTest.php` (2 testes).
+
+**Prova (mesmo store, antes → depois):**
+```
+code_editing  −0.102 (an=65) → +0.056 (an=48)   ← Atlas passa a MELHOR (17 falsos aider)
+tool_use      −0.495 (an=58) → −0.435 (an=49)   ← 9 falsos bfcl removidos
+demais capacidades: inalteradas
+```
+A máquina de honestidade pegou, de novo, dado mentindo CONTRA o Atlas.
+
+**Gates:** tests/Unit+Feature/Ai/Arena = 43 passed (259 asserts).
+**Nota pro Codex (§6):** a projeção do `error_code` no import continua desejável
+(defesa em profundidade), mas deixou de ser bloqueadora — o store agora lê a fonte.
