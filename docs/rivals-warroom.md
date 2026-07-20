@@ -1031,3 +1031,43 @@ bug do manifesto**. Guarda mantida: **no máximo 1 LCB por vez** (o
 `RuntimeError: LCB question cardinality for lcb_3021: 0`. Hipótese ainda **não provada**:
 corrida com a LCB órfã. Agora que só há uma LCB na fila, a próxima run decide: se vier
 limpa, era corrida; se repetir, é o overlay e eu conserto (é meu claim).
+
+### [2026-07-20 ~10h10 -03] BUG MEU — capacidade MISTA descartava evidência binária (DoD#3)
+
+**Sintoma:** `code_generation` aparecia `unmeasured` com `with_atlas_cases: 0` — mas o
+store tinha 30 casos Atlas medidos (evalplus 13/13, bigcodebench 13/13, classeval 4/13).
+
+**Causa PROVADA (no meu `ArenaCapabilityProfileService`):** `code_generation` é
+alimentada por 4 suítes — `deveval` é **CONTÍNUA** (rougeL) e
+`evalplus`/`bigcodebench`/`classeval` são **BINÁRIAS**. Uma única suíte contínua ligava
+o flag `continuous` da capacidade inteira; o ramo contínuo só somava
+`score_sum`/`score_n`, que os pools binários **não preenchiam**. Resultado: toda a
+evidência binária era descartada em silêncio e o braço Atlas — que só tinha rodado nas
+binárias — virava n=0. **"Não medido" FALSO**, com 30 casos reais no store: exatamente o
+que a LEI SUPREMA proíbe ("número não confiável = não medido, nunca falso" — e o
+contrário também: medido de verdade não pode virar não-medido).
+
+**Fix:** o acumulador contínuo passa a ser preenchido SEMPRE, inclusive por suíte
+binária — um caso pass/fail é um score de Bernoulli ∈ {0,1}, então `sum = acertos` e
+`sumsq = acertos` (1²=1, 0²=0). Nenhuma evidência some. Ramo binário puro continua com
+Wilson/Newcombe (é o certo p/ proporção); capacidade que mistura vira
+`measurement_type: "mixed"` — rótulo novo pra que o app não venda média de rougeL como
+pass@1. O `isContinuous` do Swift inclui `mixed`.
+
+**Prova (antes → depois, mesmo store):**
+```
+code_generation  base=—      (n=0 atlas)  conf=unmeasured  type=continuous
+code_generation  base=0.935 (n=40)  atlas=0.769 (n=39)  delta=-0.166  measured  mixed
+```
+39 casos do braço Atlas que estavam invisíveis voltaram ao perfil.
+
+**Gates:** `tests/Unit/Ai/Arena` + `tests/Feature/Ai/Arena` = **41 passed (250 asserts)**,
+com teste de regressão novo (`test_mixed_capability_keeps_binary_evidence_instead_of_dropping_it`).
+Casca: `AtlasCoreChecks` ✓ + `make build` ✓.
+Commits: server `f7b409062e`, app `8f347fdb`. Alvos 100% dentro do meu claim.
+
+**Placar DoD#3 agora:** 6 de 7 capacidades MEDIDAS
+(`architecture_design` −0.082 · `code_editing` −0.102 · `code_generation` −0.166 ·
+`code_reasoning` **0.000** · `debugging` −0.308 · `tool_use` −0.495).
+Falta só `reasoning` — depende da LCB do braço Atlas fechar (§4.2 do handoff), que agora
+está sozinha na fila.
