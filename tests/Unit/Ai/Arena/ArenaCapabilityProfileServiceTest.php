@@ -150,6 +150,49 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->assertSame(0.5, $cap['score']);
     }
 
+    public function test_continuous_metric_uses_mean_not_binary_pass_rate(): void
+    {
+        // archbench é CONTÍNUA (rougeL): status=success só quer dizer "produziu o
+        // doc", a NOTA é o score contínuo. O perfil tem que mostrar a MÉDIA (0.10),
+        // nunca a taxa binária (2/2 = 1.0 falso).
+        config()->set('atlas_arena.capability_labels_pt', ['architecture_design' => 'Arquitetura & design']);
+        config()->set('atlas_arena.capability_map', [
+            'archbench' => [['capability' => 'architecture_design', 'weight' => 1.00]],
+        ]);
+        $this->writeRun('20260717_010000_arch', 'archbench', [
+            $this->continuousReceipt('codex_cli@bare', 'a1', 0.08, '2026-07-17T01:01:00Z'),
+            $this->continuousReceipt('codex_cli@bare', 'a2', 0.12, '2026-07-17T01:02:00Z'),
+            $this->continuousReceipt('codex_cli@atlas_dev', 'a1', 0.30, '2026-07-17T01:03:00Z'),
+            $this->continuousReceipt('codex_cli@atlas_dev', 'a2', 0.40, '2026-07-17T01:04:00Z'),
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['architecture_design'];
+        $this->assertSame('continuous', $cap['measurement_type']);
+        $this->assertEqualsWithDelta(0.10, $cap['score'], 0.0001, 'base = média (0.08+0.12)/2, não 1.0 binário');
+        $this->assertEqualsWithDelta(0.35, $cap['with_atlas'], 0.0001, 'atlas = média (0.30+0.40)/2');
+        $this->assertGreaterThan(0.0, $cap['delta']['value'], 'Atlas melhora a média');
+        $this->assertIsArray($cap['baseline_ci']);
+    }
+
+    public function test_binary_score_beats_status_success_with_zero_score_is_failure(): void
+    {
+        // classeval marca status=success com score=0 (fun_success falhou) no braço
+        // Atlas. Contar por STATUS viraria acerto falso; a verdade é o SCORE 0/1.
+        config()->set('atlas_arena.capability_labels_pt', ['code_generation' => 'Geração de código']);
+        config()->set('atlas_arena.capability_map', [
+            'classeval' => [['capability' => 'code_generation', 'weight' => 1.00]],
+        ]);
+        $this->writeRun('20260717_010000_class', 'classeval', [
+            $this->binaryScoreReceipt('codex_cli@bare', 'c1', 'success', 1.0, '2026-07-17T01:01:00Z'),
+            $this->binaryScoreReceipt('codex_cli@atlas_dev', 'c1', 'success', 0.0, '2026-07-17T01:02:00Z'),
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['code_generation'];
+        $this->assertSame('binary', $cap['measurement_type']);
+        $this->assertSame(1.0, $cap['score'], 'base acertou (score 1)');
+        $this->assertSame(0.0, $cap['with_atlas'], 'Atlas status=success MAS score=0 = FALHA, não 100%');
+    }
+
     public function test_engine_filter_keeps_other_engines_out(): void
     {
         $this->writeRun('20260717_010000_terminal', 'terminal_bench', [
@@ -236,6 +279,32 @@ class ArenaCapabilityProfileServiceTest extends TestCase
             'status' => $status,
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
+        ];
+    }
+
+    private function continuousReceipt(string $armId, string $caseId, float $score, string $finishedAt): array
+    {
+        return [
+            'arm_id' => $armId,
+            'case_id' => $caseId,
+            'repetition' => 1,
+            'status' => 'success',
+            'wall_ms' => 1000,
+            'finished_at' => $finishedAt,
+            'metadata' => ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'rougeL']],
+        ];
+    }
+
+    private function binaryScoreReceipt(string $armId, string $caseId, string $status, float $score, string $finishedAt): array
+    {
+        return [
+            'arm_id' => $armId,
+            'case_id' => $caseId,
+            'repetition' => 1,
+            'status' => $status,
+            'wall_ms' => 1000,
+            'finished_at' => $finishedAt,
+            'metadata' => ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'fun_success']],
         ];
     }
 }

@@ -99,11 +99,33 @@ final class ArenaMeasurementStore
                     'failed' => 0,
                     'walls' => [],
                     'rounds' => [],
+                    'has_score' => false,
+                    'fractional' => false,
+                    'score_sum' => 0.0,
+                    'score_sumsq' => 0.0,
+                    'score_n' => 0,
                 ];
                 if (($receipt['status'] ?? null) === 'success') {
                     $groups[$key]['passed']++;
                 } else {
                     $groups[$key]['failed']++;
+                }
+                // Suites com `native.score` (nativas de engenharia): a VERDADE é o
+                // score, não o status. O driver pode marcar status=success com
+                // score=0 (classeval fun_success no braço Atlas) — contar por status
+                // viraria FALHA em ACERTO. Score fracionário (archbench rougeL) =>
+                // contínuo (média + IC); score 0/1 => binário PELO SCORE. Suites
+                // integradas (bfcl/lcb/aider) não trazem score => seguem no status.
+                $native = (array) data_get($receipt, 'metadata.native', []);
+                if (is_numeric($native['score'] ?? null)) {
+                    $value = (float) $native['score'];
+                    $groups[$key]['has_score'] = true;
+                    $groups[$key]['score_sum'] += $value;
+                    $groups[$key]['score_sumsq'] += $value * $value;
+                    $groups[$key]['score_n']++;
+                    if ($value > 0.0 && $value < 1.0) {
+                        $groups[$key]['fractional'] = true;
+                    }
                 }
                 if (isset($receipt['wall_ms']) && is_numeric($receipt['wall_ms'])) {
                     $groups[$key]['walls'][] = (float) $receipt['wall_ms'];
@@ -115,7 +137,19 @@ final class ArenaMeasurementStore
             }
 
             foreach ($groups as $group) {
-                $total = (int) $group['passed'] + (int) $group['failed'];
+                $hasScore = (bool) $group['has_score'];
+                $continuous = $hasScore && (bool) $group['fractional'];
+                $scoreN = (int) $group['score_n'];
+
+                if ($hasScore) {
+                    // Verdade pelo score: total = casos com score; passados = nº de 1s
+                    // (soma, já que 0/1). Contínuo usa a média, não passados.
+                    $total = $scoreN;
+                    $passed = (int) round((float) $group['score_sum']);
+                } else {
+                    $total = (int) $group['passed'] + (int) $group['failed'];
+                    $passed = (int) $group['passed'];
+                }
                 if ($total <= 0) {
                     continue;
                 }
@@ -129,10 +163,18 @@ final class ArenaMeasurementStore
                     'suite' => (string) $group['suite'],
                     'engine' => (string) $group['engine'],
                     'arm' => (string) $group['arm'],
-                    'score' => round((int) $group['passed'] / $total, 4),
-                    'cases_passed' => (int) $group['passed'],
-                    'cases_failed' => (int) $group['failed'],
+                    // Contínuo: nota = média do score; binário: taxa de acerto.
+                    'score' => $continuous
+                        ? round((float) $group['score_sum'] / $scoreN, 4)
+                        : round($passed / $total, 4),
+                    'cases_passed' => $continuous ? $total : $passed,
+                    'cases_failed' => $continuous ? 0 : ($total - $passed),
                     'cases_total' => $total,
+                    // Carrega sum/sumsq/n p/ o perfil poolar média + IC contínuos.
+                    'measurement_type' => $continuous ? 'continuous' : 'binary',
+                    'score_sum' => $hasScore ? round((float) $group['score_sum'], 6) : null,
+                    'score_sumsq' => $hasScore ? round((float) $group['score_sumsq'], 6) : null,
+                    'score_n' => $hasScore ? $scoreN : 0,
                     'duration_avg_ms' => $walls === [] ? null : (int) round(array_sum($walls) / count($walls)),
                     'round_at' => $roundAt ?? now()->toIso8601String(),
                 ];

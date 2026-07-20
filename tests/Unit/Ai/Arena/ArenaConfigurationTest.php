@@ -24,16 +24,15 @@ class ArenaConfigurationTest extends TestCase
         $this->assertEqualsWithDelta(1.0, array_sum(config('atlas_arena.weights')), 0.000001);
 
         // O capability_map do perfil de Capacidades cobre as 3 integradas MAIS as
-        // nativas de engenharia binárias (pass@1) — todas arm64. archbench fica
-        // FORA (métrica contínua rougeL viraria falso ~100% no store binário).
+        // nativas de engenharia — binárias (pass@1, Wilson) e a contínua archbench
+        // (rougeL, média + IC normal). Todas arm64.
         $capabilityKeys = array_keys(config('atlas_arena.capability_map'));
         foreach ($expected as $suite) {
             $this->assertContains($suite, $capabilityKeys, $suite.' integrada tem que mapear capacidade');
         }
-        foreach (['cruxeval', 'evalplus', 'bigcodebench', 'classeval', 'deveval', 'debug_gym'] as $suite) {
-            $this->assertContains($suite, $capabilityKeys, $suite.' nativa binária deveria aparecer no app');
+        foreach (['cruxeval', 'evalplus', 'bigcodebench', 'classeval', 'deveval', 'debug_gym', 'archbench'] as $suite) {
+            $this->assertContains($suite, $capabilityKeys, $suite.' nativa deveria aparecer no app');
         }
-        $this->assertNotContains('archbench', $capabilityKeys, 'archbench é contínua (rougeL) — binário mostraria 100% falso');
 
         // Nenhuma suíte de Docker/x86 pode voltar ao perfil sem x86 real.
         $parked = ['terminal_bench', 'swe_bench_live', 'senior_swe_bench', 'swe_marathon', 'hal_harness'];

@@ -25,12 +25,18 @@ final class ArenaCapabilityProfileService
         // ponytail: ensaios repetidos do MESMO caso são correlacionados, então o
         // IC de Wilson fica um tico otimista; troca por hierarchicalBootstrap
         // quando o store expuser sucessos por caso (hoje só expõe passed/total).
-        $pool = []; // suite => arm => ['passed'=>int,'total'=>int]
+        $pool = []; // suite => arm => ['passed','total', (contínuo:) 'score_sum','score_sumsq','score_n']
         foreach ($rows as $row) {
             $suite = (string) $row['suite'];
             $arm = (string) $row['arm'];
             $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + (int) $row['cases_passed'];
             $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + (int) $row['cases_total'];
+            if (($row['measurement_type'] ?? 'binary') === 'continuous') {
+                $pool[$suite][$arm]['continuous'] = true;
+                $pool[$suite][$arm]['score_sum'] = ((float) ($pool[$suite][$arm]['score_sum'] ?? 0.0)) + (float) ($row['score_sum'] ?? 0.0);
+                $pool[$suite][$arm]['score_sumsq'] = ((float) ($pool[$suite][$arm]['score_sumsq'] ?? 0.0)) + (float) ($row['score_sumsq'] ?? 0.0);
+                $pool[$suite][$arm]['score_n'] = ((int) ($pool[$suite][$arm]['score_n'] ?? 0)) + (int) ($row['score_n'] ?? 0);
+            }
         }
 
         /** @var array<string, array<string, mixed>> $capabilities */
@@ -62,15 +68,34 @@ final class ArenaCapabilityProfileService
                     'baseline_total' => 0,
                     'atlas_passed' => 0,
                     'atlas_total' => 0,
+                    'continuous' => false,
+                    'baseline_sum' => 0.0,
+                    'baseline_sumsq' => 0.0,
+                    'baseline_scoreN' => 0,
+                    'atlas_sum' => 0.0,
+                    'atlas_sumsq' => 0.0,
+                    'atlas_scoreN' => 0,
                     'suites' => [],
                 ];
                 if (is_array($baseline)) {
                     $capabilities[$capability]['baseline_passed'] += (int) $baseline['passed'];
                     $capabilities[$capability]['baseline_total'] += (int) $baseline['total'];
+                    if ($baseline['continuous'] ?? false) {
+                        $capabilities[$capability]['continuous'] = true;
+                        $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
+                        $capabilities[$capability]['baseline_sumsq'] += (float) ($baseline['score_sumsq'] ?? 0.0);
+                        $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
+                    }
                 }
                 if (is_array($withAtlas)) {
                     $capabilities[$capability]['atlas_passed'] += (int) $withAtlas['passed'];
                     $capabilities[$capability]['atlas_total'] += (int) $withAtlas['total'];
+                    if ($withAtlas['continuous'] ?? false) {
+                        $capabilities[$capability]['continuous'] = true;
+                        $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
+                        $capabilities[$capability]['atlas_sumsq'] += (float) ($withAtlas['score_sumsq'] ?? 0.0);
+                        $capabilities[$capability]['atlas_scoreN'] += (int) ($withAtlas['score_n'] ?? 0);
+                    }
                 }
                 $capabilities[$capability]['suites'][$suite] = true;
             }
@@ -78,27 +103,40 @@ final class ArenaCapabilityProfileService
 
         $public = [];
         foreach ($capabilities as $row) {
-            $bs = (int) $row['baseline_passed'];
-            $bn = (int) $row['baseline_total'];
-            $as = (int) $row['atlas_passed'];
-            $an = (int) $row['atlas_total'];
             $suites = array_keys((array) $row['suites']);
             sort($suites);
+            $continuous = (bool) $row['continuous'];
 
-            $baseline = $bn > 0 ? $this->arm($bs, $bn) : null;
-            $withAtlas = $an > 0 ? $this->arm($as, $an) : null;
-
-            // Delta com IC de Newcombe (Atlas − base). Significativo = o IC 95%
-            // NÃO cruza zero. Só existe quando os dois braços têm ensaio.
-            $delta = null;
-            if ($bn > 0 && $an > 0) {
-                $diff = StatisticalPolicy::newcombeDiff($as, $an, $bs, $bn);
-                $delta = [
-                    'value' => $diff['diff'],
-                    'ci_low' => $diff['ci_low'],
-                    'ci_high' => $diff['ci_high'],
-                    'significant' => $diff['ci_low'] > 0.0 || $diff['ci_high'] < 0.0,
-                ];
+            if ($continuous) {
+                // Nota = MÉDIA do score contínuo (rougeL etc.), com IC normal.
+                // N = casos com score; nunca a taxa binária de "completou".
+                $bn = (int) $row['baseline_scoreN'];
+                $an = (int) $row['atlas_scoreN'];
+                $baseline = $bn > 0 ? $this->continuousArm((float) $row['baseline_sum'], (float) $row['baseline_sumsq'], $bn) : null;
+                $withAtlas = $an > 0 ? $this->continuousArm((float) $row['atlas_sum'], (float) $row['atlas_sumsq'], $an) : null;
+                $delta = ($baseline !== null && $withAtlas !== null)
+                    ? $this->continuousDelta($baseline, $withAtlas)
+                    : null;
+                $measureLabel = 'continuous';
+            } else {
+                $bs = (int) $row['baseline_passed'];
+                $bn = (int) $row['baseline_total'];
+                $as = (int) $row['atlas_passed'];
+                $an = (int) $row['atlas_total'];
+                $baseline = $bn > 0 ? $this->arm($bs, $bn) : null;
+                $withAtlas = $an > 0 ? $this->arm($as, $an) : null;
+                // Delta com IC de Newcombe (Atlas − base). Significativo = IC não cruza 0.
+                $delta = null;
+                if ($bn > 0 && $an > 0) {
+                    $diff = StatisticalPolicy::newcombeDiff($as, $an, $bs, $bn);
+                    $delta = [
+                        'value' => $diff['diff'],
+                        'ci_low' => $diff['ci_low'],
+                        'ci_high' => $diff['ci_high'],
+                        'significant' => $diff['ci_low'] > 0.0 || $diff['ci_high'] < 0.0,
+                    ];
+                }
+                $measureLabel = 'binary';
             }
 
             // Confiança da COMPARAÇÃO: sem os dois braços não há o que comparar
@@ -121,6 +159,7 @@ final class ArenaCapabilityProfileService
                 'with_atlas_cases' => $an,
                 'delta' => $delta,
                 'confidence' => $confidence,
+                'measurement_type' => $measureLabel,
                 'suites_contributing' => $suites,
                 'cases_total' => max($bn, $an),
                 'min_cases_for_confidence' => $minCases,
@@ -149,6 +188,53 @@ final class ArenaCapabilityProfileService
             'score' => round($passed / $total, 4),
             'ci_low' => $ci['low'],
             'ci_high' => $ci['high'],
+        ];
+    }
+
+    /**
+     * Média + IC 95% normal de um braço com métrica CONTÍNUA (score ∈ [0,1]).
+     * Wilson é pra proporção; aqui a nota é a média de um score real (rougeL), então
+     * o IC é média ± z·erro-padrão (aprox. normal), preso em [0,1]. `se` fica p/ o delta.
+     *
+     * @return array{score: float, ci_low: float, ci_high: float, mean: float, se: float}
+     */
+    private function continuousArm(float $sum, float $sumsq, int $n): array
+    {
+        $z = 1.959963984540054;
+        $mean = $sum / $n;
+        $variance = max(0.0, ($sumsq / $n) - ($mean * $mean));
+        $se = sqrt($variance / $n);
+
+        return [
+            'score' => round($mean, 4),
+            'ci_low' => round(max(0.0, $mean - $z * $se), 6),
+            'ci_high' => round(min(1.0, $mean + $z * $se), 6),
+            'mean' => $mean,
+            'se' => $se,
+        ];
+    }
+
+    /**
+     * Delta de médias contínuas (Atlas − base) com IC normal de duas amostras.
+     * Significativo = o IC 95% não cruza zero.
+     *
+     * @param  array{mean: float, se: float}  $baseline
+     * @param  array{mean: float, se: float}  $withAtlas
+     * @return array{value: float, ci_low: float, ci_high: float, significant: bool}
+     */
+    private function continuousDelta(array $baseline, array $withAtlas): array
+    {
+        $z = 1.959963984540054;
+        $diff = $withAtlas['mean'] - $baseline['mean'];
+        $se = sqrt(($withAtlas['se'] ** 2) + ($baseline['se'] ** 2));
+        $low = round($diff - $z * $se, 6);
+        $high = round($diff + $z * $se, 6);
+
+        return [
+            'value' => round($diff, 6),
+            'ci_low' => $low,
+            'ci_high' => $high,
+            'significant' => $low > 0.0 || $high < 0.0,
         ];
     }
 }

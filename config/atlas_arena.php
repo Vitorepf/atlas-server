@@ -49,10 +49,9 @@ return [
 
     // O perfil (ArenaCapabilityProfileService) só mostra uma capacidade quando a
     // suíte tem casos medidos — então mapear uma suíte sem dado é inócuo (não
-    // aparece até rodar). SÓ entram suítes de métrica BINÁRIA (pass@1/sucesso): o
-    // store conta status success/failure, então uma suíte CONTÍNUA (archbench =
-    // rougeL) viraria ~100% de "completou" (falso). archbench fica FORA até haver
-    // tratamento contínuo (média do score, não taxa binária) — ver §8 warroom.
+    // aparece até rodar). Suítes BINÁRIAS (pass@1) usam Wilson; a CONTÍNUA
+    // (archbench = rougeL) usa média + IC normal (o store carrega score_sum/sumsq/n,
+    // measurement_type='continuous') — nunca a taxa binária de "completou".
     'capability_map' => [
         // Integradas (2 braços provados, dado limpo).
         'bfcl' => [
@@ -86,6 +85,10 @@ return [
         'debug_gym' => [
             ['capability' => 'debugging', 'weight' => 1.00],
         ],
+        // Contínua (rougeL): tratada como média + IC normal no perfil.
+        'archbench' => [
+            ['capability' => 'architecture_design', 'weight' => 1.00],
+        ],
     ],
 
     'capability_labels_pt' => [
@@ -95,5 +98,6 @@ return [
         'code_reasoning' => 'Raciocínio sobre código',
         'code_generation' => 'Geração de código',
         'debugging' => 'Depuração',
+        'architecture_design' => 'Arquitetura & design',
     ],
 ];
