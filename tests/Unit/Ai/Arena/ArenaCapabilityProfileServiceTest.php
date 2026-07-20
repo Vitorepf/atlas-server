@@ -288,6 +288,48 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         );
     }
 
+    public function test_applied_patch_is_measured_even_when_bridge_says_blocked(): void
+    {
+        // REGRESSÃO (2026-07-20, o maior vazamento do dia): a exclusão de bridge
+        // olhava `completion_state=blocked` e ignorava `patch_applied`. Como a regra
+        // só dispara com `status != success`, ela deixava passar os ACERTOS e comia
+        // as DERROTAS do mesmo estado de bridge. Em bfcl isso era gritante: 18 falhas
+        // e 11 acertos com task_ok=false + blocked + patch_applied=1 — quem separou os
+        // dois foi o CORRETOR, não o bridge. Patch aplicado = artefato julgado = mede.
+        config()->set('atlas_arena.capability_labels_pt', ['terminal_operation' => 'Operação de terminal']);
+        config()->set('atlas_arena.capability_map', [
+            'terminal_bench' => [['capability' => 'terminal_operation', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+
+        $blockedBridge = [
+            'execution' => 'atlas_cli_dev_efficient',
+            'real_provider' => true,
+            'task_ok' => false,
+            'completion_state' => 'blocked',
+            'provider_call' => ['error_codes' => ['governor_authority_absent']],
+        ];
+        // MESMO estado de bridge, patch aplicado: um acertou, o outro errou.
+        $win = $this->receipt('codex_cli@atlas_dev', 'p1', 'success', '2026-07-20T04:01:00Z');
+        $win['metadata']['runtime_bridge'] = $blockedBridge + ['patch_applied' => 1];
+        $loss = $this->receipt('codex_cli@atlas_dev', 'p2', 'failure', '2026-07-20T04:02:00Z');
+        $loss['metadata']['runtime_bridge'] = $blockedBridge + ['patch_applied' => 1];
+        // Sem patch aplicado: o artefato nunca chegou ao corretor → segue descartado.
+        $noArtifact = $this->receipt('codex_cli@atlas_dev', 'p3', 'failure', '2026-07-20T04:03:00Z');
+        $noArtifact['metadata']['runtime_bridge'] = $blockedBridge + ['patch_applied' => 0];
+
+        $this->writeRun('20260720_040000_tb', 'terminal_bench', [
+            $this->receipt('codex_cli@bare', 'b1', 'success', '2026-07-20T04:00:00Z'),
+            $win, $loss, $noArtifact,
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['terminal_operation'];
+
+        $this->assertSame(2, $cap['with_atlas_cases'], 'acerto E derrota com patch aplicado entram no N');
+        $this->assertSame(0.5, $cap['with_atlas'], 'a derrota conta contra o Atlas — não dá pra ficar só com o acerto');
+        $this->assertSame(1, $cap['with_atlas_excluded'], 'só a unidade SEM artefato fica de fora');
+    }
+
     public function test_model_fault_is_measured_failure_not_setup_exclusion(): void
     {
         // O bridge nomeia a causa no próprio error_code. `model_empty_patch_plan` =

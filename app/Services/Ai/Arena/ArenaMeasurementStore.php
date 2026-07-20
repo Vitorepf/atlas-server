@@ -164,10 +164,26 @@ final class ArenaMeasurementStore
                 // ambiente, falha depois da resposta é resultado da tarefa. Excluir
                 // aqui removeria derrota legítima do Atlas e inflaria a nota, a mesma
                 // fraude espelhada que o guarda de seleção existe pra pegar.
+                //
+                // `patch_applied > 0` MANDA MAIS QUE `completion_state`. Se o patch foi
+                // aplicado, o artefato CHEGOU ao corretor e o benchmark julgou — o
+                // resultado é medição legítima, mesmo com o bridge dizendo `blocked`.
+                // Provado em 291 unidades blocked do braço Atlas (20/07):
+                //   patch_applied=1 + success  179 (61,5%)  ← passavam (regra exige !success)
+                //   patch_applied=1 + failure   60 (20,6%)  ← eram EXCLUÍDAS
+                //   patch_applied=2 + failure    3
+                //   patch_applied=0 + failure   40          ← exclusão correta (sem artefato)
+                // Ou seja: das 239 com patch aplicado, os 179 acertos entravam e as 63
+                // derrotas saíam. Exclusão seletiva de falha no maior balde do perfil —
+                // a fraude espelhada em escala. `bfcl` deixa isso gritante: 18 falhas e
+                // 11 acertos com estado de bridge IDÊNTICO (task_ok=false, blocked,
+                // patch_applied=1); quem separou os dois foi o corretor, não o bridge.
                 $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
                 $modelFault = preg_match('/(^|[^a-z_])model_[a-z_]+/', $bridgeCodes) === 1;
+                $artifactJudged = ((int) ($bridge['patch_applied'] ?? 0)) > 0;
                 if (($receipt['status'] ?? null) !== 'success'
                     && ! $modelFault
+                    && ! $artifactJudged
                     && ($bridge['task_ok'] ?? null) === false
                     && ($bridge['completion_state'] ?? null) === 'blocked') {
                     $groups[$key]['excluded']++;
@@ -343,6 +359,10 @@ final class ArenaMeasurementStore
             return false;
         }
         $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
+        // Patch aplicado = artefato julgado pelo corretor → medição, não descarte.
+        if (((int) ($bridge['patch_applied'] ?? 0)) > 0) {
+            return false;
+        }
 
         return ($bridge['task_ok'] ?? null) === false
             && ($bridge['completion_state'] ?? null) === 'blocked';
