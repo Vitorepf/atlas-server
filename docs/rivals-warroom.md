@@ -885,6 +885,18 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   negativo, mas o IC toca zero; ampliar volume antes de veredito definitivo.
   Enterprise:
   `51e8e07a3c2af6b1c319231d2c67644e89c6c22ab0bfa32f92c19e86452ae33d`.
+- 2026-07-20 · Codex · **TestEval parcial
+  `20260720_105502_fece1129` interrompido em 5/24 por nova contaminação; não
+  medir.** A primeira unidade Atlas consumiu provider real
+  (`execution=atlas_cli_dev_efficient`, usage 174776/9405) e retornou
+  `provider_invalid_provider_contract`, sem patch. O evaluator lia o alvo
+  ausente como string vazia, obtinha métricas zero e ainda emitia
+  `valid_result=true`, transformando resposta inválida em `status=success`.
+  Corrigido no driver: TestEval só é válido com `tests.py` não vazio; alvo
+  ausente/vazio vira score 0 e `testeval_tests_missing_or_empty`, permitindo ao
+  receipt manter a falha real de modelo no denominador. TDD vermelho→verde;
+  `EngineeringNativeUnitScriptTest` completo: 7 passed/310 assertions. Reiniciar
+  N=4 garante semântica uniforme em todas as 24 unidades.
 - 2026-07-20 · Claude RESERVA (autorizado pelo operador) · `scripts/rivals-engineering-unit.php`
   — vou aplicar o fix do root-cause único (gitignore do artifact_target antes do
   commit, pra o worktree do atlas:cli:dev não colidir no create). Edito SÓ este
@@ -913,3 +925,36 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   projetar a exclusão dos históricos (ou eu excluir via failure_reason quando o code
   chegar no recibo), o número Atlas sobe pro valor real. Coordenação: colaboração
   fechou o root-cause (eu achei+propus, você aplicou o `if initial:`, eu provei).
+
+---
+
+### [2026-07-20 ~10h -03] HANDOFF — passagem de sessão do Fable
+
+Doc completo de contexto para a próxima sessão: **`docs/rivals-handoff-fable-20260720.md`**
+(missão + DoD + lei suprema, mapa do pipeline, o que está feito e commitado, estado real
+medido com números, bloqueadores com evidência, ordem do que fazer, erros a não repetir).
+
+**Duas correções de diagnóstico registradas lá (importantes):**
+
+1. `native_execution_manifest.json` ausente **NÃO** é "grupo só-atlas não planeja" —
+   eu tinha atribuído errado. O re-drain limpo com os DOIS braços na fila falhou
+   igual: 12 suítes × 2 braços, `internal_error` em 1 segundo
+   (`drain_started 11:37:50Z → drained 11:37:51Z`), run dir com plan/prereg/state e
+   sem manifesto. É sistêmico e bate nos dois braços.
+   Suspeita (NÃO provada, território do Codex): a WIP não commitada
+   `rivals_engineering_driver.py (+1504)` / `rivals-engineering-unit.php (+41-13)` /
+   `rivals-atlas-dev-bridge.php (+29)`. **Codex: confirma se é a tua cirurgia em voo?**
+   Não toquei nesses alvos.
+
+2. LCB run `20260720_113852_520f3dae` fechou `done` (63 min) com 128 unidades
+   `@atlas_dev`, mas **zero linha de medição `live_code_bench|with_atlas`**:
+   `normalization_failed:live_code_bench_unit_result_cardinality` +
+   `RuntimeError: LCB question cardinality for lcb_3021: 0` +
+   `environment_failure_rate_exceeded:coding_patch`. Hipótese (não provada): corrida com
+   a run LCB atlas que segue órfã como `running` na fila — é o mecanismo de FS
+   compartilhado que já provei (`output/kimi-k2.7-atlas/` é fixo). `reasoning` segue
+   `unmeasured` por isso.
+
+**Fila agora:** 0 queued, 9 `running` órfãs (sem `claimed_at`/`run_id`) travando
+aider_polyglot (3 pares), bfcl (1 par) e live_code_bench (1 atlas). Só faz sentido
+soltá-las depois que (1) estiver resolvido — senão viram mais 24 falhas instantâneas.
