@@ -1560,3 +1560,53 @@ architecture_design                                       Δ −0.058  descarte 
 confiança que ninguém fabricou. `code_generation` já provou o caminho: 3,8% de descarte
 → n=51 → medida com folga. As outras cinco precisam do mesmo — é executor/bridge, não
 estatística.
+
+### [2026-07-20 ~16h45 -03] VAZAMENTO NA EXCLUSÃO DE BRIDGE — `model_empty_patch_plan` era derrota do Atlas sendo apagada
+
+**Como cheguei:** ranqueei as razões de descarte de HOJE pra dizer ao dono do executor
+onde mirar. Ao olhar `model_empty_patch_plan` (11 unidades) percebi que o nome acusa o
+MODELO, não o setup — e a regra de bridge-blocked estava engolindo isso.
+
+**Prova (11/11 unidades):**
+```
+real_provider=true  execution=atlas_cli_dev_efficient  task_ok=false  blocked
+tokens_out: 1214, 537, 1119, 959, 1943, 1108 …  média 1.569, NENHUMA com out=0
+```
+O cérebro governado rodou, o modelo respondeu com ~1,5k tokens e **não produziu patch**.
+Pelo princípio do próprio bridge — *erro antes da resposta é ambiente; falha depois da
+resposta é resultado da tarefa* — isso é **derrota de capacidade**. Estava sendo
+excluída, ou seja: **apagando derrota legítima do Atlas e inflando a nota.** A fraude
+espelhada entrando pela porta do bloqueio de infraestrutura.
+
+**Verifiquei que "o modelo respondeu" não serve de critério** — TODOS os códigos
+bridge-blocked têm resposta real (`governor_authority_absent`: n=142, 2.487 tokens de
+saída em média, zero com out=0). O discriminador é semântico, e o bridge já o entrega:
+prefixo **`model_*`** = o bridge nomeando o modelo como causa.
+
+**Fix:** códigos `model_*` não são excluídos — medem como falha. `governor_authority_absent`
+(infra recusou autoridade) e a família `candidate_preparation_blocked` (setup) seguem
+fora. Regra espelhada em `measurements()` e `exclusions()` pra não divergirem em silêncio.
+
+**Efeito — e repare na DIREÇÃO:**
+```
+architecture_design  atlas 0.090 → 0.066 (PIOR)   descarte 39% → 18%   low → MEDIDO
+code_editing         atlas 1.000 → 0.688          delta +0.482 → +0.170  (segue não medível, 90%)
+```
+Uma capacidade virou **medida de verdade por ADICIONAR as derrotas do Atlas de volta**,
+e o número piorou para o Atlas. É assim que se sabe que o ajuste não é conveniência:
+**3 capacidades honestamente medidas agora** (`architecture_design` −0.082,
+`code_generation` −0.234, `code_reasoning` 0.000).
+
+**Gates:** 47 passed (272 asserts), teste novo
+`test_model_fault_is_measured_failure_not_setup_exclusion` fixa a fronteira
+`model_*` (mede) vs `governor_authority_absent` (exclui). `AtlasCoreChecks` ✓ + `make build` ✓.
+
+**Handoff — o mapa de onde mirar (HOJE, perfil eng&arq, braço Atlas):**
+```
+38  ENV     atlas_dev_runtime_proof_missing_or_invalid   live_code_bench   ← MEU claim
+35  BRIDGE  governor_authority_absent                    bfcl 18 · aider 7 · lcb 6 · debug_gym 4
+15  ENV     lcb_unit_result_cardinality                  live_code_bench   ← MEU claim
+~50 PREP    candidate_preparation_blocked:sandbox_*      debug_gym · bfcl · aider · archbench
+```
+Os 53 do `live_code_bench` são meus e eu ataco. `governor_authority_absent` (35) e a
+família `sandbox_*` (~50) são executor/bridge — maior alavanca única de aproveitamento.
