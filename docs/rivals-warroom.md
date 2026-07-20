@@ -1269,3 +1269,14 @@ nova no `ArenaMeasurementStoreTest` (44 passed / 262 asserts). `reasoning` volta
    LCB ele bloqueia a completion. Por que o governor não tem autoridade neste contexto,
    e qual o grant legítimo para runs de benchmark? → investigar em
    `AtlasCliDevCommand`/governor (alvos do Codex). Handoff §6.
+
+**[12h20 adendo — consolidação da causa]** Os 4 `governor_authority_absent` NÃO são um
+segundo problema: o bridge já exporta `ATLAS_RIVALS_RUNTIME_EXECUTION=true` e já aplica
+`patch_plan` no workspace (`rivals-atlas-dev-bridge.php:424-460`); `patch_applied=0`
+porque o kernel nunca expôs patch_plan — a resposta do kimi não virou patch em NENHUM
+dos 9 units (3× flagrado como `invalid_provider_contract`, 4× silencioso → sem candidato
+→ sem ação autorizável → `governor_authority_absent` como classificação terminal).
+**Parede única da LCB atlas: contrato de saída kimi×AtlasDev (salvage de resposta
+livre → patch_plan). Obra de produto — §6.** Sugestão adicional pro Codex: quando
+patch_plan ausente E sem erro de contrato explícito, nomear `model_no_patch_plan` em
+vez de deixar só o governor — hoje a razão real fica escondida.
