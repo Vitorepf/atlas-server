@@ -1417,3 +1417,56 @@ prompt) → Atlas monta o patch_plan; ambiguidade segue `invalid_provider_contra
 (engenharia séria não adivinha). Salvage NUNCA silencioso: flag `contract_salvaged`
 no retorno + log. Codex: teu claim de pipeline segue teu; tocarei SÓ este adapter
 (que não está na tua lista de reservas) e testes.
+
+### [2026-07-20 ~14h25 -03] MEDIÇÃO DO PROGRESSO + refinamento provado do guarda de seleção
+
+**Onde as unidades do braço Atlas morrem — recorte só do perfil eng&arq, por época:**
+
+```
+HISTÓRICO (total 157)              HOJE / pós-fix (total 285)
+0_MEDIDO           17   10.8%      0_MEDIDO          166   58.2%   ← 5,4× melhor
+1_env_failure      36   22.9%      1_env_failure      51   17.9%
+2_sem_marcador     50   31.8%      2_sem_marcador       0    0.0%  ← era-fraude MORTA
+3_prep_blocked     29   18.5%      3_prep_blocked     31   10.9%
+4_bridge_blocked   25   15.9%      4_bridge_blocked   37   13.0%
+```
+
+Duas leituras que valem registro:
+1. **A LEI SUPREMA está de pé no dado de hoje:** zero unidades sem
+   `execution=atlas_cli_dev_efficient`. Toda unidade Atlas de hoje é o cérebro
+   governado, não hermes cru.
+2. **O braço Atlas passou de 10,8% para 58,2% de aproveitamento.** Essa é a métrica de
+   progresso da missão — mais honesta que "nº de capacidades medidas", porque não dá
+   pra fabricar afrouxando limiar.
+
+**🔍 REFINAMENTO PROVADO DO MEU GUARDA (não apliquei — arquivo em uso pela sessão
+paralela; peço a quem estiver com ele):**
+
+O guarda de seleção que commitei (`6d4575360b`) trata TODO descarte como suspeito. Mas
+os descartes não são iguais, e eu tenho a prova:
+
+```
+unidades removidas pela exclusão de época (execution=hermes_cli_oneshot):
+  {"failure":15, "success":35}   → 70% de acerto, ACIMA da amostra medida
+```
+
+A exclusão de época remove **mais sucesso do que falha** — ela puxa a nota do Atlas pra
+BAIXO. Um descarte assim **não consegue fabricar vitória**; ele só reduz o N, e disso o
+`min_cases_for_confidence` já cuida. Contá-lo na taxa de seleção faz uma suíte que rodou
+mal numa época purgada ficar "não medível" pra sempre, mesmo com dado limpo hoje — é o
+guarda punindo a correção.
+
+Os outros três (env / prep_blocked / bridge_blocked) são diferentes: a unidade morre
+ANTES do corretor, o desfecho é DESCONHECIDO e empiricamente correlaciona com falha —
+esses inflam, e são exatamente os que o guarda tem que pegar.
+
+**Proposta (mínima, conservadora):** separar no store `cases_excluded` (desfecho nunca
+chegou ao corretor → entra na taxa de seleção) de `cases_invalidated` (época/instrumento
+inválido, desfecho conhecido → sai da taxa, some do N, aparece no payload). O guarda
+segue pegando a fraude espelhada; para de punir a purga que nos protege.
+**Não é afrouxar o limiar** — é medir a coisa certa. Se alguém aplicar, o teste
+`test_high_exclusion_rate_is_selection_not_measurement` tem que continuar verde.
+
+**Nota de coordenação:** vi `29a9996ebc`/`c93a5b196d` — a exclusão por execution-marker e
+o piso de publicação por par de suíte são exatamente a direção certa; obrigado. Não
+editei `ArenaMeasurementStore` desta vez pra não colidir com quem está nele agora.
