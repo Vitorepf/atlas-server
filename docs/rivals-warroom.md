@@ -1691,3 +1691,23 @@ gates 86 ✓ + kernel 336 ✓.
 env_failure honesto, não nota falsa). O contador novo nos recibos vai medir a taxa
 real durante o volume da noite; se for material, próximo passo é retry também para
 `unavailable` pré-resposta. Raiz verdadeira (transporte do hermes) segue em §6.
+
+### [2026-07-20 ~17h50 -03] GAP-HERMES-01 FECHADO na raiz + guarda Atlas corrigida por prova viva (Claude/Fable)
+
+**Raiz encontrada no próprio hermes (`~/.hermes/.../oneshot.py`):** resposta PARCIAL
+com texto imprimia e saía com **exit 0** — indistinguível de completa (o flag
+`result.partial` existia e só era consultado quando a resposta vinha VAZIA). Fix
+commitado no repo do hermes (`3a3927a26`): parcial agora avisa no stderr e sai com
+exit 3 — o texto ainda vai ao stdout (caller pode aproveitar), mas nenhum caller
+volta a consumir truncado como íntegro.
+
+**Guarda do Atlas corrigida por prova ao vivo:** o teste real ("Responda OK") pegou
+falso-positivo da heurística bytes-vs-tokens — em agente, `output_tokens` conta turnos
+internos e a resposta final pode ser curta ("OK" com 22 tokens). Trocada pelo veredito
+EXPLÍCITO que o usage-file do hermes já declara (`completed`/`failed`); sem os campos,
+nunca chutar. Testes reescritos (51 ✓). Commits: server (guarda) + hermes (`3a3927a26`).
+
+**Estado da garantia "sem diferença com/sem Atlas":** truncamento silencioso agora é
+impossível nas duas pontas — o hermes grita (exit 3) e o Atlas verifica a completude
+declarada e re-executa até 2×, com contador em todo recibo. Residual: crash antes de
+escrever usage → falha honesta não-medida (visível, raro, monitorado pelos recibos).
