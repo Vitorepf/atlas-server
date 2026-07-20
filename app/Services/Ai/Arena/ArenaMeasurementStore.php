@@ -114,6 +114,21 @@ final class ArenaMeasurementStore
                     $groups[$key]['excluded']++;
                     continue;
                 }
+                // LEI SUPREMA no dado: braço com-Atlas só MEDE quando a prova de
+                // runtime confirma `execution=atlas_cli_dev_efficient`. Os recibos
+                // da era-fraude (13-14/07) carregam um runtime_bridge v1 que
+                // CONFESSA `execution=hermes_cli_oneshot` — hermes cru rotulado de
+                // Atlas (memória 15/07, 107 recibos). Sem o marcador não há medição
+                // DO ATLAS: nem vitória (aider 9/9 antigo ressuscitava como
+                // "último par +8,9" no app), nem derrota (terminal_bench 0/51 da
+                // mesma era). Genuínos pós-attacher = 100% com o marcador
+                // (verificado 20/07: testeval 11/11 + bfcl 9/9 + cruxeval/reval
+                // 12/12; único sem bloco era env_failure, já excluído acima).
+                $bridgeExecution = (string) data_get($receipt, 'metadata.runtime_bridge.execution', '');
+                if ($arm['arm'] === 'with_atlas' && $bridgeExecution !== 'atlas_cli_dev_efficient') {
+                    $groups[$key]['excluded']++;
+                    continue;
+                }
                 // `candidate_preparation_blocked`: o candidato do braço Atlas foi
                 // BLOQUEADO antes de ser aplicado/testado (sandbox_apply_failed,
                 // create_target_already_exists, git_clone_failed, provider_unavailable

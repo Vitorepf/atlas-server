@@ -364,7 +364,7 @@ class ArenaCapabilityProfileServiceTest extends TestCase
 
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
     {
-        return [
+        $receipt = [
             'arm_id' => $armId,
             'case_id' => $caseId,
             'repetition' => 1,
@@ -372,10 +372,22 @@ class ArenaCapabilityProfileServiceTest extends TestCase
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
         ];
+        // Recibo atlas genuíno (pós-attacher) SEMPRE carrega a prova de runtime;
+        // sem ela o store exclui como era-fraude — o fixture modela a realidade.
+        if (str_contains($armId, 'atlas_dev')) {
+            $receipt['metadata'] = ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed']];
+        }
+
+        return $receipt;
     }
 
     private function continuousReceipt(string $armId, string $caseId, float $score, string $finishedAt): array
     {
+        $metadata = ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'rougeL']];
+        if (str_contains($armId, 'atlas_dev')) {
+            $metadata['runtime_bridge'] = ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed'];
+        }
+
         return [
             'arm_id' => $armId,
             'case_id' => $caseId,
@@ -383,12 +395,17 @@ class ArenaCapabilityProfileServiceTest extends TestCase
             'status' => 'success',
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
-            'metadata' => ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'rougeL']],
+            'metadata' => $metadata,
         ];
     }
 
     private function binaryScoreReceipt(string $armId, string $caseId, string $status, float $score, string $finishedAt): array
     {
+        $metadata = ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'fun_success']];
+        if (str_contains($armId, 'atlas_dev')) {
+            $metadata['runtime_bridge'] = ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed'];
+        }
+
         return [
             'arm_id' => $armId,
             'case_id' => $caseId,
@@ -396,7 +413,7 @@ class ArenaCapabilityProfileServiceTest extends TestCase
             'status' => $status,
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
-            'metadata' => ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'fun_success']],
+            'metadata' => $metadata,
         ];
     }
 }

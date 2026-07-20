@@ -23,6 +23,7 @@ class ArenaCompositeServiceTest extends TestCase
             'inspect_evals' => 0.50,
         ]);
         config()->set('atlas_arena.arm_pair_window_minutes', 60);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
     }
 
     protected function tearDown(): void
@@ -91,6 +92,45 @@ class ArenaCompositeServiceTest extends TestCase
         (new ArenaCompositeService)->composite();
     }
 
+    public function test_selection_biased_arm_never_publishes_score(): void
+    {
+        // REGRESSÃO (2026-07-20, screenshot do operador): braço atlas do aider
+        // com a maioria das unidades DESCARTADAS no setup sobrava só com
+        // sucessos → score 1,0 → widget "último par" exibia "+8,9". Vitória
+        // falsa A FAVOR do Atlas construída de sobreviventes. Linha com
+        // descarte ≥ cap não publica nota em scoreboard NEM composto.
+        config()->set('atlas_arena.max_exclusion_rate_unmeasured', 0.5);
+        $receipts = [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-17T01:01:00Z'),
+            $this->receipt('codex_cli@bare', 'c2', 'failure', '2026-07-17T01:02:00Z'),
+            // atlas: 1 sucesso contado + 3 falhas excluídas (75% de descarte)
+            $this->receipt('codex_cli@atlas_dev', 'c1', 'success', '2026-07-17T01:03:00Z'),
+        ];
+        for ($i = 2; $i <= 4; $i++) {
+            $blocked = $this->receipt('codex_cli@atlas_dev', 'c'.$i, 'failure', '2026-07-17T01:04:00Z');
+            $blocked['failure_reason'] = 'candidate_preparation_blocked:sandbox_apply_failed';
+            $receipts[] = $blocked;
+        }
+        $this->writeRun('20260717_010000_terminal', 'terminal_bench', $receipts);
+
+        $service = new ArenaCompositeService;
+        $scoreboard = $service->scoreboard();
+        $engine = $scoreboard['suites'][0]['engines'][0] ?? null;
+
+        $this->assertNotNull($engine, 'baseline limpa continua publicando');
+        $this->assertSame(0.5, $engine['without_atlas_score']);
+        $this->assertNull(
+            $engine['with_atlas_score'],
+            'braço com 75% de descarte não pode publicar nota (sobrevivência)'
+        );
+
+        $composite = $service->composite();
+        $this->assertNull(
+            $composite['engines'][0]['with_atlas_composite'] ?? null,
+            'composto também não pode herdar a nota selecionada'
+        );
+    }
+
     public function test_harness_only_engines_never_appear_in_public_payloads(): void
     {
         $this->writeRun('20260717_010000_terminal', 'terminal_bench', [
@@ -139,7 +179,7 @@ class ArenaCompositeServiceTest extends TestCase
 
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
     {
-        return [
+        $receipt = [
             'arm_id' => $armId,
             'case_id' => $caseId,
             'repetition' => 1,
@@ -147,5 +187,12 @@ class ArenaCompositeServiceTest extends TestCase
             'wall_ms' => 1000,
             'finished_at' => $finishedAt,
         ];
+        // Recibo atlas genuíno (pós-attacher) SEMPRE carrega a prova de runtime;
+        // sem ela o store exclui como era-fraude — o fixture modela a realidade.
+        if (str_contains($armId, 'atlas_dev')) {
+            $receipt['metadata'] = ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed']];
+        }
+
+        return $receipt;
     }
 }

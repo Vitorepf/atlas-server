@@ -43,7 +43,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'failure_reason' => null,
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T02:01:00Z',
-                'metadata' => ['runtime_bridge' => ['provider_call' => ['error_codes' => [
+                'metadata' => ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'provider_call' => ['error_codes' => [
                     'candidate_preparation_blocked:sandbox_sandbox_apply_failed:create_target_already_exists:answer.json',
                 ]]]],
             ],
@@ -56,6 +56,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'failure_class' => 'model_failure',
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T02:02:00Z',
+                'metadata' => ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed']],
             ],
             // vitória real — controle
             [
@@ -65,6 +66,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'status' => 'success',
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T02:03:00Z',
+                'metadata' => ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed']],
             ],
         ]);
 
@@ -95,6 +97,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T04:01:00Z',
                 'metadata' => ['runtime_bridge' => [
+                    'execution' => 'atlas_cli_dev_efficient',
                     'task_ok' => false,
                     'completion_state' => 'blocked',
                     'provider_call' => ['error_codes' => ['governor_authority_absent']],
@@ -110,6 +113,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T04:02:00Z',
                 'metadata' => ['runtime_bridge' => [
+                    'execution' => 'atlas_cli_dev_efficient',
                     'task_ok' => true,
                     'completion_state' => 'completed',
                 ]],
@@ -135,7 +139,7 @@ class ArenaMeasurementStoreTest extends TestCase
                 'status' => 'success',
                 'wall_ms' => 1000,
                 'finished_at' => '2026-07-20T03:01:00Z',
-                'metadata' => ['runtime_bridge' => ['provider_call' => ['error_codes' => [
+                'metadata' => ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'provider_call' => ['error_codes' => [
                     'candidate_preparation_blocked:transient',
                 ]]]],
             ],

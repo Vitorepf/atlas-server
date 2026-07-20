@@ -23,6 +23,7 @@ class ArenaRunControllerTest extends TestCase
         config()->set('atlas.token', self::TOKEN);
         config()->set('atlas_rivals.storage_root', $this->storage);
         config()->set('atlas_arena.suites', ['terminal_bench', 'bfcl']);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
         config()->set('atlas_arena.weights', [
             'terminal_bench' => 0.5,
             'bfcl' => 0.5,
@@ -508,6 +509,11 @@ class ArenaRunControllerTest extends TestCase
         ];
         if ($failureClass !== null) {
             $r['failure_class'] = $failureClass;
+        }
+        // Recibo atlas genuíno (pós-attacher) SEMPRE carrega a prova de runtime;
+        // sem ela o store exclui como era-fraude — o fixture modela a realidade.
+        if (str_contains($armId, 'atlas_dev')) {
+            $r['metadata'] = ['runtime_bridge' => ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed']];
         }
 
         return $r;

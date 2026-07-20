@@ -13,10 +13,10 @@ final class ArenaCompositeService
 
         $weights = $this->store->weights();
         $suites = $this->store->suites();
-        $measurements = array_values(array_filter(
+        $measurements = $this->publishable(array_values(array_filter(
             $this->store->measurements(),
             fn (array $row): bool => isset($weights[$row['suite']]) && in_array($row['suite'], $suites, true)
-        ));
+        )));
         $suitesMeasured = array_values(array_unique(array_column($measurements, 'suite')));
 
         $byEngine = [];
@@ -68,7 +68,7 @@ final class ArenaCompositeService
     /** @return array<string, mixed> */
     public function scoreboard(): array
     {
-        $measurements = $this->store->measurements();
+        $measurements = $this->publishable($this->store->measurements());
         $bySuite = [];
         foreach ($measurements as $row) {
             $bySuite[$row['suite']][] = $row;
@@ -90,9 +90,12 @@ final class ArenaCompositeService
                 $withAtlas = $arms['with_atlas'] ?? null;
                 $score = is_array($baseline) ? (float) $baseline['score'] : null;
                 $previous = $this->previousScore($engineRows, $suite, 'baseline');
-                $casesPassed = (int) max((int) ($baseline['cases_passed'] ?? 0), (int) ($withAtlas['cases_passed'] ?? 0));
-                $casesFailed = (int) max((int) ($baseline['cases_failed'] ?? 0), (int) ($withAtlas['cases_failed'] ?? 0));
-                $casesTotal = (int) max((int) ($baseline['cases_total'] ?? 0), (int) ($withAtlas['cases_total'] ?? 0));
+                // Trio coerente de UMA linha (max() cruzando braços fabricava
+                // "ok 2 · falha 9 · de 9"): baseline quando existe, senão with_atlas.
+                $primary = is_array($baseline) ? $baseline : (array) $withAtlas;
+                $casesPassed = (int) ($primary['cases_passed'] ?? 0);
+                $casesFailed = (int) ($primary['cases_failed'] ?? 0);
+                $casesTotal = (int) ($primary['cases_total'] ?? 0);
                 $durations = array_values(array_filter([
                     $baseline['duration_avg_ms'] ?? null,
                     $withAtlas['duration_avg_ms'] ?? null,
@@ -147,6 +150,36 @@ final class ArenaCompositeService
         }
 
         return $latest;
+    }
+
+    /**
+     * Guarda de seleção (mesma régua do perfil de capacidades): linha cujo braço
+     * teve descarte alto no setup NÃO publica nota — o que sobrou não é amostra,
+     * é seleção. Provado no app em 20/07: aider with_atlas 1,0 com 81% das
+     * unidades descartadas virava "+8,9" no widget "último par" — vitória falsa
+     * A FAVOR do Atlas construída só de sobreviventes. Vale para os DOIS braços.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function publishable(array $rows): array
+    {
+        $cap = (float) config('atlas_arena.max_exclusion_rate_unmeasured', 0.5);
+        // Mesmo piso do perfil: linha com N minúsculo não vira nota publicada.
+        // Sem isto, um braço atlas de N=1 (1 acerto genuíno) virava "10" no
+        // widget contra um bare de N=18 — par incomparável vendido como +8,9.
+        $floor = max(1, (int) config('atlas_arena.min_cases_for_confidence', 10));
+
+        return array_values(array_filter($rows, static function (array $row) use ($cap, $floor): bool {
+            $total = (int) ($row['cases_total'] ?? 0);
+            $excluded = (int) ($row['cases_excluded'] ?? 0);
+            $denominator = $excluded + $total;
+            if ($total < $floor) {
+                return false;
+            }
+
+            return $denominator <= 0 || ($excluded / $denominator) < $cap;
+        }));
     }
 
     /**
