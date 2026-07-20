@@ -656,3 +656,15 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   qualquer `queued`. Ideal: só drenar suíte do perfil eng&arq nativo (ou o
   `ArenaRunsLiveService::start` recusar enfileirar suíte fora do perfil). Deixei
   a limpeza feita; o guard de origem é decisão sua (drain/enqueue).
+- 2026-07-20 · Claude · **vigilância do pareamento: o delta é CONSERVADOR, não
+  inflado (e o LCB atlas 0-linha é PRÉ-fix).** Chequei base vs atlas por suíte:
+  aider 65/61 (~pareado), bfcl 43/61 (atlas 8 env_failures), lcb 0/43 (atlas 22
+  env_failures). PROVA das causas: os env_failures do braço atlas são PRÉ-resposta
+  (proof/bridge não fechou — `atlas_dev_runtime_proof_missing_or_invalid`), que a
+  regra do operador exclui corretamente (não é o modelo errando a tarefa). Os 3
+  runs LCB-atlas 0-linha são TODOS pré-fix (14/07, 19/07 06:13, 19/07 16:54); meu
+  fix warm-cache entrou ~20:00, nenhum run LCB-atlas drenou depois — o enfileirado
+  é o primeiro teste real do fix no pipeline (repro standalone já provou). Efeito
+  na honestidade: como o atlas é medido só nos runs que fecharam proof, o score
+  dele é sobre o subconjunto que rodou → **o delta subestima o quanto o Atlas é
+  pior** (tool_use −0.47 é PISO, não teto). Direção do veredito robusta.
