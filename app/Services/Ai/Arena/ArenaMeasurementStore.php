@@ -77,6 +77,33 @@ final class ArenaMeasurementStore
             /** @var array<string, array<string, mixed>> $groups */
             $groups = [];
             foreach ($receipts as $receipt) {
+                // O braço é resolvido ANTES das exclusões porque cada unidade
+                // descartada precisa ser CONTADA no braço dela. Sem esse contador,
+                // excluir só as falhas de um braço produz 100% de sobrevivência —
+                // provado em aider_polyglot: 30 contados (todos sucesso) e 45
+                // excluídos (todas as falhas) viravam "Atlas +0.455", número falso
+                // A FAVOR do Atlas, o espelho exato do zero falso.
+                $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
+                if ($arm === null) {
+                    continue;
+                }
+                $key = $suite.'|'.$arm['engine'].'|'.$arm['arm'];
+                $groups[$key] ??= [
+                    'suite' => $suite,
+                    'engine' => $arm['engine'],
+                    'arm' => $arm['arm'],
+                    'passed' => 0,
+                    'failed' => 0,
+                    'excluded' => 0,
+                    'walls' => [],
+                    'rounds' => [],
+                    'has_score' => false,
+                    'fractional' => false,
+                    'score_sum' => 0.0,
+                    'score_sumsq' => 0.0,
+                    'score_n' => 0,
+                ];
+
                 // Falha de AMBIENTE (caso quebrado, integração, proxy) não é nota
                 // do modelo — não conta como falha de nenhum braço. O texto real
                 // no recibo é `environment_failure`; o `=== 'environment'` antigo
@@ -84,6 +111,7 @@ final class ArenaMeasurementStore
                 // braço com-Atlas como -10 catastrófico onde na verdade era NÃO
                 // MEDIDO (inspect/tau2/lcb via proxy quebrado). Legacy incluído.
                 if (in_array($receipt['failure_class'] ?? null, ['environment', 'environment_failure'], true)) {
+                    $groups[$key]['excluded']++;
                     continue;
                 }
                 // `candidate_preparation_blocked`: o candidato do braço Atlas foi
@@ -102,6 +130,7 @@ final class ArenaMeasurementStore
                 if (($receipt['status'] ?? null) !== 'success'
                     && (str_contains($reason, 'candidate_preparation_blocked')
                         || str_contains($bridgeCodes, 'candidate_preparation_blocked'))) {
+                    $groups[$key]['excluded']++;
                     continue;
                 }
                 // Bridge governado BLOQUEADO antes do artefato (task_ok=false +
@@ -114,27 +143,9 @@ final class ArenaMeasurementStore
                 if (($receipt['status'] ?? null) !== 'success'
                     && ($bridge['task_ok'] ?? null) === false
                     && ($bridge['completion_state'] ?? null) === 'blocked') {
+                    $groups[$key]['excluded']++;
                     continue;
                 }
-                $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
-                if ($arm === null) {
-                    continue;
-                }
-                $key = $suite.'|'.$arm['engine'].'|'.$arm['arm'];
-                $groups[$key] ??= [
-                    'suite' => $suite,
-                    'engine' => $arm['engine'],
-                    'arm' => $arm['arm'],
-                    'passed' => 0,
-                    'failed' => 0,
-                    'walls' => [],
-                    'rounds' => [],
-                    'has_score' => false,
-                    'fractional' => false,
-                    'score_sum' => 0.0,
-                    'score_sumsq' => 0.0,
-                    'score_n' => 0,
-                ];
                 if (($receipt['status'] ?? null) === 'success') {
                     $groups[$key]['passed']++;
                 } else {
@@ -180,7 +191,13 @@ final class ArenaMeasurementStore
                     $total = (int) $group['passed'] + (int) $group['failed'];
                     $passed = (int) $group['passed'];
                 }
+                $excluded = (int) $group['excluded'];
                 if ($total <= 0) {
+                    // Grupo 100% descartado NÃO vira linha de medição — emitir um row
+                    // com score 0 poluiria todo consumidor que lê `score` sem olhar o
+                    // N. A contagem sobrevive em `exclusions()`, que o perfil usa pro
+                    // guarda de seleção: "rodou e nada chegou ao corretor" ≠ "nunca
+                    // rodou", e nenhuma das duas é derrota.
                     continue;
                 }
                 $walls = (array) $group['walls'];
@@ -200,6 +217,10 @@ final class ArenaMeasurementStore
                     'cases_passed' => $continuous ? $total : $passed,
                     'cases_failed' => $continuous ? 0 : ($total - $passed),
                     'cases_total' => $total,
+                    // Unidades DESCARTADAS deste braço (ambiente/setup/bridge blocked).
+                    // O perfil usa isto pra detectar sobrevivência: se quase toda falha
+                    // de um braço foi excluída, o que sobrou não é amostra, é seleção.
+                    'cases_excluded' => $excluded,
                     // Carrega sum/sumsq/n p/ o perfil poolar média + IC contínuos.
                     'measurement_type' => $continuous ? 'continuous' : 'binary',
                     'score_sum' => $hasScore ? round((float) $group['score_sum'], 6) : null,
@@ -214,6 +235,84 @@ final class ArenaMeasurementStore
         usort($rows, static fn (array $a, array $b): int => strcmp($a['round_at'], $b['round_at']));
 
         return $rows;
+    }
+
+    /**
+     * Unidades DESCARTADAS por (suite, engine, braço) em grupos que não geraram
+     * nenhuma linha de medição — o caso "rodou e nada chegou ao corretor".
+     *
+     * Vive fora de `measurements()` de propósito: um row de N=0 com score 0 mentiria
+     * pra todo consumidor que lê `score` sem olhar o N. Aqui a contagem existe só
+     * pro guarda de seleção do perfil, que precisa distinguir "nunca rodou" de
+     * "rodou inteiro e foi tudo descartado".
+     *
+     * @return list<array{suite:string, engine:string, arm:string, cases_excluded:int}>
+     */
+    public function exclusions(): array
+    {
+        $runsDir = RunPaths::runsDir();
+        if (! is_dir($runsDir)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($this->runIds($runsDir) as $runId) {
+            $suite = $this->suiteForRun($runId);
+            if ($suite === null) {
+                continue;
+            }
+            $counted = [];
+            $dropped = [];
+            foreach ($this->receipts($runId) as $receipt) {
+                $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
+                if ($arm === null) {
+                    continue;
+                }
+                $key = $arm['engine'].'|'.$arm['arm'];
+                if ($this->isExcludedReceipt($receipt)) {
+                    $dropped[$key] = ($dropped[$key] ?? 0) + 1;
+                } else {
+                    $counted[$key] = true;
+                }
+            }
+            foreach ($dropped as $key => $count) {
+                if (isset($counted[$key])) {
+                    continue; // já contabilizado no `cases_excluded` da própria linha
+                }
+                [$engine, $arm] = explode('|', $key, 2);
+                $out[] = [
+                    'suite' => $suite,
+                    'engine' => $engine,
+                    'arm' => $arm,
+                    'cases_excluded' => $count,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /** @param array<string, mixed> $receipt */
+    private function isExcludedReceipt(array $receipt): bool
+    {
+        if (in_array($receipt['failure_class'] ?? null, ['environment', 'environment_failure'], true)) {
+            return true;
+        }
+        if (($receipt['status'] ?? null) === 'success') {
+            return false;
+        }
+        $reason = (string) ($receipt['failure_reason'] ?? '');
+        $bridgeCodes = implode(' ', array_map('strval', (array) data_get(
+            $receipt, 'metadata.runtime_bridge.provider_call.error_codes', []
+        )));
+        if (str_contains($reason, 'candidate_preparation_blocked')
+            || str_contains($bridgeCodes, 'candidate_preparation_blocked')) {
+            return true;
+        }
+        $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
+
+        return ($bridge['task_ok'] ?? null) === false
+            && ($bridge['completion_state'] ?? null) === 'blocked';
     }
 
     /** @return list<array<string, mixed>> */

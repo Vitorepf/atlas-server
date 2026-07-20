@@ -288,6 +288,45 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         );
     }
 
+    public function test_high_exclusion_rate_is_selection_not_measurement(): void
+    {
+        // REGRESSÃO (2026-07-20): excluir unidade bloqueada é honesto, mas se quase
+        // toda FALHA de um braço for excluída, o que sobra é seleção, não amostra —
+        // a nota sobe sozinha. Provado ao vivo em aider_polyglot: braço Atlas com 30
+        // contados (todos sucesso) e 45 descartados virava "Atlas +0.455". Número
+        // falso A FAVOR do Atlas é a mesma fraude do zero falso, só invertida.
+        config()->set('atlas_arena.capability_labels_pt', ['code_editing' => 'Edição de código']);
+        config()->set('atlas_arena.capability_map', [
+            'aider_polyglot' => [['capability' => 'code_editing', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+
+        $receipts = [];
+        // base: 2 acertos e 2 erros, nada descartado → 0.5 honesto
+        foreach (['b1' => 'success', 'b2' => 'success', 'b3' => 'failure', 'b4' => 'failure'] as $case => $status) {
+            $receipts[] = $this->receipt('codex_cli@bare', $case, $status, '2026-07-20T02:00:00Z');
+        }
+        // atlas: 2 acertos contados + 6 falhas TODAS descartadas como bloqueio de setup
+        $receipts[] = $this->receipt('codex_cli@atlas_dev', 'a1', 'success', '2026-07-20T02:01:00Z');
+        $receipts[] = $this->receipt('codex_cli@atlas_dev', 'a2', 'success', '2026-07-20T02:02:00Z');
+        for ($i = 1; $i <= 6; $i++) {
+            $blocked = $this->receipt('codex_cli@atlas_dev', "x{$i}", 'failure', '2026-07-20T02:03:00Z');
+            $blocked['failure_reason'] = 'candidate_preparation_blocked:sandbox_apply_failed';
+            $receipts[] = $blocked;
+        }
+        $this->writeRun('20260720_020000_aider', 'aider_polyglot', $receipts);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['code_editing'];
+
+        $this->assertSame(6, $cap['with_atlas_excluded'], 'o descarte é contado, não some');
+        $this->assertGreaterThan(0.5, $cap['max_exclusion_rate'], '6 de 8 descartados = 75%');
+        $this->assertSame(
+            'unmeasured',
+            $cap['confidence'],
+            'Atlas 2/2 = 100% construído descartando toda falha NÃO é medição — é seleção'
+        );
+    }
+
     public function test_mixed_capability_keeps_binary_evidence_instead_of_dropping_it(): void
     {
         // REGRESSÃO (2026-07-20): code_generation junta deveval (CONTÍNUA) com

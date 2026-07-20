@@ -17,6 +17,10 @@ final class ArenaCapabilityProfileService
         ));
         $labels = (array) config('atlas_arena.capability_labels_pt', []);
         $minCases = max(1, (int) config('atlas_arena.min_cases_for_confidence', 10));
+        // Descarte alto = amostra selecionada. Acima de `drop_low` a nota vira baixa
+        // confiança; acima de `drop_unmeasured` ela não é número, é seleção.
+        $dropLow = (float) config('atlas_arena.max_exclusion_rate_low', 0.30);
+        $dropUnmeasured = (float) config('atlas_arena.max_exclusion_rate_unmeasured', 0.50);
 
         // VOLUME: agrupa por (suite, braço) somando os casos de TODAS as rodadas.
         // O `latestBySuiteArm` antigo usava só a última rodada e jogava fora a
@@ -33,6 +37,7 @@ final class ArenaCapabilityProfileService
             $total = (int) $row['cases_total'];
             $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + $passed;
             $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + $total;
+            $pool[$suite][$arm]['excluded'] = ((int) ($pool[$suite][$arm]['excluded'] ?? 0)) + (int) ($row['cases_excluded'] ?? 0);
             // O acumulador contínuo é preenchido SEMPRE, inclusive por suíte binária:
             // um caso pass/fail é um score de Bernoulli ∈ {0,1}, então sum = acertos e
             // sumsq = acertos (1²=1, 0²=0). Sem isto, capacidade que MISTURA suíte
@@ -52,6 +57,16 @@ final class ArenaCapabilityProfileService
                 $pool[$suite][$arm]['score_sumsq'] = ((float) ($pool[$suite][$arm]['score_sumsq'] ?? 0.0)) + (float) $passed;
                 $pool[$suite][$arm]['score_n'] = ((int) ($pool[$suite][$arm]['score_n'] ?? 0)) + $total;
             }
+        }
+        // Grupos 100% descartados não viram linha de medição (seria score 0 falso),
+        // então o descarte deles entra aqui — senão "rodou e nada chegou ao corretor"
+        // seria indistinguível de "nunca rodou" e o guarda de seleção não veria nada.
+        foreach ($this->store->exclusions() as $drop) {
+            if ($engine !== null && $engine !== '' && $drop['engine'] !== $engine) {
+                continue;
+            }
+            $pool[$drop['suite']][$drop['arm']]['excluded'] =
+                ((int) ($pool[$drop['suite']][$drop['arm']]['excluded'] ?? 0)) + (int) $drop['cases_excluded'];
         }
 
         /** @var array<string, array<string, mixed>> $capabilities */
@@ -85,6 +100,8 @@ final class ArenaCapabilityProfileService
                     'atlas_total' => 0,
                     'continuous' => false,
                     'binary' => false,
+                    'baseline_excluded' => 0,
+                    'atlas_excluded' => 0,
                     'baseline_sum' => 0.0,
                     'baseline_sumsq' => 0.0,
                     'baseline_scoreN' => 0,
@@ -94,8 +111,9 @@ final class ArenaCapabilityProfileService
                     'suites' => [],
                 ];
                 if (is_array($baseline)) {
-                    $capabilities[$capability]['baseline_passed'] += (int) $baseline['passed'];
-                    $capabilities[$capability]['baseline_total'] += (int) $baseline['total'];
+                    $capabilities[$capability]['baseline_passed'] += (int) ($baseline['passed'] ?? 0);
+                    $capabilities[$capability]['baseline_total'] += (int) ($baseline['total'] ?? 0);
+                    $capabilities[$capability]['baseline_excluded'] += (int) ($baseline['excluded'] ?? 0);
                     $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($baseline['continuous'] ?? false));
                     $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($baseline['binary'] ?? false));
                     $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
@@ -103,8 +121,9 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
                 }
                 if (is_array($withAtlas)) {
-                    $capabilities[$capability]['atlas_passed'] += (int) $withAtlas['passed'];
-                    $capabilities[$capability]['atlas_total'] += (int) $withAtlas['total'];
+                    $capabilities[$capability]['atlas_passed'] += (int) ($withAtlas['passed'] ?? 0);
+                    $capabilities[$capability]['atlas_total'] += (int) ($withAtlas['total'] ?? 0);
+                    $capabilities[$capability]['atlas_excluded'] += (int) ($withAtlas['excluded'] ?? 0);
                     $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($withAtlas['continuous'] ?? false));
                     $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($withAtlas['binary'] ?? false));
                     $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
@@ -160,9 +179,24 @@ final class ArenaCapabilityProfileService
             // Confiança da COMPARAÇÃO: sem os dois braços não há o que comparar
             // (unmeasured); com poucos casos o número existe mas não é confiável
             // (low); só measured quando os dois braços passam do piso.
+            // GUARDA DE SELEÇÃO: descartar unidade é honesto (setup não é capacidade),
+            // mas se quase toda falha de um braço foi descartada o que sobrou não é
+            // amostra — é seleção, e a nota sobe sozinha. Provado em aider_polyglot:
+            // braço Atlas com 30 contados (todos sucesso) e 45 descartados virava
+            // "Atlas +0.455". Número falso a favor do Atlas é a mesma fraude do zero
+            // falso, só invertida — então a taxa de descarte entra na confiança e vai
+            // no payload, nunca em silêncio.
+            $bx = (int) $row['baseline_excluded'];
+            $ax = (int) $row['atlas_excluded'];
+            $dropRate = static fn (int $kept, int $dropped): float => ($kept + $dropped) > 0
+                ? $dropped / ($kept + $dropped)
+                : 0.0;
+            $worstDrop = max($dropRate($bn, $bx), $dropRate($an, $ax));
+
             $confidence = match (true) {
                 $bn === 0 || $an === 0 => 'unmeasured',
-                min($bn, $an) < $minCases => 'low',
+                $worstDrop >= $dropUnmeasured => 'unmeasured',
+                min($bn, $an) < $minCases, $worstDrop >= $dropLow => 'low',
                 default => 'measured',
             };
 
@@ -177,6 +211,9 @@ final class ArenaCapabilityProfileService
                 'with_atlas_cases' => $an,
                 'delta' => $delta,
                 'confidence' => $confidence,
+                'baseline_excluded' => $bx,
+                'with_atlas_excluded' => $ax,
+                'max_exclusion_rate' => round($worstDrop, 4),
                 'measurement_type' => $measureLabel,
                 'suites_contributing' => $suites,
                 'cases_total' => max($bn, $an),
