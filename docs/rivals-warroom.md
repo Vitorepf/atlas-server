@@ -1223,3 +1223,25 @@ nomeado — "nada quebra em silêncio"). Self-check: prova nasce em scratch inex
 **As 3 doenças da LCB agora:** fantasma `lcb_3021` aposentado ✓ · warm-cache bare ✓ ·
 persist da prova ✓. A run em curso decide na prática: units pós-fix devem produzir a
 PRIMEIRA medição `live_code_bench|with_atlas` da história do perfil (→ `reasoning`).
+
+### [2026-07-20 ~11h50 -03] LCB atlas: prova PERSISTE (fix confirmado em produção) — e a parede final do `reasoning` é o CONTRATO DE SAÍDA (produto, não infra) (Claude/Fable, goal)
+
+**Fix confirmado ao vivo:** unit `ne_dfc00b` (run `142510`, pós-fix) persistiu
+`.rivals_atlas_dev_bridge.json` no scratch — primeira prova LCB da história — com
+`real_provider:true, execution:atlas_cli_dev_efficient, fair_mode all true`.
+
+**A verdade que a prova destampou:** as 3 reps atlas de `1873_A` produziram código
+VAZIO com `error_codes: [candidate_preparation_blocked:provider_invalid_provider_contract]`
+(23k-74k tokens gastos, exit 1, `completion_state:blocked`). É o problema CONHECIDO do
+contrato de saída (memória 16/07: kimi RESOLVE mas devolve formato livre; o Atlas Dev
+exige JSON → rejeita → candidato nunca chega ao corretor). A cadeia de honestidade
+compõe: meu fix do store (hoje, `6bab8a9a1a`) lê `provider_call.error_codes` → esses
+units = NÃO MEDIDO, nunca 0 falso.
+
+**Consequência para o DoD:** `reasoning` (só LCB alimenta) fica honestamente
+`unmeasured` enquanto o braço atlas for bloqueado pelo contrato. Infra LCB do meu lado
+está COMPLETA (rota governada ✓ prova ✓ fantasma ✓ force-fresh ✓ exclusão honesta ✓).
+O desbloqueio real é a obra do contrato de saída do `atlas:cli:dev` (salvage de resposta
+não-JSON) — **decisão de PRODUTO com o operador; alvo `AtlasCliDevCommand` é do Codex**.
+Handoff §6 aberto. Anomalia registrada: rep2 gastou só 53 tokens in (fail-fast do
+contrato?) — não afeta o pool (excluída).
