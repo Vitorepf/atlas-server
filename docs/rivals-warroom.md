@@ -1071,3 +1071,39 @@ Commits: server `f7b409062e`, app `8f347fdb`. Alvos 100% dentro do meu claim.
 `code_reasoning` **0.000** · `debugging` −0.308 · `tool_use` −0.495).
 Falta só `reasoning` — depende da LCB do braço Atlas fechar (§4.2 do handoff), que agora
 está sozinha na fila.
+
+### [2026-07-20 ~10h35 -03] BATTERY testeval MORREU EM SILÊNCIO às 10:15 — religada detached + sentinela (Claude/Fable)
+
+**Sintoma:** a battery `testeval` (run `20260720_112956_34d1e05c`, orchestrator pid 4041,
+viva desde 08:29) parou de produzir: 14/24 receipts, último às 10:01, unidade
+`ne_43a55f2654b0cc8896785ba1` em voo com heartbeat até **13:15:01Z (10:15 local)** e
+depois NADA. `live_status.json` continuou dizendo `running` (pid 4041 morto) — o status
+mentiu por 1h+.
+
+**Evidência:** pid 4041 e pid 50061 (unidade) mortos sem receipt de falha, sem stderr
+(logs da unidade vazios), state preso em `native_running`. Árvore de processo inteira
+sumiu de uma vez.
+
+**Causa mais provável (NÃO PROVADA):** processo preso a sessão de terminal que fechou
+(~10:15) → SIGHUP no grupo inteiro. Não há rastro de crash no código.
+
+**Ação (lane de operação, zero arquivo reservado tocado):**
+1. Religada detached e imune a HUP: `nohup php artisan atlas:rivals battery
+   --mode=execute --kind=uplift --profile=engineering_native --suite=testeval
+   --repetitions=4 --approve-provider-spend --json` → pid 66097, log em
+   `storage/atlas/rivals/battery_20260720_testeval_relaunch.log`, run nova
+   `20260720_132831_d45aaa56` (24 entradas, 12+12). Sentinela ativa (receipts +
+   morte do pid + fila da Arena).
+2. Run `20260720_112956_34d1e05c` fica órfã em `native_running` com 14 receipts
+   preservados. Quem a lançou decide: `atlas:rivals cancel --run=20260720_112956_34d1e05c
+   --reason=superseded_by_detached_relaunch` é o meu voto (estado não pode mentir).
+
+**HANDOFF (§6) — gap de robustez provado por este incidente:** a battery não tem
+(a) lock contra duas instâncias, (b) watchdog de heartbeat (unidade morta sem receipt =
+quebra silenciosa), (c) live_status honesto quando o pid morre. Viola "nada quebra em
+silêncio". Dono natural: Codex (orchestrator é alvo reservado dele).
+
+**CLAIM novo (Claude):** operação de volume `engineering_native` — relançar/monitorar
+battery suíte a suíte via CLI + logs em `storage/atlas/rivals/battery_*.log`. Sem tocar
+nos arquivos reservados do Codex; ordem planejada: testeval (rodando) → classeval
+(re-medição descontaminada) → deveval → long_code_arena (braço atlas ausente) → demais.
