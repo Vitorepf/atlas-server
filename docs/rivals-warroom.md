@@ -1470,3 +1470,37 @@ segue pegando a fraude espelhada; para de punir a purga que nos protege.
 **Nota de coordenação:** vi `29a9996ebc`/`c93a5b196d` — a exclusão por execution-marker e
 o piso de publicação por par de suíte são exatamente a direção certa; obrigado. Não
 editei `ArenaMeasurementStore` desta vez pra não colidir com quem está nele agora.
+
+### [2026-07-20 ~15h10 -03] OBRA DO CONTRATO ENTREGUE — braço Atlas da LCB produz código julgável pela 1ª vez (Claude/Fable, ordem do operador)
+
+**Placar da obra (5 fixes em cadeia, todos provados ao vivo):**
+1. **Salvage de resposta livre** (`AgentExecutionProviderPortAdapter`): código em fence
+   + alvo inequívoco (claim de 1 arquivo, ou criação com arquivo nomeado no prompt) →
+   Atlas monta o patch_plan. Ambíguo segue invalid (engenharia não adivinha).
+   `contract_salvaged` visível no retorno + log.
+2. **Repair de JSON quase-válido**: kimi emite o contrato com fechadores trocados
+   ("...}}]}") — conserto string-aware pela pilha real; plano ESTRIPADO (truncado pelo
+   transporte) é rejeitado para o retry agir.
+3. **Retry declarado ×2** (`EliteExecutorKernel`): GAP-HERMES-01 (transporte corta o
+   chunk final; resposta chega como prosa sem o JSON — provado com output de 856 bytes
+   de prosa pura) fazia unidade morrer em cara-ou-coroa.
+4. **Sink de patch-plans** (adapter+bridge, padrão do usage-sink): kernel roda N ordens
+   e o receipt projeta só a última — solution.py de 3.380B morria invisível enquanto
+   README de 47B era aplicado. Agora o bridge aplica TODOS, em ordem.
+5. **Escopo de CRIAÇÃO** (`EliteExecutorKernelDevAdapter::allowedScope`): arquivo
+   citado no goal só entrava se `is_file()` — em criação o alvo não existe ainda →
+   caía no fallback README.md e o provider resolvia o arquivo ERRADO com a solução
+   certa. Nome explícito ("file solution.py") agora escopa mesmo sem existir.
+   + pin do alvo nomeado no prompt vazio do kernel.
+
+**Prova final (LCB 1873_D ao vivo):** `execution=atlas_cli_dev_efficient`,
+`real_provider=true`, `patch_applied=1`, **code_len=313 julgado pelo corretor**
+(score 0 = derrota HONESTA do modelo na questão — primeira medição de capacidade
+real do braço Atlas na LCB em todo o histórico). Cadeia: task → escopo certo →
+contrato robusto → patch aplicado → prova persistida → corretor.
+
+**Gates:** kernel 336 ✓ · CLI efficient 20 ✓ · bridge tests ✓ · AtlasDev suite: 42
+vermelhos PRÉ-EXISTENTES (diferencial rodado com adapter do HEAD: mesmos 42; zero
+regressão minha). **Nota:** commit do bridge inclui hunks WIP pré-existentes do Codex
+(`--artifact-target` — ele atacando o mesmo alvo por env explícita; coerente, aditivo).
+**Handoff §6:** GAP-HERMES-01 (raiz do truncamento) segue aberto no ~/.hermes.

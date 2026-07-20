@@ -368,7 +368,23 @@ final class EliteExecutorKernel
         // "exatamente a lista acima" com lista vazia — impossível por definição.
         if ($order->allowedScope === []
             && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
-            return "# Task\n{$goal}\n\n# Files in scope\n(nenhum arquivo pré-selecionado: proponha você o conjunto mínimo)\n"
+            // A task frequentemente NOMEIA o alvo ("into the file solution.py").
+            // Deixar o modelo "propor o conjunto" fazia ele derivar para
+            // README.md e a solução real morrer fora do arquivo julgado
+            // (provado ao vivo 20/07: patch_applied=1 em README, solution.py
+            // vazio, score 0 falso de planejamento). Alvo nomeado na task =
+            // escopo PINADO no prompt; sem nome, o modelo propõe como antes.
+            preg_match_all('/\b(?:file|arquivo|ficheiro)\s+`?([A-Za-z0-9][A-Za-z0-9_.\/-]*\.[A-Za-z0-9]{1,8})`?/i', $goal, $named);
+            $pinned = array_values(array_unique(array_filter(
+                array_map(static fn (string $p): string => ltrim($p, '/'), $named[1] ?? []),
+                static fn (string $p): bool => $p !== '' && ! str_contains($p, '..'),
+            )));
+            $scopeLine = $pinned === []
+                ? '(nenhum arquivo pré-selecionado: proponha você o conjunto mínimo)'
+                : 'The task explicitly names the target file(s): '.json_encode($pinned, JSON_UNESCAPED_SLASHES)
+                    .' — "allowed_files" MUST be exactly this list and every patch MUST target one of them.';
+
+            return "# Task\n{$goal}\n\n# Files in scope\n{$scopeLine}\n"
                 ."# Output contract (mandatory)\n"
                 .'You are NOT editing files and need no write permission: you only OUTPUT a JSON '
                 ."plan; Atlas applies it in a hermetic sandbox. Emitting this JSON is always allowed.\n"
@@ -413,11 +429,19 @@ final class EliteExecutorKernel
             // Repair declarado (1 tentativa) que o port nunca exercia: resposta
             // fora do contrato ganha UMA re-chamada com o erro nomeado. Sob
             // rivals é medição da política declarada do Atlas, não inflação.
-            $invalid = in_array((string) ($provider['status'] ?? ''), ['invalid_provider_contract', 'invalid_provider_scope', 'invalid_provider_patch'], true);
-            if ($invalid
+            // Repair declarado: resposta fora do contrato ganha re-chamada com o
+            // erro nomeado — até DUAS, porque o transporte do hermes às vezes
+            // corta o chunk final (GAP-HERMES-01) e a resposta chega como prosa
+            // truncada sem o JSON: uma única tentativa perdia unidades por cara
+            // ou coroa (provado ao vivo 20/07, 1873_D). Política declarada do
+            // runtime, não inflação: o braço bare não tem contrato nenhum.
+            $contractAttempts = 0;
+            while ($contractAttempts < 2
+                && in_array((string) ($provider['status'] ?? ''), ['invalid_provider_contract', 'invalid_provider_scope', 'invalid_provider_patch'], true)
                 && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+                $contractAttempts++;
                 $request['prompt'] = $basePrompt
-                    ."\n\n# Retry\nYour previous reply was rejected: ".(string) $provider['status']
+                    ."\n\n# Retry {$contractAttempts}\nYour previous reply was rejected: ".(string) $provider['status']
                     .'. Reply with ONLY the JSON object, exactly as specified — no prose, no fences.';
                 $provider = $port->invoke($request);
             }

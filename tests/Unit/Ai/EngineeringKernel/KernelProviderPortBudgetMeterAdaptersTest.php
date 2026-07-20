@@ -97,6 +97,153 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         self::assertTrue($receipt['provider_invoked']);
     }
 
+    public function test_free_form_answer_with_single_claim_file_is_salvaged_into_patch_plan(): void
+    {
+        // Camada 4 (ordem do operador, 20/07): kimi resolve mas responde em
+        // formato livre; com alvo inequívoco (claim de 1 arquivo) o Atlas monta
+        // o patch_plan em vez de jogar a resposta fora.
+        $adapter = new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                'ok' => true,
+                'output' => "Aqui está a correção completa:\n\n```php\n<?php\n\nfunction fixed() { return 42; }\n```\n\nIsso resolve o bug.",
+                'provider' => $provider,
+                'model' => $model,
+            ],
+        );
+
+        $receipt = $adapter->invoke([
+            'execute_provider' => true,
+            'provider' => 'codex_cli',
+            'model' => 'test-model',
+            'prompt' => 'Fix the bug',
+            'claim' => ['allowed_files' => ['app/X.php']],
+        ]);
+
+        self::assertSame('ok', $receipt['status']);
+        self::assertTrue($receipt['contract_salvaged']);
+        self::assertSame(['app/X.php'], $receipt['patch_plan']['allowed_files']);
+        self::assertSame('modify', $receipt['patch_plan']['patches'][0]['mode']);
+        self::assertStringContainsString('function fixed()', $receipt['patch_plan']['patches'][0]['next']);
+    }
+
+    public function test_free_form_answer_picks_largest_fence_and_names_target_from_prompt_on_creation(): void
+    {
+        // Criação (claim vazio, contexto rivals isolado): alvo vem NOMEADO no
+        // prompt; o maior fence é a solução (o menor é exemplo).
+        putenv('ATLAS_RIVALS_RUNTIME_EXECUTION=true');
+        try {
+            $adapter = new AgentExecutionProviderPortAdapter(
+                new AgentExecutionProviderPortService,
+                providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                    'ok' => true,
+                    'output' => "Example usage:\n```\nsort([3,1])\n```\nFull solution:\n```python\ndef solve():\n    data = sorted(map(int, input().split()))\n    print(*data)\n\nsolve()\n```",
+                    'provider' => $provider,
+                    'model' => $model,
+                ],
+            );
+
+            $receipt = $adapter->invoke([
+                'execute_provider' => true,
+                'provider' => 'codex_cli',
+                'model' => 'test-model',
+                'prompt' => 'Write the complete solution into the file solution.py (create or overwrite it).',
+                'claim' => ['allowed_files' => []],
+            ]);
+
+            self::assertSame('ok', $receipt['status']);
+            self::assertTrue($receipt['contract_salvaged']);
+            self::assertSame(['solution.py'], $receipt['patch_plan']['allowed_files']);
+            self::assertSame('create', $receipt['patch_plan']['patches'][0]['mode']);
+            self::assertStringContainsString('def solve()', $receipt['patch_plan']['patches'][0]['next']);
+            self::assertStringNotContainsString('sort([3,1])', $receipt['patch_plan']['patches'][0]['next']);
+        } finally {
+            putenv('ATLAS_RIVALS_RUNTIME_EXECUTION');
+        }
+    }
+
+    public function test_almost_valid_json_with_swapped_closers_is_repaired(): void
+    {
+        // Payload EXATO da falha ao vivo (20/07, bridge → atlas:cli:dev → kimi):
+        // contrato quase perfeito com "...}}]}" onde ia "...}]}". O modelo
+        // OBEDECEU o contrato e errou um fechador — jogar fora era crime.
+        putenv('ATLAS_RIVALS_RUNTIME_EXECUTION=true');
+        try {
+            $adapter = new AgentExecutionProviderPortAdapter(
+                new AgentExecutionProviderPortService,
+                providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                    'ok' => true,
+                    'output' => '{"patch_plan":{"allowed_files":["solution.py"],"patches":[{"path":"solution.py","mode":"create","next":"a = int(input())\nb = int(input())\nprint(a + b)\n"}}]}',
+                    'provider' => $provider,
+                    'model' => $model,
+                ],
+            );
+
+            $receipt = $adapter->invoke([
+                'execute_provider' => true,
+                'provider' => 'codex_cli',
+                'model' => 'test-model',
+                'prompt' => 'Write the solution into the file solution.py',
+                'claim' => ['allowed_files' => []],
+            ]);
+
+            self::assertSame('ok', $receipt['status']);
+            self::assertSame(['solution.py'], $receipt['patch_plan']['allowed_files']);
+            self::assertSame('create', $receipt['patch_plan']['patches'][0]['mode']);
+            self::assertStringContainsString('print(a + b)', $receipt['patch_plan']['patches'][0]['next']);
+        } finally {
+            putenv('ATLAS_RIVALS_RUNTIME_EXECUTION');
+        }
+    }
+
+    public function test_free_form_answer_with_ambiguous_target_stays_invalid_contract(): void
+    {
+        // Ambiguidade (claim com 2 arquivos) NÃO autoriza adivinhação — o
+        // salvage é conservador; engenharia séria mantém o contrato estrito.
+        $adapter = new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                'ok' => true,
+                'output' => "```php\n<?php echo 1;\n```",
+                'provider' => $provider,
+                'model' => $model,
+            ],
+        );
+
+        $receipt = $adapter->invoke([
+            'execute_provider' => true,
+            'provider' => 'codex_cli',
+            'model' => 'test-model',
+            'prompt' => 'Fix the bug',
+            'claim' => ['allowed_files' => ['app/A.php', 'app/B.php']],
+        ]);
+
+        self::assertSame('invalid_provider_contract', $receipt['status']);
+    }
+
+    public function test_free_form_answer_without_fence_stays_invalid_contract(): void
+    {
+        $adapter = new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                'ok' => true,
+                'output' => 'A resposta é 42, basta somar os valores.',
+                'provider' => $provider,
+                'model' => $model,
+            ],
+        );
+
+        $receipt = $adapter->invoke([
+            'execute_provider' => true,
+            'provider' => 'codex_cli',
+            'model' => 'test-model',
+            'prompt' => 'Fix the bug',
+            'claim' => ['allowed_files' => ['app/X.php']],
+        ]);
+
+        self::assertSame('invalid_provider_contract', $receipt['status']);
+    }
+
     public function test_provider_port_fails_closed_when_provider_receipt_model_differs(): void
     {
         $adapter = new AgentExecutionProviderPortAdapter(

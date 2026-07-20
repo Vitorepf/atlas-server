@@ -98,7 +98,23 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
             }
         }
 
-        return $files !== [] ? array_values($files) : ['README.md'];
+        if ($files === []) {
+            // CRIAÇÃO: a task NOMEIA um alvo que ainda NÃO existe ("write the
+            // solution into the file solution.py") — o filtro is_file acima o
+            // descartava e o escopo caía em README.md: o provider "resolvia" o
+            // arquivo errado com a solução certa e o corretor via vazio
+            // (provado ao vivo 20/07, LCB 1873_*). Nome explícito com a palavra
+            // file/arquivo é sinal forte o bastante para criar.
+            preg_match_all('/\b(?:file|arquivo|ficheiro)\s+`?([A-Za-z0-9][A-Za-z0-9_.\/-]*\.[A-Za-z0-9]{1,8})`?/i', $intent->rawGoal, $named);
+            foreach (array_unique($named[1] ?? []) as $token) {
+                $relative = ltrim($token, './');
+                if ($relative !== '' && ! str_contains($relative, '..')) {
+                    $files[] = $relative;
+                }
+            }
+        }
+
+        return $files !== [] ? array_values(array_unique($files)) : ['README.md'];
     }
 
     private function baseCommit(string $workspace): string

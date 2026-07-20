@@ -24,12 +24,14 @@ $options = getopt('', [
     'workspace:',
     'prompt-file:',
     'model:',
+    'artifact-target::',
     'timeout::',
     'dry-run',
 ]);
 $workspace = realpath((string) ($options['workspace'] ?? ''));
 $promptFile = realpath((string) ($options['prompt-file'] ?? ''));
 $model = trim((string) ($options['model'] ?? ''));
+$artifactTarget = trim((string) ($options['artifact-target'] ?? ''));
 $timeout = max(60, min(7200, (int) ($options['timeout'] ?? 3600)));
 if ($workspace === false || ! is_dir($workspace)
     || $promptFile === false || ! is_file($promptFile)
@@ -39,6 +41,15 @@ if ($workspace === false || ! is_dir($workspace)
 }
 if (! str_starts_with($promptFile, $workspace.'/')) {
     fwrite(STDERR, "rivals_atlas_dev_prompt_outside_workspace\n");
+    exit(2);
+}
+if ($artifactTarget !== ''
+    && (str_starts_with($artifactTarget, '/')
+        || str_contains($artifactTarget, '..')
+        || str_contains($artifactTarget, ',')
+        || str_contains($artifactTarget, "\0")
+        || preg_match('/\A[A-Za-z0-9._\/-]{1,512}\z/', $artifactTarget) !== 1)) {
+    fwrite(STDERR, "rivals_atlas_dev_artifact_target_invalid\n");
     exit(2);
 }
 
@@ -124,6 +135,9 @@ $atlasRuntimeEnv = [
     // and turned valid long SWE tasks into provider_failure:timeout.
     'ATLAS_AI_HERMES_TIMEOUT_SECONDS' => (string) $timeout,
 ];
+if ($artifactTarget !== '') {
+    $atlasRuntimeEnv['ATLAS_RIVALS_ARTIFACT_TARGET'] = $artifactTarget;
+}
 
 $argv = $useHermesOnesHot ? $hermesArgv : $cliDevArgv;
 
@@ -255,6 +269,13 @@ if ($useHermesOnesHot) {
 // hermes; o adaptador espelha o usage capturado aqui e nós o lemos abaixo.
 $usageSink = tempnam(sys_get_temp_dir(), 'rivals-usage-sink-');
 @unlink($usageSink); // só o caminho; o adaptador cria com os tokens acumulados
+// Sink de patch-plans: o kernel pode rodar N ordens numa mesma resolução (ex.
+// README + solution.py) e o run.provider_call só projeta a ÚLTIMA — o
+// solution.py de 3.380 bytes morria invisível enquanto o README de 47 era
+// aplicado (provado ao vivo 20/07). O adaptador espelha CADA patch_plan
+// decodificado aqui, em ordem; o apply abaixo consome todos.
+$patchSink = tempnam(sys_get_temp_dir(), 'rivals-patch-sink-');
+@unlink($patchSink);
 $env = array_merge(
     array_filter($_ENV, fn ($v) => is_string($v) || is_numeric($v) || is_bool($v)),
     $atlasRuntimeEnv,
@@ -264,6 +285,7 @@ $env = array_merge(
         'ATLAS_DEV_PROVIDER_CONSULT_DECIDE' => 'false',
         'ATLAS_RIVALS_RUNTIME_EXECUTION' => 'true',
         'ATLAS_RIVALS_USAGE_SINK' => $usageSink,
+        'ATLAS_RIVALS_PATCH_SINK' => $patchSink,
         'PATH' => $path,
     ],
 );
@@ -300,6 +322,21 @@ $providerExitCode = is_numeric($providerCall['exit_code'] ?? null)
     ? (int) $providerCall['exit_code']
     : null;
 $providerErrors = array_values(array_filter((array) ($providerCall['error_codes'] ?? [])));
+$patchPlanPatches = data_get($providerCall, 'patch_plan.patches');
+$emptyPatchPlan = is_array($patchPlanPatches) && $patchPlanPatches === [];
+if ($emptyPatchPlan) {
+    $providerErrors = array_values(array_filter(
+        $providerErrors,
+        static function (mixed $error): bool {
+            $providerError = (string) $error;
+
+            return ! (str_contains($providerError, 'candidate_preparation_blocked')
+                && str_contains($providerError, 'sandbox_apply_failed'));
+        },
+    ));
+    $providerErrors[] = 'model_empty_patch_plan';
+    $providerErrors = array_values(array_unique($providerErrors));
+}
 $expectedProvider = $ai === 'hermes' ? 'hermes_cli' : $provider;
 $inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
     ? (int) $providerCall['tokens_in']
@@ -398,7 +435,20 @@ $completionState = is_array($outputPayload)
 // mensurável, sem tocar a governança de produção.
 $patchApplied = 0;
 if ($atlasRuntimeProven) {
-    foreach ((array) data_get($providerCall, 'patch_plan.patches', []) as $patch) {
+    // Preferência: o sink com TODOS os patch_plans da resolução (em ordem de
+    // decodificação; patch posterior no mesmo path sobrescreve, como no merge
+    // real). Fallback: o único projetado em run.provider_call (compat).
+    $allPatches = [];
+    foreach (is_file($patchSink) ? array_filter(explode("\n", (string) file_get_contents($patchSink))) : [] as $line) {
+        $entry = json_decode($line, true);
+        foreach ((array) data_get($entry, 'patch_plan.patches', []) as $patch) {
+            $allPatches[] = $patch;
+        }
+    }
+    if ($allPatches === []) {
+        $allPatches = (array) data_get($providerCall, 'patch_plan.patches', []);
+    }
+    foreach ($allPatches as $patch) {
         if (! is_array($patch)) {
             continue;
         }

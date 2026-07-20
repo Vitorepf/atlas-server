@@ -116,6 +116,14 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             return ['status' => 'provider_route_mismatch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
         $decoded = $this->decodeContract((string) ($raw['output'] ?? ''));
+        $salvaged = false;
+        if ($decoded === null) {
+            // Camada 4 (ordem do operador, 20/07): o modelo RESOLVEU mas respondeu
+            // em formato livre. Multiplicador não joga resposta boa fora por causa
+            // do envelope — com alvo inequívoco, o Atlas monta o patch_plan.
+            $decoded = $this->salvageFreeFormContract((string) ($raw['output'] ?? ''), $request, $prompt);
+            $salvaged = $decoded !== null;
+        }
         if ($decoded === null) {
             Log::warning('provider_contract_decode_failed', [
                 'provider' => $providerKey,
@@ -125,6 +133,16 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             ]);
 
             return ['status' => 'invalid_provider_contract', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+        }
+        if ($salvaged) {
+            // Nunca em silêncio: a fricção de formato EXISTIU e fica visível no
+            // log e no retorno — o salvage remove a perda, não o sinal.
+            Log::info('provider_contract_salvaged_free_form', [
+                'provider' => $providerKey,
+                'model' => $model,
+                'target' => $decoded['patch_plan']['allowed_files'][0] ?? null,
+                'output_bytes' => strlen((string) ($raw['output'] ?? '')),
+            ]);
         }
         $claimAllowed = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
         $patchAllowed = array_values(array_map('strval', (array) ($decoded['patch_plan']['allowed_files'] ?? [])));
@@ -168,6 +186,11 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             ),
         ]);
 
+        // Rivals: o kernel pode rodar N ordens numa resolução e o receipt final
+        // projeta só a última — espelha CADA patch_plan decodificado no sink
+        // que o bridge aplica em ordem (mesmo padrão do usage sink).
+        $this->recordRivalsPatchPlanToSink((array) ($decoded['patch_plan'] ?? []), $salvaged);
+
         return [
             'status' => 'ok',
             'provider_invoked' => true,
@@ -176,6 +199,10 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             'patch_plan' => (array) ($decoded['patch_plan'] ?? []),
             'model' => $model,
             'output_hash' => hash('sha256', (string) ($raw['output'] ?? '')),
+            // Fricção de formato existiu e fica visível — salvage tira a perda,
+            // não o sinal (relatórios podem contar quantas respostas precisaram
+            // de resgate por modelo).
+            'contract_salvaged' => $salvaged,
         ];
     }
 
@@ -187,6 +214,34 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
      *
      * @param  array<string,mixed>  $metadata
      */
+    /**
+     * Espelha cada patch_plan decodificado num sink JSONL que o bridge do
+     * rivals aplica em ordem — o receipt final só projeta a ÚLTIMA ordem do
+     * kernel e as anteriores morriam invisíveis (provado 20/07: solution.py de
+     * 3.380 bytes perdido enquanto o README de 47 era aplicado). No-op fora do
+     * rivals (env ausente).
+     *
+     * @param  array<string,mixed>  $patchPlan
+     */
+    private function recordRivalsPatchPlanToSink(array $patchPlan, bool $salvaged): void
+    {
+        $sink = getenv('ATLAS_RIVALS_PATCH_SINK');
+        if (! is_string($sink) || $sink === '') {
+            return;
+        }
+        if (! filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+        if ((array) ($patchPlan['patches'] ?? []) === []) {
+            return;
+        }
+        @file_put_contents(
+            $sink,
+            json_encode(['patch_plan' => $patchPlan, 'salvaged' => $salvaged], JSON_UNESCAPED_SLASHES).PHP_EOL,
+            FILE_APPEND | LOCK_EX,
+        );
+    }
+
     private function recordRivalsUsageToSink(array $metadata): void
     {
         $sink = getenv('ATLAS_RIVALS_USAGE_SINK');
@@ -267,7 +322,158 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             }
         }
 
+        // Camada 3.5 (provado ao vivo 20/07): kimi emite o contrato QUASE válido
+        // com fechadores trocados ("...}}]}" onde ia "...}]}") — json_decode,
+        // scanner balanceado e âncora falham todos. Conserto string-aware que
+        // reescreve SÓ os fechadores pela pilha real de aberturas (conteúdo
+        // intocado) e para quando o objeto raiz fecha (prosa posterior ignorada).
+        $anchor = strrpos($trimmed, '"patch_plan"');
+        if ($anchor !== false) {
+            $start = strrpos(substr($trimmed, 0, $anchor), '{');
+            if ($start !== false) {
+                $repaired = self::repairJsonNesting(substr($trimmed, $start));
+                if ($repaired !== null) {
+                    $decoded = json_decode($repaired, true);
+                    // Plano ESTRIPADO não vale: resposta TRUNCADA pelo transporte
+                    // (GAP-HERMES-01, chunk final perdido) fechada pela pilha vira
+                    // patch_plan com patches/allowed_files vazios — devolver isso
+                    // trocava invalid_contract (que dispara o retry declarado) por
+                    // um scope-invalid enganoso (provado ao vivo 20/07, 1873_B).
+                    if (is_array($decoded) && is_array($decoded['patch_plan'] ?? null)
+                        && (array) ($decoded['patch_plan']['patches'] ?? []) !== []
+                        && (array) ($decoded['patch_plan']['allowed_files'] ?? []) !== []) {
+                        Log::info('provider_contract_json_repaired', ['bytes' => strlen($repaired)]);
+
+                        return $decoded;
+                    }
+                }
+            }
+        }
+
         return null;
+    }
+
+    /**
+     * Reescreve fechadores (}/]) pelo que a pilha de aberturas exige, ignorando
+     * conteúdo de strings; completa fechadores faltantes no fim e PARA quando o
+     * objeto raiz fecha (prosa depois do JSON não corrompe). Retorna null se
+     * houver fechador sem abertura antes de qualquer raiz completa.
+     */
+    private static function repairJsonNesting(string $candidate): ?string
+    {
+        $out = '';
+        $stack = [];
+        $inString = false;
+        $escape = false;
+        $length = strlen($candidate);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $candidate[$i];
+            if ($inString) {
+                $out .= $char;
+                if ($escape) {
+                    $escape = false;
+                } elseif ($char === '\\') {
+                    $escape = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+            if ($char === '"') {
+                $inString = true;
+                $out .= $char;
+
+                continue;
+            }
+            if ($char === '{' || $char === '[') {
+                $stack[] = $char;
+                $out .= $char;
+
+                continue;
+            }
+            if ($char === '}' || $char === ']') {
+                if ($stack === []) {
+                    return null;
+                }
+                $out .= array_pop($stack) === '{' ? '}' : ']';
+                if ($stack === []) {
+                    return $out; // raiz fechou — resto é prosa
+                }
+
+                continue;
+            }
+            $out .= $char;
+        }
+        while ($stack !== []) {
+            $out .= array_pop($stack) === '{' ? '}' : ']';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Camada 4 do contrato (ordem do operador, 20/07): o modelo RESOLVEU mas
+     * respondeu em formato livre (código em fence, sem JSON de patch_plan) — o
+     * padrão dominante do kimi-k2.7, que matava 9/9 units LCB como
+     * `invalid_provider_contract` com a solução NA MÃO. Multiplicador não joga
+     * resposta boa fora por causa do envelope: quando o ALVO é inequívoco
+     * (claim de exatamente 1 arquivo → modify; ou tarefa de criação com o
+     * arquivo NOMEADO no prompt → create) e a resposta tem código em fence, o
+     * Atlas monta o patch_plan sozinho. Ambiguidade (vários arquivos do claim,
+     * nenhum alvo nomeado, nenhum fence) segue `invalid_provider_contract` —
+     * engenharia séria não adivinha. O salvage nunca alarga escopo: 1 alvo, o
+     * mesmo que o claim/prompt já autorizava.
+     *
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>|null
+     */
+    private function salvageFreeFormContract(string $output, array $request, string $prompt): ?array
+    {
+        $claim = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
+        $target = null;
+        $mode = 'modify';
+        if (count($claim) === 1 && $claim[0] !== '') {
+            $target = $claim[0];
+        } elseif ($claim === []) {
+            // Tarefa de criação (claim vazio): o alvo tem que estar NOMEADO no
+            // prompt ("into the file solution.py", "no arquivo x.py") — nunca
+            // inferido do texto do modelo, que pode citar arquivos de exemplo.
+            if (preg_match('/\b(?:file|arquivo|ficheiro)\s+`?([A-Za-z0-9][A-Za-z0-9_.\/-]*\.[A-Za-z0-9]{1,8})`?/i', $prompt, $m) === 1) {
+                $target = ltrim($m[1], '/');
+                $mode = 'create';
+            }
+        }
+        if ($target === null || $target === '' || str_contains($target, '..') || str_starts_with($target, '/')) {
+            return null;
+        }
+
+        // Só fence completo; escolhe o MAIOR bloco (modelos emitem fragmentos de
+        // exemplo junto da solução completa). Sem fence não há salvage —
+        // "output inteiro é código" é heurística que erra demais.
+        if (preg_match_all('/```[A-Za-z0-9_+-]*[ \t]*\R(.*?)(?:\R)?```/s', $output, $m) === 0) {
+            return null;
+        }
+        $blocks = array_values(array_filter(
+            array_map('rtrim', $m[1]),
+            static fn (string $block): bool => trim($block) !== ''
+        ));
+        if ($blocks === []) {
+            return null;
+        }
+        usort($blocks, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+        return [
+            'patch_plan' => [
+                'allowed_files' => [$target],
+                'patches' => [[
+                    'path' => $target,
+                    'mode' => $mode,
+                    'next' => $blocks[0]."\n",
+                ]],
+            ],
+            'salvaged_free_form' => true,
+        ];
     }
 
     /** @return list<string> Objetos JSON top-level balanceados encontrados no texto. */
