@@ -1711,3 +1711,70 @@ nunca chutar. Testes reescritos (51 ✓). Commits: server (guarda) + hermes (`3a
 impossível nas duas pontas — o hermes grita (exit 3) e o Atlas verifica a completude
 declarada e re-executa até 2×, com contador em todo recibo. Residual: crash antes de
 escrever usage → falha honesta não-medida (visível, raro, monitorado pelos recibos).
+
+### [2026-07-20 ~18h45 -03] 🚨 O MAIOR VAZAMENTO DO DIA — `patch_applied` manda mais que `completion_state`
+
+**Como cheguei:** fui ranquear o maior balde de descarte (`governor_authority_absent`,
+35 unidades) pra atacar. Em `bfcl` achei uma coisa que não fechava: **18 falhas e 11
+acertos com estado de bridge IDÊNTICO** — `task_ok=false`, `completion_state=blocked`,
+`patch_applied=1`. Se o estado é o mesmo, quem separou os dois não foi o bridge: foi o
+CORRETOR. E se o corretor julgou, o artefato chegou lá.
+
+**A auditoria das 291 unidades blocked do braço Atlas (hoje):**
+```
+patch_applied=1 + success   179  61,5%   ← PASSAVAM (a regra só dispara com status != success)
+patch_applied=1 + failure    60  20,6%   ← eram EXCLUÍDAS
+patch_applied=2 + failure     3   1,0%   ← eram EXCLUÍDAS
+patch_applied=0 + failure    40  13,7%   ← exclusão CORRETA (sem artefato)
+patch_applied=0 + success     9   3,1%
+```
+Das **239 unidades com patch aplicado**, os **179 acertos entravam** e as **63 derrotas
+saíam**. Exclusão seletiva de falha, no maior balde do perfil, escondida atrás de um
+campo que ninguém tinha cruzado. A fraude espelhada em escala industrial.
+
+**Fix:** `patch_applied > 0` MANDA mais que `completion_state`. Patch aplicado =
+artefato julgado = medição legítima, doa o que doer. Só descarta quem não produziu
+artefato nenhum. Espelhado em `measurements()` e `exclusions()`.
+
+**Efeito — todos os 1.000 falsos caíram de uma vez:**
+```
+                antes           depois
+tool_use        1.000 (+0.144)  0.447 (−0.408)   descarte 72% → 37%
+code_editing    1.000 (+0.170)  0.314 (−0.204)   descarte 90% → 78%
+reasoning       1.000 (+0.500)  0.539 (+0.038)   descarte 92% → 86%
+debugging       1.000 ( 0.000)  0.692 (−0.308)   descarte 64% → 48%
+```
+**Nenhuma nota perfeita sobreviveu à auditoria.** Toda a "vitória" do Atlas de hoje era
+derrota descartada.
+
+**PERFIL HONESTO — taxonomia v2 + este fix: 6 de 13 capacidades MEDIDAS**
+```
+capacidade                base          atlas         Δ         descarte  estado
+code_localization         1.000 (n=13)  1.000 (n=13)  +0.000      0%      MEDIDO
+context_completion        0.827 (n=26)  0.855 (n=26)  +0.028      0%      MEDIDO
+code_reasoning            0.974 (n=38)  1.000 (n=37)  +0.026      3%      MEDIDO
+architecture_design       0.148 (n=28)  0.066 (n=23)  −0.082     18%      MEDIDO
+module_implementation     0.794 (n=25)  0.320 (n=25)  −0.474      0%      MEDIDO
+test_generation           0.900 (n=25)  0.208 (n=24)  −0.692      4%      MEDIDO
+tool_use                  0.856 (n=97)  0.447 (n=38)  −0.408     37%      baixa
+debugging                 1.000 (n=25)  0.692 (n=13)  −0.308     48%      baixa
+code_editing / function_generation / terminal_operation      69–87%      não medível
+long_context_engineering / repo_implementation   (n=1 no base)            não medível
+```
+
+**O veredito que dá pra defender hoje:** nas 6 medidas o Atlas é **igual em 1**
+(`code_localization`), **melhor em 2 por margem pequena** (`context_completion` +0.028,
+`code_reasoning` +0.026) e **pior em 3** — sendo `test_generation` (−0.692) e
+`module_implementation` (−0.474) quedas grandes que merecem investigação de causa, não
+de instrumento: descarte 4% e 0%, N de 24-25 por braço. Esse dado está limpo.
+
+**Gates:** 48 passed (275 asserts), regressão nova
+`test_applied_patch_is_measured_even_when_bridge_says_blocked` fixa a fronteira
+(patch aplicado mede; sem artefato descarta). `AtlasCoreChecks` ✓ + `make build` ✓.
+Commit `8970be46a4`.
+
+**Lição operacional pra quem continuar:** toda regra de exclusão que dependa de
+`status != success` é candidata a exclusão seletiva por construção — ela só pode remover
+falha. Antes de aceitar qualquer uma, cruze com um campo que prove se o artefato chegou
+ao corretor (`patch_applied`, score presente, saída não-vazia). Foi assim que os três
+vazamentos do dia apareceram.
