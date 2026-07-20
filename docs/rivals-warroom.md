@@ -1802,3 +1802,8 @@ Honestidade nova (mandatos dos 3 auditores):
 Gates: 48 passed (275 asserts). Próximo: app agrupado por área + expansão de packs
 3→10+ (a chave do "confiança 100%") + consertos de feed (fantasma lcb_3021 no
 case_pack do config; long_code_arena inválida).
+
+**[19h05 adendo]** Fantasma `lcb_3021` erradicado na FONTE (commit `1f2dbade8c`): era a
+fixture órfã `tests/Fixtures/Rivals/cases/live_code_bench/lcb_001.json`, re-importada
+pro storage a cada battery prepare — por isso ressuscitou após o rename das 11h20.
+Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais.
