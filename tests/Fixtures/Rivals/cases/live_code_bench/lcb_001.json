@@ -1,8 +1,0 @@
-{
-  "case_id": "lcb_001",
-  "native_task_id": "lcb_3021",
-  "task_type": "coding_patch",
-  "title": "lcb_001",
-  "suite_id": "live_code_bench",
-  "source_repo": "live_code_bench"
-}
