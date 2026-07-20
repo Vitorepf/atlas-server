@@ -1360,3 +1360,25 @@ volume das capacidades mapeadas estiver pago. testeval NÃO alimenta capability_
 `battery_20260720_classeval.log`). Ordem restante: deveval → cruxeval → debug_gym →
 long_code_arena → repobench → locagent → crosscodeeval → reval → bigcodebench →
 evalplus → archbench.
+
+### [2026-07-20 ~14h00 -03] Casca premium mentia por cima do servidor honesto — corrigida e no device (Claude/Fable, goal)
+
+**Sintoma (screenshot do operador, 13:52):** aba Capacidades premium mostrava
+"6/7 cobertas · 1 melhorou · 3 regrediram" e **"Edição de código +4,9"** — exatamente o
+número de sobrevivência que o guarda de seleção condenou (81% do braço atlas
+descartado; servidor manda `confidence=unmeasured` e a view ignorava).
+
+**Causa:** `ArenaPremiumCapabilitiesView` contava "coberta" = ter dois scores, calculava
+delta cru (`withAtlas - baseline`) e colava cor de veredito sem olhar `confidence` nem
+`significant` — o payload v2 já trazia tudo.
+
+**Fix (app `0d45a384`, deployado no iPhone ✓):** coberta = `measured`;
+melhorou/regrediu SÓ com IC de Newcombe fora do zero (medido sem significância =
+"estável"); linha não-medível mostra travessão + sub-rótulo ("X% descartado no setup ·
+não medível" / "poucos casos (N x)" / "dentro do ruído"); VoiceOver fala a mesma
+verdade. Tela honesta agora: **2/7 cobertas · 0 melhoraram · 1 estável · 1 regrediu**
+(geração −1,7 confirmada; raciocínio-sobre-código estável; resto rotulado como
+não-medível com a razão).
+
+**Gates:** `AtlasCoreChecks` ✓ · `make build` exit 0 · `make device` ✓ (app relançado
+no iPhone — screenshot de confirmação é do operador na tela viva).
