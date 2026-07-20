@@ -1653,3 +1653,24 @@ falta de estatística. É executor/bridge, e o mapa ranqueado da entrada anterio
 
 Nas 3 medidas o Atlas está **pior em duas e igual em uma**. É o que o dado diz hoje, com
 o instrumento honesto; sem os guardas o relatório sairia com três 1.000 e um +0.482.
+
+### [2026-07-20 ~16h30 -03] ORDEM DO OPERADOR: Codex está DESLIGADO há tempo — Claude assume TODOS os alvos. DoD#4 entregue no fluxo existente
+
+**Operador (verbatim): "não é obra do codex coisa nenhuma, deixei você o único
+encarregado (...) codex eu desliguei faz tempo".** Todos os claims "Codex" da §3 ficam
+sem dono ativo — eu assumo. As mudanças não-commitadas que atribuí ao Codex eram de
+outras sessões/minhas; o blackboard segue valendo entre MINHAS sessões.
+
+**DoD#4 (relatório) entregue do jeito certo — fluxo existente, zero fluxo novo:**
+- `EnterpriseReportBuilder` agora injeta `arena_capability_profile` = saída do
+  `ArenaCapabilityProfileService` (a MESMA fonte do app nativo: pool + Wilson +
+  Newcombe + guarda de seleção + purga da era-fraude). Fail-open.
+- `report.html` (que já existia e já se regenera ao fim de cada battery) ganhou o
+  bloco principal "Com Atlas vs sem Atlas — veredito por capacidade": delta com IC,
+  N por braço, descartes, e veredito colorido SÓ quando confirmado (IC fora do zero).
+- Os DOIS únicos fluxos de superfície (report.html + app nativo) agora leem uma
+  verdade só. Regenerado e verificado: 7 capacidades no JSON, seção viva no HTML.
+- Gates: tests/Feature/Ai/Rivals 108 passed ✓.
+
+Restante do DoD: volume (fila automática rodando) + prova final (screenshot device +
+perfil no war-room) quando 7/7 fecharem.

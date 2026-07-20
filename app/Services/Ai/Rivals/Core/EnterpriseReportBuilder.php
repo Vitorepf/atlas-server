@@ -388,6 +388,12 @@ class EnterpriseReportBuilder
                 (array) ($atlasUplift['families'] ?? []),
             )))), $atlasUplift),
             'atlas_uplift' => $atlasUplift,
+            // Veredito com-vs-sem-Atlas por capacidade: MESMA fonte que o app
+            // nativo (ArenaCapabilityProfileService — pool + Wilson + Newcombe +
+            // guarda de seleção + purga da era-fraude). Uma verdade, dois
+            // renderizadores; duas agregações divergentes foi exatamente a
+            // classe de mentira morta em 20/07.
+            'arena_capability_profile' => $this->arenaCapabilityProfile(),
             'facts' => $facts,
             'gaps' => array_values(array_unique($gaps)),
             'included_run_ids' => array_values(array_unique($included)),
@@ -1543,6 +1549,22 @@ class EnterpriseReportBuilder
      * @param  array<string, array<string,mixed>>  $bySuite
      * @return array<string,mixed>
      */
+    /**
+     * Perfil de capacidades da Arena (com-vs-sem-Atlas) — mesma fonte que o app
+     * nativo consome em /arena/capabilities. Fail-open: relatório nunca morre
+     * por causa do perfil (sem dado → seção vazia, nunca inventada).
+     *
+     * @return array<string,mixed>
+     */
+    private function arenaCapabilityProfile(): array
+    {
+        try {
+            return app(\App\Services\Ai\Arena\ArenaCapabilityProfileService::class)->profile();
+        } catch (\Throwable $e) {
+            return ['capabilities' => [], 'unavailable_reason' => $e::class];
+        }
+    }
+
     private function buildRiskAxis(array $bySuite): array
     {
         $ev = (array) ($bySuite['inspect_evals']['execution_evidence'] ?? []);

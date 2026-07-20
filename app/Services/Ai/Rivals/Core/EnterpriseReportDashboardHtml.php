@@ -60,6 +60,7 @@ final class EnterpriseReportDashboardHtml
             'delivery_inventory' => $report['delivery_inventory'] ?? [],
             'model_profiles' => $report['model_profiles'] ?? [],
             'model_capabilities' => $report['model_capabilities'] ?? ['capabilities' => [], 'efficiency' => []],
+            'arena_capability_profile' => $report['arena_capability_profile'] ?? ['capabilities' => []],
             'model_dissections' => $report['model_dissections'] ?? [
                 'epistemic_contract' => [],
                 'models' => [],
@@ -307,6 +308,11 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   </div>
 
   <section id="tab-caps" class="panel on">
+    <div class="card" style="margin-bottom:12px" id="arenaVerdictCard">
+      <h2>Com Atlas vs sem Atlas — veredito por capacidade</h2>
+      <p class="hint">A MESMA fonte que o app nativo (pool de rodadas, IC 95% de Wilson, delta de Newcombe, guarda de seleção e purga de dado sem prova). <strong>Confirmado</strong> só quando o intervalo de confiança do delta não cruza zero; caso contrário é "dentro do ruído", "poucos casos" ou "não medível" — nunca número inventado.</p>
+      <div id="arenaVerdict" style="overflow-x:auto"></div>
+    </div>
     <div class="card" style="margin-bottom:12px">
       <h2>O que o modelo sabe fazer — não em quais testes</h2>
       <p class="hint">Os 10 benchmarks são o instrumento; o que importa é a <strong>capacidade</strong> que eles medem. Cada domínio abaixo abre nas <strong>habilidades</strong> que o compõem — a média do domínio esconde que o modelo pode ir bem numa e zerar noutra. Só suítes <strong>confiáveis</strong> entram na média, ponderadas por tarefa. <strong>Escopo:</strong> esta bateria mede engenharia de software e uso agêntico de ferramentas — não é retrato da capacidade geral de uma IA (ver <em>Até onde este benchmark enxerga</em>).</p>
@@ -429,6 +435,33 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const stab = v => v==null||v===''?'—':(typeof v==='number'? (Math.round(v*1000)/1000) : String(v));
   const color = (runtime, model) => runtime==='atlas_dev' ? '#3dd68c' : ({verboo_kimi_k2_7:'#f0c14a',verboo_qwen_3_6_27b:'#6cb6ff',hermes_gpt_5_5_codex:'#ff6b6b'}[model]||'#6cb6ff');
   const statusPt = s => ({ok:'ok', missing_data:'dados incompletos', failed:'falhou', blocked:'bloqueado', not_run:'não rodou', unsupported:'não suportado', real_uplift:'uplift real'}[s]||s||'—');
+
+  // === Veredito com-vs-sem-Atlas (mesma fonte do app nativo) ===
+  const AP = D.arena_capability_profile || {capabilities:[]};
+  const confPt = c => ({measured:'medida', low:'poucos casos', unmeasured:'não medível'}[c]||c||'—');
+  const s10 = v => v==null ? '—' : (Math.round(Number(v)*100)/10).toFixed(1);
+  document.getElementById('arenaVerdict').innerHTML = (AP.capabilities||[]).length === 0
+    ? '<p class="hint">Perfil da Arena ainda sem dados.</p>'
+    : '<table><thead><tr><th>capacidade</th><th>sem Atlas</th><th>com Atlas</th><th>delta (IC 95%)</th><th>N (sem/com)</th><th>descartes</th><th>veredito</th></tr></thead><tbody>'
+      + (AP.capabilities||[]).map(c => {
+          const d = c.delta || null;
+          const measured = c.confidence === 'measured';
+          let verdict = confPt(c.confidence);
+          let cls = '';
+          if (measured && d) {
+            if (d.significant && d.value > 0) { verdict = 'Atlas MELHOR · confirmado'; cls = 'pos'; }
+            else if (d.significant && d.value < 0) { verdict = 'Atlas PIOR · confirmado'; cls = 'neg'; }
+            else { verdict = 'dentro do ruído'; }
+          }
+          const ic = d ? ` [${s10(d.ci_low ?? d.ciLow)}, ${s10(d.ci_high ?? d.ciHigh)}]` : '';
+          const excl = `${c.baseline_excluded ?? 0}/${c.with_atlas_excluded ?? 0}`;
+          return `<tr><td>${c.label_pt || c.labelPt || c.capability}</td>`
+            + `<td>${s10(c.score)}</td><td>${s10(c.with_atlas ?? c.withAtlas)}</td>`
+            + `<td class="${cls}">${d ? s10(d.value) + ic : '—'}</td>`
+            + `<td>${c.baseline_cases ?? '—'}/${c.with_atlas_cases ?? '—'}</td>`
+            + `<td>${excl}</td><td class="${cls}">${verdict}</td></tr>`;
+        }).join('')
+      + '</tbody></table>';
 
   // === Capacidades (visão principal) ===
   const MC = D.model_capabilities || {capabilities:[], efficiency:{}};
