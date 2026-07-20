@@ -1382,3 +1382,27 @@ não-medível com a razão).
 
 **Gates:** `AtlasCoreChecks` ✓ · `make build` exit 0 · `make device` ✓ (app relançado
 no iPhone — screenshot de confirmação é do operador na tela viva).
+
+### [2026-07-20 ~14h20 -03] O "+8,9" do widget morto pela RAIZ: era-fraude purgada do pool + piso de publicação (Claude/Fable, goal)
+
+**Sintoma (operador, 14:00):** widget "Último par" mostrava sem-Atlas 1,1 → com-Atlas
+10 (+8,9) com o Atlas PERDENDO os testes. Duas camadas de mentira, ambas provadas:
+
+1. **Era-fraude ressuscitando.** Removidas as linhas selecionadas recentes, o "latest"
+   do aider caía nas linhas 9/9 de 13-14/07 — recibos com runtime_bridge v1 FABRICADO
+   que confessa no próprio corpo: `execution: "hermes_cli_oneshot"` (hermes cru
+   rotulado de Atlas; memória 15/07). **Fix na raiz (store):** braço com-Atlas só MEDE
+   com `execution=atlas_cli_dev_efficient` na prova — o marcador da LEI SUPREMA.
+   Genuínos pós-attacher = 100% com o marcador (verificado em 5 suítes); a purga vale
+   nas DUAS direções (o 0/51 do terminal_bench da mesma era também sai).
+2. **Par incomparável.** Depois da purga, o com=1,0 vinha de UMA linha genuína N=1
+   contra bare N=18. **Fix (composite/scoreboard):** linha só publica nota com
+   descarte<50% E N≥`min_cases_for_confidence` — hoje NENHUM par de suíte é
+   publicável (runs do dreno têm N<10/linha) e o app fica vazio-honesto ali; as
+   batteries (12 casos/linha) repovoam sozinhas.
+
+Perfil pós-purga: code_generation −0.166 MEDIDO · code_reasoning 0.000 MEDIDO ·
+architecture_design low · code_editing an=4 (era 31; o resto era fraude/seleção) ·
+tool_use flipa para +0.159 mas UNMEASURED (descarte 37/51) · reasoning unmeasured.
+Commits: server `c93a5b196d` (46 testes verdes; inclui hunk WIP "trio coerente"
+pré-existente na árvore) · casca `0d45a384` (view premium obedece confidence, no device).
