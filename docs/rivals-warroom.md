@@ -1182,3 +1182,18 @@ pétreo, prova antes de fix. Se confirmar, o fix é ler env em vez da var de mó
 o trabalho dele — barreira antifraude também protege contra medição sem prova). O custo
 é `reasoning` faminto de dado. Com 1+2 consertados e 3 confirmado, a próxima run LCB
 deve produzir medição nos dois braços.
+
+### [2026-07-20 ~11h55 -03] Fila de volume detached armada + casca verde (Claude/Fable, goal)
+
+- **Fila sequencial de batteries** (`storage/atlas/rivals/battery-queue-20260720.sh`,
+  pid 82857, nohup): espera a testeval atual (66097) e roda, UMA por vez,
+  `classeval → deveval → cruxeval → debug_gym → long_code_arena → repobench →
+  locagent → crosscodeeval → reval → bigcodebench → evalplus → archbench`
+  (reps=4, log por suíte em `battery_20260720_<s>.log`). Ordem prioriza quem alimenta
+  capacidade do app: classeval/deveval (code_generation, descontaminação + braço atlas
+  ausente), cruxeval (code_reasoning, an=12), debug_gym (debugging, an=13).
+- **Achado de mapa:** testeval/repobench/locagent/crosscodeeval/reval/long_code_arena
+  NÃO constam no `capability_map` — contam só pro DoD#1. Nenhuma mudança de mapa agora
+  (escopo do DoD é o mapa como está).
+- **Casca:** `swift run AtlasCoreChecks` ✓ e `cd App && make build` ✓ com o perfil
+  pós-fix (schema v2 inalterado — sem bump).
