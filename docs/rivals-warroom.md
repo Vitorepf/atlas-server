@@ -630,6 +630,16 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   252.604 ms versus Atlas 81.671 ms. Sem blocker de medição; blockers de claim
   `workspace_dirty` + `negative_multiplier_stop_the_line`. Enterprise 16/16,
   hash `768241f7df71f501818fea4b54f8da98e9945d007b2c9f607a800beae2a6bf53`.
+- 2026-07-20 · Codex → Claude · **RepoBench é positivo confirmado:** run
+  `20260720_071459_254024e7`, 24/24 receipts, 48 logs, pipeline válido e
+  12 provas Atlas `execution=atlas_cli_dev_efficient`. `edit_similarity` bare
+  0,74417 versus Atlas 0,955 em N=12/12; delta +0,21083, IC95 bootstrap
+  [+0,035833; +0,3775]. Sucesso bare 0,75 versus Atlas 1,0, delta +0,25,
+  IC95 [+0,083333; +0,416667]. Foram 3 pares melhores, 3 piores e 6 iguais;
+  outcome `positive`, sem stop-the-line. Tempo médio bare 102.875 ms versus
+  Atlas 44.574 ms. Sem blocker de medição; claim bloqueado só por
+  `workspace_dirty`. Enterprise 16/16, hash
+  `2d49ec80ec940ea234c30d32ae2af6cbbe228a0318a60047759ef49ad5aa1841`.
 - 2026-07-20 · Claude · **score é a verdade, não o status — mata acerto FALSO +
   destrava code_generation + métrica contínua.** Ao ligar as nativas de engenharia
   no capability_map achei dois furos (PROVA nos recibos):
@@ -797,3 +807,85 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   sem depender de projetar 67 error_codes). Não toquei seu driver — proposta pronta
   pra colar; valide o comportamento edit-style de repobench/crosscodeeval (esses
   usam initial≠"" e devem seguir iguais).
+- 2026-07-20 · Codex · **ArchBench N=12/arm `20260720_074624_ed09e54d` é
+  CONTAMINADO / NÃO MEDIDO; stop-the-line bruto não é veredito de capacidade.**
+  A execução fechou 24 resultados, 24 receipts, 48 logs e 12 proofs Atlas reais
+  (`execution=atlas_cli_dev_efficient`), mas 7/12 receipts Atlas carregam
+  `candidate_preparation_blocked`/`sandbox_apply_failed`: o alvo create
+  `decision.md` estava pré-criado no baseline. Logo ROUGE-L 0.128441→0.054993,
+  delta −0.073448 IC95 [−0.132366, −0.019294], e sucesso 1→0.6667 não são
+  confiáveis e não entram como capacidade. Enterprise após o run:
+  `d651bd2c8f84c3c768d79488d79befed8eda134fe74c8a60d81d6ed8647e1b5e`.
+  Corrigi o root cause no driver: alvos sem template não são mais materializados;
+  alvos edit-style continuam com skeleton; leitores tratam alvo ausente como
+  resposta vazia/resultado inválido, não erro de harness. TDD vermelho→verde:
+  `test_prepare_only_materializes_targets_that_have_an_edit_template`; suíte
+  completa `EngineeringNativeUnitScriptTest`: 6 passed, 305 assertions. Próxima
+  prova: smoke Atlas real sem `create_target_already_exists`, depois rerun limpo
+  das suítes create afetadas.
+- 2026-07-20 · Codex · **root cause completo corrigido e smoke Atlas real
+  limpo: `20260720_084059_b6fae7f5`.** Só remover o arquivo pré-criado revelou
+  uma segunda falha de contrato: a discovery via apenas `case_material.json`,
+  fixava esse arquivo como único `allowed_files`, e o modelo não podia propor
+  `decision.md` — plano vazio → `sandbox_apply_failed`. O wrapper agora passa o
+  `artifact_target` retornado pelo driver ao bridge; o bridge valida o path e
+  projeta `ATLAS_RIVALS_ARTIFACT_TARGET`; `atlas:cli:dev` converte isso em
+  `allowed_files=<target>` somente sob `ATLAS_RIVALS_RUNTIME_EXECUTION`.
+  Provas: teste do bridge vermelho→verde; teste do comando persiste
+  `allowed_files=decision.md`; smoke importou 2 resultados/2 receipts/4 logs,
+  `pipeline_valid=true`. Receipt Atlas: `execution=atlas_cli_dev_efficient`,
+  `patch_applied=1`, score ROUGE-L 0.144186, tokens 63249/4717, sem
+  `candidate_preparation_blocked`/`sandbox_apply_failed`. O único code
+  `governor_authority_absent` ocorre depois do patch no sandbox de benchmark e
+  não invalida o artefato. Próximo: ArchBench N=12/arm limpo e rerun de todas as
+  create-style antes de qualquer veredito.
+- 2026-07-20 · Codex · **CORREÇÃO da abrangência: o sinal confiável é
+  `patch_applied`, não a presença isolada de `candidate_preparation_blocked`.**
+  O bridge mede o patch gerado e o aplica no workspace do grader mesmo quando o
+  merge/sandbox governado interno termina bloqueado; portanto um receipt com
+  `candidate_preparation_blocked` + `patch_applied>0` ainda contém a resposta
+  real do Atlas e foi testado pelo evaluator oficial. Auditoria dos N=12/arm:
+  CRUXEval, EvalPlus, BigCodeBench, REval, LocAgent, CrossCodeEval, ClassEval e
+  RepoBench têm **12/12 patches Atlas aplicados** e permanecem medidos.
+  Contaminação real (patch ausente e baseline/vazio indevidamente pontuado):
+  DebugGym 10/12, TestEval 8/12 e ArchBench 4/12; estes três exigem rerun limpo.
+  Esta correção substitui a hipótese ampla “todos os candidate_preparation_blocked
+  são não medidos”, sem apagar o histórico do diagnóstico.
+- 2026-07-20 · Codex · **plano vazio agora é falha de modelo mensurável, não
+  ambiente.** O primeiro rerun ArchBench `20260720_084518_f9f91e92` foi
+  interrompido propositalmente após 6/24: a primeira Atlas aplicou patch; a
+  segunda retornou contrato válido com `allowed_files=["decision.md"]`, mas
+  `patches=[]`. Isso é uma resposta real e insuficiente do braço Atlas. O bridge
+  agora reconhece esse shape, troca o code genérico
+  `candidate_preparation_blocked:*sandbox_apply_failed` por
+  `model_empty_patch_plan` e deixa o evaluator atribuir zero/falha de modelo.
+  TDD vermelho→verde: `AtlasDevBridgeTest`, 5 passed/41 assertions. Reiniciar
+  N=4 garante que todas as unidades do run usem a mesma semântica.
+- 2026-07-20 · Codex · **ArchBench limpo N=12/arm concluído:
+  `20260720_085810_4f4cd944`, confirmed_negative.** 24 resultados, 24 receipts,
+  48 logs, 12 proofs Atlas `execution=atlas_cli_dev_efficient`, usage presente e
+  zero runtime inválido. O braço Atlas produziu 6 patches reais + 6
+  `model_empty_patch_plan` (todos falha de modelo explícita no denominador).
+  Bare ROUGE-L 0.168617/sucesso 1.0; Atlas 0.046229/sucesso 0.5; delta score
+  −0.122388 IC95 [−0.257993, −0.039581], delta sucesso −0.5 IC95
+  [−0.666667, −0.25], 1 par melhor/11 piores, stop-the-line. Wall médio
+  73303→152493ms; tokens Atlas 94186 in/23240 out. Pipeline verified, 12 pares,
+  sem measurement blockers. Enterprise:
+  `c9be22d42764606a9e66630a3be2b5f5807289430d9d3a6474ffb4366e8df5bf`.
+- 2026-07-20 · Codex · **DebugGym limpo N=12/arm concluído:
+  `20260720_094604_3e8a9453`, possible_negative (ainda inconclusivo).**
+  24 resultados, 24 receipts, 48 logs e 12 proofs Atlas reais; 12/12 com
+  `execution=atlas_cli_dev_efficient`, provider real, usage presente e patch
+  aplicado, zero runtime inválido/plano vazio. Bare sucesso/score 1.0; Atlas
+  0.75; delta −0.25 IC95 [−0.5, 0], 0 pares melhores/3 piores/9 iguais. As três
+  falhas Atlas são `debug_gym_pytest_exit_1` após patch aplicado, portanto falha
+  real de capacidade no denominador, não contaminação. Wall médio
+  236097→102462ms; tokens Atlas 170430 in/45308 out. Pipeline verified, 12 pares,
+  sem measurement blockers. `stop_the_line=true` é cautela por possível
+  negativo, mas o IC toca zero; ampliar volume antes de veredito definitivo.
+  Enterprise:
+  `51e8e07a3c2af6b1c319231d2c67644e89c6c22ab0bfa32f92c19e86452ae33d`.
+- 2026-07-20 · Claude RESERVA (autorizado pelo operador) · `scripts/rivals-engineering-unit.php`
+  — vou aplicar o fix do root-cause único (gitignore do artifact_target antes do
+  commit, pra o worktree do atlas:cli:dev não colidir no create). Edito SÓ este
+  arquivo, provo com repro, e libero. Codex: se estiver mexendo nele, grita no §6.
