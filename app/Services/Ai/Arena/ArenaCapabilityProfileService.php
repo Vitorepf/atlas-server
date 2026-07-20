@@ -44,6 +44,13 @@ final class ArenaCapabilityProfileService
             foreach ((array) ($row['case_ids'] ?? []) as $caseId) {
                 $pool[$suite][$arm]['case_ids'][(string) $caseId] = true;
             }
+            // Eficiência: valores CRUS por unidade medida, poolados entre rodadas —
+            // mediana só é honesta sobre a distribuição inteira, nunca de medianas.
+            foreach (['wall_ms_values' => 'walls', 'win_wall_ms_values' => 'win_walls', 'tokens_out_values' => 'tokens_out'] as $field => $bucket) {
+                foreach ((array) ($row[$field] ?? []) as $value) {
+                    $pool[$suite][$arm][$bucket][] = (float) $value;
+                }
+            }
             // O acumulador contínuo é preenchido SEMPRE, inclusive por suíte binária:
             // um caso pass/fail é um score de Bernoulli ∈ {0,1}, então sum = acertos e
             // sumsq = acertos (1²=1, 0²=0). Sem isto, capacidade que MISTURA suíte
@@ -116,6 +123,12 @@ final class ArenaCapabilityProfileService
                     'atlas_scoreN' => 0,
                     'baseline_case_ids' => [],
                     'atlas_case_ids' => [],
+                    'baseline_walls' => [],
+                    'atlas_walls' => [],
+                    'baseline_win_walls' => [],
+                    'atlas_win_walls' => [],
+                    'baseline_tokens_out' => [],
+                    'atlas_tokens_out' => [],
                     'suites' => [],
                 ];
                 if (is_array($baseline)) {
@@ -132,6 +145,9 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
                     $capabilities[$capability]['baseline_sumsq'] += (float) ($baseline['score_sumsq'] ?? 0.0);
                     $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
+                    foreach (['walls' => 'baseline_walls', 'win_walls' => 'baseline_win_walls', 'tokens_out' => 'baseline_tokens_out'] as $from => $to) {
+                        $capabilities[$capability][$to] = array_merge($capabilities[$capability][$to], (array) ($baseline[$from] ?? []));
+                    }
                 }
                 if (is_array($withAtlas)) {
                     foreach (array_keys((array) ($withAtlas['case_ids'] ?? [])) as $caseId) {
@@ -145,6 +161,9 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
                     $capabilities[$capability]['atlas_sumsq'] += (float) ($withAtlas['score_sumsq'] ?? 0.0);
                     $capabilities[$capability]['atlas_scoreN'] += (int) ($withAtlas['score_n'] ?? 0);
+                    foreach (['walls' => 'atlas_walls', 'win_walls' => 'atlas_win_walls', 'tokens_out' => 'atlas_tokens_out'] as $from => $to) {
+                        $capabilities[$capability][$to] = array_merge($capabilities[$capability][$to], (array) ($withAtlas[$from] ?? []));
+                    }
                 }
                 $capabilities[$capability]['suites'][$suite] = true;
             }
@@ -228,6 +247,36 @@ final class ArenaCapabilityProfileService
                 default => 'measured',
             };
 
+            // EFICIÊNCIA (spec anti-Goodhart 20/07): mediana de wall_ms e tokens de
+            // saída POR UNIDADE MEDIDA por braço (unidade descartada nunca entra);
+            // custo-por-acerto só com ≥5 vitórias em CADA braço (abaixo disso a
+            // mediana de vitória é sorte amostral); sem USD (cost_usd do provider é
+            // sempre 0 = mentira); overhead declarado — o braço com Atlas mede
+            // modelo + harness de governança, o baseline mede hermes cru.
+            $efficiency = null;
+            $bWalls = (array) $row['baseline_walls'];
+            $aWalls = (array) $row['atlas_walls'];
+            if ($bWalls !== [] || $aWalls !== []) {
+                $armEff = fn (array $walls, array $tokens): ?array => $walls === [] ? null : [
+                    'median_wall_ms' => (int) round($this->median($walls)),
+                    'median_tokens_out' => $tokens === [] ? null : (int) round($this->median($tokens)),
+                    'units' => count($walls),
+                ];
+                $bWins = (array) $row['baseline_win_walls'];
+                $aWins = (array) $row['atlas_win_walls'];
+                $efficiency = [
+                    'baseline' => $armEff($bWalls, (array) $row['baseline_tokens_out']),
+                    'with_atlas' => $armEff($aWalls, (array) $row['atlas_tokens_out']),
+                    'per_win' => (count($bWins) >= 5 && count($aWins) >= 5) ? [
+                        'baseline_median_wall_ms' => (int) round($this->median($bWins)),
+                        'with_atlas_median_wall_ms' => (int) round($this->median($aWins)),
+                        'baseline_wins' => count($bWins),
+                        'with_atlas_wins' => count($aWins),
+                    ] : null,
+                    'overhead_note_pt' => 'braço com Atlas inclui o harness de governança (bridge + kernel); sem Atlas é o runtime cru',
+                ];
+            }
+
             // Capacidade GATED (instrumento em preparação): aparece com a razão,
             // NUNCA com número — expor valor de feed quebrado é mentir com rótulo.
             $gatedReason = $gated[$row['capability']] ?? null;
@@ -236,6 +285,7 @@ final class ArenaCapabilityProfileService
                 $withAtlas = null;
                 $delta = null;
                 $confidence = 'unmeasured';
+                $efficiency = null;
             }
 
             $public[] = [
@@ -259,6 +309,7 @@ final class ArenaCapabilityProfileService
                 'exclusion_rate_with_atlas' => round($atlasDrop, 4),
                 'max_exclusion_rate' => round($worstDrop, 4),
                 'measurement_type' => $measureLabel,
+                'efficiency' => $efficiency,
                 'suites_contributing' => $suites,
                 'cases_total' => max($bn, $an),
                 'min_cases_for_confidence' => $minCases,
@@ -275,6 +326,16 @@ final class ArenaCapabilityProfileService
             'groups_pt' => (array) config('atlas_arena.capability_groups_pt', []),
             'capabilities' => $public,
         ];
+    }
+
+    /** Mediana simples (par = média dos dois centrais). Pré-condição: lista não vazia. */
+    private function median(array $values): float
+    {
+        sort($values);
+        $n = count($values);
+        $mid = intdiv($n, 2);
+
+        return $n % 2 === 1 ? (float) $values[$mid] : ((float) $values[$mid - 1] + (float) $values[$mid]) / 2.0;
     }
 
     /**

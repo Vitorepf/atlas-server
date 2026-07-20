@@ -1,0 +1,9 @@
+{
+  "case_id": "parallel_002",
+  "native_category": "parallel",
+  "native_test_id": "parallel_2",
+  "task_type": "tool_use_function_calling",
+  "title": "parallel_002",
+  "suite_id": "bfcl",
+  "source_repo": "bfcl"
+}

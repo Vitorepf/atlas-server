@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_004",
+  "native_task_id": "book-store",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust book-store exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

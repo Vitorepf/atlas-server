@@ -96,6 +96,8 @@ final class ArenaMeasurementStore
                     'failed' => 0,
                     'excluded' => 0,
                     'walls' => [],
+                    'win_walls' => [],
+                    'tokens_out' => [],
                     'rounds' => [],
                     'has_score' => false,
                     'fractional' => false,
@@ -231,8 +233,21 @@ final class ArenaMeasurementStore
                         $groups[$key]['declared_type'] = $declared;
                     }
                 }
+                // EFICIÊNCIA por unidade MEDIDA (spec anti-Goodhart 20/07): só
+                // unidades que contaram acima chegam aqui, então wall/tokens nunca
+                // misturam descarte de setup. Vitória = score 1 na suíte com score,
+                // status success nas integradas — é o que gera o "custo por acerto".
+                $isWin = is_numeric($native['score'] ?? null)
+                    ? (float) $native['score'] >= 1.0
+                    : ($receipt['status'] ?? null) === 'success';
                 if (isset($receipt['wall_ms']) && is_numeric($receipt['wall_ms'])) {
                     $groups[$key]['walls'][] = (float) $receipt['wall_ms'];
+                    if ($isWin) {
+                        $groups[$key]['win_walls'][] = (float) $receipt['wall_ms'];
+                    }
+                }
+                if (isset($receipt['tokens_out']) && is_numeric($receipt['tokens_out'])) {
+                    $groups[$key]['tokens_out'][] = (float) $receipt['tokens_out'];
                 }
                 $at = $this->timestamp($receipt['finished_at'] ?? $receipt['ended_at'] ?? $receipt['started_at'] ?? null);
                 if ($at !== null) {
@@ -299,6 +314,11 @@ final class ArenaMeasurementStore
                     'score_sumsq' => $hasScore ? round((float) $group['score_sumsq'], 6) : null,
                     'score_n' => $hasScore ? $scoreN : 0,
                     'duration_avg_ms' => $walls === [] ? null : (int) round(array_sum($walls) / count($walls)),
+                    // Valores crus por unidade MEDIDA p/ o perfil poolar MEDIANAS
+                    // entre rodadas/suítes (mediana de medianas seria errada).
+                    'wall_ms_values' => $walls,
+                    'win_wall_ms_values' => (array) $group['win_walls'],
+                    'tokens_out_values' => (array) $group['tokens_out'],
                     'round_at' => $roundAt ?? now()->toIso8601String(),
                 ];
             }

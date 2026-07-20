@@ -442,7 +442,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const s10 = v => v==null ? '—' : (Math.round(Number(v)*100)/10).toFixed(1);
   document.getElementById('arenaVerdict').innerHTML = (AP.capabilities||[]).length === 0
     ? '<p class="hint">Perfil da Arena ainda sem dados.</p>'
-    : '<table><thead><tr><th>capacidade</th><th>sem Atlas</th><th>com Atlas</th><th>delta (IC 95%)</th><th>N (sem/com)</th><th>descartes</th><th>veredito</th></tr></thead><tbody>'
+    : '<table><thead><tr><th>capacidade</th><th>sem Atlas</th><th>com Atlas</th><th>delta (IC 95%)</th><th>N (sem/com)</th><th>descartes</th><th>mediana/unidade (sem→com)</th><th>veredito</th></tr></thead><tbody>'
       + (AP.capabilities||[]).map(c => {
           const d = c.delta || null;
           const measured = c.confidence === 'measured';
@@ -455,11 +455,18 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
           }
           const ic = d ? ` [${s10(d.ci_low ?? d.ciLow)}, ${s10(d.ci_high ?? d.ciHigh)}]` : '';
           const excl = `${c.baseline_excluded ?? 0}/${c.with_atlas_excluded ?? 0}`;
+          // Eficiência: mediana de wall por unidade MEDIDA (braço com Atlas inclui
+          // o harness de governança). Custo-por-vitória só sai com ≥5 vitórias/braço.
+          const e = c.efficiency || null;
+          const secs = ms => ms==null ? '—' : (ms/1000).toFixed(1)+'s';
+          const effTxt = !e ? '—'
+            : `${secs(e.baseline && e.baseline.median_wall_ms)} → ${secs(e.with_atlas && e.with_atlas.median_wall_ms)}`
+              + (e.per_win ? ` · por vitória ${secs(e.per_win.baseline_median_wall_ms)} → ${secs(e.per_win.with_atlas_median_wall_ms)}` : '');
           return `<tr><td>${c.label_pt || c.labelPt || c.capability}</td>`
             + `<td>${s10(c.score)}</td><td>${s10(c.with_atlas ?? c.withAtlas)}</td>`
             + `<td class="${cls}">${d ? s10(d.value) + ic : '—'}</td>`
             + `<td>${c.baseline_cases ?? '—'}/${c.with_atlas_cases ?? '—'}</td>`
-            + `<td>${excl}</td><td class="${cls}">${verdict}</td></tr>`;
+            + `<td>${excl}</td><td>${effTxt}</td><td class="${cls}">${verdict}</td></tr>`;
         }).join('')
       + '</tbody></table>';
 

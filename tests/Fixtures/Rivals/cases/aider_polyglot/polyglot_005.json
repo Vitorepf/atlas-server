@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_005",
+  "native_task_id": "bowling",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust bowling exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

@@ -452,6 +452,81 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->assertEqualsWithDelta(0.8, $cap['score'], 0.0001);
     }
 
+    public function test_efficiency_medians_per_measured_unit_and_win_gate(): void
+    {
+        // Spec anti-Goodhart 20/07: eficiência = MEDIANA de wall/tokens por unidade
+        // MEDIDA por braço; custo-por-vitória só com ≥5 vitórias em cada braço;
+        // unidade descartada no setup nunca contamina a mediana; sem USD.
+        config()->set('atlas_arena.capability_labels_pt', ['code_editing' => 'Edição de código']);
+        config()->set('atlas_arena.capability_map', [
+            'aider_polyglot' => [['capability' => 'code_editing', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+
+        $receipts = [];
+        foreach ([1000, 2000, 3000, 4000, 5000] as $i => $wall) {
+            $r = $this->receipt('codex_cli@bare', 'bw'.$i, 'success', '2026-07-20T05:00:00Z');
+            $r['wall_ms'] = $wall;
+            $r['tokens_out'] = 100 + $i;
+            $receipts[] = $r;
+        }
+        $loss = $this->receipt('codex_cli@bare', 'bl', 'failure', '2026-07-20T05:00:30Z');
+        $loss['wall_ms'] = 9000;
+        $receipts[] = $loss;
+        foreach ([2000, 3000, 4000, 5000, 6000] as $i => $wall) {
+            $r = $this->receipt('codex_cli@atlas_dev', 'aw'.$i, 'success', '2026-07-20T05:01:00Z');
+            $r['wall_ms'] = $wall;
+            $r['tokens_out'] = 200 + $i;
+            $receipts[] = $r;
+        }
+        $aloss = $this->receipt('codex_cli@atlas_dev', 'al', 'failure', '2026-07-20T05:01:30Z');
+        $aloss['wall_ms'] = 8000;
+        $receipts[] = $aloss;
+        // Descartada no setup com wall gigante: fica FORA de toda mediana.
+        $dropped = $this->receipt('codex_cli@atlas_dev', 'dx', 'failure', '2026-07-20T05:02:00Z');
+        $dropped['failure_reason'] = 'candidate_preparation_blocked:sandbox_apply_failed';
+        $dropped['wall_ms'] = 999999;
+        $receipts[] = $dropped;
+        $this->writeRun('20260720_050000_eff', 'aider_polyglot', $receipts);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['code_editing'];
+        $eff = $cap['efficiency'];
+
+        $this->assertSame(3500, $eff['baseline']['median_wall_ms'], 'base {1000..5000,9000} → 3500');
+        $this->assertSame(6, $eff['baseline']['units']);
+        $this->assertSame(102, $eff['baseline']['median_tokens_out']);
+        $this->assertSame(4500, $eff['with_atlas']['median_wall_ms'], 'descartada de 999999 não contamina');
+        $this->assertSame(6, $eff['with_atlas']['units']);
+        $this->assertSame(3000, $eff['per_win']['baseline_median_wall_ms'], 'mediana só das 5 vitórias');
+        $this->assertSame(4000, $eff['per_win']['with_atlas_median_wall_ms']);
+        $this->assertArrayNotHasKey('cost_usd', $eff, 'USD é sempre 0 no provider = mentira; nunca sai');
+    }
+
+    public function test_efficiency_per_win_needs_five_wins_each_arm(): void
+    {
+        config()->set('atlas_arena.capability_labels_pt', ['code_editing' => 'Edição de código']);
+        config()->set('atlas_arena.capability_map', [
+            'aider_polyglot' => [['capability' => 'code_editing', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+
+        $receipts = [];
+        for ($i = 0; $i < 5; $i++) {
+            $receipts[] = $this->receipt('codex_cli@bare', 'b'.$i, 'success', '2026-07-20T06:00:00Z');
+        }
+        // Atlas: só 4 vitórias → custo-por-vitória é sorte amostral, fica nulo.
+        for ($i = 0; $i < 4; $i++) {
+            $receipts[] = $this->receipt('codex_cli@atlas_dev', 'a'.$i, 'success', '2026-07-20T06:01:00Z');
+        }
+        $receipts[] = $this->receipt('codex_cli@atlas_dev', 'af', 'failure', '2026-07-20T06:01:30Z');
+        $this->writeRun('20260720_060000_eff2', 'aider_polyglot', $receipts);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['code_editing'];
+
+        $this->assertNull($cap['efficiency']['per_win'], '4 vitórias < 5 → sem custo-por-vitória');
+        $this->assertSame(5, $cap['efficiency']['with_atlas']['units'], 'medianas por unidade continuam');
+    }
+
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
     {
         $receipt = [

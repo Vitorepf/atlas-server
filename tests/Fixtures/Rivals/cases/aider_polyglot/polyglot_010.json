@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_010",
+  "native_task_id": "forth",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust forth exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

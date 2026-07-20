@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_007",
+  "native_task_id": "dot-dsl",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust dot-dsl exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_009",
+  "native_task_id": "fizzy",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust fizzy exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

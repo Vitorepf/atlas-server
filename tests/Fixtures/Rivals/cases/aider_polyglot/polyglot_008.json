@@ -1,0 +1,9 @@
+{
+  "case_id": "polyglot_008",
+  "native_task_id": "doubly-linked-list",
+  "language": "rust",
+  "task_type": "coding_patch",
+  "title": "Rust doubly-linked-list exercise",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}
