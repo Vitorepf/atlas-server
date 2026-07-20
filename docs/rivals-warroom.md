@@ -958,3 +958,76 @@ medido com números, bloqueadores com evidência, ordem do que fazer, erros a n�
 **Fila agora:** 0 queued, 9 `running` órfãs (sem `claimed_at`/`run_id`) travando
 aider_polyglot (3 pares), bfcl (1 par) e live_code_bench (1 atlas). Só faz sentido
 soltá-las depois que (1) estiver resolvido — senão viram mais 24 falhas instantâneas.
+
+### [2026-07-20 ~10h05 -03] CAUSA PROVADA — manifesto ausente nas 13 nativas (dreno da Arena) + correção do meu próprio diagnóstico
+
+**Sintoma:** todo run eng-native disparado pelo dreno da Arena morre em ~1s com
+`internal_error: file_get_contents(.../native_execution_manifest.json): No such file`.
+
+**Causa PROVADA (cadeia completa, arquivo:linha):**
+
+1. `ArenaRivalsExecutionService::plan()` chama `atlas:rivals plan` — **retorna `status=ok`**
+   e escreve `plan.json`/`preregistration.json`/`state.json`. Por isso o run dir existe.
+2. `AtlasRivalsCommand.php:987` só cria o manifesto **se** o suite estiver em
+   `(new SuiteRegistry)->externalSuiteIds()`.
+3. `SuiteRegistry.php:91-94` → `externalSuiteIds()` devolve **`profileSuiteIds('fase_a')`**.
+4. `config('atlas_rivals.profiles.fase_a.suite_ids')` = as 10 legadas
+   (tau2_bench, bfcl, terminal_bench, senior_swe_bench, swe_bench_live, live_code_bench,
+   inspect_evals, hal_harness, aider_polyglot, swe_marathon).
+   As 13 nativas vivem no perfil **`engineering_native`**.
+5. Logo: as 13 nativas **estão** em `SuiteRegistry::EXTERNAL_ADAPTERS` (linhas 75-87,
+   `EngineeringNativeSuiteAdapter`) mas **não** em `externalSuiteIds()` → manifesto
+   nunca escrito → `ArenaRivalsExecutionService::manifestEntries():47` estoura.
+
+Prova direta (tinker):
+```
+EXTERNAL(10): aider_polyglot, bfcl, hal_harness, inspect_evals, live_code_bench,
+              senior_swe_bench, swe_bench_live, swe_marathon, tau2_bench, terminal_bench
+archbench/cruxeval/classeval/repobench/locagent/debug_gym/testeval/evalplus/
+crosscodeeval/bigcodebench/deveval/long_code_arena/reval → ❌ fora
+```
+
+**Fix indicado (NÃO apliquei — alvo reservado pelo Codex na §3):** o gate do manifesto
+(e o gate irmão do `FrozenUnitManifest`, ~linha 975) não deve olhar a lista do perfil
+`fase_a`, e sim "este suite tem adapter externo" — `registeredSuiteIds()` ou o perfil do
+próprio suite. **Codex:** `AtlasRivalsCommand.php`, `SuiteRegistry.php` e
+`config/atlas_rivals.php` são teus e estão modificados agora; encosta esse gate quando
+puder. Não toquei em nenhum dos três.
+
+**🔧 CORREÇÃO DO MEU DIAGNÓSTICO (duas vezes errei; fica registrado):**
+Eu disse que isso era "grupo só-atlas não planeja" e depois que era "regressão da WIP do
+Codex". **As duas erradas.** É um gate de perfil que sempre esteve estreito — não é
+regressão de ninguém, e atinge os dois braços igual.
+
+**E o mais importante — isto NÃO bloqueia a missão.** Descobri rodando `ps`: o Codex já
+está produzindo o volume pelo caminho certo, ao vivo desde 08:29:54:
+
+```
+php artisan atlas:rivals battery --mode=execute --kind=uplift \
+  --profile=engineering_native --suite=testeval --repetitions=4 \
+  --approve-provider-spend --json
+```
+
+Run `20260720_112956_34d1e05c`, manifesto com **24 entradas = 12 `@bare` + 12
+`@atlas_dev`** (3 casos × 4 reps × 2 braços) — DoD#1 (dois braços) + DoD#2 (volume) no
+mesmo comando. E o braço com-Atlas está governado de verdade neste instante:
+`rivals-atlas-dev-bridge.php → artisan atlas:cli:dev Solve → hermes -z por dentro`.
+**LEI SUPREMA satisfeita, verificada em processo vivo, não em recibo antigo.**
+
+Ou seja: o defeito do dreno é real (o botão "Rodar" do app não roda as 13 nativas), mas
+o caminho de volume é o `battery --profile=engineering_native`. Ajustei minha prioridade
+de acordo — parei de tratar o dreno como bloqueador da missão.
+
+**Ação minha (lane Arena, sem pisar em ninguém):** as 9 entradas `running` órfãs
+(sem `claimed_at`, sem `run_id`, sem processo vivo em `ps`) voltaram para `queued` via
+`ArenaMeasurementStore::transitionQueuedRequests`, com `requeue_reason` nomeado no
+recibo — nada em silêncio. São `aider_polyglot` (3 pares), `bfcl` (1 par) e
+`live_code_bench` (1 atlas): as 3 integradas, todas no perfil `fase_a`, logo **imunes ao
+bug do manifesto**. Guarda mantida: **no máximo 1 LCB por vez** (o
+`output/kimi-k2.7-atlas/` é fixo e o normalizer exige esse `model_repr`).
+
+**Pendente meu (§4.2 do handoff):** LCB run `20260720_113852_520f3dae` fechou `done` com
+128 unidades `@atlas_dev` e zero medição —
+`RuntimeError: LCB question cardinality for lcb_3021: 0`. Hipótese ainda **não provada**:
+corrida com a LCB órfã. Agora que só há uma LCB na fila, a próxima run decide: se vier
+limpa, era corrida; se repetir, é o overlay e eu conserto (é meu claim).
