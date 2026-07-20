@@ -6,6 +6,7 @@ import sys
 import json
 import time
 from datetime import datetime
+from pathlib import Path
 
 from openai import OpenAI
 
@@ -120,7 +121,42 @@ def build_one(args):
 if question_id:
     main_module.build_prompt_benchmark = build_one
 
+
+def force_fresh_generation(model_repr):
+    """Warm-cache guard (mata o skip que zera a prova de usage).
+
+    `--continue_existing_with_eval` faz o lcb_runner PULAR a geração quando a
+    questão-alvo já está no cache de output desta temperatura. Skip = create()
+    não roda = usage novo não nasce = o attacher reprova o braço como
+    env_failure (`bare_runtime_proof_usage_missing` /
+    `atlas_dev_runtime_proof_missing_or_invalid`) com o modelo TENDO rodado numa
+    run anterior. Provado em 20260720_113852: TODOS os units bare morreram assim
+    ("Found N existing generations, continuing with 0 remaining"). Cada run
+    PRECISA gerar fresco; removemos SÓ a questão-alvo do cache.
+
+    A decisão de skip lê o arquivo de geração (Scenario...json) e, como
+    fallback, o _eval_all.json — ambos com entradas 100% dict. O _eval.json tem
+    estrutura POSICIONAL (list+dict pareados); remover por question_id o
+    desalinha. Só purga arquivos all-dict.
+    """
+    qid = str(question_id)
+    out_dir = Path("output") / model_repr
+    if not out_dir.is_dir():
+        return
+    for path in out_dir.glob("*.json"):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, list) or not all(isinstance(e, dict) for e in data):
+            continue
+        kept = [e for e in data if str(e.get("question_id")) != qid]
+        if len(kept) != len(data):
+            path.write_text(json.dumps(kept))
+
+
 if __name__ == "__main__":
     if not question_id:
         raise SystemExit("missing --rivals-question-id")
+    force_fresh_generation("kimi-k2.7-verboo")
     main_module.main()

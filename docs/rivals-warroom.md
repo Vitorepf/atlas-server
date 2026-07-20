@@ -1139,3 +1139,46 @@ A máquina de honestidade pegou, de novo, dado mentindo CONTRA o Atlas.
 **Gates:** tests/Unit+Feature/Ai/Arena = 43 passed (259 asserts).
 **Nota pro Codex (§6):** a projeção do `error_code` no import continua desejável
 (defesa em profundidade), mas deixou de ser bloqueadora — o store agora lê a fonte.
+
+### [2026-07-20 ~11h35 -03] LCB dissecada: 3 doenças distintas — 2 consertadas agora, 1 aguarda observação ao vivo (Claude/Fable, goal)
+
+A §4.2 do handoff ("cardinality 0, hipótese corrida") estava INCOMPLETA. Dissecação da
+run `20260720_113852_520f3dae` (24 receipts, ZERO sucesso nos DOIS braços) provou que a
+corrida NÃO explica o quadro — run `112955` nunca executou (parou em `preflighted`,
+zero writer no dir fixo), e as falhas são três mecanismos independentes:
+
+**1. Caso-fantasma `lcb_001` → `lcb_3021` (PROVADO + APOSENTADO).** O case file declara
+`native_task_id: lcb_3021`, id que NÃO EXISTE no release_v6 (casos reais: `1873_A/B/D`,
+estilo codeforces). Cardinality 0 no build do benchmark, determinístico, DOIS braços,
+TODAS as 4 runs que o tocaram (044601/055641/070549/113852), 0 menções em qualquer
+output histórico. Mesma classe dos fantasmas hal/swe/terminal já removidos. Ação:
+`cases/lcb_001.json` → `.ghost-question-inexistente` (reversível, storage).
+
+**2. Braço BARE morria por warm-cache skip (PROVADO + CONSERTADO).** O guard
+force-fresh só existia no overlay atlas; o bare achava a geração no cache
+(`Found N existing generations... 0 remaining`), pulava o create(), usage novo não
+nascia → `bare_runtime_proof_usage_missing` → env_failure em TODOS os 6 units bare
+válidos da run. Fix: `force_fresh_generation(model_repr)` movida para
+`rivals_lcb_verboo.py` (fonte única) e chamada nos DOIS braços
+(`kimi-k2.7-verboo` / `kimi-k2.7-atlas`). Self-check rodado: purge remove só a
+questão-alvo do arquivo de geração all-dict e NÃO toca `_eval.json` posicional.
+CLAIM novo (Claude): `scripts/rivals_lcb_verboo.py` (par do meu overlay; não consta
+em claim do Codex).
+
+**3. Braço ATLAS: prova governada não persiste no scratch (EM OBSERVAÇÃO).** As 9
+units atlas 1873_* RODARAM de verdade (scratch + provider_usage.json com 37k/10k
+tokens, gerações de 411-469s, `pass@1` real no unit result — inclusive derrotas
+honestas 0.0) e MESMO ASSIM `.rivals_atlas_dev_bridge.json` não existe em NENHUM
+scratch de NENHUMA run LCB histórica (find global: 0). O attacher então reprova tudo
+como `atlas_dev_runtime_proof_missing_or_invalid`. A persistência (d48cd222fb) usa
+`base.usage_file` (var de módulo) — suspeita de worker multiprocess re-importando sem
+a var, exatamente o cenário que o comentário do TrackingCompletions já avisava
+("prefer env"). NÃO EDITADO ainda: a run LCB decisiva está na fila do dreno e vou
+observar AO VIVO (árvore de processo + nascimento do proof) antes de mexer — método
+pétreo, prova antes de fix. Se confirmar, o fix é ler env em vez da var de módulo
+(1 linha, meu claim).
+
+**Consequência honesta:** os env_failures da LCB nunca viraram 0 falso (o attacher fez
+o trabalho dele — barreira antifraude também protege contra medição sem prova). O custo
+é `reasoning` faminto de dado. Com 1+2 consertados e 3 confirmado, a próxima run LCB
+deve produzir medição nos dois braços.
