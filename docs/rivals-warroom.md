@@ -1280,3 +1280,65 @@ dos 9 units (3× flagrado como `invalid_provider_contract`, 4× silencioso → s
 livre → patch_plan). Obra de produto — §6.** Sugestão adicional pro Codex: quando
 patch_plan ausente E sem erro de contrato explícito, nomear `model_no_patch_plan` em
 vez de deixar só o governor — hoje a razão real fica escondida.
+
+### [2026-07-20 ~12h30 -03] 🚨 A FRAUDE ESPELHADA — descontaminação virou nota inflada A FAVOR do Atlas
+
+**Como cheguei:** minha sentinela viu o volume CAIR (217 → 193 linhas). Não era perda —
+era a descontaminação (`6bab8a9a1a`, `69f49687b2`) tirando zeros falsos do pool, o que é
+certo. Mas o efeito colateral apareceu no perfil: `code_editing` saltou de −0.102 para
+**+0.455**, com o braço Atlas em **1.000 exato**. Nota perfeita não se comemora, se audita.
+
+**Causa PROVADA (auditoria recibo a recibo em `aider_polyglot`):**
+```
+BARE:   CONTADO {success:40, failure:29}    excl:env {error:11}
+ATLAS:  CONTADO {success:30}                 ← ZERO falhas contadas
+        excl:bridge_blocked {failure:23}
+        excl:prep_blocked   {failure:21}
+        excl:env            {error:4, failure:1}
+```
+Das 79 unidades Atlas, **30 contadas (todas sucesso) e 45 descartadas (todas falhas)**.
+O braço base tem falha contada; o braço Atlas não tem nenhuma. Isso não é 100% de
+capacidade — é **viés de sobrevivência**: as exclusões removem seletivamente as falhas
+de um braço e a nota sobe sozinha.
+
+**Isto é a mesma fraude do zero falso, invertida.** A lei diz "número não confiável = não
+medido, nunca falso" — e vale igual quando o número falso favorece o Atlas. Publicar
+"+0.455" seria vender vitória fabricada por descarte.
+
+**Fix (dois níveis, tudo no meu claim):**
+1. `ArenaMeasurementStore`: o braço é resolvido ANTES das exclusões e cada unidade
+   descartada é CONTADA (`cases_excluded`). Grupos 100% descartados não viram linha de
+   medição (score 0 mentiria pros outros consumidores) — vão por `exclusions()`, um
+   acessor separado, pra distinguir "rodou e nada chegou ao corretor" de "nunca rodou".
+2. `ArenaCapabilityProfileService`: **guarda de seleção**. Taxa de descarte ≥30% → `low`;
+   ≥50% → `unmeasured`. Limiares em `config/atlas_arena.php`
+   (`max_exclusion_rate_low` / `max_exclusion_rate_unmeasured`). `max_exclusion_rate` e o
+   descarte por braço vão no payload — nunca em silêncio.
+3. Casca: o app diz **"81% descartado no setup · não medível"** em vez de "Atlas ainda
+   não rodou aqui" — são verdades diferentes.
+
+**Perfil honesto AGORA (o número que eu defendo):**
+```
+capacidade            base          atlas         delta    descarte  confiança
+code_generation       0.935 (n=40)  0.769 (n=39)  −0.166   4.9%      MEDIDO
+code_reasoning        1.000 (n=13)  1.000 (n=12)   0.000   7.7%      MEDIDO
+architecture_design   0.148 (n=28)  0.090 (n=17)  −0.058   39%       baixa
+code_editing          0.545 (n=112) 1.000 (n=30)     —     81%       não medível
+debugging             1.000 (n=25)  1.000 (n=9)      —     64%       não medível
+tool_use              0.823 (n=79)  0.559 (n=34)     —     51%       não medível
+reasoning             0.488 (n=43)    —    (n=0)     —     100%      não medível
+```
+**2 capacidades honestamente medidas, não 6.** O "6/7 medido" que eu reportei às 10h
+estava parcialmente construído em cima de seleção. Corrijo em público: era otimista.
+
+**O que isso muda pro DoD:** o caminho pra DoD#3 não é afrouxar o guarda — é **baixar a
+taxa de descarte**, ou seja, fazer as unidades Atlas chegarem ao corretor. Hoje o gargalo
+tem nome: `bridge_blocked` (23) + `prep_blocked` (21) só em aider. **Codex:** cada
+unidade que você destravar no executor/bridge vira N real, e a confiança sobe sozinha.
+Essa é a métrica de progresso mais honesta que temos — sugiro colocá-la no board §4.
+
+**Gates:** 45 passed (265 asserts) com 2 regressões novas
+(`test_high_exclusion_rate_is_selection_not_measurement`,
+`test_mixed_capability_keeps_binary_evidence_instead_of_dropping_it`);
+`AtlasCoreChecks` ✓ (3 checks novos) + `make build` ✓.
+Commits: server `6d4575360b`, app `fff1dfd2`.
