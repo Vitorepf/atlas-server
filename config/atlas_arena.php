@@ -62,52 +62,119 @@ return [
     // aparece até rodar). Suítes BINÁRIAS (pass@1) usam Wilson; a CONTÍNUA
     // (archbench = rougeL) usa média + IC normal (o store carrega score_sum/sumsq/n,
     // measurement_type='continuous') — nunca a taxa binária de "completou".
+    // ── Taxonomia v2 (aprovada pelo operador 20/07, validada por 3 auditores
+    // independentes: grounding, taxonomista, anti-Goodhart). Área única por ora;
+    // outras áreas (marketing, finanças…) entram como novas áreas, nunca
+    // misturadas nesta. Regras pétreas herdadas dos auditores:
+    //  • bigcodebench alimenta SÓ function_generation (dupla contagem com
+    //    tool_calling distorcia o placar de capacidades);
+    //  • live_code_bench entra em function_generation como tier "inédito"
+    //    (raciocínio algorítmico separado media a mesma coisa 2×);
+    //  • long_code_arena fica GATED até o feed ser consertado (100% inválido
+    //    em 20/07) e a métrica ganhar componente de precisão;
+    //  • rótulos declaram o TETO do instrumento (aider não mede refactor;
+    //    testeval mede cobertura, não QA; archbench mede similaridade a ADR).
+    'capability_area' => 'software_engineering',
+    'capability_area_label_pt' => 'Engenharia de Software',
+
+    'capability_groups_pt' => [
+        'construction' => 'Construção',
+        'comprehension' => 'Compreensão',
+        'quality' => 'Qualidade & Manutenção',
+        'agentic' => 'Agêntico',
+    ],
+
+    'capability_group_map' => [
+        'function_generation' => 'construction',
+        'module_implementation' => 'construction',
+        'repo_implementation' => 'construction',
+        'context_completion' => 'construction',
+        'code_reasoning' => 'comprehension',
+        'code_localization' => 'comprehension',
+        'long_context_engineering' => 'comprehension',
+        'code_editing' => 'quality',
+        'debugging' => 'quality',
+        'test_generation' => 'quality',
+        'architecture_design' => 'quality',
+        'tool_use' => 'agentic',
+    ],
+
+    // Capacidade gated: aparece na lista com a razão, NUNCA com número — o
+    // feed está quebrado/sem precisão e expor valor seria mentir com rótulo.
+    'capability_gated' => [
+        'long_context_engineering' => 'instrumento em preparação (feed inválido; métrica sem precisão)',
+    ],
+
     'capability_map' => [
-        // Integradas (2 braços provados, dado limpo).
-        'bfcl' => [
-            ['capability' => 'tool_use', 'weight' => 1.00],
+        // ── Construção
+        'evalplus' => [
+            ['capability' => 'function_generation', 'weight' => 1.00],
         ],
+        'bigcodebench' => [
+            ['capability' => 'function_generation', 'weight' => 1.00],
+        ],
+        // Tier "problemas inéditos" da geração (anti-contaminação Codeforces).
         'live_code_bench' => [
-            ['capability' => 'code_editing', 'weight' => 0.50],
-            ['capability' => 'reasoning', 'weight' => 0.50],
+            ['capability' => 'function_generation', 'weight' => 1.00],
         ],
-        'aider_polyglot' => [
-            ['capability' => 'code_editing', 'weight' => 1.00],
+        'classeval' => [
+            ['capability' => 'module_implementation', 'weight' => 1.00],
         ],
-        // Nativas de engenharia (braço com-Atlas = atlas:cli:dev governado, prova
-        // v2 verificada em archbench/cruxeval). Métrica binária pass@1. Aparecem
-        // no app conforme drenam (cruxeval já tem dado; as outras enchem por rodada).
+        'deveval' => [
+            ['capability' => 'repo_implementation', 'weight' => 1.00],
+        ],
+        'repobench' => [
+            ['capability' => 'context_completion', 'weight' => 1.00],
+        ],
+        'crosscodeeval' => [
+            ['capability' => 'context_completion', 'weight' => 1.00],
+        ],
+        // ── Compreensão
         'cruxeval' => [
             ['capability' => 'code_reasoning', 'weight' => 1.00],
         ],
-        'evalplus' => [
-            ['capability' => 'code_generation', 'weight' => 1.00],
+        'reval' => [
+            ['capability' => 'code_reasoning', 'weight' => 1.00],
         ],
-        'bigcodebench' => [
-            ['capability' => 'code_generation', 'weight' => 1.00],
+        'locagent' => [
+            ['capability' => 'code_localization', 'weight' => 1.00],
         ],
-        'classeval' => [
-            ['capability' => 'code_generation', 'weight' => 1.00],
+        'long_code_arena' => [
+            ['capability' => 'long_context_engineering', 'weight' => 1.00],
         ],
-        'deveval' => [
-            ['capability' => 'code_generation', 'weight' => 1.00],
+        // ── Qualidade & Manutenção
+        'aider_polyglot' => [
+            ['capability' => 'code_editing', 'weight' => 1.00],
         ],
         'debug_gym' => [
             ['capability' => 'debugging', 'weight' => 1.00],
         ],
-        // Contínua (rougeL): tratada como média + IC normal no perfil.
+        'testeval' => [
+            ['capability' => 'test_generation', 'weight' => 1.00],
+        ],
+        // Contínua (rougeL): média + IC normal; similaridade textual a ADR de
+        // referência — nunca vender como "qualidade de design".
         'archbench' => [
             ['capability' => 'architecture_design', 'weight' => 1.00],
+        ],
+        // ── Agêntico
+        'bfcl' => [
+            ['capability' => 'tool_use', 'weight' => 1.00],
         ],
     ],
 
     'capability_labels_pt' => [
-        'code_editing' => 'Edição de código',
-        'reasoning' => 'Raciocínio',
-        'tool_use' => 'Uso de ferramentas',
-        'code_reasoning' => 'Raciocínio sobre código',
-        'code_generation' => 'Geração de código',
+        'function_generation' => 'Geração de funções',
+        'module_implementation' => 'Classes & módulos',
+        'repo_implementation' => 'Implementação em repositório',
+        'context_completion' => 'Completar código em contexto',
+        'code_reasoning' => 'Raciocínio sobre execução',
+        'code_localization' => 'Achar onde mexer',
+        'long_context_engineering' => 'Trabalho em contexto longo',
+        'code_editing' => 'Edição dirigida de código',
         'debugging' => 'Depuração',
-        'architecture_design' => 'Arquitetura & design',
+        'test_generation' => 'Geração de testes (cobertura)',
+        'architecture_design' => 'Design de arquitetura (similaridade)',
+        'tool_use' => 'Chamada de ferramentas',
     ],
 ];

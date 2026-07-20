@@ -16,6 +16,8 @@ final class ArenaCapabilityProfileService
             fn (array $row): bool => $engine === null || $engine === '' || $row['engine'] === $engine
         ));
         $labels = (array) config('atlas_arena.capability_labels_pt', []);
+        $groupMap = (array) config('atlas_arena.capability_group_map', []);
+        $gated = (array) config('atlas_arena.capability_gated', []);
         $minCases = max(1, (int) config('atlas_arena.min_cases_for_confidence', 10));
         // Descarte alto = amostra selecionada. Acima de `drop_low` a nota vira baixa
         // confiança; acima de `drop_unmeasured` ela não é número, é seleção.
@@ -38,6 +40,10 @@ final class ArenaCapabilityProfileService
             $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + $passed;
             $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + $total;
             $pool[$suite][$arm]['excluded'] = ((int) ($pool[$suite][$arm]['excluded'] ?? 0)) + (int) ($row['cases_excluded'] ?? 0);
+            // União de casos DISTINTOS entre rodadas: réplica não é problema novo.
+            foreach ((array) ($row['case_ids'] ?? []) as $caseId) {
+                $pool[$suite][$arm]['case_ids'][(string) $caseId] = true;
+            }
             // O acumulador contínuo é preenchido SEMPRE, inclusive por suíte binária:
             // um caso pass/fail é um score de Bernoulli ∈ {0,1}, então sum = acertos e
             // sumsq = acertos (1²=1, 0²=0). Sem isto, capacidade que MISTURA suíte
@@ -108,9 +114,16 @@ final class ArenaCapabilityProfileService
                     'atlas_sum' => 0.0,
                     'atlas_sumsq' => 0.0,
                     'atlas_scoreN' => 0,
+                    'baseline_case_ids' => [],
+                    'atlas_case_ids' => [],
                     'suites' => [],
                 ];
                 if (is_array($baseline)) {
+                    // Prefixo por suíte: "case_1" de duas suítes são problemas
+                    // diferentes — sem o prefixo a união colapsaria ids homônimos.
+                    foreach (array_keys((array) ($baseline['case_ids'] ?? [])) as $caseId) {
+                        $capabilities[$capability]['baseline_case_ids'][$suite.'|'.$caseId] = true;
+                    }
                     $capabilities[$capability]['baseline_passed'] += (int) ($baseline['passed'] ?? 0);
                     $capabilities[$capability]['baseline_total'] += (int) ($baseline['total'] ?? 0);
                     $capabilities[$capability]['baseline_excluded'] += (int) ($baseline['excluded'] ?? 0);
@@ -121,6 +134,9 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
                 }
                 if (is_array($withAtlas)) {
+                    foreach (array_keys((array) ($withAtlas['case_ids'] ?? [])) as $caseId) {
+                        $capabilities[$capability]['atlas_case_ids'][$suite.'|'.$caseId] = true;
+                    }
                     $capabilities[$capability]['atlas_passed'] += (int) ($withAtlas['passed'] ?? 0);
                     $capabilities[$capability]['atlas_total'] += (int) ($withAtlas['total'] ?? 0);
                     $capabilities[$capability]['atlas_excluded'] += (int) ($withAtlas['excluded'] ?? 0);
@@ -191,28 +207,56 @@ final class ArenaCapabilityProfileService
             $dropRate = static fn (int $kept, int $dropped): float => ($kept + $dropped) > 0
                 ? $dropped / ($kept + $dropped)
                 : 0.0;
-            $worstDrop = max($dropRate($bn, $bx), $dropRate($an, $ax));
+            $baselineDrop = $dropRate($bn, $bx);
+            $atlasDrop = $dropRate($an, $ax);
+            $worstDrop = max($baselineDrop, $atlasDrop);
+
+            // Casos DISTINTOS por braço: réplica do mesmo caso é ensaio
+            // correlacionado, não problema novo. Auditoria 20/07: packs de 3
+            // casos viravam "measured" com N=12 de réplicas — o piso agora
+            // exige minCases problemas DIFERENTES (alinhado ao
+            // min_distinct_cases_public=10 que o claim gate do Rivals já cobra).
+            $bd = count((array) ($row['baseline_case_ids'] ?? []));
+            $ad = count((array) ($row['atlas_case_ids'] ?? []));
 
             $confidence = match (true) {
                 $bn === 0 || $an === 0 => 'unmeasured',
                 $worstDrop >= $dropUnmeasured => 'unmeasured',
-                min($bn, $an) < $minCases, $worstDrop >= $dropLow => 'low',
+                min($bn, $an) < $minCases,
+                min($bd, $ad) < $minCases,
+                $worstDrop >= $dropLow => 'low',
                 default => 'measured',
             };
+
+            // Capacidade GATED (instrumento em preparação): aparece com a razão,
+            // NUNCA com número — expor valor de feed quebrado é mentir com rótulo.
+            $gatedReason = $gated[$row['capability']] ?? null;
+            if ($gatedReason !== null) {
+                $baseline = null;
+                $withAtlas = null;
+                $delta = null;
+                $confidence = 'unmeasured';
+            }
 
             $public[] = [
                 'capability' => $row['capability'],
                 'label_pt' => $row['label_pt'],
+                'group' => (string) ($groupMap[$row['capability']] ?? 'quality'),
                 'score' => $baseline['score'] ?? null,
                 'with_atlas' => $withAtlas['score'] ?? null,
                 'baseline_ci' => $baseline === null ? null : [$baseline['ci_low'], $baseline['ci_high']],
                 'with_atlas_ci' => $withAtlas === null ? null : [$withAtlas['ci_low'], $withAtlas['ci_high']],
                 'baseline_cases' => $bn,
                 'with_atlas_cases' => $an,
+                'baseline_distinct_cases' => $bd,
+                'with_atlas_distinct_cases' => $ad,
                 'delta' => $delta,
                 'confidence' => $confidence,
+                'gated_reason' => $gatedReason,
                 'baseline_excluded' => $bx,
                 'with_atlas_excluded' => $ax,
+                'exclusion_rate_baseline' => round($baselineDrop, 4),
+                'exclusion_rate_with_atlas' => round($atlasDrop, 4),
                 'max_exclusion_rate' => round($worstDrop, 4),
                 'measurement_type' => $measureLabel,
                 'suites_contributing' => $suites,
@@ -224,8 +268,11 @@ final class ArenaCapabilityProfileService
 
         return [
             'schema_version' => 'atlas.arena.capabilities.v2',
-            'mapping_version' => 'arena.capability_map.v1',
+            'mapping_version' => 'arena.capability_map.v2',
             'engine' => $engine,
+            'area' => (string) config('atlas_arena.capability_area', 'software_engineering'),
+            'area_label_pt' => (string) config('atlas_arena.capability_area_label_pt', 'Engenharia de Software'),
+            'groups_pt' => (array) config('atlas_arena.capability_groups_pt', []),
             'capabilities' => $public,
         ];
     }

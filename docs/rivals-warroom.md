@@ -1778,3 +1778,27 @@ Commit `8970be46a4`.
 falha. Antes de aceitar qualquer uma, cruze com um campo que prove se o artefato chegou
 ao corretor (`patch_applied`, score presente, saída não-vazia). Foi assim que os três
 vazamentos do dia apareceram.
+
+### [2026-07-20 ~18h45 -03] TAXONOMIA v2 NO AR (servidor) — 13 capacidades em 4 grupos + piso de casos DISTINTOS (Claude/Fable, aprovação do operador)
+
+Config: área "Engenharia de Software", 4 grupos (Construção/Compreensão/Qualidade/
+Agêntico), 13 capacidades mapeadas por 15 suítes; `long_context_engineering` GATED
+(feed inválido — nunca expõe número, só a razão); `terminal_operation` REJEITADA pelo
+guardião pétreo native-only (terminal_bench é Docker/x86 — o teste
+`ArenaConfigurationTest` barrou; vira FUTURA aguardando instrumento nativo).
+
+Honestidade nova (mandatos dos 3 auditores):
+- **Piso por casos DISTINTOS** (≥10/braço): réplica ≠ problema novo. Efeito imediato
+  honesto: TODAS as capacidades caem pra low/unmeasured (packs têm 3 casos) —
+  "measured" com 3 problemas era falsa confiança. function_generation (9 distintos)
+  é a primeira a destravar com a expansão de packs.
+- **measurement_type DECLARADO manda** (forma fracionária é só fallback) — mata o
+  flip binary↔mixed por sorte amostral.
+- Payload: `group`, `area`, `gated_reason`, distintos por braço, taxa de exclusão POR
+  braço. mapping_version v2 (schema segue v2 — campos aditivos).
+- bigcodebench só em function_generation (dupla contagem morta); LCB fundida em
+  function_generation (tier inédito); rótulos com teto declarado.
+
+Gates: 48 passed (275 asserts). Próximo: app agrupado por área + expansão de packs
+3→10+ (a chave do "confiança 100%") + consertos de feed (fantasma lcb_3021 no
+case_pack do config; long_code_arena inválida).

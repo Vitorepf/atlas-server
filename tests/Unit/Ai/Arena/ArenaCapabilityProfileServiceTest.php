@@ -54,7 +54,7 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $payload = (new ArenaCapabilityProfileService)->profile('codex_cli');
 
         $this->assertSame('atlas.arena.capabilities.v2', $payload['schema_version']);
-        $this->assertSame('arena.capability_map.v1', $payload['mapping_version']);
+        $this->assertSame('arena.capability_map.v2', $payload['mapping_version']);
         $this->assertCount(2, $payload['capabilities']);
 
         $byCapability = array_column($payload['capabilities'], null, 'capability');
@@ -491,7 +491,7 @@ class ArenaCapabilityProfileServiceTest extends TestCase
 
     private function binaryScoreReceipt(string $armId, string $caseId, string $status, float $score, string $finishedAt): array
     {
-        $metadata = ['native' => ['measurement_type' => 'continuous', 'score' => $score, 'score_metric' => 'fun_success']];
+        $metadata = ['native' => ['measurement_type' => 'binary', 'score' => $score, 'score_metric' => 'fun_success']];
         if (str_contains($armId, 'atlas_dev')) {
             $metadata['runtime_bridge'] = ['execution' => 'atlas_cli_dev_efficient', 'task_ok' => true, 'completion_state' => 'completed'];
         }

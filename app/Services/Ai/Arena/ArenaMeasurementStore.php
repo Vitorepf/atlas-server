@@ -99,6 +99,8 @@ final class ArenaMeasurementStore
                     'rounds' => [],
                     'has_score' => false,
                     'fractional' => false,
+                    'declared_type' => null,
+                    'case_ids' => [],
                     'score_sum' => 0.0,
                     'score_sumsq' => 0.0,
                     'score_n' => 0,
@@ -189,6 +191,15 @@ final class ArenaMeasurementStore
                     $groups[$key]['excluded']++;
                     continue;
                 }
+                // Casos DISTINTOS: réplica do mesmo caso é ensaio correlacionado,
+                // não problema novo — o piso de confiança do perfil conta casos
+                // distintos (auditoria 20/07: packs de 3 casos viravam "measured"
+                // com 3 problemas × réplicas; o claim gate do Rivals já exige 10
+                // distintos e o perfil aceitava o que o gate rejeitaria).
+                $caseKey = (string) ($receipt['case_id'] ?? '');
+                if ($caseKey !== '') {
+                    $groups[$key]['case_ids'][$caseKey] = true;
+                }
                 if (($receipt['status'] ?? null) === 'success') {
                     $groups[$key]['passed']++;
                 } else {
@@ -210,6 +221,15 @@ final class ArenaMeasurementStore
                     if ($value > 0.0 && $value < 1.0) {
                         $groups[$key]['fractional'] = true;
                     }
+                    // Tipo DECLARADO pelo instrumento manda; a forma do dado é só
+                    // fallback. Auditoria 20/07: inferir pela fração fazia testeval
+                    // (declara continuous, 62/68 valores 0/1) rotular `binary` numa
+                    // rodada e flipar pra `mixed` quando a 1ª fração aparecia —
+                    // o tipo da capacidade mudava por sorte amostral.
+                    $declared = $native['measurement_type'] ?? null;
+                    if (is_string($declared) && $declared !== '') {
+                        $groups[$key]['declared_type'] = $declared;
+                    }
                 }
                 if (isset($receipt['wall_ms']) && is_numeric($receipt['wall_ms'])) {
                     $groups[$key]['walls'][] = (float) $receipt['wall_ms'];
@@ -222,7 +242,12 @@ final class ArenaMeasurementStore
 
             foreach ($groups as $group) {
                 $hasScore = (bool) $group['has_score'];
-                $continuous = $hasScore && (bool) $group['fractional'];
+                // Tipo declarado pelo instrumento manda; forma fracionária é só
+                // fallback para recibos antigos sem declaração.
+                $declaredType = $group['declared_type'] ?? null;
+                $continuous = $hasScore && ($declaredType !== null
+                    ? $declaredType === 'continuous'
+                    : (bool) $group['fractional']);
                 $scoreN = (int) $group['score_n'];
 
                 if ($hasScore) {
@@ -264,6 +289,10 @@ final class ArenaMeasurementStore
                     // O perfil usa isto pra detectar sobrevivência: se quase toda falha
                     // de um braço foi excluída, o que sobrou não é amostra, é seleção.
                     'cases_excluded' => $excluded,
+                    // Casos DISTINTOS medidos (réplica ≠ problema novo): o piso de
+                    // confiança do perfil conta isto, não ensaios.
+                    'case_ids' => array_keys((array) $group['case_ids']),
+                    'distinct_cases' => count((array) $group['case_ids']),
                     // Carrega sum/sumsq/n p/ o perfil poolar média + IC contínuos.
                     'measurement_type' => $continuous ? 'continuous' : 'binary',
                     'score_sum' => $hasScore ? round((float) $group['score_sum'], 6) : null,
