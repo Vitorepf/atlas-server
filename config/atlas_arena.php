@@ -47,6 +47,16 @@ return [
     // é a verdade contínua; este piso só separa "medido" de "poucos casos".
     'min_cases_for_confidence' => (int) env('ATLAS_ARENA_MIN_CASES_CONFIDENCE', 10),
 
+    // GUARDA DE SELEÇÃO. Descartar unidade bloqueada no setup é honesto (não é falha
+    // de capacidade), mas se quase toda FALHA de um braço for descartada, o que sobra
+    // não é amostra — é seleção, e a nota sobe sozinha. Provado em aider_polyglot:
+    // braço Atlas com 30 contadas (todas sucesso) e 45 descartadas (todas falhas)
+    // produzia "Atlas +0.455". Acima de `low` a nota vira baixa confiança; acima de
+    // `unmeasured` ela não é número. Mexer nestes valores afrouxa a honestidade do
+    // perfil — o caminho certo é BAIXAR o descarte destravando as unidades.
+    'max_exclusion_rate_low' => (float) env('ATLAS_ARENA_MAX_EXCLUSION_LOW', 0.30),
+    'max_exclusion_rate_unmeasured' => (float) env('ATLAS_ARENA_MAX_EXCLUSION_UNMEASURED', 0.50),
+
     // O perfil (ArenaCapabilityProfileService) só mostra uma capacidade quando a
     // suíte tem casos medidos — então mapear uma suíte sem dado é inócuo (não
     // aparece até rodar). Suítes BINÁRIAS (pass@1) usam Wilson; a CONTÍNUA
