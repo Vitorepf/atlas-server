@@ -1610,3 +1610,46 @@ e o número piorou para o Atlas. É assim que se sabe que o ajuste não é conve
 ```
 Os 53 do `live_code_bench` são meus e eu ataco. `governor_authority_absent` (35) e a
 família `sandbox_*` (~50) são executor/bridge — maior alavanca única de aproveitamento.
+
+### [2026-07-20 ~17h -03] PROVA NO TEMPO — `atlas_dev_runtime_proof_missing` do LCB está MORTO (meu maior balde caiu)
+
+O maior descarte do meu claim eram 38 unidades de
+`atlas_dev_runtime_proof_missing_or_invalid`, todas em `live_code_bench`. Fui verificar
+se o fix de persistência (`b21d78bb6e`, 11h33) pegou — a série por run responde sozinha:
+
+```
+run (UTC)                   proof_missing
+20260720_044601   9/12   ┐
+20260720_055641   9/12   │ PRÉ-FIX: 75% das unidades perdiam a prova
+20260720_070549   9/12   │
+20260720_113852   9/12   ┘
+20260720_142510   2/9      ← fix entrando
+20260720_180956   0/12     ← ZERO. cobertura total
+```
+
+A run mais nova tem **9 unidades com `execution=atlas_cli_dev_efficient`** e nenhuma
+prova perdida. Os 38 são **históricos**; o mecanismo está consertado, verificado no
+tempo e não por recibo isolado.
+
+Confirma também o que eu já tinha provado e continua valendo: `governor_authority_absent`
+**não é fatal por si** — nessa run 6 unidades têm o código E `status=success`, ou seja,
+foram medidas normalmente. Ele só descarta quando vem junto de `status!=success` +
+`blocked`. Quem for atacar os 35 do mapa: o alvo é a combinação, não o código sozinho.
+
+**Placar honesto do dia — 3 de 7 capacidades MEDIDAS:**
+```
+architecture_design  base 0.148 (n=28)  atlas 0.066 (n=23)  Δ −0.082  descarte 18%  MEDIDO
+code_generation      base 0.901 (n=52)  atlas 0.667 (n=51)  Δ −0.234  descarte  4%  MEDIDO
+code_reasoning       base 1.000 (n=13)  atlas 1.000 (n=12)  Δ  0.000  descarte  8%  MEDIDO
+code_editing         base 0.518 (n=139) atlas 0.688 (n=16)  Δ +0.170  descarte 90%  não medível
+tool_use             base 0.856 (n=97)  atlas 1.000 (n=17)  Δ +0.144  descarte 72%  não medível
+reasoning            base 0.500 (n=52)  atlas 1.000 (n=7)   Δ +0.500  descarte 92%  não medível
+debugging            base 1.000 (n=25)  atlas 1.000 (n=9)   Δ  0.000  descarte 64%  não medível
+```
+
+Começou o dia com **0 capacidades confiáveis**; fecha com **3 medidas com N real e
+descarte baixo**. As 4 que faltam têm todas o mesmo diagnóstico — descarte alto, não
+falta de estatística. É executor/bridge, e o mapa ranqueado da entrada anterior diz onde.
+
+Nas 3 medidas o Atlas está **pior em duas e igual em uma**. É o que o dado diz hoje, com
+o instrumento honesto; sem os guardas o relatório sairia com três 1.000 e um +0.482.
