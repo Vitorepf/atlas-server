@@ -192,7 +192,46 @@ projetar o `error_code` no recibo.
 
 ## 4. Estado REAL medido agora (2026-07-20 09:58 -03)
 
-### 4.1 🔴 BLOQUEADOR #1 — as 12 nativas falham INSTANTANEAMENTE (os dois braços)
+> ⚠️ **§4.1 e §4.3 foram CORRIGIDAS às 10h05** — a causa está provada e o quadro é
+> melhor do que a primeira redação. Leia o bloco "CAUSA PROVADA" logo abaixo antes de
+> agir; o texto original fica preservado como registro do meu erro.
+
+### 4.1-bis ✅ CAUSA PROVADA (2026-07-20 10h05) — e não é bloqueador da missão
+
+**A cadeia (arquivo:linha):** `ArenaRivalsExecutionService::plan()` chama
+`atlas:rivals plan`, que retorna `ok` e escreve plan/prereg/state. Mas
+`AtlasRivalsCommand.php:987` só escreve o manifesto **se** o suite estiver em
+`SuiteRegistry::externalSuiteIds()`, e `SuiteRegistry.php:91-94` define isso como
+`profileSuiteIds('fase_a')` — as **10 legadas**. As 13 nativas têm adapter externo
+(`SuiteRegistry.php:75-87`, `EngineeringNativeSuiteAdapter`) mas vivem no perfil
+**`engineering_native`** → nunca entram no gate → sem manifesto →
+`manifestEntries():47` estoura.
+
+**Não é regressão de ninguém** — o gate sempre foi estreito. Eu errei o diagnóstico
+duas vezes antes (culpei "grupo só-atlas" e depois a WIP do Codex). Fix indicado:
+gate por "tem adapter externo" (`registeredSuiteIds()`) e não por perfil `fase_a`;
+mesmo tratamento no gate irmão do `FrozenUnitManifest` (~linha 975).
+**Alvos reservados pelo Codex** (`AtlasRivalsCommand`, `SuiteRegistry`,
+`config/atlas_rivals.php`) — não edite, está em §6 como handoff.
+
+**O que isso quebra de fato:** só o botão "Rodar" do app para as 13 nativas.
+**O volume da missão vem por outro caminho, que FUNCIONA e está rodando:**
+
+```bash
+php artisan atlas:rivals battery --mode=execute --kind=uplift \
+  --profile=engineering_native --suite=<suite> --repetitions=4 \
+  --approve-provider-spend --json
+```
+
+Vivo desde 08:29:54 em `testeval` (run `20260720_112956_34d1e05c`): manifesto com
+**24 entradas = 12 `@bare` + 12 `@atlas_dev`** (3 casos × 4 reps × 2 braços) — DoD#1 e
+DoD#2 no mesmo comando. Braço com-Atlas verificado **em processo vivo**:
+`rivals-atlas-dev-bridge.php → artisan atlas:cli:dev Solve → hermes -z por dentro`.
+É esse comando que fecha o volume das 13 nativas, uma suíte por vez.
+
+---
+
+### 4.1 (registro original — diagnóstico que eu dei errado) as 12 nativas falham INSTANTANEAMENTE
 
 Todo o re-drain limpo (12 suítes × 2 braços = 24 runs) morreu:
 
@@ -258,10 +297,12 @@ Consequência: **`reasoning` continua `unmeasured`**.
 | skipped_out_of_profile | 2 | 2 |
 | **queued** | **0** | **0** |
 
-As 9 `running` estão sem `claimed_at` e sem `run_id` → **órfãs**, travando
-`aider_polyglot` (×3 pares), `bfcl` (×1 par) e `live_code_bench` (×1 atlas).
-Precisam voltar a `queued` — mas só DEPOIS que §4.1 estiver resolvido, senão viram
-mais 24 falhas instantâneas.
+✅ **RESOLVIDO às 10h05.** Confirmei por `ps` que não havia processo vivo para nenhuma
+delas → órfãs de verdade. As 9 voltaram a `queued` via
+`ArenaMeasurementStore::transitionQueuedRequests`, com `requeue_reason` nomeado no
+recibo (nada em silêncio). São `aider_polyglot` (×3 pares), `bfcl` (×1 par) e
+`live_code_bench` (×1 atlas) — as 3 integradas, todas no perfil `fase_a`, portanto
+**imunes ao bug do manifesto** da §4.1-bis. Guarda mantida: **no máximo 1 LCB por vez**.
 
 ### 4.4 Perfil de capacidades como está HOJE
 
@@ -312,15 +353,16 @@ que bloqueia agora é §4.1 (manifesto ausente, atinge os dois braços).
 
 ## 5. O que fazer, em ordem
 
-1. **Prove a §4.1.** Rode 1 unidade nativa à mão, ache quem deveria escrever
-   `native_execution_manifest.json`, prove se é regressão da WIP do Codex.
-   Se for do Codex → war-room §6, com a prova, e **não conserte por cima**.
-2. **Prove a §4.2.** Confirme (ou refute) a sobreposição de duas runs LCB atlas.
-   Fix = serialização, não edição do overlay.
-3. **Destrave as 9 órfãs** `running` → `queued` — só depois de (1).
-4. **Volume.** Com o eng-native de pé, re-drene com repetições até os N por capacidade
-   passarem de `min_cases_for_confidence` (10) com folga. É tempo de máquina; o bridge
-   governado leva ~15 min/unidade.
+1. ~~Prove a §4.1~~ **FEITO** (§4.1-bis). Handoff aberto com o Codex; não conserte por cima.
+2. ~~Destrave as 9 órfãs~~ **FEITO** (§4.3).
+3. **Prove a §4.2.** Agora só há 1 LCB na fila — a próxima run decide: veio limpa = era
+   corrida; repetiu a cardinalidade 0 = é o overlay e o fix é meu (é meu claim).
+4. **VOLUME — o caminho principal.** Rode `atlas:rivals battery --profile=engineering_native
+   --suite=<suite> --repetitions=N --approve-provider-spend` suíte por suíte, até cada
+   capacidade passar de `min_cases_for_confidence` (10) com folga.
+   **Uma suíte por vez** (§7.1) — o bridge governado leva ~15 min/unidade, então
+   `--repetitions=4` × 3 casos × 2 braços ≈ 3h por suíte. 13 suítes = tempo de máquina
+   de dias, não de sessão. Planeje sentinela, não espera ativa.
 5. **DoD#4 — relatório fechado.** `ArenaReportService.php` é do Codex e está untracked.
    Cobre em §6 do war-room.
 6. **Prova visual.** A regra do operador: mudança visual só conta com screenshot no
