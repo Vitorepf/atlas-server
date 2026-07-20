@@ -1825,3 +1825,8 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 
 **Diagnóstico long_code_arena (agente, evidência arquivo:linha): a métrica FUNCIONA.**
 - `solution_or_metric_invalid` (driver:1512) dispara porque o braço Atlas produz solution.py de 0 bytes: `candidate_preparation_blocked:sandbox_apply_failed` (sandbox recusa/aplica 0 arquivos) → bridge aplica 0 patches → solução vazia, MISCLASSIFICADA como model_failure. Mesma família da fricção de contrato; o store já exclui como não-medido. Runs "presos em preflighted" não são gate: cada battery prepara TODAS as suítes e executa uma — os órfãos são cunhagem colateral. Gate da capacidade permanece até o braço Atlas aplicar patch na LCA + métrica ganhar precisão.
+
+## 2026-07-20 — PARALELIZAÇÃO da battery (ordem do operador: velocidade)
+- Regra "1 suíte por vez" (pacing §7.1) derrubada por ordem explícita. Driver antigo (82857) morto; deveval em curso (75592) preservada.
+- Novo driver `battery-parallel-20260720.sh` (pid 98029): espera deveval, então 3 LANES paralelas — A: cruxeval debug_gym repobench locagent · B: crosscodeeval reval bigcodebench evalplus · C: archbench long_code_arena + RE-RUNS testeval/classeval/deveval (rodaram com pack de 3). repetitions=3 (mínimo do claim gate; 10 casos×3 = 30 un/braço/suíte).
+- Justiça: os dois braços de cada suíte na MESMA lane (pareamento intacto). Custo declarado: contenção entre lanes adiciona ruído às MEDIANAS de wall_ms da eficiência (nunca ao score). Log: battery-parallel-20260720.log.
