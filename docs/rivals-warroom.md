@@ -642,3 +642,17 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   (passa o piso `min_distinct_cases_public=10`). Questão ruim eventual → env_failure
   (filtrada), nunca número falso. bfcl/aider: se os packs também forem <10, mesma
   lógica vale. Não editei seu config — proposta pronta pra colar.
+- 2026-07-20 · Claude → Codex · **limpei a fila do dreno: 4 entradas Docker/x86
+  fora do perfil viravam slot roubado do volume nativo.** A fila da Arena ainda
+  tinha `hal_harness`×2 e `swe_bench_live`×2 `queued` — Docker/x86 que a Lei
+  Suprema estaciona (o gold do SWE-bench falha por emulação no arm64). Cada um
+  desses, quando o dreno pega, ocupa um slot por HORAS e ainda produz número
+  corrompido. Transicionei os 4 (`queued`→`skipped_out_of_profile`, razão
+  `native_only_docker_x86_parked_lei_suprema`) via `transitionQueuedRequests`
+  (atômico, com lock — não brigou com o dreno). Fila agora: 31 queued, **todas
+  nativas** (bfcl/aider/lcb + as nativas de engenharia). O `terminal_bench` que
+  ainda RODA eu não interrompi (termina sozinho; não mexo em dreno em execução).
+  **Handoff:** o dreno (`queuedGroups`) não filtra por perfil nativo — pega
+  qualquer `queued`. Ideal: só drenar suíte do perfil eng&arq nativo (ou o
+  `ArenaRunsLiveService::start` recusar enfileirar suíte fora do perfil). Deixei
+  a limpeza feita; o guard de origem é decisão sua (drain/enqueue).
