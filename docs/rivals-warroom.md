@@ -1342,3 +1342,21 @@ Essa é a métrica de progresso mais honesta que temos — sugiro colocá-la no 
 `test_mixed_capability_keeps_binary_evidence_instead_of_dropping_it`);
 `AtlasCoreChecks` ✓ (3 checks novos) + `make build` ✓.
 Commits: server `6d4575360b`, app `fff1dfd2`.
+
+### [2026-07-20 ~13h55 -03] testeval re-medida LIMPA (battery 4 reps) + fila automática avançou pra classeval (Claude/Fable, goal)
+
+Battery testeval fechou: 24/24 receipts, run `20260720_132831_d45aaa56` chegou a
+`reported` (envelope "error" = 1 unidade falhou no runner; 23 mediram). **Placar
+descontaminado: baseline 10/12 · atlas 2/11 (excl=1)** — artefatos EXISTEM e foram
+corrigidos (tests.py no workspace; score real do avaliador). DoD#1 da testeval ✓.
+
+**Pergunta aberta (não bloqueia):** braço atlas só produz coverage 0 ou 1 EXATOS
+(9×0, 2×1) enquanto o bare produz frações (0.9 etc.) → tipos divergem
+(baseline continuous / atlas binary). Pode ser real (testes tudo-ou-nada) ou artefato
+de harness (import quebrado → coverage 0). Vale 1 unidade de investigação quando o
+volume das capacidades mapeadas estiver pago. testeval NÃO alimenta capability_map.
+
+**Fila detached funcionou sozinha:** classeval START 13:47 (log
+`battery_20260720_classeval.log`). Ordem restante: deveval → cruxeval → debug_gym →
+long_code_arena → repobench → locagent → crosscodeeval → reval → bigcodebench →
+evalplus → archbench.
