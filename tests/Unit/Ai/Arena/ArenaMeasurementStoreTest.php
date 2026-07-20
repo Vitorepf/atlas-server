@@ -78,6 +78,51 @@ class ArenaMeasurementStoreTest extends TestCase
         $this->assertSame(1, $rows[0]['cases_failed'], 'só a derrota real conta como derrota');
     }
 
+    public function test_bridge_blocked_completion_is_not_a_false_zero(): void
+    {
+        // REGRESSÃO (2026-07-20, run 142510): units LCB atlas com bridge
+        // task_ok=false + completion_state=blocked (governor_authority_absent),
+        // code_len=0 — artefato nunca chegou ao corretor — viravam 0/4 MEDIDO
+        // contra o Atlas. Bloqueio de governo do runtime = NÃO MEDIDO.
+        $this->writeRun('20260720_040000_lcb', 'live_code_bench', [
+            [
+                'arm_id' => 'codex_cli@atlas_dev',
+                'case_id' => 'gov_blocked',
+                'repetition' => 1,
+                'status' => 'failure',
+                'failure_class' => 'model_failure',
+                'failure_reason' => 'live_code_bench:atlas_bridge_error_codes=governor_authority_absent',
+                'wall_ms' => 1000,
+                'finished_at' => '2026-07-20T04:01:00Z',
+                'metadata' => ['runtime_bridge' => [
+                    'task_ok' => false,
+                    'completion_state' => 'blocked',
+                    'provider_call' => ['error_codes' => ['governor_authority_absent']],
+                ]],
+            ],
+            // derrota real: bridge completou, artefato foi corrigido e falhou
+            [
+                'arm_id' => 'codex_cli@atlas_dev',
+                'case_id' => 'real_loss',
+                'repetition' => 1,
+                'status' => 'failure',
+                'failure_class' => 'model_failure',
+                'wall_ms' => 1000,
+                'finished_at' => '2026-07-20T04:02:00Z',
+                'metadata' => ['runtime_bridge' => [
+                    'task_ok' => true,
+                    'completion_state' => 'completed',
+                ]],
+            ],
+        ]);
+
+        $rows = (new ArenaMeasurementStore)->measurements();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(1, $rows[0]['cases_total'], 'bloqueio de governo não é caso medido');
+        $this->assertSame(1, $rows[0]['cases_failed'], 'derrota real continua contando');
+    }
+
     public function test_blocked_candidate_with_success_status_still_counts(): void
     {
         // Se o corretor chegou a pontuar sucesso, o error_code histórico do bridge

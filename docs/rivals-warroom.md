@@ -1245,3 +1245,27 @@ O desbloqueio real é a obra do contrato de saída do `atlas:cli:dev` (salvage d
 não-JSON) — **decisão de PRODUTO com o operador; alvo `AtlasCliDevCommand` é do Codex**.
 Handoff §6 aberto. Anomalia registrada: rep2 gastou só 53 tokens in (fail-fast do
 contrato?) — não afeta o pool (excluída).
+
+### [2026-07-20 ~12h10 -03] Run LCB 142510 fechou o ciclo — e revelou + matou o ÚLTIMO 0 falso: bridge blocked medido como derrota (Claude/Fable, goal)
+
+**Resultado da run (9 units atlas, DoD#1 da LCB cumprido com razão nomeada em tudo):**
+2 env_failure (proof missing — as 2 units pré-fix) · 3 blocked por
+`candidate_preparation_blocked:provider_invalid_provider_contract` (contrato de saída,
+handoff já aberto) · 4 blocked por **`governor_authority_absent`**. TODOS os 9 com
+`code_len=0` — nenhum artefato jamais chegou ao corretor.
+
+**O bug que isso destampou (meu, consertado na hora):** os 4 `governor_authority_absent`
+entravam no perfil como `live_code_bench|with_atlas 0/4` — 0 FALSO (bloqueio de governo
+do runtime medido como derrota do modelo). Fix no `ArenaMeasurementStore`: recibo com
+`metadata.runtime_bridge.task_ok=false + completion_state=blocked` → NÃO MEDIDO.
+Derrota real (bridge completou, artefato falhou no corretor) segue medida. Regressão
+nova no `ArenaMeasurementStoreTest` (44 passed / 262 asserts). `reasoning` volta a
+`unmeasured` HONESTO.
+
+**Os DOIS desbloqueios reais do braço atlas na LCB (ambos fora do meu lane, com prova):**
+1. Contrato de saída (`provider_invalid_provider_contract`) — obra de produto (§6).
+2. **`governor_authority_absent` como BLOQUEIO DURO no contexto do bridge** — diferente
+   do precedente (cruxeval pontuou 1 com esse código presente e não-fatal). No bridge
+   LCB ele bloqueia a completion. Por que o governor não tem autoridade neste contexto,
+   e qual o grant legítimo para runs de benchmark? → investigar em
+   `AtlasCliDevCommand`/governor (alvos do Codex). Handoff §6.

@@ -104,6 +104,18 @@ final class ArenaMeasurementStore
                         || str_contains($bridgeCodes, 'candidate_preparation_blocked'))) {
                     continue;
                 }
+                // Bridge governado BLOQUEADO antes do artefato (task_ok=false +
+                // completion_state=blocked; ex. governor_authority_absent): o
+                // candidato nunca chegou ao corretor → NÃO MEDIDO, nunca derrota.
+                // Provado em 20260720_142510: 9 units LCB atlas com code_len=0 e
+                // blocked — 4 delas viravam 0/4 falso no perfil. Falha DEPOIS de
+                // artefato real (completion_state != blocked) segue medida.
+                $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
+                if (($receipt['status'] ?? null) !== 'success'
+                    && ($bridge['task_ok'] ?? null) === false
+                    && ($bridge['completion_state'] ?? null) === 'blocked') {
+                    continue;
+                }
                 $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
                 if ($arm === null) {
                     continue;
