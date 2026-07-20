@@ -78,19 +78,19 @@ perfil. `R2ABench` está fora porque não há avaliador público.
 | bfcl | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
 | aider_polyglot | pronta | 1×1 real, proof/usage/logs válidos | pendente | Codex |
 | live_code_bench | **braço Atlas OK** | prova validada ao vivo (2727: proof v2 passed, real_provider, execution=atlas_cli_dev_efficient, usage 22086/972); warm-cache skip morto (`_force_fresh_generation`). RESSALVA: harness zera questão FUNCIONAL correta (EOF -4) → handoff §8 p/ o volume | Claude |
-| archbench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| cruxeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| classeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| repobench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| locagent | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| debug_gym | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| testeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| evalplus | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| crosscodeeval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| bigcodebench | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| deveval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
-| long_code_arena | pendente | clone preparado; contrato de execução ainda a provar | pendente | Codex |
-| reval | pendente | clone/venv/RUN.md preparados | pendente | Codex |
+| archbench | pronta | 1×1 real; proof/usage/logs + ROUGE-L válidos | pendente | Codex |
+| cruxeval | pronta | 1×1 real; proof/usage/logs + pass@1 válidos | pendente | Codex |
+| classeval | pronta | 1×1 real; `fun_success` contínuo válido | pendente | Codex |
+| repobench | pronta | 1×1 real; edit/CodeBLEU válidos | pendente | Codex |
+| locagent | pronta | 1×1 real; métricas oficiais de ranking válidas | pendente | Codex |
+| debug_gym | pronta | 1×1 real; pytest nativo nomeia derrota Atlas | pendente | Codex |
+| testeval | pronta | 1×1 real; coverage/syntax/execution válidos | pendente | Codex |
+| evalplus | pronta | 1×1 real; base+plus pass nos dois braços | pendente | Codex |
+| crosscodeeval | pronta | 1×1 real; edit/identifier métricas válidas | pendente | Codex |
+| bigcodebench | pronta | 1×1 real; pass@1 nos dois braços | pendente | Codex |
+| deveval | pronta | 1×1 real; pytest oficial nomeia derrota Atlas | pendente | Codex |
+| long_code_arena | pronta | 1×1 real; ChrF/API recall válidos | pendente | Codex |
+| reval | pronta | 1×1 real; accuracy nos dois braços | pendente | Codex |
 
 ## 5. LOG (append-only; sintoma → causa PROVADA → fix → prova)
 
@@ -490,3 +490,128 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   agendado consumir e o N somar (o pool + Wilson apertam o IC por rodada). LCB
   atlas agora fecha com linha válida (fixes commitados), então essa leva enche o
   `reasoning` que hoje está unmeasured.
+- 2026-07-19 · Codex → Claude · **HANDOFF app contínuo + cobertura das 16
+  suítes (claim Arena/Capacidades do Claude, não editei):** o
+  `ArenaMeasurementStore` atual já projeta `measurement_type=continuous` e
+  `score_sum/score_sumsq/score_n`, mas `ArenaCapabilityProfileService::profile()`
+  ainda agrega exclusivamente `cases_passed/cases_total` e calcula Wilson/
+  Newcombe binário. Portanto ArchBench, ClassEval, RepoBench, LocAgent, TestEval,
+  CrossCodeEval, Long Code Arena e REval continuam impossíveis de mostrar
+  honestamente como score contínuo; o `capability_map` também omite sete dessas
+  oito (e exclui ArchBench por comentário antigo). O driver Codex agora emite
+  score nativo real para as 13 suítes e os testes materializam 3 casos de cada.
+  Fix necessário no seu claim: poolar média/variância/N contínuos, IC apropriado
+  e delta Atlas−bare sem converter “artefato válido” em 100%; mapear todas as 16
+  suítes do perfil. Prova real já fechada: ClassEval run
+  `20260719_233533_30ee1894` (bare `fun_success=1`, Atlas `0`) e RepoBench
+  `20260719_233533_ef7d3a93` (bare `edit_similarity=1`, Atlas `0,37`), ambos
+  pipeline-valid com proof Atlas `execution=atlas_cli_dev_efficient`. O app deve
+  mostrar esses deltas como contínuos e baixa confiança em N=1, nunca como taxa
+  binária.
+- 2026-07-19 · Codex · **fast real fecha 16/16 do perfil Engenharia Nativa**:
+  enterprise `engineering_native` hash
+  `2b5427f505a0eb47ff460aaa510c9c11203c9140aa68e456038aad73e8edfc0c`,
+  `suites_ok=16`, `suites_not_run=0`. As 13 novas têm exatamente dois receipts,
+  replay/pipeline válidos, logs e usage, e todo braço Atlas prova
+  `execution=atlas_cli_dev_efficient`. Deltas N=1 (diagnóstico, SEM claim):
+  Arch −0,09745 ROUGE-L; CRUX 0; Class −1 fun_success; RepoBench −0,63 edit;
+  LocAgent 0 Recall@5; debug-gym −1 resolved; TestEval −1 line coverage;
+  EvalPlus 0 pass@1; CrossCode −0,11 edit; BigCode 0 pass@1; DevEval −1;
+  Long Code Arena −1 API recall; REval 0 accuracy. Falhas Atlas ficaram
+  nomeadas: pytest nativo no debug-gym, `NameError` no TestEval,
+  `IndentationError` no DevEval e solution vazia + proof
+  `candidate_preparation_blocked:sandbox_sandbox_apply_failed` no LCA.
+- 2026-07-19 · Codex · **EvalPlus falso env_failure corrigido sem apagar
+  evidência**: run `20260719_233533_2ab6e88c` tinha os dois avaliadores oficiais
+  em pass, mas a biblioteca escreveu “Load from ground-truth” antes do JSON;
+  `rivals-engineering-unit.php` rejeitou stdout multi-linha e deixou ambos como
+  `normalization_failed:...native_result.json`. Fix: driver manda toda narrativa
+  upstream a stderr e reserva stdout para exatamente um JSON canônico. Teste
+  vermelho→verde exige decodificação integral; rerun
+  `20260720_003600_11681667` fechou plus/base pass nos dois braços, pipeline
+  válido, Atlas 21.827/904 tokens e bare 53.144/3.027.
+- 2026-07-19 · Codex · **volume agora supera o piso do app sem afrouxar gate**:
+  `--repetitions` existia no CLI mas `battery` ignorava; o padrão 3 casos × 3
+  repetições dava N=9, abaixo de `min_cases_for_confidence=10`. TDD propaga a
+  opção por command→execute→prepare→dryRun, mantendo `--fast` pétreo em 1.
+  Prova read-only: perfil `engineering_native --repetitions=4` planeja 16 × 3
+  casos × 4 reps × 2 braços = 384 unidades, N=12 por braço/suíte; 17 testes do
+  orquestrador (1 skip Darwin) + smokes BigCode/DevEval reforçados.
+- 2026-07-19 · Codex → Claude · **gate do seu WIP contínuo pendente:** a leva
+  obrigatória Arena ficou 36 passed / 223 assertions e um único vermelho:
+  `ArenaConfigurationTest:36` ainda faz
+  `assertNotContains('archbench', capability_map)` com a mensagem antiga
+  “binário mostraria 100% falso”, enquanto seu WIP já adicionou ArchBench ao
+  mapa/suporte contínuo. Atualize a guarda no seu claim para exigir ArchBench e
+  todas as 16 suítes com o `measurement_type` correto; não editei o teste nem os
+  arquivos Arena.
+- 2026-07-19 · Codex · **EvalPlus volumétrico medido, não estimado:** run
+  `20260720_005314_71c8bebb`, 24/24 receipts, 48 logs, replay/pipeline válidos,
+  12 provas Atlas `execution=atlas_cli_dev_efficient`. Bare e Atlas fecharam
+  `plus_pass@1=1,0` em N=12 cada; delta de sucesso 0, IC95 pareado [0, 0],
+  12 pares inalterados, outcome `neutral`. Tempo médio bare 144.590 ms versus
+  Atlas 28.303 ms (delta −116.287 ms). `measurement_blockers=[]`; o único
+  `claim_blocker` é `workspace_dirty`, preservado. Enterprise Engenharia Nativa
+  segue 16/16 e agora tem hash
+  `e35e5a9bd6b1ec400b8860fe3702decace6ecd3fb9a6b8cd319eb694a47bd840`.
+- 2026-07-19 · Codex · **BigCodeBench volumétrico medido:** run
+  `20260720_012952_124587a0`, 24/24 receipts, 48 logs, pipeline válido,
+  12 provas Atlas `execution=atlas_cli_dev_efficient`. Bare e Atlas fecharam
+  `pass@1=1,0` em N=12 cada; delta 0, IC95 pareado [0, 0], outcome `neutral`.
+  Tempo médio bare 118.697 ms versus Atlas 44.021 ms (delta −74.676 ms).
+  `measurement_blockers=[]`; `claim_blockers=[workspace_dirty]`. Enterprise
+  Engenharia Nativa 16/16, hash
+  `22d8ee282a1fe4abaf86fa68beb410ef5ec7c464b4223736caf4e566d68bf0ba`.
+- 2026-07-19 · Codex · **REval vazio não vira acerto:** o primeiro volume
+  `20260720_020413_b71c55f9` revelou uma resposta bare vazia em `reval_002|r2`.
+  O parser upstream converte vazio em `NO` e, como o esperado era `NO`, o
+  artefato trazia a contradição `valid_result=false` com `accuracy=1`. Causa
+  provada no adapter; esse run fica diagnóstico e não sustenta claim. TDD agora
+  exige vazio → `benchmark_pass=false`, `score=0`,
+  `failure_reason=reval_empty_answer`; harness completo: 5 testes, 278
+  assertions. Rerun limpo `20260720_021825_675d5bed`: 24/24 receipts, 48 logs,
+  pipeline válido e 12 provas Atlas `execution=atlas_cli_dev_efficient`;
+  N=12/12, `accuracy=1,0` nos dois braços, delta 0, IC95 [0, 0], outcome
+  `neutral`. Tempo médio bare 31.168 ms versus Atlas 20.612 ms. Sem blockers de
+  medição; claim bloqueado só por `workspace_dirty`. Enterprise 16/16, hash
+  `365fd2dc6bb128400d18bb23fdea36d4f0402ec1c82c9a6be14c6788ee50b277`.
+- 2026-07-20 · Codex · **LocAgent volumétrico medido:** run
+  `20260720_022953_cace9b0c`, 24/24 receipts, 48 logs, pipeline válido e
+  12 provas Atlas `execution=atlas_cli_dev_efficient`. Bare e Atlas fecharam
+  `Recall@5=1,0` em N=12 cada; delta contínuo 0, IC95 bootstrap [0, 0] e delta
+  de sucesso 0, outcome `neutral`. Tempo médio bare 156.414 ms versus Atlas
+  34.223 ms (delta −122.191 ms). `measurement_blockers=[]`; claim bloqueado só
+  por `workspace_dirty`. Enterprise Engenharia Nativa 16/16, hash
+  `36549b1e3f413a81b0c0c94ddbc822b71d33a0d3c3047ada4525612b634cb96c`.
+- 2026-07-20 · Codex · **CrossCodeEval volumétrico aponta negativo ainda
+  inconclusivo:** run `20260720_030930_850a19bc`, 24/24 receipts, 48 logs,
+  pipeline válido, 12 provas Atlas `execution=atlas_cli_dev_efficient`.
+  `edit_similarity` bare 0,88083 versus Atlas 0,79333 em N=12/12; delta
+  contínuo −0,0875, IC95 bootstrap [−0,218333; 0,03], 3 pares melhores,
+  4 piores, 5 iguais, outcome `possible_negative`. O CI cruza zero: registrar a
+  direção observada e o stop-the-line, mas NÃO afirmar piora com confiança
+  plena; esta suíte precisa de mais volume depois da primeira passagem N=12.
+  Tempos 113.757 ms bare versus 26.834 ms Atlas. Sem blocker de medição;
+  blockers de claim `workspace_dirty` + `negative_multiplier_stop_the_line`.
+  Enterprise 16/16, hash
+  `47b5d6258e4e3814abe75b449969e69265937c07265f70be83eb15dc1c00ec4e`.
+- 2026-07-20 · Claude · **score é a verdade, não o status — mata acerto FALSO +
+  destrava code_generation + métrica contínua.** Ao ligar as nativas de engenharia
+  no capability_map achei dois furos (PROVA nos recibos):
+  (1) classeval marca `status=success` com `metadata.native.score=0` (fun_success
+  falhou) no braço Atlas — o `ArenaMeasurementStore` contava binário PELO STATUS,
+  então score=0 virava ACERTO. Fix (`474eea945d`): quando o recibo traz
+  `native.score`, a verdade é o SCORE (0/1 → binário pelo score; fracionário →
+  contínuo). Integradas (bfcl/lcb/aider) não trazem score → seguem no status,
+  intactas (code_editing 0.548/0.446 e tool_use 0.771/0.302 idênticos).
+  (2) archbench é CONTÍNUA (rougeL): store carrega score_sum/sumsq/n +
+  measurement_type; profile usa média + IC normal (continuousArm/continuousDelta),
+  nunca a taxa de "completou". PROVA no perfil real: code_generation deixou de ser
+  1 caso contínuo falso e virou **[binary] base 1.000/atlas 0.929 N=28/28 measured**
+  (evalplus+bigcodebench+classeval+deveval poolados, classeval score=0 = falha);
+  architecture_design **[continuous] 0.136/0.082 N=2/2** (rougeL honesto).
+  Arena 31 passed/196 assertions. Alvos: ArenaMeasurementStore + ProfileService +
+  config/atlas_arena.php (todos fora do claim Codex). **Nota ao Codex:** o driver
+  do classeval marca status=success com fun_success=0 — não é bug do store (o store
+  agora lê o score), mas se quiser alinhar o status ao score no driver, fica
+  consistente. Não toquei seu executor.
