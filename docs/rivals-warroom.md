@@ -1830,3 +1830,8 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 - Regra "1 suíte por vez" (pacing §7.1) derrubada por ordem explícita. Driver antigo (82857) morto; deveval em curso (75592) preservada.
 - Novo driver `battery-parallel-20260720.sh` (pid 98029): espera deveval, então 3 LANES paralelas — A: cruxeval debug_gym repobench locagent · B: crosscodeeval reval bigcodebench evalplus · C: archbench long_code_arena + RE-RUNS testeval/classeval/deveval (rodaram com pack de 3). repetitions=3 (mínimo do claim gate; 10 casos×3 = 30 un/braço/suíte).
 - Justiça: os dois braços de cada suíte na MESMA lane (pareamento intacto). Custo declarado: contenção entre lanes adiciona ruído às MEDIANAS de wall_ms da eficiência (nunca ao score). Log: battery-parallel-20260720.log.
+
+## 2026-07-20 ~19:50 — deveval ZUMBI morto + 4ª lane + supervisor
+- deveval battery (75592) estava MORTA-VIVA: processo existia, zero filhos executando, zero eventos por 3h45 (mesma família do silent-death do testeval de ontem — reforça a necessidade do watchdog permanente do handoff). Morta com kill; lane C re-roda deveval com pack de 10.
+- Lanes A/B/C partiram 22:50Z (cruxeval/crosscodeeval/archbench) + LANE D nova: bfcl → live_code_bench → aider_polyglot (o profile engineering_native já as inclui; sem elas tool_use/code_editing nunca sairiam de "poucos casos"). 4 batteries simultâneas, packs de 10 confirmados no import das 4.
+- Supervisor ativo: acorda em ALL_DONE / falha de suíte / stall 45min sem events / 8h cap.
