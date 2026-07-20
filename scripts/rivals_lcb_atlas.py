@@ -51,7 +51,14 @@ class BridgeCompletions:
         with tempfile.TemporaryDirectory(prefix="rivals-lcb-atlas-") as temporary:
             workspace = Path(temporary) / "workspace"
             workspace.mkdir()
-            (workspace / "solution.py").write_text("")
+            # NÃO pré-criar solution.py. O candidato do atlas:cli:dev usa mode=create;
+            # um solution.py vazio pré-existente faz o sandbox governado bater em
+            # `candidate_preparation_blocked:sandbox_apply_failed:create_target_already_exists:
+            # solution.py` → task_ok=false → 0 FALSO (penaliza o braço Atlas por um
+            # artefato de setup, não por capacidade). Commita só o prompt como baseline;
+            # o bridge escreve solution.py a partir do patch_plan e o overlay lê depois.
+            prompt_file = workspace / ".rivals_task.md"
+            prompt_file.write_text(render_messages(messages) + "\n\n" + INSTRUCTION)
             for argv in (
                 ["git", "init", "-q"],
                 ["git", "config", "user.email", "rivals@atlas.local"],
@@ -60,8 +67,6 @@ class BridgeCompletions:
                 ["git", "commit", "-qm", "LCB task baseline"],
             ):
                 subprocess.run(argv, cwd=workspace, check=True, capture_output=True)
-            prompt_file = workspace / ".rivals_task.md"
-            prompt_file.write_text(render_messages(messages) + "\n\n" + INSTRUCTION)
             process = subprocess.run(
                 [
                     "php",
