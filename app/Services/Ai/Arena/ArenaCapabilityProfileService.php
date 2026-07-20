@@ -29,13 +29,28 @@ final class ArenaCapabilityProfileService
         foreach ($rows as $row) {
             $suite = (string) $row['suite'];
             $arm = (string) $row['arm'];
-            $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + (int) $row['cases_passed'];
-            $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + (int) $row['cases_total'];
+            $passed = (int) $row['cases_passed'];
+            $total = (int) $row['cases_total'];
+            $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + $passed;
+            $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + $total;
+            // O acumulador contínuo é preenchido SEMPRE, inclusive por suíte binária:
+            // um caso pass/fail é um score de Bernoulli ∈ {0,1}, então sum = acertos e
+            // sumsq = acertos (1²=1, 0²=0). Sem isto, capacidade que MISTURA suíte
+            // contínua com binária caía no ramo contínuo e descartava EM SILÊNCIO os
+            // casos binários — code_generation (deveval contínuo + evalplus/bigcodebench/
+            // classeval binários) reportava with_atlas_cases=0 com 30 casos Atlas medidos
+            // no store. Zero falso disfarçado de "não medido" é exatamente o que a lei
+            // proíbe; agora nenhuma evidência some.
             if (($row['measurement_type'] ?? 'binary') === 'continuous') {
                 $pool[$suite][$arm]['continuous'] = true;
                 $pool[$suite][$arm]['score_sum'] = ((float) ($pool[$suite][$arm]['score_sum'] ?? 0.0)) + (float) ($row['score_sum'] ?? 0.0);
                 $pool[$suite][$arm]['score_sumsq'] = ((float) ($pool[$suite][$arm]['score_sumsq'] ?? 0.0)) + (float) ($row['score_sumsq'] ?? 0.0);
                 $pool[$suite][$arm]['score_n'] = ((int) ($pool[$suite][$arm]['score_n'] ?? 0)) + (int) ($row['score_n'] ?? 0);
+            } else {
+                $pool[$suite][$arm]['binary'] = true;
+                $pool[$suite][$arm]['score_sum'] = ((float) ($pool[$suite][$arm]['score_sum'] ?? 0.0)) + (float) $passed;
+                $pool[$suite][$arm]['score_sumsq'] = ((float) ($pool[$suite][$arm]['score_sumsq'] ?? 0.0)) + (float) $passed;
+                $pool[$suite][$arm]['score_n'] = ((int) ($pool[$suite][$arm]['score_n'] ?? 0)) + $total;
             }
         }
 
@@ -69,6 +84,7 @@ final class ArenaCapabilityProfileService
                     'atlas_passed' => 0,
                     'atlas_total' => 0,
                     'continuous' => false,
+                    'binary' => false,
                     'baseline_sum' => 0.0,
                     'baseline_sumsq' => 0.0,
                     'baseline_scoreN' => 0,
@@ -80,22 +96,20 @@ final class ArenaCapabilityProfileService
                 if (is_array($baseline)) {
                     $capabilities[$capability]['baseline_passed'] += (int) $baseline['passed'];
                     $capabilities[$capability]['baseline_total'] += (int) $baseline['total'];
-                    if ($baseline['continuous'] ?? false) {
-                        $capabilities[$capability]['continuous'] = true;
-                        $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
-                        $capabilities[$capability]['baseline_sumsq'] += (float) ($baseline['score_sumsq'] ?? 0.0);
-                        $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
-                    }
+                    $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($baseline['continuous'] ?? false));
+                    $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($baseline['binary'] ?? false));
+                    $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
+                    $capabilities[$capability]['baseline_sumsq'] += (float) ($baseline['score_sumsq'] ?? 0.0);
+                    $capabilities[$capability]['baseline_scoreN'] += (int) ($baseline['score_n'] ?? 0);
                 }
                 if (is_array($withAtlas)) {
                     $capabilities[$capability]['atlas_passed'] += (int) $withAtlas['passed'];
                     $capabilities[$capability]['atlas_total'] += (int) $withAtlas['total'];
-                    if ($withAtlas['continuous'] ?? false) {
-                        $capabilities[$capability]['continuous'] = true;
-                        $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
-                        $capabilities[$capability]['atlas_sumsq'] += (float) ($withAtlas['score_sumsq'] ?? 0.0);
-                        $capabilities[$capability]['atlas_scoreN'] += (int) ($withAtlas['score_n'] ?? 0);
-                    }
+                    $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($withAtlas['continuous'] ?? false));
+                    $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($withAtlas['binary'] ?? false));
+                    $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
+                    $capabilities[$capability]['atlas_sumsq'] += (float) ($withAtlas['score_sumsq'] ?? 0.0);
+                    $capabilities[$capability]['atlas_scoreN'] += (int) ($withAtlas['score_n'] ?? 0);
                 }
                 $capabilities[$capability]['suites'][$suite] = true;
             }
@@ -105,6 +119,10 @@ final class ArenaCapabilityProfileService
         foreach ($capabilities as $row) {
             $suites = array_keys((array) $row['suites']);
             sort($suites);
+            // Só o ramo binário puro usa Wilson/Newcombe (é o certo p/ proporção).
+            // Misto (contínuo + binário na mesma capacidade) vai pro ramo contínuo,
+            // que agora carrega TODAS as evidências — e é rotulado `mixed` pra que o
+            // app não venda média de rougeL como se fosse pass@1.
             $continuous = (bool) $row['continuous'];
 
             if ($continuous) {
@@ -117,7 +135,7 @@ final class ArenaCapabilityProfileService
                 $delta = ($baseline !== null && $withAtlas !== null)
                     ? $this->continuousDelta($baseline, $withAtlas)
                     : null;
-                $measureLabel = 'continuous';
+                $measureLabel = ((bool) $row['binary']) ? 'mixed' : 'continuous';
             } else {
                 $bs = (int) $row['baseline_passed'];
                 $bn = (int) $row['baseline_total'];

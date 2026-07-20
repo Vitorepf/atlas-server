@@ -288,6 +288,41 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         );
     }
 
+    public function test_mixed_capability_keeps_binary_evidence_instead_of_dropping_it(): void
+    {
+        // REGRESSÃO (2026-07-20): code_generation junta deveval (CONTÍNUA) com
+        // evalplus/bigcodebench/classeval (BINÁRIAS). O pool caía no ramo contínuo e
+        // descartava EM SILÊNCIO os casos binários — o braço Atlas, que só tinha
+        // rodado nas binárias, aparecia com n=0 e "não medido" tendo 30+ casos reais
+        // no store. Zero falso disfarçado de não-medido é o que a lei proíbe.
+        config()->set('atlas_arena.capability_labels_pt', ['code_generation' => 'Geração de código']);
+        config()->set('atlas_arena.capability_map', [
+            'deveval' => [['capability' => 'code_generation', 'weight' => 0.5]],
+            'evalplus' => [['capability' => 'code_generation', 'weight' => 0.5]],
+        ]);
+        // contínua: SÓ o braço base rodou
+        $this->writeRun('20260720_010000_dev', 'deveval', [
+            $this->continuousReceipt('codex_cli@bare', 'd1', 0.40, '2026-07-20T01:01:00Z'),
+        ]);
+        // binária: os DOIS braços rodaram — esta evidência não pode sumir
+        $this->writeRun('20260720_010100_eval', 'evalplus', [
+            $this->receipt('codex_cli@bare', 'e1', 'success', '2026-07-20T01:02:00Z'),
+            $this->receipt('codex_cli@bare', 'e2', 'success', '2026-07-20T01:03:00Z'),
+            $this->receipt('codex_cli@atlas_dev', 'e1', 'success', '2026-07-20T01:04:00Z'),
+            $this->receipt('codex_cli@atlas_dev', 'e2', 'failure', '2026-07-20T01:05:00Z'),
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['code_generation'];
+
+        $this->assertSame('mixed', $cap['measurement_type'], 'rotula misto — não vende média como pass@1');
+        $this->assertSame(2, $cap['with_atlas_cases'], 'os 2 casos binários do Atlas SOBREVIVEM (antes: 0)');
+        $this->assertNotSame('unmeasured', $cap['confidence'], 'com os dois braços presentes não é "não medido"');
+        $this->assertEqualsWithDelta(0.5, $cap['with_atlas'], 0.0001, 'Atlas = 1 acerto em 2 casos');
+        // base = 1 caso contínuo 0.40 + 2 binários 1.0 → média (0.40+1+1)/3
+        $this->assertSame(3, $cap['baseline_cases']);
+        $this->assertEqualsWithDelta(0.8, $cap['score'], 0.0001);
+    }
+
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
     {
         return [
