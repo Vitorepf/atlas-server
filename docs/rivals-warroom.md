@@ -1674,3 +1674,20 @@ outras sessões/minhas; o blackboard segue valendo entre MINHAS sessões.
 
 Restante do DoD: volume (fila automática rodando) + prova final (screenshot device +
 perfil no war-room) quando 7/7 fecharem.
+
+### [2026-07-20 ~17h30 -03] GARANTIA DE COMPLETUDE no runtime Hermes (ordem do operador: "sem diferença entre usar com e sem Atlas")
+
+**Fix no choke-point (`HermesCliProvider::runStreaming`, vale pra TODO caller —
+Dev/Forge/benchmark/chat one-shot):** o usage-file do hermes é a verdade-terrestre do
+que o modelo GEROU; texto recebido < output_tokens (limiar 1 char/token, zero
+falso-positivo possível) = stdout cortado (GAP-HERMES-01) → re-execução automática
+(até 2×), com log nomeado + contador `hermes_truncation_retries` em TODO recibo —
+truncamento nunca mais é silencioso nem fatal. Testes: 3 novos
+(`HermesOutputCompletenessGuardTest`, caso real dos 856 bytes/2k tokens) + provider
+gates 86 ✓ + kernel 336 ✓.
+
+**Residual em observação:** 1 unidade LCB falhou `usage_missing_after_call`
+(provável crash pré-resposta do hermes, classe que a guarda não cobre — vira
+env_failure honesto, não nota falsa). O contador novo nos recibos vai medir a taxa
+real durante o volume da noite; se for material, próximo passo é retry também para
+`unavailable` pré-resposta. Raiz verdadeira (transporte do hermes) segue em §6.

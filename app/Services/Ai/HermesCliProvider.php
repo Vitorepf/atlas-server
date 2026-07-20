@@ -219,6 +219,8 @@ class HermesCliProvider implements AiProvider
         ];
         $hookBridgeReceipt = $this->hookBridge->register($job, $mission, $invocation, $hookPolicy, $permissionMode, $capabilityManifest, $hookSessionContext);
 
+        $usage = [];
+        $truncationRetries = 0;
         try {
             // Transport strategy: when execution_transport=acp, run the mission
             // through the persistent `hermes acp` session (robust: warm, structured,
@@ -238,12 +240,40 @@ class HermesCliProvider implements AiProvider
                     job: $job,
                     extraEnv: $processEnv,
                 );
+            $usage = $this->consumeUsageFile($usageFile);
+            // GARANTIA DE COMPLETUDE (ordem do operador, 20/07): o transporte CLI
+            // do hermes às vezes perde o chunk final do stdout (GAP-HERMES-01) e a
+            // resposta chega cortada — inaceitável para engenharia séria. O
+            // usage-file é a verdade-terrestre do que o modelo GEROU: texto
+            // recebido menor que os tokens gerados = truncado → re-executa (até
+            // 2×), nunca em silêncio. Vale para TODO caller do runtime
+            // (Dev/Forge/benchmark): usar o Hermes COM Atlas nunca pode ser mais
+            // frágil do que usá-lo cru — com esta guarda, é mais seguro.
+            while ($usageFile !== null
+                && $truncationRetries < 2
+                && $this->outputLooksTruncated($usage, (string) $result->output)) {
+                $truncationRetries++;
+                Log::warning('hermes_oneshot_output_truncated_retry', [
+                    'attempt' => $truncationRetries,
+                    'received_bytes' => strlen((string) $result->output),
+                    'usage_output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                ]);
+                $result = $this->runProcessStreaming(
+                    command: $command,
+                    input: '',
+                    timeoutSeconds: $timeout,
+                    cwd: $cwd,
+                    onEvent: $onEvent,
+                    job: $job,
+                    extraEnv: $processEnv,
+                );
+                $usage = $this->consumeUsageFile($usageFile);
+            }
         } finally {
             if ((bool) data_get($hookBridgeReceipt, 'hooks_registered', false)) {
                 $this->hookBridge->revoke($job, $hookSessionContext);
             }
         }
-        $usage = $this->consumeUsageFile($usageFile);
         $resultPacket = $this->resultPackets->build($job, $result, $mission, $invocation);
         $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
         $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
@@ -267,6 +297,10 @@ class HermesCliProvider implements AiProvider
                 'hermes_transport' => $this->cleanString($result->metadata['hermes_transport'] ?? null) ?? 'cli',
                 'hermes_usage' => $usage,
                 'hermes_acp_fallback_reason' => $this->lastAcpFallbackReason,
+                // Quantas re-execuções a guarda de completude precisou (0 = veio
+                // inteiro de primeira). Visível no recibo — truncamento nunca
+                // é silencioso, mesmo quando recuperado.
+                'hermes_truncation_retries' => $truncationRetries,
                 'executive_mission' => $mission,
                 'cli_invocation' => $invocation,
                 'hermes_result_packet' => $resultPacket,
@@ -444,6 +478,23 @@ class HermesCliProvider implements AiProvider
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Verdade-terrestre da completude: o hermes grava no usage-file quantos
+     * tokens o modelo GEROU. Um token nunca rende menos de ~1 caractere de
+     * texto — recebido < output_tokens é fisicamente impossível numa resposta
+     * íntegra, logo o stdout foi cortado (GAP-HERMES-01). Limiar de 1 char/token
+     * é deliberadamente conservador: zero falso-positivo, pega os cortes reais
+     * (ex.: 856 bytes recebidos com ~2.000 tokens gerados, provado 20/07).
+     *
+     * @param  array<string,mixed>  $usage
+     */
+    private function outputLooksTruncated(array $usage, string $output): bool
+    {
+        $generated = (int) ($usage['output_tokens'] ?? 0);
+
+        return $generated > 0 && strlen($output) < $generated;
+    }
+
     private function consumeUsageFile(?string $path): array
     {
         if ($path === null || ! is_file($path)) {
