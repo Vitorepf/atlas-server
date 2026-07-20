@@ -1504,3 +1504,59 @@ vermelhos PRÉ-EXISTENTES (diferencial rodado com adapter do HEAD: mesmos 42; ze
 regressão minha). **Nota:** commit do bridge inclui hunks WIP pré-existentes do Codex
 (`--artifact-target` — ele atacando o mesmo alvo por env explícita; coerente, aditivo).
 **Handoff §6:** GAP-HERMES-01 (raiz do truncamento) segue aberto no ~/.hermes.
+
+### [2026-07-20 ~16h30 -03] MATO MINHA PRÓPRIA PROPOSTA (simulei antes de codar) + o guarda está segurando três 1.000
+
+**1. O refinamento `cases_invalidated` que propus às 14h25: NÃO VALE A PENA. Simulei.**
+
+```
+capacidade              ok  drop  época | taxa_hoje  taxa_refinada
+architecture_design     17    11      0 |    0.393      0.393
+code_editing            11   150     27 |    0.941      0.932
+code_generation         51     2      0 |    0.038      0.038
+code_reasoning          12     1      0 |    0.077      0.077
+debugging                9    16      0 |    0.640      0.640
+reasoning                7    84      0 |    0.923      0.923
+tool_use                17    47     23 |    0.805      0.734
+```
+
+**Nenhuma capacidade muda de veredito.** A exclusão de época só existe em duas
+capacidades e, mesmo lá, o descarte real (env/prep/bridge) é tão dominante que a taxa
+mal se move. O argumento estatístico continua correto — a exclusão de época não infla —
+mas o efeito prático hoje é **zero**. Codar `cases_invalidated` + teste + campo no
+payload seria complexidade paga sem retorno.
+
+**PARADO, não descartado.** Reabrir só se uma purga de época virar o fator que amarra
+uma capacidade (i.e. `taxa_refinada < 0.5 <= taxa_hoje` aparecer na simulação acima).
+A simulação está neste doc; é só rodar de novo. **Codex/sessão paralela: podem ignorar o
+handoff das 14h25.**
+
+Lição que fica: eu propus obra e depois medi que a obra não pagava. Simular antes de
+codar custou 5 minutos e economizou um dia — e teria virado código morto no caminho
+crítico da missão.
+
+**2. O guarda de seleção está segurando TRÊS notas de 1.000 neste momento:**
+
+```
+code_editing   atlas 1.000 (n=11)  descarte 93%  → não medível
+reasoning      atlas 1.000 (n=7)   descarte 92%  → não medível
+tool_use       atlas 1.000 (n=17)  descarte 72%  → não medível
+```
+
+Sem o guarda, o relatório de hoje sairia dizendo **"Atlas 100% em edição de código,
+raciocínio e uso de ferramentas"** — com delta +0.482, +0.500 e +0.144. Seria a
+manchete mais bonita da obra e seria falsa: em todas as três, quase toda unidade Atlas
+que falhou foi descartada antes do corretor, e só o que passou sobrou.
+
+**Perfil honesto agora — 2 medidas, e as duas com N de verdade:**
+```
+code_generation   base 0.901 (n=52)  atlas 0.667 (n=51)  Δ −0.234  descarte 3.8%  MEDIDO
+code_reasoning    base 1.000 (n=13)  atlas 1.000 (n=12)  Δ  0.000  descarte 7.7%  MEDIDO
+architecture_design                                       Δ −0.058  descarte 39%   baixa
+```
+
+**A conta que fecha a missão é uma só:** aproveitamento do braço Atlas. Hoje 58,2%
+(estável em 2h de sentinela, 188/327 unidades). Cada ponto que sobe vira N real e
+confiança que ninguém fabricou. `code_generation` já provou o caminho: 3,8% de descarte
+→ n=51 → medida com folga. As outras cinco precisam do mesmo — é executor/bridge, não
+estatística.
