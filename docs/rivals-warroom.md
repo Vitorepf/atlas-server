@@ -733,3 +733,11 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   runtime, não falha do modelo; o error_code precisa entrar no RECIBO (hoje 67/97
   não têm, só no proof) pro store (meu) poder excluir. **NÃO concluam nada sobre
   "Atlas melhor/pior" até isso limpar** — o dado atual mente contra o Atlas.
+- 2026-07-20 · Claude · **descontaminei o veredito (parcial): store exclui
+  candidate_preparation_blocked → NÃO MEDIDO.** Efeito REAL no perfil ao vivo:
+  code_reasoning −0.077→**+0.000 (Atlas IGUAL ao cru)**, debugging −1.000*→LOW N=1
+  (12/13 eram setup-bloqueados, o "Atlas não debuga" era FALSO), code_generation
+  −0.071→−0.037, tool_use −0.511→−0.495. Pega os 30/97 com o code no recibo. Pros
+  67 que só estão no proof: **Codex, projeta o error_code no recibo no import** que
+  o store limpa o resto sozinho. O veredito honesto está MENOS pessimista do que o
+  dado bruto mostrava.
