@@ -1807,3 +1807,21 @@ case_pack do config; long_code_arena inválida).
 fixture órfã `tests/Fixtures/Rivals/cases/live_code_bench/lcb_001.json`, re-importada
 pro storage a cada battery prepare — por isso ressuscitou após o rename das 11h20.
 Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais.
+
+## 2026-07-20 — FASE: expansão de packs 3→10 + eficiência (commit e387f0eaf3)
+
+**Packs: 16/16 suítes expandidas de 3 → 10 casos DISTINTOS (112 novos).**
+- Regra de seleção pétrea (anti-cherry-picking): próximos índices SEQUENCIAIS da ordem upstream, nunca por dificuldade/conteúdo. Validação: 8 sub-agentes em paralelo, cada caso provado com `driver prepare` exit 0 + `.rivals_task.md` (nativas) ou resolução read-only idêntica ao adapter (bfcl/lcb/aider). Zero chamada de provider.
+- Juiz final: matriz completa `EngineeringNativeUnitScriptTest::test_all_engineering_case_packs_materialize_and_return_native_measurements` — prepare + artefato gold + evaluate para TODOS os casos dos 13 packs nativos = **676 assertions verdes** (149s).
+- Teto de upstream: debug_gym cobriu 100% do mini_nightmare (10/10 tasks — não existe 11º).
+- Volume upstream disponível p/ crescer depois: cruxeval 799 · deveval 1825 · crosscodeeval 2665 · bigcodebench 1140 · lcb 1055 · testeval 210 · locagent 274 · lca 150 · classeval 100 · archbench 95 · reval 154 · aider/rust 30.
+- Doença sistêmica achada e curada: caches `first3` do driver (bigcodebench `range(3)` hardcoded, repobench/locagent/lca `len>=3`) — cache apagado regenerava 3 e matava os casos 3..9 em silêncio. Agora regeneram cobrindo o índice pedido (mín. 10).
+- O guard do pack subiu junto: piso 10 alinhado ao `min_distinct_cases_public` do claim gate.
+- Fila da battery em execução (classeval ✓ 18:05, deveval rodando) importa os packs de 10 automaticamente no prepare de cada suíte seguinte; testeval/classeval rodaram com 3 e precisarão de 2ª passada p/ volume pleno.
+
+**Eficiência por capacidade (spec anti-Goodhart) VIVA no payload + report.html.**
+- Mediana de wall_ms e tokens_out POR UNIDADE MEDIDA por braço — unidade descartada no setup nunca contamina (testado: descartada de 999.999ms fora da mediana). Custo-por-vitória só com ≥5 vitórias em CADA braço. Sem USD (cost_usd do provider é sempre 0 = mentira). Overhead declarado: braço com Atlas mede modelo + harness de governança.
+- Verdade nos DOIS sentidos já visível nos dados reais: code_localization 4,6× mais RÁPIDO com Atlas (28,8s vs 134,2s) e code_reasoning ~2× mais rápido; tool_use 6× mais LENTO (5,2s → 34,4s — harness domina tarefa pequena). code_editing 54,8s → 200,0s.
+
+**Diagnóstico long_code_arena (agente, evidência arquivo:linha): a métrica FUNCIONA.**
+- `solution_or_metric_invalid` (driver:1512) dispara porque o braço Atlas produz solution.py de 0 bytes: `candidate_preparation_blocked:sandbox_apply_failed` (sandbox recusa/aplica 0 arquivos) → bridge aplica 0 patches → solução vazia, MISCLASSIFICADA como model_failure. Mesma família da fricção de contrato; o store já exclui como não-medido. Runs "presos em preflighted" não são gate: cada battery prepara TODAS as suítes e executa uma — os órfãos são cunhagem colateral. Gate da capacidade permanece até o braço Atlas aplicar patch na LCA + métrica ganhar precisão.
