@@ -86,6 +86,18 @@ final class ArenaMeasurementStore
                 if (in_array($receipt['failure_class'] ?? null, ['environment', 'environment_failure'], true)) {
                     continue;
                 }
+                // `candidate_preparation_blocked`: o candidato do braço Atlas foi
+                // BLOQUEADO antes de ser aplicado/testado (sandbox_apply_failed,
+                // create_target_already_exists, git_clone_failed, provider_unavailable
+                // etc.). O modelo respondeu, mas o artefato nunca chegou ao corretor
+                // → não é falha de CAPACIDADE, é setup/runtime → NÃO MEDIDO, nunca 0
+                // falso. (Depende do import projetar o error_code no recibo; onde só
+                // está no proof, o Codex completa a projeção — §8.)
+                $reason = (string) ($receipt['failure_reason'] ?? '');
+                if (($receipt['status'] ?? null) !== 'success'
+                    && str_contains($reason, 'candidate_preparation_blocked')) {
+                    continue;
+                }
                 $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
                 if ($arm === null) {
                     continue;

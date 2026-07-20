@@ -193,6 +193,24 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->assertSame(0.0, $cap['with_atlas'], 'Atlas status=success MAS score=0 = FALHA, não 100%');
     }
 
+    public function test_candidate_preparation_blocked_is_unmeasured_not_false_zero(): void
+    {
+        // O candidato do braço Atlas foi bloqueado antes de ser testado (colisão de
+        // setup) → o modelo respondeu mas nunca foi pontuado → NÃO MEDIDO, nunca 0.
+        $blocked = $this->receipt('codex_cli@atlas_dev', 'c1', 'failure', '2026-07-17T01:01:00Z');
+        $blocked['failure_reason'] = 'candidate_preparation_blocked:sandbox_apply_failed:create_target_already_exists:answer.txt';
+        $this->writeRun('20260717_010000_block', 'terminal_bench', [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-17T01:00:00Z'),
+            $blocked,
+        ]);
+
+        $byCapability = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability');
+        $cap = $byCapability['terminal_operation'];
+        $this->assertSame(1.0, $cap['score'], 'base medido');
+        $this->assertNull($cap['with_atlas'], 'atlas bloqueado no setup = NÃO MEDIDO, não 0 falso');
+        $this->assertSame('unmeasured', $cap['confidence']);
+    }
+
     public function test_engine_filter_keeps_other_engines_out(): void
     {
         $this->writeRun('20260717_010000_terminal', 'terminal_bench', [
