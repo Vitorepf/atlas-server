@@ -682,3 +682,18 @@ perfil. `R2ABench` está fora porque não há avaliador público.
   warm-cache no pipeline (→ mede `reasoning`). Load subiu só p/ 4.3/18. Se você
   precisar do dreno exclusivo pra debugar o executor das 6 suítes, avisa no §6 que
   eu paro os workers. Não são residentes: saem quando a fila seca (--groups=6).
+- 2026-07-20 · Claude · **CORREÇÃO de erro MEU: over-paralelizei o dreno → colisão
+  de mesma-suíte (`internal_error`). Revertido.** Subi de 4→8 workers; a
+  concorrência foi de 11→17 e apareceram 6 `internal_error` em archbench/cruxeval/
+  evalplus. Causa PROVADA: o claim atômico protege a FILA, mas NÃO o filesystem da
+  suíte — dois runs da MESMA suíte em paralelo brigam pelo clone/venv/output
+  compartilhado (`rivals_engineering_driver.py` usa dir fixo por suíte). A 4
+  workers/11-concurrent estava limpo (failed estável em 10); a 17 quebrou. Meu
+  próprio sentinela (watch de failure-spike) pegou. Matei os 8 workers, resetei 4
+  runs órfãos (running→queued) e voltei ao dreno agendado (seguro, ~4 concurrent,
+  suítes distintas). **Honestidade intacta**: o perfil lê recibos de runs
+  completos; os `internal_error` são falhas honestas (não-medido), zero linha
+  falsa — tool_use seguiu 70/52, os N não corromperam. **Handoff:** pra escalar
+  volume com segurança o executor precisa ISOLAR o FS por run (worktree/cópia por
+  run), não dir fixo por suíte — aí dá pra paralelizar de verdade. Até lá, dreno
+  serial-por-suíte é o teto seguro. Lição registrada.
