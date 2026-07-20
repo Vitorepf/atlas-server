@@ -288,6 +288,54 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         );
     }
 
+    public function test_model_fault_is_measured_failure_not_setup_exclusion(): void
+    {
+        // O bridge nomeia a causa no próprio error_code. `model_empty_patch_plan` =
+        // o modelo RESPONDEU (real_provider, execution governada, ~1.5k tokens de
+        // saída) e mesmo assim não produziu patch → falha de CAPACIDADE, que MEDE.
+        // Excluir isso removeria derrota legítima do Atlas e inflaria a nota — a
+        // fraude espelhada entrando pela porta do bloqueio de infraestrutura.
+        // `governor_authority_absent` (infra recusou autoridade) segue excluída.
+        config()->set('atlas_arena.capability_labels_pt', ['terminal_operation' => 'Operação de terminal']);
+        config()->set('atlas_arena.capability_map', [
+            'terminal_bench' => [['capability' => 'terminal_operation', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+
+        $modelFault = $this->receipt('codex_cli@atlas_dev', 'm1', 'failure', '2026-07-20T03:01:00Z');
+        $modelFault['metadata']['runtime_bridge'] = [
+            'execution' => 'atlas_cli_dev_efficient',
+            'real_provider' => true,
+            'task_ok' => false,
+            'completion_state' => 'blocked',
+            'usage' => ['output_tokens' => 1569],
+            'provider_call' => ['error_codes' => ['model_empty_patch_plan']],
+        ];
+        $infraBlock = $this->receipt('codex_cli@atlas_dev', 'i1', 'failure', '2026-07-20T03:02:00Z');
+        $infraBlock['metadata']['runtime_bridge'] = [
+            'execution' => 'atlas_cli_dev_efficient',
+            'real_provider' => true,
+            'task_ok' => false,
+            'completion_state' => 'blocked',
+            'provider_call' => ['error_codes' => ['governor_authority_absent']],
+        ];
+        $win = $this->receipt('codex_cli@atlas_dev', 'w1', 'success', '2026-07-20T03:03:00Z');
+        $win['metadata']['runtime_bridge'] = ['execution' => 'atlas_cli_dev_efficient', 'real_provider' => true];
+
+        $this->writeRun('20260720_030000_tb', 'terminal_bench', [
+            $this->receipt('codex_cli@bare', 'b1', 'success', '2026-07-20T03:00:00Z'),
+            $modelFault,
+            $infraBlock,
+            $win,
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['terminal_operation'];
+
+        $this->assertSame(2, $cap['with_atlas_cases'], 'a falha do modelo entra no N (1 acerto + 1 derrota)');
+        $this->assertSame(0.5, $cap['with_atlas'], 'derrota do modelo conta contra o Atlas, não some');
+        $this->assertSame(1, $cap['with_atlas_excluded'], 'só o bloqueio de INFRA fica de fora');
+    }
+
     public function test_high_exclusion_rate_is_selection_not_measurement(): void
     {
         // REGRESSÃO (2026-07-20): excluir unidade bloqueada é honesto, mas se quase

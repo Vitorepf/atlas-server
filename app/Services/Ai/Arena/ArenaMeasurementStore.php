@@ -154,8 +154,20 @@ final class ArenaMeasurementStore
                 // Provado em 20260720_142510: 9 units LCB atlas com code_len=0 e
                 // blocked — 4 delas viravam 0/4 falso no perfil. Falha DEPOIS de
                 // artefato real (completion_state != blocked) segue medida.
+                //
+                // EXCEÇÃO `model_*`: o bridge nomeia quem falhou no próprio código de
+                // erro. `model_empty_patch_plan` = o modelo respondeu (provado: 11
+                // unidades, todas com `real_provider=true`, `execution=atlas_cli_dev_
+                // efficient` e 1.569 tokens de saída em média, nenhuma com out=0) e
+                // MESMO ASSIM não produziu patch. Isso é falha de CAPACIDADE, não de
+                // setup — pelo princípio do próprio bridge: erro antes da resposta é
+                // ambiente, falha depois da resposta é resultado da tarefa. Excluir
+                // aqui removeria derrota legítima do Atlas e inflaria a nota, a mesma
+                // fraude espelhada que o guarda de seleção existe pra pegar.
                 $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
+                $modelFault = preg_match('/(^|[^a-z_])model_[a-z_]+/', $bridgeCodes) === 1;
                 if (($receipt['status'] ?? null) !== 'success'
+                    && ! $modelFault
                     && ($bridge['task_ok'] ?? null) === false
                     && ($bridge['completion_state'] ?? null) === 'blocked') {
                     $groups[$key]['excluded']++;
@@ -323,6 +335,12 @@ final class ArenaMeasurementStore
         if (str_contains($reason, 'candidate_preparation_blocked')
             || str_contains($bridgeCodes, 'candidate_preparation_blocked')) {
             return true;
+        }
+        // `model_*` = o bridge nomeando o modelo como causa → falha de capacidade,
+        // medida. Espelha a regra de `measurements()`; divergir aqui faria o guarda
+        // de seleção contar um descarte que não existe.
+        if (preg_match('/(^|[^a-z_])model_[a-z_]+/', $bridgeCodes) === 1) {
+            return false;
         }
         $bridge = (array) data_get($receipt, 'metadata.runtime_bridge', []);
 
