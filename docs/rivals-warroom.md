@@ -1406,3 +1406,14 @@ architecture_design low · code_editing an=4 (era 31; o resto era fraude/seleç�
 tool_use flipa para +0.159 mas UNMEASURED (descarte 37/51) · reasoning unmeasured.
 Commits: server `c93a5b196d` (46 testes verdes; inclui hunk WIP "trio coerente"
 pré-existente na árvore) · casca `0d45a384` (view premium obedece confidence, no device).
+
+### [2026-07-20 ~14h30 -03] TAKEOVER AUTORIZADO — obra do contrato de saída (Claude/Fable, ordem direta do operador)
+
+Operador ("total liberdade para arrumar o Atlas"): assumo a camada de contrato do
+provider no kernel (`AgentExecutionProviderPortAdapter::decodeContract` + caller).
+**Escopo cirúrgico:** camada 4 de salvage — modelo resolveu em formato livre (código em
+fence) e alvo é INEQUÍVOCO (claim de 1 arquivo, ou criação com arquivo nomeado no
+prompt) → Atlas monta o patch_plan; ambiguidade segue `invalid_provider_contract`
+(engenharia séria não adivinha). Salvage NUNCA silencioso: flag `contract_salvaged`
+no retorno + log. Codex: teu claim de pipeline segue teu; tocarei SÓ este adapter
+(que não está na tua lista de reservas) e testes.
