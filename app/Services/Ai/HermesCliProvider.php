@@ -479,20 +479,23 @@ class HermesCliProvider implements AiProvider
 
     /** @return array<string, mixed> */
     /**
-     * Verdade-terrestre da completude: o hermes grava no usage-file quantos
-     * tokens o modelo GEROU. Um token nunca rende menos de ~1 caractere de
-     * texto — recebido < output_tokens é fisicamente impossível numa resposta
-     * íntegra, logo o stdout foi cortado (GAP-HERMES-01). Limiar de 1 char/token
-     * é deliberadamente conservador: zero falso-positivo, pega os cortes reais
-     * (ex.: 856 bytes recebidos com ~2.000 tokens gerados, provado 20/07).
+     * Verdade-terrestre da completude: o usage-file do hermes DECLARA o estado
+     * da sessão (`completed`/`failed`). Sessão não-completada = resposta
+     * parcial/cortada (GAP-HERMES-01) → retry. Heurística de bytes-vs-tokens
+     * foi descartada: em contexto de AGENTE, output_tokens conta os turnos
+     * internos e a resposta final pode ser legitimamente curta ("OK" com 22
+     * tokens — falso-positivo provado ao vivo em 20/07). Sem os campos (hermes
+     * antigo) não há verdade-terrestre → nunca chutar.
      *
      * @param  array<string,mixed>  $usage
      */
     private function outputLooksTruncated(array $usage, string $output): bool
     {
-        $generated = (int) ($usage['output_tokens'] ?? 0);
+        if (($usage['failed'] ?? false) === true) {
+            return true;
+        }
 
-        return $generated > 0 && strlen($output) < $generated;
+        return array_key_exists('completed', $usage) && $usage['completed'] !== true;
     }
 
     private function consumeUsageFile(?string $path): array
