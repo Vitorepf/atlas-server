@@ -1848,3 +1848,10 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 - Mitigação ativa: supervisor v3 com WATCHDOG — hermes -z acima de 12min é morto (medianas reais 30-300s; hangs observados 20-33min). Unidade falha limpa como setup (cpb, excluída) em vez de envenenar a taxa de ambiente. Kills contados no log .watchdog.
 - Estrutural pendente: (a) provider fail-fast + kill de árvore no timeout da unidade (rivals-engineering-unit não mata netos); (b) causa do hang no hermes/gateway Verboo — investigar com dados do watchdog.
 - cruxeval dado preservado apesar do exit=1: bare 9/9, atlas 4✓+3 derrotas medidas+2 timeouts (excluídos). Lane E re-roda com pack de 10.
+
+## 2026-07-21 ~03:40Z — AUDITORIA RIGOROSA do 1º veredito (ordem do operador: "não se deixe enganar")
+**tool_use −5,0 confirmado como número honesto, mas a causa é INFRA do Atlas, não inteligência:**
+1. Corretor julgou TODAS as 60 unidades (9 sucessos e 21 derrotas do braço Atlas têm bridge state IDÊNTICO — blocked/governor_authority_absent — quem separou foi o CONTEÚDO julgado pelo grader). Não há derrota fantasma.
+2. **Causa dominante (determinística por caso):** braço cru usa function-calling NATIVO (kimi-k2.7-FC) → 30/30; braço Atlas força JSON³ (args→string escapada→array→patch_plan) → 3 casos passam 3/3, 7 casos falham 21/21, zero variação entre reps. Fricção de encoding, não capacidade (modelo respondia com ~1.1k tokens reais). Escala do achado 16/07 (kimi resolve, contrato rejeita) com n=60.
+3. **Ruído sistêmico:** governor_authority_absent em 30/30 unidades Atlas — corte de merge + canário exigida p/ escrever resposta de benchmark em workspace descartável; o patch-sink salva o artefato, mas toda unidade nasce "blocked". OBRA DE PRODUTO pendente (escopo de autoridade em fluxo de medição), decisão do operador.
+4. **Fix de SIMETRIA aplicado** (commit desta janela): modelo entrega args em JSON natural; harness Atlas empacota deterministicamente no formato do checker — espelho exato do que o harness da API faz pro braço cru. Só forma; args errados continuam reprovando. LANE F disparada (bfcl reps=3, pack 10) para provar no número.
