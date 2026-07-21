@@ -153,7 +153,20 @@ def write_material_and_prompt(
     )
     if initial:
         (workspace / target).write_text(initial)
-    (workspace / ".rivals_task.md").write_text(prompt)
+    # MATERIAL DO CASO EMBUTIDO NO PROMPT (forense 21/07, o defeito-mãe das
+    # nativas): o prompt dizia "leia case_material.json", mas só o braço CRU
+    # pode ler (hermes agêntico com tools); o braço Atlas roda oneshot com
+    # allowed_tools=[] — o modelo NUNCA via o problema. Resultado provado em
+    # testeval: stubs de 167 bytes e chutes do clássico (tests de isMatch/LC10
+    # BYTE-IDÊNTICOS em casos diferentes = determinismo de prompt-cego, não
+    # cache) julgados contra threeSum → 0 fabricado. Embutir o material no
+    # prompt COMPARTILHADO dá o problema aos DOIS braços igualmente — o cru
+    # mantém seu harness agêntico; nenhum braço fica vendado.
+    inline = (
+        "\n\n# Case material (inline; identical content lives in case_material.json)\n"
+        "```json\n" + json.dumps(material, indent=2, ensure_ascii=False) + "\n```\n"
+    )
+    (workspace / ".rivals_task.md").write_text(prompt + inline)
     return {
         "suite_id": material["suite_id"],
         "case_id": material["case_id"],
