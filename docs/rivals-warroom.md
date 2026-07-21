@@ -1861,3 +1861,9 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 - Mecânica: APIs FC proíbem '.' em nome de função → o pipeline BFCL renomeia ao enviar as tools → o braço cru devolve underscorado DE GRAÇA → o checker FC compara contra o underscorado. O braço Atlas (caminho texto) escrevia com ponto.
 - A 1ª hipótese (escaping JSON³) era PARCIAL: o fix de simetria não moveu o número (8/19/3 ≈ 9/21) porque a fricção dominante era o rename. Registrado como correção do meu próprio diagnóstico.
 - Fix: `str_replace('.','_')` no empacotador do unit script (commit c58ff1a7b2) — mesmo rename que o harness FC aplica. LANE G disparada como prova; expectativa: braço Atlas ≈ braço cru (30/30 − custo real do harness).
+
+## 2026-07-21 ~09:00Z — tool_use VIROU: primeiro empate honesto com volume pleno (com Atlas 9,2 vs cru 9,1)
+- Lane G (pós ponto→underscore): braço Atlas **30/30 PERFEITO** (cru 26/30 no mesmo round). Pool com denylist: delta +0,008 IC [−0,125, +0,079] = EMPATE estatístico, measured, 10/10 distintos.
+- Denylist de instrumento descalibrado implantado (7 runs bfcl pré-c58ff1a7b2, braço Atlas): invalidação SIMÉTRICA por run inteiro (105 unidades, vitórias fora junto com derrotas), contador `instrument_defect` visível no payload, FORA do guarda de seleção. 42/42 testes verdes.
+- LANE H disparada: 3 rounds bfcl p/ apertar o IC rumo à vitória significativa (Atlas ~100% vs cru ~91%).
+- Próxima forense (mesmo método do bfcl): test_generation −6,9 e debugging −3,1 — checar se a derrota é conteúdo real ou outro defeito de empacotamento no caminho Atlas.
