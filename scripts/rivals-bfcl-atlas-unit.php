@@ -98,20 +98,26 @@ if (! is_array($answer)) {
     $answer = [];
 }
 // Empacotamento determinístico no formato do checker (args como string
-// JSON-encoded) — espelho do que o harness da API faz pro braço cru. Só
-// FORMA muda; o conteúdo semântico (função + args) é 100% do modelo:
-// argumento errado continua reprovando no grader.
+// JSON-encoded + nome de função com '.' → '_') — espelho EXATO do que o
+// harness FC faz pro braço cru: APIs de function-calling proíbem ponto no
+// nome, o pipeline BFCL renomeia ao enviar as tools e o checker FC procura
+// o nome UNDERSCORADO (provado 21/07: "Function name 'math_triangle_area_
+// heron' not found" com resposta semanticamente perfeita; correlação 10/10
+// — os únicos 3 casos que passavam eram os 3 sem ponto). Só FORMA muda; o
+// conteúdo semântico (função + args) é 100% do modelo: função ou argumento
+// errado continua reprovando no grader.
 $answer = array_map(static function ($item) {
     if (! is_array($item)) {
         return $item;
     }
+    $packed = [];
     foreach ($item as $fn => $args) {
-        if (is_array($args)) {
-            $item[$fn] = json_encode((object) $args, JSON_UNESCAPED_SLASHES);
-        }
+        $packed[str_replace('.', '_', (string) $fn)] = is_array($args)
+            ? json_encode((object) $args, JSON_UNESCAPED_SLASHES)
+            : $args;
     }
 
-    return $item;
+    return $packed;
 }, $answer);
 $usage = (array) ($proof['usage'] ?? []);
 $resultDir = $scratch.'/result/'.$registryModel.'/non_live';
