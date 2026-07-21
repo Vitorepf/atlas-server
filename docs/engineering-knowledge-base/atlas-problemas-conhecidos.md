@@ -106,6 +106,14 @@ Memória `github-main-env-bak-secret-leak`: segredo em histórico público. Aç�
 
 terminal_bench, swe_bench_live, senior_swe_bench, swe_marathon, hal_harness corrompem sob emulação x86 no arm64 (até patch gold do SWE-bench falha). Fora do perfil até haver host x86 — ausência honesta, nunca número falso.
 
+## 🔴 P15 — Braço Atlas VENDADO nas suítes nativas (FECHADO `a9bf61b7b2`; releitura histórica pendente)
+
+**O problema:** o prompt das 13 suítes nativas mandava "ler case_material.json", mas só o braço cru pode ler (hermes agêntico com tools/`--yolo`); o braço Atlas roda oneshot com `allowed_tools=[]` — o modelo NUNCA via o problema. Escrevia stubs ou chutava clássicos (isMatch/LC10 byte-idêntico em casos diferentes = determinismo de prompt-cego), julgados contra o problema real → 0 fabricado.
+
+**Prova (21/07):** testeval bare 10/12 score-1 vs atlas 2/11; artefatos atlas de 167-244B "sanity stub"; hash `b6a28e13d084a52f` idêntico em testeval_001 (isMatch, score 1 — o chute ERA o caso) e testeval_002 (threeSum, score 0).
+
+**Status:** FECHADO no instrumento — material embutido no prompt COMPARTILHADO (os dois braços veem o problema; o cru mantém o harness agêntico). Pendente: releitura/denylist dos runs nativos pré-fix (mesma régua auditável do P-bfcl) após as provas das re-medições.
+
 ---
 
 **Vereditos honestos que NÃO são bugs:** derrota medida com IC (ex.: capacidade com delta negativo significativo após P1/P2 consertados) é INFORMAÇÃO — o objetivo do Rivals é dizer a verdade, e "Atlas pior em X" com prova é o mapa de evolução do produto, não um defeito do medidor.
