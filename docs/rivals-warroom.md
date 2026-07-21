@@ -1835,3 +1835,9 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 - deveval battery (75592) estava MORTA-VIVA: processo existia, zero filhos executando, zero eventos por 3h45 (mesma família do silent-death do testeval de ontem — reforça a necessidade do watchdog permanente do handoff). Morta com kill; lane C re-roda deveval com pack de 10.
 - Lanes A/B/C partiram 22:50Z (cruxeval/crosscodeeval/archbench) + LANE D nova: bfcl → live_code_bench → aider_polyglot (o profile engineering_native já as inclui; sem elas tool_use/code_editing nunca sairiam de "poucos casos"). 4 batteries simultâneas, packs de 10 confirmados no import das 4.
 - Supervisor ativo: acorda em ALL_DONE / falha de suíte / stall 45min sem events / 8h cap.
+
+## 2026-07-20 ~21:00 — FURO ACHADO: battery executa case_packs do CONFIG, não o que o import materializa
+- Prova: bfcl (lane D) fechou exit 0 com **9 pares** tendo 10 casos no storage. `FaseABatteryOrchestrator:52` lê `config(profiles.engineering_native.case_packs)` — que ainda listava os 3 antigos. Import de fixture = materialização, NUNCA seleção.
+- Conserto: case_packs espelha as fixtures (16×10) — commit desta entrada. Battery é processo novo por suíte, então as PRÓXIMAS suítes de cada lane pegam 10 automaticamente.
+- Re-runs necessários (rodaram com 3 sob o config velho): bfcl, live_code_bench, cruxeval, crosscodeeval, archbench → **LANE E** criada: espera o `END <suite>` no log (nunca 2 batteries da mesma suíte simultâneas) e re-roda com pack de 10.
+- Estado: 5 drivers vivos (lanes A-E), 4 batteries executando. Supervisor ativo.
