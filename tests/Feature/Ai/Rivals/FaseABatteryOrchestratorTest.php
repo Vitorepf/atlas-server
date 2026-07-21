@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Rivals;
 use App\Services\Ai\Rivals\Core\FaseABatteryOrchestrator;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
 use App\Services\Ai\Rivals\Support\RunPaths;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -79,6 +80,34 @@ class FaseABatteryOrchestratorTest extends TestCase
         }
     }
 
+    public function test_volume_repetitions_override_reaches_capability_confidence_floor(): void
+    {
+        $payload = (new FaseABatteryOrchestrator)->dryRun(
+            mode: 'uplift',
+            fast: false,
+            batteryProfile: 'engineering_native',
+            repetitions: 4,
+        );
+
+        $this->assertSame('default', $payload['profile']);
+        // Packs de 10 casos DISTINTOS (expansão 20/07): 10 × 4 reps × 2 braços = 80.
+        foreach ($payload['plans'] as $plan) {
+            $this->assertSame(10, $plan['case_count'], $plan['suite_id']);
+            $this->assertSame(4, $plan['repetitions'], $plan['suite_id']);
+            $this->assertSame(80, $plan['units_expected'], $plan['suite_id']);
+        }
+
+        $fast = (new FaseABatteryOrchestrator)->dryRun(
+            mode: 'uplift',
+            fast: true,
+            batteryProfile: 'engineering_native',
+            repetitions: 4,
+        );
+        foreach ($fast['plans'] as $plan) {
+            $this->assertSame(1, $plan['repetitions'], $plan['suite_id']);
+        }
+    }
+
     public function test_engineering_native_profile_is_sixteen_native_suites_with_dual_real_arms(): void
     {
         $payload = (new FaseABatteryOrchestrator)->dryRun(
@@ -102,6 +131,17 @@ class FaseABatteryOrchestratorTest extends TestCase
             );
             $this->assertSame('engineering_native', $plan['battery_profile']);
         }
+    }
+
+    public function test_engineering_smokes_cover_runtime_only_dependencies_and_corpus(): void
+    {
+        $bigCodeBench = (string) config('atlas_rivals.benchmarks.repos.bigcodebench.smoke');
+        $devEval = (string) config('atlas_rivals.benchmarks.repos.deveval.smoke');
+
+        $this->assertStringContainsString('import matplotlib', $bigCodeBench);
+        $this->assertStringContainsString('bigcodebench.eval.utils import reliability_guard', $bigCodeBench);
+        $this->assertStringContainsString('test -d Source_Code', $devEval);
+        $this->assertStringContainsString('import pytest', $devEval);
     }
 
     public function test_engineering_native_fast_prepare_freezes_all_sixteen_manifests_without_spend(): void
@@ -135,6 +175,25 @@ class FaseABatteryOrchestratorTest extends TestCase
                 '--json' => true,
             ]);
         $this->assertSame(0, $exit);
+    }
+
+    public function test_battery_cli_forwards_repetitions_to_volume_plan(): void
+    {
+        config()->set('atlas_rivals.enabled', false);
+
+        $exit = Artisan::call('atlas:rivals', [
+            'action' => 'battery',
+            '--mode' => 'uplift',
+            '--profile' => 'engineering_native',
+            '--repetitions' => 4,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertIsArray($payload);
+        $this->assertSame(4, $payload['plans'][0]['repetitions']);
+        $this->assertSame(80, $payload['plans'][0]['units_expected']);
     }
 
     public function test_prepare_persists_real_plans_and_manifests(): void

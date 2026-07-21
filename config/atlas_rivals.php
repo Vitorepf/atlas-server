@@ -86,23 +86,97 @@ return [
                 'reval',
             ],
             'excluded_suite_ids' => ['r2abench'],
+            // Packs de 10 casos DISTINTOS (expansão 20/07, e387f0eaf3): a lista
+            // executada DEVE espelhar tests/Fixtures/Rivals/cases/<suite> — a
+            // battery roda o que está AQUI, não o que o import materializa
+            // (provado: bfcl fechou com 9 pares tendo 10 casos no storage).
             'case_packs' => [
-                'bfcl' => ['simple', 'multiple', 'parallel'],
-                'live_code_bench' => ['1873_A', '1873_B', '1873_D'],
-                'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
-                'archbench' => ['archbench_adr_000', 'archbench_adr_001', 'archbench_adr_002'],
-                'cruxeval' => ['cruxeval_output_000', 'cruxeval_output_001', 'cruxeval_output_002'],
-                'classeval' => ['classeval_000', 'classeval_001', 'classeval_002'],
-                'repobench' => ['repobench_python_000', 'repobench_python_001', 'repobench_python_002'],
-                'locagent' => ['locagent_000', 'locagent_001', 'locagent_002'],
-                'debug_gym' => ['debug_gym_counter', 'debug_gym_knapsack', 'debug_gym_tic_tac_toe'],
-                'testeval' => ['testeval_000', 'testeval_001', 'testeval_002'],
-                'evalplus' => ['evalplus_humaneval_000', 'evalplus_humaneval_001', 'evalplus_humaneval_002'],
-                'crosscodeeval' => ['crosscodeeval_python_000', 'crosscodeeval_python_001', 'crosscodeeval_python_002'],
-                'bigcodebench' => ['bigcodebench_000', 'bigcodebench_001', 'bigcodebench_002'],
-                'deveval' => ['deveval_000', 'deveval_001', 'deveval_002'],
-                'long_code_arena' => ['long_code_arena_000', 'long_code_arena_001', 'long_code_arena_002'],
-                'reval' => ['reval_000', 'reval_001', 'reval_002'],
+                'bfcl' => [
+                    'simple', 'multiple', 'parallel',
+                    'simple_python_001', 'multiple_001', 'parallel_001',
+                    'simple_python_002', 'multiple_002', 'parallel_002',
+                    'simple_python_003',
+                ],
+                'live_code_bench' => [
+                    '1873_A', '1873_B', '1873_D', '1883_B', '1883_C',
+                    '1899_A', '1899_B', '1899_C', '1899_D', '2727',
+                ],
+                'aider_polyglot' => [
+                    'polyglot_001', 'polyglot_002', 'polyglot_003', 'polyglot_004',
+                    'polyglot_005', 'polyglot_006', 'polyglot_007', 'polyglot_008',
+                    'polyglot_009', 'polyglot_010',
+                ],
+                'archbench' => [
+                    'archbench_adr_000', 'archbench_adr_001', 'archbench_adr_002',
+                    'archbench_adr_003', 'archbench_adr_004', 'archbench_adr_005',
+                    'archbench_adr_006', 'archbench_adr_007', 'archbench_adr_008',
+                    'archbench_adr_009',
+                ],
+                'cruxeval' => [
+                    'cruxeval_output_000', 'cruxeval_output_001', 'cruxeval_output_002',
+                    'cruxeval_output_003', 'cruxeval_output_004', 'cruxeval_output_005',
+                    'cruxeval_output_006', 'cruxeval_output_007', 'cruxeval_output_008',
+                    'cruxeval_output_009',
+                ],
+                'classeval' => [
+                    'classeval_000', 'classeval_001', 'classeval_002', 'classeval_003',
+                    'classeval_004', 'classeval_005', 'classeval_006', 'classeval_007',
+                    'classeval_008', 'classeval_009',
+                ],
+                'repobench' => [
+                    'repobench_python_000', 'repobench_python_001', 'repobench_python_002',
+                    'repobench_python_003', 'repobench_python_004', 'repobench_python_005',
+                    'repobench_python_006', 'repobench_python_007', 'repobench_python_008',
+                    'repobench_python_009',
+                ],
+                'locagent' => [
+                    'locagent_000', 'locagent_001', 'locagent_002', 'locagent_003',
+                    'locagent_004', 'locagent_005', 'locagent_006', 'locagent_007',
+                    'locagent_008', 'locagent_009',
+                ],
+                'debug_gym' => [
+                    'debug_gym_counter', 'debug_gym_knapsack', 'debug_gym_tic_tac_toe',
+                    'debug_gym_config', 'debug_gym_grader', 'debug_gym_pandas_dataframe',
+                    'debug_gym_patcher', 'debug_gym_scientific_calculator',
+                    'debug_gym_sum_tree', 'debug_gym_tomorrow_date',
+                ],
+                'testeval' => [
+                    'testeval_000', 'testeval_001', 'testeval_002', 'testeval_003',
+                    'testeval_004', 'testeval_005', 'testeval_006', 'testeval_007',
+                    'testeval_008', 'testeval_009',
+                ],
+                'evalplus' => [
+                    'evalplus_humaneval_000', 'evalplus_humaneval_001', 'evalplus_humaneval_002',
+                    'evalplus_humaneval_003', 'evalplus_humaneval_004', 'evalplus_humaneval_005',
+                    'evalplus_humaneval_006', 'evalplus_humaneval_007', 'evalplus_humaneval_008',
+                    'evalplus_humaneval_009',
+                ],
+                'crosscodeeval' => [
+                    'crosscodeeval_python_000', 'crosscodeeval_python_001', 'crosscodeeval_python_002',
+                    'crosscodeeval_python_003', 'crosscodeeval_python_004', 'crosscodeeval_python_005',
+                    'crosscodeeval_python_006', 'crosscodeeval_python_007', 'crosscodeeval_python_008',
+                    'crosscodeeval_python_009',
+                ],
+                'bigcodebench' => [
+                    'bigcodebench_000', 'bigcodebench_001', 'bigcodebench_002', 'bigcodebench_003',
+                    'bigcodebench_004', 'bigcodebench_005', 'bigcodebench_006', 'bigcodebench_007',
+                    'bigcodebench_008', 'bigcodebench_009',
+                ],
+                'deveval' => [
+                    'deveval_000', 'deveval_001', 'deveval_002', 'deveval_003',
+                    'deveval_004', 'deveval_005', 'deveval_006', 'deveval_007',
+                    'deveval_008', 'deveval_009',
+                ],
+                'long_code_arena' => [
+                    'long_code_arena_000', 'long_code_arena_001', 'long_code_arena_002',
+                    'long_code_arena_003', 'long_code_arena_004', 'long_code_arena_005',
+                    'long_code_arena_006', 'long_code_arena_007', 'long_code_arena_008',
+                    'long_code_arena_009',
+                ],
+                'reval' => [
+                    'reval_000', 'reval_001', 'reval_002', 'reval_003', 'reval_004',
+                    'reval_005', 'reval_006', 'reval_007', 'reval_008', 'reval_009',
+                ],
             ],
         ],
     ],
@@ -565,7 +639,7 @@ return [
                 'native_agent_default' => 'engineering_native',
                 'native_timeout_minutes' => 45,
                 'install' => ['test -x .venv/bin/python'],
-                'smoke' => 'PYTHONPATH=. .venv/bin/python -c "from bigcodebench.evaluate import evaluate"',
+                'smoke' => 'PYTHONPATH=. .venv/bin/python -c "import matplotlib; from bigcodebench.evaluate import evaluate; from bigcodebench.eval.utils import reliability_guard"',
             ],
             'deveval' => [
                 'url' => 'https://github.com/seketeam/DevEval.git',
@@ -574,7 +648,7 @@ return [
                 'native_agent_default' => 'engineering_native',
                 'native_timeout_minutes' => 120,
                 'install' => ['test -x .venv/bin/python'],
-                'smoke' => '.venv/bin/python atlas_generate.py --help',
+                'smoke' => 'test -d Source_Code && .venv/bin/python -c "import pytest" && .venv/bin/python atlas_generate.py --help',
             ],
             'long_code_arena' => [
                 'url' => 'https://github.com/JetBrains-Research/lca-baselines.git',
