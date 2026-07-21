@@ -31,6 +31,9 @@ Fonte de verdade viva: memórias `loop-morto-autonomos-vivo`, `brain-seed-hub`, 
 ### 🎯 FOCO (casca/terminal/UI/review) — leia o north-star ANTES de propor
 Antes de QUALQUER trabalho de casca, shell, UI, "app", superfície, IDE-integration, terminal ou review do Atlas, **leia `docs/engineering-knowledge-base/atlas-terminal-first-focus.md`** (doc de foco, priority 100). Resumo pétreo: Atlas **não constrói casca própria** (roda em host de terminal neutro — Maestri/iTerm — com poder cheio); o foco de produto é **VERIFICAÇÃO/review** (o gargalo de 2026), **não** gerar nem editar código inline; 3 camadas = L1 harness (alugar) / L2 superfície CLI (investir) / L3 seams brain-behind (o M). App Mac/Mobile depois = superfície IRMÃ do mesmo backend.
 
+### ⚠️ Problemas conhecidos do Atlas (ler antes de confiar em braço/gate/medição)
+`docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` — índice CURADO com prova, severidade e caminho de conserto (P1: contrato JSON³ degrada modelo que resolve a tarefa; P2: governor exige autoridade de merge p/ resposta de benchmark; P3: hermes -z trava e derruba suíte; + P4-P14). Histórico exaustivo: `atlas-open-gaps-regressions-ledger.md`.
+
 ### Governança de conhecimento
 
 Antes de confiar em Obsidian, Postgres KB, Code Intelligence, AGENTS/CLAUDE ou chat como contexto de implementação, leia `docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md`.
