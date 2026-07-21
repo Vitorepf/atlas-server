@@ -89,6 +89,31 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
         ];
     }
 
+    public function test_mode_is_derived_from_sandbox_truth_not_provider_claim(): void
+    {
+        // REGRESSÃO (auditoria 21/07): confiar no mode do provider fabricava
+        // recusa de setup — create_target_already_exists em alvo pré-criado e
+        // modify_target_missing em alvo inexistente (27 unidades, 4 suítes,
+        // derrota FALSA do braço Atlas). `next` é conteúdo completo: o mode é
+        // derivado do filesystem do sandbox, com preimage real p/ o drift check.
+        [$source, $base] = $this->gitSource('mode-truth');
+        $input = $this->gitInput('mode-truth-'.bin2hex(random_bytes(4)), $source, $base);
+        $input['allowed_files'] = ['app/X.php', 'app/New.php'];
+        $input['patch_plan'] = ['allowed_files' => ['app/X.php', 'app/New.php'], 'patches' => [
+            // Alvo EXISTE mas o provider jura 'create' (sem previous):
+            ['path' => 'app/X.php', 'mode' => 'create', 'next' => "<?php\nreturn 'after';\n"],
+            // Alvo NÃO existe mas o provider jura 'modify':
+            ['path' => 'app/New.php', 'mode' => 'modify', 'next' => "<?php\nreturn 'novo';\n"],
+        ]];
+
+        $result = (new AtlasSelfConstructionHermeticSandboxApplyService)->execute($input);
+
+        self::assertTrue($result['applied'], json_encode($result));
+        $sandbox = (string) $result['sandbox_root'];
+        self::assertSame("<?php\nreturn 'after';\n", file_get_contents($sandbox.'/app/X.php'));
+        self::assertSame("<?php\nreturn 'novo';\n", file_get_contents($sandbox.'/app/New.php'));
+    }
+
     public function test_provider_supplied_commands_are_never_executed(): void
     {
         $main = sys_get_temp_dir().'/atlas-main-'.bin2hex(random_bytes(4));

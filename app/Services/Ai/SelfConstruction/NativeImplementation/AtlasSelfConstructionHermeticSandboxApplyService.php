@@ -67,17 +67,34 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
             return ['applied' => false, 'dry_run' => false, 'reason' => 'manifest_claim_mismatch', 'sandbox_root' => $sandbox];
         }
 
-        // O provider entrega só {path, mode, next}; o preimage (previous) vem
-        // do próprio sandbox — sem isto todo modify morre em preimage_drift.
+        // O provider entrega {path, mode, next} com `next` = conteúdo COMPLETO,
+        // então create-vs-modify não carrega informação do modelo — e confiar no
+        // palpite fabricava recusa de setup em série (auditoria 21/07: 27 unidades
+        // `sandbox_apply_failed`, ex. create_target_already_exists no answer.json
+        // pré-criado e modify_target_missing no solution.py inexistente, derrota
+        // falsa do braço Atlas em 4 suítes). Mode e preimage são DERIVADOS da
+        // verdade do sandbox: arquivo existe → modify com previous real (o drift
+        // check do runner continua inteiro); não existe → create.
         $plan = (array) ($input['patch_plan'] ?? []);
         $plan['patches'] = array_map(function (mixed $patch) use ($sandbox): mixed {
-            if (is_array($patch)
-                && (string) ($patch['mode'] ?? '') === 'modify'
-                && ! array_key_exists('previous', $patch)) {
-                $path = $sandbox.'/'.(string) ($patch['path'] ?? '');
-                if (is_file($path)) {
-                    $patch['previous'] = (string) file_get_contents($path);
+            if (! is_array($patch)) {
+                return $patch;
+            }
+            $path = $sandbox.'/'.(string) ($patch['path'] ?? '');
+            if (is_file($path)) {
+                $current = (string) file_get_contents($path);
+                // Alvo já contém o postimage: patch fica INTOCADO — o caminho
+                // de replay (alreadyApplied) reconhece e o idempotency_receipt
+                // permanece estável entre entregas duplicadas.
+                if ($current !== (string) ($patch['next'] ?? '')) {
+                    $patch['mode'] = 'modify';
+                    if (! array_key_exists('previous', $patch)) {
+                        $patch['previous'] = $current;
+                    }
                 }
+            } else {
+                $patch['mode'] = 'create';
+                unset($patch['previous']);
             }
 
             return $patch;
