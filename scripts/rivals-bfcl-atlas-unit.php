@@ -61,8 +61,15 @@ foreach ($gitCommands as $argv) {
     }
 }
 $promptFile = $workspace.'/.rivals_task.md';
+// SIMETRIA DE BRAÇOS (auditoria 21/07): o braço cru usa function-calling
+// NATIVO (kimi-k2.7-FC) e o harness da API empacota no formato do checker.
+// Exigir do modelo "valor = string JSON-escapada do objeto de argumentos"
+// dentro do patch_plan (JSON³) media escaping, não capacidade: 7 de 10 casos
+// falhavam 21/21 deterministicamente enquanto o MESMO modelo fazia 30/30 cru.
+// Agora o modelo entrega a chamada em JSON natural e o harness normaliza —
+// o mesmo empacotamento determinístico que o braço cru ganha da API.
 file_put_contents($promptFile, <<<'PROMPT'
-Read task.json. Determine the exact native function call(s) that answer the user question using only the declared functions. Edit answer.json to a JSON array. Each item must be an object with exactly one key: the declared function name; its value must be a JSON-encoded string containing that function's argument object. Do not edit task.json.
+Read task.json. Determine the exact native function call(s) that answer the user question using only the declared functions. Edit answer.json to a JSON array with one item per call. Each item must be an object with exactly one key: the declared function name; its value must be the argument object itself (plain JSON object, e.g. {"func_name": {"arg": 1}}). Do not edit task.json.
 PROMPT);
 $solver = new Process([
     PHP_BINARY,
@@ -90,6 +97,22 @@ if (! is_array($answer)) {
     // vazia segue para o grader nativo reprovar como model_failure.
     $answer = [];
 }
+// Empacotamento determinístico no formato do checker (args como string
+// JSON-encoded) — espelho do que o harness da API faz pro braço cru. Só
+// FORMA muda; o conteúdo semântico (função + args) é 100% do modelo:
+// argumento errado continua reprovando no grader.
+$answer = array_map(static function ($item) {
+    if (! is_array($item)) {
+        return $item;
+    }
+    foreach ($item as $fn => $args) {
+        if (is_array($args)) {
+            $item[$fn] = json_encode((object) $args, JSON_UNESCAPED_SLASHES);
+        }
+    }
+
+    return $item;
+}, $answer);
 $usage = (array) ($proof['usage'] ?? []);
 $resultDir = $scratch.'/result/'.$registryModel.'/non_live';
 File::ensureDirectoryExists($resultDir);
