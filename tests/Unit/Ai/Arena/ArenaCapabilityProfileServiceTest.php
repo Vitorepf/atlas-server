@@ -17,6 +17,10 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->storage = sys_get_temp_dir().'/arena_capabilities_'.uniqid('', true);
         config()->set('atlas_rivals.storage_root', $this->storage);
         config()->set('atlas_arena.min_cases_for_confidence', 4);
+        // Isola dos denylists REAIS (fixtures usam timestamps históricos que
+        // cairiam na janela do braço-vendado); cada teste opta-in no que testa.
+        config()->set('atlas_arena.instrument_defect_runs', []);
+        config()->set('atlas_arena.instrument_defect_windows', []);
         config()->set('atlas_arena.capability_labels_pt', [
             'terminal_operation' => 'Operação de terminal',
             'code_editing' => 'Edição de código',
@@ -557,6 +561,40 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->assertSame(2, $cap['baseline_cases'], 'braço são do mesmo run continua medido');
         $this->assertSame(0, $cap['with_atlas_excluded'], 'fora do guarda de seleção');
         $this->assertSame('unmeasured', $cap['confidence'], 'sem braço Atlas válido = não medido');
+    }
+
+    public function test_defect_window_invalidates_blind_era_units_by_timestamp(): void
+    {
+        // P15 (braço-vendado): unidade do braço Atlas INICIADA antes do corte é
+        // invalidada simetricamente; unidade pós-corte do MESMO run permanece.
+        config()->set('atlas_arena.capability_labels_pt', ['test_generation' => 'Testes']);
+        config()->set('atlas_arena.capability_map', [
+            'testeval' => [['capability' => 'test_generation', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+        config()->set('atlas_arena.instrument_defect_windows', [[
+            'suites' => ['testeval'],
+            'arm' => 'with_atlas',
+            'before' => '2026-07-21T08:28:00Z',
+            'reason' => 'native_blind_arm_prompt_defect_a9bf61b7b2',
+        ]]);
+
+        $blindWin = $this->receipt('codex_cli@atlas_dev', 'c1', 'success', '2026-07-21T07:00:00Z');
+        $blindWin['started_at'] = '2026-07-21T06:50:00Z';
+        $sighted = $this->receipt('codex_cli@atlas_dev', 'c2', 'success', '2026-07-21T09:00:00Z');
+        $sighted['started_at'] = '2026-07-21T08:45:00Z';
+        $this->writeRun('20260721_060000_win', 'testeval', [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-21T07:00:00Z'),
+            $this->receipt('codex_cli@bare', 'c2', 'failure', '2026-07-21T09:00:00Z'),
+            $blindWin,
+            $sighted,
+        ]);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['test_generation'];
+
+        $this->assertSame(1, $cap['with_atlas_cases'], 'só a unidade pós-corte conta');
+        $this->assertSame(1, $cap['with_atlas_instrument_defect'], 'vitória cega invalidada');
+        $this->assertSame(2, $cap['baseline_cases'], 'braço cru intacto');
     }
 
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array

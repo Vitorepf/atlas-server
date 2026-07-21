@@ -66,6 +66,28 @@ return [
         '20260721_023733_5feb4cd0' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
     ],
 
+    // JANELA DE INSTRUMENTO DESCALIBRADO (denylist por UNIDADE, auditável).
+    // Era do braço-vendado (P15): até o fix a9bf61b7b2 (21/07 ~08:28Z), o
+    // prompt das suítes nativas mandava "ler case_material.json" mas o braço
+    // Atlas (oneshot, allowed_tools=[]) não lê arquivo — o modelo NUNCA viu o
+    // problema. Prova em 3 re-medições pós-fix: testeval 80% vs 73%,
+    // crosscodeeval 100% vs 93%, bigcodebench 83% vs 77% (era-vendada dava
+    // −6,9/−4,7/−3,1). Invalidação SIMÉTRICA por unidade iniciada antes do
+    // corte (vitórias de chute saem junto com derrotas), mesma régua do
+    // denylist por run. Corte por started_at do recibo.
+    'instrument_defect_windows' => [
+        [
+            'suites' => [
+                'archbench', 'cruxeval', 'classeval', 'repobench', 'locagent',
+                'debug_gym', 'testeval', 'evalplus', 'crosscodeeval',
+                'bigcodebench', 'deveval', 'long_code_arena', 'reval',
+            ],
+            'arm' => 'with_atlas',
+            'before' => '2026-07-21T08:28:00Z',
+            'reason' => 'native_blind_arm_prompt_defect_a9bf61b7b2',
+        ],
+    ],
+
     // GUARDA DE SELEÇÃO. Descartar unidade bloqueada no setup é honesto (não é falha
     // de capacidade), mas se quase toda FALHA de um braço for descartada, o que sobra
     // não é amostra — é seleção, e a nota sobe sozinha. Provado em aider_polyglot:

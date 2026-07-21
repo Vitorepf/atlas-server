@@ -121,6 +121,12 @@ final class ArenaMeasurementStore
                     $groups[$key]['instrument_defect']++;
                     continue;
                 }
+                // Janela de instrumento (era braço-vendado, P15): unidade do
+                // braço listado iniciada ANTES do corte é invalidada — simétrica.
+                if ($this->inDefectWindow($suite, $arm['arm'], $receipt)) {
+                    $groups[$key]['instrument_defect']++;
+                    continue;
+                }
                 // Falha de AMBIENTE (caso quebrado, integração, proxy) não é nota
                 // do modelo — não conta como falha de nenhum braço. O texto real
                 // no recibo é `environment_failure`; o `=== 'environment'` antigo
@@ -387,6 +393,11 @@ final class ArenaMeasurementStore
 
                     continue;
                 }
+                if ($this->inDefectWindow($suite, $arm['arm'], $receipt)) {
+                    $defected[$key] = ($defected[$key] ?? 0) + 1;
+
+                    continue;
+                }
                 if ($this->isExcludedReceipt($receipt)) {
                     $dropped[$key] = ($dropped[$key] ?? 0) + 1;
                 } else {
@@ -409,6 +420,33 @@ final class ArenaMeasurementStore
         }
 
         return $out;
+    }
+
+    /**
+     * Janela de instrumento descalibrado (P15, era braço-vendado): unidade do
+     * braço listado INICIADA antes do corte mediu um harness que nunca mostrou
+     * o problema ao modelo — invalidação SIMÉTRICA por unidade (vitórias de
+     * chute saem junto com derrotas). Corte por started_at (fallback
+     * finished_at); janelas em config com razão + prova.
+     *
+     * @param  array<string, mixed>  $receipt
+     */
+    private function inDefectWindow(string $suite, string $arm, array $receipt): bool
+    {
+        foreach ((array) config('atlas_arena.instrument_defect_windows', []) as $window) {
+            if (! is_array($window)
+                || $arm !== (string) ($window['arm'] ?? 'with_atlas')
+                || ! in_array($suite, (array) ($window['suites'] ?? []), true)) {
+                continue;
+            }
+            $at = $this->timestamp($receipt['started_at'] ?? $receipt['finished_at'] ?? $receipt['ended_at'] ?? null);
+            $before = $this->timestamp($window['before'] ?? null);
+            if ($at !== null && $before !== null && $at < $before) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $receipt */
