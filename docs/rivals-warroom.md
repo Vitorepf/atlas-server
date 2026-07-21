@@ -1841,3 +1841,10 @@ Nenhum teste a referenciava (108 Rivals ✓). LCB agora só com 1873_A/B/D reais
 - Conserto: case_packs espelha as fixtures (16×10) — commit desta entrada. Battery é processo novo por suíte, então as PRÓXIMAS suítes de cada lane pegam 10 automaticamente.
 - Re-runs necessários (rodaram com 3 sob o config velho): bfcl, live_code_bench, cruxeval, crosscodeeval, archbench → **LANE E** criada: espera o `END <suite>` no log (nunca 2 batteries da mesma suíte simultâneas) e re-roda com pack de 10.
 - Estado: 5 drivers vivos (lanes A-E), 4 batteries executando. Supervisor ativo.
+
+## 2026-07-21 ~02:20Z — VILÃO DOS TIMEOUTS: hermes -z TRAVA (hang real, não chunk perdido)
+- Prova: hermes -z de unidade cruxeval vivo 33min APÓS a battery do cruxeval morrer (exit=1) — ÓRFÃO; usage-file nem existia (hang no meio do trabalho, classe crash-before-usage, ≠ GAP-HERMES-01). Segundo hermes (crosscodeeval) a 20min no mesmo caminho. Ambos mortos por mim.
+- Mecânica do estrago: hermes trava → unidade espera → env-timeout 1800s → conta na taxa de ambiente → ABORTA a suíte (lcb 1/18, cruxeval 2/18). O kill do timeout da unidade só mata o filho direto; hermes neto vira órfão.
+- Mitigação ativa: supervisor v3 com WATCHDOG — hermes -z acima de 12min é morto (medianas reais 30-300s; hangs observados 20-33min). Unidade falha limpa como setup (cpb, excluída) em vez de envenenar a taxa de ambiente. Kills contados no log .watchdog.
+- Estrutural pendente: (a) provider fail-fast + kill de árvore no timeout da unidade (rivals-engineering-unit não mata netos); (b) causa do hang no hermes/gateway Verboo — investigar com dados do watchdog.
+- cruxeval dado preservado apesar do exit=1: bare 9/9, atlas 4✓+3 derrotas medidas+2 timeouts (excluídos). Lane E re-roda com pack de 10.
