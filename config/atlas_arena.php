@@ -47,6 +47,25 @@ return [
     // é a verdade contínua; este piso só separa "medido" de "poucos casos".
     'min_cases_for_confidence' => (int) env('ATLAS_ARENA_MIN_CASES_CONFIDENCE', 10),
 
+    // INSTRUMENTO DESCALIBRADO (denylist auditável). Run cujo braço mediu um
+    // defeito PROVADO do harness de medição — nunca capacidade — é invalidado
+    // POR INTEIRO e SIMETRICAMENTE (vitórias saem junto com derrotas, o oposto
+    // de sobrevivência). Entrada exige: run_id + braço + razão com prova
+    // (commit do conserto + warroom). As unidades viram contador próprio
+    // (instrument_defect), visível no payload, FORA do guarda de seleção —
+    // o guarda vigia descarte seletivo de falha; isto é invalidação total.
+    // Caso bfcl 21/07 (prova: correlação 10/10 ponto-no-nome × falha; resposta
+    // semanticamente perfeita; checker 'wrong_func_name'; pós-fix 30/30):
+    'instrument_defect_runs' => [
+        '20260720_040826_25f0be53' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260720_040826_a90c9a6d' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260720_161203_c507bfe0' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260720_185502_6974f290' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260720_225014_0b52c0d8' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260721_003602_d3edda73' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        '20260721_023733_5feb4cd0' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+    ],
+
     // GUARDA DE SELEÇÃO. Descartar unidade bloqueada no setup é honesto (não é falha
     // de capacidade), mas se quase toda FALHA de um braço for descartada, o que sobra
     // não é amostra — é seleção, e a nota sobe sozinha. Provado em aider_polyglot:

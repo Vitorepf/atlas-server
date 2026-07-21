@@ -63,6 +63,7 @@ final class ArenaMeasurementStore
             return [];
         }
 
+        $defectRuns = (array) config('atlas_arena.instrument_defect_runs', []);
         $rows = [];
         foreach ($this->runIds($runsDir) as $runId) {
             $suite = $this->suiteForRun($runId);
@@ -95,6 +96,7 @@ final class ArenaMeasurementStore
                     'passed' => 0,
                     'failed' => 0,
                     'excluded' => 0,
+                    'instrument_defect' => 0,
                     'walls' => [],
                     'win_walls' => [],
                     'tokens_out' => [],
@@ -108,6 +110,17 @@ final class ArenaMeasurementStore
                     'score_n' => 0,
                 ];
 
+                // INSTRUMENTO DESCALIBRADO (denylist auditável em config):
+                // o run inteiro deste braço mediu um defeito PROVADO do harness
+                // (ex.: bfcl pré-c58ff1a7b2 — empacotador mangleava o nome da
+                // função e o checker reprovava resposta perfeita). Invalidação
+                // SIMÉTRICA: vitórias saem junto com derrotas — o oposto de
+                // sobrevivência. Contador próprio, fora do guarda de seleção.
+                $defect = $defectRuns[$runId] ?? null;
+                if (is_array($defect) && $arm['arm'] === (string) ($defect['arm'] ?? 'with_atlas')) {
+                    $groups[$key]['instrument_defect']++;
+                    continue;
+                }
                 // Falha de AMBIENTE (caso quebrado, integração, proxy) não é nota
                 // do modelo — não conta como falha de nenhum braço. O texto real
                 // no recibo é `environment_failure`; o `=== 'environment'` antigo
@@ -304,6 +317,9 @@ final class ArenaMeasurementStore
                     // O perfil usa isto pra detectar sobrevivência: se quase toda falha
                     // de um braço foi excluída, o que sobrou não é amostra, é seleção.
                     'cases_excluded' => $excluded,
+                    // Unidades invalidadas por INSTRUMENTO descalibrado (denylist
+                    // auditável, simétrica) — fora do guarda de seleção, visível.
+                    'cases_instrument_defect' => (int) $group['instrument_defect'],
                     // Casos DISTINTOS medidos (réplica ≠ problema novo): o piso de
                     // confiança do perfil conta isto, não ensaios.
                     'case_ids' => array_keys((array) $group['case_ids']),
@@ -347,6 +363,7 @@ final class ArenaMeasurementStore
             return [];
         }
 
+        $defectRuns = (array) config('atlas_arena.instrument_defect_runs', []);
         $out = [];
         foreach ($this->runIds($runsDir) as $runId) {
             $suite = $this->suiteForRun($runId);
@@ -355,19 +372,28 @@ final class ArenaMeasurementStore
             }
             $counted = [];
             $dropped = [];
+            $defected = [];
             foreach ($this->receipts($runId) as $receipt) {
                 $arm = $this->publicArm((string) ($receipt['arm_id'] ?? ''));
                 if ($arm === null) {
                     continue;
                 }
                 $key = $arm['engine'].'|'.$arm['arm'];
+                // Denylist de instrumento: braço do run invalidado por inteiro —
+                // grupo sem linha de medição carrega o contador por aqui.
+                $defect = $defectRuns[$runId] ?? null;
+                if (is_array($defect) && $arm['arm'] === (string) ($defect['arm'] ?? 'with_atlas')) {
+                    $defected[$key] = ($defected[$key] ?? 0) + 1;
+
+                    continue;
+                }
                 if ($this->isExcludedReceipt($receipt)) {
                     $dropped[$key] = ($dropped[$key] ?? 0) + 1;
                 } else {
                     $counted[$key] = true;
                 }
             }
-            foreach ($dropped as $key => $count) {
+            foreach (array_unique(array_merge(array_keys($dropped), array_keys($defected))) as $key) {
                 if (isset($counted[$key])) {
                     continue; // já contabilizado no `cases_excluded` da própria linha
                 }
@@ -376,7 +402,8 @@ final class ArenaMeasurementStore
                     'suite' => $suite,
                     'engine' => $engine,
                     'arm' => $arm,
-                    'cases_excluded' => $count,
+                    'cases_excluded' => (int) ($dropped[$key] ?? 0),
+                    'cases_instrument_defect' => (int) ($defected[$key] ?? 0),
                 ];
             }
         }

@@ -527,6 +527,38 @@ class ArenaCapabilityProfileServiceTest extends TestCase
         $this->assertSame(5, $cap['efficiency']['with_atlas']['units'], 'medianas por unidade continuam');
     }
 
+    public function test_instrument_defect_run_is_invalidated_symmetrically_outside_selection_guard(): void
+    {
+        // Denylist auditável (bfcl 21/07): run que mediu defeito PROVADO do
+        // harness sai POR INTEIRO (vitórias junto com derrotas — o oposto de
+        // sobrevivência), em contador próprio, sem disparar o guarda de seleção.
+        config()->set('atlas_arena.capability_labels_pt', ['tool_use' => 'Ferramentas']);
+        config()->set('atlas_arena.capability_map', [
+            'bfcl' => [['capability' => 'tool_use', 'weight' => 1.00]],
+        ]);
+        config()->set('atlas_arena.min_cases_for_confidence', 1);
+        config()->set('atlas_arena.instrument_defect_runs', [
+            '20260721_070000_defect' => ['arm' => 'with_atlas', 'reason' => 'bfcl_fc_name_packaging_defect_c58ff1a7b2'],
+        ]);
+
+        $receipts = [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-21T07:00:00Z'),
+            $this->receipt('codex_cli@bare', 'c2', 'failure', '2026-07-21T07:00:10Z'),
+            // atlas: 1 vitória + 1 derrota — AMBAS invalidadas (simetria).
+            $this->receipt('codex_cli@atlas_dev', 'c1', 'success', '2026-07-21T07:00:20Z'),
+            $this->receipt('codex_cli@atlas_dev', 'c2', 'failure', '2026-07-21T07:00:30Z'),
+        ];
+        $this->writeRun('20260721_070000_defect', 'bfcl', $receipts);
+
+        $cap = array_column((new ArenaCapabilityProfileService)->profile('codex_cli')['capabilities'], null, 'capability')['tool_use'];
+
+        $this->assertSame(0, $cap['with_atlas_cases'], 'vitória invalidada junto com a derrota');
+        $this->assertSame(2, $cap['with_atlas_instrument_defect']);
+        $this->assertSame(2, $cap['baseline_cases'], 'braço são do mesmo run continua medido');
+        $this->assertSame(0, $cap['with_atlas_excluded'], 'fora do guarda de seleção');
+        $this->assertSame('unmeasured', $cap['confidence'], 'sem braço Atlas válido = não medido');
+    }
+
     private function receipt(string $armId, string $caseId, string $status, string $finishedAt): array
     {
         $receipt = [

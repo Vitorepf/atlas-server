@@ -40,6 +40,7 @@ final class ArenaCapabilityProfileService
             $pool[$suite][$arm]['passed'] = ((int) ($pool[$suite][$arm]['passed'] ?? 0)) + $passed;
             $pool[$suite][$arm]['total'] = ((int) ($pool[$suite][$arm]['total'] ?? 0)) + $total;
             $pool[$suite][$arm]['excluded'] = ((int) ($pool[$suite][$arm]['excluded'] ?? 0)) + (int) ($row['cases_excluded'] ?? 0);
+            $pool[$suite][$arm]['instrument_defect'] = ((int) ($pool[$suite][$arm]['instrument_defect'] ?? 0)) + (int) ($row['cases_instrument_defect'] ?? 0);
             // União de casos DISTINTOS entre rodadas: réplica não é problema novo.
             foreach ((array) ($row['case_ids'] ?? []) as $caseId) {
                 $pool[$suite][$arm]['case_ids'][(string) $caseId] = true;
@@ -80,6 +81,8 @@ final class ArenaCapabilityProfileService
             }
             $pool[$drop['suite']][$drop['arm']]['excluded'] =
                 ((int) ($pool[$drop['suite']][$drop['arm']]['excluded'] ?? 0)) + (int) $drop['cases_excluded'];
+            $pool[$drop['suite']][$drop['arm']]['instrument_defect'] =
+                ((int) ($pool[$drop['suite']][$drop['arm']]['instrument_defect'] ?? 0)) + (int) ($drop['cases_instrument_defect'] ?? 0);
         }
 
         /** @var array<string, array<string, mixed>> $capabilities */
@@ -115,6 +118,8 @@ final class ArenaCapabilityProfileService
                     'binary' => false,
                     'baseline_excluded' => 0,
                     'atlas_excluded' => 0,
+                    'baseline_instrument_defect' => 0,
+                    'atlas_instrument_defect' => 0,
                     'baseline_sum' => 0.0,
                     'baseline_sumsq' => 0.0,
                     'baseline_scoreN' => 0,
@@ -140,6 +145,7 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['baseline_passed'] += (int) ($baseline['passed'] ?? 0);
                     $capabilities[$capability]['baseline_total'] += (int) ($baseline['total'] ?? 0);
                     $capabilities[$capability]['baseline_excluded'] += (int) ($baseline['excluded'] ?? 0);
+                    $capabilities[$capability]['baseline_instrument_defect'] += (int) ($baseline['instrument_defect'] ?? 0);
                     $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($baseline['continuous'] ?? false));
                     $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($baseline['binary'] ?? false));
                     $capabilities[$capability]['baseline_sum'] += (float) ($baseline['score_sum'] ?? 0.0);
@@ -156,6 +162,7 @@ final class ArenaCapabilityProfileService
                     $capabilities[$capability]['atlas_passed'] += (int) ($withAtlas['passed'] ?? 0);
                     $capabilities[$capability]['atlas_total'] += (int) ($withAtlas['total'] ?? 0);
                     $capabilities[$capability]['atlas_excluded'] += (int) ($withAtlas['excluded'] ?? 0);
+                    $capabilities[$capability]['atlas_instrument_defect'] += (int) ($withAtlas['instrument_defect'] ?? 0);
                     $capabilities[$capability]['continuous'] = ($capabilities[$capability]['continuous'] || ($withAtlas['continuous'] ?? false));
                     $capabilities[$capability]['binary'] = ($capabilities[$capability]['binary'] || ($withAtlas['binary'] ?? false));
                     $capabilities[$capability]['atlas_sum'] += (float) ($withAtlas['score_sum'] ?? 0.0);
@@ -305,6 +312,10 @@ final class ArenaCapabilityProfileService
                 'gated_reason' => $gatedReason,
                 'baseline_excluded' => $bx,
                 'with_atlas_excluded' => $ax,
+                // Invalidação por instrumento descalibrado (denylist auditável,
+                // simétrica) — visível, mas FORA do guarda de seleção.
+                'baseline_instrument_defect' => (int) $row['baseline_instrument_defect'],
+                'with_atlas_instrument_defect' => (int) $row['atlas_instrument_defect'],
                 'exclusion_rate_baseline' => round($baselineDrop, 4),
                 'exclusion_rate_with_atlas' => round($atlasDrop, 4),
                 'max_exclusion_rate' => round($worstDrop, 4),
