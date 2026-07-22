@@ -24,7 +24,7 @@ needs_operator:
   - "Aprovar NON-AI: FUSE Vault→Semantic (frontmatter triplicado)"
   - "Aprovar ROOT-SINGLES: re-home de ~90 arquivos-raiz p/ owner-folders homônimos (raiz fica com 5 pipes canônicos) + QUARANTINE ToneFilter"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
-last_review: null
+last_review: 4eef103da  # P0 tooling APROVADA: audit+guard+codemap-verify criados c/ testes, guard verde (baseline 14 gt5k), zero app/ tocado, densidade ok
 last_commit: 27999d6c4
 fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
