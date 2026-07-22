@@ -3,9 +3,9 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: review
-cluster_atual: FASE 2 — 3 blueprints draft prontos; próximos: Kernel SPLIT · Learning→Compounding · quarentenas
+cluster_atual: FASE 2 — 5 blueprints draft; rodando: QuarentenaACDE (lista 388 c/ prova por arquivo)
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
-blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad]
+blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation]
 blueprints_approved: []
 needs_operator:
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  LEARNINGCONS 3/3 (updateOrCreate L822, Harness→Compounding 2 files, Cognition→Cognitive 2 imports)
   KERNELTRIAD 3/3 (architectureScanChecks L207 exato, 0 escritas diretas fora de Evidence, 0 imports inbound do linter)
   BLUEPRINTS: drift das registries CONFIRMADO no código (council órfão + minimax ausente); shadow() 0 refs a outcome CONFIRMADO; AiToolRuntime 0 refs a receipt CONFIRMADO
   NON-AI+ROOT 4/4 (Vault 1 caller, frontmatter 3 parsers, Tools 0 cross-ref, ToneFilter 0 prod)
