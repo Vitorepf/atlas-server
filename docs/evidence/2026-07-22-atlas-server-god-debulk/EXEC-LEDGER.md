@@ -4,34 +4,32 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0152 terminal supply action consistency recorded
+phase: A1-SC-0149 terminal digest dynamic-property repair recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: terminal digest partial-supply action consistency
-finding_id: A1-SC-0152
-action_op: test-first canonical replenishment precedence
+focus: terminal digest lazy collaborator declaration
+finding_id: A1-SC-0149
+action_op: test-first PHP 8.5 dynamic-property removal
 queue_index: 6
-last_commit: df5e0745a
+last_commit: c6bb04469
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: with one claimable packet and a target of three, loop_decision ordered replenishment while muscle_supply_state said pull_now.
-  green: both public digest surfaces order replenishment before pull_now whenever the visible supply is below target and no hidden lane supply exists.
+  red: the first public digest() emitted PHP 8.5 dynamic-property deprecations for payloadNormalizer and commandComposer.
+  green: both lazy collaborators are declared typed state, so digest() initializes them without its own dynamic-property warnings.
 stdout: |
-  focused_partial_supply_contract: PASS (1 test, 3 assertions)
-  digest_unit_suite: PASS (16 tests, 50 assertions)
-  digest_feature_suite: NOT GREEN (9 passed, 6 failed on pre-existing queue-count/fixture expectations outside muscleSupplyState)
+  focused_dynamic_property_contract: PASS (1 test, 2 assertions)
+  digest_unit_suite: PASS (17 tests, 52 assertions)
   php_lint: PASS source plus changed unit test
-  loc_check: terminal_loop_health_digest=1627
+  loc_check: terminal_loop_health_digest=1631
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The only production change reorders two mutually exclusive muscle action predicates. recommendedAction and queue reads are untouched; the feature-suite failures report queue counts/fixture state, so they cannot be caused by this reorder and are not used as proof.
+  The error handler also observed AgentControlPlaneTaskPacketQueueRepository::$registryIndexStore dynamic-property creation. It is outside this finding's owner and was recorded as one explicit EXEC-DEBTS debt, not suppressed as a green result.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -989,6 +987,75 @@ boundary:
   - changes only priority between below-target replenish and positive-supply pull in muscleSupplyState
   - no queue read, claim, lease, launch, provider, token, or mutation behavior changed
   - the six feature-suite fixture/count failures are not accepted as proof and remain outside this narrow finding
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 36 — A1-SC-0149 declare terminal digest collaborators, 2026-07-22
+
+```yaml
+finding: A1-SC-0149
+commit: c6bb04469
+subject: "refactor(core): GOD-DEBULK declare terminal digest collaborators"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_digest_initializes_lazy_collaborators_without_dynamic_property_deprecations
+  result: "FAIL 1 test, 2 assertions: public digest() created dynamic payloadNormalizer and commandComposer properties under PHP 8.5."
+green:
+  behavior: "typed nullable properties own the two existing lazy collaborators; the unchanged lazy factories initialize declared state without deprecated dynamic-property writes."
+  characterization: "an E_DEPRECATED handler wraps a real digest() call and filters only this digest class after the call; no private factory is invoked directly."
+verification:
+  focused_dynamic_property_contract: "PASS 1 test, 2 assertions"
+  digest_unit_suite: "PASS 17 tests, 52 assertions"
+  php_lint: "PASS source and changed unit test"
+  loc: "terminal_loop_health_digest=1631 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - fixes only dynamic state created by the digest's commandComposer and payloadNormalizer factories
+  - the same public call exposed AgentControlPlaneTaskPacketQueueRepository.registryIndexStore dynamic-property debt; it was recorded in EXEC-DEBTS and remains outside this owner
+  - no queue, lease, provider, token, or mutation behavior changed
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 35 — LearningConsolidation M3-C Cognition AcosProgram, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 323837f92
+subject: "refactor(core): move Acos program under Cognition"
+scope:
+  - app/Services/Ai/Cognition/AcosProgram (33 former AcosMax program owners)
+  - tests/Feature/Ai/Cognition/AcosProgram
+  - tests/Unit/Ai/Cognition/AcosProgram (96 re-pointed program suites)
+  - app/Services/Ai/AcosMaxNamespaceAlias.php
+  - Acos commands, UniversalGates, Watchdog, AutonomousEvolution, Compounding, config lane roots, and canonical ACOS runbook consumers
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/AcosMax/AcosMeasureSeriesFreshnessReaderTest.php --filter='test_m3c_acos_program_owners_must_resolve_from_cognition_acos_program' --no-coverage
+  result: "FAIL 1 test, 1 assertion: App\\Services\\Ai\\Cognition\\AcosProgram\\AcosMaxLedgerRotationRegistry did not resolve before the migration."
+green:
+  behavior: "The remaining Acos program now has one canonical home, Cognition\\AcosProgram. The AcosMax service and test directories are empty; production imports, consumers, live lane roots, and canonical runbook references use the new namespace and path."
+  compatibility: "AcosMaxNamespaceAlias now prepends exact lazy aliases for the 33 retired program FQCNs as well as the M3-A/M3-B groups, preserving deployed-worker and queue compatibility through the M3 cycle."
+  path_literals: "The source/path sweep found no Services/Ai/AcosMax literal or App\\Services\\Ai\\AcosMax namespace under app, tests, config, routes, or database."
+verification:
+  focused_canonical_and_legacy: "PASS 2 tests, 66 assertions"
+  lane_roots: "PASS 10 tests, 23 assertions for AtlasAaeosAcosLaneScope and AtlasBrainScopeRegistry"
+  universal_gates_program_subset: "PASS 25 tests, 83 assertions"
+  command_consumer: "PASS AtlasAcosTeto10ReviewDigestCommandTest: 2 tests, 14 assertions"
+  compounding_consumer_subset: "PASS 4 tests, 46 assertions"
+  program_suite: "NOT GREEN: 472 passed, 5 failed, 1 skipped, 2702 assertions. The move-induced relative-doc roots in TETO-06/TETO-09 were corrected and their focused rerun passed 5 tests, 27 assertions. The remaining failures are not used as proof: Elev12 expects ok but gets below_threshold; Elev20 has a constructor-argument mismatch and missing-series assertion; Maxi04 expects byte-identical switch-off output; Maxi06 expects trusted but gets watch. This sub-wave made no corresponding behavioral change and did not establish their baseline ownership."
+  php_lint: "PASS every moved program file and every canonical FQCN consumer found by the sweep"
+  pint: "PASS strict targeted Pint over the M3-C committed paths"
+  diff_check: PASS
+boundary:
+  - no ACOS formula, default-off gate, command signature, provider call, token spend, or evidence-promotion behavior changed
+  - the legacy AcosMax namespace is a one-cycle autoload compatibility adapter, not a second program implementation
+  - the known Cockpit-to-Command back-reference remains named debt for the EXECUTE wave; it was not widened here
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
