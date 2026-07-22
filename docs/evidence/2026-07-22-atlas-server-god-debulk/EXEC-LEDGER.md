@@ -1369,3 +1369,40 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 46 — RootSinglesRehome Streaming, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Streaming
+commit: b782faa75
+subject: "refactor(core): GOD-DEBULK RootSingles Streaming rehome"
+scope:
+  - app/Services/Ai/Streaming/AiStreamRecorder.php
+  - five canonical production imports, one-cycle legacy alias, compatibility test, and AI CODEMAP
+  - AI gateway streaming documentation and canonical path references
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_stream_recorder_resolves_from_its_canonical_namespace_with_a_legacy_alias --no-coverage
+  result: "FAIL 1 test, 0 assertions: canonical App\\Services\\Ai\\Streaming\\AiStreamRecorder did not exist before the re-home."
+green:
+  behavior: "AiStreamRecorder now has one canonical Streaming namespace. The retired root FQCN remains a lazy composer-loaded alias for queued and deployed compatibility."
+  characterization: "The test resolves the canonical recorder through the public container, then proves the instance satisfies the retired root FQCN."
+verification:
+  streaming_suites: "PASS 18 tests, 130 assertions (root compatibility, stream recorder, and job-control coverage)."
+  parallel_stream_recorder: "PASS 2 tests, 9 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source path is absent; direct old FQCN/path sweep leaves only the explicit compatibility import, while the alias map intentionally stores escaped legacy literals."
+  php_lint: "PASS all 10 touched PHP files"
+  phpstan: "AiStreamRecorder is NOT GREEN (1 existing AiJob::$trace_id model-property diagnostic). The five-consumer aggregate is NOT GREEN (521 existing model/type diagnostics); neither result is used as proof and no baseline ownership was established."
+  pint: "PASS moved recorder, alias, and all touched tests. Strict full-file Pint is NOT GREEN for existing formatting drift in AiWorker, AiInteractionSteeringService, AiProviderChoiceResolver, AiGatewayService, and AiJobController; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=9)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; recorder=78 LOC. Root first-level Ai owner count falls 92 to 91."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; stream sequence allocation, provider event mapping, SSE callback forwarding, and Live Activity behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - canonical production and test consumers use the Streaming owner directly; docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
