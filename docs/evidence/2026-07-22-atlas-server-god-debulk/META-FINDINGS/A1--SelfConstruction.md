@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 2
+files_scanned: 3
 files_total: 1210
-lines_scanned: 43913
+lines_scanned: 57697
 ```
 
 ## Files
@@ -342,15 +342,198 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+loc: 13784
+kind: generated_provider_execution_future_contract_chain_section
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 27, 28, 29, 33, 34, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0017
+    type: godfile
+    severity: s0
+    detail: "The extracted Codex collaborator is itself a 13,784 LOC, 1,095,709-byte godfile with 171 public methods and 63 imported collaborators. It owns the complete provider execution, process start, spawn, runtime, authorization, receipt, evidence, dispatch, release, enablement, supervised-start, and operator-handoff lifecycle, so the extraction still cannot be understood or changed as a bounded module."
+    evidence:
+      - "wc -l => 13,784; wc -c => 1,095,709"
+      - "public agentCodex method count => 171"
+      - "imported collaborator count => 63"
+      - "longest method name length => 84 characters"
+      - "sha256=5039dd71e3acae11707fe74127d1f5d77408b9e0f1cfe89578c81fc161f94df7"
+  - id: A1-SC-0018
+    type: false_abstraction
+    severity: s0
+    detail: "The section extraction preserved three synchronized public surfaces instead of transferring ownership: this file implements 171 methods, AtlasSelfConstructionReadinessService retains 171 one-line delegators, and AtlasAiSelfConstructionMotherCommand maps 171 agent-codex routes. The class comment explicitly promises byte-identical delegation and zero semantic boundary, making the new class an additional routing layer around the same unbounded API."
+    evidence:
+      - "class comment declares ownership of every agentCodex method and thin byte-identical delegation: lines 7-14"
+      - "AtlasSelfConstructionReadinessService agentCodexSection delegator count => 171"
+      - "AtlasAiSelfConstructionMotherCommand agent-codex route count => 171"
+      - "only three files directly reference ReadinessProjectionAgentCodexSection: the section, parent facade, and focused reflection test"
+  - id: A1-SC-0019
+    type: bug
+    severity: s0
+    detail: "Every executable preflight path is broken after extraction because the class calls Schema::hasTable 121 times without importing Illuminate\\Support\\Facades\\Schema. PHP resolves the name to the nonexistent App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema, so an actual late-method diagnostic aborts before producing any readiness result even though syntax and the focused test are green."
+    evidence:
+      - "imports occupy lines 16-78 and contain no Schema import"
+      - "first unresolved Schema::hasTable calls occur at lines 212-213"
+      - "Schema::hasTable occurrence count => 121"
+      - "runtime resolution: namespaced_schema_exists=false; laravel_schema_exists=true"
+      - "late implementation-packet invocation fatal: Class App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema not found"
+  - id: A1-SC-0020
+    type: bug
+    severity: s1
+    detail: "The post-start real-invoker release contract hashes a nonexistent upstream key named codex_real_invoker_release_preflight_preflight_hash. The upstream preflight actually emits codex_real_invoker_release_preflight_hash, so the contract id silently binds null instead of the release-preflight evidence and cannot change when that evidence changes."
+    evidence:
+      - "upstream emitted hash key is codex_real_invoker_release_preflight_hash: line 2,706"
+      - "normal signed-release consumer reads the emitted key: lines 2,842 and 2,847"
+      - "post-start contract reads nonexistent doubled-preflight key: line 11,730"
+      - "no producer for codex_real_invoker_release_preflight_preflight_hash exists in the file"
+  - id: A1-SC-0021
+    type: bug
+    severity: s1
+    detail: "The post-start evidence contracts define a circular prerequisite: receipt builder and evidence writer require post_start_evidence_acceptance_bridge_id, while the acceptance bridge itself requires the outputs of both preflights. The receipt builder also lists the bridge id twice in one input contract. A strict implementation cannot create the prerequisite artifacts without already possessing the id produced by their downstream bridge."
+    evidence:
+      - "receipt input repeats post_start_evidence_acceptance_bridge_id at lines 7,403 and 7,406"
+      - "receipt preflight requires the bridge from operator handoff: line 7,533"
+      - "evidence-writer input requires the bridge id: line 7,717"
+      - "acceptance bridge invokes receipt and evidence-writer preflights as prerequisites: lines 8,002-8,003"
+      - "acceptance bridge is the contract whose result produces post_start_evidence_acceptance_bridge_id: lines 8,020-8,050"
+  - id: A1-SC-0022
+    type: dishonest_name
+    severity: s1
+    detail: "The API repeatedly names stages execution, release, enablement, authorization, final, actual, and post-start while every one of the 171 public envelopes hard-codes execution_allowed=false and dispatch_allowed=false. After external-start evidence appears, 102 PostStart methods replay most of the pre-start chain and keep adding requires_separate_* successor contracts; this is a future-gate treadmill, not an executable provider boundary."
+    evidence:
+      - "171 execution_allowed=false envelopes and 171 dispatch_allowed=false envelopes"
+      - "102 public PostStart methods span lines 7,380-13,756"
+      - "requires_separate_ occurs 133 times"
+      - "future readiness/file markers occur 347 times"
+      - "final tail still says post-start receipt contract is a separate later contract: lines 13,762-13,783"
+  - id: A1-SC-0023
+    type: perf
+    severity: s2
+    detail: "Each later method recursively rebuilds predecessor preflights, embeds their arrays, probes the same schema tables, and hashes the compound payload again. The file contains 194 internal agentCodex calls, 229 stable hashes, and 121 schema probes with no request-scoped projection context or budgets; a representative late call cannot yet be benchmarked because the missing Schema import aborts first."
+    evidence:
+      - "internal $this->agentCodex call count => 194"
+      - "ReadinessHash::stable occurrence count => 229"
+      - "Schema::hasTable occurrence count => 121"
+      - "late chains carry source_*_preflight arrays into the next template and output"
+      - "performance characterization is blocked honestly by the fatal unresolved Schema class"
+  - id: A1-SC-0024
+    type: test_gap
+    severity: s1
+    detail: "The dedicated 88-line feature test passes 5 tests and 10 assertions but executes none of the 171 domain methods. It checks construction, a standalone ReadinessHash call, reflection counts, method_exists for only the first and last names, and lazy resolver wiring, so it missed the universal Schema fatal, the null hash input, the circular bridge contract, status semantics, side effects, and predecessor-chain cost."
+    evidence:
+      - "focused command passes: 5 tests, 10 assertions"
+      - "test domain method names appear only inside method_exists lists: lines 53-62 and 69-77"
+      - "no ContractTemplate, Preflight, or ImplementationPacket is invoked"
+      - "the only hash exercised is ReadinessHash::stable on a local fixture: lines 29-35"
+  - id: A1-SC-0025
+    type: os_overlap
+    severity: s0
+    detail: "A complete Codex-specific execution OS is embedded inside SelfConstruction/Readiness: 57 ContractTemplate/Preflight/ImplementationPacket triads model provider execution through external process lifecycle, evidence acceptance, dispatch, release, process activation, and human operator handoff. Provider-neutral orchestration, runtime I/O, policy, evidence, and projection need separate owners; readiness should consume their state instead of defining a parallel operating system."
+    evidence:
+      - "57 ContractTemplate + 57 Preflight + 57 ImplementationPacket public methods"
+      - "provider-execution chain begins at line 83"
+      - "post-start evidence/dispatch chain begins at line 7,380"
+      - "replayed process lifecycle continues through the final method at line 13,756"
+      - "171 CLI routes expose the whole provider-specific state machine"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "First restore truthful reachability under characterization: import the Laravel Schema facade, correct the doubled preflight hash key, remove the duplicate bridge input, and redesign the receipt/evidence/acceptance dependency direction so an id is produced before downstream artifacts require it."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+    acceptance:
+      - "/opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php"
+      - "a first, middle, and final preflight execute without unresolved-class errors"
+      - "release-preflight contract id changes when the real upstream preflight hash changes"
+      - "receipt, evidence receipt, and acceptance bridge form an acyclic producer-consumer graph"
+  - op: TEST
+    detail: "Characterize all 171 public aliases before structural changes. Freeze schema_version, status, stable hash inputs, required evidence, blocker propagation, negative side effects, and facade/CLI compatibility; include explicit regression cases for the Schema fatal, bad hash key, and bridge cycle."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "every one of the 171 methods has a contract case or an explicit generated data-provider row"
+      - "tests execute each method rather than relying on reflection or method_exists"
+      - "tests fail on missing imports, unknown hash keys, cyclic prerequisites, or execution/readiness contradictions"
+  - op: SPLIT
+    detail: "SPLIT before fusion. Retire the mega-section behind a temporary compatibility adapter and create bounded owners for provider contract projection, pre-start authorization, runtime start, post-start evidence, dispatch, release/activation, and operator handoff; no replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "no new *Section class replaces this file with another mega-file"
+      - "the 171 parent aliases are thin, characterized, and dated for removal within one migration cycle"
+  - op: OWNER
+    detail: "Assign provider-neutral ownership for execution state, runtime I/O, evidence acceptance, dispatch authorization, and operator interaction. Codex becomes an adapter; SelfConstruction readiness becomes a read-only projection consumer and must not own process start or dispatch policy."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "one owner is named for each policy, projection, persistence, process I/O, evidence, dispatch, and human-interaction authority"
+      - "dependency arrows are one-way from readiness projection to owner interfaces"
+      - "no provider-specific readiness class defines a parallel end-to-end execution OS"
+  - op: EXTRACT
+    detail: "Replace the 57 handwritten triads and successor treadmill with a typed declarative state-transition catalog plus small invariant-owned projectors. Model structural availability, evidence readiness, authorization, executability, and completion as distinct states; preserve public hashes only where characterization proves a live compatibility consumer."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+    acceptance:
+      - "execution transitions form an acyclic graph with explicit evidence producers"
+      - "negative guarantees and required schema probes are derived once per projection context"
+      - "no abstraction is accepted without a governing invariant or second consumer"
+  - op: CODEMAP
+    detail: "Map all 171 facade aliases and 171 CLI routes to callers, stability requirements, and future owner methods. Collapse the documented command surface into bounded capability families and remove dead routes after the compatibility cycle."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "all 171 methods and routes have owner, caller, contract test, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "canonical command families remain at or below 12 documented entrypoints"
+  - op: PERF
+    detail: "After correctness is restored, benchmark representative first, middle, evidence-bridge, and final projections with cold/warm state, query counts, allocations, payload bytes, and hash work. Introduce one immutable request-scoped projection context only after byte-compatibility tests prove unchanged required outputs."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+    acceptance:
+      - "benchmark reports cold/warm p50 and p95 plus query, peak-memory, and payload-size budgets"
+      - "each schema table is probed at most once per projection context"
+      - "late projections do not rebuild or rehash unchanged predecessor payloads"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-13784
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 5039dd71e3acae11707fe74127d1f5d77408b9e0f1cfe89578c81fc161f94df7
+  public_domain_method_count: 171
+  contract_template_method_count: 57
+  preflight_method_count: 57
+  implementation_packet_method_count: 57
+  parent_facade_delegation_count: 171
+  cli_route_count: 171
+  imported_collaborator_count: 63
+  internal_agent_codex_call_count: 194
+  stable_hash_occurrence_count: 229
+  schema_probe_occurrence_count: 121
+  non_execution_guarantee_block_count: 171
+  post_start_public_method_count: 102
+  focused_test_count: 5
+  focused_test_assertion_count: 10
+  runtime_characterization: "blocked by fatal unresolved App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema"
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 2 / 1210
-- lines_scanned: 43913
-- s0..s3: 6 / 6 / 4 / 0
+- files_scanned: 3 / 1210
+- lines_scanned: 57697
+- s0..s3: 10 / 10 / 5 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider adapters + provider-neutral review/merge lifecycle owner"
-- ordered_worklist: ["TEST status truthfulness and all 109 review/merge contracts", "SPLIT parent and monster sections", "OWNER readiness, review/merge, and I/O authorities", "EXTRACT typed catalogs and transition projectors", "CODEMAP callers, routes, and aliases", "PERF query/IO/hash budgets"]
+- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + provider-neutral execution/evidence/dispatch owners + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN Codex reachability, hash binding, and evidence graph", "TEST all 171 Codex and 109 review/merge contracts", "SPLIT parent and monster sections", "OWNER readiness, review/merge, execution, evidence, dispatch, and I/O authorities", "EXTRACT typed catalogs and transition projectors", "CODEMAP callers, routes, and aliases", "PERF query/IO/hash budgets"]
 - meta_complete: false
 ```
