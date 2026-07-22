@@ -27,15 +27,15 @@
 | Hermes | 13507 | 53 | TRANSPORTE | — | — | — | pending |
 | Cognition | 13420 | 52 | COGNICAO | KEEP | — | 118 refs ext, 27 cmds; autoridade-mãe ACOS (scorecard+immune+gates) | recorded |
 | SelfImprovement | 11333 | 22 | APRENDIZADO | — | — | — | pending |
-| Foundry | 11331 | 47 | FOUNDRY | — | — | — | pending |
-| Product | 10211 | 34 | FOUNDRY | — | — | — | pending |
+| Foundry | 11331 | 47 | FOUNDRY | KEEP spine + QUARANTINE Frontier | IF funde aqui (Capability Foundry) | spine 3.1k vivo (gap-finder invocado por Stewardship); Frontier 5.1k default-off VERIFICADO (frontier_mode config); Rsi/ sai p/ bloco Rsi | proposed |
+| Product | 10211 | 34 | FOUNDRY | KEEP | — | 36 callers; injeção viva no AiInteractionController (mode=programming); fábrica de ENTREGA de software | recorded |
 | Cli | 9618 | 30 | SUPERFICIES | — | — | — | pending |
 | AtlasDecide | 9583 | 33 | ROTEAMENTO | KEEP + QUARANTINE parcial | sub-cluster CapabilityMarket→quarentena | único decisor de provider (LiveOutcomeFeedback=23 ext); CapabilityRouteLifecycle 0 refs app VERIFICADO | proposed |
 | Mobile | 8925 | 22 | SUPERFICIES | — | — | — | pending |
 | Cognitive | 8848 | 65 | COGNICAO | KEEP + RENAME | Learning | cross-ref c/ Cognition = 0 VERIFICADO; 73 refs, 11 cmds; runtime de aprendizagem — colisão é de NOME | proposed |
 | LongHorizon | 8678 | 23 | MISSAO | KEEP | — | camada TEOS advisory-only (0 decompositores, 0 mutação); 15 cmds, Canon=18 callers | recorded |
 | Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | — | — | — | pending |
-| VentureFoundry | 8117 | 39 | FOUNDRY | — | — | — | pending |
+| VentureFoundry | 8117 | 39 | FOUNDRY | KEEP + RENAME (colisão "Foundry") | — | heartbeat agendado VERIFICADO (console.php:153 atlas:venture review-cycle); domínio negócios, não código | proposed |
 | WorkspaceIntelligence | 8059 | 17 | MEMORIA-CONTEXTO | KEEP | — | 43 ext, 4 controllers HTTP, 6 cmds; órgão vivo com superfície própria | recorded |
 | Compounding | 7321 | 40 | APRENDIZADO | — | — | — | pending |
 | Memory | 7238 | 34 | MEMORIA-CONTEXTO | KEEP | — | 75 arquivos ext, 17 cmds, bindings; órgão dominante de memória durável | recorded |
@@ -88,7 +88,7 @@
 | Concerns | 1027 | 3 | MISC | — | — | — | pending |
 | OperatorApproval | 1017 | 4 | GOVERNANCA-QUALIDADE | — | — | — | pending |
 | RealitySandbox | 1003 | 2 | REALITY | — | — | — | pending |
-| IntelligenceFactory | 982 | 2 | FOUNDRY | — | — | — | pending |
+| IntelligenceFactory | 982 | 2 | FOUNDRY | FUSE | Foundry (Capability Foundry) | duplica capability_gap sob schema paralelo, 0 cross-import VERIFICADO; advise() vivo no Hyperflow L171 VERIFICADO — fusão = identidade única de gap servindo build/buy/borrow E auto-evolução | proposed |
 | PersistentContext | 977 | 2 | MEMORIA-CONTEXTO | FUSE | Context (ContextRuntimeService) | falso amigo: é runtime de CONTEXTO; 12 ext; coeso mas mal-alocado | proposed |
 | EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | — | — | — | pending |
 | StrategicOperatingSystem | 884 | 1 | DOMINIOS | — | — | — | pending |
