@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection;
+use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 use Tests\TestCase;
 
 /**
@@ -22,7 +22,7 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 {
     public function test_section_class_is_resolvable(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection();
+        $section = new ReadinessProjectionAgentCodexSection;
         $this->assertInstanceOf(ReadinessProjectionAgentCodexSection::class, $section);
     }
 
@@ -36,7 +36,7 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
     public function test_all_171_agent_codex_methods_exist_on_section(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection();
+        $section = new ReadinessProjectionAgentCodexSection;
 
         // Use reflection to count actual unique public methods on the section.
         $ref = new \ReflectionClass($section);
@@ -89,7 +89,7 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
     public function test_liveness_monitor_preflight_reaches_read_only_storage_readiness(): void
     {
-        $payload = (new ReadinessProjectionAgentCodexSection())
+        $payload = (new ReadinessProjectionAgentCodexSection)
             ->agentCodexRealInvokerPostStartLivenessMonitorPreflight();
 
         $this->assertContains($payload['status'], [

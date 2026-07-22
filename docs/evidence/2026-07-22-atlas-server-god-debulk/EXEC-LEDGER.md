@@ -25,6 +25,6 @@ notes: |
   until cancel; consume META-FINDINGS; never dump findings here
   The only production change in A1-SC-0019 is the Illuminate Schema facade import; no method body, hash, bridge, split, or owner extraction changed.
   The pre-existing >2k density baseline is unchanged and is not claimed as improved.
-  Strict diff-scoped Pint reports pre-existing 13k production formatting and test-style baseline; PHPStan reports two pre-existing undefined calls in the 13k production file. The only new PHPStan diagnostic was the redundant always-true assertion, removed in the A1-SC-0019 review follow-up.
+  Strict diff-scoped Pint is clean for the focused test and reports only pre-existing 13k production formatting; PHPStan reports two pre-existing undefined calls in the 13k production file. The only new PHPStan diagnostic was the redundant always-true assertion, removed in the A1-SC-0019 review follow-up.
 halt_conditions_hit: []
 ```
