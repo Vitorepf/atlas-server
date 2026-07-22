@@ -76,6 +76,7 @@ use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerSupervisedStar
 use App\Services\Ai\SelfConstruction\Support\AgentCodexSignedRealInvokerReleaseGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexSupervisedStartExecutor;
 use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
+use Illuminate\Support\Facades\Schema;
 
 final class ReadinessProjectionAgentCodexSection
 {

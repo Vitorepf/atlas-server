@@ -86,4 +86,34 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
         $this->assertInstanceOf(ReadinessProjectionAgentCodexSection::class, $section);
     }
+
+    public function test_liveness_monitor_preflight_reaches_read_only_storage_readiness(): void
+    {
+        $payload = (new ReadinessProjectionAgentCodexSection())
+            ->agentCodexRealInvokerPostStartLivenessMonitorPreflight();
+
+        $this->assertIsArray($payload);
+        $this->assertContains($payload['status'], [
+            'codex_real_invoker_post_start_liveness_monitor_ready',
+            'blocked',
+        ]);
+        $this->assertSame(
+            'read_only_agent_codex_real_invoker_post_start_liveness_monitor_preflight',
+            $payload['mode']
+        );
+        $this->assertArrayHasKey(
+            'codex_real_invoker_post_start_liveness_monitor_preflight',
+            $payload
+        );
+        $this->assertArrayHasKey(
+            'codex_real_invoker_post_start_liveness_monitor_preflight_hash',
+            $payload
+        );
+
+        $preflight = $payload['codex_real_invoker_post_start_liveness_monitor_preflight'];
+        $this->assertIsArray($preflight);
+        $this->assertArrayHasKey('storage', $preflight);
+        $this->assertArrayHasKey('agent_runs_table_ready', $preflight['storage']);
+        $this->assertArrayHasKey('ledger_table_ready', $preflight['storage']);
+    }
 }
