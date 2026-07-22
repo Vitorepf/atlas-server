@@ -8,7 +8,9 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopProbeRunner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService;
 use Closure;
 use Illuminate\Support\Facades\Storage;
@@ -291,11 +293,60 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame(0, app(AgentControlPlaneTaskPacketQueueRepository::class)->registry()['total_count']);
     }
 
+    public function test_status_envelopes_fail_closed_when_a_computed_verification_is_false(): void
+    {
+        $cases = [
+            'fleet launch lane isolation' => [
+                'corrupt' => static function (array &$digest): void {
+                    data_set($digest, 'terminal_loop_fleet_lane_isolation.all_commands_lane_bound', false);
+                },
+                'invoke' => static fn (AgentControlPlaneMultiAgentLoopProbeRunner $runner): array => $runner->runTerminalFleetLaunchPlanProbe('status-launch', 1),
+                'verification_key' => 'lane_bound_commands_verified',
+            ],
+            'fleet resume operator handoff' => [
+                'corrupt' => static function (array &$digest): void {
+                    data_set($digest, 'terminal_loop_fleet_operator_handoff.next_operator_action', 'incorrect_recovery_priority');
+                },
+                'invoke' => static fn (AgentControlPlaneMultiAgentLoopProbeRunner $runner): array => $runner->runTerminalFleetResumeRollupProbe('status-resume'),
+                'verification_key' => 'operator_handoff_recovery_priority_verified',
+            ],
+            'fleet evidence cycle supervisor' => [
+                'corrupt' => static function (array &$digest): void {
+                    data_set($digest, 'terminal_loop_cycle_supervisor.next_command_purpose', 'incorrect_evidence_review_path');
+                },
+                'invoke' => static fn (AgentControlPlaneMultiAgentLoopProbeRunner $runner): array => $runner->runTerminalFleetEvidenceRollupProbe('status-evidence'),
+                'verification_key' => 'cycle_supervisor_evidence_review_path_verified',
+            ],
+        ];
+
+        foreach ($cases as $label => $case) {
+            $runner = $this->makeRunner(
+                terminalLoopHealthDigestFn: function (array $options) use ($case): array {
+                    $digest = (new AgentControlPlaneTerminalLoopHealthDigestService(
+                        app(AgentControlPlaneTaskPacketQueueRepository::class),
+                        new AgentControlPlaneTaskLeaseRecoveryService,
+                    ))->digest($options);
+                    ($case['corrupt'])($digest);
+
+                    return $digest;
+                },
+            );
+
+            $result = ($case['invoke'])($runner);
+
+            $this->assertFalse($result[$case['verification_key']], $label);
+            $this->assertSame('blocked', $result['status'], $label);
+            $this->assertTrue($result['synthetic_artifacts_cleaned'], $label);
+        }
+    }
+
     /**
      * Wire up a runner directly via the container, using in-memory fakes.
      */
-    private function makeRunner(?Closure $terminalBootstrapRuntimeSafetyFn = null): AgentControlPlaneMultiAgentLoopProbeRunner
-    {
+    private function makeRunner(
+        ?Closure $terminalBootstrapRuntimeSafetyFn = null,
+        ?Closure $terminalLoopHealthDigestFn = null,
+    ): AgentControlPlaneMultiAgentLoopProbeRunner {
         $orchestrator = app(AgentControlPlaneTaskQueueOrchestrator::class);
         $queue = app(AgentControlPlaneTaskPacketQueueRepository::class);
         $leases = app(AgentControlPlaneClaimLeaseRepository::class);
@@ -307,6 +358,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
             fn (array $items): array => [],
             fn (array $writeSets): int => 0,
             $terminalBootstrapRuntimeSafetyFn ?? fn (array $results): bool => true,
+            $terminalLoopHealthDigestFn,
         );
     }
 

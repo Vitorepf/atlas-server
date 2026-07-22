@@ -36,6 +36,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
      * @param  Closure(array<int,mixed>): array<int,string>  $flattenStringsFn
      * @param  Closure(array<int,string>): int  $writeSetCollisionCountFn
      * @param  Closure(array<int,mixed>): bool  $terminalBootstrapRuntimeSafetyFn
+     * @param  null|Closure(array<string,mixed>): array<string,mixed>  $terminalLoopHealthDigestFn
      */
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
@@ -44,6 +45,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
         private readonly Closure $flattenStringsFn,
         private readonly Closure $writeSetCollisionCountFn,
         private readonly Closure $terminalBootstrapRuntimeSafetyFn,
+        private readonly ?Closure $terminalLoopHealthDigestFn = null,
     ) {}
     /**
      * Proxy: routes the kept-on-runtime `flattenStrings` capability through
@@ -74,6 +76,22 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
     private function terminalBootstrapRuntimeSafety(array $results): bool
     {
         return ($this->terminalBootstrapRuntimeSafetyFn)($results);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function terminalLoopHealthDigest(array $options): array
+    {
+        if ($this->terminalLoopHealthDigestFn !== null) {
+            return ($this->terminalLoopHealthDigestFn)($options);
+        }
+
+        return (new AgentControlPlaneTerminalLoopHealthDigestService(
+            $this->queue,
+            new AgentControlPlaneTaskLeaseRecoveryService,
+        ))->digest($options);
     }
 
     public function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
@@ -320,6 +338,8 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             && $completionEvidenceTemplatePresent
             && $terminalLoopOperatorCommandsPresent
             && $completedCount === $probeAgentCount
+            && $structuredCompletionEvidenceValidCount === $readyCount
+            && $completionEvidenceFilesWithinScopeCount === $readyCount
             && $leasesClosed
             && $resumptionContractsPresent
             && $resumptionCheckpointsPresent
@@ -435,7 +455,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             }
         }
 
-        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService($this->queue, new AgentControlPlaneTaskLeaseRecoveryService))->digest([
+        $digest = $this->terminalLoopHealthDigest([
             'actor' => 'terminal-fleet-probe-'.$runId,
             'target_min_claimable_tasks' => $probeTerminalCount,
             'max_new_tasks' => $probeTerminalCount,
@@ -504,7 +524,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             && data_get($digest, 'terminal_loop_fleet_launch_runbook.terminal_loop_fleet_launch_runbook_hash') !== null;
 
         return [
-            'status' => $readyPathVerified ? 'available' : 'blocked',
+            'status' => $readyPathVerified
+                && $laneBoundCommandsVerified
+                && $cycleSupervisorLaunchPathVerified
+                && $runbookReadyPathVerified
+                    ? 'available'
+                    : 'blocked',
             'queue_tag' => $queueTag,
             'probe_terminal_count' => $probeTerminalCount,
             'seeded_packet_count' => count($seededPacketIds),
@@ -776,7 +801,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             Storage::disk('local')->delete(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$leaseId.'.json');
         }
 
-        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService($this->queue, new AgentControlPlaneTaskLeaseRecoveryService))->digest([
+        $digest = $this->terminalLoopHealthDigest([
             'actor' => 'terminal-fleet-resume-rollup-probe-'.$runId,
             'target_min_claimable_tasks' => 1,
             'max_new_tasks' => 1,
@@ -803,7 +828,9 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             && data_get($handoff, 'terminal_loop_fleet_operator_handoff_hash') !== null;
 
         return [
-            'status' => $recoveryPathVerified ? 'available' : 'blocked',
+            'status' => $recoveryPathVerified && $operatorHandoffRecoveryPriorityVerified
+                ? 'available'
+                : 'blocked',
             'queue_tag' => $queueTag,
             'task_packet_id' => $taskPacketId,
             'claim_event' => (string) ($claim['event'] ?? ''),
@@ -1023,7 +1050,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             );
         }
 
-        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService($this->queue, new AgentControlPlaneTaskLeaseRecoveryService))->digest([
+        $digest = $this->terminalLoopHealthDigest([
             'actor' => 'terminal-fleet-evidence-rollup-probe-'.$runId,
             'target_min_claimable_tasks' => 1,
             'max_new_tasks' => 1,
@@ -1046,7 +1073,9 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             && data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== null;
 
         return [
-            'status' => $greenPathVerified ? 'available' : 'blocked',
+            'status' => $greenPathVerified && $cycleSupervisorEvidenceReviewPathVerified
+                ? 'available'
+                : 'blocked',
             'queue_tag' => $queueTag,
             'task_packet_id' => $taskPacketId,
             'orchestration_event' => (string) ($orchestration['event'] ?? ''),
