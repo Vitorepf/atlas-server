@@ -15,10 +15,12 @@ if [[ ! "$gt5k" =~ ^[0-9]+$ ]]; then
 fi
 
 subject="$(git -C "$root" log -1 --format=%s)"
-if [[ "$subject" =~ [Rr]esidual[[:space:]]pass[[:space:]][0-9]+ ]]; then
+shopt -s nocasematch
+if [[ "$subject" =~ (^|[^[:alnum:]_])residual[[:space:]]+pass[[:space:]]+[0-9]+($|[^[:alnum:]_]) ]]; then
     printf 'GOD_DEBULK_GUARD_FAIL residual_pass_commit\n' >&2
     exit 1
 fi
+shopt -u nocasematch
 
 if (( gt5k > baseline )); then
     printf 'GOD_DEBULK_GUARD_FAIL gt5k_baseline_regression baseline=%s observed=%s\n' "$baseline" "$gt5k" >&2
