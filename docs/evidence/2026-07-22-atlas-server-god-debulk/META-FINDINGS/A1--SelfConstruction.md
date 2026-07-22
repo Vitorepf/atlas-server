@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 17
+files_scanned: 18
 files_total: 1210
-lines_scanned: 107237
+lines_scanned: 108596
 ```
 
 ## Files
@@ -3628,12 +3628,243 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+loc: 1359
+kind: release_authorization_projection_plus_codex_integration_and_work_splitter_god_section
+intent_axes: [1, 2, 3, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 35, 37, 38, 40, 41, 42, 45, 49, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0173
+    type: godfile
+    severity: s1
+    detail: "A nominal ReleaseWriter section is 1,359 LOC with ten public methods and no private implementation boundary. It mixes one-shot dispatch contracts and preflights, release template and receipt drafting, persistence-schema readiness, Codex integration reporting, and the global Work Splitter. The class is neither one writer nor one bounded projection owner."
+    evidence:
+      - "wc -l => 1,359; source bytes => 88,730"
+      - "10 public methods, zero protected/private methods"
+      - "release surfaces span lines 265-1086; Codex report lines 1094-1227; Work Splitter lines 1235-1356"
+  - id: A1-SC-0174
+    type: dead_code
+    severity: s1
+    detail: "The copied 228-import header has only two referenced imports after the header; 226 imports are unused. This consumes 229 lines, conceals the two actual dependencies, and demonstrates that extraction copied the mother dependency surface instead of declaring a release-writer boundary."
+    evidence:
+      - "228 use statements occupy lines 7-234"
+      - "used imports: AtlasSelfConstructionAgentDispatchReceipt and Schema"
+      - "unused import count => 226"
+  - id: A1-SC-0175
+    type: false_abstraction
+    severity: s0
+    detail: "The section retains a nullable mother plus public setMother and an unrestricted public __call that reflects any requested method on the 29,744-LOC mother. ReflectionMethod::invokeArgs bypasses the mother's private visibility, so a caller holding this section can invoke private helpers or private mutation paths that are not part of the declared section API. This is a privilege-expanding circular backchannel, not extraction."
+    evidence:
+      - "mother/setMother/__call: lines 241-258"
+      - "controlled unbound stableHash call throws mother-not-bound RuntimeException"
+      - "controlled bound stableHash call invoked the private mother method and returned c775500ea34eded73c2a3c3bede193f0d839e6c14b36f21b6cc31472e0720a91"
+      - "parent keeps and binds this section at AtlasSelfConstructionReadinessService.php lines 29604-29607"
+  - id: A1-SC-0176
+    type: bug
+    severity: s0
+    detail: "The one-shot writer preflight computes eight semantic checks and failed_preflight_checks, but its status, human summary, and next_required_slice depend only on component blocking reasons. If components are available while receipt_hash is missing or malformed, the wakeup is no longer queued/unclaimed, or the dry-run/envelope hashes disagree, the payload still reports preflight_ready and advances to the signed release template."
+    evidence:
+      - "release and candidate checks: lines 440-462"
+      - "status ignores failedPreflightChecks: line 465"
+      - "next slice also ignores failedPreflightChecks: lines 512-514"
+      - "mutation_decision records failed checks only as would_be_blocked_without_failed_checks: line 492"
+  - id: A1-SC-0177
+    type: doc_lie
+    severity: s1
+    detail: "The downstream release template, unsigned receipt draft, persistence contract, and mutating-writer contract hard-code ready statuses regardless of their source preflight status. They preserve upstream blockers only as descriptive fields or denial-condition strings, so ready envelopes and next-slice instructions can be emitted with null wakeup/envelope hashes or blocked validation."
+    evidence:
+      - "mutating-writer contract hard-codes ready while recording current_release_preflight_ready separately: lines 270-282 and 375-390"
+      - "release template always returns ready and permits nullable selected_wakeup_key/dispatch_envelope_hash: lines 849-955"
+      - "receipt draft always returns ready while listing preflight_blocked and missing hashes as denial conditions: lines 697-820"
+      - "persistence contract always returns ready while source_validation_preflight_status is merely copied: lines 969-1085"
+  - id: A1-SC-0178
+    type: doc_lie
+    severity: s1
+    detail: "The persistence-writer preflight can attest unique-key, transaction, and wakeup-lock readiness by reading booleans from its own contract. Its database inspection checks only table existence and 13 column names; it never inspects indexes, unique constraints, foreign keys, column types, transaction support, or lock behavior. The declared four-field idempotency key is not a database unique key in the migration or writer."
+    evidence:
+      - "schema inspection: one hasTable plus a 13-column hasColumn loop at lines 555-577"
+      - "database_transaction_required, wakeup_row_lock_required and unique_key_required only mirror contract booleans: lines 591-593"
+      - "contract idempotency fields: lines 1012-1027"
+      - "migration has unique receipt_key and receipt_hash only; no unique index over the declared four-field idempotency key: migration lines 144-162"
+  - id: A1-SC-0179
+    type: bug
+    severity: s1
+    detail: "codexIntegrationReport composes live queue, execution-status, launch-plan, gate, and reservation projections from repeated independent reads rather than one immutable snapshot. One call performs at least four packetQueue projections and three reservation-status reads through the nested call graph; a concurrent claim/completion can therefore make counts, packet lists, and advertised source hashes describe different instants."
+    evidence:
+      - "integration report directly reads packetQueue, codexExecutionStatus and reservationStatus: lines 1096-1099"
+      - "codexExecutionStatus rereads packetQueue/reservations and builds codexLaunchPlan: parent lines 4324-4329"
+      - "codexLaunchPlan rereads packetQueue and multiSessionReadinessGate: parent lines 4233-4237"
+      - "multiSessionReadinessGate rereads packetQueue and reservationStatus: parent lines 6375-6383"
+  - id: A1-SC-0180
+    type: bug
+    severity: s1
+    detail: "Completed packets become ready_to_review by matching packet_id and copying completion_evidence_hash from the reservation ledger. This section neither requires the reservation match nor validates hash shape, content, gates, scope, or binding to the queue completion; downstream merge readiness treats any non-empty string as evidence present. A stale or arbitrary ledger string can therefore cross the integration boundary as review-ready evidence."
+    evidence:
+      - "completed reservations are keyBy(packet_id), defaulting to an empty reservation: lines 1106-1112"
+      - "ready_to_review copies completion_evidence_hash without validation: lines 1113-1128"
+      - "verification appears only as a future review expectation/operator sequence: lines 1122-1127 and 1174-1181"
+      - "codexMergeReadiness checks only missing/non-string/empty evidence hash: parent lines 4430-4438"
+  - id: A1-SC-0181
+    type: doc_lie
+    severity: s1
+    detail: "The Work Splitter's readiness-service packet authorizes a stale, nonexistent path, app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php. The actual service is under Readiness/. Because scope validation is driven by the emitted allowed_files, the packet whose objective is to implement the service cannot authorize edits to the real owner while claiming split_ready and disjoint executable scope."
+    evidence:
+      - "stale allowed path: lines 1289-1300"
+      - "actual source path: app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php"
+      - "scopeValidator classifies paths from selected packet allowed_files: parent lines 1749-1769"
+      - "workSplitter unconditionally returns status=split_ready: lines 1340-1355"
+  - id: A1-SC-0182
+    type: test_gap
+    severity: s1
+    detail: "No test references the section class directly. Eight focused command tests pass but accept either ready or blocked and assert field presence, so they do not require failed_preflight_checks to force blocked, upstream blockers to propagate, one coherent snapshot, a valid evidence binding, or canonical allowed paths. Two later writer suites prove mutation mechanics, not this projection's truthfulness."
+    evidence:
+      - "direct class test reference files => 0; method-family test files => 3 / 32,392 LOC"
+      - "focused command slice => 8 passed / 172 assertions / 6.24s"
+      - "writer and guarded-invoker suites => 12 passed / 103 assertions / 24.55s"
+      - "writer-preflight command test lines 17237-17273 accepts ready or blocked and checks only key presence/flags"
+  - id: A1-SC-0183
+    type: dupe
+    severity: s2
+    detail: "Six release-authority projections repeat the same 100-plus-line envelope grammar: source hashes, status strings, forbidden actions, false permission flags, non-execution guarantees, next-slice prose, and stable hashing. The repetition is a hand-written state machine with no typed transition invariant, which allowed ready/blocker semantics to diverge between adjacent stages."
+    evidence:
+      - "release methods span lines 265-1086"
+      - "94 data_get calls, 11 stableHash calls and nine literal ready status assignments"
+      - "the same signature/persistence/claim/provider/token prohibitions recur in every release envelope"
+  - id: A1-SC-0184
+    type: os_overlap
+    severity: s0
+    detail: "One ReleaseWriter section owns provider-neutral scheduler authorization, durable receipt schema expectations, Codex-specific human integration reporting, AI-session work splitting, and stale Self-Construction service governance. Runtime authority, provider adapter, human review, and work-allocation OS concerns cannot be assigned or secured independently through this boundary."
+    evidence:
+      - "Agent Control Plane release authority: lines 265-1086"
+      - "Codex-specific report: lines 1094-1227"
+      - "global multi-agent Work Splitter: lines 1235-1356"
+      - "method family is referenced across 11 app files including AAEOS quarantine, readiness sections, command routing, and parent facade"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Make every transition fail closed: status and next slice must require all semantic checks, and template/draft/contract readiness must propagate upstream blocker state. Replace self-attested schema booleans with observed database capabilities and bind receipt evidence cryptographically to the current candidate and immutable request snapshot."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php
+      - database/migrations/2026_05_12_010000_create_atlas_self_construction_agent_control_plane_tables.php
+    acceptance:
+      - "every nonempty failed_preflight_checks list implies status=blocked and repair next slice"
+      - "unique/idempotency, lock and transaction readiness are independently observed and tested"
+      - "ready-to-review evidence is recomputed or verified against packet, scope, gates and completion"
+  - op: TEST
+    detail: "Add focused section-level characterization outside the 31,813-LOC command monster for missing/malformed receipt hash, stale or claimed candidate, source-hash mismatch, blocked validation propagation, absent/malformed completion evidence, concurrent ledger changes, and canonical Work Splitter paths. Preserve all public payload keys while proving fail-closed semantics."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/ReadinessProjectionReleaseWriterSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriterTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "a matrix covers every failed_preflight_checks key and every upstream blocked source"
+      - "snapshot race tests cannot produce hashes/counts from different reservation versions"
+      - "scope validator accepts the real Readiness service path and rejects the stale path"
+  - op: SPLIT
+    detail: "Split by authority after characterization: scheduler release transition projector, receipt persistence capability probe, immutable Codex integration report, and Work Splitter catalog. Keep compatibility forwards only at the parent edge and keep each hot projector below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+      - app/Services/Ai/SelfConstruction/Readiness
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/NativeImplementation
+    acceptance:
+      - "no resulting owner mixes release authorization, Codex review and packet allocation"
+      - "each stateful capability has one explicit facade and one direction of dependency"
+  - op: OWNER
+    detail: "Assign receipt authorization and persistence to a provider-neutral control-plane owner, integration evidence to a verified human-review snapshot owner, Work Splitter scopes to a canonical packet catalog, and Codex wording to an adapter. Remove authority from generic readiness sections."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/NativeImplementation
+    acceptance:
+      - "one owner decides each transition and one owner verifies each evidence binding"
+      - "provider-neutral state transitions contain no Codex-specific integration policy"
+  - op: EXTRACT
+    detail: "Extract a typed release-transition graph with prerequisite predicates and a single immutable scheduler candidate snapshot. Extract canonical packet definitions consumed by splitter, scope validator, queue and launch plan; do not create another Section forwarding shell."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/Support/ReadinessCatalog.php
+    acceptance:
+      - "one transition descriptor drives status, blockers, next slice and human summary"
+      - "one packet catalog supplies existing paths to splitter, validator, queue and launch surfaces"
+  - op: DELETE
+    detail: "Delete 226 unused imports, public magic reflection, public mother rebinding, stale service paths, duplicate prohibition prose, and ready aliases that can coexist with blockers after characterization."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - app/Services/Ai/SelfConstruction/Support/ReadinessCatalog.php
+    acceptance:
+      - "zero unused imports, zero __call reflection and zero nonexistent allowed_files"
+      - "no ready status can contain a failed prerequisite or blocked source"
+  - op: CODEMAP
+    detail: "Map CLI options through facade, transition projector, persistence writer, reservation ledger, review evidence consumer, Work Splitter and scope validator. Mark where hashes are produced, persisted, verified, or only copied."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "every release/evidence hash has a named producer, verifier, persistence owner and consumer"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Materialize one versioned reservation/queue snapshot for integration reporting and reuse one schema-capability result per request. Add query/read counts and race instrumentation so nested readiness composition cannot silently reread mutable state."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionReservationRepository.php
+    acceptance:
+      - "one integration report performs one queue snapshot and one reservation snapshot"
+      - "all report counts, packet rows and source hashes carry the same snapshot version"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1359
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 25aae7224422b35fe7b4e3dadddf7094f1407369214f55001c68808d613a87fe
+  source_bytes: 88730
+  public_method_count: 10
+  public_operation_method_count: 8
+  private_method_count: 0
+  import_count: 228
+  used_import_count: 2
+  unused_import_count: 226
+  data_get_call_count: 94
+  stable_hash_call_count: 11
+  schema_has_table_call_count: 1
+  schema_has_column_syntax_call_count: 1
+  required_column_probe_count: 13
+  hardcoded_ready_status_count: 9
+  direct_class_app_reference_file_count: 2
+  direct_class_test_reference_file_count: 0
+  method_family_app_reference_file_count: 11
+  method_family_test_reference_file_count: 3
+  referencing_test_loc: 32392
+  focused_command_test_passed_count: 8
+  focused_command_test_assertion_count: 172
+  focused_command_test_duration_seconds: 6.24
+  focused_command_test_real_seconds: 6.64
+  focused_command_test_max_rss_bytes: 185171968
+  focused_writer_test_passed_count: 12
+  focused_writer_test_assertion_count: 103
+  focused_writer_test_duration_seconds: 24.55
+  focused_writer_test_real_seconds: 24.98
+  focused_writer_test_max_rss_bytes: 158023680
+  source_history_commit_count: 1
+  private_mother_method_exposure_probe_succeeded: true
+  writer_preflight_status_ignores_failed_checks: true
+  minimum_queue_snapshots_per_integration_report: 4
+  minimum_reservation_snapshots_per_integration_report: 3
+  stale_allowed_service_path_present: true
+  next_file_by_loc: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 17 / 1210
-- lines_scanned: 107237
-- s0..s3: 69 / 83 / 20 / 0
+- files_scanned: 18 / 1210
+- lines_scanned: 108596
+- s0..s3: 72 / 91 / 21 / 0
 - intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
