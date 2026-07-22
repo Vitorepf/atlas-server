@@ -24,6 +24,7 @@ class FaseABatteryOrchestrator
         string $mode = 'bare',
         bool $fast = false,
         string $batteryProfile = 'fase_a',
+        ?int $repetitions = null,
     ): array
     {
         $mode = $this->assertMode($mode);
@@ -43,7 +44,7 @@ class FaseABatteryOrchestrator
             "atlas_rivals.profiles.{$batteryProfile}.case_packs",
             config('atlas_rivals.fase_a.case_packs', []),
         );
-        $profile = $this->applyFastProfile($fast);
+        $profile = $this->applyFastProfile($fast, $repetitions);
         $repetitions = $profile['repetitions'];
         $minCases = $profile['min_distinct_cases'];
         $plans = [];
@@ -108,7 +109,7 @@ class FaseABatteryOrchestrator
      *
      * @return array{name: string, repetitions: int, min_distinct_cases: int}
      */
-    private function applyFastProfile(bool $fast): array
+    private function applyFastProfile(bool $fast, ?int $repetitions = null): array
     {
         if ($fast) {
             return [
@@ -118,9 +119,14 @@ class FaseABatteryOrchestrator
             ];
         }
 
+        $repetitions ??= (int) config('atlas_rivals.fase_a.default_repetitions', 3);
+        if ($repetitions < 1) {
+            throw new InvalidArgumentException('rivals_battery_repetitions_must_be_positive');
+        }
+
         return [
             'name' => 'default',
-            'repetitions' => (int) config('atlas_rivals.fase_a.default_repetitions', 3),
+            'repetitions' => $repetitions,
             'min_distinct_cases' => (int) config('atlas_rivals.fase_a.min_distinct_cases', 3),
         ];
     }
@@ -136,6 +142,7 @@ class FaseABatteryOrchestrator
         bool $approveProviderSpend = false,
         bool $fast = false,
         string $batteryProfile = 'fase_a',
+        ?int $repetitions = null,
     ): array
     {
         if (! (bool) config('atlas_rivals.enabled', false)) {
@@ -148,7 +155,7 @@ class FaseABatteryOrchestrator
             throw new RuntimeException('rivals_provider_spend_not_allowed');
         }
 
-        $dry = $this->dryRun($mode, $fast, $batteryProfile);
+        $dry = $this->dryRun($mode, $fast, $batteryProfile, $repetitions);
         $prepared = [];
         $errors = [];
         foreach ($dry['plans'] as $planSpec) {
@@ -401,6 +408,7 @@ class FaseABatteryOrchestrator
         bool $fast = false,
         array $onlySuites = [],
         string $batteryProfile = 'fase_a',
+        ?int $repetitions = null,
     ): array {
         $this->assertExecuteAllowed($unitsDryRun);
 
@@ -420,7 +428,13 @@ class FaseABatteryOrchestrator
         $smokeGate = $unitsDryRun
             ? ['required_suites' => [], 'running' => 0, 'blocked' => [], 'note' => 'smoke skipped for --dry-run']
             : $this->assertSmokesReady($mode, $batteryProfile);
-        $prepared = $this->prepare($mode, $approveProviderSpend, $fast, $batteryProfile);
+        $prepared = $this->prepare(
+            $mode,
+            $approveProviderSpend,
+            $fast,
+            $batteryProfile,
+            $repetitions,
+        );
         if (($prepared['status'] ?? null) !== 'ok') {
             return $prepared + [
                 'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',

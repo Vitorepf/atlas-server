@@ -1,0 +1,4 @@
+[
+    "astropy/io/fits/fitsrec.py",
+    "astropy/io/fits/tests/test_checksum.py"
+]

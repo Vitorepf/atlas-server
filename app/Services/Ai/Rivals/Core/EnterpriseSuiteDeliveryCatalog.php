@@ -277,17 +277,17 @@ final class EnterpriseSuiteDeliveryCatalog
     {
         $specs = [
             'archbench' => ['Architecture', 'ArchBench', 'Architecture decision records', 'architecture_design', 'native_artifact.json', 'continuous', 'rougeL'],
-            'cruxeval' => ['Reasoning', 'CRUXEval', 'Code execution and output reasoning', 'general_reasoning', 'native_artifact.json', 'binary', 'accuracy'],
-            'classeval' => ['Coding', 'ClassEval', 'Class-level code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass_rate'],
+            'cruxeval' => ['Reasoning', 'CRUXEval', 'Code execution and output reasoning', 'general_reasoning', 'native_artifact.json', 'binary', 'pass@1'],
+            'classeval' => ['Coding', 'ClassEval', 'Class-level code generation', 'coding_patch', 'native_artifact.json', 'continuous', 'fun_success'],
             'repobench' => ['Repository', 'RepoBench', 'Cross-file repository completion', 'coding_patch', 'native_artifact.json', 'continuous', 'edit_similarity'],
-            'locagent' => ['Repository', 'LocAgent', 'Repository-level fault localization', 'bug_investigation', 'native_artifact.json', 'continuous', 'localization_recall'],
+            'locagent' => ['Repository', 'LocAgent', 'Repository-level fault localization', 'bug_investigation', 'native_artifact.json', 'continuous', 'Recall@5'],
             'debug_gym' => ['Debugging', 'debug-gym', 'Interactive debugging and repair', 'repair_regression_fixing', 'native_artifact.json', 'binary', 'resolved'],
-            'testeval' => ['Testing', 'TestEval', 'Unit-test generation', 'coding_patch', 'native_artifact.json', 'continuous', 'line_coverage'],
-            'evalplus' => ['Coding', 'EvalPlus', 'HumanEval+ code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass@1'],
+            'testeval' => ['Testing', 'TestEval', 'Unit-test generation', 'coding_patch', 'native_artifact.json', 'continuous', 'line_coverage@1'],
+            'evalplus' => ['Coding', 'EvalPlus', 'HumanEval+ code generation', 'coding_patch', 'native_artifact.json', 'binary', 'plus_pass@1'],
             'crosscodeeval' => ['Coding', 'CrossCodeEval', 'Cross-file code completion', 'coding_patch', 'native_artifact.json', 'continuous', 'edit_similarity'],
             'bigcodebench' => ['Coding', 'BigCodeBench', 'Library-rich code generation', 'coding_patch', 'native_artifact.json', 'binary', 'pass@1'],
-            'deveval' => ['Engineering', 'DevEval', 'Repository-level software development', 'long_horizon_engineering', 'native_artifact.json', 'binary', 'pass_rate'],
-            'long_code_arena' => ['Long context', 'Long Code Arena', 'Long-context repository code generation', 'long_horizon_engineering', 'native_artifact.json', 'continuous', 'task_score'],
+            'deveval' => ['Engineering', 'DevEval', 'Repository-level software development', 'long_horizon_engineering', 'native_artifact.json', 'binary', 'pass@1'],
+            'long_code_arena' => ['Long context', 'Long Code Arena', 'Long-context repository code generation', 'long_horizon_engineering', 'native_artifact.json', 'continuous', 'API_recall'],
             'reval' => ['Reasoning', 'REval', 'Repository-aware code reasoning', 'general_reasoning', 'native_artifact.json', 'binary', 'accuracy'],
         ];
         $catalog = [];

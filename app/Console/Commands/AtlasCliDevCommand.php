@@ -874,6 +874,16 @@ class AtlasCliDevCommand extends Command
             env('ATLAS_RIVALS_RUNTIME_EXECUTION', false),
             FILTER_VALIDATE_BOOLEAN
         );
+        $rivalsArtifactTarget = $rivalsRuntimeExecution
+            ? trim((string) env('ATLAS_RIVALS_ARTIFACT_TARGET', ''))
+            : '';
+        $rivalsArtifactTarget = $rivalsArtifactTarget !== ''
+            && ! str_starts_with($rivalsArtifactTarget, '/')
+            && ! str_contains($rivalsArtifactTarget, '..')
+            && ! str_contains($rivalsArtifactTarget, ',')
+            && preg_match('/\A[A-Za-z0-9._\/-]{1,512}\z/', $rivalsArtifactTarget) === 1
+                ? $rivalsArtifactTarget
+                : '';
         $userConstraints = array_values(array_filter([
             $model !== null ? 'composer_model='.$model : null,
             $this->option('single-provider') ? 'single_provider=true' : null,
@@ -884,6 +894,9 @@ class AtlasCliDevCommand extends Command
             $rivalsRuntimeExecution ? 'rivals_runtime_execution=true' : null,
             $rivalsRuntimeExecution || (bool) $this->option('operator')
                 ? 'operator_explicit=true'
+                : null,
+            $rivalsArtifactTarget !== ''
+                ? 'allowed_files='.$rivalsArtifactTarget
                 : null,
         ]));
         $input = [

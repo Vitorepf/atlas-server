@@ -2,7 +2,11 @@
 
 namespace Tests\Feature\Ai\Arena;
 
+use App\Services\Ai\Arena\ArenaMeasurementControlService;
 use App\Services\Ai\Arena\ArenaMeasurementStore;
+use App\Services\Ai\Arena\ArenaRivalsExecutionService;
+use App\Services\Ai\Rivals\Core\RunStateMachine;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class ArenaDrainCommandTest extends TestCase
@@ -67,6 +71,7 @@ class ArenaDrainCommandTest extends TestCase
             $this->assertContains($entry['status'], ['failed', 'done']);
             if ($entry['status'] === 'failed') {
                 $this->assertStringContainsString('arena_drain', (string) $entry['failure_reason']);
+                $this->assertSame('plan_failed', $entry['failure_code']);
             }
             $this->assertArrayHasKey('drain_started_at', $entry);
         }
@@ -86,12 +91,153 @@ class ArenaDrainCommandTest extends TestCase
         $this->assertSame('queued', $byId['arq_b']['status']);
     }
 
-    private function queue(string $id, string $arm): void
+    public function test_drain_keeps_measurements_separate_when_suite_and_engine_match(): void
+    {
+        config()->set('atlas_arena.worker_enabled', true);
+        $this->queue('arq_first', 'baseline', 'am_first');
+        $this->queue('arq_second', 'baseline', 'am_second');
+
+        $this->artisan('atlas:arena:drain', [
+            '--groups' => 1,
+            '--approve-provider-spend' => true,
+        ])->assertSuccessful();
+
+        $byMeasurement = array_column($this->rawEntries(), null, 'measurement_id_public');
+        $this->assertNotSame('queued', $byMeasurement['am_first']['status']);
+        $this->assertSame('queued', $byMeasurement['am_second']['status']);
+    }
+
+    public function test_drain_honors_stopping_after_current_case_without_starting_next_case(): void
+    {
+        config()->set('atlas_arena.worker_enabled', true);
+        $measurementId = 'am_stop_between_cases';
+        $runId = '20260718_130000_arena_stop';
+        $this->queue('arq_stop', 'baseline', $measurementId);
+        $executed = [];
+
+        $this->mock(ArenaRivalsExecutionService::class, function (MockInterface $mock) use (
+            $runId,
+            $measurementId,
+            &$executed
+        ): void {
+            $mock->shouldReceive('plan')
+                ->once()
+                ->andReturnUsing(function () use ($runId): string {
+                    (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED);
+
+                    return $runId;
+                });
+            $mock->shouldReceive('manifestEntries')
+                ->once()
+                ->with($runId)
+                ->andReturn([
+                    ['execution_id' => 'case-1'],
+                    ['execution_id' => 'case-2'],
+                ]);
+            $mock->shouldReceive('runUnit')
+                ->once()
+                ->andReturnUsing(function (string $suite, string $actualRunId, array $entry) use (
+                    $runId,
+                    $measurementId,
+                    &$executed
+                ): int {
+                    $this->assertSame('terminal_bench', $suite);
+                    $this->assertSame($runId, $actualRunId);
+                    $executed[] = $entry['execution_id'];
+                    (new ArenaMeasurementControlService)->stop($measurementId, [
+                        'operator_actor' => 'vitor',
+                        'operator_reason' => 'parar após o caso atual',
+                    ]);
+
+                    return 0;
+                });
+            $mock->shouldNotReceive('finish');
+        });
+
+        $this->artisan('atlas:arena:drain', ['--approve-provider-spend' => true])
+            ->assertSuccessful();
+
+        $this->assertSame(['case-1'], $executed);
+        $entry = $this->rawEntries()[0];
+        $this->assertSame('stopped', $entry['status']);
+        $this->assertSame($entry['stop_receipt_hash'], $entry['terminal_receipt_hash']);
+        $this->assertSame(
+            RunStateMachine::CANCELLED,
+            (new RunStateMachine)->current($runId)['state'] ?? null
+        );
+    }
+
+    public function test_drain_persists_completed_terminal_receipt_after_pipeline_finishes(): void
+    {
+        config()->set('atlas_arena.worker_enabled', true);
+        $runId = '20260718_140000_arena_completed';
+        $this->queue('arq_completed', 'baseline', 'am_completed');
+
+        $this->mock(ArenaRivalsExecutionService::class, function (MockInterface $mock) use ($runId): void {
+            $mock->shouldReceive('plan')->once()->andReturn($runId);
+            $mock->shouldReceive('manifestEntries')
+                ->once()
+                ->with($runId)
+                ->andReturn([['execution_id' => 'case-1']]);
+            $mock->shouldReceive('runUnit')
+                ->once()
+                ->with('terminal_bench', $runId, ['execution_id' => 'case-1'])
+                ->andReturn(0);
+            $mock->shouldReceive('finish')->once()->with($runId)->andReturn([]);
+        });
+
+        $this->artisan('atlas:arena:drain', ['--approve-provider-spend' => true])
+            ->assertSuccessful();
+
+        $entry = $this->rawEntries()[0];
+        $this->assertSame('done', $entry['status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $entry['terminal_receipt_hash']);
+        $this->assertArrayNotHasKey('failure_code', $entry);
+    }
+
+    public function test_stop_winning_completion_race_is_not_overwritten_by_done(): void
+    {
+        config()->set('atlas_arena.worker_enabled', true);
+        $measurementId = 'am_stop_before_done';
+        $runId = '20260718_141000_arena_stop_before_done';
+        $this->queue('arq_stop_before_done', 'baseline', $measurementId);
+
+        $this->mock(ArenaRivalsExecutionService::class, function (MockInterface $mock) use (
+            $measurementId,
+            $runId
+        ): void {
+            $mock->shouldReceive('plan')->once()->andReturn($runId);
+            $mock->shouldReceive('manifestEntries')
+                ->once()
+                ->andReturn([['execution_id' => 'case-1']]);
+            $mock->shouldReceive('runUnit')->once()->andReturn(0);
+            $mock->shouldReceive('finish')
+                ->once()
+                ->andReturnUsing(function () use ($measurementId): array {
+                    (new ArenaMeasurementControlService)->stop($measurementId, [
+                        'operator_actor' => 'vitor',
+                        'operator_reason' => 'stop linearizado antes do terminal',
+                    ]);
+
+                    return [];
+                });
+        });
+
+        $this->artisan('atlas:arena:drain', ['--approve-provider-spend' => true])
+            ->assertSuccessful();
+
+        $entry = $this->rawEntries()[0];
+        $this->assertSame('stopped', $entry['status']);
+        $this->assertSame($entry['stop_receipt_hash'], $entry['terminal_receipt_hash']);
+    }
+
+    private function queue(string $id, string $arm, string $measurementId = 'am_test'): void
     {
         (new ArenaMeasurementStore)->appendQueuedRequest([
             'schema_version' => 'atlas.arena.queued_run.v1',
             'status' => 'queued',
             'run_id_public' => $id,
+            'measurement_id_public' => $measurementId,
             'suite' => 'terminal_bench',
             'engine' => 'codex_gpt_5_5',
             'arm' => $arm,

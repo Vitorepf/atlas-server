@@ -3,11 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Arena\ArenaMeasurementStore;
+use App\Services\Ai\Arena\ArenaRivalsExecutionService;
+use App\Services\Ai\Rivals\Core\RunStateMachine;
 use App\Services\Ai\Rivals\Support\EventStream;
-use App\Services\Ai\Rivals\Support\RunPaths;
 use Illuminate\Console\Command;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 /**
  * atlas:arena:drain — o worker de medição da Arena (fecha M61/A12).
@@ -22,13 +22,15 @@ use Symfony\Component\Process\Process;
 class AtlasArenaDrainCommand extends Command
 {
     protected $signature = 'atlas:arena:drain
-        {--groups=1 : quantos grupos suite×motor drenar nesta passada}
+        {--groups=1 : quantos grupos medição×suite×motor drenar nesta passada}
         {--approve-provider-spend : autoriza spend real de provider (obrigatório)}';
 
     protected $description = 'Drena a fila de medições da Arena executando o pipeline Rivals real';
 
-    public function handle(ArenaMeasurementStore $store): int
-    {
+    public function handle(
+        ArenaMeasurementStore $store,
+        ArenaRivalsExecutionService $pipeline
+    ): int {
         if (! (bool) config('atlas_arena.worker_enabled', false)) {
             $this->info('arena worker desabilitado (ATLAS_ARENA_WORKER_ENABLED)');
 
@@ -48,17 +50,17 @@ class AtlasArenaDrainCommand extends Command
         }
 
         foreach (array_slice($groups, 0, max(1, (int) $this->option('groups'))) as $group) {
-            $this->drainGroup($store, $group);
+            $this->drainGroup($store, $pipeline, $group);
         }
 
         return self::SUCCESS;
     }
 
     /**
-     * Agrupa entradas queued por suite×motor: os braços enfileirados juntos
+     * Agrupa entradas queued por medição×suite×motor: os braços enfileirados juntos
      * viram UM plan com múltiplos arms (pareamento na mesma janela → N×M).
      *
-     * @return list<array{suite:string, engine:string, arms:list<string>, ids:list<string>, ids_by_arm:array<string, list<string>>}>
+     * @return list<array{measurement_id:string, suite:string, engine:string, arms:list<string>, ids:list<string>, ids_by_arm:array<string, list<string>>}>
      */
     private function queuedGroups(ArenaMeasurementStore $store): array
     {
@@ -71,11 +73,19 @@ class AtlasArenaDrainCommand extends Command
             $engine = (string) ($entry['engine'] ?? '');
             $arm = (string) ($entry['arm'] ?? '');
             $id = (string) ($entry['run_id_public'] ?? '');
+            $measurementId = (string) ($entry['measurement_id_public'] ?? 'legacy');
             if ($suite === '' || $engine === '' || $id === '' || ! in_array($arm, ['baseline', 'with_atlas'], true)) {
                 continue;
             }
-            $key = $suite.'|'.$engine;
-            $groups[$key] ??= ['suite' => $suite, 'engine' => $engine, 'arms' => [], 'ids' => [], 'ids_by_arm' => []];
+            $key = $measurementId.'|'.$suite.'|'.$engine;
+            $groups[$key] ??= [
+                'measurement_id' => $measurementId,
+                'suite' => $suite,
+                'engine' => $engine,
+                'arms' => [],
+                'ids' => [],
+                'ids_by_arm' => [],
+            ];
             if (! in_array($arm, $groups[$key]['arms'], true)) {
                 $groups[$key]['arms'][] = $arm;
             }
@@ -86,162 +96,235 @@ class AtlasArenaDrainCommand extends Command
         return array_values($groups);
     }
 
-    /** @param array{suite:string, engine:string, arms:list<string>, ids:list<string>} $group */
-    private function drainGroup(ArenaMeasurementStore $store, array $group): void
-    {
+    /**
+     * @param array{
+     *   measurement_id:string,suite:string,engine:string,arms:list<string>,
+     *   ids:list<string>,ids_by_arm:array<string,list<string>>
+     * } $group
+     */
+    private function drainGroup(
+        ArenaMeasurementStore $store,
+        ArenaRivalsExecutionService $pipeline,
+        array $group
+    ): void {
         $this->info(sprintf('drenando %s × %s (%s)', $group['suite'], $group['engine'], implode(',', $group['arms'])));
-        $store->updateQueuedRequests($group['ids'], [
+        $claimed = $store->transitionQueuedRequests($group['ids'], ['queued'], [
             'status' => 'running',
             'drain_started_at' => now()->toIso8601String(),
         ]);
+        if ($claimed === []) {
+            return;
+        }
+        $group = $this->restrictGroupToClaimedIds($group, $claimed);
+        $runId = null;
 
         try {
+            if ($store->measurementHasStatus($group['measurement_id'], 'stopping')) {
+                $this->acknowledgeStop($store, $group['measurement_id'], null);
+
+                return;
+            }
+
             try {
-                $runId = $this->plan($group);
+                $runId = $pipeline->plan($group);
             } catch (RuntimeException $e) {
-                // Suíte sem braço com-Atlas implementado: degradar DITO, nunca
-                // matar o grupo — o braço vira failed com motivo humano e o
-                // baseline mede. Sem isso, 1 braço faltante zerava a suíte
-                // inteira (era a "Rivals não funciona" do operador).
                 if (! str_contains($e->getMessage(), '_runtime_unsupported')
                     || ! in_array('with_atlas', $group['arms'], true)
                     || $group['arms'] === ['with_atlas']) {
                     throw $e;
                 }
                 $atlasIds = $group['ids_by_arm']['with_atlas'] ?? [];
-                $store->updateQueuedRequests($atlasIds, [
+                $failedAt = now()->toIso8601String();
+                $store->transitionQueuedRequests($atlasIds, ['running'], [
                     'status' => 'failed',
+                    'failure_code' => 'with_atlas_runtime_unsupported',
                     'failure_reason' => 'braço com-Atlas ainda não implementado nesta suíte — baseline segue medindo',
-                    'drained_at' => now()->toIso8601String(),
+                    'drained_at' => $failedAt,
+                    'terminal_receipt_hash' => $this->terminalReceiptHash(
+                        $atlasIds,
+                        'failed',
+                        $failedAt,
+                        'with_atlas_runtime_unsupported'
+                    ),
                 ]);
                 $this->warn(sprintf('%s: braço com-Atlas não implementado — degradando para baseline', $group['suite']));
                 $group['arms'] = ['baseline'];
                 $group['ids'] = $group['ids_by_arm']['baseline'] ?? [];
-                $runId = $this->plan($group);
+                $runId = $pipeline->plan($group);
             }
-            $store->updateQueuedRequests($group['ids'], ['native_run_id_public' => $store->publicRunId($runId)]);
-            $this->executeUnits($group['suite'], $runId);
-            $this->finishPipeline($runId);
+
             $store->updateQueuedRequests($group['ids'], [
-                'status' => 'done',
-                'drained_at' => now()->toIso8601String(),
+                'native_run_id' => $runId,
+                'native_run_id_public' => $store->publicRunId($runId),
             ]);
+            if ($this->executeUnits($store, $pipeline, $group, $runId)) {
+                $this->acknowledgeStop($store, $group['measurement_id'], $runId);
+
+                return;
+            }
+
+            foreach ($pipeline->finish($runId) as $warning) {
+                $this->warn($warning);
+            }
+            $completedAt = now()->toIso8601String();
+            $completed = $store->transitionQueuedRequests($group['ids'], ['running'], [
+                'status' => 'done',
+                'drained_at' => $completedAt,
+                'terminal_receipt_hash' => $this->terminalReceiptHash(
+                    $group['ids'],
+                    'completed',
+                    $completedAt
+                ),
+            ]);
+            if (count($completed) !== count($group['ids'])
+                && $store->measurementHasStatus($group['measurement_id'], 'stopping')) {
+                $this->acknowledgeStop($store, $group['measurement_id'], $runId);
+
+                return;
+            }
             $this->info("done: {$runId}");
         } catch (\Throwable $e) {
-            $store->updateQueuedRequests($group['ids'], [
+            if ($store->measurementHasStatus($group['measurement_id'], 'stopping')) {
+                $this->acknowledgeStop($store, $group['measurement_id'], $runId);
+
+                return;
+            }
+            $failedAt = now()->toIso8601String();
+            $failureCode = $this->failureCode($e);
+            $store->transitionQueuedRequests($group['ids'], ['running'], [
                 'status' => 'failed',
+                'failure_code' => $failureCode,
                 'failure_reason' => mb_substr($e->getMessage(), 0, 300),
-                'drained_at' => now()->toIso8601String(),
+                'drained_at' => $failedAt,
+                'terminal_receipt_hash' => $this->terminalReceiptHash(
+                    $group['ids'],
+                    'failed',
+                    $failedAt,
+                    $failureCode
+                ),
             ]);
             $this->error('falhou: '.$e->getMessage());
         }
     }
 
-    /** @param array{suite:string, engine:string, arms:list<string>, ids:list<string>} $group */
-    private function plan(array $group): string
-    {
-        // baseline→bare · with_atlas→atlas_dev (espelho de ArenaMeasurementStore::publicArm).
-        $armIds = array_map(
-            static fn (string $arm): string => $group['engine'].'@'.($arm === 'with_atlas' ? 'atlas_dev' : 'bare'),
-            $group['arms']
-        );
-        $budget = max(1, (int) config('atlas_arena.worker_budget_per_run', 5));
-        $maxCases = max(1, (int) config('atlas_arena.worker_max_cases_per_run', 10));
-        $out = $this->artisanJson([
-            'atlas:rivals', 'plan',
-            '--suite='.$group['suite'],
-            '--arms='.implode(',', $armIds),
-            // ≥3 repetições: 1 rep carimbava repetitions_below_min:1<3 em TODO
-            // relatório da Arena — o app media com claim eternamente bloqueado.
-            '--repetitions='.max(1, (int) config('atlas_arena.worker_repetitions', 3)),
-            '--seed=1',
-            '--budget='.$budget,
-            '--max-cases='.$maxCases,
-            // Suites da Arena são todas externas (sem snapshot git por case):
-            // mesmo trilho da battery (FrozenUnitManifest allowSynthetic).
-            '--allow-synthetic-frozen',
-            '--approve-provider-spend', '--json',
-        ], 600);
-        $runId = (string) ($out['run_id'] ?? '');
-        if (($out['status'] ?? '') !== 'ok' || $runId === '') {
-            throw new RuntimeException('arena_drain_plan_failed: '.json_encode($out['error'] ?? ($out['status'] ?? 'unknown')));
-        }
-
-        return $runId;
-    }
-
-    private function executeUnits(string $suite, string $runId): void
-    {
-        $manifestPath = RunPaths::nativeManifestPath($runId);
-        $manifest = json_decode((string) file_get_contents($manifestPath), true);
-        $entries = is_array($manifest) ? (array) ($manifest['entries'] ?? []) : [];
-        if ($entries === []) {
-            throw new RuntimeException('arena_drain_manifest_empty');
-        }
-        $cwd = rtrim((string) config('atlas_rivals.benchmarks.root'), '/').'/'.$suite;
-        foreach ($entries as $entry) {
+    /**
+     * @param array{
+     *   measurement_id:string,suite:string,engine:string,arms:list<string>,
+     *   ids:list<string>,ids_by_arm:array<string,list<string>>
+     * } $group
+     */
+    private function executeUnits(
+        ArenaMeasurementStore $store,
+        ArenaRivalsExecutionService $pipeline,
+        array $group,
+        string $runId
+    ): bool {
+        foreach ($pipeline->manifestEntries($runId) as $entry) {
+            if ($store->measurementHasStatus($group['measurement_id'], 'stopping')) {
+                return true;
+            }
             $executionId = (string) ($entry['execution_id'] ?? '');
             if ($executionId === '') {
                 continue;
             }
             EventStream::append($runId, 'unit_started', ['execution_id' => $executionId, 'source' => 'arena_drain']);
-            $process = new Process([
-                PHP_BINARY,
-                base_path('scripts/rivals-native-runner.php'),
-                '--manifest='.$manifestPath,
-                '--cwd='.$cwd,
-                '--execution-id='.$executionId,
-                '--approve-provider-spend',
-            ], base_path());
-            // Timeout por unidade é do runner (max_seconds do manifest).
-            $process->setTimeout(null);
-            $process->run();
+            $exitCode = $pipeline->runUnit($group['suite'], $runId, $entry);
             EventStream::append($runId, 'unit_finished', [
                 'execution_id' => $executionId,
                 'source' => 'arena_drain',
-                'exit_code' => $process->getExitCode(),
+                'exit_code' => $exitCode,
             ]);
-        }
-    }
-
-    private function finishPipeline(string $runId): void
-    {
-        $import = $this->artisanJson([
-            'atlas:rivals', 'import-results', '--run='.$runId, '--file='.RunPaths::runDir($runId), '--json',
-        ], 600);
-        if (($import['status'] ?? 'ok') === 'error') {
-            throw new RuntimeException('arena_drain_import_failed: '.json_encode($import['error'] ?? 'unknown'));
-        }
-        // Claim pipeline é desejável mas não bloqueia o scoreboard (receipts já
-        // ingeridos); falha aqui vira warning, nunca medição perdida.
-        foreach (['verify', 'adjudicate', 'report'] as $stage) {
-            try {
-                $this->artisanJson(['atlas:rivals', $stage, '--run='.$runId, '--json'], 600);
-            } catch (\Throwable $e) {
-                $this->warn("estágio {$stage} falhou: ".$e->getMessage());
+            if ($store->measurementHasStatus($group['measurement_id'], 'stopping')) {
+                return true;
             }
         }
+
+        return false;
+    }
+
+    private function acknowledgeStop(
+        ArenaMeasurementStore $store,
+        string $measurementId,
+        ?string $runId
+    ): void {
+        if ($runId !== null) {
+            $states = new RunStateMachine;
+            $current = (string) (($states->current($runId)['state'] ?? ''));
+            if (in_array($current, [
+                RunStateMachine::PLANNED,
+                RunStateMachine::PREFLIGHTED,
+                RunStateMachine::NATIVE_RUNNING,
+                RunStateMachine::RESULTS_IMPORTED,
+                RunStateMachine::EVIDENCE_BUILT,
+                RunStateMachine::VERIFIED,
+            ], true)) {
+                $states->cancel($runId, 'arena_operator_stop');
+            }
+            EventStream::append($runId, 'arena_measurement_stopped', [
+                'measurement_id_public' => $measurementId,
+                'source' => 'arena_drain',
+            ]);
+        }
+        $store->acknowledgeMeasurementStop($measurementId, now()->toIso8601String());
     }
 
     /**
-     * @param  list<string>  $args
-     * @return array<string, mixed>
+     * @param array{
+     *   measurement_id:string,suite:string,engine:string,arms:list<string>,
+     *   ids:list<string>,ids_by_arm:array<string,list<string>>
+     * } $group
+     * @param  list<string>  $claimed
+     * @return array{
+     *   measurement_id:string,suite:string,engine:string,arms:list<string>,
+     *   ids:list<string>,ids_by_arm:array<string,list<string>>
+     * }
      */
-    private function artisanJson(array $args, int $timeout): array
+    private function restrictGroupToClaimedIds(array $group, array $claimed): array
     {
-        $process = new Process(array_merge([PHP_BINARY, base_path('artisan')], $args), base_path());
-        $process->setTimeout($timeout);
-        $process->run();
-        $decoded = json_decode(trim((string) $process->getOutput()), true);
-        if (! is_array($decoded)) {
-            // Artisan pode renderizar exceção no stdout com exit 0 — sem JSON
-            // é falha, e o motivo real (stdout+stderr) vai no erro.
-            throw new RuntimeException(
-                'arena_drain_stage_failed: '.implode(' ', $args)
-                .' :: '.mb_substr(trim((string) $process->getOutput()."\n".(string) $process->getErrorOutput()), 0, 300)
-            );
+        $group['ids'] = array_values(array_intersect($group['ids'], $claimed));
+        foreach ($group['ids_by_arm'] as $arm => $ids) {
+            $group['ids_by_arm'][$arm] = array_values(array_intersect($ids, $claimed));
+            if ($group['ids_by_arm'][$arm] === []) {
+                unset($group['ids_by_arm'][$arm]);
+            }
         }
+        $group['arms'] = array_values(array_filter(
+            $group['arms'],
+            fn (string $arm): bool => isset($group['ids_by_arm'][$arm])
+        ));
 
-        return $decoded;
+        return $group;
+    }
+
+    /** @param list<string> $ids */
+    private function terminalReceiptHash(
+        array $ids,
+        string $status,
+        string $at,
+        ?string $failureCode = null
+    ): string {
+        sort($ids);
+
+        return hash('sha256', json_encode(array_filter([
+            'run_ids_public' => $ids,
+            'status' => $status,
+            'finished_at' => $at,
+            'failure_code' => $failureCode,
+        ], static fn ($value): bool => $value !== null), JSON_UNESCAPED_SLASHES));
+    }
+
+    private function failureCode(\Throwable $error): string
+    {
+        $message = $error->getMessage();
+
+        return match (true) {
+            str_contains($message, '_runtime_unsupported') => 'with_atlas_runtime_unsupported',
+            str_contains($message, 'arena_drain_plan_') => 'plan_failed',
+            str_contains($message, 'arena_drain_manifest_'),
+            str_contains($message, 'native_runner') => 'native_execution_failed',
+            str_contains($message, 'arena_drain_import_'),
+            str_contains($message, 'arena_drain_stage_') => 'pipeline_failed',
+            default => 'internal_error',
+        };
     }
 }

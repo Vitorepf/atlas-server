@@ -122,6 +122,8 @@ class ExternalUpliftIngestTest extends TestCase
                         'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
                         'status' => 'passed',
                         'real_provider' => true,
+                        'atlas_runtime' => true,
+                        'execution' => 'atlas_cli_dev_efficient',
                         'provider' => 'hermes_cli',
                         'model' => 'kimi-k2.7',
                         'fair_mode' => [

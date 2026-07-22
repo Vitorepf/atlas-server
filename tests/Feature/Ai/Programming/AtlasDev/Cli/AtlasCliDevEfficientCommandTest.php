@@ -240,6 +240,48 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         $this->assertFalse((bool) data_get($contract, 'provider_lock.fallback_allowed'));
     }
 
+    public function test_rivals_artifact_target_becomes_the_explicit_allowed_file(): void
+    {
+        $this->bindFakeRunExecutor();
+        $previousRuntime = getenv('ATLAS_RIVALS_RUNTIME_EXECUTION');
+        $previousTarget = getenv('ATLAS_RIVALS_ARTIFACT_TARGET');
+        putenv('ATLAS_RIVALS_RUNTIME_EXECUTION=true');
+        putenv('ATLAS_RIVALS_ARTIFACT_TARGET=decision.md');
+
+        try {
+            $output = $this->captureJsonRun([
+                'task' => ['Write only the proposed Decision content to decision.md.'],
+                '--workspace' => $this->tmpWorkspace,
+                '--efficient' => true,
+                '--ai' => 'hermes',
+                '--model' => 'kimi-k2.7',
+                '--single-provider' => true,
+                '--no-decide' => true,
+                '--fallback-disabled' => true,
+                '--json' => true,
+            ]);
+        } finally {
+            putenv($previousRuntime === false
+                ? 'ATLAS_RIVALS_RUNTIME_EXECUTION'
+                : 'ATLAS_RIVALS_RUNTIME_EXECUTION='.$previousRuntime);
+            putenv($previousTarget === false
+                ? 'ATLAS_RIVALS_ARTIFACT_TARGET'
+                : 'ATLAS_RIVALS_ARTIFACT_TARGET='.$previousTarget);
+        }
+
+        $payload = json_decode($output, true);
+        $this->assertSame(['decision.md'], $payload['allowed_files'] ?? null);
+        $runId = (string) ($payload['run_id'] ?? '');
+        $envelope = $this->app->make(ReceiptStorage::class)->read(
+            $runId,
+            ArtifactNames::OPERATION_ENVELOPE,
+        );
+        $this->assertContains(
+            'allowed_files=decision.md',
+            $envelope['user_constraints'] ?? [],
+        );
+    }
+
     public function test_efficient_review_route_returns_deterministic_diff_finding(): void
     {
         $this->bindFakeRunExecutor();

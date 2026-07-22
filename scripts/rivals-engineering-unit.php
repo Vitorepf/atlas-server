@@ -85,6 +85,7 @@ if (array_key_exists('plan', $options)) {
 
 $pythonCandidates = [
     getcwd().'/.venv/bin/python',
+    getcwd().'/library_based_code_generation/.venv/bin/python',
     getcwd().'/.atlas-venv/bin/python',
     '/opt/homebrew/bin/python3',
     '/usr/bin/python3',
@@ -112,6 +113,27 @@ $prepare->run();
 if (! $prepare->isSuccessful() || ! is_file($promptFile)) {
     fwrite(STDERR, trim($prepare->getErrorOutput()."\n".$prepare->getOutput())."\n");
     exit(1);
+}
+$prepared = json_decode(trim($prepare->getOutput()), true);
+$artifactTarget = is_array($prepared)
+    ? (string) ($prepared['artifact_target'] ?? '')
+    : '';
+$workspacePrefix = rtrim($workspace, '/').'/';
+if ($artifactTarget === '' || ! str_starts_with($artifactTarget, $workspacePrefix)) {
+    fwrite(STDERR, "{$suite}_engineering_native_artifact_target_invalid\n");
+    exit(1);
+}
+$artifactTarget = substr($artifactTarget, strlen($workspacePrefix));
+if ($artifactTarget === ''
+    || str_starts_with($artifactTarget, '/')
+    || str_contains($artifactTarget, '..')
+    || str_contains($artifactTarget, ',')
+    || preg_match('/\A[A-Za-z0-9._\/-]{1,512}\z/', $artifactTarget) !== 1) {
+    fwrite(STDERR, "{$suite}_engineering_native_artifact_target_invalid\n");
+    exit(1);
+}
+if ($runtime === 'atlas_dev') {
+    $solverArgv[] = '--artifact-target='.$artifactTarget;
 }
 
 foreach ([
@@ -186,9 +208,15 @@ if (! $evaluate->isSuccessful()
     exit(1);
 }
 $valid = ($evaluation['valid_result'] ?? false) === true;
-$failureReason = $valid
+$measurementType = (string) ($evaluation['measurement_type'] ?? 'binary');
+$benchmarkPass = ($evaluation['benchmark_pass'] ?? $valid) === true;
+$measuredStatus = $valid && ($measurementType === 'continuous' || $benchmarkPass)
+    ? 'success'
+    : 'failure';
+$failureReason = $measuredStatus === 'success'
     ? null
-    : trim((string) ($evaluation['failure_reason'] ?? 'native_evaluator_rejected_result'));
+    : trim((string) ($evaluation['failure_reason']
+        ?? ($valid ? 'native_benchmark_failed' : 'native_evaluator_rejected_result')));
 $payload = [
     'schema_version' => 'atlas.rivals2.engineering_native_unit.v1',
     'suite_id' => $suite,
@@ -197,10 +225,10 @@ $payload = [
         'case_id' => (string) $case['case_id'],
         'repetition' => $repetition,
         'task_type' => (string) $case['task_type'],
-        'status' => $valid ? 'success' : 'failure',
-        'failure_class' => $valid ? null : 'model_failure',
+        'status' => $measuredStatus,
+        'failure_class' => $measuredStatus === 'success' ? null : 'model_failure',
         'failure_reason' => $failureReason,
-        'measurement_type' => (string) ($evaluation['measurement_type'] ?? 'binary'),
+        'measurement_type' => $measurementType,
         'score_metric' => (string) ($evaluation['score_metric'] ?? 'success'),
         'score' => $evaluation['score'] ?? null,
         'native_metrics' => (array) ($evaluation['native_metrics'] ?? []),
@@ -225,7 +253,8 @@ echo json_encode([
     'suite_id' => $suite,
     'case_id' => $case['case_id'],
     'runtime' => $runtime,
-    'status' => $valid ? 'measured' : 'model_failure',
+    'status' => $valid ? 'measured' : 'invalid_result',
+    'benchmark_status' => $measuredStatus,
     'score' => $evaluation['score'] ?? null,
     'tokens_in' => $tokensIn,
     'tokens_out' => $tokensOut,

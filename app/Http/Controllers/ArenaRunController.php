@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\Ai\Arena\ArenaCapabilityProfileService;
 use App\Services\Ai\Arena\ArenaCompositeService;
+use App\Services\Ai\Arena\ArenaMeasurementControlService;
+use App\Services\Ai\Arena\ArenaReportService;
 use App\Services\Ai\Arena\ArenaRunsLiveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,9 +39,26 @@ class ArenaRunController extends Controller
         return response()->json($service->engines());
     }
 
+    public function report(ArenaReportService $service): JsonResponse
+    {
+        $result = $service->report();
+
+        return response()->json($result['payload'], $result['status_code']);
+    }
+
     public function store(Request $request, ArenaRunsLiveService $service): JsonResponse
     {
         $result = $service->start($request->all());
+
+        return response()->json($result['payload'], $result['status_code']);
+    }
+
+    public function stop(
+        string $measurement,
+        Request $request,
+        ArenaMeasurementControlService $service
+    ): JsonResponse {
+        $result = $service->stop($measurement, $request->all());
 
         return response()->json($result['payload'], $result['status_code']);
     }

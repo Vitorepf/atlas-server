@@ -75,6 +75,7 @@ class AtlasDevBridgeTest extends TestCase
             '--workspace='.$this->workspace,
             '--prompt-file='.$this->workspace.'/.rivals_task.md',
             '--model=kimi-k2.7',
+            '--artifact-target=decision.md',
             '--timeout=1801',
             '--dry-run',
         ], base_path());
@@ -96,6 +97,10 @@ class AtlasDevBridgeTest extends TestCase
         $this->assertSame(
             '1801',
             data_get($payload, 'runtime_env.ATLAS_AI_HERMES_TIMEOUT_SECONDS'),
+        );
+        $this->assertSame(
+            'decision.md',
+            data_get($payload, 'runtime_env.ATLAS_RIVALS_ARTIFACT_TARGET'),
         );
     }
 
@@ -127,6 +132,18 @@ class AtlasDevBridgeTest extends TestCase
         $this->assertContains('verboo', $payload['argv']);
         $this->assertNotContains('--provider=claude_cli', $payload['argv']);
         $this->assertNotContains('--provider=codex_cli', $payload['argv']);
+    }
+
+    public function test_empty_patch_plan_is_recorded_as_a_model_failure_not_environment(): void
+    {
+        $bridge = File::get(base_path('scripts/rivals-atlas-dev-bridge.php'));
+
+        $this->assertStringContainsString('$emptyPatchPlan =', $bridge);
+        $this->assertStringContainsString("'model_empty_patch_plan'", $bridge);
+        $this->assertStringContainsString(
+            "str_contains(\$providerError, 'candidate_preparation_blocked')",
+            $bridge,
+        );
     }
 
     public function test_bare_bridge_locks_verboo_provider_and_same_kimi_model(): void

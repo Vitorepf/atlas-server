@@ -226,6 +226,7 @@ class AtlasRivalsCommand extends Command
                     $fast,
                     $onlySuites,
                     (string) ($this->option('profile') ?: 'fase_a'),
+                    (int) $this->option('repetitions'),
                 );
             } catch (\Throwable $e) {
                 return [
@@ -244,6 +245,7 @@ class AtlasRivalsCommand extends Command
                     (bool) $this->option('approve-provider-spend'),
                     $fast,
                     (string) ($this->option('profile') ?: 'fase_a'),
+                    (int) $this->option('repetitions'),
                 );
             } catch (\Throwable $e) {
                 return ['status' => 'error', 'error' => $e->getMessage()];
@@ -255,6 +257,7 @@ class AtlasRivalsCommand extends Command
                 $mode,
                 $fast,
                 (string) ($this->option('profile') ?: 'fase_a'),
+                (int) $this->option('repetitions'),
             ) + ['status' => 'ok'];
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
