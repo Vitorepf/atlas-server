@@ -39,11 +39,15 @@ final class KernelTriadF0CharacterizationTest extends TestCase
         $report = app(KernelArchitectureStaticScanner::class)->complianceReport();
         $keys = array_values(array_filter(array_keys($report), static fn (string $key): bool => $key !== 'ok'));
 
+        // GOD-DEBULK FASE C: check-key SET+count frozen; order de-pinned (families extracted to *Audit and merged).
+        $sorted = $keys;
+        sort($sorted);
+
         self::assertTrue($report['ok']);
         self::assertCount(166, $keys);
-        self::assertSame('c82ec2c090095aa812e2c808066276d794c672a50427b4b84ab04337dc9aa085', hash('sha256', json_encode($keys, JSON_THROW_ON_ERROR)));
-        self::assertSame(['ap1_surface_provider_bypass', 'ap2_surface_context_bypass', 'ap6_decision_receipt_propagation'], array_slice($keys, 0, 3));
-        self::assertSame(['ap169_personal_worked_example_privacy_contract', 'ap170_predictive_failure_governance_contract', 'ap201_runtime_language_boundary_contract'], array_slice($keys, -3));
+        self::assertSame('b6c4f8f8f742ed9f04737f5b8e00b3212be8a55971a93b94f2266a0b21a60f06', hash('sha256', json_encode($sorted, JSON_THROW_ON_ERROR)));
+        self::assertSame(['ap100_context_pack_manifest_reflection_contract', 'ap101_context_retrieval_router_contract', 'ap102_open_brain_retrieval_plan_summary_contract'], array_slice($sorted, 0, 3));
+        self::assertSame(['ap97_scheduler_input_contract', 'ap98_self_improvement_input_contract', 'ap99_provider_usage_performance_contract'], array_slice($sorted, -3));
         foreach ($keys as $key) {
             self::assertSame(['valid', 'violations'], array_keys($report[$key]));
             self::assertTrue($report[$key]['valid'], $key);
