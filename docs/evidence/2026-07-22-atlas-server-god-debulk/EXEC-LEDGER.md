@@ -4,39 +4,40 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0188 probe status-envelope contradictions closed
+phase: A1-SC-0189 global queue false-progress classification closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: multi-agent-loop probe runner fail-closed status boundary
-finding_id: A1-SC-0188
-action_op: test-first status conjunction for computed verifications
+focus: multi-agent-loop parallelism productivity boundary
+finding_id: A1-SC-0189
+action_op: test-first per-worker productivity classification repair
 queue_index: 6
-last_commit: df26c61e7
+last_commit: 5482d21f2
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=status_envelopes_fail_closed_when_a_computed_verification_is_false
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=global_queue_movement_does_not_hide_zero_worker_productivity
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
-  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   git diff --check
 before_after: |
-  red: a public fleet-launch probe returned available while its real health-digest snapshot was made inconsistent so lane_bound_commands_verified was false.
-  green: bootstrap, fleet launch, fleet resume, and fleet evidence envelopes return available only when every verification they calculate is true.
+  red: a real snapshot with one active stale worker and queue 10 to 6 returned partial_parallelism.
+  green: zero productive eligible workers always return fake_parallelism; global queue depth remains telemetry only.
 stdout: |
-  red_characterization: FAIL 1 test, expected blocked but got available after a real digest's lane-isolation field was corrupted
-  runner_unit_plus_feature: PASS 34 tests, 150 assertions
-  php_lint: PASS source plus changed feature test
+  red_characterization: FAIL 2 tests, expected fake_parallelism but got partial_parallelism
+  runner_unit_plus_feature: PASS 34 tests, 154 assertions
+  php_lint: PASS source plus changed Unit and Feature tests
   source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
-  feature_pint: PASS
-  loc_check: probe_runner=1443
+  unit_and_feature_pint: PASS
+  loc_check: probe_runner=1442
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Status characterization runs each affected public probe and constructs its base health digest through the real digest service before altering only the returned verification field; it exercises runner status logic without reflection.
+  Classification characterization executes the public pure probe with one real active stale worker; it proves queue movement cannot stand in for an unbound per-worker signal.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
-  The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0188.
+  The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -1474,6 +1475,39 @@ boundary:
   - organizational re-home only; skill structure creation, Vault reads, frontmatter parsing, slug resolution, prompt construction, and provider identity projection are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - production and test consumers use the Skills owner directly; canonical docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 49 — A1-SC-0189 reject global queue false progress, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 5482d21f2
+subject: "refactor(core): GOD-DEBULK reject global queue false progress"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=global_queue_movement_does_not_hide_zero_worker_productivity
+  result: "FAIL 2 tests: one active stale worker with queue 10->6 incorrectly returned partial_parallelism."
+green:
+  behavior: "fake_parallelism is returned whenever eligible active workers have zero per-worker productivity; unrelated queue depth movement cannot create partial progress."
+  characterization: "The public pure probe executes the documented one-worker snapshot and asserts status, productive set, stale set, and queue-depth telemetry."
+verification:
+  focused_unit_and_feature: "PASS 2 tests, 8 assertions"
+  runner_unit_and_feature: "PASS 34 tests, 154 assertions"
+  php_lint: "PASS source and changed Unit plus Feature tests"
+  unit_and_feature_pint: PASS
+  source_pint: "NOT GREEN: existing full-file host formatting drift; no broad reformatting applied"
+  diff_check: PASS
+  loc: "probe_runner=1442 (<2000)"
+  certification_feature_suite: "NOT GREEN: 10 pre-existing multi_agent_loop serving-tag contradictions recorded in EXEC-DEBTS."
+boundary:
+  - no storage, provider, token, dispatch, completion, or recovery path is executed by the pure classifier
+  - queue depth remains output telemetry and is not treated as worker-bound progress evidence
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
