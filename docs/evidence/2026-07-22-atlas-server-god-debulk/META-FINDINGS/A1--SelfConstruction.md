@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 18
+files_scanned: 19
 files_total: 1210
-lines_scanned: 108596
+lines_scanned: 109863
 ```
 
 ## Files
@@ -3859,12 +3859,228 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+loc: 1267
+kind: persistent_terminal_fleet_certification_probe_suite_plus_unwired_parallelism_classifier
+intent_axes: [1, 2, 3, 4, 6, 7, 10, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 35, 37, 38, 39, 40, 41, 42, 43, 49, 50, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0185
+    type: godfile
+    severity: s1
+    detail: "A 1,267-LOC probe runner exposes 13 public operations and combines persistent bootstrap/claim/completion probes, fleet launch planning, partial-supply and lane isolation, orphan/released recovery, evidence rollup, preview and invalid-scope checks, plus a pure parallelism classifier. It is an orchestration test system and telemetry policy bundled behind one runtime collaborator, not one probe owner."
+    evidence:
+      - "wc -l => 1,267; source bytes => 81,230"
+      - "17 methods total: constructor, 13 public operations and three private closure proxies"
+      - "terminal persistence probes span lines 80-1130; unrelated pure parallelism classifier spans lines 1132-1265"
+  - id: A1-SC-0186
+    type: false_abstraction
+    severity: s1
+    detail: "The extraction is bidirectional and preserves the old public surface. The parent retains twelve public delegators, constructs this runner manually, and injects three Closures that call private helpers left on the parent; this runner also imports its public constant from the parent. The split added a second API surface without establishing a one-way owner boundary."
+    evidence:
+      - "runner constant aliases AgentControlPlaneMultiAgentLoopCertificationService::SYNTHETIC_FILE_NAMESPACE: line 33"
+      - "three Closure dependencies and proxy methods: lines 36-77"
+      - "parent retains twelve public forwards: certification service lines 893-953"
+      - "parent lazy factory closes back over private helpers: certification service lines 956-965"
+  - id: A1-SC-0187
+    type: bug
+    severity: s0
+    detail: "Public methods called probes perform real shared-storage mutations: enqueue task packets, claim and release leases, complete dry-runs, recover queue state, and explicitly delete a lease file to manufacture an orphan. Cleanup exists only later in the parent certify happy path and is not protected by finally; direct public calls or any exception before that point can leave synthetic tasks, receipts, released claims, or orphaned registry state in the live local control plane."
+    evidence:
+      - "seven prepareAndEnqueue calls, two direct queue enqueue calls, three claimNext calls, two completeDryRun calls, one releaseLease call and two recovery writer calls"
+      - "resume-rollup probe deletes the claimed lease JSON directly: lines 722-728"
+      - "all mutating methods are public by implicit visibility at lines 80-1130 and forwarded publicly by the parent"
+      - "parent cleanup occurs only after all probes and cycles, without try/finally: certification service lines 77-195"
+  - id: A1-SC-0188
+    type: bug
+    severity: s1
+    detail: "Four probe statuses ignore critical booleans the same method computes. Bootstrap can be available with invalid/out-of-scope completion evidence; fleet launch can be available while lane isolation, cycle supervisor, or runbook verification is false; resume can be available with the wrong operator handoff; evidence rollup can be available with a failed cycle-supervisor review path. The parent currently adds separate invariants, but each public probe envelope is independently contradictory and reusable."
+    evidence:
+      - "bootstrap computes evidence validity/scope counts at lines 194-209 but omits them from status predicate lines 266-284"
+      - "fleet launch status uses readyPathVerified only, while returning three additional verification booleans: lines 410-458"
+      - "resume status uses recoveryPathVerified only and omits operatorHandoffRecoveryPriorityVerified: lines 740-774"
+      - "evidence status uses greenPathVerified only and omits cycleSupervisorEvidenceReviewPathVerified: lines 983-1017"
+  - id: A1-SC-0189
+    type: bug
+    severity: s1
+    detail: "probeParallelism labels a snapshot partial_parallelism when active workers have zero per-worker productivity but the global queue depth decreased. That contradicts the documented definition that partial means some but not all active workers are productive, and lets unrelated queue movement mask the exact fake-parallelism condition this method claims to detect."
+    evidence:
+      - "queue movement is global and not bound to worker, lane, lease, report or outcome: lines 1180-1187"
+      - "match falls to partial when productiveCount=0 and queueMovedGlobally=true: lines 1248-1253"
+      - "controlled input with one active stale worker and queue 10->9 returned partial_parallelism, productive_workers=[], stale_workers=[idle-w1]"
+      - "existing test asserts only not fake for this case, not the documented partial invariant"
+  - id: A1-SC-0190
+    type: dead_code
+    severity: s1
+    detail: "The parallelism classifier described as proof of REAL progress has no application consumer. It is not delegated by AgentControlPlaneMultiAgentLoopCertificationService, not included in certification invariants or release_gate, and is referenced only by the runner's two test files. Thus its 136-line policy and its real/fake statuses do not affect the runtime certification they purport to strengthen."
+    evidence:
+      - "app-wide references to probeParallelism occur only in its declaration"
+      - "parent forwards the twelve terminal methods but not probeParallelism: certification service lines 893-953"
+      - "all runtime call sites found for probeParallelism are in two duplicated tests"
+  - id: A1-SC-0191
+    type: bug
+    severity: s1
+    detail: "Worker identity and ownership are fail-open inputs. Missing runtime_owner defaults to atlas_native, blank worker_id is accepted into active/productive lists, duplicate IDs are not rejected, and caller-supplied lease/report/freshness signals have no common window or identity binding. A malformed or duplicated snapshot can therefore report real_parallelism without proving distinct Atlas workers."
+    evidence:
+      - "runtime_owner defaults to atlas_native and worker_id defaults empty: lines 1192-1194"
+      - "active/productive arrays append workerId without nonempty or uniqueness checks: lines 1234-1241"
+      - "real status compares counts only, not distinct identities: lines 1248-1253"
+      - "no timestamp, lane, lease id, report window id, source hash or snapshot version is required by the input contract"
+  - id: A1-SC-0192
+    type: doc_lie
+    severity: s1
+    detail: "The preview probe claims read_only_verified by comparing only queue total_count and active lease count before/after. It does not compare task/lease identities, statuses, hashes, receipts, registry content, or file sets, so an in-place mutation, swap, release/reclaim, or receipt append that preserves both counts passes as read-only."
+    evidence:
+      - "before/after observation reads only registry.total_count and count(activeLeases): lines 1025-1040"
+      - "readOnlyVerified equality checks only those two counts plus selected response flags: lines 1042-1051"
+      - "no queue registry hash, lease registry hash, file manifest, receipt count or task payload comparison exists"
+  - id: A1-SC-0193
+    type: perf
+    severity: s2
+    detail: "A single certification constructs seven terminal-loop health digests in this runner, while each digest itself performs repeated queue/lease registry reads and projections. The bootstrap probe also loops full bootstrap and completion per agent. No I/O, file-count, wall-time, RSS, or probe-count budget exists at this boundary, so certification cost grows through nested storage scans."
+    evidence:
+      - "seven new AgentControlPlaneTerminalLoopHealthDigestService constructions"
+      - "244 data_get calls project large nested digest payloads"
+      - "runTerminalBootstrapProbe executes bootstrap and completeDryRun once per probe agent: lines 95-179"
+      - "focused tests spend about nine seconds in three direct one-agent bootstrap probes"
+  - id: A1-SC-0194
+    type: dupe
+    severity: s2
+    detail: "Feature and Unit suites duplicate all 13 Feature test methods, including container wiring, reflection access, worker fixtures, and the same parallelism cases. The Unit file adds only four methods. This creates 569 LOC of overlapping tests with doubled runtime but no independent layer distinction."
+    evidence:
+      - "Unit test file => 317 LOC / 17 test methods"
+      - "Feature test file => 252 LOC / 13 test methods"
+      - "shared test method names => 13; Feature-only methods => 0"
+  - id: A1-SC-0195
+    type: test_gap
+    severity: s1
+    detail: "The focused suites are green but do not behaviorally execute the seven fleet probes, do not force any self-computed verification boolean false while the primary status predicate remains true, do not assert cleanup after direct calls or exceptions, and deliberately accept zero productive workers as merely not fake when the queue moves. Three bootstrap tests mostly inspect key presence and conditional certification_blocked semantics."
+    evidence:
+      - "focused suites => 30 passed / 115 assertions / 11.27s"
+      - "fleet methods appear in tests only inside method_exists delegation lists"
+      - "test_certification_blocked_is_true_when_status_not_available is conditional and proves no available-path implication"
+      - "no test asserts queue/lease/file registries return byte-identically to their pre-probe snapshot"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Make every probe status the conjunction of every advertised verification result, or remove the aggregate status and expose a typed invariant result. Require parallelism to be derived from distinct, nonempty, provider-neutral worker identities and worker-bound events within one versioned window; global queue movement may be supporting evidence but must never manufacture productive workers."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+    acceptance:
+      - "status=available implies every returned *_verified and *_all_valid field is true"
+      - "zero productive workers can never yield partial_parallelism or real_parallelism"
+      - "real_parallelism requires distinct nonempty worker ids and a shared observation-window id"
+  - op: TEST
+    detail: "Replace duplicated layers with focused unit tests for pure predicates and isolated-storage integration tests for every mutating probe. Add failure injection after enqueue/claim/delete/recovery, verify try/finally cleanup, assert complete registry/file snapshots, and cover every status implication including unrelated queue movement and malformed worker identities."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+    acceptance:
+      - "each public mutating probe has green, each blocker, exception and cleanup coverage"
+      - "Unit owns pure classifier/predicate tests; Feature owns storage integration with zero duplicated method bodies"
+      - "post-probe queue and lease manifests equal the pre-probe manifests"
+  - op: SPLIT
+    detail: "Split the persistent probe scenario harness by capability: bootstrap lifecycle, fleet planning/lane isolation, recovery, evidence rollup, and pure parallelism telemetry. Keep scenario orchestration in a test/certification harness rather than one production runtime service and keep each owner below 500 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+      - app/Services/Ai/SelfConstruction/MultiAgentLoopCertification
+    acceptance:
+      - "no class mixes persistent queue mutation with pure telemetry classification"
+      - "each scenario declares setup, invariant matrix and unconditional teardown"
+  - op: OWNER
+    detail: "Assign durable queue/lease mutation to a sandboxed certification scenario owner, cleanup to a mandatory lifecycle boundary, terminal digest assertions to a read-only verifier, and parallelism classification to the runtime telemetry owner that actually consumes it."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/MultiAgentLoopCertification
+    acceptance:
+      - "all persistent probes run through one transaction-like scenario lifecycle with teardown"
+      - "parallelism proof is either wired into one named certification consumer or deleted"
+  - op: EXTRACT
+    detail: "Extract immutable scenario snapshots and typed invariant result objects. Replace closure callbacks into the parent with direct provider-neutral predicate collaborators, and reuse one injected digest verifier instead of constructing service graphs seven times."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/MultiAgentLoopCertification/AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates.php
+    acceptance:
+      - "zero Closure backchannels and zero manual digest construction inside scenario methods"
+      - "every status is generated from one typed invariant collection"
+  - op: DELETE
+    detail: "Delete the duplicate Feature/Unit test layer, eight redundant same-namespace imports, implicit-public formatting, unused probeParallelism policy if no runtime owner adopts it, and public scenario entrypoints that bypass certification cleanup."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+    acceptance:
+      - "one nonduplicated test owner per layer and zero unconsumed public methods"
+      - "mutating scenario helpers are not public outside the cleanup-owning harness"
+  - op: CODEMAP
+    detail: "Map certify -> scenario -> queue/lease/storage mutation -> digest -> invariant -> release gate -> cleanup, including all direct public bypasses. Separately map the intended producer and consumer of parallelism telemetry."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+    acceptance:
+      - "every mutation has a cleanup edge and every invariant has exactly one release-gate consumer"
+      - "no public probe path can bypass cleanup"
+  - op: PERF
+    detail: "Budget certification by scenario count, queue/lease reads and writes, files touched, digest builds, wall time and RSS. Build one scoped state snapshot per phase and pass it to verifiers instead of repeatedly rescanning the same local registries."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+    acceptance:
+      - "digest build and registry scan counts are constant per phase, not multiplied by adjacent assertions"
+      - "the focused certification suite publishes deterministic I/O, time and memory ceilings"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1267
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: f17fac8f890e2ea96b982592d06696fafcf6cb14ed3c5ccc4619810f0919436d
+  source_bytes: 81230
+  method_count: 17
+  public_method_count_including_constructor: 14
+  public_operation_method_count: 13
+  implicit_public_method_count: 12
+  private_method_count: 3
+  import_count: 12
+  redundant_same_namespace_import_count: 8
+  data_get_call_count: 244
+  prepare_and_enqueue_call_count: 7
+  direct_queue_enqueue_call_count: 2
+  bootstrap_call_count: 4
+  claim_next_call_count: 3
+  complete_dry_run_call_count: 2
+  release_lease_call_count: 1
+  recovery_writer_call_count: 2
+  storage_delete_call_count: 1
+  health_digest_construction_count: 7
+  probe_status_omission_method_count: 4
+  direct_app_reference_file_count: 2
+  direct_test_reference_file_count: 2
+  referencing_test_loc: 569
+  unit_test_method_count: 17
+  feature_test_method_count: 13
+  duplicated_test_method_count: 13
+  focused_test_passed_count: 30
+  focused_test_assertion_count: 115
+  focused_test_duration_seconds: 11.27
+  focused_test_real_seconds: 11.78
+  focused_test_max_rss_bytes: 179191808
+  source_history_commit_count: 16
+  controlled_zero_productive_partial_parallelism_reproduced: true
+  application_probe_parallelism_consumer_count: 0
+  next_file_by_loc: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 18 / 1210
-- lines_scanned: 108596
-- s0..s3: 72 / 91 / 21 / 0
+- files_scanned: 19 / 1210
+- lines_scanned: 109863
+- s0..s3: 73 / 99 / 23 / 0
 - intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
