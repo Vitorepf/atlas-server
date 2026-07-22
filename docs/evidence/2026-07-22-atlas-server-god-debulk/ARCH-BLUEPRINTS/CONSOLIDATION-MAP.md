@@ -15,7 +15,7 @@
 | SoftwareCompanyStewardship | 116399 | 280 | ENG-OS-GEMEAS | KEEP | — | dono do operate-path (29+ cmds, schedule wired, AreaFocus=249 files); steward que fiscaliza o Aaeos — substrato+steward, não gêmeas | recorded |
 | AutonomousEvolution | 109588 | 639 | AUTONOMOS | — | — | — | pending |
 | Holding | 44389 | 6 | DOMINIOS | — | — | — | pending |
-| Kernel | 41474 | 159 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Kernel | 41474 | 159 | GOVERNANCA-QUALIDADE | KEEP + SPLIT em blueprint | 3 produtos: Decision-runtime · Evidence-ledger · Architecture-linter | guarda-chuva VERIFICADO: Architecture=26.031 LOC (63%) é linter AP1..AP141; AtlasEvidenceLedger 1.096 LOC/150 callers intocável; Decision 51 callers | proposed |
 | MarketingDomain | 26853 | 180 | DOMINIOS | — | — | — | pending |
 | AgenticEngineeringOs | 26649 | 17 | ENG-CORE | — | — | — | pending |
 | Rivals | 20724 | 70 | DOMINIOS | — | — | — | pending |
@@ -34,7 +34,7 @@
 | Mobile | 8925 | 22 | SUPERFICIES | — | — | — | pending |
 | Cognitive | 8848 | 65 | COGNICAO | KEEP + RENAME | Learning | cross-ref c/ Cognition = 0 VERIFICADO; 73 refs, 11 cmds; runtime de aprendizagem — colisão é de NOME | proposed |
 | LongHorizon | 8678 | 23 | MISSAO | KEEP | — | camada TEOS advisory-only (0 decompositores, 0 mutação); 15 cmds, Canon=18 callers | recorded |
-| Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | KEEP | — | 56 refs, 10 cmds, 2 jobs agendados; dono das métricas/custo/drift | recorded |
 | VentureFoundry | 8117 | 39 | FOUNDRY | KEEP + RENAME (colisão "Foundry") | — | heartbeat agendado VERIFICADO (console.php:153 atlas:venture review-cycle); domínio negócios, não código | proposed |
 | WorkspaceIntelligence | 8059 | 17 | MEMORIA-CONTEXTO | KEEP | — | 43 ext, 4 controllers HTTP, 6 cmds; órgão vivo com superfície própria | recorded |
 | Compounding | 7321 | 40 | APRENDIZADO | — | — | — | pending |
@@ -47,7 +47,7 @@
 | ControlPlane | 4904 | 13 | CONTROL-PLANE | — | — | — | pending |
 | Obra | 4787 | 19 | MISSAO | KEEP | — | motor de materialização Forge; Obra→RealExecution 6 refs (caller, não callee); 9 cmds, seams no provider; handoff mission_type=obra→atlas_forge (linha 279 VERIFICADA) | recorded |
 | Domain | 4695 | 22 | DOMINIOS | — | — | — | pending |
-| Governance | 4687 | 16 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Governance | 4687 | 16 | GOVERNANCA-QUALIDADE | KEEP | — | 113 refs (44 prod-Ai); kernel constitucional fail-closed + admit() como entrada única do stack | recorded |
 | RouterRuntime | 3778 | 14 | ROTEAMENTO | KEEP | — | motor de flow: Canon=18, HyperflowEntry=16 callers ext; owner do "que flow atende" | recorded |
 | OperatorIntelligence | 3665 | 19 | APRENDIZADO | — | — | — | pending |
 | ProgrammingRuntime | 3657 | 12 | ENG-CORE | — | — | — | pending |
@@ -58,10 +58,10 @@
 | Aemor | 2444 | 5 | COGNICAO | KEEP | — | 41 refs ext, 14 cmds; sink de outcome Dev/Forge/Autônomos | recorded |
 | Compression | 2327 | 14 | MEMORIA-CONTEXTO | KEEP | — | biblioteca genérica standalone; consumidor cross-domínio Engineering\CodeGraph VERIFICADO; fundir criaria dep espúria | recorded |
 | RuntimeEfficiency | 2269 | 4 | RUNTIME | KEEP | — | 13 callers ext, binding provider, 5 cmds; governor path/custo | recorded |
-| Arena | 2231 | 7 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Arena | 2231 | 7 | GOVERNANCA-QUALIDADE | KEEP | — | medição viva: controller + drain command operados | recorded |
 | ToolRuntime | 2080 | 15 | RUNTIME | FUSE | Runtime | mock governado (invocation "no external side effects" VERIFICADO); 2 callers; fusão = execução real GOVERNADA c/ receipt | proposed |
 | Surface | 2079 | 15 | SUPERFICIES | — | — | — | pending |
-| Evidence | 2054 | 17 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Evidence | 2054 | 17 | GOVERNANCA-QUALIDADE | KEEP | — | workflow de certs/claims sobre Eloquent (25 refs); NÃO é o ledger canônico (esse mora em Kernel/Evidence) | recorded |
 | AutonomousEngineering | 1897 | 4 | ENG-CORE | — | — | — | pending |
 | AutomationDomain | 1869 | 16 | DOMINIOS | — | — | — | pending |
 | Cyber | 1742 | 14 | DOMINIOS | — | — | — | pending |
@@ -69,7 +69,7 @@
 | AgenticWorkcell | 1699 | 3 | EXEC-INFRA | KEEP | — | 8 callers ext, binding WorkcellAdapter; concern paralelismo próprio | recorded |
 | DomainRuntime | 1574 | 10 | DOMINIOS | — | — | — | pending |
 | Strategy | 1527 | 13 | DOMINIOS | — | — | — | pending |
-| Policy | 1474 | 10 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Policy | 1474 | 10 | GOVERNANCA-QUALIDADE | KEEP | — | fonte de verdade do léxico (31 refs, 12 prod); base do stack | recorded |
 | Skills | 1450 | 8 | SKILLS | — | — | — | pending |
 | Patamar4 | 1428 | 6 | MISC | — | — | — | pending |
 | Support | 1413 | 12 | MISC | — | — | — | pending |
@@ -78,7 +78,7 @@
 | ResearchDomain | 1291 | 10 | DOMINIOS | — | — | — | pending |
 | ContextIntelligence | 1205 | 5 | MEMORIA-CONTEXTO | FUSE | Context (Context\Intelligence) | dependência 1-via VERIFICADA (só docblocks no reverso); ciclo construir→avaliar→certificar num dono | proposed |
 | Scheduling | 1190 | 6 | EXEC-INFRA | — | — | — | pending |
-| AgentGovernance | 1159 | 12 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| AgentGovernance | 1159 | 12 | GOVERNANCA-QUALIDADE | KEEP + RECLASSIFICAR (fleet-ops) | — | é a babá/reconciler de fleet (atlas:agents:on/off), 0 callers no pipeline de permissão — rótulo errado, não fusão | recorded |
 | AutonomousWorkExecution | 1152 | 2 | AUTONOMOS | — | — | — | pending |
 | SelfDirectedEvolution | 1114 | 3 | AUTONOMOS | — | — | — | pending |
 | StrategicReality | 1080 | 2 | REALITY | — | — | — | pending |
@@ -86,7 +86,7 @@
 | SpecialistFlows | 1052 | 13 | SKILLS | — | — | — | pending |
 | VerifiedExecution | 1044 | 2 | EXEC-INFRA | FUSE | RealExecution | ledger paralelo VERIFICADO: 6 models AtlasAver* vs 8 AiRealExecution*; 9 callers; fusão = linhagem única de evidência | proposed |
 | Concerns | 1027 | 3 | MISC | — | — | — | pending |
-| OperatorApproval | 1017 | 4 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| OperatorApproval | 1017 | 4 | GOVERNANCA-QUALIDADE | KEEP + dedup | importar PolicyCanon::RISK_LEVELS | RISK_LEVELS copiado VERIFICADO (3 files); camada acima da PolicyCanon por design | proposed |
 | RealitySandbox | 1003 | 2 | REALITY | — | — | — | pending |
 | IntelligenceFactory | 982 | 2 | FOUNDRY | FUSE | Foundry (Capability Foundry) | duplica capability_gap sob schema paralelo, 0 cross-import VERIFICADO; advise() vivo no Hyperflow L171 VERIFICADO — fusão = identidade única de gap servindo build/buy/borrow E auto-evolução | proposed |
 | PersistentContext | 977 | 2 | MEMORIA-CONTEXTO | FUSE | Context (ContextRuntimeService) | falso amigo: é runtime de CONTEXTO; 12 ext; coeso mas mal-alocado | proposed |
@@ -125,7 +125,7 @@
 | Tokens | 275 | 2 | TRANSPORTE | — | — | — | pending |
 | RuntimeReleaseGate | 263 | 1 | RUNTIME | FUSE | RuntimeReadiness | wrapper puro — docblock "delega 100%" VERIFICADO; 2 callers ext | proposed |
 | Streaming | 167 | 1 | TRANSPORTE | — | — | — | pending |
-| Instrumentation | 155 | 1 | GOVERNANCA-QUALIDADE | — | — | — | pending |
+| Instrumentation | 155 | 1 | GOVERNANCA-QUALIDADE | QUARANTINE | FUSE→Telemetry se tocar | 1 arquivo/155 LOC, 1 command único consumidor; rg≠0 → não KILL | proposed |
 | MemoryGovernance | 148 | 3 | MEMORIA-CONTEXTO | FUSE | Memory (Memory\Governance) | consumidor único VERIFICADO (só AtlasMemoryGovernanceService); 3 scorers puros | proposed |
 | Security | 55 | 1 | DOMINIOS | — | — | — | pending |
 | (root singles Ai/*.php) | — | 95 | ROOT-SINGLES | — | — | — | pending |
