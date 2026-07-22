@@ -3,8 +3,8 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: record
-cluster_atual: SUPERFICIES · DOMINIOS · EXEC-INFRA/CP/FORGE/MISC (3 analistas)
-blocos_classificados: 94   # de 129 (+11 SUPERFICIES: 10 KEEP, 1 QUARANTINE)
+cluster_atual: ROOT-SINGLES + NON-AI (2 analistas finais)
+blocos_classificados: 119   # de 129 (+11 EXEC/CP/FORGE/MISC +14 DOMINIOS) — falta ROOT-SINGLES + non-Ai
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
 needs_operator:
@@ -19,6 +19,8 @@ needs_operator:
   - "Aprovar ENG-CORE: FUSE ProgrammingRuntime→Programming · FUSE AEOS+AutonomousEngineering→AutonomousOs (bloqueado até split do godfile UniversalGates 21.6k, que tem só 3 callers)"
   - "Aprovar APRENDIZADO/REALITY/SKILLS: FUSE Learning→Compounding (ANTES do rename Cognitive→Learning — colisão de namespace) · FUSE-colocação StrategicReality→RealitySandbox · RENAME Reality→RealityGraph · QUARANTINE SpecialistFlows"
   - "Aprovar SUPERFICIES: QUARANTINE bloco Operator (0 callers prod, só testes AcosMax)"
+  - "Aprovar FORGE-resíduo: KILL 4 classes rg=0 duplo-verificado (Ai/Forge 2 + AtlasForge 2) · FUSE coordinator+replay→Programming/Forge · dissolver 2 dirs"
+  - "Aprovar DOMINIOS: FUSE Domain/ (22 files de indireção) · QUARANTINE Rivals 1.0 (Adapters/External + NativeResultNormalizer c/ teste) · QUARANTINE StrategicOS (condição: Strategy cobre)"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
 last_review: null
 last_commit: 27999d6c4
@@ -26,6 +28,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  EXEC/FORGE/DOMINIOS: 4 KILLs confirmados rg=0 --no-ignore em app+tests; 1 REBAIXADO (NativeResultNormalizer tem teste); Security scanner protegido (2 callers)
   SUPERFICIES 2/2 (Operator 4 testes-only exato, HumanSurface vivo no IntentKernel)
   APR/REAL/SKILLS 3/3 (proposal direto L797, SpecialistFlows 0 refs, Sandbox injeta Strategic L48)
   ENG-CORE 3/3 exatos (godfile 3 callers, Programming 0 refs AEOS/AE, seam L18)
