@@ -4,32 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0149 terminal digest dynamic-property repair recorded
+phase: A1-SC-0157 zero-budget replenishment guard recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: terminal digest lazy collaborator declaration
-finding_id: A1-SC-0149
-action_op: test-first PHP 8.5 dynamic-property removal
+focus: terminal digest zero-budget replenishment selection
+finding_id: A1-SC-0157
+action_op: test-first zero-budget no-op suppression
 queue_index: 6
-last_commit: c6bb04469
+last_commit: 3df436e24
 godfiles_gt_2000_in_focus: 40
 commands: |
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_zero_max_new_tasks_blocks_replenishment_without_selecting_a_noop_command
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: the first public digest() emitted PHP 8.5 dynamic-property deprecations for payloadNormalizer and commandComposer.
-  green: both lazy collaborators are declared typed state, so digest() initializes them without its own dynamic-property warnings.
+  red: public digest() reported fleet_replenishment_required for a three-task supply gap while max_new_tasks=0 bounded the actionable count to zero.
+  green: the plan reports fleet_replenishment_blocked_max_new_tasks_zero and both handoff and supervisor recheck the digest instead of selecting the guaranteed no-op replenish command.
 stdout: |
-  focused_dynamic_property_contract: PASS (1 test, 2 assertions)
-  digest_unit_suite: PASS (17 tests, 52 assertions)
+  focused_zero_budget_contract: PASS (1 test, 9 assertions)
+  digest_unit_suite: PASS (18 tests, 61 assertions)
   php_lint: PASS source plus changed unit test
-  loc_check: terminal_loop_health_digest=1631
+  loc_check: terminal_loop_health_digest=1636
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The error handler also observed AgentControlPlaneTaskPacketQueueRepository::$registryIndexStore dynamic-property creation. It is outside this finding's owner and was recorded as one explicit EXEC-DEBTS debt, not suppressed as a green result.
+  max_new_tasks=0 is now an executable plan blocker, not merely a textual stop condition. The public contract follows the plan through handoff, supervisor, and launch runbook without invoking private methods.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -1056,6 +1058,37 @@ boundary:
   - fixes only dynamic state created by the digest's commandComposer and payloadNormalizer factories
   - the same public call exposed AgentControlPlaneTaskPacketQueueRepository.registryIndexStore dynamic-property debt; it was recorded in EXEC-DEBTS and remains outside this owner
   - no queue, lease, provider, token, or mutation behavior changed
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 37 — A1-SC-0157 block zero-budget replenishment, 2026-07-22
+
+```yaml
+finding: A1-SC-0157
+commit: 3df436e24
+subject: "refactor(core): GOD-DEBULK block zero-budget replenishment"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_zero_max_new_tasks_blocks_replenishment_without_selecting_a_noop_command
+  result: "FAIL 1 test, 3 assertions: public digest() classified a three-task gap as fleet_replenishment_required even though max_new_tasks=0 bounded the actionable task count to zero."
+green:
+  behavior: "a zero task budget now produces fleet_replenishment_blocked_max_new_tasks_zero, should_replenish_now=false, and handoff/supervisor recheck the read-only digest rather than selecting the --max-new-tasks=0 replenish command."
+  characterization: "the test executes public digest() and reads the replenishment plan, operator handoff, cycle supervisor, and launch runbook; it invokes no private helper."
+verification:
+  focused_zero_budget_contract: "PASS 1 test, 9 assertions"
+  digest_unit_suite: "PASS 18 tests, 61 assertions"
+  php_lint: "PASS source and changed unit test"
+  loc: "terminal_loop_health_digest=1636 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - changes only the replenishment-plan state when the requested supply gap has a zero bounded task budget
+  - leaves queue reads, leases, command synthesis, provider calls, token spend, and all mutations unchanged
+  - the replenishment command remains an observable command string but is no longer selected by plan-driven handoff, supervisor, or runbook in this blocked state
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
