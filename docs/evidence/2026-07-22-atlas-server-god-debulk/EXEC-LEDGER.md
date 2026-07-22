@@ -68,3 +68,26 @@ verification:
   lint: /opt/homebrew/bin/php -l on all three changed tests PASS; vendor/bin/pint --test on all three changed tests PASS
   diff_check: git diff --check PASS
 ```
+
+## RuntimeExecution F0 review-correction receipt — 2026-07-22
+
+```yaml
+primary_commit: af717ce0c29d54d60d2bf19d711859815d6fa2d9
+subject: test(core): correct RuntimeExecution F0 characterization
+production_changes: false
+external_effects: false
+corrections:
+  lineage: AVER certification is characterized as legacy and uncorrelatable; atlas_aver_executions has no goal_record_id, so no same-goal or absent-canonical-certification claim is made before F4a.
+  real_diff_hash: test source-links AtlasRealEngineeringExecutionKernelService's "diff_hash => hash('sha256', $diff)" producer expression without running its mutative kernel.
+  f3_pre_catalog: 19/9/10 remains a declared seed inventory, not today's permission classifier; non-executing PermissionRequest coverage proves shell.run can be read/low, write/medium, or danger/high by command.
+verification:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeServiceTest.php tests/Feature/Ai/RuntimeReleaseGate/AtlasAiRuntimeReleaseGateServiceTest.php tests/Unit/AiToolRuntimeTest.php --filter=F0
+  stdout: |
+    PASS Tests\\Feature\\Ai\\VerifiedExecution\\AtlasVerifiedExecutionRuntimeServiceTest
+    PASS Tests\\Feature\\Ai\\RuntimeReleaseGate\\AtlasAiRuntimeReleaseGateServiceTest
+    PASS Tests\\Unit\\AiToolRuntimeTest
+    Tests: 5 passed (32 assertions)
+  lint: /opt/homebrew/bin/php -l on both changed tests PASS
+  pint: vendor/bin/pint --test on both changed tests PASS
+  diff_check: git diff --check PASS
+```

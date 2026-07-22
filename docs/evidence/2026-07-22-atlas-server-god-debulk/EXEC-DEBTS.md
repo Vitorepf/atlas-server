@@ -12,7 +12,12 @@ bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
 current_focus: A1-SC-0001..0008 (queued; readiness facade split and ownership)
-claimed_paths: []
+claimed_paths:
+  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
+  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
+  - tests/Feature/Ai/VerifiedExecution/RuntimeExecutionF0CharacterizationTest.php
+  - tests/Feature/Ai/RuntimeReleaseGate/AtlasAiRuntimeReleaseGateServiceTest.php
+  - tests/Unit/AiToolRuntimeTest.php
 ```
 
 ## Fila (ordem — derive dos META-FINDINGS; atualize ao executar)
@@ -39,7 +44,7 @@ claimed_paths: []
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
-   a. RuntimeExecution F0 — complete (`5a954a59b4cc1133d006b08ff00d639c84570f58`): characterization executável dos 9 APIs AVER seguros + inventário estático do 10º (`executeFixtureCycle`, gap inseguro); contradição legada AVER certified vs certificação canônica ausente é ligada pelo mesmo `goal_record_id` lógico, nunca por `diff_hash`; prova explícita de AVER payload-hash ≠ SHA-256 do diff cru RealExecution; snapshot byte v1 + spy `report()==1`; catálogo estático 19 = 9 read-only + 10 gate-required sem executar tools.
+   a. RuntimeExecution F0 — complete, review-corrected (`af717ce0c29d54d60d2bf19d711859815d6fa2d9`): characterization executável dos 9 APIs AVER seguros + inventário estático do 10º (`executeFixtureCycle`, gap inseguro); AVER pode persistir certificação legada, mas permanece não-correlacionável com RealExecution até F4a adicionar `goal_record_id` (sem alegação de par ausente); prova de AVER payload-hash ≠ SHA-256 do diff cru vinculada ao contrato textual do produtor RealExecution, sem executá-lo; snapshot byte v1 + spy `report()==1`; catálogo 19/9/10 é inventário declarado de seed F3-pre, não classificador atual — `shell.run` é dependente do comando e foi caracterizado sem execução.
    b. ProviderPipeUnification F0: characterization AiProviderManager get/getRecommended/keys (±decoradores) + snapshot manifest/complianceReport da ProviderDriverRegistry (oráculo da fusão) + envelope do Swarm com resolver stub + runner Forge governed/não-governed→consulted/bypass no ledger
    c. KernelTriad passo 1: snapshot de array_keys(architectureScanChecks()) (166 keys) + teste de reflexão da API pública do AtlasEvidenceLedger (métodos+construtor) + replay hash-chain verde
    d. LearningConsolidation M1a: snapshot --json de atlas:ai:learning collect/list/review + bloco learning do controlPlaneSummary (os 13 testes existentes ficam como base)
