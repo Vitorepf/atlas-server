@@ -6,6 +6,7 @@ use App\Services\Ai\Attachments\AiAttachmentIndexService;
 use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Router\AiIntentRouter;
 use App\Services\Ai\Search\SessionSearchService;
+use App\Services\Ai\Skills\AiSkillStore;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;

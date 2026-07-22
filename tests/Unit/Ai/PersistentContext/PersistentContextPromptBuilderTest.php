@@ -4,9 +4,9 @@ namespace Tests\Unit\Ai\PersistentContext;
 
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AiPromptBuilder;
-use App\Services\Ai\AiSkillStore;
 use App\Services\Ai\Router\AiIntentRouter;
 use App\Services\Ai\Search\SessionSearchService;
+use App\Services\Ai\Skills\AiSkillStore;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use Tests\TestCase;

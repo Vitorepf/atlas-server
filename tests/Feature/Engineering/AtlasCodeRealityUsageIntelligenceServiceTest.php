@@ -695,7 +695,7 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'Scaffold taxonomy must remain a boundary signal, not AI cleanup pressure.'
         );
         $this->assertNull(
-            collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Services:Ai:AiSkillStore:php:715:todo'),
+            collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Services:Ai:Skills:AiSkillStore:php:715:todo'),
             'Portuguese prose using "todo" must not be treated as a TODO marker or legacy cleanup signal.'
         );
         $this->assertNull(

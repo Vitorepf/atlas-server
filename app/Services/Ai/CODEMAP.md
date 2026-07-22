@@ -10,6 +10,7 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Classify incoming AI intent before routing | `App\Services\Ai\Router\AtlasAiIntentKernelService::classify` |
 | Route legacy keyword intents | `App\Services\Ai\Router\AiIntentRouter::route` |
 | Persist a sequenced stream event | `App\Services\Ai\Streaming\AiStreamRecorder::record` |
+| Load a canonical Atlas skill | `App\Services\Ai\Skills\AiSkillStore::load` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Skills;
 
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Semantic\VaultFileStore;

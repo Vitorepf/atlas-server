@@ -35,7 +35,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
-  - app/Services/Ai/AiSkillStore.php
+  - app/Services/Ai/Skills/AiSkillStore.php
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-programming-specialist-profiles

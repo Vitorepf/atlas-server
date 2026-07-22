@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Provider;
 
-use App\Services\Ai\AiSkillStore;
+use App\Services\Ai\Skills\AiSkillStore;
 use Throwable;
 
 class AtlasProviderIdentityProjector

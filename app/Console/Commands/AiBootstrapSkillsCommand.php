@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AiSkillStore;
+use App\Services\Ai\Skills\AiSkillStore;
 use Illuminate\Console\Command;
 
 class AiBootstrapSkillsCommand extends Command

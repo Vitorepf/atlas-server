@@ -24,7 +24,7 @@ decisions:
 maintenance:
   - Atualize ao adicionar campo, mudar promotion gate.
 related_paths:
-  - app/Services/Ai/AiSkillStore.php
+  - app/Services/Ai/Skills/AiSkillStore.php
   - docs/engineering-knowledge-base/atlas-ai-skill-system.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-skill-pack-canonical
