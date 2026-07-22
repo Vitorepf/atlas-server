@@ -4,31 +4,32 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0134 recorded
+phase: A1-SC-0135 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: blackboard deferral lease cleanup
-finding_id: A1-SC-0134
-action_op: test-first canonical lease release
+focus: Verification Court evaluator fail-closed enforcement
+finding_id: A1-SC-0135
+action_op: test-first evaluator outage rejection
 queue_index: 6
-last_commit: 97198001f
+last_commit: b5e05e6d9
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php tests/Feature/Ai/AtlasTaskServingLeaseOwnershipTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_contract_evaluation_exception_in_enforce_mode_fails_closed
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
   git diff --check
 before_after: |
-  red: lease_deferred returned while activeLeasesForAgent(worker-l2) contained the task's canonical active lease.
-  green: blackboard deferral releases the lease before returning lease_deferred; a release failure is surfaced as lease_defer_blocked rather than falsely deferred.
+  red: an evaluator exception was converted to accepted=true and passed enforce until the unrelated context gate rejected it.
+  green: exceptions and missing accepted fields are rejected in enforce with evidence_contract_failed and a typed evaluator-unavailable blocker before context or commit.
 stdout: |
-  blackboard_and_ownership: PASS (5 tests, 17 assertions)
+  focused_enforce_exception: PASS (1 test, 8 assertions)
+  adjacent_enforce_suite: NOT GREEN (1 pass, 1 failure in pre-existing retry path requiring AtlasContextRuntime; A1-SC-0136)
   php_lint: PASS service plus focused test
-  loc_check: atlas_task_serving_service=1699
+  loc_check: atlas_task_serving_service=1705
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Blackboard reads remain advisory and fail-open. Once a real queue claim exists, however, its release is mandatory before a defer response is truthful.
+  Observe mode still records the Court verdict and proceeds by policy; only enforce turns any non-literal accepted verdict into a pre-commit refusal.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -388,6 +389,37 @@ verification:
 boundary:
   - blackboard reads remain advisory and fail-open
   - no task execution, provider call, token spend, or evidence persistence occurs
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 18 — A1-SC-0135 Verification Court evaluator outage, 2026-07-22
+
+```yaml
+finding: A1-SC-0135
+commit: b5e05e6d9
+subject: "refactor(core): GOD-DEBULK fail-close Court evaluator outage"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter='test_contract_evaluation_exception_(is_recorded_without_blocking_observe_mode|in_enforce_mode_fails_closed)'
+  result: "FAIL 2 tests: enforce expected evidence_contract_failed but reached atlas_context_runtime_unavailable after the evaluator exception was normalized as accepted=true."
+green:
+  behavior: "an evaluator Throwable produces accepted=false and evidence_contract_evaluator_unavailable. Enforce treats absent accepted as false and returns commit_failed/evidence_contract_failed before context or commit."
+  characterization: "public report reaches the injected throwing Court evaluator through the real serving service; the asserted envelope proves the pre-commit enforcement boundary."
+verification:
+  focused_enforce_exception: "PASS 1 test, 8 assertions"
+  adjacent_enforce_suite: "NOT GREEN: a retry that needs a passing Court verdict still reaches atlas_context_runtime_unavailable, the independent A1-SC-0136 constructor contract regression."
+  php_lint: "PASS service and focused test"
+  loc: "atlas_task_serving_service=1705 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - observe remains non-blocking by policy
+  - enforce rejects unavailable or malformed Court authority before a commit
+  - no provider call, token spend, or lease settlement occurs on the new rejection branch
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
