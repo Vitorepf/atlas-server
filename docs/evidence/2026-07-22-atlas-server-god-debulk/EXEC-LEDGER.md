@@ -1194,3 +1194,41 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 41 — RootSinglesRehome Arena, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Arena
+commit: b45947e54
+subject: "refactor(core): GOD-DEBULK RootSingles Arena rehome"
+scope:
+  - app/Services/Ai/Arena/AiCouncilCoordinator.php
+  - root worker, job controller, provider driver, provider manifest snapshot, and council/cancel suites
+  - app/Services/Ai/Compat/RootSinglesLegacyAliases.php
+  - droid-wiki AI gateway navigation and AI CODEMAP
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_arena_coordinator_resolves_from_its_canonical_namespace_with_a_legacy_alias --no-coverage
+  result: "FAIL 1 test: canonical App\\Services\\Ai\\Arena\\AiCouncilCoordinator did not exist before the re-home."
+green:
+  behavior: "AiCouncilCoordinator now has one canonical Arena namespace. The old root FQCN remains a lazy composer-loaded alias for queued and deployed compatibility."
+  characterization: "The test resolves the canonical coordinator through the public container, then proves the instance satisfies the retired root FQCN."
+verification:
+  council_and_provider_suites: "PASS 23 tests, 177 assertions (compatibility, council review, controller cancellation, and ProviderPipe manifest)."
+  parallel_controller_suite: "PASS 11 tests, 115 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source path is absent; direct old FQCN/path sweep leaves only the explicit compatibility test import."
+  php_lint: "PASS all 9 touched PHP files"
+  phpstan_alias: "PASS RootSinglesLegacyAliases.php. The moved coordinator is NOT GREEN (25 existing Eloquent model/collection diagnostics); it is not used as proof and no baseline ownership was established."
+  pint: "PASS all touched test files. Strict full-file Pint is NOT GREEN for existing formatting drift in AiWorker and AiJobController; no broad reformat was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=6)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; coordinator=231 LOC. Root first-level Ai owner count falls 95 to 94."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; no council aggregation, cancellation, provider call, token, queue, or persistence behavior changed
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - manifest snapshot and docs now name the canonical owner; tests remain in place and import it directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
