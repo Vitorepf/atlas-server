@@ -1300,3 +1300,40 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 44 — RootSinglesRehome Router, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Router
+commit: 2c4abf096
+subject: "refactor(core): GOD-DEBULK RootSingles Router rehome"
+scope:
+  - app/Services/Ai/Router/AiIntentRouter.php
+  - AiPromptBuilder import, one-cycle legacy alias, router/prompt-builder suites, and AI CODEMAP
+  - AI gateway navigation and canonical cleanup inventory path references
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_intent_router_resolves_from_its_canonical_namespace_with_a_legacy_alias --no-coverage
+  result: "FAIL 1 test, 0 assertions: canonical App\\Services\\Ai\\Router\\AiIntentRouter did not exist before the re-home."
+green:
+  behavior: "AiIntentRouter now has one canonical Router namespace. The retired root FQCN remains a lazy composer-loaded alias for queued and deployed compatibility."
+  characterization: "The test resolves the canonical router through the public container, then proves the instance satisfies the retired root FQCN."
+verification:
+  router_and_prompt_suites: "PASS 24 tests, 112 assertions (root compatibility, keyword routing, and five AiPromptBuilder contracts)."
+  parallel_router_suite: "PASS 11 tests, 22 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source path is absent; direct old FQCN/path sweep leaves only the explicit compatibility import, while the alias map intentionally stores escaped legacy literals."
+  php_lint: "PASS all 10 touched PHP files"
+  phpstan: "PASS AiIntentRouter.php, AiPromptBuilder.php, and RootSinglesLegacyAliases.php."
+  pint: "PASS moved router, alias, and all touched tests. Strict full-file Pint is NOT GREEN for existing formatting drift in AiPromptBuilder; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=8)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; router=130 LOC. Root first-level Ai owner count falls 93 to 92."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; keyword precedence, selected-agent override, prompt construction, and provider routing behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - canonical production and test consumers use the Router owner directly; docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
