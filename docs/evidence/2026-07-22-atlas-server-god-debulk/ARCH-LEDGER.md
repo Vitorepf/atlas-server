@@ -3,9 +3,9 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: review
-cluster_atual: FASE 2 — 5 blueprints draft; rodando: QuarentenaACDE (lista 388 c/ prova por arquivo)
+cluster_atual: FASE 2 — 6 blueprints draft COMPLETOS; próximo: re-home ROOT-SINGLES + reviews contínuos
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
-blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation]
+blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation, QuarantineACDE]
 blueprints_approved: []
 needs_operator:
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
@@ -15,7 +15,7 @@ needs_operator:
   - "Aprovar FOUNDRY: FUSE IntelligenceFactory→Foundry (capability_gap único) · QUARANTINE Frontier 5.1k · RENAME VentureFoundry"
   - "Aprovar ENG-OS: FUSE SoftwareCompany→Stewardship/ProductMode · plano de purga da Aaeos/Quarantine 132k (pré-requisito: re-home AtlasSourceConnectorsAndCaptureService usado pelo Brain VIVO)"
   - "Aprovar GOV-QUAL: dedup RISK_LEVELS · QUARANTINE Instrumentation · blueprint de SPLIT do Kernel (Decision-runtime / Evidence-ledger / Architecture-linter)"
-  - "Aprovar AUTONOMOS: QUARANTINE física dos ~388 órfãos ACDE (61% do AE, ~55k LOC) p/ archive/ — pré-requisito lista materializada com prova rg por arquivo; keep-list intacta na zona viva"
+  - "Aprovar QUARANTINE ACDE: lote seguro de 225 classes/30.7k LOC p/ archive/ (lista provada em acde-orphans.csv; keep-list 27/27 fora; AAEL fora por regra pétrea) — blueprint QuarantineACDE.md pronto"
   - "Aprovar ENG-CORE: FUSE ProgrammingRuntime→Programming · FUSE AEOS+AutonomousEngineering→AutonomousOs (bloqueado até split do godfile UniversalGates 21.6k, que tem só 3 callers)"
   - "Aprovar APRENDIZADO/REALITY/SKILLS: FUSE Learning→Compounding (ANTES do rename Cognitive→Learning — colisão de namespace) · FUSE-colocação StrategicReality→RealitySandbox · RENAME Reality→RealityGraph · QUARANTINE SpecialistFlows"
   - "Aprovar SUPERFICIES: QUARANTINE bloco Operator (0 callers prod, só testes AcosMax)"
