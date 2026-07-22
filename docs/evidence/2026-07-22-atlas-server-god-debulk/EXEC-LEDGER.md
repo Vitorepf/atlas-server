@@ -4,34 +4,33 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0136 recorded
+phase: A1-SC-0137 settlement-truth boundary recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: optional AtlasContextRuntime and EliteExecutorKernel serving contract
-finding_id: A1-SC-0136
-action_op: test-first optional gate compatibility restoration
+focus: task-serving post-commit settlement truth
+finding_id: A1-SC-0137
+action_op: test-first blocked-settlement visibility
 queue_index: 6
-last_commit: 73a4f16f5
+last_commit: 491d1c388
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_enforce_mode_with_passing_evidence_commits_without_optional_elite_dependencies
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php --filter=test_post_commit_elite_kernel_block_keeps_lease_open_and_does_not_resolve
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php tests/Feature/Ai/AtlasTaskServingLeaseOwnershipTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
   git diff --check
 before_after: |
-  red: direct construction with the documented optional context runtime returned commit_failed rather than resolved.
-  green: absent optional elite dependencies preserve the legacy serving contract; explicitly injected dependencies still execute and can block settlement.
+  red: a real scoped commit followed by a resolve_blocked settlement returned status=resolved and continued into success side effects.
+  green: a rejected markResolved now returns settlement_failed with the settlement receipt, leaves the lease open, and returns before success side effects.
 stdout: |
-  focused_optional_contract: PASS (1 test, 4 assertions)
-  injected_kernel_guard: PASS (1 test, 11 assertions)
-  full_evidence_contract_suite: NOT GREEN (5 passed, 2 failed); both remaining lease_closed=false while status=resolved failures are catalogued in A1-SC-0137.
+  evidence_contract_suite: PASS (8 tests, 46 assertions)
+  serving_and_ownership_suites: PASS (11 tests, 49 assertions)
   php_lint: PASS service plus focused test
-  loc_check: atlas_task_serving_service=1689
+  loc_check: atlas_task_serving_service=1700
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The two optional constructor parameters are extension gates: no container service-locator fallback is used, so direct callers retain the advertised public default while injected gates remain fail-closed.
+  This is the truth boundary only, not a claim that A1-SC-0137's full durable settlement saga has been implemented. A landed-but-unsettled commit is now visible and downstream success effects are not emitted.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -523,4 +522,35 @@ boundary:
   - only aggregate-map key order changes in production
   - no provider call, token spend, task dispatch, or external mutation
 purpose: "append-only ordering correction; the historical record above is retained, not rewritten."
+```
+
+## Task 21 — A1-SC-0137 post-commit settlement truth, 2026-07-22
+
+```yaml
+finding: A1-SC-0137
+commit: 491d1c388
+subject: "refactor(core): GOD-DEBULK expose settlement failures"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_landed_commit_with_blocked_settlement_is_not_reported_as_resolved
+  result: "FAIL 1 test, 3 assertions: a real scoped commit with markResolved=resolve_blocked returned resolved."
+green:
+  behavior: "after a commit, report accepts only event=task_resolved as settlement. Any other settlement envelope returns settlement_failed/task_settlement_failed with the commit and settlement receipts, lease_closed=false, before diary, cost, canary, learning, or outcome recording."
+  characterization: "the public report path executes a real commit in a temporary repository and deliberately makes the orchestrator resolve against another repository; it proves the returned resolve_blocked/commit_not_found receipt is not converted into a false resolved success."
+verification:
+  evidence_contract_suite: "PASS 8 tests, 46 assertions"
+  serving_and_ownership_suites: "PASS 11 tests, 49 assertions"
+  php_lint: "PASS service and changed test"
+  loc: "atlas_task_serving_service=1700 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - this makes failed settlement truthful and prevents downstream success effects
+  - it does not claim an idempotent durable settlement saga or automatic reconciliation for an already landed commit
+  - no provider call, token spend, or success outcome recording occurs on the new settlement_failed branch
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
 ```
