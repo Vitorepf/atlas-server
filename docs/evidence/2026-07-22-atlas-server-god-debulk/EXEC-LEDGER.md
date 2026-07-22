@@ -4,34 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0156 active-lease terminal capacity guard recorded
+phase: A1-SC-0165 post-start reflection backdoor closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: terminal digest active-lease parallel capacity
-finding_id: A1-SC-0156
-action_op: test-first active-lease capacity cap
+bucket: app/Services/Ai/SelfConstruction/Readiness
+focus: post-start section private-mother call boundary
+finding_id: A1-SC-0165
+action_op: test-first reflection backdoor removal
 queue_index: 6
-last_commit: 7acb72eef
+last_commit: 70ecc4022
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_active_leases_consume_the_terminal_parallelism_capacity_before_new_launches
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
   git diff --check
 before_after: |
-  red: six real active leases plus six claimable packets made digest() advertise safe_to_start_new_worker and six new terminals despite the stated six-terminal ceiling.
-  green: active leases consume terminal capacity; at the six-lease ceiling the plan is blocked with zero recommended terminals and the runbook cannot be copied.
+  red: a bound status section accepted a dynamic stableHash call and crossed the mother's private visibility boundary through ReflectionMethod.
+  green: dynamic calls fail closed; the section resolves its own pure hash and explicitly forwards only its required public start-execution contract.
 stdout: |
-  focused_active_lease_capacity_contract: PASS (1 test, 9 assertions)
-  digest_unit_suite: PASS (19 tests, 70 assertions)
+  focused_private_mother_denial: PASS (1 test, 1 assertion)
+  post_start_section_unit_suite: PASS (2 tests, 5 assertions)
   php_lint: PASS source plus changed unit test
-  loc_check: terminal_loop_health_digest=1647
+  loc_check: post_start_gate_status_section=1448
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The shared six-terminal cap now covers both active leases and recommended launches. The public contract creates real leases and reads digest projections without private method invocation.
+  The section retains its existing binding seam but cannot invoke arbitrary mother methods. Public status and preflight paths execute using explicit internal dependencies without reflection.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -1159,6 +1159,37 @@ boundary:
   - organizational re-home only; no ingestion, projection, provider, queue, token, or persistence behavior changed
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - no test directory was moved; unit suites now import the canonical names
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 40 — A1-SC-0165 close post-start reflection backdoor, 2026-07-22
+
+```yaml
+finding: A1-SC-0165
+commit: 70ecc4022
+subject: "refactor(core): GOD-DEBULK close post-start reflection backdoor"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+  - tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
+  result: "FAIL 1 test, 1 assertion: a bound public section accepted stableHash and executed the private mother method through its magic reflection bridge."
+green:
+  behavior: "unknown dynamic methods now throw BadMethodCallException. The section computes its own pure stable hash and explicitly calls only the required public start-execution contract on the bound mother."
+  characterization: "the red path invokes the real magic call on a bound section without reflection in the test; the green suite also executes a public status and its public preflight through the explicit dependencies."
+verification:
+  focused_private_mother_denial: "PASS 1 test, 1 assertion"
+  post_start_section_unit_suite: "PASS 2 tests, 5 assertions"
+  php_lint: "PASS source and new unit test"
+  loc: "post_start_gate_status_section=1448 (<2000; pre-existing hot-size debt remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - closes arbitrary private-method invocation from this public section without changing the parent's public facade routes
+  - preserves only the section's local hashing and one public contract dependency needed by the existing preflight
+  - no database, queue, lease, provider, token, dispatch, or runtime mutation is introduced
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
