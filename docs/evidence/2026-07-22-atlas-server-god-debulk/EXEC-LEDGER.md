@@ -4,32 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0135 recorded
+phase: A1-SC-0136 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: Verification Court evaluator fail-closed enforcement
-finding_id: A1-SC-0135
-action_op: test-first evaluator outage rejection
+focus: optional AtlasContextRuntime and EliteExecutorKernel serving contract
+finding_id: A1-SC-0136
+action_op: test-first optional gate compatibility restoration
 queue_index: 6
-last_commit: b5e05e6d9
+last_commit: 73a4f16f5
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_contract_evaluation_exception_in_enforce_mode_fails_closed
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_enforce_mode_with_passing_evidence_commits_without_optional_elite_dependencies
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php --filter=test_post_commit_elite_kernel_block_keeps_lease_open_and_does_not_resolve
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
   git diff --check
 before_after: |
-  red: an evaluator exception was converted to accepted=true and passed enforce until the unrelated context gate rejected it.
-  green: exceptions and missing accepted fields are rejected in enforce with evidence_contract_failed and a typed evaluator-unavailable blocker before context or commit.
+  red: direct construction with the documented optional context runtime returned commit_failed rather than resolved.
+  green: absent optional elite dependencies preserve the legacy serving contract; explicitly injected dependencies still execute and can block settlement.
 stdout: |
-  focused_enforce_exception: PASS (1 test, 8 assertions)
-  adjacent_enforce_suite: NOT GREEN (1 pass, 1 failure in pre-existing retry path requiring AtlasContextRuntime; A1-SC-0136)
+  focused_optional_contract: PASS (1 test, 4 assertions)
+  injected_kernel_guard: PASS (1 test, 11 assertions)
+  full_evidence_contract_suite: NOT GREEN (5 passed, 2 failed); both remaining lease_closed=false while status=resolved failures are catalogued in A1-SC-0137.
   php_lint: PASS service plus focused test
-  loc_check: atlas_task_serving_service=1705
+  loc_check: atlas_task_serving_service=1689
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Observe mode still records the Court verdict and proceeds by policy; only enforce turns any non-literal accepted verdict into a pre-commit refusal.
+  The two optional constructor parameters are extension gates: no container service-locator fallback is used, so direct callers retain the advertised public default while injected gates remain fail-closed.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -420,6 +422,38 @@ boundary:
   - observe remains non-blocking by policy
   - enforce rejects unavailable or malformed Court authority before a commit
   - no provider call, token spend, or lease settlement occurs on the new rejection branch
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 19 — A1-SC-0136 optional serving gate compatibility, 2026-07-22
+
+```yaml
+finding: A1-SC-0136
+commit: 73a4f16f5
+subject: "refactor(core): GOD-DEBULK restore optional serving gates"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_enforce_mode_with_passing_evidence_commits_normally
+  result: "FAIL 1 test, 3 assertions: expected resolved, received commit_failed through the public constructor defaults."
+green:
+  behavior: "AtlasContextRuntime and EliteExecutorKernel stay optional extension gates. When neither is injected, a valid Court-enforced report settles through the public default; when explicitly injected, their Context and honesty checks still execute and fail-close."
+  characterization: "the renamed direct-constructor contract executes real report and commit flow without injected optional dependencies; a separate public report test proves an injected Kernel returns commit_failed and leaves the lease open."
+verification:
+  optional_constructor_contract: "PASS 1 test, 4 assertions"
+  injected_kernel_guard: "PASS 1 test, 11 assertions"
+  evidence_contract_suite: "NOT GREEN: 5 passed, 2 failed. Both failures are resolved envelopes with lease_closed=false, an existing A1-SC-0137 settlement finding; this receipt makes no full-suite-green claim."
+  php_lint: "PASS service and focused test"
+  loc: "atlas_task_serving_service=1689 (<2000; reduced by 16 lines)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - no container fallback or bypass is introduced
+  - injected Context and Kernel gates retain their existing blocking behavior
+  - no provider call, token spend, or lease settlement occurs on a blocked injected gate
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
