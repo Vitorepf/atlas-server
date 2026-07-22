@@ -75,4 +75,45 @@ final class AtlasAiSelfConstructionReadinessProjectionDurableReservationSectionT
 
         $this->assertInstanceOf(ReadinessProjectionDurableReservationSection::class, $section);
     }
+
+    public function test_public_durable_reservation_contracts_share_tables_states_and_read_only_authority(): void
+    {
+        $runtime = app(AtlasSelfConstructionReadinessService::class);
+        $ledgerPlan = $runtime->durableReservationLedgerImplementationPlan();
+        $storageSchema = $runtime->durableReservationStorageSchema();
+        $migrationBlueprint = $runtime->durableReservationMigrationBlueprint();
+        $leaseLifecycle = $runtime->durableReservationLeaseLifecycle();
+        $leaseLifecycleBlueprint = $runtime->durableReservationLeaseLifecycleBlueprint();
+        $expectedTables = [
+            'atlas_self_construction_reservations',
+            'atlas_self_construction_reservation_events',
+            'atlas_self_construction_packet_snapshots',
+        ];
+        $expectedStates = ['available', 'claimed', 'renewed', 'released', 'expired', 'completed', 'blocked'];
+
+        $this->assertSame($expectedTables, array_column((array) data_get($ledgerPlan, 'plan.storage_objects', []), 'name'));
+        $this->assertSame($expectedTables, array_column((array) data_get($storageSchema, 'storage_schema.tables', []), 'name'));
+        $this->assertSame($expectedTables, array_column((array) data_get($migrationBlueprint, 'migration_blueprint.tables', []), 'name'));
+        $this->assertSame($expectedStates, data_get($ledgerPlan, 'plan.claim_states'));
+        $this->assertSame($expectedStates, data_get($storageSchema, 'storage_schema.states'));
+        $this->assertSame($expectedStates, data_get($leaseLifecycle, 'lease_lifecycle.states'));
+        $this->assertSame($expectedStates, data_get($leaseLifecycleBlueprint, 'lease_lifecycle_blueprint.states'));
+        $this->assertContains('create_atlas_self_construction_packet_snapshots_table', data_get($migrationBlueprint, 'migration_blueprint.migration_files'));
+        $this->assertContains('drop_atlas_self_construction_packet_snapshots', data_get($migrationBlueprint, 'migration_blueprint.rollback_order'));
+        $this->assertContains('migration_creates_packet_snapshots_table_with_required_columns', data_get($migrationBlueprint, 'migration_blueprint.required_tests'));
+
+        foreach ([$ledgerPlan, $storageSchema, $migrationBlueprint, $leaseLifecycle, $leaseLifecycleBlueprint] as $envelope) {
+            $this->assertFalse($envelope['execution_allowed']);
+            $this->assertFalse($envelope['dispatch_allowed']);
+        }
+
+        $this->assertFalse($ledgerPlan['migration_write_allowed']);
+        $this->assertFalse($ledgerPlan['ledger_write_allowed']);
+        foreach ([$storageSchema, $migrationBlueprint] as $envelope) {
+            $this->assertFalse($envelope['migration_allowed_now']);
+            $this->assertFalse($envelope['storage_write_allowed']);
+        }
+        $this->assertFalse($leaseLifecycle['storage_write_allowed']);
+        $this->assertFalse($leaseLifecycleBlueprint['storage_write_allowed']);
+    }
 }

@@ -1,6 +1,6 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: active — Tasks 1 through 4 are complete; A1-SC-0001..0008 are queued.
+Status: active — Tasks 1 through 5 are complete; A1-SC-0001..0008 are queued.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
@@ -197,3 +197,44 @@ ParaTest files are green (9/42, 12/38, 9/37, 13/49, and 1/6); PHPStan, syntax,
 the debulk guard, CODEMAP verification, and diff check are green. Strict Pint
 is clean for the focused files and Support services; the 13k-line Codex
 projection retains its four pre-existing style findings.
+
+## Task 5: A1-SC-0096 durable-reservation contract consistency
+
+Status: complete.
+
+`ReadinessProjectionDurableReservationSection` is under the 2,000-LOC limit
+and emits three related but contradictory read-only work orders. The ledger
+plan requires the immutable `atlas_self_construction_packet_snapshots` table
+and the states `available` and `renewed`; the storage schema and migration
+blueprint omit that table, while the storage schema instead exposes `preview`
+and omits `renewed`.
+
+1. Add a direct public-facade regression invoking the ledger plan, storage
+   schema, migration blueprint, and lease lifecycle. Before the correction it
+   must expose the missing snapshot table and state-vocabulary mismatch. Do
+   not use reflection, mocks, aliases, fake payloads, or database mutation.
+2. Make the smallest projection-only correction: all three work orders must
+   declare the same three tables, migration files/rollback/tests must include
+   snapshots, and all lifecycle/schema state lists must use the same canonical
+   `available`, `claimed`, `renewed`, `released`, `expired`, `completed`,
+   `blocked` vocabulary.
+3. Keep every envelope read-only and preserve all false authority flags,
+   schema versions, statuses, commands, and actual migration/storage behavior.
+   Keep the file below 2,000 LOC.
+4. Make the same real facade regression GREEN; assert ordered table equality,
+   state equality, snapshot migration/rollback coverage, and false execution,
+   migration, storage-write and dispatch authority flags.
+5. Use `refactor(core): GOD-DEBULK A1 ...` for the application diff, then a
+   scoped `docs(core):` receipt with the actual primary hash and concise
+   command stdout. Do not amend/rebase/rewrite local `main` history.
+
+Task 5 completion evidence is complete. The direct public-facade RED observed
+storage tables `[reservation_events, reservations]` against the canonical
+`[reservations, reservation_events, packet_snapshots]` vector. The GREEN
+facade regression confirms all three table vectors, the ordered states
+`available, claimed, renewed, released, expired, completed, blocked`, snapshot
+migration/rollback/test metadata, and false authority flags. The focused
+ParaTest is green (5 tests, 36 assertions); syntax, 2k-LOC check (1,972 LOC),
+GOD-DEBULK guard, CODEMAP verifier and diff check pass. The section's existing
+dynamic `__call` pattern remains incompatible with standalone PHPStan analysis
+(27 pre-existing errors); no PHPStan suppression or facade change was added.

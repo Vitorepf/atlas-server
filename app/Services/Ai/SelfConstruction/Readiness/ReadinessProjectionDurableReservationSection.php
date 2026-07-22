@@ -736,32 +736,6 @@ final class ReadinessProjectionDurableReservationSection
 
         $tables = [
             [
-                'name' => 'atlas_self_construction_reservation_events',
-                'role' => 'append_only_event_source',
-                'fields' => [
-                    'id',
-                    'reservation_id',
-                    'packet_id',
-                    'event_type',
-                    'actor_type',
-                    'actor_id',
-                    'session_id',
-                    'owner_token_hash',
-                    'packet_hash',
-                    'allowed_files_hash',
-                    'payload_json',
-                    'previous_event_hash',
-                    'event_hash',
-                    'occurred_at',
-                    'created_at',
-                ],
-                'indexes' => [
-                    'unique_event_hash',
-                    'reservation_id_occurred_at',
-                    'packet_id_event_type',
-                ],
-            ],
-            [
                 'name' => 'atlas_self_construction_reservations',
                 'role' => 'current_reservation_projection',
                 'fields' => [
@@ -789,6 +763,38 @@ final class ReadinessProjectionDurableReservationSection
                     'last_event_hash',
                 ],
             ],
+            [
+                'name' => 'atlas_self_construction_reservation_events',
+                'role' => 'append_only_event_source',
+                'fields' => [
+                    'id',
+                    'reservation_id',
+                    'packet_id',
+                    'event_type',
+                    'actor_type',
+                    'actor_id',
+                    'session_id',
+                    'owner_token_hash',
+                    'packet_hash',
+                    'allowed_files_hash',
+                    'payload_json',
+                    'previous_event_hash',
+                    'event_hash',
+                    'occurred_at',
+                    'created_at',
+                ],
+                'indexes' => [
+                    'unique_event_hash',
+                    'reservation_id_occurred_at',
+                    'packet_id_event_type',
+                ],
+            ],
+            [
+                'name' => 'atlas_self_construction_packet_snapshots',
+                'role' => 'immutable_packet_snapshot',
+                'fields' => ['id', 'snapshot_id', 'packet_id', 'packet_hash', 'split_hash', 'allowed_files_json', 'forbidden_files_json', 'scope_validator_hash', 'created_at'],
+                'indexes' => ['snapshot_id', 'packet_id', 'packet_hash'],
+            ],
         ];
 
         $storageSchema = [
@@ -798,8 +804,9 @@ final class ReadinessProjectionDurableReservationSection
             'table_count' => count($tables),
             'tables' => $tables,
             'states' => [
-                'preview',
+                'available',
                 'claimed',
+                'renewed',
                 'released',
                 'expired',
                 'completed',
@@ -1087,7 +1094,7 @@ final class ReadinessProjectionDurableReservationSection
         $collisionPayload = $this->durableReservationCollisionGuard($options);
 
         $states = [
-            'preview',
+            'available',
             'claimed',
             'renewed',
             'released',
@@ -1103,7 +1110,7 @@ final class ReadinessProjectionDurableReservationSection
             'state_count' => count($states),
             'states' => $states,
             'transitions' => [
-                'preview_to_claimed',
+                'available_to_claimed',
                 'claimed_to_renewed',
                 'claimed_to_released',
                 'claimed_to_expired',
@@ -1345,32 +1352,6 @@ final class ReadinessProjectionDurableReservationSection
 
         $tables = [
             [
-                'name' => 'atlas_self_construction_reservation_events',
-                'purpose' => 'append_only_reservation_event_source',
-                'columns' => [
-                    'id',
-                    'reservation_id',
-                    'packet_id',
-                    'event_type',
-                    'actor_id',
-                    'session_id',
-                    'packet_hash',
-                    'allowed_files_hash',
-                    'previous_event_hash',
-                    'event_hash',
-                    'payload',
-                    'created_at',
-                ],
-                'indexes' => [
-                    'reservation_id',
-                    'packet_id',
-                    'event_type',
-                    'session_id',
-                    'event_hash_unique',
-                    'created_at',
-                ],
-            ],
-            [
                 'name' => 'atlas_self_construction_reservations',
                 'purpose' => 'current_reservation_projection_for_fast_claim_checks',
                 'columns' => [
@@ -1398,6 +1379,38 @@ final class ReadinessProjectionDurableReservationSection
                     'allowed_files_hash',
                 ],
             ],
+            [
+                'name' => 'atlas_self_construction_reservation_events',
+                'purpose' => 'append_only_reservation_event_source',
+                'columns' => [
+                    'id',
+                    'reservation_id',
+                    'packet_id',
+                    'event_type',
+                    'actor_id',
+                    'session_id',
+                    'packet_hash',
+                    'allowed_files_hash',
+                    'previous_event_hash',
+                    'event_hash',
+                    'payload',
+                    'created_at',
+                ],
+                'indexes' => [
+                    'reservation_id',
+                    'packet_id',
+                    'event_type',
+                    'session_id',
+                    'event_hash_unique',
+                    'created_at',
+                ],
+            ],
+            [
+                'name' => 'atlas_self_construction_packet_snapshots',
+                'purpose' => 'immutable_packet_snapshot_at_claim_time',
+                'columns' => ['id', 'snapshot_id', 'packet_id', 'packet_hash', 'split_hash', 'allowed_files_json', 'forbidden_files_json', 'scope_validator_hash', 'created_at'],
+                'indexes' => ['snapshot_id_unique', 'packet_id', 'packet_hash'],
+            ],
         ];
 
         $migrationBlueprint = [
@@ -1406,18 +1419,21 @@ final class ReadinessProjectionDurableReservationSection
             'source_preflight_hash' => data_get($preflightPayload, 'preflight_hash'),
             'source_storage_schema_hash' => data_get($schemaPayload, 'schema_hash'),
             'migration_files' => [
-                'create_atlas_self_construction_reservation_events_table',
                 'create_atlas_self_construction_reservations_table',
+                'create_atlas_self_construction_reservation_events_table',
+                'create_atlas_self_construction_packet_snapshots_table',
             ],
             'table_count' => count($tables),
             'tables' => $tables,
             'rollback_order' => [
-                'drop_atlas_self_construction_reservations',
+                'drop_atlas_self_construction_packet_snapshots',
                 'drop_atlas_self_construction_reservation_events',
+                'drop_atlas_self_construction_reservations',
             ],
             'required_tests' => [
                 'migration_creates_reservation_events_table_with_required_columns',
                 'migration_creates_reservations_projection_table_with_required_columns',
+                'migration_creates_packet_snapshots_table_with_required_columns',
                 'event_hash_is_unique',
                 'lease_expiry_is_indexed_and_queryable',
                 'projection_can_be_rebuilt_from_events',
@@ -1660,7 +1676,7 @@ final class ReadinessProjectionDurableReservationSection
         $guardBlueprintPayload = $this->durableReservationCollisionGuardBlueprint($options);
 
         $states = [
-            'preview',
+            'available',
             'claimed',
             'renewed',
             'released',
@@ -1670,7 +1686,7 @@ final class ReadinessProjectionDurableReservationSection
         ];
 
         $transitions = [
-            'preview_to_claimed',
+            'available_to_claimed',
             'claimed_to_renewed',
             'claimed_to_released',
             'claimed_to_expired',
