@@ -1298,15 +1298,225 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+loc: 4284
+kind: monolithic_self_construction_control_plane_projection_and_capability_catalog
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0063
+    type: godfile
+    severity: s0
+    detail: "The file is a 4,284 LOC, 358,503-byte one-method god object. agentControlPlane alone occupies 4,017 lines and combines reservation/session projection, six persistent-model counts, runtime schema interpretation, 317 method/class availability probes, a 336-branch next-slice state machine, a 467-entry static capability catalog, 315 conditional capability appends, workspace/liveness/readiness policy, continuation instructions, and final hashing."
+    evidence:
+      - "agentControlPlane spans lines 267-4,283"
+      - "228 imports, of which only 70 are referenced after the class declaration and 158 are unused"
+      - "253 unique method_exists probes plus 64 unique class_exists probes"
+      - "467 static current-capability literals plus 315 conditional append sites"
+      - "sha256=31b5c19910dbfc83ee42419d84a594e1f2057b06382c09d6a5df6c446e53dfeb"
+  - id: A1-SC-0064
+    type: false_abstraction
+    severity: s0
+    detail: "The section is not autonomous: the parent retains the public facade method, while this class is created unbound, later receives the mother, and forwards nine absent helper names across ten calls through unrestricted ReflectionMethod. Its lone domain method therefore depends on private implementation knowledge spread across the 29,744 LOC parent and sibling sections, and 158 unused imports expose mechanical extraction residue."
+    evidence:
+      - "declared methods => setMother, __call, and agentControlPlane only"
+      - "unresolved parent calls => nine names / ten occurrences"
+      - "forwarded helpers include packetQueue, parallelSessionPlan, multiSessionReadinessGate, forgeWorkspaceStatus, reservationStatus, providerRoleForActor, runtime-table helpers, and stableHash"
+      - "AtlasSelfConstructionReadinessService retains the public agentControlPlane delegator"
+      - "158 of 228 imports are unused in the class body"
+  - id: A1-SC-0065
+    type: bug
+    severity: s0
+    detail: "All 253 surface-availability checks call method_exists on the section itself. PHP does not treat __call as a declared method, so every check is false even though all 253 methods exist on the mother facade and are callable through this section. With schema and services present, the live pointer is consequently pinned to the first checked method, mutating-writer release preflight, forever."
+    evidence:
+      - "static inventory => 253 method_exists($this, ...) checks, all names unique"
+      - "all 253 checked names are public methods on AtlasSelfConstructionReadinessService"
+      - "runtime proof for the first name => method_exists(section)=false, method_exists(mother)=true, is_callable(section)=true, is_callable(mother)=true"
+      - "live control plane => schema_ready and next_required_slice=activate_signed_one_shot_scheduler_tick_mutating_writer_release_preflight"
+      - "agentControlPlane still returns status=agent_control_plane_ready"
+  - id: A1-SC-0066
+    type: bug
+    severity: s0
+    detail: "The next-slice algorithm cannot become truthful by changing the receiver. All 253 facade methods and all 64 probed classes exist, so a receiver-only repair would skip every stage without invoking any preflight/status and fall through to re-activate the already-present post-start receipt contract. Today the pinned mutating-writer preflight route itself aborts through a broken sibling call, proving that existence is not operational readiness."
+    evidence:
+      - "parent method hit inventory => 253 / 253; class_exists inventory => 64 / 64"
+      - "direct invocation of the live pointed-to facade method aborts: undefined ReadinessProjectionAgentCodexSection::agentProviderAdapterRegistryPreflight"
+      - "final else at lines 2,342-2,347 selects activate_*_post_start_receipt_contract rather than a complete/no-work state"
+      - "the same post-start receipt slice is assigned at lines 1,263, 1,943, and 2,343"
+      - "no branch invokes a checked contract, preflight, packet, service, or status to validate its semantics"
+  - id: A1-SC-0067
+    type: doc_lie
+    severity: s1
+    detail: "current_capability is primarily an unconditional prose catalog rather than observed capability. The method preloads 467 unique entries, including contract/preflight/implementation-packet/service/status claims, without resolving or executing them; live output advertises 557 unique current capabilities while the next required route is both reported missing and fatals when called. It also emits a one-worktree-or-branch-per-packet strategy that conflicts with this repository's canonical local-main-only contract."
+    evidence:
+      - "static currentCapabilities array => 467 unique strings"
+      - "live current_capability => 557 entries / 557 unique"
+      - "158 imported classes named by the conceptual catalog are never referenced by executable code in this section"
+      - "live next slice is absent according to this projection but present on the facade and callable"
+      - "execution_workspaces.0.branch_strategy=one_worktree_or_branch_per_claimed_packet at line 4,142; AGENTS.md requires local main only"
+  - id: A1-SC-0068
+    type: dishonest_name
+    severity: s1
+    detail: "The outer status, maturity, and human summary always declare the Agent Control Plane ready even when schema is missing, the next-slice classifier is wrong, or the named next route fatals. In the live schema-ready case the projection narrows not_yet_runtime_capable to four labels and says it can coordinate claimed packets, while its first alleged missing capability exists but cannot return. Ready here means an array was assembled, not that the control plane is coherent."
+    evidence:
+      - "outer status is literal agent_control_plane_ready at line 4,267"
+      - "maturity is literal durable_packet_claims_with_read_only_control_projection"
+      - "human summary unconditionally says projection is ready"
+      - "live not_yet_runtime_capable contains only four labels despite the broken next route"
+      - "dispatch/execution remain false, but no degraded or blocked projection status represents the incoherent catalog"
+  - id: A1-SC-0069
+    type: dupe
+    severity: s2
+    detail: "The control plane hand-expands the same lifecycle catalog three times: availability variables, a positional elseif selector, and conditional capability appends. The selector contains 336 assignments for only 255 unique slice names; 80 names are duplicated and there are 81 excess duplicate assignments, including a repeated post-start block. This duplication makes ordering, completeness, and terminal-state behavior drift independently."
+    evidence:
+      - "next-slice assignments => 336 total / 255 unique"
+      - "duplicated slice names => 80; excess duplicate assignments => 81"
+      - "conditional currentCapabilities append sites => 315 / 315 unique"
+      - "method availability variables => 253 method checks plus 64 class checks"
+      - "the post-start receipt/evidence/liveness/dispatch/provider/process chain is repeated inside the same elseif ladder"
+  - id: A1-SC-0070
+    type: perf
+    severity: s2
+    detail: "Every control-plane read fans into five other projections, performs six independent full-table counts, runs 317 availability probes, allocates hundreds of long capability strings and branch variables, then hashes the entire large payload. Active reservation liveness also calls wall-clock time and embeds seconds remaining in the hash input, so identical persistent state can produce a different control-plane hash on each second."
+    evidence:
+      - "initial fan-out => packetQueue, parallelSessionPlan, multiSessionReadinessGate, forgeWorkspaceStatus, and reservationStatus"
+      - "six model query()->count() calls at lines 327-344"
+      - "253 method_exists plus 64 class_exists probes per request"
+      - "live output allocates 557 unique capability strings before hashing the control plane"
+      - "time() contributes seconds_until_lease_expiry to providerSessions, which is included in control_plane_hash"
+  - id: A1-SC-0071
+    type: test_gap
+    severity: s1
+    detail: "The focused command test passes 286 assertions largely by pinning literal capability names, yet it does not assert the method_exists receiver, invoke the selected next route, require a terminal complete state, derive capabilities from real status, or enforce local-main policy. Chain-integrity tests also pass while the live pointer targets a fatal route, so current green evidence certifies catalog self-consistency rather than executable control-plane integrity."
+    evidence:
+      - "focused test_command_returns_agent_control_plane_as_json passes 1 test / 286 assertions"
+      - "focused chain-integrity pointer/capability tests pass 2 tests / 7 assertions"
+      - "the command test contains long assertContains sequences for static capability literals"
+      - "no focused assertion compares method_exists(section) with facade callability"
+      - "no focused assertion invokes control_plane.persistent_runtime.next_required_slice and requires a non-fatal semantic result"
+  - id: A1-SC-0072
+    type: os_overlap
+    severity: s0
+    detail: "A read-only readiness section claims the whole Self-Construction operating system: queue/reservations, sessions and liveness, workspaces, persistence, provider adapters, scheduler and process lifecycle, receipts and signatures, replay/certification, governance, cost/work products, task leasing, runtime registry, final evidence, completion, human gates, operator runbooks, and implementation packets. This universal registry has no bounded owner and makes a single projection the naming authority for hundreds of independent lifecycles."
+    evidence:
+      - "467 unconditional capability labels span ControlPlane, NativeImplementation, Support, scheduler, provider, completion, evidence, and operator domains"
+      - "228 imports cross models plus ControlPlane, NativeImplementation, Support, and root SelfConstruction namespaces"
+      - "current-capability and next-build outputs are consumed as system-wide planning authority"
+      - "the projection emits workspace branch strategy, human handoff commands, readiness decisions, runtime maturity, and invariants"
+      - "one method owns both the capability taxonomy and the ordered roadmap through 255 purported slices"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Replace receiver-relative method/class existence probing and the positional ladder with an explicit provider-neutral capability registry whose entries resolve typed owners and evaluate real contract/preflight/status outcomes. Fail closed on invocation errors, distinguish unavailable/degraded/blocked/complete, remove the dead fallback, derive current capabilities from proof, and align workspace policy with local-main governance."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "the registry invokes typed status evaluators and never infers readiness from method/class existence alone"
+      - "the next slice is executable, semantically blocked with explicit evidence, or an explicit complete state"
+      - "reported capabilities, missing capabilities, next slice, and workspace policy cannot contradict each other"
+  - op: TEST
+    detail: "Characterize the one public domain method before splitting, then replace literal-list snapshots with registry invariants. Cover wrong-receiver regression, every registry entry, invocation failure propagation, complete/degraded/blocked states, duplicate/unknown slices, current-capability proof, schema permutations, query budgets, hash determinism, and local-main workspace policy."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentControlPlaneSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php
+    acceptance:
+      - "tests fail if a selected next slice is absent, fatal, already complete, or unsupported by its status evaluator"
+      - "every advertised current capability has a passing typed proof and no duplicate registry key"
+      - "tests enforce main-only policy and bounded query/payload/hash budgets"
+  - op: SPLIT
+    detail: "Retire the 4,017-line method behind a compatibility projector. Split reservation/session snapshot, persistent runtime snapshot, capability registry, next-work selector, provider/process lifecycle projection, completion/evidence projection, workspace policy, continuation handoff, and final envelope; no replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "no universal capability array or positional 200-plus-branch selector remains"
+      - "readiness dependencies are typed, acyclic, and one-way"
+  - op: OWNER
+    detail: "Assign bounded provider-neutral owners for runtime schema/snapshot, reservations and liveness, capability certification, next-work selection, provider/process lifecycle, completion/evidence, and workspace/handoff policy. Readiness aggregates typed owner results but cannot invent capability, implementation order, branch strategy, or completion state."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "every capability and transition has one owner, one proof evaluator, and one failure vocabulary"
+      - "control-plane projection owns no runtime transition or universal roadmap"
+      - "workspace policy is sourced from canonical governance rather than a literal payload string"
+  - op: EXTRACT
+    detail: "Extract a typed capability descriptor and registry with stable ids, owner/status callable, prerequisites, side-effect class, query cost, deprecation metadata, and next-state edges. Generate projection and ordered work from the same validated graph; use an immutable request snapshot for reservations/tables/counts and delete unrestricted __call forwarding."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "unknown, duplicate, cyclic, fatal, or ownerless registry entries fail validation"
+      - "current capabilities and next work are projections of one graph rather than three hand-maintained catalogs"
+      - "unknown dependencies fail at construction with typed errors"
+  - op: CODEMAP
+    detail: "Map the agent-control-plane command to its five upstream projections, nine forwarded helpers, 253 facade surface checks, 64 services, 255 slice ids, 467 static labels, runtime queries, hash inputs, true owners, and migration disposition. Delete catalog entries and imports that do not resolve to a current governed owner."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "every retained capability/slice has owner, evaluator, callers, prerequisites, side-effect class, and migration status"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "158 unused imports, duplicate slices, and reflection-only helper routes are removed"
+  - op: PERF
+    detail: "Benchmark cold/warm control-plane projection with upstream fan-out, query count, schema probes, capability-evaluator count, allocations, payload bytes, hashing, p50, and p95. Batch six counts into one owner snapshot, cache immutable capability metadata, and keep wall-clock liveness outside stable structural hashes."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentControlPlaneSectionTest.php
+    acceptance:
+      - "benchmarks publish cold/warm p50 and p95 plus query, allocation, payload, evaluator, and hash budgets"
+      - "one request shares one reservation/runtime snapshot and does not issue six independent count queries"
+      - "unchanged persistent/control state produces a deterministic structural hash"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-4284
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 31b5c19910dbfc83ee42419d84a594e1f2057b06382c09d6a5df6c446e53dfeb
+  source_bytes: 358503
+  public_method_count: 3
+  public_domain_method_count: 1
+  agent_control_plane_method_loc: 4017
+  parent_facade_delegation_count: 1
+  import_count: 228
+  used_import_count: 70
+  unused_import_count: 158
+  unresolved_parent_method_name_count: 9
+  unresolved_parent_call_occurrence_count: 10
+  method_exists_check_count: 253
+  method_exists_unique_name_count: 253
+  method_exists_parent_facade_hit_count: 253
+  class_exists_check_count: 64
+  class_exists_runtime_ready_count: 64
+  next_slice_assignment_count: 336
+  next_slice_unique_count: 255
+  next_slice_duplicated_name_count: 80
+  next_slice_excess_duplicate_assignment_count: 81
+  static_current_capability_count: 467
+  dynamic_current_capability_append_count: 315
+  live_current_capability_count: 557
+  query_builder_count: 6
+  count_query_count: 6
+  wall_clock_time_call_count: 1
+  focused_command_test_assertion_count: 286
+  focused_chain_test_assertion_count: 7
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 7 / 1210
-- lines_scanned: 86308
-- s0..s3: 26 / 23 / 13 / 0
+- files_scanned: 8 / 1210
+- lines_scanned: 90592
+- s0..s3: 31 / 26 / 15 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> read-only readiness query owners + provider-neutral runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN Codex reachability, Batch1/Batch2 cross-section calls, seven DispatchProvider ControlPlane imports, receipt authorization/hash/signature binding, packet paths, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT typed validated catalogs, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and transition projectors", "CODEMAP callers, routes, statuses, aliases, authorization semantics, packet paths, and query costs", "PERF query/schema/IO/hash/signature/payload budgets"]
+- ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, Codex reachability, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 253 ControlPlane surface entries plus all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability graph, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and transition projectors", "CODEMAP callers, routes, 255 slices, 467 labels, statuses, aliases, authorization semantics, packet paths, and query costs", "PERF query/schema/IO/hash/signature/capability/payload budgets"]
 - meta_complete: false
 ```
