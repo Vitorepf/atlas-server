@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 13
+files_scanned: 14
 files_total: 1210
-lines_scanned: 100796
+lines_scanned: 102555
 ```
 
 ## Files
@@ -2619,12 +2619,237 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+loc: 1759
+kind: php_os_evidence_projection_facade_with_mutating_statuses_and_mother_reflection
+intent_axes: [1, 2, 3, 5, 6, 7, 10, 14, 16, 18, 19, 20, 21, 22, 24, 25, 28, 29, 33, 34, 37, 38, 40, 41, 42, 43, 49, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0122
+    type: godfile
+    severity: s1
+    detail: "A class presented as one extracted readiness projection still has 1,759 LOC across five public status workflows and 681 data_get calls. It composes OS handoff, operator submission readiness, durable completion evidence, final closure, and Self-Programming transition policy, so this hot facade exceeds the 800-LOC target and remains too large for bounded context or safe change."
+    evidence:
+      - "wc -l => 1,759; wc -c => 177,279 bytes"
+      - "five public *Status methods span lines 265-1,757"
+      - "rg data_get( => 681 occurrences"
+      - "20 literal php artisan command strings and four certification-wrapper calls remain in the projection"
+  - id: A1-SC-0123
+    type: false_abstraction
+    severity: s0
+    detail: "The extraction is structurally incomplete. Of 228 imports, only eight are referenced after the class declaration; 220 are debris from the parent godfile. Thirteen undefined helper names are invoked 35 times through an unrestricted __call that reflects into the mother service, including private helpers. The section therefore has neither an explicit dependency contract nor independent runtime ownership, and AtlasSelfConstructionReadinessService remains a mandatory bidirectional hub."
+    evidence:
+      - "import/body-usage scan => 228 imports / 8 used / 220 unused"
+      - "seven locally defined methods versus 13 unique magic receiver methods / 35 calls"
+      - "__call lines 250-260 constructs ReflectionMethod on the mother and invokeArgs without an allowlist or interface"
+      - "stableHash alone crosses the hidden mother boundary nine times; completionEvidenceSubmissionInput and its summary cross six more times"
+      - "the parent factory lines 29,582-29,584 creates the section and injects itself with setMother"
+  - id: A1-SC-0124
+    type: doc_lie
+    severity: s0
+    detail: "atlasSelfConstructionOsCompletionEvidenceStatus is not read-only when persistence options are supplied. It delegates runtime-promotion receipt persistence to RuntimeGapMatrixService and directly persists real-provider smoke and a human completion receipt, but the returned payload still declares mode=read_only, ledger_write_allowed=false, runtime_write_allowed=false, and non-execution guarantees that say the claim authority does not persist receipts. Durable writes can therefore be reported as a read-only status operation."
+    evidence:
+      - "lines 1,017-1,041 accept persist_runtime_promotion_receipt and persist_completion_evidence and pass the runtime flag to RuntimeGapMatrixService::matrix"
+      - "RuntimeGapMatrixService lines 45 and 100 route that flag to promotionReceiptService->persist"
+      - "lines 1,051-1,053 call RealProviderSmokeCertificationService->persist when evidence input is supplied"
+      - "lines 1,078-1,080 call HumanCompletionReceiptVerifierService->persist after prerequisites pass"
+      - "lines 1,273-1,277 still emit read_only mode plus ledger_write_allowed=false and runtime_write_allowed=false"
+  - id: A1-SC-0125
+    type: bug
+    severity: s0
+    detail: "Safety-critical external completion aliases fail open if a nested owner payload is absent or changes shape. Fourteen data_get projections default acceptance, permission to mark the OS complete, audit override, transition permission, or Self-Programming permission to true, even though every locally constructed external-claim policy sets those predicates false. A partial/error payload can thus invert the policy precisely at the public facade boundary."
+    evidence:
+      - "operator-evidence readiness lines 973-978 contain six permissive true defaults"
+      - "final closure corridor lines 1,487-1,489 contains three permissive true defaults"
+      - "Self-Programming transition lines 1,741-1,745 contains five permissive true defaults"
+      - "the local policy at lines 1,589-1,604 explicitly sets all five corresponding predicates false"
+      - "existing facade tests assert populated happy-path false values but do not remove or drift the nested policy keys"
+  - id: A1-SC-0126
+    type: bug
+    severity: s0
+    detail: "The public operator-readiness status is currently unreachable through its default implementation because it immediately constructs AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService, whose extracted OperatorEvidence helper references resolve under the wrong NativeImplementation namespace. This facade adds no isolation or typed failure envelope, so the underlying Error escapes before any projected status can be returned."
+    evidence:
+      - "line 648 directly constructs AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService and calls build"
+      - "the underlying focused current run failed 2 tests with 0 assertions in 10.42 seconds on missing NativeImplementation\\OperatorEvidence helper classes"
+      - "the facade has no try/catch or dependency reachability preflight around build"
+      - "six feature files reach these five methods through AtlasSelfConstructionReadinessService, but none names/tests the extracted section directly"
+  - id: A1-SC-0127
+    type: bug
+    severity: s1
+    detail: "Self-Programming transition blocker classification is manufactured instead of derived from the gate. Whenever self_construction_complete is false, the method injects two human blockers and one provider blocker even if those ids are absent from the actual transition blockers, then hard-codes technical_blocker_count=0 and technical_blockers=[]. Technical or structural failures can therefore be mislabeled as operator/provider evidence work, while current_required_operator_artifact may simultaneously resolve to none."
+    evidence:
+      - "lines 1,623-1,645 union fixed operator/provider blocker lists solely because self_construction_complete=false"
+      - "lines 1,646-1,651 chooses an artifact only from actual transition blockers and otherwise returns none"
+      - "lines 1,707-1,712 emits the injected counts and hard-codes zero technical blockers"
+      - "the current feature test explicitly blesses 2 human, 1 provider, and 0 technical blockers rather than exercising a technical-only gate failure"
+  - id: A1-SC-0128
+    type: perf
+    severity: s0
+    detail: "Each status reconstructs deep, overlapping evidence graphs without a request snapshot or evaluation cache. Operator readiness invokes the already measured 83.28-second submission-readiness build and then reprojects hundreds of fields; completion evidence rebuilds runtime matrix, release dossier, replay diff, certification batch, two verifiers, smoke, and action packets; transition readiness evaluates the final gate, rebuilds runtime matrix, and on default options also invokes completion evidence. One read surface can therefore multiply filesystem, schema, hash, and service-graph work."
+    evidence:
+      - "operator readiness line 648 invokes the underlying build measured at 83.28s wall and 200,933,376 bytes max RSS after process-only alias repair"
+      - "completion evidence lines 1,038-1,100 constructs runtime matrix, two verifiers, release dossier, replay diff, certification batch, Forge smoke, and action packet"
+      - "transition lines 1,564, 1,656, and 1,673 evaluate final gate, runtime matrix, and default completion evidence separately"
+      - "no per-request snapshot id, evaluation counter, latency budget, or memoized result exists in the section"
+  - id: A1-SC-0129
+    type: dupe
+    severity: s1
+    detail: "The projection does not merely adapt bounded results. It re-derives operator resume packets, closure sequences, checklists, external-claim aliases, blocker taxonomies, current artifact selection, command strings, and hashes that already belong to the submission-readiness, final-closure, completion-audit, and final-gate services. The 681 field lookups and 20 embedded shell commands create parallel schema and command authorities; the existing human-receipt filename drift demonstrates that these copies do diverge."
+    evidence:
+      - "operator readiness lines 681-794 reconstructs a resume packet and copy-safe repair command from the underlying payload"
+      - "completion evidence reconstructs closure_artifact_sequence, prompt_to_artifact_checklist, blocker classification, and next commands"
+      - "transition lines 1,646-1,680 independently selects the current artifact and three draft/persist command pairs"
+      - "final closure and readiness methods flatten the same external policy, closure sequence, checklist, proof, and command graphs into hundreds of aliases"
+  - id: A1-SC-0130
+    type: test_gap
+    severity: s1
+    detail: "Facade-level feature coverage verifies many populated aliases, but the extracted owner has zero direct test references and the critical contracts are uncharacterized. There is no test that binds a fake typed mother, rejects an unknown magic receiver, proves persistence truth in the returned envelope, removes nested external-policy fields, supplies a technical-only transition failure, or enforces latency/RSS/dependency-evaluation budgets. Current tests can therefore bless the contradictory classifications and miss a refactor-time namespace fatal until runtime."
+    evidence:
+      - "rg ReadinessProjectionOsEvidenceSection tests => 0 files"
+      - "six feature files reference at least one public status method through the parent facade"
+      - "existing tests assert external aliases are false only when the downstream policy keys are populated"
+      - "the transition test asserts the fixed 2/1/0 human/provider/technical classification"
+      - "no direct suite asserts the two explicit persist calls, delegated runtime-receipt write, magic receiver allowlist, or performance budget"
+  - id: A1-SC-0131
+    type: os_overlap
+    severity: s0
+    detail: "One readiness section acts as another OS layer: it owns Atlas Self-Construction handoff, operator evidence closure, receipt/smoke persistence, Agent Control Plane release and replay evidence, terminal-loop binding, completion authorization, and the transition into Atlas Self-Programming. These are distinct authority, I/O, policy, and presentation concerns already implemented in several downstream services, so the section becomes a second sovereign composition root rather than a read-only presenter."
+    evidence:
+      - "atlasSelfConstructionOsHandoffStatus composes completion audit, completion evidence, release dossier, control plane, chain integrity, and docs"
+      - "atlasSelfConstructionOsCompletionEvidenceStatus performs persistence and defines completion claim authority"
+      - "atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus mirrors the already audited closure-corridor service"
+      - "atlasSelfProgrammingOsTransitionReadinessStatus defines external-claim policy and Self-Programming transition aliases"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Make status semantics truthful and fail closed before structural work. Separate every persistence request into an explicit command/writer result that reports actual writes and artifact identities; remove true fallbacks from external-claim aliases; derive blocker classes from one typed gate result; repair the underlying helper namespace/import reachability; return a typed failure envelope only where policy explicitly permits it."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimeGapMatrixService.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalCompletionReadinessGateService.php
+    acceptance:
+      - "no method named *Status writes durable evidence or claims read_only after a write"
+      - "missing or malformed external-claim policy fields yield false plus a typed schema violation"
+      - "human/provider/technical blockers partition the actual gate blockers without injection, omission, or overlap"
+      - "operator-readiness facade returns normally with all extracted helpers autoloadable"
+  - op: TEST
+    detail: "Characterize the section boundary with injected snapshots/fakes. Add mutation spies for all persistence flags, table-driven missing/malformed nested payloads, technical-only and mixed blocker cases, explicit unknown-receiver rejection, namespace/autoload smoke coverage, and cold/warm dependency-count/latency/RSS budgets. Keep public facade schemas stable only where they are truthful."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest.php
+    acceptance:
+      - "every status path asserts zero writes, or is renamed to an explicit command with write receipts"
+      - "deleting any nested external-policy key cannot produce a true authorization alias"
+      - "a technical-only transition failure remains technical and never invents operator/provider blockers"
+      - "the current 2-failure/0-assertion helper fatal becomes green before any split"
+  - op: SPLIT
+    detail: "Split before fusion into compact presenters for OS handoff, operator submission, completion evidence, final closure, and transition readiness. Presenters consume one immutable typed snapshot and must contain no persistence, service construction, command-template ownership, or policy derivation; retain the current class only as a temporary compatibility facade below 300 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/OsEvidence
+    acceptance:
+      - "each presenter is below 500 LOC and the compatibility facade is below 300 LOC"
+      - "dependency direction is one-way; no child stores or reflects into AtlasSelfConstructionReadinessService"
+      - "one source result is evaluated once and projected without recomputation"
+  - op: OWNER
+    detail: "Assign one canonical owner for the four-artifact operator-evidence closure law, one for durable persistence commands, one for completion/transition authorization, and one for provider-safe status presentation. The readiness facade may route, but cannot redefine blockers, commands, paths, hashes, or permission defaults."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+      - app/Services/Ai/SelfConstruction/Readiness/OsEvidence
+    acceptance:
+      - "each invariant and emitted field has one Class::method owner"
+      - "persistence authority and read-only projection authority are visibly separate"
+      - "Self-Programming transition consumes completion authority rather than recreating it"
+  - op: EXTRACT
+    detail: "Extract a typed OsEvidenceSnapshot plus explicit narrow interfaces for handoff, closure, completion, and transition inputs. Replace magic mother calls with constructor dependencies and one allowlisted compatibility adapter; render aliases and commands from canonical catalogs instead of data_get forests."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/OsEvidence
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+    acceptance:
+      - "zero __call, ReflectionMethod, setMother back-reference, or undefined $this receiver in bounded owners"
+      - "static analysis proves every dependency and result shape"
+      - "one snapshot version/hash is shared by every view in one request"
+  - op: FUSE
+    detail: "After owner extraction, fuse repeated alias maps, current-artifact selectors, blocker classifiers, closure sequence/checklist renderers, and draft/persist command templates into same-owner pure renderers/catalogs. Do not fuse completion policy, persistence I/O, terminal-loop runtime evidence, and presentation into a replacement godfile."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/OsEvidence
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+    acceptance:
+      - "one canonical field map and command catalog renders every public compatibility surface"
+      - "duplicate literals and data_get aliases decrease without increasing any owner beyond its LOC limit"
+  - op: DELETE
+    detail: "Delete 220 unused imports, unrestricted reflection forwarding, duplicated command/path/policy literals, and obsolete compatibility aliases only after characterization and caller migration. Remove the current section when its one-cycle facade window expires."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "zero unused imports and zero hidden parent helper calls"
+      - "every retained alias has a named current consumer and removal policy"
+      - "no public command or runtime consumer references the retired section"
+  - op: CODEMAP
+    detail: "Map all five status entrypoints through the parent facade to snapshot, persistence, policy, closure, transition, command, and presenter owners. Mark each edge read-only, persistence-capable, operator-only, provider-bound, or compatibility-only and include the six current feature-test callers."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+    acceptance:
+      - "every status field, command, write, and authorization predicate is discoverable in at most three hops"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Instrument per-request collaborator evaluations, filesystem bytes/reads, schema/DB queries, hashes, wall/user/sys time, and RSS. Evaluate one immutable snapshot once, keep the default status compact, and move deep dossiers/runbooks behind explicit opt-in detail without changing authority semantics."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/OsEvidence
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - tests/Feature/Ai/SelfConstruction
+    acceptance:
+      - "each expensive collaborator evaluates at most once per request"
+      - "default readiness meets a published sub-second or explicitly approved bounded budget"
+      - "latency, RSS, IO, query, and dependency-count regressions fail CI"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1759
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 354e2d3726f0779707338bd22088749147601066d2d839814ac9bd18fbc578e1
+  source_bytes: 177279
+  public_method_count: 7
+  status_method_count: 5
+  import_count: 228
+  used_import_count: 8
+  unused_import_count: 220
+  data_get_call_count: 681
+  direct_new_expression_count: 10
+  literal_self_construction_command_count: 20
+  certification_wrapper_call_count: 4
+  explicit_persist_call_count: 2
+  delegated_runtime_receipt_persistence_trigger_count: 1
+  external_policy_true_default_count: 14
+  magic_receiver_unique_method_count: 13
+  magic_receiver_call_count: 35
+  app_reference_file_count_including_definition: 2
+  public_status_app_reference_file_count: 10
+  direct_test_reference_file_count: 0
+  public_status_test_reference_file_count: 6
+  focused_underlying_test_failed_count: 2
+  focused_underlying_test_assertion_count: 0
+  focused_underlying_test_duration_seconds: 10.42
+  underlying_post_alias_build_wall_seconds: 83.28
+  underlying_post_alias_build_max_rss_bytes: 200933376
+  git_history_commit_count_for_source: 1
+  next_file_by_loc: app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 13 / 1210
-- lines_scanned: 100796
-- s0..s3: 54 / 48 / 19 / 0
+- files_scanned: 14 / 1210
+- lines_scanned: 102555
+- s0..s3: 60 / 52 / 19 / 0
 - intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 39, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
