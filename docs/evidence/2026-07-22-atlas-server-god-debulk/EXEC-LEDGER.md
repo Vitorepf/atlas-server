@@ -4,37 +4,33 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0125 recorded
+phase: A1-SC-0134 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: fail-closed external completion-claim aliases
-finding_id: A1-SC-0125
-action_op: test-first missing-or-malformed policy rejection
+focus: blackboard deferral lease cleanup
+finding_id: A1-SC-0134
+action_op: test-first canonical lease release
 queue_index: 6
-last_commit: c857b4d82
+last_commit: 97198001f
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --filter=test_readiness_status_and_cli_quartet_exist
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php tests/Feature/Ai/AtlasTaskServingLeaseOwnershipTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php
   git diff --check
 before_after: |
-  red: a public operator-readiness projection with the real section and an injected owner missing external_completion_claim_policy returned completion-claim aliases as true.
-  green: all fourteen aliases require literal boolean true; missing or malformed owner policy fields project false plus a typed schema violation and field list.
+  red: lease_deferred returned while activeLeasesForAgent(worker-l2) contained the task's canonical active lease.
+  green: blackboard deferral releases the lease before returning lease_deferred; a release failure is surfaced as lease_defer_blocked rather than falsely deferred.
 stdout: |
-  section_boundary: PASS (2 tests, 19 assertions)
-  operator_readiness_facade: PASS (1 test, 129 assertions)
-  final_closure_corridor_facade: NOT COMPLETED (terminated after 3m CPU without a result; no green claim)
-  php_lint: PASS section plus focused test
-  loc_check: readiness_projection_os_evidence_section=1798
+  blackboard_and_ownership: PASS (5 tests, 17 assertions)
+  php_lint: PASS service plus focused test
+  loc_check: atlas_task_serving_service=1699
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The drift tests call the public section method; Mockery overloads only the hard-wired owner constructor so a missing or malformed nested payload reaches the real facade projection.
-  The five transition aliases use the same literal-true and schema-validation rule; that method reconstructs a deep graph, so a redundant direct probe was removed after exceeding three minutes. A1-SC-0128 already owns that performance debt.
+  Blackboard reads remain advisory and fail-open. Once a real queue claim exists, however, its release is mandatory before a defer response is truthful.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
-  The source is below 2k.
+  The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -363,6 +359,35 @@ verification:
 boundary:
   - read-only projection semantics only
   - no receipt persistence, dispatch, provider call, token spend, or Self-Programming enablement
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 17 — A1-SC-0134 blackboard deferral lease cleanup, 2026-07-22
+
+```yaml
+finding: A1-SC-0134
+commit: 97198001f
+subject: "refactor(core): GOD-DEBULK release deferred blackboard leases"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php --filter=test_lease_is_deferred_when_another_engine_claims_the_file
+  result: "FAIL 1 test, 3 assertions: lease_deferred left an active canonical lease for worker-l2."
+green:
+  behavior: "a blackboard conflict releases the claim through the orchestrator before returning lease_deferred; the envelope reports lease_released=true. If release does not return ok, the response is lease_defer_blocked with its release result rather than a false defer."
+  characterization: "the public serving path claims a real packet, hits a real blackboard conflict, then proves activeLeasesForAgent(worker-l2) is empty."
+verification:
+  blackboard_and_ownership: "PASS 5 tests, 17 assertions"
+  php_lint: "PASS service and focused test"
+  loc: "atlas_task_serving_service=1699 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - blackboard reads remain advisory and fail-open
+  - no task execution, provider call, token spend, or evidence persistence occurs
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
