@@ -214,6 +214,47 @@ write_back:
   auto_promoted: false
 ```
 
+## KernelTriad F0 candidate — SUPERSEDED false-green record, 2026-07-22
+
+```yaml
+candidate_commit: 5d9b213a0bc9fc53641ae39201ed94e128ab2b15
+subject: "test(core): GOD-DEBULK KernelTriad F0 characterization"
+status: SUPERSEDED_FALSE_GREEN
+reason: the test created atlas_ledger_events with only 2026_05_05_020000_create_atlas_ledger_events_table.php. It executed write/replay but never applied the later hash/scope or hash-chain migrations, so it did not prove persisted scope_type, scope_id, event_hash, prev_event_hash, chain_basis, or the stored-chain verifier.
+replacement_receipt: d83e5d25a
+```
+
+## KernelTriad F0 correction receipt, 2026-07-22
+
+```yaml
+primary_commit: d83e5d25a
+subject: "test(core): GOD-DEBULK harden KernelTriad F0 characterization"
+supersedes_false_green_candidate: 5d9b213a0bc9fc53641ae39201ed94e128ab2b15
+scope:
+  - tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php
+production_changes: false
+acceptance:
+  migrations:
+    - database/migrations/2026_07_12_011200_repair_atlas_ledger_events_hash_and_scope_columns.php
+    - database/migrations/2026_07_12_021500_add_hash_chain_to_atlas_ledger_events.php
+  scanner: complianceReport returns ok=true; all 166 frozen checks have exact valid/violations result shape and no violations.
+  reflection: public API and constructor snapshot retained; computeEventHash is static and declared by AtlasEvidenceLedger.
+  persisted_chain: two real AtlasEvidenceLedger::record writes are reloaded from AtlasLedgerEvent; event_hash values are persisted, second.prev_event_hash equals first.event_hash, and chain_basis is hash_chained.
+  integrity: EvidenceLedgerHashChainIntegrityVerifier::verifyStoredScopeChain(kernel_triad_f0, receipt-chain) returns ok with chain_length=2 and the persisted head hash.
+  replay: DecisionIssued receipts still replay with valid receipt/chain hashes and review_signal=ok.
+verification:
+  red:
+    command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php --testdox
+    stdout: "FAIL 1 test, 510 assertions: persisted scope_type was null under the base-only migration."
+  green:
+    command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php --testdox
+    stdout: "OK (2 tests, 529 assertions)"
+  lint: "/opt/homebrew/bin/php -l tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php PASS"
+  pint: "vendor/bin/pint --test tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php PASS"
+  test_loc: "185 (< 2000)"
+  diff_check: "git diff --check PASS"
+```
+
 ## Task 14 — A1-SC-0187 direct certification-probe cleanup, 2026-07-22
 
 ```yaml
