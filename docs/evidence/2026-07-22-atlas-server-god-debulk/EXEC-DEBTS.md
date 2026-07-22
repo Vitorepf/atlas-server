@@ -35,8 +35,13 @@ claimed_paths: []
    - BUGFIX read-only vs mutate + fail-closed defaults
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
-6. Próximos YAMLs em `META-FINDINGS/A1--SelfConstruction.md` (LOC desc, s0 primeiro)
-7. Holding → Kernel/Gates → resto A1 → A2… (COMPLETE §5)
+6. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
+   a. RuntimeExecution F0: characterization AVER (10 métodos array-in/out) + teste que DOCUMENTA a contradição atual (AtlasAverCertifiedExecution certified com AiRealExecutionCertification ausente p/ mesmo diff_hash) + snapshot byte do schema atlas.ai.runtime_release_gate.v1 + espiões de mutação por tool (classifica os 19 de AiToolRuntime em read-only vs mutador)
+   b. ProviderPipeUnification F0: characterization AiProviderManager get/getRecommended/keys (±decoradores) + snapshot manifest/complianceReport da ProviderDriverRegistry (oráculo da fusão) + envelope do Swarm com resolver stub + runner Forge governed/não-governed→consulted/bypass no ledger
+   c. KernelTriad passo 1: snapshot de array_keys(architectureScanChecks()) (166 keys) + teste de reflexão da API pública do AtlasEvidenceLedger (métodos+construtor) + replay hash-chain verde
+   d. LearningConsolidation M1a: snapshot --json de atlas:ai:learning collect/list/review + bloco learning do controlPlaneSummary (os 13 testes existentes ficam como base)
+7. Próximos YAMLs em `META-FINDINGS/A1--SelfConstruction.md` (LOC desc, s0 primeiro)
+8. Holding → Kernel/Gates → resto A1 → A2… (COMPLETE §5)
 
 ## Regras
 
