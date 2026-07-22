@@ -4,38 +4,38 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0176 complete
+phase: A1-SC-0187 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: fail-closed one-shot mutating-writer release preflight
-finding_id: A1-SC-0176
-action_op: test-first receipt-proof and contract-status repair
+focus: direct certification-probe artifact cleanup
+finding_id: A1-SC-0187
+action_op: test-first public-probe finally cleanup
 queue_index: 6
-last_commit: c6878d531
+last_commit: 73f951958
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
-  vendor/bin/phpstan analyse --memory-limit=512M [operator-evidence service, focused unit test]
-  vendor/bin/pint --test [operator-evidence service, focused unit test]
-  bash scripts/god-debulk-guard.sh
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter='test_direct_terminal_bootstrap_probe_prunes_its_synthetic_queue_and_lease_artifacts'
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
   git diff --check
 before_after: |
-  red: six public build tests died before their first assertion because the NativeImplementation namespace resolved the three extracted OperatorEvidence collaborators locally; the public envelope also returned nested secret-bearing input unchanged.
-  green: the public build resolves the canonical OperatorEvidence namespace. The envelope canonicalizes payload before JSON/hash construction; secret-bearing keys are removed recursively while the non-sensitive evidence identifier remains.
+  red: without the public wrapper finally cleanup, runTerminalBootstrapProbe left three synthetic queue artifacts; the real public probe asserted prepared_and_enqueued before failing 3 !== 0.
+  green: each direct terminal-probe wrapper now cleans its run-scoped artifacts in finally; certify() calls the runner directly and retains its original single final cleanup.
 stdout: |
-  focused_test: OK (7 tests, 54 assertions); public fatal and secret-envelope probes: OK (2 tests, 9 assertions)
-  php_lint: No syntax errors detected in production service and focused test
-  loc_check: operator_evidence_submission_readiness=1857
-  guard: GOD_DEBULK_GUARD_OK
+  direct_characterization: PASS (1 test, 3 assertions)
+  probe_runner_suites: PASS (30 tests, 115 assertions)
+  certification_feature_suite: NOT GREEN (10 failed, 5 passed; bootstrap/claim counts are zero and status is blocked)
+  php_lint: No syntax errors detected in service and changed feature test
+  loc_check: certification_service=1189
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The correction changes a read-only envelope only; it does not persist, dispatch, call providers, or spend tokens.
-  The broad feature package was interrupted after 6m34s inactive with no output/CPU and is not counted as passed. The focused public path is green.
-  Strict Pint reports pre-existing host formatting findings. PHPStan reports 10 existing findings in the owner; no PHPStan error is emitted for the edited lines. No suppression or unrelated reformatting was added.
-  The source is below 2k. A shared-index race placed its app/test diff in external commit 7d7aa7c35e with subject docs(core); this is a historical label violation, not a claim that this cycle was docs-only.
+  The cleanup path operates only on synthetic in-memory queue and lease artifacts; it does not persist, dispatch, call providers, or spend tokens.
+  The broad certification feature suite is explicitly not accepted as green. Its bootstrap/claim failure predates neither is attributed by this receipt; it remains a separate failure surface for the queue/bootstrap owner.
+  Strict Pint reports host formatting drift; no broad reformatting was applied.
+  The source is below 2k. A shared-index race placed an older app/test diff in external commit 7d7aa7c35e with subject docs(core); this is a historical label violation, not a claim that this cycle was docs-only.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -209,6 +209,37 @@ verification:
 boundary:
   - read-only preflight and contract projections only
   - no wakeup claim, receipt persistence, provider start, adapter call, or token spend
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 14 — A1-SC-0187 direct certification-probe cleanup, 2026-07-22
+
+```yaml
+finding: A1-SC-0187
+commit: 73f951958
+subject: "refactor(core): GOD-DEBULK cleanup certification probes"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter='test_direct_terminal_bootstrap_probe_prunes_its_synthetic_queue_and_lease_artifacts'
+  setup: "temporarily restore the pre-fix direct delegator only; the committed test remains unchanged"
+  result: "FAIL 1 test, 2 assertions: public runTerminalBootstrapProbe prepared/enqueued then left queue total_count=3 (expected 0)"
+green:
+  behavior: "all direct terminal-probe public wrappers execute their runner in try/finally and prune their run-scoped queue and lease artifacts. certify() calls the runner directly, preserving one aggregate cleanup at its existing boundary."
+  characterization: "PASS 1 test, 3 assertions, through public runTerminalBootstrapProbe and real prepareAndEnqueue"
+verification:
+  probe_runner_suites: "PASS 30 tests, 115 assertions"
+  certification_feature_suite: "NOT GREEN: 10 failed, 5 passed; bootstrap/claim counts are zero and status is blocked. This receipt does not claim it passes."
+  php_lint: "PASS service and changed feature test"
+  loc: "certification_service=1189 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported host formatting drift; no broad reformatting was applied"
+boundary:
+  - cleanup is confined to synthetic queue and lease artifacts created by direct probe calls
+  - no provider call, token spend, task dispatch, or persistent external side effect
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
