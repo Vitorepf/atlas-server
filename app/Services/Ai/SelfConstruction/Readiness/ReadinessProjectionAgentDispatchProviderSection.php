@@ -646,6 +646,13 @@ final class ReadinessProjectionAgentDispatchProviderSection
 
 
     /**
+     * Single-use dispatch receipts are short-lived by policy (template contract:
+     * single_use_short_lived_receipt_required). A future signed-policy layer may tune this; ponytail: raise
+     * the ceiling here if a legitimate signer ever needs a longer window.
+     */
+    private const SIGNED_DISPATCH_RECEIPT_MAX_TTL_SECONDS = 3600;
+
+    /**
      * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, decision?: string|null, signed_by?: string|null, receipt_hash?: string|null, dispatch_envelope_hash?: string|null, adapter_contract_hash?: string|null, expires_at?: string|null}  $options
      * @return array<string, mixed>
      */
@@ -723,8 +730,57 @@ final class ReadinessProjectionAgentDispatchProviderSection
             ];
         }
 
+        // SECURITY (A1-SC-0056) — the shape checks above are necessary but NOT sufficient: a caller could
+        // still mint a signed_pending_dispatch authority row from arbitrary 64-hex text with a past/garbage
+        // expiry. Before persisting, BIND the receipt to the server's canonical dispatch envelope (recomputed
+        // from THIS preflight — the same value the template exposes at draft_receipt.dispatch_envelope_hash)
+        // and prove a real, single-use, FUTURE expiry. This is the implementable core of the validation-preflight
+        // contract (envelope-hash-against-preflight + receipt-not-expired + single-use TTL). Signer-identity
+        // verification remains the declared future signed-policy layer (SelfConstructionReadiness blueprint) —
+        // not faked here. Fail-closed: any unbound envelope or non-future expiry blocks the write.
+        $canonicalEnvelopeHash = ($this->stableHash)((array) data_get($preflight, 'dispatch_envelope_draft', []));
+        $expiresAtInstant = $this->parseFutureSingleUseExpiry($expiresAt);
+        $integrityFailures = array_values(array_filter([
+            hash_equals($canonicalEnvelopeHash, $dispatchEnvelopeHash) ? null : 'dispatch_envelope_hash_not_bound_to_preflight',
+            $expiresAtInstant !== null ? null : 'receipt_expiry_not_a_future_single_use_instant',
+        ]));
+
+        if ($integrityFailures !== []) {
+            $write = [
+                'status' => 'blocked',
+                'blocking_reasons' => ['signed_dispatch_receipt_integrity_unverified'],
+                'integrity_failures' => $integrityFailures,
+                'expected_dispatch_envelope_hash' => $canonicalEnvelopeHash,
+                'max_receipt_ttl_seconds' => self::SIGNED_DISPATCH_RECEIPT_MAX_TTL_SECONDS,
+                'preflight_status' => data_get($preflightPayload, 'status'),
+                'dispatch_receipts_table_ready' => true,
+            ];
+
+            return [
+                'schema_version' => 'atlas.self_construction_agent_dispatch_receipt_write.v1',
+                'status' => 'blocked',
+                'mode' => 'controlled_agent_dispatch_receipt_writer',
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'dispatch_receipt_write' => $write,
+                'dispatch_receipt_write_hash' => ($this->stableHash)($write),
+                'non_execution_guarantees' => [
+                    'agent_dispatch_receipt_write_does_not_start_providers',
+                    'agent_dispatch_receipt_write_does_not_claim_packets',
+                    'agent_dispatch_receipt_write_does_not_release_packets',
+                    'agent_dispatch_receipt_write_does_not_dispatch_work',
+                ],
+                'human_summary' => 'Agent dispatch receipt writer refused: the signed receipt is not bound to the server dispatch envelope or its single-use expiry is not in the future.',
+            ];
+        }
+
         $claimedWakeup = (array) data_get($preflight, 'claimed_wakeup_item', []);
-        $receiptKey = 'DISPATCH-RECEIPT-'.strtoupper(substr($receiptHash, 0, 24));
+        // Row identity is SERVER-derived from the canonical envelope (not caller-supplied receipt_hash):
+        // one signed dispatch authority per operation, and a caller cannot pick or overwrite an arbitrary
+        // receipt row by choosing its receipt_hash prefix (A1-SC-0056 hardening).
+        $receiptKey = 'DISPATCH-RECEIPT-'.strtoupper(substr($canonicalEnvelopeHash, 0, 24));
         $model = AtlasSelfConstructionAgentDispatchReceipt::query()->updateOrCreate(
             ['receipt_key' => $receiptKey],
             [
@@ -737,7 +793,7 @@ final class ReadinessProjectionAgentDispatchProviderSection
                 'status' => $decision === 'approve_dispatch_once' ? 'signed_pending_dispatch' : 'signed_no_dispatch',
                 'signed_by' => $signedBy,
                 'signed_at' => now(),
-                'expires_at' => $expiresAt,
+                'expires_at' => $expiresAtInstant,
                 'dispatch_envelope_hash' => $dispatchEnvelopeHash,
                 'adapter_contract_hash' => $adapterContractHash === '' ? null : $adapterContractHash,
                 'receipt_hash' => $receiptHash,
@@ -784,6 +840,33 @@ final class ReadinessProjectionAgentDispatchProviderSection
             ],
             'human_summary' => 'Agent dispatch receipt writer persisted a signed receipt without starting providers or dispatching work.',
         ];
+    }
+
+    /**
+     * Parse a caller-supplied receipt expiry, returning the instant ONLY when it is a valid timestamp
+     * strictly in the FUTURE and within the single-use short-lived TTL ceiling. Returns null (fail-closed)
+     * for anything unparseable, past, now, or beyond the ceiling — so a garbage or already-expired string
+     * can never mint dispatch authority.
+     */
+    private function parseFutureSingleUseExpiry(string $raw): ?CarbonImmutable
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            $instant = CarbonImmutable::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now();
+        if ($instant->lessThanOrEqualTo($now)
+            || $instant->greaterThan($now->addSeconds(self::SIGNED_DISPATCH_RECEIPT_MAX_TTL_SECONDS))) {
+            return null;
+        }
+
+        return $instant;
     }
 
 
