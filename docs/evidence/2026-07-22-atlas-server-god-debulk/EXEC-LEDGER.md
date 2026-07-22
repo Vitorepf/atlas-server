@@ -11,6 +11,7 @@ focus: AgentCodexSection typed ProviderAdapter boundary
 finding_id: A1-SC-0076
 action_op: test-first typed sibling injection
 queue_index: 3
+last_commit: cea059e34
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php

@@ -118,7 +118,10 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
     public function test_provider_execution_contract_template_reaches_provider_adapter_preflights(): void
     {
-        $payload = app(AtlasSelfConstructionReadinessService::class)
+        $runtime = app(AtlasSelfConstructionReadinessService::class);
+        $registryPreflight = $runtime->agentProviderAdapterRegistryPreflight();
+        $executionGuardPreflight = $runtime->agentProviderAdapterExecutionGuardPreflight();
+        $payload = $runtime
             ->agentCodexProviderExecutionContractTemplate();
 
         $this->assertSame(
@@ -131,12 +134,12 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
         $template = $payload['codex_provider_execution_contract_template'];
         $this->assertIsArray($template);
-        $this->assertMatchesRegularExpression(
-            '/^[a-f0-9]{64}$/',
+        $this->assertSame(
+            $registryPreflight['provider_adapter_registry_preflight_hash'],
             $template['source_provider_adapter_registry_preflight_hash']
         );
-        $this->assertMatchesRegularExpression(
-            '/^[a-f0-9]{64}$/',
+        $this->assertSame(
+            $executionGuardPreflight['provider_adapter_execution_guard_preflight_hash'],
             $template['source_provider_adapter_execution_guard_preflight_hash']
         );
     }
