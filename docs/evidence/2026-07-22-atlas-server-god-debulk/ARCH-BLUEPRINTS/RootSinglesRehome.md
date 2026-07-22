@@ -1,6 +1,6 @@
 # BLUEPRINT — RootSinglesRehome
 
-> status: draft · data: 2026-07-22 · obra: GOD Debulk · escopo: raiz de app/Services/Ai/
+> status: draft-v2 (SOBREVIVEU ao verify adversarial; 4 emendas aplicadas — evidências verificadas pelo comandante) · data: 2026-07-22 · obra: GOD Debulk · escopo: raiz de app/Services/Ai/
 
 ## 1. Contexto (verificado)
 
@@ -47,5 +47,11 @@ Racional: Provider antes de Cli — o commit Provider corrige os imports dos dri
 8. `tests/Feature/AtlasMemoryRegistryTest.php:522` — path do ContextPackBuilder → 12
 Descartados com evidência: config/routes/database zero imports; jobs de queue usam method-injection (não serializam services).
 
-## 8. Arbitragens em aberto (não travam a ordem)
+## 8. EMENDAS do verify adversarial (obrigatórias)
+1. **Strings que escaparam da lista de 8** (agora lista aberta com sweep obrigatório): BoundaryClassifierTest:200 (file_get_contents do fonte + assertStringNOTContains — vira VERDE-FANTASMA pós-move, verificado) → grupo 15 reescreve o teste; KernelBypassRegressionTest:247/259/458 (file_get_contents do McpService — quebra só na suíte completa) → grupo 15; scanner L213-215 (FQCN-strings dos 3 drivers CLI, além das L226-228 já listadas) → grupo 17; ContextPackServiceTest hits extras (2202/2236/2401/2632) → grupos 14/15.
+2. **Gate do §5 corrigido**: o sweep residual ganha a variante PATH-form minúscula `rg 'app/Services/Ai/<Classe>\.php'` (o rg por namespace é cego a path-literal — lição recorrente da obra).
+3. **Claim same-namespace era ilustrativo, não inventário**: medido — AiWorker referencia 19 movers sem use (não 3), AiGatewayService 13, AiProviderManager 8 (incl. os 6 drivers + AtlasAiRuntimeSettings), AiPromptBuilder 5, AtlasDecideService 2. O passo 4 (rg de basename por grupo) + larastan são o inventário REAL e obrigatório; a lista do §1 é amostra.
+4. Guards/testes-guard fora dos grupos filtrados só caem na suíte completa — a suíte completa roda ao FIM DE CADA GRUPO pesado (14-17), não só fim de dia.
+
+## 9. Arbitragens em aberto (não travam a ordem)
 AiInteractionSteeringService → ControlPlane/ vs Instrumentation/ · AtlasAiRuntimeSettings+AiRuntimeBudgetService → Policy/ vs Runtime/.

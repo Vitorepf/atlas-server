@@ -5,7 +5,7 @@ mission: atlas-server-god-debulk-arch
 phase: review
 cluster_atual: FASE 2 COMPLETA — 7 blueprints draft (todas as decisões estruturais desenhadas); FASE 3: endurecer fila do EXECUTE + auditoria/correção de findings + reviews
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
-blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation, QuarantineACDE, RootSinglesRehome]
+blueprints_draft: [TODOS os 7 VERIFICADOS adversarialmente e emendados — SelfConstructionReadiness v2, RuntimeExecution v2 (re-verify pendente), ProviderPipeUnification v2.1, KernelTriad v2, LearningConsolidation v2, QuarantineACDE v2, RootSinglesRehome v2]
 blueprints_approved: []
 needs_operator:
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  VERIFY FINAL RootSingles+Readiness: ambos SOBREVIVE, emendas aplicadas (verde-fantasma L200 verificado; flags vivas do MotherCommand verificadas; contagens refrescadas). CRIVO COMPLETO: 7/7 blueprints atacados e endurecidos.
   VERIFY KernelTriad+QuarantineACDE: ambos SOBREVIVE c/ emendas APLICADAS. Achado contra MIM: 7 Aael no lote high (CSV corrigido → lote ≤218); KernelTriad: 4 guards fail-open protegendo path do scanner (L89 verificado) + self-scan strings — tudo no mesmo commit do mv
   2º VERIFY ProviderPipe (redundante que pagou): +3 deltas consolidados (FaseA spawn sem consult, BaselineRunner app(), 9 setResolver em tests) → v2.1
   VERIFY LearningConsolidation: SOBREVIVE + 3 emendas APLICADAS (quase-fatal: path-literals fail-open — config/atlas.php:112 valor vivo, scanner L6630, BoundaryReport:36 — todos confirmados; regra nova: sweep de path-form em todo move)

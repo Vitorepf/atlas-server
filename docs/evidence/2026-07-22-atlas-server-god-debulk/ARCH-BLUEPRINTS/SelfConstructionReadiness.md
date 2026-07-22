@@ -1,6 +1,7 @@
 # ARCH BLUEPRINT — SelfConstruction Readiness
 
-> status: draft
+> status: draft-v2 (SOBREVIVEU ao verify adversarial 2026-07-22; 4 emendas — evidências verificadas pelo comandante)
+> EMENDAS: (1) os testes reflexivos por Section (AtlasAiSelfConstructionReadinessProjection*SectionTest) apontam para classes que a migração deleta — deletar/migrar JUNTO na fatia correspondente (senão vermelho ou fantasma); (2) 9+ geradores de comando em código VIVO emitem flags do MotherCommand (GuidanceBuilder:79-80/288 VERIFICADO, ProofCommandFactory:20-35, ReceiptDraft:133, SmokeEndgame:259, WorkerCommandFormatter:47) — entram no re-apontamento da fase 7 + Scanner varre 'atlas:ai:self-construction --' em app/; (3) refresh de contagens: 735 delegações→656 medidas em HEAD (~11% drift), LOC Δ pequeno pós-fixes do EXECUTE; (4) Fase 0 item 1 parcialmente OBSOLETA: A1-SC-0019 (Schema import) e A1-SC-0020/0021 JÁ CORRIGIDOS em HEAD pelo EXECUTE — a Fase 0 remanescente é characterization matrix + espiões de mutação, não os bugfixes.
 > data: 2026-07-22
 > obra: GOD Debulk / capability SelfConstruction Readiness
 > insumos: docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md (A1-SC-0001..0043)
