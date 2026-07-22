@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
+use App\Services\Ai\Cognition\AcosProgram\AtlasFlywheelFunnelService;
 use Illuminate\Console\Command;
 
 final class AtlasFlywheelFunnelCommand extends Command

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
-use App\Services\Ai\AcosMax\ComposedObraArcComposer;
-use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
-use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
-use App\Services\Ai\AcosMax\EvidenceVisionThesisLifecycle;
-use App\Services\Ai\AcosMax\PredictedImpactBand;
+use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
+use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcLifecycle;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
+use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;

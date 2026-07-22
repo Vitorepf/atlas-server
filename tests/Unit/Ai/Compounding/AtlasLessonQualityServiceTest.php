@@ -9,7 +9,7 @@ use App\Models\AiCompoundingMemory;
 use App\Models\AiLearningCandidate;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use Carbon\CarbonImmutable;

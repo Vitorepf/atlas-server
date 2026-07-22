@@ -9,7 +9,7 @@ use App\Models\AtlasAurgNode;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AcosMax\ComposedObraArcComposer;
+use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
-use App\Services\Ai\AcosMax\AcosMaxWindowOrchestratorService;
-use App\Services\Ai\AcosMax\PromotionProtocol;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxWindowOrchestratorService;
+use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
 

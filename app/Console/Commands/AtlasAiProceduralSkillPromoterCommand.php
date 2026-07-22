@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxProceduralSkillPromoterService;
 use Illuminate\Console\Command;
 
 final class AtlasAiProceduralSkillPromoterCommand extends Command

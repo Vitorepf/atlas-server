@@ -6,7 +6,7 @@ namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
 use App\Services\Ai\Support\AiValueNormalizer;
 
-use App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService;
+use App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use Carbon\CarbonImmutable;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosProgramCockpitService;
+use App\Services\Ai\Cognition\AcosProgram\AcosProgramCockpitService;
 use Illuminate\Console\Command;
 
 final class AtlasAcosCockpitCommand extends Command

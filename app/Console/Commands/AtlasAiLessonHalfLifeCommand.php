@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxLote2MeasureService;
 use Illuminate\Console\Command;
 
 final class AtlasAiLessonHalfLifeCommand extends Command

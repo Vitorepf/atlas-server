@@ -109,7 +109,7 @@ return [
                 'roots' => [
                     'app/Services/Ai/Aaeos',
                     'app/Services/Ai/AgenticEngineeringOs',
-                    'app/Services/Ai/AcosMax',
+                    'app/Services/Ai/Cognition/AcosProgram',
                     'app/Services/Ai/Cognition',
                 ],
                 'docs_roots' => [

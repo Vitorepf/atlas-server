@@ -20,7 +20,7 @@ final class AtlasAaeosAcosLaneScope
     public const CODE_ROOTS = [
         'app/Services/Ai/Aaeos',
         'app/Services/Ai/AgenticEngineeringOs',
-        'app/Services/Ai/AcosMax',
+        'app/Services/Ai/Cognition/AcosProgram',
         'app/Services/Ai/Cognition',
     ];
 

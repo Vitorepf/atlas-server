@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context\Retrieval;
 
 use App\Models\AtlasEngineeringKnowledgeItem;
-use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Context\Retrieval\AtlasKnowledgeItemEmbeddingCoverageService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

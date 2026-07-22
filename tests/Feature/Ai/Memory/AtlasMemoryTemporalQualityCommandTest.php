@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;

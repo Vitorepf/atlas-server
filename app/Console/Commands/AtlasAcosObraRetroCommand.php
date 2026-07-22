@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxObraRetroService;
 use Illuminate\Console\Command;
 
 final class AtlasAcosObraRetroCommand extends Command

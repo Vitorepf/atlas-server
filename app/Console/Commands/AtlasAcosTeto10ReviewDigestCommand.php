@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
+use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
 use Illuminate\Console\Command;
 use Throwable;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
+use App\Services\Ai\Cognition\AcosProgram\AtlasNCaptureDrillService;
 use Illuminate\Console\Command;
 
 final class AtlasTetoNCaptureDrillCommand extends Command

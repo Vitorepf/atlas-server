@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningCandidate;
-use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxLote2MeasureService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 

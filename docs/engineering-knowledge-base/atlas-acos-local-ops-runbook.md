@@ -81,9 +81,9 @@ observação, não decisão.
 
 ## Referências
 
-- Registry de séries: `App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry`.
-- Registry de rotação: `App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry`.
+- Registry de séries: `App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry`.
+- Registry de rotação: `App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry`.
 - Cadeia hash: `App\Services\Ai\EvidenceLedger\AtlasLedgerHashChainVerifier`.
 - Restore drill: `atlas:substrate:restore-drill --json` (ELEV-17).
-- Budget conjunto: `App\Services\Ai\AcosMax\AtlasResourceBudgetService` (ELEV-27).
-- Integridade de modelo: `App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService` (ELEV-19).
+- Budget conjunto: `App\Services\Ai\Cognition\AcosProgram\AtlasResourceBudgetService` (ELEV-27).
+- Integridade de modelo: `App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService` (ELEV-19).

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\PromotionProtocol;
+use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use Illuminate\Console\Command;
 
 final class AtlasPromotionsCommand extends Command

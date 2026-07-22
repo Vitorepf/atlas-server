@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxVerifiedShareService;
 use Illuminate\Console\Command;
 
 final class AtlasAcosVerifiedShareCommand extends Command

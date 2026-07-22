@@ -42,7 +42,7 @@ final class AtlasAaeosAcosLaneScopeTest extends TestCase
         $def = AtlasAaeosAcosLaneScope::definition();
 
         $this->assertSame(AtlasAaeosAcosLaneScope::SLUG, $def['slug']);
-        $this->assertContains('app/Services/Ai/AcosMax', $def['code_roots']);
+        $this->assertContains('app/Services/Ai/Cognition/AcosProgram', $def['code_roots']);
         $this->assertContains('app/Services/Ai/AgenticEngineeringOs', $def['code_roots']);
     }
 }

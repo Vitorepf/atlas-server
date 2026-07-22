@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
-use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
+use App\Services\Ai\Cognition\AcosProgram\AtlasResourceBudgetService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use Carbon\CarbonImmutable;

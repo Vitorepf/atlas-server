@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AtlasDecide;
 
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use Tests\TestCase;

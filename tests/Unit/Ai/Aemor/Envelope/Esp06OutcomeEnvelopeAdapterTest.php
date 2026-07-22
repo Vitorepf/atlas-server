@@ -186,7 +186,7 @@ final class Esp06OutcomeEnvelopeAdapterTest extends TestCase
 
     public function test_esp06_measure_is_registered_for_elev20s(): void
     {
-        $registry = app(\App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry::class);
+        $registry = app(\App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry::class);
         $this->assertContains('ESP-06', $registry->sliceIds());
         $this->assertContains(OutcomeEnvelopeBridge::MEASURE_ID, $registry->seriesIds());
     }

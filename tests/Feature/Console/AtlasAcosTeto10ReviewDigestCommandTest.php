@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
-use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
+use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;

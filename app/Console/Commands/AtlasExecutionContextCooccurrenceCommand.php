@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
+use App\Services\Ai\Cognition\AcosProgram\ExecutionContextCooccurrenceService;
 use Illuminate\Console\Command;
 
 final class AtlasExecutionContextCooccurrenceCommand extends Command
