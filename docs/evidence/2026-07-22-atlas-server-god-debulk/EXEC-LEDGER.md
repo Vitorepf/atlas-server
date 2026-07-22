@@ -11,7 +11,7 @@ focus: GOD-DEBULK P0 tooling
 finding_id: P0-tooling
 action_op: test-first audit-guard-codemap
 queue_index: 1
-last_commit: e8b9d8d9a
+last_commit: 0974699be
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test --parallel tests/Feature/Scripts/GodDebulkToolingTest.php

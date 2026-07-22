@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$codemap = getenv('GOD_DEBULK_CODEMAP_PATH') ?: $root.'/app/Services/Ai/CODEMAP.md';
+$codemap = $root.'/app/Services/Ai/CODEMAP.md';
 
 function fail(string $reason): never
 {
@@ -27,12 +27,69 @@ function markdownTableCells(string $line): ?array
 /**
  * @return list<string>
  */
-function navigationTargets(string $contents): array
+function visibleMarkdownLines(string $contents): array
 {
     $lines = preg_split('/\R/', $contents);
     if ($lines === false) {
         fail('unreadable_codemap');
     }
+
+    $visible = [];
+    $inFence = false;
+    $inComment = false;
+
+    foreach ($lines as $line) {
+        $trimmed = ltrim($line);
+        if ($inFence) {
+            if (preg_match('/^(?:```|~~~)/', $trimmed)) {
+                $inFence = false;
+            }
+
+            continue;
+        }
+        if (preg_match('/^(?:```|~~~)/', $trimmed)) {
+            $inFence = true;
+
+            continue;
+        }
+
+        while (true) {
+            if ($inComment) {
+                $end = strpos($line, '-->');
+                if ($end === false) {
+                    continue 2;
+                }
+                $line = substr($line, $end + 3);
+                $inComment = false;
+            }
+
+            $start = strpos($line, '<!--');
+            if ($start === false) {
+                break;
+            }
+
+            $end = strpos($line, '-->', $start + 4);
+            if ($end === false) {
+                $line = substr($line, 0, $start);
+                $inComment = true;
+
+                break;
+            }
+            $line = substr($line, 0, $start).substr($line, $end + 3);
+        }
+
+        $visible[] = $line;
+    }
+
+    return $visible;
+}
+
+/**
+ * @return list<string>
+ */
+function navigationTargets(string $contents): array
+{
+    $lines = visibleMarkdownLines($contents);
 
     foreach ($lines as $index => $line) {
         $header = markdownTableCells($line);
@@ -78,10 +135,13 @@ function nextNamedToken(array $tokens, int $index): ?string
 {
     for ($index++; $index < count($tokens); $index++) {
         $token = $tokens[$index];
-        if (is_array($token) && $token[0] === T_WHITESPACE) {
-            continue;
-        }
-        if ($token === '&') {
+        if ((is_array($token) && in_array($token[0], [
+            T_WHITESPACE,
+            T_COMMENT,
+            T_DOC_COMMENT,
+            T_AMPERSAND_FOLLOWED_BY_VAR_OR_VARARG,
+            T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG,
+        ], true)) || $token === '&') {
             continue;
         }
 
@@ -127,6 +187,12 @@ function declaredClassMethods(string $source): array
 
     foreach ($tokens as $index => $token) {
         if (is_array($token)) {
+            if (in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) {
+                $braceDepth++;
+
+                continue;
+            }
+
             if ($token[0] === T_NAMESPACE) {
                 $namespace = namespaceDeclaration($tokens, $index);
 
@@ -163,7 +229,7 @@ function declaredClassMethods(string $source): array
         }
 
         if ($token === '}') {
-            $class = $classes[array_key_last($classes)] ?? null;
+            $class = $classes === [] ? null : $classes[array_key_last($classes)];
             if ($class !== null && $class['depth'] === $braceDepth) {
                 array_pop($classes);
             }

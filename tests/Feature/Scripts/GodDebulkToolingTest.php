@@ -65,9 +65,7 @@ final class GodDebulkToolingTest extends TestCase
 
     public function test_codemap_verifier_rejects_a_navigation_target_mentioned_only_in_prose(): void
     {
-        $fixture = tempnam(sys_get_temp_dir(), 'god-debulk-codemap-');
-        $this->assertNotFalse($fixture);
-        file_put_contents($fixture, <<<'MARKDOWN'
+        $fixture = $this->codemapRepository(<<<'MARKDOWN'
 # Fixture
 
 <!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->
@@ -77,23 +75,176 @@ but it is not a navigation table row.
 MARKDOWN);
 
         try {
-            $process = $this->runCommand(['/opt/homebrew/bin/php', 'scripts/god-debulk-codemap-verify.php'], [
-                'GOD_DEBULK_CODEMAP_PATH' => $fixture,
-            ]);
+            $process = $this->runCodemapVerifier($fixture['root']);
 
             $this->assertSame(1, $process->getExitCode());
             $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
         } finally {
-            @unlink($fixture);
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_a_missing_canonical_map_even_when_an_environment_path_is_valid(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\CanonicalMap::check';
+        $fixture = $this->codemapRepository(null, [
+            'App\\Services\\Ai\\Fixture\\CanonicalMap' => <<<'PHP'
+<?php
+namespace App\Services\Ai\Fixture;
+class CanonicalMap { public function check(): void {} }
+PHP,
+        ]);
+        $alternate = $fixture['root'].'/alternate-codemap.md';
+        file_put_contents($alternate, $this->navigationMap($target));
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root'], [
+                'GOD_DEBULK_CODEMAP_PATH' => $alternate,
+            ]);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_codemap', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_a_navigation_table_inside_a_fenced_code_block(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\FencedMap::check';
+        $fixture = $this->codemapRepository(<<<MARKDOWN
+# Fixture
+
+<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->
+
+```markdown
+{$this->navigationTable($target)}
+```
+MARKDOWN, [
+            'App\\Services\\Ai\\Fixture\\FencedMap' => <<<'PHP'
+<?php
+namespace App\Services\Ai\Fixture;
+class FencedMap { public function check(): void {} }
+PHP,
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_a_navigation_table_inside_an_html_comment(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\CommentedMap::check';
+        $fixture = $this->codemapRepository(<<<MARKDOWN
+# Fixture
+
+<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->
+
+<!--
+{$this->navigationTable($target)}
+-->
+MARKDOWN, [
+            'App\\Services\\Ai\\Fixture\\CommentedMap' => <<<'PHP'
+<?php
+namespace App\Services\Ai\Fixture;
+class CommentedMap { public function check(): void {} }
+PHP,
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_comment_and_string_method_lookalikes_in_another_class(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\Target::verified';
+        $fixture = $this->codemapRepository($this->navigationMap($target), [
+            'App\\Services\\Ai\\Fixture\\Target' => <<<'PHP'
+<?php
+namespace App\Services\Ai\Fixture;
+
+class Decoy
+{
+    // function verified() {}
+    private string $text = 'function verified() {}';
+    public function verified(): void {}
+}
+
+class Target
+{
+    public function real(): void {}
+}
+PHP,
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString("GOD_DEBULK_CODEMAP_FAIL missing_method={$target}", $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_accepts_a_commented_by_reference_method_after_interpolation(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\InterpolatedMap::verified';
+        $fixture = $this->codemapRepository($this->navigationMap($target), [
+            'App\\Services\\Ai\\Fixture\\InterpolatedMap' => <<<'PHP'
+<?php
+namespace App\Services\Ai\Fixture;
+
+class InterpolatedMap
+{
+    public function seed(): string
+    {
+        return "value {$this->name()}";
+    }
+
+    public function /* declaration comment */ &verified(): array
+    {
+        $result = [];
+
+        return $result;
+    }
+
+    private function name(): string
+    {
+        return 'ok';
+    }
+}
+PHP,
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_OK targets=1', $process->getOutput());
+        } finally {
+            $fixture['cleanup']();
         }
     }
 
     /**
      * @param  list<string>  $command
      */
-    private function runCommand(array $command, array $environment = []): Process
+    private function runCommand(array $command, array $environment = [], ?string $workingDirectory = null): Process
     {
-        $process = new Process($command, base_path(), array_replace([
+        $process = new Process($command, $workingDirectory ?? base_path(), array_replace([
             'GOD_DEBULK_ENFORCE' => '0',
         ], $environment));
         $process->setTimeout(30);
@@ -127,5 +278,60 @@ BASH);
                 @rmdir($directory);
             },
         ];
+    }
+
+    /**
+     * @param  array<string,string>  $environment
+     */
+    private function runCodemapVerifier(string $root, array $environment = []): Process
+    {
+        return $this->runCommand(['/opt/homebrew/bin/php', $root.'/scripts/god-debulk-codemap-verify.php'], $environment, $root);
+    }
+
+    /**
+     * @param  array<string,string>  $sources
+     * @return array{root:string,cleanup:callable():void}
+     */
+    private function codemapRepository(?string $codemap, array $sources = []): array
+    {
+        $root = sys_get_temp_dir().'/god-debulk-codemap-'.bin2hex(random_bytes(8));
+        mkdir($root.'/scripts', 0700, true);
+        copy(base_path('scripts/god-debulk-codemap-verify.php'), $root.'/scripts/god-debulk-codemap-verify.php');
+
+        if ($codemap !== null) {
+            $path = $root.'/app/Services/Ai/CODEMAP.md';
+            mkdir(dirname($path), 0700, true);
+            file_put_contents($path, $codemap);
+        }
+
+        foreach ($sources as $class => $source) {
+            $path = $root.'/app/'.str_replace('\\', '/', substr($class, strlen('App\\'))).'.php';
+            mkdir(dirname($path), 0700, true);
+            file_put_contents($path, $source);
+        }
+
+        return [
+            'root' => $root,
+            'cleanup' => function () use ($root): void {
+                $iterator = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $path) {
+                    $path->isDir() ? rmdir($path->getPathname()) : unlink($path->getPathname());
+                }
+                rmdir($root);
+            },
+        ];
+    }
+
+    private function navigationMap(string $target): string
+    {
+        return "<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n".$this->navigationTable($target)."\n";
+    }
+
+    private function navigationTable(string $target): string
+    {
+        return "| Change concern | Concrete navigation target |\n| --- | --- |\n| Fixture | `{$target}` |";
     }
 }
