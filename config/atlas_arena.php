@@ -142,8 +142,11 @@ return [
 
     // Capacidade gated: aparece na lista com a razão, NUNCA com número — o
     // feed está quebrado/sem precisão e expor valor seria mentir com rótulo.
+    // Feed CURADO em 22/07 (P5: braço Atlas 14 unidades score>0 no run
+    // 20260721_012509 pós mode-truth+venda); resta o mandato do auditor:
+    // API_recall precisa de componente de PRECISÃO antes de virar número.
     'capability_gated' => [
-        'long_context_engineering' => 'instrumento em preparação (feed inválido; métrica sem precisão)',
+        'long_context_engineering' => 'métrica em revisão (recall sem componente de precisão)',
     ],
 
     'capability_map' => [
