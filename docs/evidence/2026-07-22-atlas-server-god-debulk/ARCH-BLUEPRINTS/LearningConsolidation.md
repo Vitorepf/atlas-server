@@ -1,6 +1,8 @@
 # ARCH BLUEPRINT — LearningConsolidation
 
-> status: draft
+> status: draft-v2 (SOBREVIVEU ao verify adversarial 2026-07-22; 3 emendas aplicadas — evidências verificadas pelo comandante)
+> EMENDA QUASE-FATAL (path-literals que a prova por namespace NÃO pega): config/atlas.php:112 tem 'app/Services/Ai/AcosMax' como VALOR VIVO (roots da lane aaeos_acos) — pós-M3 fail-open silencioso; scanner L6630 + AtlasRuntimeLanguageBoundaryReportService:36 têm 'Services/Ai/Cognitive' como root de scan — pós-M2 perda de cobertura silenciosa; 3 ap-checks (AP-168/169/170, scanner L6165/6255/6359) exigem patch no MESMO commit do M2; AtlasAaeosAcosLaneScope:23 + teste congelam o path do AcosMax.
+> REGRA NOVA (vale p/ M2 e M3): todo movimento inclui PATH-LITERAL SWEEP (rg "Services/Ai/(Cognitive|Learning|AcosMax)" como STRING em app config tests) e a prova de completude passa a medir AMBAS as formas (namespace E path). Emendas menores: Elev20sDeadSeriesRegistryTest usa FQCN-string (reescrever, não re-apontar); consumidor extra DevOutcomeMemoryService na sub-onda M3-A; docblock da migration ai_learning_signals citado por honestidade.
 > data: 2026-07-22
 > obra: GOD Debulk / cluster APRENDIZADO+COGNIÇÃO
 > insumos: CONSOLIDATION-MAP (AcosMax FUSE-parcial · Cognitive KEEP+RENAME · Learning FUSE)
