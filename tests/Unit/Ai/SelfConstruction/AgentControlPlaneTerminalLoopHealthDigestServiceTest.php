@@ -86,6 +86,38 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertNotContains('run_replenishment_command_before_launch', $digest['terminal_loop_fleet_launch_runbook']['ordered_operator_sequence']);
     }
 
+    public function test_active_leases_consume_the_terminal_parallelism_capacity_before_new_launches(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+
+        for ($index = 1; $index <= 12; $index++) {
+            $this->enqueue($queue, 'task-parallelism-'.$index, 'claimable');
+        }
+
+        for ($index = 1; $index <= 6; $index++) {
+            $taskPacketId = 'task-parallelism-'.$index;
+            $lease = $leases->claim($taskPacketId, 'agent-active-'.$index, ['write_set' => [], 'read_set' => []]);
+            $queue->updateStatus($taskPacketId, 'claimed', [
+                'lease_id' => $lease['lease']['lease_id'],
+                'agent_id' => 'agent-active-'.$index,
+            ]);
+        }
+
+        $digest = $this->service()->digest(['target_min_claimable_tasks' => 6]);
+        $plan = $digest['terminal_loop_fleet_launch_plan'];
+
+        $this->assertSame(6, $plan['active_lease_count']);
+        $this->assertFalse($digest['loop_decision']['safe_to_start_new_worker']);
+        $this->assertSame('fleet_launch_plan_blocked', $plan['status']);
+        $this->assertSame(0, $plan['available_terminal_capacity']);
+        $this->assertSame(0, $plan['recommended_terminal_count']);
+        $this->assertContains('active_lease_parallel_capacity_reached', $plan['blocked_reasons']);
+        $this->assertSame(6, $digest['terminal_loop_cycle_supervisor']['operator_loop_contract']['max_safe_parallel_terminals']);
+        $this->assertSame(0, $digest['terminal_loop_cycle_supervisor']['operator_loop_contract']['max_recommended_terminals_per_batch']);
+        $this->assertSame('fleet_launch_runbook_blocked', $digest['terminal_loop_fleet_launch_runbook']['status']);
+    }
+
     public function test_muscle_supply_state_recommends_replenish_when_no_claimable_supply(): void
     {
         $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);

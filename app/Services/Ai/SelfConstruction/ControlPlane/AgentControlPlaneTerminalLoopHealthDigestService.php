@@ -46,6 +46,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         'end_to_end_real_provider_smoke_green',
     ];
 
+    private const MAX_SAFE_PARALLEL_TERMINALS = 6;
+
     private ?TerminalLoopHealthDigestCommandComposer $commandComposer = null;
 
     private ?TerminalLoopHealthDigestPayloadNormalizer $payloadNormalizer = null;
@@ -132,6 +134,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         $status = $recommendedAction === 'continue_or_start_terminal_workers' ? 'ready' : 'action_required';
         $safeToStartNewWorker = $recoverableCount === 0
             && $claimableCount >= $targetMinClaimable
+            && $activeLeaseCount < self::MAX_SAFE_PARALLEL_TERMINALS
             && ! $workerEligibilityBlocked;
         $fleetLaunchPlan = $this->fleetLaunchPlan(
             actor: $actor,
@@ -521,7 +524,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'do_not_cross_queue_lanes' => true,
                 'do_not_continue_when_lane_binding_fails' => ! $laneBound,
                 'max_recommended_terminals_per_batch' => (int) data_get($launchPlan, 'recommended_terminal_count', 0),
-                'max_safe_parallel_terminals' => 6,
+                'max_safe_parallel_terminals' => self::MAX_SAFE_PARALLEL_TERMINALS,
             ],
             'source_hashes' => [
                 'fleet_launch_plan_hash' => (string) data_get($launchPlan, 'terminal_loop_fleet_launch_plan_hash', ''),
@@ -1105,11 +1108,13 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         bool $safeToStartNewWorker,
         array $workerEligibility,
     ): array {
+        $availableTerminalCapacity = max(0, self::MAX_SAFE_PARALLEL_TERMINALS - $activeLeaseCount);
         $recommendedTerminalCount = $safeToStartNewWorker
-            ? max(1, min(6, $claimableCount, $targetMinClaimable))
+            ? min($availableTerminalCapacity, $claimableCount, $targetMinClaimable)
             : 0;
         $blockedReasons = $this->fleetBlockedReasons(
             claimableCount: $claimableCount,
+            activeLeaseCount: $activeLeaseCount,
             recoverableCount: $recoverableCount,
             hiddenClaimableOutsideRequestedTags: $hiddenClaimableOutsideRequestedTags,
             tagFilteredSupplyGap: $tagFilteredSupplyGap,
@@ -1149,7 +1154,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'can_create_or_renew_leases_from_digest' => false,
             'can_complete_from_digest' => false,
             'recommended_terminal_count' => $recommendedTerminalCount,
-            'max_recommended_terminal_count' => 6,
+            'max_recommended_terminal_count' => self::MAX_SAFE_PARALLEL_TERMINALS,
+            'available_terminal_capacity' => $availableTerminalCapacity,
             'target_min_claimable_tasks' => $targetMinClaimable,
             'claimable_task_count' => $claimableCount,
             'active_lease_count' => $activeLeaseCount,
@@ -1165,6 +1171,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'start_policy' => [
                 'start_only_when_recoverable_lease_count_is_zero' => true,
                 'start_only_when_claimable_task_count_is_positive' => true,
+                'start_only_when_active_leases_below_parallel_cap' => true,
                 'start_only_when_worker_task_eligibility_available' => true,
                 'replenish_before_start_when_below_target' => $claimableCount < $targetMinClaimable,
                 'recover_before_start_when_recoverable_leases_exist' => $recoverableCount > 0,
@@ -1245,7 +1252,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'can_resume_without_chat_history' => true,
             'safe_to_copy_after_operator_review' => $ready,
             'terminal_count' => count($terminalSteps),
-            'max_safe_parallel_terminals' => (int) data_get($cycleSupervisor, 'operator_loop_contract.max_safe_parallel_terminals', 6),
+            'max_safe_parallel_terminals' => (int) data_get($cycleSupervisor, 'operator_loop_contract.max_safe_parallel_terminals', self::MAX_SAFE_PARALLEL_TERMINALS),
             'terminal_steps' => $terminalSteps,
             'ordered_operator_sequence' => array_values(array_filter([
                 data_get($replenishmentPlan, 'should_replenish_now') ? 'run_replenishment_command_before_launch' : null,
@@ -1305,6 +1312,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function fleetBlockedReasons(
         int $claimableCount,
+        int $activeLeaseCount,
         int $recoverableCount,
         int $hiddenClaimableOutsideRequestedTags,
         bool $tagFilteredSupplyGap,
@@ -1315,6 +1323,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
 
         if ($recoverableCount > 0) {
             $reasons[] = 'recoverable_leases_must_be_recovered_before_starting_new_terminals';
+        }
+        if ($activeLeaseCount >= self::MAX_SAFE_PARALLEL_TERMINALS) {
+            $reasons[] = 'active_lease_parallel_capacity_reached';
         }
         if ($claimableCount === 0) {
             $reasons[] = 'no_claimable_packets_for_requested_lane';
