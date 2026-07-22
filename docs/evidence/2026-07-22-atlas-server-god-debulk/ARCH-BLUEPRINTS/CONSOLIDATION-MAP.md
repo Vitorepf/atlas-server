@@ -13,7 +13,7 @@
 | Aaeos | 142211 | 346 | ENG-OS-GEMEAS | KEEP (vivo ~10k) + QUARANTINE 132k | purga da Quarantine = obra separada | 93% do bloco é cemitério VERIFICADO (307 files/132.098 LOC); ⚠ CORREÇÃO ARCH: Brain vivo importa 1 classe da Quarantine (AtlasSourceConnectorsAndCaptureService) — re-home antes de purgar; não é gêmeo do Stewardship (dependência unidirecional, conceitos disjuntos) | proposed |
 | Programming | 131892 | 543 | ENG-CORE | — | — | — | pending |
 | SoftwareCompanyStewardship | 116399 | 280 | ENG-OS-GEMEAS | KEEP | — | dono do operate-path (29+ cmds, schedule wired, AreaFocus=249 files); steward que fiscaliza o Aaeos — substrato+steward, não gêmeas | recorded |
-| AutonomousEvolution | 109588 | 639 | AUTONOMOS | — | — | — | pending |
+| AutonomousEvolution | 109588 | 639 | AUTONOMOS | KEEP vivo (~251 files) + QUARANTINE órfãos (~388) | archive/ físico, reversível | Brain/=98 files VERIFICADO + 25 cmds atlas:brain VERIFICADO; atlas:loop registrados=0 VERIFICADO; keep-list DENTRO da zona viva; ⚠ pré-requisito: materializar lista dos 388 com rg --no-ignore -w=0 POR ARQUIVO (amostra minha caiu na zona viva — lista exige prova individual) | proposed |
 | Holding | 44389 | 6 | DOMINIOS | — | — | — | pending |
 | Kernel | 41474 | 159 | GOVERNANCA-QUALIDADE | KEEP + SPLIT em blueprint | 3 produtos: Decision-runtime · Evidence-ledger · Architecture-linter | guarda-chuva VERIFICADO: Architecture=26.031 LOC (63%) é linter AP1..AP141; AtlasEvidenceLedger 1.096 LOC/150 callers intocável; Decision 51 callers | proposed |
 | MarketingDomain | 26853 | 180 | DOMINIOS | — | — | — | pending |
@@ -52,7 +52,7 @@
 | OperatorIntelligence | 3665 | 19 | APRENDIZADO | — | — | — | pending |
 | ProgrammingRuntime | 3657 | 12 | ENG-CORE | — | — | — | pending |
 | Runtime | 2879 | 14 | RUNTIME | KEEP | — | 12 callers ext + 2 cmds; executor REAL de tools (file/shell/git/test) | recorded |
-| Autonomy | 2775 | 10 | AUTONOMOS | — | — | — | pending |
+| Autonomy | 2775 | 10 | AUTONOMOS | KEEP | — | toda classe ≥1 caller (auto-apply, ladder, digest); ⚠ flag: AutonomyLadderRuntimeService duplicado em Stewardship/AreaFocusLoop — investigar dedupe | recorded |
 | Router | 2764 | 10 | ROTEAMENTO | FUSE | RouterRuntime | roteia FLOW não provider (0 imports AiProviderManager VERIFICADO); IntentKernel legado 0 ext callers; facade fica fina | proposed |
 | Organism | 2647 | 24 | COGNICAO | KEEP | — | 12 refs ext, singleton provider; propose-only por construção | recorded |
 | Aemor | 2444 | 5 | COGNICAO | KEEP | — | 41 refs ext, 14 cmds; sink de outcome Dev/Forge/Autônomos | recorded |
@@ -79,8 +79,8 @@
 | ContextIntelligence | 1205 | 5 | MEMORIA-CONTEXTO | FUSE | Context (Context\Intelligence) | dependência 1-via VERIFICADA (só docblocks no reverso); ciclo construir→avaliar→certificar num dono | proposed |
 | Scheduling | 1190 | 6 | EXEC-INFRA | — | — | — | pending |
 | AgentGovernance | 1159 | 12 | GOVERNANCA-QUALIDADE | KEEP + RECLASSIFICAR (fleet-ops) | — | é a babá/reconciler de fleet (atlas:agents:on/off), 0 callers no pipeline de permissão — rótulo errado, não fusão | recorded |
-| AutonomousWorkExecution | 1152 | 2 | AUTONOMOS | — | — | — | pending |
-| SelfDirectedEvolution | 1114 | 3 | AUTONOMOS | — | — | — | pending |
+| AutonomousWorkExecution | 1152 | 2 | AUTONOMOS | KEEP | — | AWEOS: 5 callers no Service incl. Hyperflow e VerifiedExecution | recorded |
+| SelfDirectedEvolution | 1114 | 3 | AUTONOMOS | KEEP | — | frontier curation-inbox; 8 callers nos 2 principais (Foundry/Frontier, AreaFocusLoop, NightShift) | recorded |
 | StrategicReality | 1080 | 2 | REALITY | — | — | — | pending |
 | Learning | 1067 | 1 | APRENDIZADO | — | — | — | pending |
 | SpecialistFlows | 1052 | 13 | SKILLS | — | — | — | pending |
@@ -107,7 +107,7 @@
 | OpenBrain | 622 | 3 | TRANSPORTE | — | — | — | pending |
 | DualCore | 620 | 5 | COGNICAO | KEEP | — | 36 HTTP controllers VERIFICADO; boundary route_decision vivo | recorded |
 | Reconciliation | 613 | 1 | MEMORIA-CONTEXTO | KEEP | — | runtime autônomo vivo (11 ext, 2 cmds); absorve Cartography | recorded |
-| Brain | 591 | 3 | AUTONOMOS | — | — | — | pending |
+| Brain | 591 | 3 | AUTONOMOS | KEEP | — | distinto de AE/Brain (namespaces disjuntos VERIFICADO): journal/diário de memória, 4-5 callers cada | recorded |
 | Knowledge | 585 | 3 | MEMORIA-CONTEXTO | KEEP | — | dono canônico de ingestão, 7 ext; remover shim class_alias morto (VERIFICADO); QUARANTINE do fabric dormente em Context | proposed |
 | Compaction | 492 | 4 | TRANSPORTE | — | — | — | pending |
 | CognitiveMemory | 466 | 2 | MEMORIA-CONTEXTO | KEEP | — | working-set efêmero canônico, 5 ext; remover shim class_alias morto (VERIFICADO) | proposed |
