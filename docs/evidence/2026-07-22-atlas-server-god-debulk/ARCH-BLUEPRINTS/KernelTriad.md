@@ -1,6 +1,7 @@
 # ARCH BLUEPRINT — KernelTriad (split do Kernel em 3 produtos)
 
-> status: draft
+> status: draft-v2 (SOBREVIVEU ao verify adversarial; emendas obrigatórias incorporadas)
+> EMENDAS ao passo 4 da migração — no MESMO commit do git mv: (i) sweep das SELF-strings do scanner (ele lê arquivos do PRÓPRIO dir por app_path/base_path em ~15 linhas — pós-mv viram '' e os token-checks disparam violações em massa; a mitigação original estava INVERTIDA p/ esses casos); (ii) atualizar os 8 externos por path — em especial os 4 GUARDS fail-open que protegem o path do scanner (ReadinessPathPolicy:89 VERIFICADO, ReservationRepository:293, DurableReservationContract:159, ReleaseWriterSection:1326 forbidden_scope) — senão o scanner novo fica DESPROTEGIDO em silêncio; (iii) 4 testes por path/FQCN-string (KernelBypassRegression:170 file_get_contents do scanner, CodeGraphContext:160, ArchitectureValidate:532, ContextPack:1061); (iv) shim eager p/ class_exists (ProgrammingProfessionalCompletionAudit:907).
 > data: 2026-07-22
 > obra: GOD Debulk / cluster GOVERNANCA-QUALIDADE
 > insumos: CONSOLIDATION-MAP.md (linha Kernel, "KEEP + SPLIT em blueprint")

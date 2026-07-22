@@ -1,6 +1,7 @@
 # ARCH BLUEPRINT — QuarantineACDE (órfãos do AutonomousEvolution)
 
-> status: draft
+> status: draft-v2 (SOBREVIVEU ao verify adversarial; emendas aplicadas + CSV corrigido pelo comandante)
+> EMENDAS: (1) 7 classes Aael/ estavam contaminando o lote high — CORRIGIDAS no CSV para review-aael (minha adjudicação §2 vale: AAEL fora); (2) o piso por arquivo ganha cláusula PATH-string: além de rg -w <Classe>, buscar 'AutonomousEvolution/.*<Classe>.php' e require em tests/ (achado real: tests/atlas_generated_0.php:72 faz require por path de AtlasLoopProviderEditApplier); (3) lote declarado como "≤218, filtrado pelo piso por onda" — é teto, não lote executável (ex.: AtlasLoopSoakReportService tem teste não-espelho que não move); (4) a onda que mover AtlasLoopSimulableTwinOrchestrator remove as 2 linhas de config/atlas.php (L10+L161); (5) correção de honestidade: o claim "todo cadáver tem entrada em config+AppServiceProvider" era exagero do analista — só 1/225 tem config entry.
 > data: 2026-07-22
 > obra: GOD Debulk / cluster AUTONOMOS
 > lista provada: `acde-orphans.csv` (neste diretório — 541 linhas, uma por classe non-Brain, com status/refs/LOC/confiança)
@@ -25,7 +26,7 @@
 
 ## 3. Lote de execução
 
-**Lote seguro: 225 classes / 30.697 LOC** (`quarantine_confidence=high` no CSV).
+**Lote seguro: ≤218 classes / ~30.3k LOC (teto — filtrado pelo piso por onda; 7 Aael removidas)** (`quarantine_confidence=high` no CSV).
 
 ## 4. Mecânica (para o EXECUTE, em ondas)
 
