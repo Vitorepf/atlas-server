@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Ai\VerifiedExecution;
 
+use App\Models\AtlasAverCommandLedger;
+use App\Models\AtlasAverTestLedger;
 use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAverTables;
 use Tests\Concerns\CreatesAweosTables;
 use Tests\TestCase;
@@ -225,5 +229,177 @@ class AtlasVerifiedExecutionRuntimeServiceTest extends TestCase
         $this->assertSame(AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA, $payload['schema_version']);
         $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_READY, $payload['status']);
         $this->assertSame(AtlasVerifiedEvolutionRuntimeService::EXECUTION_CONTRACT_SCHEMA_VERSION, data_get($payload, 'execution_contract.source_verified_evolution_schema'));
+    }
+
+    /**
+     * F0 characterization: every public AVER API except executeFixtureCycle()
+     * is exercised through a safe path. The fixture cycle is deliberately
+     * excluded: it creates a temporary workspace and starts a child process.
+     */
+    public function test_f0_executes_the_nine_safe_public_aver_apis_without_fixture_cycle(): void
+    {
+        $runtime = app(AtlasVerifiedExecutionRuntimeService::class);
+
+        $methods = array_map(
+            static fn (\ReflectionMethod $method): string => $method->getName(),
+            array_filter(
+                (new \ReflectionClass($runtime))->getMethods(\ReflectionMethod::IS_PUBLIC),
+                static fn (\ReflectionMethod $method): bool => ! $method->isConstructor(),
+            ),
+        );
+        sort($methods);
+        $this->assertSame([
+            'certify',
+            'claimPolicy',
+            'controlPlane',
+            'executeFixtureCycle',
+            'plan',
+            'planFromVerifiedEvolutionContract',
+            'repair',
+            'runCommand',
+            'runTest',
+            'verifyDiff',
+        ], $methods, 'Static inventory remains paired with the executable safe characterization.');
+
+        $plan = $runtime->plan([
+            'objective' => 'F0 safe characterization plan',
+            'evidence_refs' => ['test:runtime-execution-f0'],
+        ]);
+        $fromInvalidContract = $runtime->planFromVerifiedEvolutionContract([
+            'schema_version' => 'invalid.schema',
+            'status' => 'blocked',
+        ]);
+        $blockedCommand = $runtime->runCommand([
+            'execution_id' => $plan['execution_id'],
+            'command' => 'rm -rf /',
+        ]);
+        $blockedDiff = $runtime->verifyDiff([
+            'execution_id' => $plan['execution_id'],
+            'changed_files' => ['app/F0.php'],
+            'tests' => ['php artisan test --filter=F0'],
+        ]);
+        $blockedTest = $runtime->runTest([
+            'execution_id' => $plan['execution_id'],
+            'command' => 'rm -rf /',
+        ]);
+        $repair = $runtime->repair([
+            'execution_id' => $plan['execution_id'],
+            'failure_packet' => ['failure_type' => 'characterization_only'],
+        ]);
+        $missingCertification = $runtime->certify(['execution_id' => null]);
+        $controlPlane = $runtime->controlPlane();
+        $claimPolicy = $runtime->claimPolicy();
+
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA, $plan['schema_version']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $fromInvalidContract['status']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $blockedCommand['status']);
+        $this->assertNull($blockedCommand['exit_code'], 'The command safety gate blocks before Process execution.');
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $blockedDiff['status']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $blockedTest['status']);
+        $this->assertNull($blockedTest['command_ledger']['exit_code'], 'runTest inherits the blocked no-process command path.');
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::REPAIR_CYCLE_SCHEMA, $repair['schema_version']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $missingCertification['status']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::CONTROL_PLANE_SCHEMA, $controlPlane['schema_version']);
+        $this->assertTrue($claimPolicy['external_side_effects_blocked_by_default']);
+    }
+
+    public function test_f0_records_current_aver_certification_contradiction_and_non_equivalent_diff_hashes(): void
+    {
+        $runtime = app(AtlasVerifiedExecutionRuntimeService::class);
+        $goalRecordId = '00000000-0000-4000-8000-0000000007f0';
+        $rawDiff = "--- a/app/F0.php\n+++ b/app/F0.php\n@@\n-old\n+new\n";
+
+        $plan = $runtime->plan([
+            'objective' => 'F0 current-ledger contradiction',
+            'goal_record_id' => $goalRecordId,
+            'evidence_refs' => ['test:runtime-execution-f0'],
+        ]);
+        $this->assertArrayNotHasKey(
+            'goal_record_id',
+            $plan,
+            'The same logical goal_record_id cannot yet be persisted by the current AVER route.',
+        );
+        $executionId = (string) $plan['execution_id'];
+        $diff = $runtime->verifyDiff([
+            'execution_id' => $executionId,
+            'changed_files' => ['app/F0.php'],
+            'action_manifests' => [[
+                'schema_version' => 'atlas.programming.action_manifest.v1',
+                'manifest_id' => 'f0-safe-diff-manifest',
+                'stage' => 'patch',
+                'dry_run' => false,
+                'gate_effect' => 'passed',
+                'changed_files' => ['app/F0.php'],
+                'rollback' => ['available' => true],
+            ]],
+            'tests' => ['php artisan test --filter=F0'],
+            'evidence_refs' => ['test:f0-diff'],
+        ]);
+
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_PASSED, $diff['status']);
+        $realExecutionRawDiffHash = hash('sha256', $rawDiff);
+        $this->assertNotSame(
+            $realExecutionRawDiffHash,
+            $diff['diff_hash'],
+            'AVER diff_hash is the canonical payload hash; RealExecution hashes the raw diff string.',
+        );
+
+        $command = AtlasAverCommandLedger::query()->create([
+            'execution_id' => $executionId,
+            'schema_version' => AtlasVerifiedExecutionRuntimeService::COMMAND_LEDGER_SCHEMA,
+            'status' => AtlasVerifiedExecutionRuntimeService::STATUS_PASSED,
+            'command_hash' => hash('sha256', 'F0 no-process command receipt'),
+            'cwd_hash' => hash('sha256', base_path()),
+            'exit_code' => 0,
+            'duration_ms' => 0,
+            'stdout_excerpt' => '',
+            'stderr_excerpt' => '',
+            'stdout_hash' => hash('sha256', ''),
+            'stderr_hash' => hash('sha256', ''),
+            'safety_gate' => ['status' => 'passed', 'blockers' => []],
+            'evidence_refs' => ['test:f0-command-receipt'],
+            'ledger_hash' => hash('sha256', 'F0 no-process command ledger'),
+        ]);
+        AtlasAverTestLedger::query()->create([
+            'execution_id' => $executionId,
+            'command_ledger_id' => $command->id,
+            'schema_version' => AtlasVerifiedExecutionRuntimeService::TEST_LEDGER_SCHEMA,
+            'status' => AtlasVerifiedExecutionRuntimeService::STATUS_PASSED,
+            'test_command_hash' => $command->command_hash,
+            'exit_code' => 0,
+            'test_impact' => ['schema_version' => 'atlas.aver.test_impact.v1', 'passed' => true],
+            'evidence_refs' => ['test:f0-test-receipt'],
+            'test_hash' => hash('sha256', 'F0 no-process test ledger'),
+        ]);
+        $legacyCertification = $runtime->certify([
+            'execution_id' => $executionId,
+            'evidence_refs' => ['test:f0-legacy-certification'],
+        ]);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_CERTIFIED, $legacyCertification['status']);
+        $this->assertDatabaseHas('atlas_aver_certified_executions', ['execution_id' => $executionId]);
+
+        Schema::create('ai_real_execution_certifications', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('goal_record_id')->nullable()->index();
+            $table->string('schema_version', 140);
+            $table->string('certification_id', 140);
+            $table->string('status', 40);
+            $table->string('scope', 40)->default('kernel');
+            $table->json('checks')->nullable();
+            $table->json('blockers')->nullable();
+            $table->json('claim_policy')->nullable();
+            $table->json('evidence_refs')->nullable();
+            $table->string('certification_hash', 64);
+            $table->timestamp('certified_at')->nullable();
+            $table->timestamps();
+        });
+
+        try {
+            $this->assertFalse(Schema::hasColumn('atlas_aver_executions', 'goal_record_id'));
+            $this->assertDatabaseHas('atlas_aver_executions', ['id' => $executionId]);
+            $this->assertDatabaseMissing('ai_real_execution_certifications', ['goal_record_id' => $goalRecordId]);
+        } finally {
+            Schema::dropIfExists('ai_real_execution_certifications');
+        }
     }
 }

@@ -33,6 +33,46 @@ class AiToolRuntimeTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_f0_catalog_classifies_all_tools_without_executing_any_of_them(): void
+    {
+        $catalog = AiToolRuntime::availableTools();
+        $readOnly = [
+            'workspace.profile',
+            'package.detect',
+            'file.read',
+            'session.search',
+            'search.rg',
+            'git.status',
+            'git.diff',
+            'programming.git_diff',
+            'programming.code_search',
+        ];
+        $gateRequired = [
+            'file.write',
+            'file.patch',
+            'shell.run',
+            'git.apply_patch',
+            'checkpoint.restore',
+            'test.run',
+            'programming.test',
+            'programming.lint',
+            'programming.quality_scan',
+            'programming.visual_smoke',
+        ];
+
+        $this->assertCount(19, $catalog);
+        $this->assertSame($catalog, array_values(array_unique($catalog)));
+        $classified = array_merge($readOnly, $gateRequired);
+        sort($classified);
+        $catalogSorted = $catalog;
+        sort($catalogSorted);
+        $this->assertSame($catalogSorted, $classified);
+        $this->assertCount(9, $readOnly);
+        $this->assertCount(10, $gateRequired);
+        $this->assertSame([], array_values(array_intersect($readOnly, $gateRequired)));
+        $this->assertSame([], array_values(array_diff($catalog, array_merge($readOnly, $gateRequired))));
+    }
+
     public function test_file_write_dry_run_returns_diff_without_writing(): void
     {
         $result = app(AiToolRuntime::class)->execute(ToolInvocation::make('file.write', $this->workspace, [

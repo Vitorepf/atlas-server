@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\RuntimeReleaseGate;
 
 use App\Services\Ai\RuntimeReadiness\AtlasAiRuntimeReadinessService;
 use App\Services\Ai\RuntimeReleaseGate\AtlasAiRuntimeReleaseGateService;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -252,6 +253,39 @@ class AtlasAiRuntimeReleaseGateServiceTest extends TestCase
         $blocked = $this->gate()->report();
 
         $this->assertNotSame($ready['certification_hash'], $blocked['certification_hash']);
+    }
+
+    public function test_f0_frozen_schema_v1_json_snapshot_reads_upstream_exactly_once(): void
+    {
+        $readiness = new class(AtlasAiRuntimeReadinessService::STATUS_READY) extends StubReadinessService
+        {
+            public int $reportCalls = 0;
+
+            public function report(): array
+            {
+                $this->reportCalls++;
+
+                return parent::report();
+            }
+        };
+        $this->app->instance(AtlasAiRuntimeReadinessService::class, $readiness);
+        $this->app->forgetInstance(AtlasAiRuntimeReleaseGateService::class);
+        Carbon::setTestNow('2026-07-22 12:34:56 UTC');
+
+        try {
+            $json = json_encode(
+                $this->gate()->report(),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+            );
+
+            $this->assertSame(
+                '{"schema_version":"atlas.ai.runtime_release_gate.v1","status":"ready","generated_at":"2026-07-22T12:34:56+00:00","macro":"atlas_ai_hyperflow_runtime_principal","summary":{"total":0,"passed":0,"partial":0,"failed":0,"critical_failed":0,"warn_failed":0},"checks":[],"blockers":[],"warnings":[],"evidence_refs":[],"required_commands":["php artisan atlas:ai:runtime-release-gate --json","php artisan atlas:ai:product-certify --json","php artisan atlas:ai:runtime-readiness --json"],"claim_policy":{"declares_benchmark":false,"declares_rivals":false,"declares_superiority":false,"declares_teos_certification":false,"invokes_provider":false,"reads_external_apis":false,"mutates_persistent_state":false,"scope":"atlas_ai_hyperflow_runtime_principal_release_gate","forbidden_claims":["better_than_claude_code","better_than_codex","better_than_cursor","beats_benchmark_x","wins_arena_y","teos_certified_unless_explicitly_proven","external_rivals_certified","production_grade_unless_evidence_proven"]},"next_macro_recommendation":{"next_macro":"atlas_teos_i2_macro","reason":"macro ready com evidências; safe para abrir TEOS-I2 em macro separado","preconditions":["open_teos_i2_in_a_separate_macro_certification","do_not_run_external_rivals_inside_this_macro"],"forbidden_jumps":["declare_external_rivals_certified_inside_this_macro","declare_teos_certified_without_separate_macro"]},"upstream_readiness":{"schema_version":"atlas.ai.runtime_readiness.v1","status":"ready","certification_hash":"stub-readiness-hash-ready"},"certification_hash":"40aedddeffadd14bd3294283a59f385fb67e3a2a61c5c727b5582b73425e3729"}',
+                $json,
+            );
+            $this->assertSame(1, $readiness->reportCalls);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_upstream_readiness_block_is_surfaced(): void
