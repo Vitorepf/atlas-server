@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Ai\Runtime\AiToolRuntime;
+use App\Services\Ai\Runtime\PermissionRequest;
 use App\Services\Ai\Runtime\ToolInvocation;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
@@ -33,9 +34,11 @@ class AiToolRuntimeTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_f0_catalog_classifies_all_tools_without_executing_any_of_them(): void
+    public function test_f0_declares_the_f3_pre_seed_inventory_without_executing_any_tool(): void
     {
         $catalog = AiToolRuntime::availableTools();
+        // This is the F3-pre seed plan, not a claim about today's dynamic
+        // PermissionRequest classifier. shell.run is command-dependent below.
         $readOnly = [
             'workspace.profile',
             'package.detect',
@@ -71,6 +74,23 @@ class AiToolRuntimeTest extends TestCase
         $this->assertCount(10, $gateRequired);
         $this->assertSame([], array_values(array_intersect($readOnly, $gateRequired)));
         $this->assertSame([], array_values(array_diff($catalog, array_merge($readOnly, $gateRequired))));
+    }
+
+    public function test_f0_characterizes_shell_run_permission_request_as_command_dependent_without_execution(): void
+    {
+        $readOnly = PermissionRequest::fromInvocation(ToolInvocation::make('shell.run', $this->workspace, [
+            'command' => 'git status --short',
+        ]));
+        $stateful = PermissionRequest::fromInvocation(ToolInvocation::make('shell.run', $this->workspace, [
+            'command' => 'touch generated-f0-artifact',
+        ]));
+        $dangerous = PermissionRequest::fromInvocation(ToolInvocation::make('shell.run', $this->workspace, [
+            'command' => 'rm -rf /',
+        ]));
+
+        $this->assertSame(['read', 'low'], [$readOnly->requiredMode, $readOnly->risk]);
+        $this->assertSame(['write', 'medium'], [$stateful->requiredMode, $stateful->risk]);
+        $this->assertSame(['danger', 'high'], [$dangerous->requiredMode, $dangerous->risk]);
     }
 
     public function test_file_write_dry_run_returns_diff_without_writing(): void
