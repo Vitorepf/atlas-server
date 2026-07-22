@@ -125,5 +125,5 @@ verification:
   lint: php -l tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php PASS
   pint: vendor/bin/pint --test tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php PASS
   diff_check: git diff --check PASS
-  test_loc: 484 (< 2000)
+  test_loc: 482 (< 2000)
 ```
