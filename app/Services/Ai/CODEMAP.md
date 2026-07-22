@@ -13,3 +13,4 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |
 | Project canonical YouTube knowledge | `App\Services\Ai\Knowledge\YoutubeCanonicalProjection::projectIngestion` |
 | Aggregate a multi-provider council trace | `App\Services\Ai\Arena\AiCouncilCoordinator::sync` |
+| Classify compaction loss before a write | `App\Services\Ai\Compaction\CompactionLossPolicy::classify` |

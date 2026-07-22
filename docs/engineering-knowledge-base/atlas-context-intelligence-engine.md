@@ -108,7 +108,7 @@ evidence:
   - app/Services/Ai/ContextIntelligence/AtlasContextOperationsRuntimeService.php
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php
   - app/Services/Ai/ContextIntelligence/ContextIntelligencePayloadHash.php
-  - app/Services/Ai/CompactionLossPolicy.php
+  - app/Services/Ai/Compaction/CompactionLossPolicy.php
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceCertificationService.php
   - app/Console/Commands/AtlasContextIntelligenceCertifyCommand.php
 evidence_refs:

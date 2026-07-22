@@ -913,7 +913,7 @@ Leitura real do código em 2026-07-11 (branch main). Estado do plano v1: **CPT-0
 **Receipt de conversa (CPT-02, :197-312):**
 - must_keep via `CompactionMustKeepExtractor::extract` (ver abaixo); cobertura medida EXCLUSIVAMENTE contra a superfície consumer-visible: `str_contains($summary, $digest)` (:318-347) — nunca contra structured_state.
 - Vácuo honesto: `must_keep_items === []` → coverage 0.0, status `vacuous`, loss_risk medium, write_allowed=false (:223-248).
-- `CompactionLossPolicy::classify` (`app/Services/Ai/CompactionLossPolicy.php:24-36`): **write_allowed só com coverage==1.0 E sem critical kind tocado** — invariante pétrea confirmada no código.
+- `CompactionLossPolicy::classify` (`app/Services/Ai/Compaction/CompactionLossPolicy.php:24-36`): **write_allowed só com coverage==1.0 E sem critical kind tocado** — invariante pétrea confirmada no código.
 - CPT-04 vivo: `qualityGateStatus` (:598-612) → `needs_review` (ações abertas / avaliações falhas / sem objetivo+tópico) bloqueia overwrite de `thread.summary` (:114, :185-187); receipt ainda persiste.
 - CPT-07 vivo: `context_retention_score` via `SummaryFidelityCoverageScorer` (Aaeos/Cores, verdict failed se qualquer decision faltou ou retention <0.6) sobre o summary SEM a cauda "ATENCAO unresolved_loss" (:396-402 — evita contar o eco da perda como retenção).
 
@@ -3201,4 +3201,3 @@ Caso negativo do aceite: qualquer uma das 3 áreas sem linha nesta tabela (ou se
 ---
 
 ---
-

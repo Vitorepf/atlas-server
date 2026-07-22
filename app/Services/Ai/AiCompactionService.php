@@ -14,6 +14,7 @@ use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Compaction\CompactionMustKeepExtractor;
+use App\Services\Ai\Compaction\CompactionLossPolicy;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;

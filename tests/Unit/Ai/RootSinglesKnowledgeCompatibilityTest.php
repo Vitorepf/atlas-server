@@ -4,6 +4,8 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiCouncilCoordinator as LegacyAiCouncilCoordinator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
+use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
+use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
 use App\Services\Ai\YoutubeCanonicalProjection as LegacyYoutubeCanonicalProjection;
@@ -26,5 +28,12 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         $coordinator = app(CanonicalAiCouncilCoordinator::class);
 
         self::assertInstanceOf(LegacyAiCouncilCoordinator::class, $coordinator);
+    }
+
+    public function test_compaction_policy_resolves_from_its_canonical_namespace_with_a_legacy_alias(): void
+    {
+        $policy = app(CanonicalCompactionLossPolicy::class);
+
+        self::assertInstanceOf(LegacyCompactionLossPolicy::class, $policy);
     }
 }

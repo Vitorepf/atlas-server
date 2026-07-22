@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Compaction;
 
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 
