@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 5
+files_scanned: 6
 files_total: 1210
-lines_scanned: 76646
+lines_scanned: 82006
 ```
 
 ## Files
@@ -899,15 +899,211 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
+loc: 5360
+kind: arbitrary_automatic_dispatch_process_adapter_and_evidence_batch_section
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0044
+    type: godfile
+    severity: s0
+    detail: "The second numbered extraction is another 5,360 LOC, 430,239-byte godfile with 50 domain-public methods and 228 imports. It spans receipt use, provider start, adapter boundaries, provider execution, external-process authorization/dry-run/runtime, real-invoker release, executor planning, process spawn, post-start evidence/liveness, dispatch handoff, and eight implementation packets; its longest public name is 121 characters."
+    evidence:
+      - "wc -l -c => 5,360 LOC and 430,239 bytes"
+      - "52 public methods total: setMother, __call, and 50 domain methods"
+      - "228 imports; 88 referenced in the class body and 140 unused after extraction"
+      - "longest public method name length => 121 characters"
+      - "sha256=d36356fae6dda8e763705c6bf1a9adaf75cb5f317986affddc42fa6e4aff914d"
+  - id: A1-SC-0045
+    type: false_abstraction
+    severity: s0
+    detail: "Batch2 is another arbitrary routing slice rather than a bounded owner. The parent facade retains 50 one-line delegators, while this section injects that parent and resolves 48 absent method names across 97 calls through unrestricted ReflectionMethod forwarding. Runtime behavior remains bidirectionally coupled to the parent and sibling sections, and 140 unused imports expose the mechanical extraction residue."
+    evidence:
+      - "AtlasSelfConstructionReadinessService retains 50 agentAutomaticDispatchBatch2Section forwards"
+      - "nullable mother injection and unrestricted __call: lines 241-258"
+      - "static call inventory => 48 unresolved method names and 97 unresolved call occurrences"
+      - "ReflectionMethod is constructed from arbitrary $name and invoked on the parent"
+      - "140 of 228 imports are unused in the class body"
+  - id: A1-SC-0046
+    type: bug
+    severity: s0
+    detail: "Most operationally named routes in this section cannot currently return. Of the 16 methods that hard-code a *_ready contract status, 13 abort through sibling-section dependencies; all eight implementation packets also abort. The two active failure families are an undefined agentProviderAdapterRegistryPreflight call and an unimported namespaced Schema class inside ReadinessProjectionAgentCodexSection, proving that the numbered split broke cross-section reachability across the public command surface."
+    evidence:
+      - "runtime characterization of hard-coded-ready methods => 3 returned and 13 threw"
+      - "runtime characterization of ImplementationPacket methods => 0 returned and 8 threw"
+      - "executor-plan packet command test exits 2 with undefined agentProviderAdapterRegistryPreflight at AgentCodexSection line 85 and zero assertions"
+      - "post-start start-execution packet command test exits 2 with missing App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema at AgentCodexSection line 8,363 and zero assertions"
+      - "executor-plan status remains reachable and passes 1 test / 21 assertions, showing route-dependent rather than bootstrap-wide failure"
+  - id: A1-SC-0047
+    type: doc_lie
+    severity: s1
+    detail: "Every one of the eight implementation packets declares ready_for_scoped_* and implementation_allowed_by_packet=true while two of its six allowed_files entries are nonexistent. Each packet points to its invoker at the old SelfConstruction root instead of ControlPlane and repeats the moved readiness facade path; this yields 16 invalid path entries across eight work orders, and tests explicitly pin at least the stale executor-plan path."
+    evidence:
+      - "implementation packet count => 8; each has six allowed_files and exactly two missing paths"
+      - "missing invoker entries => eight distinct root-level paths; matching classes exist under app/Services/Ai/SelfConstruction/ControlPlane"
+      - "repeated missing facade entry => app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php"
+      - "actual facade => app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php"
+      - "executor-plan command test line 17,966 asserts the stale root-level invoker path"
+  - id: A1-SC-0048
+    type: dishonest_name
+    severity: s1
+    detail: "Sixteen contract/release methods literalize a *_ready status instead of deriving it from copied predecessor statuses. Live output demonstrates the contradiction: provider-start-driver release reports ready while its source provider-start preflight is blocked, and adapter-invocation-boundary release reports ready while its source boundary preflight is blocked. Ready therefore means template emitted, not prerequisite or release readiness."
+    evidence:
+      - "exact hard-coded '*_ready' status count => 16"
+      - "live provider-start release output: outer=one_shot_tick_provider_start_driver_release_contract_ready; source_provider_start_driver_preflight_status=blocked"
+      - "live adapter-boundary release output: outer=one_shot_tick_adapter_invocation_boundary_release_contract_ready; source_adapter_invocation_boundary_preflight_status=blocked"
+      - "liveness contract was the only sampled successful contract whose two source statuses were also ready"
+      - "all outer envelopes continue to state execution/runtime/provider/adapter authority false"
+  - id: A1-SC-0049
+    type: dupe
+    severity: s2
+    detail: "The 50-method section is another hand-expanded transition template farm: 15 Contract, 13 Preflight, 13 Status, eight ImplementationPacket, and one ContractRelease method repeatedly copy predecessor payloads, enumerate false authorities, produce non-execution guarantees, and hash a new envelope. It contains 786 literal false assignments, 50 non_execution_guarantees blocks, and 50 stableHash calls."
+    evidence:
+      - "method-family inventory => Contract 15, Preflight 13, Status 13, ImplementationPacket 8, Release 1"
+      - "literal => false count => 786"
+      - "non_execution_guarantees count => 50"
+      - "$this->stableHash occurrence count => 50"
+      - "each packet repeats four tasks, the same gates, the same six allowed-file categories, and nearly identical negative policies"
+  - id: A1-SC-0050
+    type: perf
+    severity: s2
+    detail: "Database-backed status methods repeatedly probe the same tables and issue independent counts/latest queries without a request-scoped snapshot or budget. The file contains 53 Schema::hasTable checks, 20 query builders, 20 count calls, and eight first calls; contract and preflight chains then traverse sibling projections and rehash predecessor arrays."
+    evidence:
+      - "Schema::hasTable occurrence count => 53"
+      - "::query() occurrence count => 20; ->count() => 20; ->first() => 8"
+      - "agent_runs and atlas_ledger_events are probed independently across consecutive status methods"
+      - "no cache, immutable projection context, query budget, or shared snapshot exists in this section"
+  - id: A1-SC-0051
+    type: test_gap
+    severity: s1
+    detail: "All 50 domain methods have flags in the giant command test, but no test directly references this section or characterizes reflection forwarding, prerequisite invariants, or allowed-file existence. Current focused packet tests abort with zero assertions, while the reachable status test passes and packet assertions pin stale paths; route snapshots neither isolate the extraction boundary nor prove truthful readiness."
+    evidence:
+      - "all 50 domain methods map to flags present in AtlasAiSelfConstructionCommandTest.php"
+      - "no test directly references ReadinessProjectionAgentAutomaticDispatchBatch2Section"
+      - "executor-plan and post-start start-execution packet focused tests fail before assertions"
+      - "executor-plan status focused test passes 1 test / 21 assertions"
+      - "executor-plan packet test source asserts a nonexistent allowed_files entry"
+  - id: A1-SC-0052
+    type: os_overlap
+    severity: s0
+    detail: "Batch2 completes the duplicate dispatch/process operating system begun in Batch1. It models provider pre-start, adapter invocation and execution guards, external-process authorization and dry-run, release and executor enablement, process spawn and supervision, post-start evidence acceptance and liveness, dispatch authorization/handoff/receipt use, plus executable implementation work orders. Readiness should project provider-neutral owners rather than define this lifecycle."
+    evidence:
+      - "provider/adapter release contracts appear around lines 3,417 and 4,308-4,596"
+      - "process/release/executor/status chains span the full file from line 265 through line 5,360"
+      - "post-start evidence receipt and liveness contracts appear at lines 594 and 2,909"
+      - "eight implementation packets prescribe source, tests, command, docs, gates, and next slices"
+      - "the section mixes Eloquent read models, future mutations, provider policy, process authority, evidence, and planning"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Repair the split graph before preserving Batch2 output: replace magic sibling calls with typed collaborators, bind/import AgentCodex dependencies, fail closed on inaccessible prerequisites, derive release readiness from predecessor state, and validate every packet path against canonical owners before emitting ready."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "all 50 command routes return a typed payload or intentional blocker, never undefined-method/class fatals"
+      - "outer ready requires every declared predecessor/preflight to be ready"
+      - "all allowed_files resolve to current canonical paths or packet creation fails closed"
+  - op: TEST
+    detail: "Create direct semantic characterization for all 50 methods before splitting. Cover section construction/facade wiring, all dependency edges, outer/inner status agreement, blocker propagation, packet path existence, authority flags, no-side-effect guarantees, stable hashes, and query budgets; retain command tests only for alias routing compatibility."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentAutomaticDispatchBatch2SectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "all 50 methods have direct semantic coverage and all 50 flags retain routing coverage"
+      - "tests reproduce then reject the 13 contract and eight packet fatal routes"
+      - "tests fail for blocked-source/ready-outer contradictions and all 16 stale packet entries"
+  - op: SPLIT
+    detail: "SPLIT by lifecycle authority, not another numbered batch. Retire Batch2 behind a temporary compatibility adapter and create bounded owners for receipt/provider start, adapter boundary/guard, provider execution, external-process lifecycle, real-invoker release/executor/start, post-start evidence/liveness, dispatch handoff, and packet validation; no replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "no numbered Batch section replaces this class"
+      - "readiness dependencies are typed and one-way"
+  - op: OWNER
+    detail: "Assign provider-neutral authorities for receipt use, provider pre-start, adapter invocation/execution guards, process authorization/dry-run/runtime, real-invoker release and executor lifecycle, process supervision, post-start evidence/liveness, dispatch handoff, and packet path validation. Readiness owns projection only; Codex owns adapter-specific translation only."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "every policy, state transition, durable write, external-process action, evidence observation, and work packet has one owner"
+      - "provider-labelled readiness methods cannot grant lifecycle authority"
+      - "packet paths are resolved from owner metadata rather than copied strings"
+  - op: EXTRACT
+    detail: "Replace repeated contract/preflight/status/packet arrays with typed transition descriptors, prerequisite predicates, blocker propagation, authority semantics, canonical-path resolution, and explicit stable-hash inputs. Share one immutable database snapshot per request after byte and semantic characterization; remove unrestricted ReflectionMethod forwarding."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
+    acceptance:
+      - "unknown dependencies and paths fail at construction with typed errors"
+      - "ready is computed from validated prerequisites rather than literal strings"
+      - "each abstraction owns an invariant and has at least two consumers"
+  - op: CODEMAP
+    detail: "Map the 50 facade aliases and command flags to callers, predecessors, side effects, true owner, query cost, packet paths, hash compatibility, and migration disposition. Replace 121-character canonical names with bounded lifecycle vocabulary and date temporary aliases for removal after one compatibility cycle."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "all 50 methods have owner, caller, prerequisites, side-effect class, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "unmapped or stale packet/command aliases are removed after one compatibility cycle"
+  - op: PERF
+    detail: "Benchmark cold/warm representative status, contract, and packet chains with query count, schema probes, allocations, hash work, payload bytes, p50, and p95. Batch repeated agent-run/ledger reads into owner snapshots with explicit budgets and reuse unchanged predecessor projections."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentAutomaticDispatchBatch2SectionTest.php
+    acceptance:
+      - "benchmarks publish cold/warm p50 and p95 plus query, schema-probe, memory, and payload budgets"
+      - "one request does not repeat unchanged Schema::hasTable or aggregate queries"
+      - "packet/contract chains do not recursively rebuild and hash unchanged payloads"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-5360
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: d36356fae6dda8e763705c6bf1a9adaf75cb5f317986affddc42fa6e4aff914d
+  source_bytes: 430239
+  public_method_count: 52
+  public_domain_method_count: 50
+  parent_facade_delegation_count: 50
+  import_count: 228
+  used_import_count: 88
+  unused_import_count: 140
+  unresolved_parent_method_name_count: 48
+  unresolved_parent_call_occurrence_count: 97
+  hard_coded_ready_method_count: 16
+  hard_coded_ready_runtime_success_count: 3
+  hard_coded_ready_runtime_failure_count: 13
+  implementation_packet_count: 8
+  implementation_packet_runtime_success_count: 0
+  implementation_packet_runtime_failure_count: 8
+  implementation_packet_missing_path_entry_count: 16
+  implementation_packet_unique_missing_path_count: 9
+  literal_false_assignment_count: 786
+  stable_hash_call_count: 50
+  non_execution_guarantee_block_count: 50
+  schema_has_table_count: 53
+  query_builder_count: 20
+  count_query_count: 20
+  first_query_count: 8
+  focused_packet_failure_assertion_count: 0
+  focused_status_pass_assertion_count: 21
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 5 / 1210
-- lines_scanned: 76646
-- s0..s3: 17 / 17 / 9 / 0
+- files_scanned: 6 / 1210
+- lines_scanned: 82006
+- s0..s3: 21 / 20 / 11 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + authorization/signature owner + persistence/writer lifecycle owner + human decision/session owner + scheduler policy owner + dispatch state owner + guarded invocation and receipt owners + executor/provider/process supervision owners + implementation-packet validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN Codex reachability, Batch1 cross-section calls, method-existence checks, packet paths, hash binding, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, and 50 Batch1 contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER readiness, review/merge, scheduler, dispatch, writer/receipt, executor, provider, process supervision, human decision, session, evidence, and I/O authorities", "EXTRACT typed validated catalogs, prerequisite predicates, packet validation, and transition projectors", "CODEMAP callers, routes, statuses, aliases, and query costs", "PERF query/schema/IO/hash/payload budgets"]
+- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + receipt/provider-prestart owners + adapter invocation/execution guard owners + external-process lifecycle owner + real-invoker executor/process supervision owners + post-start evidence/liveness owner + implementation-packet validator + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN Codex reachability, Batch1/Batch2 cross-section calls, method-existence checks, packet paths, hash binding, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, and 100 numbered automatic-dispatch contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER readiness, review/merge, scheduler, dispatch, receipt, provider pre-start, adapter guards, external process, executor/process supervision, human decision, session, evidence, and I/O authorities", "EXTRACT typed validated catalogs, prerequisite predicates, canonical packet paths, and transition projectors", "CODEMAP callers, routes, statuses, aliases, packet paths, and query costs", "PERF query/schema/IO/hash/payload budgets"]
 - meta_complete: false
 ```
