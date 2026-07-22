@@ -191,7 +191,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame(['w1'], $result['stale_workers']);
     }
 
-    public function test_queue_depth_decrease_prevents_fake_parallelism_even_without_per_worker_signal(): void
+    public function test_global_queue_movement_does_not_hide_zero_worker_productivity(): void
     {
         $result = $this->makeRunner()->probeParallelism([
             'workers' => [$this->worker()],
@@ -199,7 +199,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
             'queue_depth_after' => 6,
         ]);
 
-        $this->assertNotSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_FAKE, $result['parallelism_status']);
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_FAKE, $result['parallelism_status']);
+        $this->assertSame([], $result['productive_workers']);
+        $this->assertSame(['w1'], $result['stale_workers']);
         $this->assertSame(4, $result['queue_depth_change']);
     }
 

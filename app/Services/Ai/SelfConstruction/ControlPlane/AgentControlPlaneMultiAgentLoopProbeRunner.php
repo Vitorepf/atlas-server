@@ -1338,8 +1338,8 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
      *
      * parallelism_status:
      *   idle               — no active workers
-     *   fake_parallelism   — active workers present but zero per-worker productivity AND queue
-     *                        depth did not improve (the exact failure mode this probe exists for)
+     *   fake_parallelism   — active workers present but zero per-worker productivity, regardless
+     *                        of unrelated global queue movement
      *   partial_parallelism — some but not all active workers are productive
      *   real_parallelism   — every active worker is productive
      *
@@ -1356,7 +1356,6 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
         $freshnessThreshold = (int) ($input['outcome_freshness_threshold_seconds'] ?? self::DEFAULT_OUTCOME_FRESHNESS_THRESHOLD_SECONDS);
 
         $queueDepthChange = $queueDepthBefore - $queueDepthAfter;
-        $queueMovedGlobally = $queueDepthChange > 0;
 
         $perWorker = [];
         $activeWorkers = [];
@@ -1425,7 +1424,7 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
 
         $parallelismStatus = match (true) {
             $activeCount === 0 => self::PARALLELISM_STATUS_IDLE,
-            $productiveCount === 0 && ! $queueMovedGlobally => self::PARALLELISM_STATUS_FAKE,
+            $productiveCount === 0 => self::PARALLELISM_STATUS_FAKE,
             $productiveCount === $activeCount => self::PARALLELISM_STATUS_REAL,
             default => self::PARALLELISM_STATUS_PARTIAL,
         };
