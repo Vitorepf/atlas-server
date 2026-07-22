@@ -271,7 +271,7 @@ final class ReadinessProjectionMutatingWriterSection
         $selectedWakeupItem = data_get($dryRunTick, 'queue_projection.selected_wakeup_item');
         $dispatchEnvelopePreview = data_get($dryRunTick, 'dispatch_envelope_preview');
         $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
-        $receiptHashValid = $receiptHash === '' || preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1;
+        $receiptHashValid = preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1;
         $releaseReceipt = null;
 
         if (Schema::hasTable('atlas_self_construction_agent_dispatch_receipts') && $receiptHashValid) {
@@ -577,7 +577,9 @@ final class ReadinessProjectionMutatingWriterSection
                 'spend_provider_tokens',
                 'enable_self_programming',
             ],
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet',
+            'next_required_slice' => $blockingReasons === []
+                ? 'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet'
+                : 'repair_signed_one_shot_scheduler_tick_mutating_writer_preflight_blockers',
         ];
 
         return [

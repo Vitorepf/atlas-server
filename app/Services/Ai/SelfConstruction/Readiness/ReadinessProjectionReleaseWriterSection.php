@@ -266,9 +266,11 @@ final class ReadinessProjectionReleaseWriterSection
     {
         $releasePreflightPayload = $this->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterReleasePreflight($options);
         $releasePreflight = (array) data_get($releasePreflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_release_preflight', []);
+        $releasePreflightReady = data_get($releasePreflight, 'status') === 'one_shot_tick_mutating_writer_release_preflight_ready';
+        $releasePreflightBlockingReasons = (array) data_get($releasePreflight, 'blocking_reasons', []);
 
         $contract = [
-            'status' => 'one_shot_tick_mutating_writer_contract_ready',
+            'status' => $releasePreflightReady ? 'one_shot_tick_mutating_writer_contract_ready' : 'blocked',
             'contract_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-MUTATING-WRITER-CONTRACT-SELF-CONSTRUCTION-0001',
             'parent_program' => 'Atlas Self-Construction OS',
             'submodule' => 'Atlas Agent Control Plane',
@@ -278,8 +280,8 @@ final class ReadinessProjectionReleaseWriterSection
             'contract_method' => 'executeOneShotSchedulerTickAfterReleasePreflight',
             'readiness_dependency' => [
                 'release_preflight_must_be_ready_before_future_mutation' => true,
-                'current_release_preflight_ready' => data_get($releasePreflight, 'status') === 'one_shot_tick_mutating_writer_release_preflight_ready',
-                'current_release_preflight_blocking_reasons' => data_get($releasePreflight, 'blocking_reasons', []),
+                'current_release_preflight_ready' => $releasePreflightReady,
+                'current_release_preflight_blocking_reasons' => $releasePreflightBlockingReasons,
             ],
             'writer_scope' => [
                 'max_wakeup_claims_per_invocation' => 1,
@@ -369,7 +371,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'spend_provider_tokens',
                 'enable_self_programming',
             ],
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight',
+            'next_required_slice' => $releasePreflightReady
+                ? 'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight'
+                : 'repair_signed_one_shot_scheduler_tick_mutating_writer_release_preflight_blockers',
         ];
 
         return [
@@ -396,7 +400,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_start_providers',
                 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_enable_self_programming',
             ],
-            'human_summary' => 'Automatic dispatch scheduler one-shot tick mutating writer contract is ready as a read-only contract: future code may claim exactly one wakeup and write exactly one dispatch receipt only after release preflight is ready, then must stop before provider start.',
+            'human_summary' => $releasePreflightReady
+                ? 'Automatic dispatch scheduler one-shot tick mutating writer contract is ready as a read-only contract: future code may claim exactly one wakeup and write exactly one dispatch receipt only after release preflight is ready, then must stop before provider start.'
+                : 'Automatic dispatch scheduler one-shot tick mutating writer contract is blocked until release preflight proves the selected wakeup and persisted release receipt are current.',
         ];
     }
 

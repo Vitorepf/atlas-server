@@ -86,6 +86,22 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingW
         ]);
     }
 
+    public function test_preflight_requires_repair_before_advertising_the_implementation_packet_when_release_proof_is_missing(): void
+    {
+        $payload = app(AtlasSelfConstructionReadinessService::class)
+            ->agentAutomaticDispatchSchedulerOneShotTickMutatingWriterPreflight();
+
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertContains(
+            'mutating_writer_contract_ready',
+            data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.failed_preflight_checks'),
+        );
+        $this->assertSame(
+            'repair_signed_one_shot_scheduler_tick_mutating_writer_preflight_blockers',
+            data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.next_required_slice'),
+        );
+    }
+
     public function test_writer_is_idempotent_for_same_dispatch_receipt_hash_after_wakeup_is_claimed(): void
     {
         $context = $this->readyReleaseContext();

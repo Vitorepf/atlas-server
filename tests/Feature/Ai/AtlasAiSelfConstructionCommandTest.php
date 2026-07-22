@@ -17570,7 +17570,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
             '--json' => true,
         ]);
         $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.v1', data_get($payload, 'schema_version'));
-        $this->assertSame('one_shot_tick_mutating_writer_contract_ready', data_get($payload, 'status'));
+        $this->assertSame('blocked', data_get($payload, 'status'));
         $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract', data_get($payload, 'mode'));
         $this->assertFalse(data_get($payload, 'execution_allowed'));
         $this->assertFalse(data_get($payload, 'dispatch_allowed'));
@@ -17589,12 +17589,13 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame(1, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.writer_scope.max_dispatch_receipts_per_invocation'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.writer_scope.provider_start_allowed'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.writer_scope.self_programming_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.readiness_dependency.current_release_preflight_ready'));
         $this->assertContains('release_preflight_must_be_ready', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.required_preconditions'));
         $this->assertContains('recompute_release_preflight_inside_transaction', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.atomic_mutation_sequence'));
         $this->assertContains('claim_selected_wakeup_item_atomically', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.allowed_future_mutations_after_all_preconditions'));
         $this->assertContains('start_provider_process', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.forbidden_even_after_contract'));
         $this->assertContains('claim_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.forbidden_now'));
-        $this->assertSame('activate_signed_one_shot_scheduler_tick_mutating_writer_preflight', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.next_required_slice'));
+        $this->assertSame('repair_signed_one_shot_scheduler_tick_mutating_writer_release_preflight_blockers', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract.next_required_slice'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_claim_wakeup_items', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_write_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_does_not_start_providers', data_get($payload, 'non_execution_guarantees'));
@@ -17609,10 +17610,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
             '--json' => true,
         ]);
         $this->assertSame('atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.v1', data_get($payload, 'schema_version'));
-        $this->assertContains(data_get($payload, 'status'), [
-            'one_shot_tick_mutating_writer_preflight_ready',
-            'blocked',
-        ]);
+        $this->assertSame('blocked', data_get($payload, 'status'));
         $this->assertSame('read_only_agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight', data_get($payload, 'mode'));
         $this->assertFalse(data_get($payload, 'execution_allowed'));
         $this->assertFalse(data_get($payload, 'dispatch_allowed'));
@@ -17626,7 +17624,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.submodule'));
         $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.workspace_id'));
-        $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.mutating_writer_contract_ready'));
+        $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.mutating_writer_contract_ready'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.max_one_wakeup_claim'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.preflight_checks.max_one_dispatch_receipt'));
         $this->assertArrayHasKey('wakeup_required_columns', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.storage_readiness'));
@@ -17636,7 +17634,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('stop_before_dispatch_receipt_use', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.implementation_requirements'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.writer_policy.runtime_mutation_allowed_here'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.writer_policy.provider_start_allowed_here'));
-        $this->assertSame('activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.next_required_slice'));
+        $this->assertSame('repair_signed_one_shot_scheduler_tick_mutating_writer_preflight_blockers', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.next_required_slice'));
         $this->assertContains('claim_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight.forbidden_now'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_claim_wakeup_items', data_get($payload, 'non_execution_guarantees'));
         $this->assertContains('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_does_not_write_dispatch_receipts', data_get($payload, 'non_execution_guarantees'));
