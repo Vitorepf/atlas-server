@@ -1821,6 +1821,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'files_changed_within_allowed_scope' => (bool) $evidenceValidation['files_changed_within_allowed_scope'],
             'files_changed_outside_allowed_scope' => (array) $evidenceValidation['files_changed_outside_allowed_scope'],
             'evidence_keys' => array_keys($completionEvidence),
+            'completion_evidence' => $completionEvidence,
             'evidence_digest' => hash('sha256', (string) json_encode($completionEvidence, JSON_THROW_ON_ERROR)),
         ]);
         $update = $this->queue->updateStatus($taskPacketId, 'completed_dry_run', [

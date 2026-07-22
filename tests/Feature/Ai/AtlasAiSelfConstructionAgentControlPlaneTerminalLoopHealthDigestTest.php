@@ -613,8 +613,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
             'files_changed' => ['app/Services/Ai/SelfConstruction/rollup-1.php'],
             'commands_run' => ['php artisan test app/Services/Ai/SelfConstruction/rollup-1.php'],
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Added the terminal-loop rollup coverage.',
+            'capability_delta' => 'The digest can classify completed dry-run evidence.',
             'git_status_short' => 'M app/Services/Ai/SelfConstruction/rollup-1.php',
             'git_diff_check_result' => 'clean',
+            'terminal_loop_health_digest_checked' => 'yes',
         ];
         $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
         $evidenceHash = (string) $evidence['evidence_hash'];
@@ -643,6 +646,59 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame('review_evidence', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_complete_from_supervisor'));
+    }
+
+    public function test_fleet_evidence_rollup_rejects_an_internally_inconsistent_completion_receipt(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('rollup-tampered'), 'queue' => ['tags' => ['lane-tampered']]]);
+        $claim = $orchestrator->claimNext('agent-tampered', ['tag' => 'lane-tampered']);
+        $this->assertSame('claimed', $claim['event']);
+
+        $evidence = [
+            'packet_id' => (string) $claim['task_packet_id'],
+            'lease_id' => (string) $claim['lease_id'],
+            'actor' => 'agent-tampered',
+            'files_changed' => ['app/Services/Ai/SelfConstruction/rollup-tampered.php'],
+            'commands_run' => ['php artisan test app/Services/Ai/SelfConstruction/rollup-tampered.php'],
+            'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Completed the governed terminal-loop task.',
+            'capability_delta' => 'The completion receipt is independently revalidated by the digest.',
+            'git_status_short' => 'M app/Services/Ai/SelfConstruction/rollup-tampered.php',
+            'git_diff_check_result' => 'clean',
+            'terminal_loop_health_digest_checked' => 'yes',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
+        $completion = $orchestrator->completeDryRun(
+            (string) $claim['task_packet_id'],
+            (string) $claim['lease_id'],
+            $evidence,
+        );
+        $this->assertSame('completed_dry_run', $completion['event']);
+
+        $forgedEvidence = $evidence;
+        $forgedEvidence['evidence_hash'] = str_repeat('f', 64);
+        (new AgentControlPlaneTaskPacketQueueRepository)->appendReceipt((string) $claim['task_packet_id'], [
+            'receipt_kind' => 'dry_run_completion_recorded',
+            'lease_id' => (string) $claim['lease_id'],
+            'agent_id' => 'agent-tampered',
+            'evidence_hash' => (string) $forgedEvidence['evidence_hash'],
+            'evidence_digest' => str_repeat('e', 64),
+            'evidence_validation_status' => 'valid',
+            'evidence_validation_hash' => str_repeat('d', 64),
+            'structured_completion_evidence_valid' => true,
+            'completion_evidence' => $forgedEvidence,
+        ]);
+
+        $digest = $this->service()->digest([
+            'target_min_claimable_tasks' => 1,
+            'queue_tags' => ['lane-tampered'],
+        ]);
+
+        $rollup = (array) data_get($digest, 'terminal_loop_fleet_evidence_rollup', []);
+        $this->assertSame('fleet_evidence_rollup_attention_required', $rollup['status']);
+        $this->assertFalse($rollup['ready_for_operator_review']);
+        $this->assertSame('invalid_completion_evidence', $rollup['recent_completed_task_summaries'][0]['status']);
     }
 
     public function test_cli_status_exposes_digest_summary(): void

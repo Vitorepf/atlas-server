@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\TaskQueue\AgentControlPlaneCompletionEvidenceValidator;
+use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -891,10 +893,37 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             $receiptHash = (string) ($completionReceipt['receipt_hash'] ?? '');
             $evidenceHash = strtolower((string) ($completionReceipt['evidence_hash'] ?? ''));
             $evidenceDigest = strtolower((string) ($completionReceipt['evidence_digest'] ?? ''));
+            $completionEvidence = (array) ($completionReceipt['completion_evidence'] ?? []);
+            $evidenceValidation = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($completionEvidence, [
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => (string) ($completionReceipt['lease_id'] ?? ''),
+                'agent_id' => (string) ($completionReceipt['agent_id'] ?? ''),
+                'allowed_files' => (array) data_get(
+                    $record,
+                    'task_packet.normalized_scope.allowed_files',
+                    data_get($record, 'task_packet.allowed_files', []),
+                ),
+            ]);
+            $expectedReceiptHash = (new TaskPacketCanonicalizer)->stableHash([
+                'task_packet_id' => $taskPacketId,
+                'receipt_kind' => (string) ($completionReceipt['receipt_kind'] ?? ''),
+                'extra' => array_diff_key($completionReceipt, ['recorded_at' => true, 'receipt_hash' => true]),
+            ]);
+            $expectedEvidenceDigest = hash('sha256', (string) json_encode($completionEvidence, JSON_THROW_ON_ERROR));
             $valid = (bool) ($completionReceipt['structured_completion_evidence_valid'] ?? false)
                 && (string) ($completionReceipt['evidence_validation_status'] ?? '') === 'valid'
                 && preg_match('/^[a-f0-9]{64}$/', $evidenceHash) === 1
-                && preg_match('/^[a-f0-9]{64}$/', $evidenceDigest) === 1;
+                && preg_match('/^[a-f0-9]{64}$/', $evidenceDigest) === 1
+                && $completionEvidence !== []
+                && (bool) ($evidenceValidation['structured_completion_evidence_valid'] ?? false)
+                && (string) ($evidenceValidation['status'] ?? '') === 'valid'
+                && hash_equals($expectedReceiptHash, $receiptHash)
+                && hash_equals((string) ($evidenceValidation['evidence_hash'] ?? ''), $evidenceHash)
+                && hash_equals($expectedEvidenceDigest, $evidenceDigest)
+                && hash_equals(
+                    (string) ($evidenceValidation['evidence_validation_hash'] ?? ''),
+                    (string) ($completionReceipt['evidence_validation_hash'] ?? ''),
+                );
 
             if ($receiptHash !== '') {
                 $receiptHashes[] = $receiptHash;
