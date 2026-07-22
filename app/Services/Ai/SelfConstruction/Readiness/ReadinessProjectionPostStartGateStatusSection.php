@@ -249,12 +249,26 @@ final class ReadinessProjectionPostStartGateStatusSection
 
     public function __call(string $name, array $arguments): mixed
     {
-        if ($this->mother === null) {
-            throw new \RuntimeException('ReadinessProjectionPostStartGateStatusSection mother not bound for '.$name);
-        }
-        $method = new \ReflectionMethod($this->mother, $name);
+        throw new \BadMethodCallException('ReadinessProjectionPostStartGateStatusSection does not expose '.$name);
+    }
 
-        return $method->invokeArgs($this->mother, $arguments);
+    /** @param array<string, mixed> $payload */
+    private function stableHash(array $payload): string
+    {
+        return ReadinessHash::stable($payload);
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array<string, mixed>
+     */
+    private function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateContract(array $options = []): array
+    {
+        if ($this->mother === null) {
+            throw new \RuntimeException('ReadinessProjectionPostStartGateStatusSection mother not bound for post-start start-execution contract');
+        }
+
+        return $this->mother->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateContract($options);
     }
 
 
