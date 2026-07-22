@@ -729,14 +729,16 @@ findings:
       - "138 of 228 imports are unused, consistent with a mechanical source split"
   - id: A1-SC-0036
     type: bug
-    severity: s0
-    detail: "The extracted graph is not executable through most of this section's public contract routes. Runtime characterization of all 20 methods that hard-code a *_ready contract status found that 19 abort before returning: calls proxied through the parent enter ReadinessProjectionAgentCodexSection and fail on either an undefined agentProviderAdapterRegistryPreflight method or an unimported namespaced Schema class. Focused command tests fail with zero assertions, so the advertised Batch1 surface is broadly unavailable."
+    severity: s3
+    status: refuted_fixed_after_snapshot
+    corrected_by: arch-comandante (auditoria adversarial 2026-07-22)
+    detail: "SUPERSEDED — o fatal s0 originalmente registrado (19 de 20 métodos hard-coded-ready abortando ao proxiar para ReadinessProjectionAgentCodexSection) NÃO reproduz mais em HEAD. As duas causas-raiz foram corrigidas pelo commit 594d224e1 (2026-07-22 16:23), posterior ao snapshot desta meta: (1) agentProviderAdapterRegistryPreflight agora é invocado sobre o colaborador tipado injetado $this->agentDispatchProviderSection (AgentCodexSection linha 93), onde o método está definido (ReadinessProjectionAgentDispatchProviderSection), em vez de sobre $this (indefinido); (2) a fachada Illuminate\\Support\\Facades\\Schema está importada em AgentCodexSection (linha 79). O acoplamento cross-section (__call/ReflectionMethod, finding 0035) e o method_exists sempre-false (finding 0037) continuam válidos e independentes."
     evidence:
-      - "runtime characterization => 1 of 20 hard-coded-ready contract methods returned; 19 of 20 threw"
-      - "policy command test exits 2 with undefined method ReadinessProjectionAgentCodexSection::agentProviderAdapterRegistryPreflight at line 85"
-      - "executor-enablement contract command test exits 2 with the same undefined method and zero assertions"
-      - "provider-start contract command test exits 2 with missing App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema at AgentCodexSection line 8,363"
-      - "the parent facade has agentProviderAdapterRegistryPreflight, but the sibling section has no forwarding boundary"
+      - "commit corretivo: 594d224e1 (2026-07-22 16:23:13) — posterior ao snapshot da meta"
+      - "AgentCodexSection linha 93: $this->agentDispatchProviderSection->agentProviderAdapterRegistryPreflight($options) — colaborador tipado readonly injetado"
+      - "agentProviderAdapterRegistryPreflight É definido em ReadinessProjectionAgentDispatchProviderSection.php"
+      - "AgentCodexSection linha 79: use Illuminate\\Support\\Facades\\Schema; — import presente"
+      - "reprodução original (undefined method / missing Schema class) não ocorre em HEAD — verificado pelo comandante"
   - id: A1-SC-0037
     type: bug
     severity: s1
