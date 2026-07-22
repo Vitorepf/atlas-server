@@ -1,4 +1,10 @@
-# RuntimeExecution F0 report
+# RuntimeExecution F0 report (SUPERSEDED)
+
+This initial report is retained for provenance but superseded by the
+review-correction receipt `b3c02f4e7`. Its statement that the legacy AVER
+certification and an absent canonical certification share the same logical
+`goal_record_id` is invalid: the current AVER execution schema has no
+persisted `goal_record_id`, so no such correlation can be claimed before F4a.
 
 Primary test commit: `5a954a59b4cc1133d006b08ff00d639c84570f58` (`test(core): GOD-DEBULK RuntimeExecution F0 characterization`).
 

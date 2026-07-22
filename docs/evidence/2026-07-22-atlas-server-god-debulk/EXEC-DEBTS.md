@@ -12,12 +12,7 @@ bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
 current_focus: A1-SC-0001..0008 (queued; readiness facade split and ownership)
-claimed_paths:
-  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
-  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
-  - tests/Feature/Ai/VerifiedExecution/RuntimeExecutionF0CharacterizationTest.php
-  - tests/Feature/Ai/RuntimeReleaseGate/AtlasAiRuntimeReleaseGateServiceTest.php
-  - tests/Unit/AiToolRuntimeTest.php
+claimed_paths: []
 ```
 
 ## Fila (ordem — derive dos META-FINDINGS; atualize ao executar)

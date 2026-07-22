@@ -43,7 +43,14 @@ halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
 ```
 
-## RuntimeExecution F0 receipt — 2026-07-22
+## RuntimeExecution F0 receipt — 2026-07-22 (SUPERSEDED)
+
+This initial receipt is retained for provenance but superseded by the
+review-correction receipt `b3c02f4e7`. Its claim that a legacy AVER
+certification and an absent canonical certification were related by the same
+logical `goal_record_id` is invalid: the current AVER execution schema does
+not persist `goal_record_id`, so that correlation cannot be claimed before
+F4a.
 
 ```yaml
 primary_commit: 5a954a59b4cc1133d006b08ff00d639c84570f58
