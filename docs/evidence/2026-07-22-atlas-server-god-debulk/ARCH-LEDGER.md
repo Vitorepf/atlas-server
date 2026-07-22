@@ -24,7 +24,7 @@ needs_operator:
   - "Aprovar NON-AI: FUSE Vault→Semantic (frontmatter triplicado)"
   - "Aprovar ROOT-SINGLES: re-home de ~90 arquivos-raiz p/ owner-folders homônimos (raiz fica com 5 pipes canônicos) + QUARANTINE ToneFilter"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
-last_review: 7b2fb7ebe  # A1-SC-0019 fix APROVADO: Schema import L64, testes executam métodos reais (mata test-gap), child plan wave-a1 criado, 0 back-ref novo, 0 godfile novo
+last_review: 7b2fb7ebe  # AUDITORIA PROFUNDA (pedido do operador): trabalho REAL e conforme — fix Schema (+1 app) com teste red→green no mesmo commit; boundary ProviderAdapter restaurada com injeção one-way por construtor (canon); ledger com evidência red→green e escopo honesto; A1-SC-0020 também fechado; 8 testes/29 assertions verdes rodados por mim. DESVIO ÚNICO: commits com diff em app/ rotulados test(core) — deveria ser refactor(core); corrigir daqui em diante (registrado em EXEC-DEBTS origin:arch-review)
 last_commit: 27999d6c4
 fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
