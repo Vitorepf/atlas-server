@@ -6,28 +6,21 @@ use Tests\TestCase;
 
 class AtlasAiSelfConstructionPostStartEvidenceBridgeContractTest extends TestCase
 {
-    public function test_every_codex_real_invoker_post_start_service_carries_evidence_acceptance_bridge_id(): void
+    public function test_post_start_evidence_producers_do_not_depend_on_their_downstream_bridge(): void
     {
-        $files = glob(app_path('Services/Ai/SelfConstruction/AgentCodexRealInvokerPostStart*.php')) ?: [];
+        $producerFiles = [
+            app_path('Services/Ai/SelfConstruction/Support/AgentCodexRealInvokerPostStartReceiptContractBuilder.php'),
+            app_path('Services/Ai/SelfConstruction/Support/AgentCodexRealInvokerPostStartEvidenceReceiptWriter.php'),
+        ];
 
-        sort($files);
-
-        $this->assertNotEmpty($files, 'Expected Codex real invoker post-start services to exist.');
-
-        $missing = [];
-
-        foreach ($files as $file) {
-            $contents = file_get_contents($file);
-
-            if ($contents === false || ! str_contains($contents, 'post_start_evidence_acceptance_bridge_id')) {
-                $missing[] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file);
-            }
+        foreach ($producerFiles as $file) {
+            $this->assertFileExists($file);
+            $this->assertStringNotContainsString('post_start_evidence_acceptance_bridge_id', (string) file_get_contents($file));
         }
 
-        $this->assertSame(
-            [],
-            $missing,
-            'Every post-start service must carry post_start_evidence_acceptance_bridge_id so raw liveness cannot bypass accepted evidence.'
-        );
+        $bridge = app_path('Services/Ai/SelfConstruction/Support/AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge.php');
+
+        $this->assertFileExists($bridge);
+        $this->assertStringContainsString('post_start_evidence_acceptance_bridge_id', (string) file_get_contents($bridge));
     }
 }

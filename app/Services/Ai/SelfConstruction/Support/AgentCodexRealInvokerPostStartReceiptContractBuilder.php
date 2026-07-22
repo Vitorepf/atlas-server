@@ -50,9 +50,9 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
      * it into the returned contract.
      *
      * @param  array<string,mixed>  $receipt  { structured_outcome?: string,
-     *   proof_command?: string, scope_digest?: string,
-     *   learning_payload?: array<string,mixed>, outcome_text?: string }
-     *   plus any of PROVIDER_PRIVATE_FIELDS, which must be absent.
+     *                                        proof_command?: string, scope_digest?: string,
+     *                                        learning_payload?: array<string,mixed>, outcome_text?: string }
+     *                                        plus any of PROVIDER_PRIVATE_FIELDS, which must be absent.
      * @return array<string,mixed>
      */
     public function buildStructuredReceiptContract(array $receipt): array
@@ -149,7 +149,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
                 'manual_start_executor_receipt_id' => $normalized['manual_start_executor_receipt_id'],
                 'real_invoker_process_starter_readiness_gate_id' => $normalized['real_invoker_process_starter_readiness_gate_id'],
                 'real_invoker_start_execution_gate_id' => $normalized['real_invoker_start_execution_gate_id'],
-                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'codex_execution_id' => $normalized['codex_execution_id'],
                 'handoff_packet_hash' => $normalized['handoff_packet_hash'],
                 'operator_runbook_hash' => $normalized['operator_runbook_hash'],
@@ -188,7 +187,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
                 'operator_start_handoff_id' => $normalized['operator_start_handoff_id'],
                 'manual_start_executor_receipt_id' => $normalized['manual_start_executor_receipt_id'],
                 'codex_execution_id' => $normalized['codex_execution_id'],
-                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'agent_run_id' => (string) $run->id,
                 'run_key' => $run->run_key,
                 'packet_id' => $run->packet_id,
@@ -232,7 +230,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
             'codex_execution_id',
             'real_invoker_process_starter_readiness_gate_id',
             'real_invoker_start_execution_gate_id',
-            'post_start_evidence_acceptance_bridge_id',
             'manual_start_executor_receipt_id',
             'operator_start_handoff_id',
             'post_start_receipt_contract_id',
@@ -284,7 +281,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
             'codex_execution_id' => (string) $input['codex_execution_id'],
             'real_invoker_process_starter_readiness_gate_id' => (string) $input['real_invoker_process_starter_readiness_gate_id'],
             'real_invoker_start_execution_gate_id' => (string) $input['real_invoker_start_execution_gate_id'],
-            'post_start_evidence_acceptance_bridge_id' => (string) $input['post_start_evidence_acceptance_bridge_id'],
             'manual_start_executor_receipt_id' => (string) $input['manual_start_executor_receipt_id'],
             'operator_start_handoff_id' => (string) $input['operator_start_handoff_id'],
             'post_start_receipt_contract_id' => (string) $input['post_start_receipt_contract_id'],
@@ -316,7 +312,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
             'manual_start_executor_receipt_id',
             'real_invoker_process_starter_readiness_gate_id',
             'real_invoker_start_execution_gate_id',
-            'post_start_evidence_acceptance_bridge_id',
             'codex_execution_id',
         ] as $field) {
             if ((string) data_get($metadata, 'codex_real_invoker_operator_start_handoff.'.$field) !== $normalized[$field]) {
@@ -363,7 +358,6 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
             'post_start_receipt_contract_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.post_start_receipt_contract_id'),
             'operator_start_handoff_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.operator_start_handoff_id'),
             'manual_start_executor_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.manual_start_executor_receipt_id'),
-            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.post_start_evidence_acceptance_bridge_id'),
             'codex_execution_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.codex_execution_id'),
             'agent_run_id' => (string) $run->id,
             'run_key' => $run->run_key,

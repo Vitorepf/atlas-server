@@ -187,4 +187,38 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
         );
         $this->assertNotSame($expectedContractId, $changedContractId);
     }
+
+    public function test_post_start_evidence_producers_do_not_require_their_downstream_bridge_id(): void
+    {
+        $runtime = app(AtlasSelfConstructionReadinessService::class);
+        $receiptEnvelope = $runtime->agentCodexRealInvokerPostStartReceiptContractBuilderContractTemplate();
+        $writerEnvelope = $runtime->agentCodexRealInvokerPostStartEvidenceReceiptWriterContractTemplate();
+        $bridgeEnvelope = $runtime->agentCodexRealInvokerPostStartEvidenceAcceptanceBridgeContractTemplate();
+        $bridgePreflight = $runtime->agentCodexRealInvokerPostStartEvidenceAcceptanceBridgePreflight();
+        $bridgeId = 'post_start_evidence_acceptance_bridge_id';
+        $receiptInput = (array) data_get($receiptEnvelope, 'codex_real_invoker_post_start_receipt_contract_builder_contract_template.contract.input_contract', []);
+        $writerInput = (array) data_get($writerEnvelope, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.contract.input_contract', []);
+        $writerRequirements = (array) data_get($writerEnvelope, 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template.real_invoker_post_start_evidence_receipt_must', []);
+        $bridgeInput = (array) data_get($bridgeEnvelope, 'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template.contract.input_contract', []);
+        $bridgeResult = (array) data_get($bridgeEnvelope, 'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template.contract.result_contract', []);
+
+        $this->assertSame([
+            'receipt_input_bridge_id_count' => 0,
+            'writer_input_bridge_id_count' => 0,
+            'writer_requires_downstream_bridge' => false,
+        ], [
+            'receipt_input_bridge_id_count' => count(array_keys($receiptInput, $bridgeId, true)),
+            'writer_input_bridge_id_count' => count(array_keys($writerInput, $bridgeId, true)),
+            'writer_requires_downstream_bridge' => in_array('require_post_start_evidence_acceptance_bridge_from_receipt_contract', $writerRequirements, true),
+        ]);
+        $this->assertSame(1, count(array_keys($bridgeInput, $bridgeId, true)));
+        $this->assertSame(1, count(array_keys($bridgeResult, $bridgeId, true)));
+        $this->assertNotSame('', (string) data_get($bridgePreflight, 'codex_real_invoker_post_start_evidence_acceptance_bridge_preflight.source_codex_real_invoker_post_start_receipt_contract_builder_status'));
+        $this->assertNotSame('', (string) data_get($bridgePreflight, 'codex_real_invoker_post_start_evidence_acceptance_bridge_preflight.source_codex_real_invoker_post_start_evidence_receipt_writer_status'));
+
+        foreach ([$receiptEnvelope, $writerEnvelope, $bridgeEnvelope, $bridgePreflight] as $envelope) {
+            $this->assertFalse($envelope['execution_allowed']);
+            $this->assertFalse($envelope['dispatch_allowed']);
+        }
+    }
 }

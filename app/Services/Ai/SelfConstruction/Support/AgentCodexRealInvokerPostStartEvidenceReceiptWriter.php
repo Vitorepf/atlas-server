@@ -70,7 +70,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
                 'outcome_class' => $proofReceipt['outcome_class'],
                 'learning_payload' => $proofReceipt['learning_payload'],
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
-                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'operator_start_handoff_id' => $normalized['operator_start_handoff_id'],
                 'manual_start_executor_receipt_id' => $normalized['manual_start_executor_receipt_id'],
@@ -112,7 +111,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
             $ledgerEvent = $this->ledger->record(LedgerEventType::OperationCompleted, [
                 'domain_event_type' => 'self_construction.agent_codex_real_invoker_post_start_evidence_receipt.recorded',
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
-                'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
                 'operator_start_handoff_id' => $normalized['operator_start_handoff_id'],
                 'manual_start_executor_receipt_id' => $normalized['manual_start_executor_receipt_id'],
@@ -165,7 +163,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
             'real_invoker_start_execution_gate_id',
             'manual_start_executor_receipt_id',
             'operator_start_handoff_id',
-            'post_start_evidence_acceptance_bridge_id',
             'post_start_receipt_contract_id',
             'post_start_evidence_receipt_id',
             'external_process_identity_contract_hash',
@@ -226,7 +223,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
             'real_invoker_start_execution_gate_id' => (string) $input['real_invoker_start_execution_gate_id'],
             'manual_start_executor_receipt_id' => (string) $input['manual_start_executor_receipt_id'],
             'operator_start_handoff_id' => (string) $input['operator_start_handoff_id'],
-            'post_start_evidence_acceptance_bridge_id' => (string) $input['post_start_evidence_acceptance_bridge_id'],
             'post_start_receipt_contract_id' => (string) $input['post_start_receipt_contract_id'],
             'post_start_evidence_receipt_id' => (string) $input['post_start_evidence_receipt_id'],
             'actor' => (string) $input['actor'],
@@ -255,7 +251,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
 
         foreach ([
             'operator_start_handoff_id',
-            'post_start_evidence_acceptance_bridge_id',
             'manual_start_executor_receipt_id',
             'real_invoker_process_starter_readiness_gate_id',
             'real_invoker_start_execution_gate_id',
@@ -355,7 +350,6 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
             'outcome_class' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.outcome_class'),
             'learning_payload' => (array) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.learning_payload', []),
             'post_start_evidence_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_evidence_receipt_id'),
-            'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_evidence_acceptance_bridge_id'),
             'post_start_receipt_contract_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_receipt_contract_id'),
             'operator_start_handoff_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.operator_start_handoff_id'),
             'manual_start_executor_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.manual_start_executor_receipt_id'),

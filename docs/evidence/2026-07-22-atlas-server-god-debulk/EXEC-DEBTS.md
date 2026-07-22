@@ -6,12 +6,12 @@ mode: implement
 meta_only: false
 awaiting_operator_token: EXECUTE GOD-DEBULK
 preferred_engine: claude  # Sol Extra Alto blocked 2026-07-22 on AIP-*-DOCS package
-queue_index: 4
+queue_index: 5
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
-current_focus: A1-SC-0021 (queued; not started)
+current_focus: A1-SC-0001..0008 (queued; readiness facade split and ownership)
 claimed_paths: []
 ```
 
@@ -27,7 +27,9 @@ claimed_paths: []
 3. **A1-SC-0020** — post-start real-invoker release contract hash
    - complete: real release-preflight hash now participates in the public
      contract identity; the doubled payload lookup remains absent.
-4. **A1-SC-0021** — bridge cycle, after A1-SC-0020 evidence.
+4. **A1-SC-0021** — complete: receipt and evidence producers no longer depend
+   on the downstream acceptance-bridge ID; the bridge keeps its one local
+   correlation/idempotency input and result.
 5. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
    - TEST status/write honesty + payload contracts
    - BUGFIX read-only vs mutate + fail-closed defaults

@@ -25,7 +25,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
 
         $this->assertSame('codex_real_invoker_post_start_receipt_contract_built', $result['status']);
         $this->assertFalse($result['idempotent']);
-        $this->assertSame('codex-real-invoker-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
+        $this->assertArrayNotHasKey('post_start_evidence_acceptance_bridge_id', $result);
         $this->assertTrue($result['post_start_receipt_contract_built']);
         $this->assertFalse($result['actual_process_start_allowed']);
         $this->assertFalse($result['external_process_started']);
@@ -42,9 +42,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
             ->where('run_key', 'provider-start:attempt-001')
             ->firstOrFail();
 
-        $this->assertSame(
-            'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
-            data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract.post_start_evidence_acceptance_bridge_id')
+        $this->assertArrayNotHasKey(
+            'post_start_evidence_acceptance_bridge_id',
+            (array) data_get($run->metadata, 'codex_real_invoker_post_start_receipt_contract', [])
         );
     }
 
@@ -100,17 +100,20 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
             ]));
     }
 
-    public function test_post_start_receipt_contract_rejects_missing_evidence_acceptance_bridge(): void
+    public function test_post_start_receipt_contract_does_not_require_downstream_evidence_acceptance_bridge(): void
     {
         $this->createOperatorStartHandoffRun([
             'metadata' => $this->metadataWithOperatorStartHandoff(['post_start_evidence_acceptance_bridge_id' => null]),
         ]);
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('post_start_evidence_acceptance_bridge_id_mismatch');
+        $input = $this->validInput();
+        unset($input['post_start_evidence_acceptance_bridge_id']);
 
-        app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
-            ->buildPostStartReceiptContract($this->validInput());
+        $result = app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
+            ->buildPostStartReceiptContract($input);
+
+        $this->assertSame('codex_real_invoker_post_start_receipt_contract_built', $result['status']);
+        $this->assertArrayNotHasKey('post_start_evidence_acceptance_bridge_id', $result);
     }
 
     public function test_post_start_receipt_contract_rejects_handoff_with_process_started_flag(): void
@@ -205,7 +208,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
             'codex_execution_id' => 'codex-execution-001',
             'real_invoker_start_execution_gate_id' => 'codex-real-invoker-start-execution-gate-001',
             'real_invoker_process_starter_readiness_gate_id' => 'codex-real-invoker-process-starter-readiness-001',
-            'post_start_evidence_acceptance_bridge_id' => 'codex-real-invoker-post-start-evidence-acceptance-bridge-001',
             'manual_start_executor_receipt_id' => 'codex-real-invoker-manual-start-receipt-001',
             'operator_start_handoff_id' => 'codex-real-invoker-operator-start-handoff-001',
             'post_start_receipt_contract_id' => 'codex-real-invoker-post-start-receipt-contract-001',
@@ -279,5 +281,4 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
         $this->assertContains('scope_digest', $result['missing_fields']);
         $this->assertContains('learning_payload', $result['missing_fields']);
     }
-
 }

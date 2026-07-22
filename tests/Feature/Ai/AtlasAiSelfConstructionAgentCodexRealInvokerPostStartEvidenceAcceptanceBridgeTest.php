@@ -35,6 +35,15 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceAcceptanceBri
         $this->assertFalse($result['token_spend_allowed']);
         $this->assertTrue($result['provider_started']);
         $this->assertFalse($result['dispatch_allowed']);
+        $this->assertSame('codex-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
+        $this->assertArrayNotHasKey(
+            'post_start_evidence_acceptance_bridge_id',
+            $result['codex_real_invoker_post_start_receipt_contract_result']
+        );
+        $this->assertArrayNotHasKey(
+            'post_start_evidence_acceptance_bridge_id',
+            $result['codex_real_invoker_post_start_evidence_receipt_result']
+        );
 
         $run = AtlasSelfConstructionAgentRun::query()
             ->where('run_key', 'observed-codex-run-001')
@@ -272,7 +281,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceAcceptanceBri
             'reason' => 'accept_observed_external_start_evidence_without_atlas_process_spawn',
         ];
     }
-
 
     // ── validateEvidence() ───────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: active — Tasks 1 through 3 are complete; A1-SC-0021 remains queued.
+Status: active — Tasks 1 through 4 are complete; A1-SC-0001..0008 are queued.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
@@ -137,3 +137,63 @@ real release-preflight hash, a null doubled lookup, and the RED expected-ID
 mismatch; after the one-key correction, the public contract identity matches
 the real upstream and dry-run hash vector. A1-SC-0021 remains queued and was
 not changed.
+
+## Task 4: A1-SC-0021 post-start evidence producer-consumer direction
+
+Status: complete.
+
+The receipt builder and evidence receipt writer must be upstream producers.
+The acceptance bridge may consume their preflights and is the sole producer of
+`post_start_evidence_acceptance_bridge_id`. A producer cannot require that
+downstream result as an input, output, must-rule, preflight change, task
+acceptance, or packet criterion.
+
+1. Add a direct executable regression through the real public readiness
+   facade/templates. Before the production correction it must show the receipt
+   input contains the bridge ID twice and the evidence writer requires it.
+   No reflection, mocks, aliases, fake payloads, or schema-state
+   mutation.
+2. Reorient only the post-start receipt-builder, evidence-receipt-writer, and
+   evidence-acceptance-bridge contract/preflight/packet metadata necessary to
+   form this acyclic direction: handoff -> receipt -> evidence receipt ->
+   acceptance bridge. Remove the bridge ID from upstream producer inputs,
+   results, requirements, and implementation acceptance wording. The final
+   bridge alone may retain its correlation/idempotency input and must retain
+   exactly one result occurrence; it must no longer forward that input to an
+   upstream producer.
+3. Keep every envelope read-only and fail-closed. Do not change statuses,
+   schema versions, flags, commands, provider invocation, the A1-SC-0020 hash
+   binding, or later consumers of the bridge ID.
+4. Make the same public runtime regression pass, including the real bridge
+   preflight. The proof must assert the two upstream input counts are zero,
+   the bridge output count is one, the source preflights are observed, and
+   `execution_allowed` / `dispatch_allowed` remain false.
+5. Correct the equivalent three concrete Support services and their focused
+   tests, plus the narrow bridge-contract test. Do not edit the 31k-line
+   command test: its stale route assertions are a separate test-monster split
+   action under the hard no-edited-PHP-over-2000-LOC rule.
+6. Update only the claimed execution cursor/ledger and record actual commands
+   and short stdout. Commit an app-containing diff as
+   `refactor(core): GOD-DEBULK A1 ...`; never rewrite the prior historical
+   label hold.
+
+## Task 4 acceptance
+
+```bash
+/opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+/opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+/opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+bash scripts/god-debulk-guard.sh
+/opt/homebrew/bin/php scripts/god-debulk-codemap-verify.php
+git diff --check
+```
+
+Task 4 completion evidence is complete. The public readiness-facade regression
+first observed the duplicate receipt input bridge ID (`2`), one writer input,
+and the stale writer requirement. It now proves both upstream input counts are
+zero, the final bridge result occurs once, both producer preflights are
+observed, and each envelope remains non-executing/non-dispatching. The focused
+ParaTest files are green (9/42, 12/38, 9/37, 13/49, and 1/6); PHPStan, syntax,
+the debulk guard, CODEMAP verification, and diff check are green. Strict Pint
+is clean for the focused files and Support services; the 13k-line Codex
+projection retains its four pre-existing style findings.
