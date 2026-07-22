@@ -169,7 +169,7 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->assertStringContainsString('"client_id": "cli-client"', $out);
     }
 
-    public function test_artisan_report_reason_retires_already_satisfied_task(): void
+    public function test_artisan_report_reason_does_not_retire_an_unverified_task(): void
     {
         $this->orchestrator()->prepareAndEnqueue(['task_packet' => $this->input('cli-already-green')]);
 
@@ -189,11 +189,17 @@ final class AtlasTaskServingContractTest extends TestCase
         $reported = json_decode(Artisan::output(), true);
 
         $this->assertSame(0, $exit);
-        $this->assertTrue((bool) ($reported['already_satisfied'] ?? false));
-        $this->assertTrue((bool) ($reported['quarantined'] ?? false));
+        $this->assertFalse((bool) ($reported['already_satisfied'] ?? false));
+        $this->assertFalse((bool) ($reported['quarantined'] ?? false));
+        $this->assertTrue((bool) ($reported['lease_released'] ?? false));
 
         $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('cli-already-green');
-        $this->assertSame('blocked', (string) ($record['status'] ?? ''), 'CLI already_satisfied reason must stop the no-op recycle loop');
+        $this->assertSame('released', (string) ($record['status'] ?? ''), 'a CLI reason is untrusted and cannot make completion terminal');
+
+        Artisan::call('atlas:task', ['action' => 'next', '--client' => 'verifying-client', '--json' => true]);
+        $reclaimed = json_decode(Artisan::output(), true);
+        $this->assertSame('served', (string) ($reclaimed['status'] ?? ''));
+        $this->assertSame('cli-already-green', (string) data_get($reclaimed, 'task.task_packet_id'));
     }
 
     public function test_next_self_heals_a_collapsed_index_when_claimable_files_exist_on_disk(): void

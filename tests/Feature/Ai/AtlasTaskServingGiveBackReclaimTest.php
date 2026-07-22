@@ -73,7 +73,7 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
         $this->assertNotSame($lease, $b['task']['lease_id'], 'the reclaim issues a fresh lease');
     }
 
-    public function test_already_satisfied_give_back_is_quarantined_instead_of_recycled(): void
+    public function test_untrusted_already_satisfied_claim_is_reclaimed_instead_of_quarantined(): void
     {
         $orch = $this->orchestrator();
         $orch->prepareAndEnqueue(['task_packet' => $this->input('already-green-1')]);
@@ -84,20 +84,24 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
 
         $report = $serving->report('worker-a', $a['task']['task_packet_id'], $a['task']['lease_id'], [
             'outcome' => 'give_back',
-            'reason' => 'already_satisfied',
-            'evidence' => ['tests_already_green' => true],
+            'reason' => 'not already implemented',
+            'evidence' => [
+                'tests_already_green' => true,
+                'worker_notes' => 'nothing to commit, but this task is not already implemented',
+            ],
         ]);
 
         $this->assertSame('reported', $report['status']);
-        $this->assertTrue((bool) ($report['quarantined'] ?? false), 'already-satisfied work leaves the queue immediately');
-        $this->assertTrue((bool) ($report['already_satisfied'] ?? false));
+        $this->assertFalse((bool) ($report['quarantined'] ?? false), 'untrusted no-op text must not permanently retire work');
+        $this->assertFalse((bool) ($report['already_satisfied'] ?? false));
+        $this->assertTrue((bool) ($report['lease_released'] ?? false));
 
         $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('already-green-1');
-        $this->assertSame('blocked', (string) ($record['status'] ?? ''), 'already-satisfied packets must not cycle through other workers');
-        $this->assertContains('already_satisfied_noop', (array) data_get($record, 'metadata.blocking_deficiencies', []));
+        $this->assertSame('released', (string) ($record['status'] ?? ''), 'a worker cannot make an unverified completion verdict permanent');
 
         $b = $serving->next('worker-b');
-        $this->assertSame('no_claimable_task', $b['status'], 'the same no-op packet is not re-served to another worker');
+        $this->assertSame('served', $b['status'], 'another worker gets the packet after an untrusted no-op claim');
+        $this->assertSame('already-green-1', $b['task']['task_packet_id']);
     }
 
     public function test_a_worker_never_re_pulls_its_own_give_back(): void
