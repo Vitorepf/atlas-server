@@ -1536,3 +1536,41 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 51 — RootSinglesRehome Analysis, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Analysis
+commit: e2deab5cc
+subject: "refactor(core): GOD-DEBULK RootSingles Analysis rehome"
+scope:
+  - app/Services/Ai/Analysis/AiQualityActionService.php and AiQualityEvaluator.php
+  - canonical AiWorker, action controller, backfill command, architecture scanner, alias map, CODEMAP, focused coverage, and canonical documentation references
+commit_scope_caveat:
+  - "A concurrent staging race added app/Services/Ai/DomainProfiles/KnowledgeProfileBuilder.php to e2deab5cc. It is external WIP, unclaimed and unvalidated by this receipt; it was preserved untouched. The concurrent main advanced, so history was not rewritten."
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_analysis_services_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 0 assertions: canonical App\\Services\\Ai\\Analysis\\AiQualityEvaluator was not resolvable before the re-home."
+green:
+  behavior: "AiQualityActionService and AiQualityEvaluator now have one canonical Analysis namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "The compatibility test resolves the canonical action and evaluator through the application container, then explicitly verifies each retired root alias."
+verification:
+  analysis_suites: "PASS 25 tests, 70 assertions (compatibility, action/evaluator unit, terminal-status, and backfill command coverage)."
+  parallel_root_compatibility: "PASS 7 tests, 14 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports unrelated existing PSR-4 warnings)."
+  root_sweep: "PASS: old root source paths are absent; old FQCN hits remain only in explicit compatibility coverage and the intentionally escaped alias map."
+  php_lint: "PASS all 11 touched PHP files"
+  phpstan: "NOT GREEN: 68 model/type diagnostics across the moved services and consumers plus 414 in AiWorker; no baseline ownership was established, so this gate is not used as proof."
+  pint: "PASS moved sources, alias map, and touched tests. Strict full-file Pint is NOT GREEN for existing formatting drift in AiWorker, AiQualityBackfillCommand, and AgentBehaviorAudit; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=12)"
+  density_guard: "PASS current baseline: >5k=14, >2k=38; action=490 LOC, evaluator=364 LOC. Root first-level Ai owner count falls 89 to 87; concurrent refactors confound any repository-wide LOC delta."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; quality evaluation, remediation planning, gateway behavior, backfill semantics, and architecture-audit policy are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production consumers, runtime audit literals, canonical docs, and CODEMAP name the Analysis owner directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
