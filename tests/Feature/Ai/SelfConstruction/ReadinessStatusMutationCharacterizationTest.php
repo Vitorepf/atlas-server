@@ -44,4 +44,31 @@ final class ReadinessStatusMutationCharacterizationTest extends TestCase
             (string) data_get($payload, 'agent_control_plane_task_queue_orchestrator.task_packet.task_packet_id'),
         );
     }
+
+    public function test_task_auto_replenishment_status_mutates_while_reporting_a_read_only_contract(): void
+    {
+        $disk = Storage::disk('local');
+        $before = $disk->allFiles(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-auto-replenishment-status' => true,
+            '--target-min-claimable-tasks' => 1,
+            '--max-new-tasks' => 1,
+            '--queue-tag' => ['god_debulk_characterization'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertSame('read_only_agent_control_plane_task_auto_replenishment_status', $payload['mode']);
+        $this->assertGreaterThanOrEqual(1, (int) data_get($payload, 'agent_control_plane_task_auto_replenishment.generated_task_count'));
+
+        $after = $disk->allFiles(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
+        $created = array_values(array_diff($after, $before));
+        $taskFiles = array_values(array_filter($created, static fn (string $path): bool => str_contains($path, '/task_')));
+
+        $this->assertNotEmpty($taskFiles, 'the status route executes queue writers');
+        $this->assertGreaterThanOrEqual(1, (int) data_get($payload, 'agent_control_plane_task_auto_replenishment_status.generated_task_count'));
+    }
 }
