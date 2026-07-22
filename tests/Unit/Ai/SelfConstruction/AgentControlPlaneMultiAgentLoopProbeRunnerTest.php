@@ -96,6 +96,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
     {
         return array_merge([
             'worker_id' => 'w1',
+            'runtime_owner' => 'atlas_native',
+            'observation_window_id' => 'probe-window-1',
             'active' => true,
             'lease_moved' => false,
             'report_events_count' => 0,
@@ -149,6 +151,42 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame([], $result['active_workers']);
         $this->assertSame([], $result['productive_workers']);
         $this->assertSame(['external-session-1'], $result['excluded_workers']);
+    }
+
+    public function test_invalid_worker_identity_or_observation_window_never_reports_real_parallelism(): void
+    {
+        $cases = [
+            'missing runtime owner' => [
+                'workers' => [$this->worker(['runtime_owner' => null, 'lease_moved' => true])],
+            ],
+            'blank worker id' => [
+                'workers' => [$this->worker(['worker_id' => '', 'lease_moved' => true])],
+            ],
+            'duplicate worker ids' => [
+                'workers' => [
+                    $this->worker(['worker_id' => 'duplicate-worker', 'lease_moved' => true]),
+                    $this->worker(['worker_id' => 'duplicate-worker', 'lease_moved' => true]),
+                ],
+            ],
+            'different observation windows' => [
+                'workers' => [
+                    $this->worker(['worker_id' => 'w1', 'lease_moved' => true, 'observation_window_id' => 'window-a']),
+                    $this->worker(['worker_id' => 'w2', 'lease_moved' => true, 'observation_window_id' => 'window-b']),
+                ],
+            ],
+        ];
+
+        foreach ($cases as $label => $case) {
+            $result = $this->makeRunner()->probeParallelism([
+                'workers' => $case['workers'],
+                'queue_depth_before' => 10,
+                'queue_depth_after' => 8,
+            ]);
+
+            $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_FAKE, $result['parallelism_status'], $label);
+            $this->assertFalse($result['parallelism_evidence_valid'], $label);
+            $this->assertNotEmpty($result['invalid_workers'], $label);
+        }
     }
 
     public function test_lease_movement_marks_worker_productive(): void

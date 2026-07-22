@@ -1323,6 +1323,8 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
      * INPUT:
      *   workers: list<{
      *     worker_id: string,
+     *     runtime_owner: string,
+     *     observation_window_id: string,
      *     active: bool,                         // process/lease currently held
      *     lease_moved: bool,                     // claim/renew/release advanced since last probe
      *     report_events_count: int,              // report events emitted during the probe window
@@ -1357,19 +1359,52 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
 
         $queueDepthChange = $queueDepthBefore - $queueDepthAfter;
 
+        $workerIdCounts = [];
+        $observationWindowIds = [];
+
+        foreach ($workers as $worker) {
+            if (! is_array($worker) || ! (bool) ($worker['active'] ?? false)) {
+                continue;
+            }
+
+            $runtimeOwner = strtolower(trim((string) ($worker['runtime_owner'] ?? '')));
+            if (! in_array($runtimeOwner, ['atlas_native', 'atlas_server'], true)) {
+                continue;
+            }
+
+            $workerId = trim((string) ($worker['worker_id'] ?? ''));
+            $observationWindowId = trim((string) ($worker['observation_window_id'] ?? ''));
+
+            if ($workerId !== '') {
+                $workerIdCounts[$workerId] = ($workerIdCounts[$workerId] ?? 0) + 1;
+            }
+            if ($observationWindowId !== '') {
+                $observationWindowIds[] = $observationWindowId;
+            }
+        }
+
+        $duplicateWorkerIds = array_keys(array_filter(
+            $workerIdCounts,
+            static fn (int $count): bool => $count > 1,
+        ));
+        $sharedObservationWindow = $observationWindowIds !== []
+            && count(array_unique($observationWindowIds)) === 1;
+
         $perWorker = [];
         $activeWorkers = [];
         $productiveWorkers = [];
         $staleWorkers = [];
         $excludedWorkers = [];
+        $invalidWorkers = [];
 
         foreach ($workers as $worker) {
             if (! is_array($worker)) {
                 continue;
             }
 
-            $workerId = (string) ($worker['worker_id'] ?? '');
-            $runtimeOwner = strtolower(trim((string) ($worker['runtime_owner'] ?? 'atlas_native')));
+            $workerId = trim((string) ($worker['worker_id'] ?? ''));
+            $runtimeOwner = strtolower(trim((string) ($worker['runtime_owner'] ?? '')));
+            $observationWindowId = trim((string) ($worker['observation_window_id'] ?? ''));
             $active = (bool) ($worker['active'] ?? false);
             $leaseMoved = (bool) ($worker['lease_moved'] ?? false);
             $reportEvents = max(0, (int) ($worker['report_events_count'] ?? 0));
@@ -1379,12 +1414,34 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
             $productive = $leaseMoved || $reportEvents > 0 || $outcomeFresh;
 
             if (! in_array($runtimeOwner, ['atlas_native', 'atlas_server'], true)) {
+                if ($active && $runtimeOwner === '') {
+                    $invalidWorkers[] = [
+                        'worker_id' => $workerId,
+                        'reasons' => ['runtime_owner_missing'],
+                    ];
+                    $perWorker[] = [
+                        'worker_id' => $workerId,
+                        'runtime_owner' => $runtimeOwner,
+                        'observation_window_id' => $observationWindowId,
+                        'active' => false,
+                        'eligible_worker' => false,
+                        'productive' => false,
+                        'invalid_reasons' => ['runtime_owner_missing'],
+                        'lease_moved' => $leaseMoved,
+                        'report_events_count' => $reportEvents,
+                        'outcome_fresh' => $outcomeFresh,
+                    ];
+
+                    continue;
+                }
+
                 if ($workerId !== '') {
                     $excludedWorkers[] = $workerId;
                 }
                 $perWorker[] = [
                     'worker_id' => $workerId,
                     'runtime_owner' => $runtimeOwner,
+                    'observation_window_id' => $observationWindowId,
                     'active' => false,
                     'eligible_worker' => false,
                     'productive' => false,
@@ -1396,12 +1453,48 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
                 continue;
             }
 
+            $invalidReasons = [];
+            if ($active && $workerId === '') {
+                $invalidReasons[] = 'worker_id_missing';
+            }
+            if ($active && in_array($workerId, $duplicateWorkerIds, true)) {
+                $invalidReasons[] = 'worker_id_duplicate';
+            }
+            if ($active && $observationWindowId === '') {
+                $invalidReasons[] = 'observation_window_id_missing';
+            }
+            if ($active && ! $sharedObservationWindow) {
+                $invalidReasons[] = 'observation_window_id_not_shared';
+            }
+            if ($invalidReasons !== []) {
+                $invalidWorkers[] = [
+                    'worker_id' => $workerId,
+                    'reasons' => $invalidReasons,
+                ];
+                $perWorker[] = [
+                    'worker_id' => $workerId,
+                    'runtime_owner' => $runtimeOwner,
+                    'observation_window_id' => $observationWindowId,
+                    'active' => false,
+                    'eligible_worker' => false,
+                    'productive' => false,
+                    'invalid_reasons' => $invalidReasons,
+                    'lease_moved' => $leaseMoved,
+                    'report_events_count' => $reportEvents,
+                    'outcome_fresh' => $outcomeFresh,
+                ];
+
+                continue;
+            }
+
             $perWorker[] = [
                 'worker_id' => $workerId,
                 'runtime_owner' => $runtimeOwner,
+                'observation_window_id' => $observationWindowId,
                 'active' => $active,
                 'eligible_worker' => true,
                 'productive' => $active && $productive,
+                'invalid_reasons' => [],
                 'lease_moved' => $leaseMoved,
                 'report_events_count' => $reportEvents,
                 'outcome_fresh' => $outcomeFresh,
@@ -1423,6 +1516,7 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
         $productiveCount = count($productiveWorkers);
 
         $parallelismStatus = match (true) {
+            $invalidWorkers !== [] => self::PARALLELISM_STATUS_FAKE,
             $activeCount === 0 => self::PARALLELISM_STATUS_IDLE,
             $productiveCount === 0 => self::PARALLELISM_STATUS_FAKE,
             $productiveCount === $activeCount => self::PARALLELISM_STATUS_REAL,
@@ -1435,6 +1529,9 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
             'productive_workers' => $productiveWorkers,
             'stale_workers' => $staleWorkers,
             'excluded_workers' => array_values(array_unique($excludedWorkers)),
+            'invalid_workers' => $invalidWorkers,
+            'parallelism_evidence_valid' => $invalidWorkers === [],
+            'observation_window_id' => $sharedObservationWindow ? $observationWindowIds[0] : null,
             'queue_depth_change' => $queueDepthChange,
             'per_worker' => $perWorker,
         ];
