@@ -10,6 +10,7 @@ use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeIntelligence\ModuleExtractor;
+use App\Services\Engineering\CodeIntelligence\SymbolExtractor;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -84,6 +85,7 @@ class EngineeringCodeIntelligenceService
     public function __construct(
         private readonly AtlasToolEvidenceStore $toolEvidence,
         private readonly ModuleExtractor $moduleExtractor,
+        private readonly SymbolExtractor $symbolExtractor,
         private readonly ?EngineeringContextIntelligenceInput $input = null,
     ) {}
 
@@ -1905,22 +1907,7 @@ class EngineeringCodeIntelligenceService
      */
     private function symbolSourceKey(array $symbol): string
     {
-        return (string) ($symbol['symbol_type'] ?? '').'|'.(string) ($symbol['source_hash'] ?? '');
-    }
-
-    /**
-     * @param  Collection<int,string>  $keys
-     * @param  Collection<string,mixed>  $symbols
-     * @return array<string,int>
-     */
-    private function symbolDriftTypeCounts(Collection $keys, Collection $symbols): array
-    {
-        return $keys
-            ->map(fn (string $key): string => (string) data_get($symbols->get($key), 'symbol_type', 'unknown'))
-            ->countBy()
-            ->sortKeys()
-            ->map(fn (int $count): int => $count)
-            ->all();
+        return $this->symbolExtractor->symbolSourceKey($symbol);
     }
 
     /**
@@ -1929,16 +1916,7 @@ class EngineeringCodeIntelligenceService
      */
     private function symbolAuditPayload(?array $symbol, string $reason): array
     {
-        return [
-            'reason' => $reason,
-            'module_slug' => $symbol['module_slug'] ?? null,
-            'symbol_type' => (string) ($symbol['symbol_type'] ?? ''),
-            'symbol_name' => (string) ($symbol['symbol_name'] ?? ''),
-            'file_path' => (string) ($symbol['file_path'] ?? ''),
-            'line_start' => $symbol['line_start'] ?? null,
-            'language' => $symbol['language'] ?? null,
-            'source_hash' => (string) ($symbol['source_hash'] ?? ''),
-        ];
+        return $this->symbolExtractor->symbolAuditPayload($symbol, $reason);
     }
 
     /**
@@ -3137,20 +3115,7 @@ class EngineeringCodeIntelligenceService
      */
     private function symbol(array $attributes): array
     {
-        return array_merge([
-            'module_slug' => null,
-            'symbol_type' => 'symbol',
-            'symbol_name' => null,
-            'file_path' => null,
-            'line_start' => null,
-            'line_end' => null,
-            'language' => null,
-            'signature' => null,
-            'namespace' => null,
-            'parent_symbol' => null,
-            'visibility' => null,
-            'metadata' => [],
-        ], $attributes);
+        return $this->symbolExtractor->symbol($attributes);
     }
 
     /**
@@ -3738,12 +3703,7 @@ class EngineeringCodeIntelligenceService
      */
     private function symbolDocumentationUpdateRow(string $symbolId, array $docIds, Carbon $now): array
     {
-        return [
-            'id' => $symbolId,
-            'docs_status' => 'documented',
-            'related_doc_ids_json' => $this->json(array_keys($docIds)),
-            'updated_at' => $now,
-        ];
+        return $this->symbolExtractor->symbolDocumentationUpdateRow($symbolId, $docIds, $now);
     }
 
     /**
@@ -4096,27 +4056,7 @@ class EngineeringCodeIntelligenceService
 
     private function symbolPayload(AtlasEngineeringCodeSymbol $symbol): array
     {
-        return [
-            'id' => $symbol->id,
-            'module_id' => $symbol->module_id,
-            'module_slug' => $symbol->module?->slug,
-            'symbol_type' => $symbol->symbol_type,
-            'symbol_name' => $symbol->symbol_name,
-            'file_path' => $symbol->file_path,
-            'line_start' => $symbol->line_start,
-            'line_end' => $symbol->line_end,
-            'language' => $symbol->language,
-            'signature' => $symbol->signature,
-            'namespace' => $symbol->namespace,
-            'parent_symbol' => $symbol->parent_symbol,
-            'visibility' => $symbol->visibility,
-            'status' => $symbol->status,
-            'docs_status' => $symbol->docs_status,
-            'source_hash' => $symbol->source_hash,
-            'related_doc_ids' => $symbol->related_doc_ids_json ?? [],
-            'metadata' => $symbol->metadata ?? [],
-            'indexed_at' => $symbol->indexed_at?->toJSON(),
-        ];
+        return $this->symbolExtractor->symbolPayload($symbol);
     }
 
     private function docLinkPayload(AtlasEngineeringDocLink $link): array
