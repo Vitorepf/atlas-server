@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 3
+files_scanned: 4
 files_total: 1210
-lines_scanned: 57697
+lines_scanned: 70448
 ```
 
 ## Files
@@ -525,15 +525,191 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+loc: 12751
+kind: generated_codex_review_merge_future_contract_chain_section
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 27, 28, 29, 33, 34, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0026
+    type: godfile
+    severity: s0
+    detail: "The extracted final collaborator is itself a 12,751 LOC, 1,646,900-byte godfile with 149 public codexReviewMerge methods. It spans merge authorization, signatures, receipt persistence, writer release, disable/re-enable, observability, evidence repair, later-cycle authorization, human decision, activation, and session bootstrap previews; its longest public name is 204 characters."
+    evidence:
+      - "wc -l => 12,751; wc -c => 1,646,900"
+      - "public codexReviewMerge method count => 149"
+      - "66 methods are handwritten chains and 83 are generic later-cycle aliases"
+      - "longest public method name length => 204 characters"
+      - "sha256=9e1fa9beb3811b238710e847c09a8468397c8edca9d9484a0e901ad62e534f72"
+  - id: A1-SC-0027
+    type: false_abstraction
+    severity: s0
+    detail: "The split preserves a bidirectional god boundary instead of transferring ownership. AtlasSelfConstructionReadinessService retains 149 one-line delegators; this section injects that parent and forwards six unresolved dependencies through unrestricted __call; the late 83-method surface is then another routing layer over a private positional-tag interpreter. Missing boundaries remain runtime conventions rather than typed dependencies."
+    evidence:
+      - "AtlasSelfConstructionReadinessService codexReviewMergeSection delegator count => 149"
+      - "nullable parent injection and app fallback: lines 20-35"
+      - "unrestricted __call forwards to the parent facade: lines 37-47"
+      - "six statically unresolved $this calls cross back to the parent: codexExecutionStatus, codexFinalReviewPacket, codexIntegrationReport, codexMergeReadiness, codexReviewPostSignatureRunbook, codexReviewSignatureRequest"
+      - "83 public aliases route through laterCycleChainProjection: lines 6,862-7,275"
+  - id: A1-SC-0028
+    type: bug
+    severity: s1
+    detail: "Envelope readiness means only that the predecessor template was emitted, not that the enclosed contract is usable. In the generic tail all 83 envelope success branches are *_ready, while the corresponding payload success branch is ready_as_future_* in 82 specs and explicitly blocked_waiting_for_external_* in one. The handwritten writer-release execution contract has the same contradiction: its inner contract is blocked with blockers while the outer envelope reports *_ready."
+    evidence:
+      - "generic descriptor characterization: specs=83, outer_ready=83, inner_ready_as_future=82, inner_blocked=1"
+      - "generic new-cycle execution contract is internally blocked_waiting_for_external_fresh_authorization_new_cycle_execution_authority: lines 7,703-7,726"
+      - "the same descriptor emits an outer *_execution_contract_template_ready status: lines 7,737-7,750"
+      - "handwritten writer-release contract carries blocking_conditions and blocked_waiting_for_external_writer_release_execution_authority: lines 4,845-4,870"
+      - "its envelope reports *_execution_contract_template_ready solely from preflightReady: lines 4,933-4,947"
+  - id: A1-SC-0029
+    type: dishonest_name
+    severity: s1
+    detail: "The late API names operational capabilities that it explicitly refuses to perform. HumanEscalation does not notify a human or create a task; ManualDecisionRequest does not request a real decision; session packet/scope/start/prompt/readiness previews do not create packets, assign work, allow edits, start a session, or mark it ready. These surfaces can still advertise structural readiness, so names overstate authority."
+    evidence:
+      - "human escalation negative policy is encoded at lines 9,539-9,579"
+      - "manual decision request explicitly does not request a real decision, notify, or create a task: lines 9,599-9,641"
+      - "packet scope and start previews forbid packet/task creation, assignment, and file edits: lines 12,388-12,550"
+      - "operator prompt does not start a session: lines 12,570-12,646"
+      - "ready-check preview does not mark the session ready: lines 12,666-12,746"
+  - id: A1-SC-0030
+    type: dupe
+    severity: s2
+    detail: "This is an industrial provider-labelled template farm. It contains 149 repeated non_execution_guarantees envelopes, 3,958 literal false assignments, 97 ready_as_future occurrences, and 79 stable-hash calls. After normalizing only the agent/codex prefix, all 109 methods from ReadinessProjectionAgentReviewMergeSection also exist here; 73.2% of this class's public capability names overlap that sibling."
+    evidence:
+      - "non_execution_guarantees key count => 149"
+      - "literal => false assignment count => 3,958"
+      - "ready_as_future occurrence count => 97; ReadinessHash::stable call count => 79"
+      - "normalized cross-provider method overlap => 109 of 149 Codex methods; agent-only=0, Codex-only=40"
+      - "the two provider review/merge sections total 26,920 LOC"
+  - id: A1-SC-0031
+    type: perf
+    severity: s2
+    detail: "Each later projection recursively reconstructs its predecessor chain, re-embeds arrays, resolves the descriptor tree, and hashes a new payload without a request-scoped projection context. The focused full-corpus test needs 10.00 seconds for the golden corpus; a single-process diagnostic of first/middle/final methods peaked at 126,877,696 PHP bytes. These are characterization signals, not production benchmarks."
+    evidence:
+      - "laterCycleChainProjection invokes the predecessor and rebuilds extracted variables/payload/envelope on every call: lines 7,282-7,301"
+      - "83 aliases recurse through 83 predecessor descriptors"
+      - "focused blocked-corpus test duration => 10.00s; full focused test duration => 10.71s"
+      - "diagnostic first/middle/final elapsed_ms => 188.806 / 78.426 / 69.614; process peak_bytes=126,877,696"
+      - "diagnostic payload bytes => 3,539 / 7,303 / 15,631"
+  - id: A1-SC-0032
+    type: test_gap
+    severity: s1
+    detail: "The dedicated test executes all 149 methods and pins one blocked-state corpus hash, but it asserts no semantic relationship between outer status, inner status, blocking_count, authority flags, and namesake behavior. The golden hash therefore detects byte drift while blessing the current ready-versus-blocked contradiction and inert escalation/session surfaces."
+    evidence:
+      - "focused test passes 6 tests and 14 assertions"
+      - "the corpus loop invokes every reflected codexReviewMerge method: test lines 101-115"
+      - "the only corpus contract assertions are count=149 and one SHA-256: test lines 37-47"
+      - "remaining checks cover resolution, ReadinessHash determinism, method existence, and facade wiring"
+      - "golden corpus hash=ced5b7d5b0ef5dd110a5687c9f0a61fc3d3cf057afe19b735a1dc5f78ac67f17"
+  - id: A1-SC-0033
+    type: os_overlap
+    severity: s0
+    detail: "A second end-to-end review/merge operating system is embedded in SelfConstruction/Readiness. It models authorization, signature ceremony, append-only persistence, writer lifecycle, disable/re-enable, monitoring, repair, human escalation, durable decision records, activation, scope/work intake, packet creation, and session readiness. Readiness should consume provider-neutral owners for those capabilities rather than define a Codex-specific parallel OS."
+    evidence:
+      - "initial merge-action chain begins at line 49"
+      - "writer execution/disable/observability chain is present around lines 4,845-5,500"
+      - "83-spec later-cycle catalog spans lines 7,339-12,750"
+      - "human decision chain appears around lines 9,539-10,500"
+      - "activation/session bootstrap previews occupy the final catalog through line 12,750"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Separate structural projection availability from evidence readiness, external authorization, executability, and completion. An envelope must not emit *_ready when its enclosed payload is blocked, future-only, has blocking_count > 0, or keeps the required authority false; preserve legacy strings only behind characterized compatibility aliases."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTest.php
+    acceptance:
+      - "all outer ready statuses imply zero blockers and the required authority state"
+      - "blocked or ready_as_future inner payloads cannot be wrapped as operationally ready"
+      - "first, handwritten execution-contract, generic execution-contract, human-decision, and final-session regressions are explicit"
+  - op: TEST
+    detail: "Retain the 149-method corpus hash as compatibility evidence, then add semantic matrix assertions per transition family: envelope/payload status agreement, blocker propagation, negative side effects, authority flags, required evidence, stable hash inputs, and truthful namesake behavior."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "all 149 methods have a semantic family row in addition to snapshot coverage"
+      - "tests fail when an outer status is ready while the inner payload is blocked or future-only"
+      - "escalation, decision, packet, and session names are either real effects or explicitly named previews"
+  - op: SPLIT
+    detail: "SPLIT before fusion. Retire the mega-section behind a temporary compatibility adapter and create bounded owners for merge review, authorization/signatures, receipt persistence, writer lifecycle, monitoring/repair, human decisions, activation, and session intake; no replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "no new *Section mega-file replaces this class"
+      - "parent-to-section and section-to-parent dependencies are one-way or removed"
+  - op: OWNER
+    detail: "Make review/merge lifecycle ownership provider-neutral. Assign one authority each for signature validation, authorization, persistence, writer release, disable/re-enable, observability, human interaction, decision records, activation, packet creation, and session readiness; Codex remains an adapter and readiness only projects owner state."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "one owner is named for every policy, state transition, durable write, provider adapter, and human side effect"
+      - "readiness projections cannot grant authority or simulate namesake execution"
+      - "the normalized Agent/Codex review-merge duplication has one canonical owner"
+  - op: EXTRACT
+    detail: "Replace the 83-entry positional tag DSL and 66 handwritten predecessor chains with a typed, validated transition catalog plus small invariant-owned projectors. Validate descriptor shape at construction, reject unknown tags/keys/methods, compute shared predecessor state once, and preserve hashes only where a live consumer requires compatibility."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+    acceptance:
+      - "catalog validation proves every transition, predecessor, payload schema, and status invariant"
+      - "unknown methods or malformed tags fail with typed domain errors rather than array-key/type errors"
+      - "no abstraction is accepted without a governing invariant or second consumer"
+  - op: CODEMAP
+    detail: "Map all 149 facade aliases and command cases to callers, status consumers, hash stability requirements, side effects, and future owner methods. Remove unmapped routes after one compatibility cycle and replace 204-character canonical names with bounded capability vocabulary."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "all 149 methods have owner, caller, semantic contract, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "temporary aliases are dated for removal within one migration cycle"
+  - op: PERF
+    detail: "Benchmark representative first, middle, and final projections with cold/warm state, query counts, allocations, payload bytes, and hash work. Introduce one immutable request-scoped projection context only after semantic and byte-compatibility characterization defines what must remain stable."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionCodexReviewMergeSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTest.php
+    acceptance:
+      - "benchmark reports cold/warm p50 and p95 plus peak-memory and payload-size budgets"
+      - "late projections do not rebuild or rehash unchanged predecessor payloads"
+      - "the full 149-method corpus stays within an explicit test and CLI latency budget"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-12751
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 9e1fa9beb3811b238710e847c09a8468397c8edca9d9484a0e901ad62e534f72
+  source_bytes: 1646900
+  public_domain_method_count: 149
+  handwritten_chain_method_count: 66
+  later_cycle_alias_count: 83
+  later_cycle_descriptor_count: 83
+  parent_facade_delegation_count: 149
+  unresolved_parent_dependency_count: 6
+  stable_hash_occurrence_count: 79
+  non_execution_guarantee_block_count: 149
+  literal_false_assignment_count: 3958
+  ready_as_future_occurrence_count: 97
+  normalized_agent_review_merge_overlap_count: 109
+  focused_test_count: 6
+  focused_test_assertion_count: 14
+  focused_test_duration_seconds: 10.71
+  focused_golden_corpus_hash: ced5b7d5b0ef5dd110a5687c9f0a61fc3d3cf057afe19b735a1dc5f78ac67f17
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch1Section.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 3 / 1210
-- lines_scanned: 57697
-- s0..s3: 10 / 10 / 5 / 0
+- files_scanned: 4 / 1210
+- lines_scanned: 70448
+- s0..s3: 13 / 13 / 7 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + provider-neutral execution/evidence/dispatch owners + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN Codex reachability, hash binding, and evidence graph", "TEST all 171 Codex and 109 review/merge contracts", "SPLIT parent and monster sections", "OWNER readiness, review/merge, execution, evidence, dispatch, and I/O authorities", "EXTRACT typed catalogs and transition projectors", "CODEMAP callers, routes, and aliases", "PERF query/IO/hash budgets"]
+- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + authorization/signature owner + persistence/writer lifecycle owner + human decision/session owner + provider-neutral execution/evidence/dispatch owners + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN Codex reachability, hash binding, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, and 149 Codex review/merge contracts", "SPLIT parent and monster sections", "OWNER readiness, review/merge, authorization, persistence, writer lifecycle, human decision, session, execution, evidence, dispatch, and I/O authorities", "EXTRACT typed validated catalogs and transition projectors", "CODEMAP callers, routes, statuses, and aliases", "PERF query/IO/hash/payload budgets"]
 - meta_complete: false
 ```
