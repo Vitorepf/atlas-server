@@ -194,10 +194,24 @@ final class AtlasTaskServingService
             // block (except_engine=clientId).
             $contended = $this->blackboardConflictsFor($task, $clientId);
             if ($contended !== []) {
+                $leaseRelease = $this->orchestrator->releaseLease(
+                    (string) ($claim['lease_id'] ?? ''),
+                    $clientId,
+                    ['reason' => 'blackboard_files_contended'],
+                );
+                if ((string) data_get($leaseRelease, 'release.status') !== 'ok') {
+                    return $this->served($clientId, $this->envelope('lease_defer_blocked', $clientId, null, [
+                        'reason' => 'blackboard_conflict_lease_release_failed',
+                        'contended_files' => $contended,
+                        'lease_release' => $leaseRelease,
+                    ]));
+                }
+
                 return $this->served($clientId, $this->envelope('lease_deferred', $clientId, null, [
                     'reason' => 'files_claimed_by_another_engine',
                     'contended_files' => $contended,
                     'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                    'lease_released' => true,
                 ]));
             }
 

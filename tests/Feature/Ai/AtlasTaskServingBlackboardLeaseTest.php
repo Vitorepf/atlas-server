@@ -68,6 +68,8 @@ final class AtlasTaskServingBlackboardLeaseTest extends TestCase
 
         self::assertSame('lease_deferred', $res['status']);
         self::assertContains($file, $res['contended_files'] ?? []);
+        self::assertTrue((bool) ($res['lease_released'] ?? false));
+        self::assertSame([], $orch->activeLeasesForAgent('worker-l2'));
     }
 
     public function test_unclaimed_file_serves_normally(): void
