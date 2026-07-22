@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Governance;
 
 use App\Models\AiJob;
 use App\Models\AiPermissionSession;

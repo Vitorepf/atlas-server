@@ -15,6 +15,9 @@ final class RootSinglesLegacyAliases
     private const CLASS_MAP = [
         'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
         'App\\Services\\Ai\\AiIntentRouter' => 'App\\Services\\Ai\\Router\\AiIntentRouter',
+        'App\\Services\\Ai\\AiPermissionDecision' => 'App\\Services\\Ai\\Governance\\AiPermissionDecision',
+        'App\\Services\\Ai\\AiPermissionEngine' => 'App\\Services\\Ai\\Governance\\AiPermissionEngine',
+        'App\\Services\\Ai\\AiPermissionEngineSupport' => 'App\\Services\\Ai\\Governance\\AiPermissionEngineSupport',
         'App\\Services\\Ai\\AiQualityActionService' => 'App\\Services\\Ai\\Analysis\\AiQualityActionService',
         'App\\Services\\Ai\\AiQualityEvaluator' => 'App\\Services\\Ai\\Analysis\\AiQualityEvaluator',
         'App\\Services\\Ai\\AiSkill' => 'App\\Services\\Ai\\Skills\\AiSkill',

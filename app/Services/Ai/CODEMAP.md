@@ -13,6 +13,9 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Load a canonical Atlas skill | `App\Services\Ai\Skills\AiSkillStore::load` |
 | Evaluate post-run response quality | `App\Services\Ai\Analysis\AiQualityEvaluator::evaluateTrace` |
 | Plan quality remediation | `App\Services\Ai\Analysis\AiQualityActionService::planFor` |
+| Authorize a job's permission runtime | `App\Services\Ai\Governance\AiPermissionEngine::authorizeJob` |
+| Resolve permission policy inputs | `App\Services\Ai\Governance\AiPermissionEngineSupport::resolve` |
+| Serialize a permission decision | `App\Services\Ai\Governance\AiPermissionDecision::runtimePayload` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |

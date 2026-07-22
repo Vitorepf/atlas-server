@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\AiJob;
-use App\Services\Ai\AiPermissionEngine;
+use App\Services\Ai\Governance\AiPermissionEngine;
 use Tests\TestCase;
 
 class AiPermissionEngineTest extends TestCase

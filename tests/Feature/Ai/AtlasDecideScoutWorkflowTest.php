@@ -4,8 +4,8 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiJob;
 use App\Services\Ai\AiGatewayService;
-use App\Services\Ai\AiPermissionDecision;
-use App\Services\Ai\AiPermissionEngine;
+use App\Services\Ai\Governance\AiPermissionDecision;
+use App\Services\Ai\Governance\AiPermissionEngine;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;

@@ -4,6 +4,9 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiCouncilCoordinator as LegacyAiCouncilCoordinator;
 use App\Services\Ai\AiIntentRouter as LegacyAiIntentRouter;
+use App\Services\Ai\AiPermissionDecision as LegacyAiPermissionDecision;
+use App\Services\Ai\AiPermissionEngine as LegacyAiPermissionEngine;
+use App\Services\Ai\AiPermissionEngineSupport as LegacyAiPermissionEngineSupport;
 use App\Services\Ai\AiQualityActionService as LegacyAiQualityActionService;
 use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
 use App\Services\Ai\AiSkill as LegacyAiSkill;
@@ -14,6 +17,9 @@ use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
+use App\Services\Ai\Governance\AiPermissionDecision as CanonicalAiPermissionDecision;
+use App\Services\Ai\Governance\AiPermissionEngine as CanonicalAiPermissionEngine;
+use App\Services\Ai\Governance\AiPermissionEngineSupport as CanonicalAiPermissionEngineSupport;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
 use App\Services\Ai\Router\AiIntentRouter as CanonicalAiIntentRouter;
@@ -80,5 +86,18 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
 
         self::assertInstanceOf(LegacyAiQualityEvaluator::class, $evaluator);
         self::assertInstanceOf(LegacyAiQualityActionService::class, $actions);
+    }
+
+    public function test_permission_services_resolve_from_their_canonical_namespace_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAiPermissionDecision::class));
+        self::assertTrue(class_exists(LegacyAiPermissionDecision::class));
+        self::assertTrue(is_a(CanonicalAiPermissionDecision::class, LegacyAiPermissionDecision::class, true));
+        self::assertTrue(class_exists(CanonicalAiPermissionEngine::class));
+        self::assertTrue(class_exists(LegacyAiPermissionEngine::class));
+        self::assertTrue(is_a(CanonicalAiPermissionEngine::class, LegacyAiPermissionEngine::class, true));
+        self::assertTrue(class_exists(CanonicalAiPermissionEngineSupport::class));
+        self::assertTrue(class_exists(LegacyAiPermissionEngineSupport::class));
+        self::assertTrue(is_a(CanonicalAiPermissionEngineSupport::class, LegacyAiPermissionEngineSupport::class, true));
     }
 }
