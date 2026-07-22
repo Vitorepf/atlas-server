@@ -1508,15 +1508,224 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+loc: 2355
+kind: codex_post_start_process_release_gate_contract_section
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0073
+    type: godfile
+    severity: s0
+    detail: "This 2,355 LOC, 166,873-byte section packs 12 provider-specific post-start contracts covering real-invoker release preflight, signed release, implementation boundary, executor plan/fresh release/enablement, supervised activation, guarded start, final authorization, rehearsal, start envelope, and execution gate. Each 158-194 LOC method embeds service routing, lifecycle policy, 50-92 future inputs, future mutations, prohibitions, status projection, hashing, and human copy."
+    evidence:
+      - "14 public methods total: setMother, __call, and 12 domain contracts"
+      - "12 domain methods span lines 265-2,353"
+      - "228 imports, of which only 36 are referenced after the class declaration and 192 are unused"
+      - "required input lists total 796 entries across the 12 methods"
+      - "sha256=2ad7b6846284321c1deaddd41d721f389f44e67fa1bd6398ad72531b6bfa0081"
+  - id: A1-SC-0074
+    type: false_abstraction
+    severity: s0
+    detail: "The section remains mechanically fused to the mother facade and sibling sections. The facade keeps 12 one-line delegators; this class is bound after construction and forwards 31 absent method names across 42 calls through unrestricted ReflectionMethod. Its contracts cannot be instantiated or evaluated from typed collaborators, and 192 unused imports demonstrate that the extraction copied a universal import header instead of creating a boundary."
+    evidence:
+      - "nullable mother, setMother, and unrestricted __call: lines 241-258"
+      - "static call inventory => 31 unresolved parent names / 42 occurrences"
+      - "AtlasSelfConstructionReadinessService retains 12 dispatchGateSection forwards"
+      - "192 of 228 imports are unused"
+      - "each method reaches predecessor status and template logic through the mother rather than constructor-enforced interfaces"
+  - id: A1-SC-0075
+    type: bug
+    severity: s0
+    detail: "Every one of the 12 public contracts currently aborts before returning because its predecessor-status path reaches ReadinessProjectionAgentCodexSection::Schema, but that section does not import Illuminate's Schema facade. The dispatch-gate file imports Schema itself yet never uses it, so the duplicated header masks rather than fixes the actual dependency location."
+    evidence:
+      - "runtime characterization => 0 returned / 12 threw Class App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema not found"
+      - "failing location => ReadinessProjectionAgentCodexSection.php line 8,363"
+      - "AgentCodexSection contains repeated Schema::hasTable calls but no Schema import"
+      - "two focused contract command tests fail with zero assertions at the same line"
+      - "this file's own Illuminate\\Support\\Facades\\Schema import is one of its 192 unused imports"
+  - id: A1-SC-0076
+    type: bug
+    severity: s0
+    detail: "The missing Schema import is only the first failure. When a process-local class alias is used solely to continue characterization, all 12 routes still abort because ReadinessProjectionAgentCodexSection calls agentProviderAdapterRegistryPreflight on itself even though that method lives on the mother/dispatch-provider section. Thus the complete contract family has at least two independent broken cross-section edges."
+    evidence:
+      - "process-local Schema alias characterization => 0 returned / 12 threw"
+      - "second error for all routes => undefined ReadinessProjectionAgentCodexSection::agentProviderAdapterRegistryPreflight"
+      - "agentProviderAdapterRegistryPreflight is exposed by AtlasSelfConstructionReadinessService and implemented in ReadinessProjectionAgentDispatchProviderSection"
+      - "unrestricted magic forwarding is not consistently present/bound across the numbered extraction graph"
+      - "repairing only the import cannot restore this command surface"
+  - id: A1-SC-0077
+    type: doc_lie
+    severity: s1
+    detail: "All 12 methods literalize a *_contract_ready status after merely copying predecessor/template statuses. None checks that a source status is ready, validates any of the 796 required input entries, or converts predecessor blockers into its own state. Even once reachability is repaired, a blocked source will still yield a ready-labelled contract and next-preflight instruction."
+    evidence:
+      - "literal *_contract_ready status count => 12"
+      - "each method copies two or three source_*_status values without a readiness predicate"
+      - "required_input_fields_for_future_invoker blocks => 12, with 796 total entries / 124 unique"
+      - "no blocker array, degraded status, source-status guard, or validation result exists in this section"
+      - "all 12 human summaries unconditionally say the contract is ready"
+  - id: A1-SC-0078
+    type: dishonest_name
+    severity: s1
+    detail: "Contract-internal authority labels contradict their outer envelopes. Examples include process_start_armed_by_contract=true, executor_enabled_by_contract=true, start_execution_authorized_by_contract=true, and final_process_start_authorized_by_contract=true while the corresponding outer gate_allowed, executor_enabled, process_start_armed, execution_allowed, and actual_process_start_allowed fields remain false. The text explains these as metadata-only stages, but the field vocabulary represents two incompatible meanings of enabled/authorized/armed."
+    evidence:
+      - "guarded-process contract sets process_start_armed_by_contract=true while outer process_start_armed=false"
+      - "executor-enablement contract sets executor_enabled_by_contract=true while outer executor_enabled=false and gate_allowed=false"
+      - "start-execution contract sets start_execution_authorized_by_contract=true while outer gate_allowed=false and execution_allowed=false"
+      - "final-authorization contract sets final_process_start_authorized_by_contract=true while outer gate_allowed=false and actual_process_start_allowed=false"
+      - "the file contains 108 true literals and 241 false literals across nested authority vocabularies"
+  - id: A1-SC-0079
+    type: dupe
+    severity: s2
+    detail: "The 12 contracts are a hand-expanded transition-template farm. They repeat provider/adapter metadata, source status/hash copying, class/method descriptors, long cumulative input lists, three future mutations, 11-13 prohibitions, outer authority denials, six or seven non-execution guarantees, hashing, and human summaries. The 796 required-input occurrences collapse to only 124 unique field names."
+    evidence:
+      - "required input entries => 796 total / 124 unique; per-method range 50-92"
+      - "stableHash calls => 12; non_execution_guarantees blocks => 12"
+      - "allowed_future_mutations blocks => 12; forbidden_even_after_contract blocks => 12"
+      - "literal false assignments => 241; literal true assignments => 108"
+      - "each method differs mainly in stage prefix, predecessor, class/method labels, and a few cumulative fields"
+  - id: A1-SC-0080
+    type: perf
+    severity: s2
+    detail: "A single contract request traverses two or three predecessor/template projections through the mother, copies their status/hash data, allocates up to 92 repeated input strings plus policy lists, and hashes the full contract. Because predecessor statuses themselves traverse the long post-start chain and database-backed readiness, the section provides no request snapshot, memoization, payload budget, or bound on recursive projection/hash work."
+    evidence:
+      - "42 mother calls across 12 methods, representing 31 distinct forwarded names"
+      - "each contract performs one additional stableHash over its full array"
+      - "required input lists alone allocate 796 string entries"
+      - "predecessor status calls currently reach database Schema probes in AgentCodexSection"
+      - "no cache, immutable projection context, query budget, payload budget, or depth guard exists"
+  - id: A1-SC-0081
+    type: test_gap
+    severity: s1
+    detail: "Command tests exist for these long routes but no test directly references this section or isolates its mother wiring, source-state semantics, or all 12 contracts as a family. Two representative focused tests fail before any assertion, while source assertions pin internal true flags and literal ready names rather than requiring reachable dependencies and blocked-source propagation."
+    evidence:
+      - "no test directly references ReadinessProjectionDispatchGateSection"
+      - "executor-enablement focused command test => 1 failed / 0 assertions"
+      - "guarded-process focused command test => 1 failed / 0 assertions"
+      - "runtime loop proves all 12 public contracts throw the same first error"
+      - "existing assertions explicitly require executor_enabled_by_contract and process_start_armed_by_contract true without reconciling outer false fields"
+  - id: A1-SC-0082
+    type: os_overlap
+    severity: s0
+    detail: "A readiness projection duplicates a Codex-specific post-start execution operating system. It defines ordered release, signature, implementation, planning, enablement, supervised/guarded start, final authorization, rehearsal, envelope, and start-execution semantics; names canonical and scheduler runtime services; prescribes future mutations and operator receipt hashes; and establishes the next implementation slice. These lifecycle and authority rules belong to provider-neutral runtime owners, with Codex as an adapter."
+    evidence:
+      - "the 12 methods form an end-to-end real-invoker process-start chain"
+      - "36 used imports are primarily paired Support runtime services and ControlPlane invokers"
+      - "every contract prescribes allowed future mutations on provider-start and observed runs"
+      - "required inputs include signatures, receipts, command/environment hashes, rollback, liveness, supervisor, and token/dispatch policy"
+      - "the section owns provider-specific lifecycle ordering through next_required_slice"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Repair both broken cross-section edges first: give AgentCodexSection its typed Schema dependency and replace the absent sibling call with a constructor-injected provider-registry query. Then fail closed on dependency exceptions, derive every contract state from predecessor/template results, and replace contradictory metadata authority names with explicit proposed/recorded/not-runtime-authorized semantics."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "all 12 contract routes return a typed ready/blocked/degraded result, never a missing-class/method fatal"
+      - "ready requires every declared predecessor/template invariant to pass"
+      - "enabled/authorized/armed fields have one unambiguous runtime meaning across nested and outer envelopes"
+  - op: TEST
+    detail: "Add direct semantic characterization for all 12 methods before splitting. Cover section construction, every dependency edge, both current fatal regressions, blocked-source propagation, required-input schema validity, inner/outer authority agreement, stable hashes, side-effect freedom, next-slice validity, query depth, and payload budgets; retain command tests only for alias routing."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionDispatchGateSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "all 12 methods have direct semantic coverage and all 12 command flags retain routing coverage"
+      - "tests reproduce then reject both Schema and sibling-method failures"
+      - "tests fail on blocked-source/ready-outer or inner-authorized/outer-disabled contradictions"
+  - op: SPLIT
+    detail: "Retire this section behind a temporary compatibility adapter. Move the ordered post-start lifecycle into one provider-neutral transition graph and bounded stage owners for release/signature, executor preparation, supervised/guarded activation, and final-start rehearsal/envelope/execution; Codex supplies typed adapter bindings only. No replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "no provider-specific class owns the canonical process-start lifecycle"
+      - "readiness dependencies are typed, acyclic, and one-way"
+  - op: OWNER
+    detail: "Assign provider-neutral owners for release authorization, executor planning/enablement, supervised and guarded start, final-start authorization, rehearsal, envelope, and execution gating. Assign a separate contract-schema owner for receipt/hash inputs and a projection owner for read-only status. Codex owns only adapter translation and invocation."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "every transition, policy predicate, receipt/signature validation, and future mutation has one owner"
+      - "readiness cannot grant lifecycle authority or prescribe provider-specific runtime mutations"
+      - "one canonical lifecycle graph serves all provider adapters"
+  - op: EXTRACT
+    detail: "Extract typed transition descriptors with stage id, predecessor ids, owner query, input schema, validated evidence hashes, authority effect, forbidden effects, next edge, and stable-hash material. Generate the 12 projections from that graph, collapse cumulative inputs into composed typed schemas, inject collaborators, and delete unrestricted reflection forwarding."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "duplicate, cyclic, ownerless, unreachable, or contradictory transitions fail registry validation"
+      - "796 hand-copied input occurrences are replaced by composed schemas with explicit provenance"
+      - "unknown dependencies fail at construction with typed errors"
+  - op: CODEMAP
+    detail: "Map all 12 facade aliases/command flags and 31 forwarded dependencies to canonical lifecycle stages, runtime owners, provider adapters, predecessor/status semantics, side effects, input-schema owners, hash compatibility, query cost, and migration disposition. Remove 192 unused imports and date compatibility aliases for deletion."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "all 12 routes have owner, caller, predecessors, input schema, side-effect class, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "unmapped reflection routes, duplicate vocabulary, and unused imports are removed"
+  - op: PERF
+    detail: "Benchmark cold/warm representative early, middle, and final contracts with projection depth, query/schema probes, allocations, hash work, payload bytes, p50, and p95. Evaluate the lifecycle graph against one immutable request snapshot and reuse predecessor results instead of recursively rebuilding cumulative payloads."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionDispatchGateSectionTest.php
+    acceptance:
+      - "benchmarks publish cold/warm p50 and p95 plus query, depth, allocation, payload, and hash budgets"
+      - "one request evaluates each predecessor/status at most once"
+      - "contract payload size does not grow quadratically with lifecycle depth"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-2355
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 2ad7b6846284321c1deaddd41d721f389f44e67fa1bd6398ad72531b6bfa0081
+  source_bytes: 166873
+  public_method_count: 14
+  public_domain_method_count: 12
+  parent_facade_delegation_count: 12
+  import_count: 228
+  used_import_count: 36
+  unused_import_count: 192
+  unresolved_parent_method_name_count: 31
+  unresolved_parent_call_occurrence_count: 42
+  literal_ready_contract_count: 12
+  literal_false_assignment_count: 241
+  literal_true_assignment_count: 108
+  stable_hash_call_count: 12
+  non_execution_guarantee_block_count: 12
+  required_input_block_count: 12
+  required_input_field_occurrence_count: 796
+  required_input_unique_field_count: 124
+  required_input_min_per_contract: 50
+  required_input_max_per_contract: 92
+  runtime_contract_success_count: 0
+  runtime_contract_schema_failure_count: 12
+  runtime_after_schema_alias_success_count: 0
+  runtime_after_schema_alias_sibling_failure_count: 12
+  focused_contract_test_failure_count: 2
+  focused_contract_test_assertion_count: 0
+  next_file_by_loc: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 8 / 1210
-- lines_scanned: 90592
-- s0..s3: 31 / 26 / 15 / 0
+- files_scanned: 9 / 1210
+- lines_scanned: 92947
+- s0..s3: 36 / 29 / 17 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, Codex reachability, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 253 ControlPlane surface entries plus all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability graph, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and transition projectors", "CODEMAP callers, routes, 255 slices, 467 labels, statuses, aliases, authorization semantics, packet paths, and query costs", "PERF query/schema/IO/hash/signature/capability/payload budgets"]
+- ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER provider-neutral post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability/transition graph, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "CODEMAP callers, routes, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and query costs", "PERF query/schema/IO/hash/signature/capability/depth/payload budgets"]
 - meta_complete: false
 ```
