@@ -31,13 +31,13 @@ docs/evidence/2026-07-22-atlas-server-god-debulk/
     …
 ```
 
-## Três agentes
+## Três agentes — hierarquia de COMANDO (ordem do operador 2026-07-22)
 
-| Agente | Prompt | Escreve |
+| Agente | Papel | Escreve |
 |---|---|---|
-| META (Sol) | `…-META.md` | plans + META-* + META-FINDINGS |
-| EXECUTE (Sol) | `…-EXECUTE.md` | app/tests/config + EXEC-* + child plans + CODEMAP |
-| ARQUITETURA (Claude) | sessão operador | ARCH-BLUEPRINTS/ + OWNERSHIP + canon + review |
+| **ARQUITETO (Claude) — COMANDANTE** | autoridade final sobre forma, padrões, filas e findings; define abstração/otimização/fusão/arquitetura de 100% do corpus | TUDO da obra: ARCH-* + CONSOLIDATION-MAP + OWNERSHIP + canon + **META-FINDINGS (pode corrigir/reescrever)** + **EXEC-DEBTS/EXEC-LEDGER (pode repriorizar/reordenar)** + prompts; intervenção direta em app/tests permitida quando necessário (padrão operacional continua delegar ao EXECUTE) |
+| META (Sol) — subordinado | varre arquivo a arquivo, produz findings | META-FINDINGS + META-LEDGER (sujeitos a correção do comandante) |
+| EXECUTE (Sol) — subordinado | implementa a fila | app/tests/config + EXEC-* (sujeito a bloqueio/refazer do comandante) |
 
 Regra de blueprint: SPLIT/OWNER/EXTRACT de monstro (>5k LOC) **obedece** o blueprint da capability em
 `ARCH-BLUEPRINTS/<Capability>.md` quando ele existir. Sem blueprint, EXECUTE trabalha itens
