@@ -4,37 +4,37 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0144 untrusted no-op claims fail closed recorded
+phase: A1-SC-0141 failure capsule write-time redaction recorded
 wave: A1
-bucket: app/Services/Ai/SelfConstruction
-focus: task-serving terminal completion authority
-finding_id: A1-SC-0144
-action_op: test-first fail-closed client no-op claim
+bucket: app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence
+focus: worker error excerpt durable redaction
+finding_id: A1-SC-0141
+action_op: test-first redact before persistence
 queue_index: 6
-last_commit: 6db9a0eee
+last_commit: cb860e335
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingContractTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/AtlasDev/CompoundingFailureMemoryTest.php
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingContractTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php
+  /opt/homebrew/bin/php -l app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsulePromptInjector.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
   git diff --check
 before_after: |
-  red: a claimed worker's tests_already_green boolean and negated no-op text permanently quarantined the packet.
-  green: untrusted report payloads only take the bounded server-side give-back path, so another client can claim and verify the packet.
+  red: report(failed) persisted its worker-supplied bearer-shaped token and password into the durable failure capsule.
+  green: persistence redacts before truncation, and the existing prompt injector uses that same canonical redaction path as defense in depth.
 stdout: |
-  focused_untrusted_noop_claim: PASS (1 test, 8 assertions)
-  give_back_reclaim_suite: PASS (8 tests, 33 assertions)
-  cli_contract_suite: PASS (11 tests, 46 assertions)
+  focused_failure_capsule_redaction: PASS (1 test, 10 assertions)
+  failure_capsule_suite: PASS (4 tests, 17 assertions)
+  compounding_failure_memory_suite: PASS (10 tests, 45 assertions)
   serving_service_suite: PASS (8 tests, 37 assertions)
-  php_lint: PASS source plus both changed feature tests
-  loc_check: atlas_task_serving_service=1596
+  php_lint: PASS both runtime services plus changed feature test
+  loc_check: failure_capsule_runtime=159; failure_capsule_injector=298
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Client text, booleans, and evidence cannot make task completion terminal. The existing bounded server-side give-back policy still quarantines repeated unresolved work; no trusted completion verifier was invented.
+  This covers the durable failure-capsule write boundary for the existing secret shapes and redacts before the stored 1,200-byte limit. Raw exception logging/other envelope paths cited by the finding remain separate unclaimed work.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -926,6 +926,40 @@ boundary:
   - no retrieval formula, default-off gate, command signature, provider call, token spend, or evidence-promotion behavior changed
   - the old AcosMax namespace is a one-cycle autoload compatibility adapter, not a second retrieval implementation
   - M3-C rehomes only the remaining Acos program owners
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 33 — A1-SC-0141 redact failure capsule at write, 2026-07-22
+
+```yaml
+finding: A1-SC-0141
+commit: cb860e335
+subject: "refactor(core): GOD-DEBULK redact failure capsules at write"
+scope:
+  - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php
+  - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsulePromptInjector.php
+  - tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php --filter=test_worker_reported_failure_with_evidence_becomes_a_capsule_the_next_serve_injects
+  result: "FAIL 1 test, 5 assertions: the real report(failed) pipeline stored the synthetic bearer-shaped token in AtlasDevFailureCapsule.error_excerpt."
+green:
+  behavior: "the runtime redacts worker error excerpts before hash/persistence and before the 1,200-byte truncation. Prompt projection delegates to that same redactor while retaining its read-side defense."
+  characterization: "the test executes next(), report(failed), and a real database read of the persisted capsule before serving the next packet; no private method or fabricated row is used."
+verification:
+  focused_failure_capsule_redaction: "PASS 1 test, 10 assertions"
+  failure_capsule_suite: "PASS 4 tests, 17 assertions"
+  compounding_failure_memory_suite: "PASS 10 tests, 45 assertions"
+  serving_service_suite: "PASS 8 tests, 37 assertions"
+  php_lint: "PASS both runtime services and changed feature test"
+  loc: "failure_capsule_runtime=159; failure_capsule_injector=298; serving=1596 (all <2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift in the changed feature test; no broad reformatting was applied"
+boundary:
+  - this fixes durable failure-capsule persistence for the existing redaction patterns
+  - raw exception logging and other raw-message envelope paths cited by A1-SC-0141 remain separate unclaimed work
+  - no provider call, token spend, or new class/helper was introduced
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
