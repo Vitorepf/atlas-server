@@ -3,7 +3,7 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: review
-cluster_atual: — (mapa fechado; próxima fase: blueprints das fusões + review do EXECUTE)
+cluster_atual: FASE 2 — blueprints em produção: RuntimeExecution (fusões RUNTIME) + ProviderPipeUnification (bypass)
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
@@ -24,7 +24,7 @@ needs_operator:
   - "Aprovar NON-AI: FUSE Vault→Semantic (frontmatter triplicado)"
   - "Aprovar ROOT-SINGLES: re-home de ~90 arquivos-raiz p/ owner-folders homônimos (raiz fica com 5 pipes canônicos) + QUARANTINE ToneFilter"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
-last_review: 4eef103da  # P0 tooling APROVADA: audit+guard+codemap-verify criados c/ testes, guard verde (baseline 14 gt5k), zero app/ tocado, densidade ok
+last_review: 7b2fb7ebe  # A1-SC-0019 fix APROVADO: Schema import L64, testes executam métodos reais (mata test-gap), child plan wave-a1 criado, 0 back-ref novo, 0 godfile novo
 last_commit: 27999d6c4
 fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
