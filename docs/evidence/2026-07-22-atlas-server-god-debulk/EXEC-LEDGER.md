@@ -4,17 +4,17 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0189 global queue false-progress classification closed
+phase: A1-SC-0191 parallel worker identity validation closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: multi-agent-loop parallelism productivity boundary
-finding_id: A1-SC-0189
-action_op: test-first per-worker productivity classification repair
+focus: multi-agent-loop parallelism identity and observation-window boundary
+finding_id: A1-SC-0191
+action_op: test-first fail-closed worker identity validation
 queue_index: 6
-last_commit: 5482d21f2
+last_commit: e21515517
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=global_queue_movement_does_not_hide_zero_worker_productivity
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=invalid_worker_identity_or_observation_window_never_reports_real_parallelism
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
@@ -22,19 +22,19 @@ commands: |
   vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   git diff --check
 before_after: |
-  red: a real snapshot with one active stale worker and queue 10 to 6 returned partial_parallelism.
-  green: zero productive eligible workers always return fake_parallelism; global queue depth remains telemetry only.
+  red: a snapshot with an active productive worker but no runtime_owner returned real_parallelism.
+  green: missing owner, blank or duplicate id, and mismatched observation windows return fake_parallelism with reasons.
 stdout: |
-  red_characterization: FAIL 2 tests, expected fake_parallelism but got partial_parallelism
-  runner_unit_plus_feature: PASS 34 tests, 154 assertions
+  red_characterization: FAIL 2 tests, expected fake_parallelism but got real_parallelism
+  runner_unit_plus_feature: PASS 36 tests, 178 assertions
   php_lint: PASS source plus changed Unit and Feature tests
   source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
   unit_and_feature_pint: PASS
-  loc_check: probe_runner=1442
+  loc_check: probe_runner=1528
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Classification characterization executes the public pure probe with one real active stale worker; it proves queue movement cannot stand in for an unbound per-worker signal.
+  Classification characterization executes the public pure probe with malformed active-worker snapshots; invalid identity/window evidence cannot count toward real parallelism.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1508,6 +1508,30 @@ verification:
 boundary:
   - no storage, provider, token, dispatch, completion, or recovery path is executed by the pure classifier
   - queue depth remains output telemetry and is not treated as worker-bound progress evidence
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 50 — A1-SC-0191 validate parallel worker identity, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: e21515517
+subject: "refactor(core): GOD-DEBULK validate parallel worker identity"
+red:
+  result: "FAIL 2 tests: missing runtime_owner returned real_parallelism."
+green:
+  behavior: "Active workers require explicit Atlas owner, nonempty unique id, and one shared observation window; invalid evidence returns fake_parallelism with invalid_workers."
+verification:
+  focused_unit_and_feature: "PASS 2 tests, 24 assertions"
+  runner_unit_and_feature: "PASS 36 tests, 178 assertions"
+  php_lint: "PASS source and changed Unit plus Feature tests"
+  unit_and_feature_pint: PASS
+  diff_check: PASS
+  loc: "probe_runner=1528 (<2000)"
+boundary:
+  - pure classifier only; no storage, provider, token, dispatch, or recovery behavior
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
