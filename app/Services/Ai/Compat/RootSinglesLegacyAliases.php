@@ -7,12 +7,13 @@ namespace App\Services\Ai\Compat;
 /**
  * @deprecated Remove after the GOD-DEBULK root-singles compatibility cycle
  *             once deployed workers and queued payloads no longer reference
- *             the root-level Knowledge service names.
+ *             root-level AI owner names.
  */
 final class RootSinglesLegacyAliases
 {
     /** @var array<class-string, class-string> */
     private const CLASS_MAP = [
+        'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
         'App\\Services\\Ai\\YouTubeKnowledgeIngestionService' => 'App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService',
         'App\\Services\\Ai\\YoutubeCanonicalProjection' => 'App\\Services\\Ai\\Knowledge\\YoutubeCanonicalProjection',
     ];

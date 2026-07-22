@@ -12,3 +12,4 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |
 | Project canonical YouTube knowledge | `App\Services\Ai\Knowledge\YoutubeCanonicalProjection::projectIngestion` |
+| Aggregate a multi-provider council trace | `App\Services\Ai\Arena\AiCouncilCoordinator::sync` |

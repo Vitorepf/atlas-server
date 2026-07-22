@@ -7,6 +7,7 @@ use App\Models\AiJobAttempt;
 use App\Models\AiMission;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
+use App\Services\Ai\Arena\AiCouncilCoordinator;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;

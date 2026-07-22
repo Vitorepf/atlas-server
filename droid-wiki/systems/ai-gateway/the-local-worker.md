@@ -16,7 +16,7 @@
 | `app/Services/Ai/FairClaudePolicy.php` | Fair-mode runtime violation check |
 | `app/Services/Ai/MacAgent/MacAgentService.php` | Mac power session + background readiness |
 | `app/Services/Ai/Hermes/Mesh/HermesMeshJobRunner.php` | AtlasDecide-routed mesh fan-out |
-| `app/Services/Ai/AiCouncilCoordinator.php` | Council aggregation on council jobs |
+| `app/Services/Ai/Arena/AiCouncilCoordinator.php` | Council aggregation on council jobs |
 | `app/Services/Ai/AiProviderChoiceBuilder.php` | Builds `awaiting_user_choice` options |
 | `app/Services/Ai/AiProviderChoiceResolver.php` | Resolves an operator choice |
 | `app/Models/AiJob.php`, `AiJobAttempt.php` | The job and attempt rows the worker mutates |

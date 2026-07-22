@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Provider\Drivers;
 
-use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\Arena\AiCouncilCoordinator;
 
 class ClaudeCodexCouncilProviderDriver extends AbstractCliProviderDriver
 {

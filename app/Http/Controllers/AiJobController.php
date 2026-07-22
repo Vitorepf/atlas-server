@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AiJobResource;
 use App\Models\AiJob;
-use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\Arena\AiCouncilCoordinator;
 use App\Services\Ai\AiExecutionPresentationState;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;

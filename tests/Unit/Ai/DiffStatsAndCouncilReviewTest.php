@@ -3,8 +3,8 @@
 namespace Tests\Unit\Ai;
 
 use App\Models\AiJob;
-use App\Services\Ai\AiCouncilCoordinator;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\Arena\AiCouncilCoordinator;
 use PHPUnit\Framework\TestCase;
 
 /**

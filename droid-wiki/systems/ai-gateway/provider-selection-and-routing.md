@@ -16,7 +16,7 @@ Every interaction gets a provider and a model. Atlas does not leave that choice 
 | `app/Services/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackService.php` | Records provider-call outcomes for the learned route |
 | `app/Services/Ai/Hermes/HermesRuntimeRouter.php` | Hermes runtime router receipt |
 | `app/Services/Ai/Hermes/Mesh/HermesMeshRoutingAdvisor.php` | Advises whether a mission should fan out as a mesh |
-| `app/Services/Ai/AiCouncilCoordinator.php` | Aggregates council (claude + codex) child jobs into one trace |
+| `app/Services/Ai/Arena/AiCouncilCoordinator.php` | Aggregates council (claude + codex) child jobs into one trace |
 | `app/Services/Ai/AiProviderHandoffService.php` | Context brief on provider switch |
 | `app/Services/Ai/AiProviderChoiceResolver.php` | Resolves an `awaiting_user_choice` operator decision |
 
@@ -137,7 +137,7 @@ flowchart TD
 | `app/Services/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackService.php` | `record()` — the outcome feedback ledger |
 | `app/Services/Ai/AiProviderModelResolver.php` | `resolveWithSource()` — alias/tier resolution |
 | `app/Services/Ai/AtlasAiRuntimeSettings.php` | `defaultProvider()`, `defaultProviderSelection()`, `effective()` |
-| `app/Services/Ai/AiCouncilCoordinator.php` | `sync()` — council aggregation |
+| `app/Services/Ai/Arena/AiCouncilCoordinator.php` | `sync()` — council aggregation |
 | `app/Services/Ai/AiProviderChoiceBuilder.php` | The `awaiting_user_choice` option builder |
 | `app/Services/Ai/AiProviderChoiceResolver.php` | `resolve()` — operator choice resolution |
 | `app/Services/Ai/Hermes/HermesRuntimeRouter.php` | `buildReceipt()` |

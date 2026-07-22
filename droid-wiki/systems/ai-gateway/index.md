@@ -46,7 +46,8 @@ app/Services/Ai/
   AiThreadResolver.php          thread resolution / continuation
   AiSessionManager.php          session lifecycle (idle / resume)
   AiStreamRecorder.php          sequenced streaming event persistence
-  AiCouncilCoordinator.php      multi-provider council aggregation
+  Arena/
+    AiCouncilCoordinator.php    multi-provider council aggregation
   AiQualityEvaluator.php        post-run heuristic quality scoring
   AiQualityActionService.php    quality verdict -> remediation actions
   AiRuntimeBudgetService.php    token / cost budget gate
@@ -87,7 +88,7 @@ app/Console/Commands/
 | `app/Services/Ai/FairClaudePolicy.php` | Provider/model lock that disables handoff, switch, and downgrade |
 | `app/Services/Ai/AiProviderHealthService.php` | Health snapshots and operational pain score |
 | `app/Services/Ai/AiStreamRecorder.php` | Sequenced streaming events (the SSE substrate) |
-| `app/Services/Ai/AiCouncilCoordinator.php` | Multi-provider council aggregation |
+| `app/Services/Ai/Arena/AiCouncilCoordinator.php` | Multi-provider council aggregation |
 | `app/Services/Ai/AiQualityEvaluator.php` | Post-run heuristic quality scoring |
 | `app/Services/Ai/AiRuntimeBudgetService.php` | Token/cost budget gate |
 | `app/Http/Controllers/AiInteractionController.php` | HTTP entry plus the pre-processor pipeline |

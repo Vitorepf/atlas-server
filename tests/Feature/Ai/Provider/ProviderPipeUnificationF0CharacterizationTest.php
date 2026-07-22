@@ -210,7 +210,7 @@ final class ProviderPipeUnificationF0CharacterizationTest extends TestCase
                     'supported_models' => ['council_default', 'selected-by-decide'],
                     'identity_fragment_id' => 'atlas-ai.provider.claude_codex.identity.v1',
                     'identity_fragment_hash' => '4778952d6c52f670e0ad00d4cad9c2071371429b0dbaba92f7bd3cd552f9e659',
-                    'legacy_provider' => 'App\\Services\\Ai\\AiCouncilCoordinator',
+                    'legacy_provider' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
                     'execution_policy_mode' => 'prepare_only',
                     'request_hash_algorithm' => 'sha256',
                     'request_hash_canonicalization' => 'provider_prepared_request.v1',
