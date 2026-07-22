@@ -4,34 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0165 post-start reflection backdoor closed
+phase: A1-SC-0175 release-writer reflection backdoor closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: post-start section private-mother call boundary
-finding_id: A1-SC-0165
+focus: release-writer section private-mother call boundary
+finding_id: A1-SC-0175
 action_op: test-first reflection backdoor removal
 queue_index: 6
-last_commit: 70ecc4022
+last_commit: 1b5b38e37
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: a bound status section accepted a dynamic stableHash call and crossed the mother's private visibility boundary through ReflectionMethod.
-  green: dynamic calls fail closed; the section resolves its own pure hash and explicitly forwards only its required public start-execution contract.
+  red: a bound release-writer section accepted a dynamic stableHash call and crossed the mother's private visibility boundary through ReflectionMethod.
+  green: dynamic calls are limited to public mother methods; the section resolves pure hashing, runtime-table probing, and hot-file catalog data locally.
 stdout: |
   focused_private_mother_denial: PASS (1 test, 1 assertion)
-  post_start_section_unit_suite: PASS (2 tests, 5 assertions)
+  release_writer_section_unit_suite: PASS (2 tests, 3 assertions)
   php_lint: PASS source plus changed unit test
-  loc_check: post_start_gate_status_section=1448
+  loc_check: release_writer_section=1385
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The section retains its existing binding seam but cannot invoke arbitrary mother methods. Public status and preflight paths execute using explicit internal dependencies without reflection.
+  The section retains its existing binding seam but cannot invoke private mother methods. Its real writer contract executes via public dependencies and local pure helpers without reflection.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -1228,6 +1228,37 @@ boundary:
   - organizational re-home only; no council aggregation, cancellation, provider call, token, queue, or persistence behavior changed
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - manifest snapshot and docs now name the canonical owner; tests remain in place and import it directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 42 — A1-SC-0175 close release-writer reflection backdoor, 2026-07-22
+
+```yaml
+finding: A1-SC-0175
+commit: 1b5b38e37
+subject: "refactor(core): GOD-DEBULK close release writer reflection backdoor"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+  - tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
+  result: "FAIL 1 test, 1 assertion: a bound section invoked the private mother stableHash through ReflectionMethod."
+green:
+  behavior: "unknown and private mother methods fail closed. The section retains public mother delegation only, while pure hash, runtime-table probe, and hot-file catalog helpers are local explicit dependencies."
+  characterization: "the red test calls the real magic entrypoint without test reflection; the green suite runs the public writer contract and verifies its generated hash."
+verification:
+  focused_private_mother_denial: "PASS 1 test, 1 assertion"
+  release_writer_section_unit_suite: "PASS 2 tests, 3 assertions"
+  php_lint: "PASS source and new unit test"
+  loc: "release_writer_section=1385 (<2000; pre-existing hot-size debt remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - removes private-visibility bypasses from this public section while preserving current public facade dependencies
+  - no schema, queue, reservation, receipt persistence, provider, token, or mutation behavior changed
+  - wider public mother coupling remains an explicit false-abstraction debt outside this security finding
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
