@@ -5,7 +5,7 @@ mission: atlas-server-god-debulk-arch
 phase: review
 cluster_atual: FASE 2 — 3 blueprints draft prontos; próximos: Kernel SPLIT · Learning→Compounding · quarentenas
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
-blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification]
+blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad]
 blueprints_approved: []
 needs_operator:
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  KERNELTRIAD 3/3 (architectureScanChecks L207 exato, 0 escritas diretas fora de Evidence, 0 imports inbound do linter)
   BLUEPRINTS: drift das registries CONFIRMADO no código (council órfão + minimax ausente); shadow() 0 refs a outcome CONFIRMADO; AiToolRuntime 0 refs a receipt CONFIRMADO
   NON-AI+ROOT 4/4 (Vault 1 caller, frontmatter 3 parsers, Tools 0 cross-ref, ToneFilter 0 prod)
   EXEC/FORGE/DOMINIOS: 4 KILLs confirmados rg=0 --no-ignore em app+tests; 1 REBAIXADO (NativeResultNormalizer tem teste); Security scanner protegido (2 callers)
