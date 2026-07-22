@@ -462,7 +462,7 @@ app/Services/Ai/AutonomousEvolution/Sentinels/AtlasLoopServedQueueInspectorSweep
 app/Services/Ai/AutonomousEvolution/Sentinels/AtlasLoopServingQueueDiskConformanceSentinel.php,AtlasLoopServingQueueDiskConformanceSentinel,VIVO-EXTERNO,1,1,82,
 app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopSiblingTestResolver.php,AtlasLoopSiblingTestResolver,VIVO-EXTERNO,2,8,207,
 app/Services/Ai/AutonomousEvolution/Verify/AtlasLoopSignalAnalyzer.php,AtlasLoopSignalAnalyzer,VIVO-EXTERNO,1,15,674,
-app/Services/Ai/AutonomousEvolution/Twin/AtlasLoopSimulableTwinOrchestrator.php,AtlasLoopSimulableTwinOrchestrator,ORFAO,0,1,246,high
+app/Services/Ai/AutonomousEvolution/Twin/AtlasLoopSimulableTwinOrchestrator.php,AtlasLoopSimulableTwinOrchestrator,VIVO-CONFIG,0,1,246,keep-config-executor-organ
 app/Services/Ai/AutonomousEvolution/Simulation/AtlasLoopSimulationDryRunner.php,AtlasLoopSimulationDryRunner,ORFAO,0,1,64,high
 app/Services/Ai/AutonomousEvolution/Simulation/AtlasLoopSimulationReceiptLedger.php,AtlasLoopSimulationReceiptLedger,ORFAO,0,0,121,high
 app/Services/Ai/AutonomousEvolution/Simulation/AtlasLoopSimulationSandboxBuilder.php,AtlasLoopSimulationSandboxBuilder,ORFAO,0,0,170,high
