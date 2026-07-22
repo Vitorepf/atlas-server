@@ -168,7 +168,7 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $this->assertSame('resolved', $retry['status']);
     }
 
-    public function test_enforce_mode_with_passing_evidence_commits_normally(): void
+    public function test_enforce_mode_with_passing_evidence_commits_without_optional_elite_dependencies(): void
     {
         $served = $this->servedTask('evctr-enforce-pass');
         $passingVerdict = ['schema' => AtlasVerificationCourtEvidenceContract::SCHEMA, 'accepted' => true, 'blockers' => []];
