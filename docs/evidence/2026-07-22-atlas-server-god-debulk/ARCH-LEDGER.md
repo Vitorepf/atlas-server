@@ -3,7 +3,13 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: implement   # comandante virou IMPLEMENTADOR (ordem do operador 2026-07-22): edita app/tests e derruba LOC com prova
-cluster_atual: FASE A (segurança) COMPLETA ✅ — 0133 FECHADO 194cfb4e7 · 0155 SUPERSEDED (a69a6f50e) · 0056 FECHADO 9f200457c (verificado por 4 lentes: FIX_HOLDS). PRÓXIMO: FASE B (quarentena ACDE reversível — goal autoriza; só purga física + push pausam p/ operador)
+cluster_atual: FASE B (quarentena ACDE) EM ANDAMENTO — onda 1/5 FEITA 15b574e36 (25 órfãos + 33 testes → archive/). FASE A COMPLETA ✅ (0133/0155/0056).
+implementacao_fase_B: |
+  Piso VIVO re-verificado (floor_check.py): 218 high-lote → 215 seguros (0 ref app viva fora do lote) · 3 DIRTY excluídos (AtlasLoopCrossLeverageRegistry/ResearchContract/WiringIntentLedger ganharam refs vivas pós-snapshot). Keep-list 27 e AAEL disjuntos do lote (provado).
+  Plano de ondas (plan_waves.py): 215 → 84 componentes SEGUROS (118 classes/15.8k LOC em 5 ondas de ~25, movidos por COMPONENTE conexo + testes-espelho puros) + 55 componentes/97 classes RETIDOS (teste toca código vivo → review por caso). archive/<path original> (fora do PSR-4; reversão = tirar prefixo archive/).
+  Onda 1/5 FEITA (15b574e36): 25 classes + 33 testes. Verif: 0 refs dinâmicas config/bootstrap/routes/db · 0 refs pendentes pós-move · composer dump-autoload -o OK (20309 classes) · boot smoke OK · teste AE não-movido 14 verdes.
+  GOTCHA: listas escritas sem newline final → `while read` pula a ÚLTIMA linha (2 arquivos ficaram; movidos à parte). Próximas ondas: garantir newline final OU mover as tails explicitamente.
+  PRÓXIMO: re-rodar floor_check.py (estado pode ter mudado c/ Sol concorrente) → ondas 2-5. Depois: os 97 shared-test por caso. Purga física do archive/ = gate do operador.
 implementacao_fase_A: |
   [1/3] A1-SC-0133 (forja de report/commit) — FECHADO 194cfb4e7. Guard ownedActiveLease() no topo de AtlasTaskServingService::report (activeLeasesForAgent + hash_equals dos 2 ids + rejeição de authority_revoked); fail-closed antes de scope/gate/dry-run/give-back/commit. Characterization RED→GREEN (foreign give-back + foreign dry-run) + controle positivo. Baseline TaskServing HEAD=18fail; pós-fix=16fail (diff de nomes VAZIO → 0 regressão). Whitelist test corrigido (reusava 1 lease em 3 reports).
   [3/3] A1-SC-0155 (forja de evidência no rollup) — SUPERSEDED por a69a6f50e (ancestral de HEAD). fleetEvidenceRollup L907-926 já recomputa+liga os 4 hashes (hash_equals); tamper test existe e passa (2/2). Finding marcado s3/superseded_by no META. Resíduo: sha256 sem HMAC (assinatura = feature nova, fora do escopo do finding).
