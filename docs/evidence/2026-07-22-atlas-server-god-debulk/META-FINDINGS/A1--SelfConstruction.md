@@ -3222,8 +3222,9 @@ findings:
       - "controlled same-snapshot probe returned start_recommended_terminal_workers versus review_completed_dry_run_evidence_and_rerun_digest"
   - id: A1-SC-0155
     type: security
-    severity: s0
-    detail: "The evidence rollup treats a completed receipt as valid from self-declared booleans/status plus two 64-hex shapes. It never recomputes receipt_hash, evidence_hash, evidence_digest, or evidence_validation_hash, never binds them back to the task/lease/payload, and even accepts any non-empty receipt_hash into the rollup. A forged or tampered queue task file can therefore be counted green and ready_for_operator_review."
+    severity: s3
+    superseded_by: a69a6f50e
+    detail: "[SUPERSEDED-FIXED by a69a6f50e (2026-07-22, ancestral de HEAD) — verificado pelo comandante: predicado atual em AgentControlPlaneTerminalLoopHealthDigestService::fleetEvidenceRollup L907-926 recomputa expectedReceiptHash (TaskPacketCanonicalizer::stableHash sobre task_packet_id+receipt_kind+extra), expectedEvidenceDigest (sha256 do completion_evidence), chama AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence (rebind a task/lease/agent/allowed_files) e liga os 4 hashes com hash_equals (L920-926); tamper test test_fleet_evidence_rollup_rejects_an_internally_inconsistent_completion_receipt existe e passa (2/2 verdes rodados pelo comandante). Finding descreve o código PRÉ-a69a6f50e (só L913-915 sobrevivem do original bac4285232e). Resíduo honesto: hashes são sha256 sem HMAC/assinatura — verifica consistência interna, não autenticidade keyed (fix = assinar recibos no write, feature nova, fora do escopo deste finding).] (ORIGINAL) The evidence rollup treats a completed receipt as valid from self-declared booleans/status plus two 64-hex shapes. It never recomputes receipt_hash, evidence_hash, evidence_digest, or evidence_validation_hash, never binds them back to the task/lease/payload, and even accepts any non-empty receipt_hash into the rollup. A forged or tampered queue task file can therefore be counted green and ready_for_operator_review."
     evidence:
       - "validity predicate lines 891-897 trusts structured_completion_evidence_valid and evidence_validation_status"
       - "only evidence_hash and evidence_digest receive regex shape checks; receipt_hash and evidence_validation_hash are not verified"

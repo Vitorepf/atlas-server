@@ -2,8 +2,12 @@
 
 ```yaml
 mission: atlas-server-god-debulk-arch
-phase: review
-cluster_atual: FASE 2 COMPLETA — 7 blueprints draft (todas as decisões estruturais desenhadas); FASE 3: endurecer fila do EXECUTE + auditoria/correção de findings + reviews
+phase: implement   # comandante virou IMPLEMENTADOR (ordem do operador 2026-07-22): edita app/tests e derruba LOC com prova
+cluster_atual: FASE A (segurança) EM ANDAMENTO — bug 1 (0133) FECHADO+commitado 194cfb4e7; bug 3 (0155) SUPERSEDED (já consertado por a69a6f50e, verificado); bug 2 (0056) em implementação
+implementacao_fase_A: |
+  [1/3] A1-SC-0133 (forja de report/commit) — FECHADO 194cfb4e7. Guard ownedActiveLease() no topo de AtlasTaskServingService::report (activeLeasesForAgent + hash_equals dos 2 ids + rejeição de authority_revoked); fail-closed antes de scope/gate/dry-run/give-back/commit. Characterization RED→GREEN (foreign give-back + foreign dry-run) + controle positivo. Baseline TaskServing HEAD=18fail; pós-fix=16fail (diff de nomes VAZIO → 0 regressão). Whitelist test corrigido (reusava 1 lease em 3 reports).
+  [3/3] A1-SC-0155 (forja de evidência no rollup) — SUPERSEDED por a69a6f50e (ancestral de HEAD). fleetEvidenceRollup L907-926 já recomputa+liga os 4 hashes (hash_equals); tamper test existe e passa (2/2). Finding marcado s3/superseded_by no META. Resíduo: sha256 sem HMAC (assinatura = feature nova, fora do escopo do finding).
+  [2/3] A1-SC-0056 (forja de dispatch receipt) — EM IMPLEMENTAÇÃO. writer só shape-check 64-hex + expires_at não-vazio (sem futuro) → mint de signed_pending_dispatch a partir de texto. Fix: ligar dispatch_envelope_hash ao canônico stableHash(preflight.dispatch_envelope_draft) + provar expires_at futuro c/ TTL + bind receipt_hash canônico. Godfile delega ao Section (fix só no Section).
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
 blueprints_draft: [TODOS os 7 VERIFICADOS adversarialmente e emendados — SelfConstructionReadiness v2, RuntimeExecution v2 RE-VERIFICADO (fatais consertados), ProviderPipeUnification v2.1, KernelTriad v2, LearningConsolidation v2, QuarantineACDE v2, RootSinglesRehome v2]
 blueprints_approved: []
