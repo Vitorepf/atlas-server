@@ -4,37 +4,38 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0175 release-writer reflection backdoor closed
+phase: A1-SC-0187 direct mutating-probe cleanup closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: release-writer section private-mother call boundary
-finding_id: A1-SC-0175
-action_op: test-first reflection backdoor removal
+bucket: app/Services/Ai/SelfConstruction/ControlPlane
+focus: multi-agent-loop probe runner synthetic storage boundary
+finding_id: A1-SC-0187
+action_op: test-first finally cleanup for direct mutating probes
 queue_index: 6
-last_commit: 1b5b38e37
+last_commit: fb317d97d
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_bound_section_rejects_dynamic_calls_to_private_mother_methods
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=direct_released_resume_probe_removes_its_synthetic_queue_and_lease_artifacts
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   git diff --check
 before_after: |
-  red: a bound release-writer section accepted a dynamic stableHash call and crossed the mother's private visibility boundary through ReflectionMethod.
-  green: dynamic calls are limited to public mother methods; the section resolves pure hashing, runtime-table probing, and hot-file catalog data locally.
+  red: a direct released-resume probe left fleet_released_resume_probe_direct-cleanup in the real fake-disk queue after returning.
+  green: every public mutating probe validates its run id and executes under a finally that prunes only its run-scoped queue and lease artifacts.
 stdout: |
-  focused_private_mother_denial: PASS (1 test, 1 assertion)
-  release_writer_section_unit_suite: PASS (2 tests, 3 assertions)
-  php_lint: PASS source plus changed unit test
-  loc_check: release_writer_section=1385
+  red_characterization: FAIL 1 test, persisted task record observed after direct call
+  runner_unit_plus_feature: PASS 33 tests, 141 assertions
+  php_lint: PASS source plus changed feature test
+  source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
+  loc_check: probe_runner=1414
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The section retains its existing binding seam but cannot invoke private mother methods. Its real writer contract executes via public dependencies and local pure helpers without reflection.
+  Storage integration belongs to Feature: it executes all 10 public mutating APIs, asserts zero residual queue/lease artifacts, and injects a real post-enqueue exception to prove finally cleanup.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
-  The source is below 2k; no new class or helper was introduced.
+  Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
+  The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0187.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -1333,6 +1334,37 @@ boundary:
   - organizational re-home only; keyword precedence, selected-agent override, prompt construction, and provider routing behavior are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - canonical production and test consumers use the Router owner directly; docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 45 — A1-SC-0187 direct mutating-probe cleanup, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: fb317d97d
+subject: "refactor(core): GOD-DEBULK clean direct probe artifacts"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=direct_released_resume_probe_removes_its_synthetic_queue_and_lease_artifacts
+  result: "FAIL 1 test: direct call left fleet_released_resume_probe_direct-cleanup as a claimable queue record."
+green:
+  behavior: "all ten public mutating probes retain their evidence payloads but prune only run-scoped synthetic task and lease artifacts in finally; unsafe run ids fail before mutation."
+  characterization: "the Feature integration exercises real queue/repository storage, not reflection or mocks; it also forces a post-enqueue bootstrap check to throw and observes the cleared queue."
+verification:
+  runner_unit_and_feature: "PASS 33 tests, 141 assertions"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN: existing full-file host formatting drift; not used as proof"
+  diff_check: PASS
+  loc: "probe_runner=1414 (<2000)"
+  certification_feature_suite: "NOT GREEN: 10 failures from the pre-existing multi_agent_loop serving-tag contradiction, recorded in EXEC-DEBTS."
+boundary:
+  - cleanup selection is fail-closed and limited to the validated run id's probe tags, packet prefixes, and known probe actors
+  - no provider, token, dispatch, real completion, schema, or external storage behavior was enabled
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
