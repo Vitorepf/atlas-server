@@ -93,7 +93,6 @@ final class ProviderPipeUnificationF0CharacterizationTest extends TestCase
             'atlas.ai.cache.cost_guard' => ['soft_units' => 0.0, 'hard_units' => 0.0],
         ]);
 
-        $manager = app(AiProviderManager::class);
         $inner = new class implements AiProvider
         {
             public function key(): string
@@ -116,10 +115,23 @@ final class ProviderPipeUnificationF0CharacterizationTest extends TestCase
                 return new AiProviderHealthCheck($this->key(), 'ok', 'safe fake');
             }
         };
+        config(['atlas.ai.default_provider' => $inner->key()]);
+        $this->app->instance(AtlasAiRuntimeSettings::class, new class($inner->key()) extends AtlasAiRuntimeSettings
+        {
+            public function __construct(private readonly string $configuredDefault) {}
+
+            public function defaultProvider(): string
+            {
+                return $this->configuredDefault;
+            }
+        });
+        $manager = app(AiProviderManager::class);
         $manager->registerDriver($inner->key(), $inner);
 
         $fallback = $manager->getRecommended('provider_pipe_f0', 'characterization');
-        self::assertSame(app(AtlasAiRuntimeSettings::class)->defaultProvider(), $fallback['key']);
+        self::assertSame($inner->key(), app(AtlasAiRuntimeSettings::class)->defaultProvider());
+        self::assertSame($inner->key(), $fallback['key']);
+        self::assertSame($inner, $fallback['provider']);
         self::assertSame('free_to_choose', $fallback['verdict']);
         self::assertTrue($fallback['consulted']);
         self::assertIsArray($fallback['consultation']);
@@ -282,6 +294,18 @@ final class ProviderPipeUnificationF0CharacterizationTest extends TestCase
             "new DateTimeImmutable('now', new DateTimeZone('UTC'))",
             $source,
             'F0 contradiction: the Swarm has no testable clock seam, so literal byte-identical time cannot be proven in test-only scope.',
+        );
+
+        self::assertSame(
+            'sha256:'.hash('sha256', json_encode([
+                'schema' => AtlasSwarmExecutorService::ENVELOPE_SCHEMA,
+                'started_at' => $envelope['started_at'],
+                'dispatch_id' => $envelope['dispatch_id'],
+                'winner_arm_id' => data_get($envelope, 'winner.arm_id'),
+                'arm_count' => $envelope['arm_count'],
+            ], JSON_THROW_ON_ERROR)),
+            $envelope['execution_hash'],
+            'F0 first proves the live envelope hash with the production formula before normalizing the clock-only field in a copy.',
         );
 
         $normalized = $envelope;
