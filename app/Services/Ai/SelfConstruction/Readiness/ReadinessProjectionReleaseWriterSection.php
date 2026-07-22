@@ -252,9 +252,29 @@ final class ReadinessProjectionReleaseWriterSection
         if ($this->mother === null) {
             throw new \RuntimeException('ReadinessProjectionReleaseWriterSection mother not bound for '.$name);
         }
-        $method = new \ReflectionMethod($this->mother, $name);
+        if (! is_callable([$this->mother, $name])) {
+            throw new \BadMethodCallException('ReadinessProjectionReleaseWriterSection does not expose '.$name);
+        }
 
-        return $method->invokeArgs($this->mother, $arguments);
+        return $this->mother->{$name}(...$arguments);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function stableHash(array $payload): string
+    {
+        return ReadinessHash::stable($payload);
+    }
+
+    /** @return array<string, bool> */
+    private function agentControlPlaneRuntimeTables(): array
+    {
+        return \App\Services\Ai\SelfConstruction\Support\ReadinessAgentControlPlaneSchemaProbe::tables();
+    }
+
+    /** @return list<string> */
+    private function hotForbiddenFiles(): array
+    {
+        return ReadinessCatalog::hotForbiddenFiles();
     }
 
 
