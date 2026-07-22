@@ -74,6 +74,20 @@ Enforcement: os 2 checks novos + `ap*_kernel_no_linter_import`.
 5. **Re-homes internos** com shims ≤1 ciclo.
 6. **Fechamento**: matar shims; Kernel ≈15,5k (runtime 10,3k + Evidence 5,2k); ArchitectureGovernance ≈26,5k com maior arquivo ≤1.400; atualizar CONSOLIDATION-MAP.
 
+## 6.5 FATIA 1 EXECUTÁVEL (validada pelo comandante 2026-07-22) — extrair família self_improvement
+
+Alvo: `KernelArchitectureStaticScanner.php` (15.566 LOC). `architectureScanChecks()` L207-422 = array literal `'ap*' => fn (): array => $this->scanX()`, **166 keys** (confirmado). Única pública = `complianceReport()`. Zero `new KernelArchitectureStaticScanner` (container-resolved → construtor novo é seguro, autowire).
+
+**Passo A (SEGURO, F0 intacto): extrair `Scanner/ScanPrimitivesSupport`** — mover os 6 primitivos COMPARTILHADOS (mantendo delegadores 1-linha no scanner p/ não churnar 96+ callers): `scanPhpFilesForForbiddenTokens` (L6694), `missingTokenViolations` (L6730), `fileContents` (L6742), `documentationCorpus` (L15556), `kernelDocumentationCorpus` (L15502), `selfImprovementDomainDocumentationCorpus` (L15542) + props de cache `$kernelDocumentationCorpus` (L9) e `$fileContentsCache` (L14). Como NÃO toca o conjunto/ordem de keys, o F0 (hash ordenado) passa SEM mudança. ~200 LOC no support.
+
+**Passo B: extrair `Scanner/SelfImprovementAudit`** — mover VERBATIM os 21 métodos `scan*` da família (keys ap41-53, ap69-71, ap98, ap115-116, ap123, ap131; def L1228→L10973, 1.347 LOC), reescrevendo `$this->kernelDocumentationCorpus()`→`$this->primitives->kernelDocumentationCorpus()` e idem selfImprovementDomain. Expor `checks(): array` com as 21 entradas. Construtor `(ScanPrimitivesSupport $primitives)`. No scanner: deletar as 21 entradas inline + `return [ ...145... ] + $this->selfImprovementAudit->checks();`.
+
+**F0 (trap #1 = ORDEM):** `KernelTriadF0CharacterizationTest.php` L44 hasheia `json_encode($keys)` EM ORDEM + assertSame first-3/last-3. Merge via `+` joga as 21 keys pro fim → hash ordenado quebra mesmo com SET idêntico. FIX no mesmo commit: trocar L44 p/ hash de **conjunto ordenado** (`sort()` antes do sha256) — mudança de characterization deliberada (count+set continuam congelados; casa com a intenção "conjunto de keys" do §3.1; destrava todas as próximas famílias). Manter assertCount(166) + o loop `valid=true/violations=[]` (re-prova cada check).
+
+**Consumidores externos das ap-keys por NOME** (`AtlasAiArchitectureValidationService`, `AtlasAiArchitectureValidateCommand`): esta fatia NÃO renomeia nem move arquivo → key-strings e class-name intactos. Só o git-mv p/ ArchitectureGovernance/ (fatia futura) toca path — aí entram os 4 guards fail-open (§EMENDAS).
+
+**EXECUÇÃO SEGURA (anti-colisão-Sol):** cirurgia por SCRIPT (line-ranges + brace-match), provada contra CÓPIA do scanner (F0 verde na cópia), depois aplicada ao vivo + `git add -- <arquivos>` + commit ATÔMICO (minimizar janela; rodar F0 com DB sqlite :memory:). Densidade pós-fatia: scanner ~14.100, SelfImprovementAudit ~1.410 (teto 1.400 — ok marginal), support ~200. Façade só chega a ≤400 após todas as ~13 famílias.
+
 ## 7. Riscos
 | Risco | Sev | Mitigação |
 |---|---|---|

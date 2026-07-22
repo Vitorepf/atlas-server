@@ -3,6 +3,10 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: implement   # comandante virou IMPLEMENTADOR (ordem do operador 2026-07-22): edita app/tests e derruba LOC com prova
+fase_C_slice1: |
+  KernelTriad fatia 1 PLANEJADA+VALIDADA (KernelTriad.md §6.5): extrair família self_improvement do scanner godfile (15.566 LOC).
+  Passo A (F0-intacto): Scanner/ScanPrimitivesSupport (6 primitivos + 2 caches, delegadores 1-linha). Passo B: Scanner/SelfImprovementAudit (21 métodos verbatim, checks()) + F0 vira hash de conjunto-ordenado (trap #1: merge move keys pro fim).
+  Registry L207-422=166 keys (confirmado); F0 L44 hasheia EM ORDEM (KernelTriadF0CharacterizationTest); zero `new` (construtor seguro). Execução: script provado + commit atômico (anti-colisão-Sol). F0 sempre com DB sqlite :memory:.
 cluster_atual: FASE B (quarentena ACDE) QUASE COMPLETA ✅ — safe-pass (116) + shared-comp sub-pass (87) = 203 órfãos + 209 testes → archive/. Restam só os 5 KEEP corretos + Twin config-vivo. FASE A COMPLETA ✅ (0133/0155/0056, testes verdes pós-colisão). PRÓXIMO: FASE C (splits dos godfiles).
 colisao_shared_tree: |
   ⚠️ O commit do Sol 820b04407 ("remove fabricated cost facts") VARREU meus 177 renames staged do sub-pass (janela entre git mv e meu git commit). Trabalho PRESERVADO e correto na main (0 classes movidas restam em app/, boot OK, archive=412). Reescrever history compartilhada = PROIBIDO (destruiria trabalho do Sol + no-merge/no-force). Meus 2 fixes de segurança SOBREVIVERAM intactos (6 testes verdes) — o Sol tocou outra parte do AtlasTaskServingService (as cost-facts A1-SC-0138), não o guard. LIÇÃO: git mv stage tem janela; o Sol NÃO usou commit escopado. Mitigação futura: git mv + commit o mais atômico possível.
