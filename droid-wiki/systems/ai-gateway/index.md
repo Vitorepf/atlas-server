@@ -56,7 +56,7 @@ app/Services/Ai/
   AtlasAiRuntimeSettings.php    effective runtime settings + DB override
   AiPromptBuilder.php           assembles the final provider prompt
   AiPrompt.php                  immutable prompt DTO
-  AiIntentRouter.php            keyword -> agent / intent classifier
+  Router/AiIntentRouter.php     keyword -> agent / intent classifier
   ClaudeCliProvider.php         claude CLI driver (stream-json)
   CodexCliProvider.php          codex exec CLI driver
   GeminiCliProvider.php         gemini CLI driver

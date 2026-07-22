@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\Ai\AiIntentRouter;
+use App\Services\Ai\Router\AiIntentRouter;
 use Tests\TestCase;
 
 class AiIntentRouterTest extends TestCase

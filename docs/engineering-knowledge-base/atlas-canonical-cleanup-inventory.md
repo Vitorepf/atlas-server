@@ -239,7 +239,7 @@ operacional pesado), `Atlas Code Forge` (UX facade dentro do Atlas Code),
 |---|---|---|
 | `AtlasAiRouterService` | `app/Services/Ai/Router/` | Provider/flow routing legado (Atlas Decide companion) — populates `ai_router_decisions` table com `selected_provider` |
 | `RouterRuntime\\FlowRouterService`/`DomainRouterService`/`RuntimeDispatchService` | `app/Services/Ai/RouterRuntime/` | **Meta 6 canonico** — Intent->Domain->Flow->Dispatch, populates `ai_atlas_router_decisions` |
-| `AiIntentRouter` | `app/Services/Ai/AiIntentRouter.php` | Intent routing legado (chamado por AiGateway/AiWorker) |
+| `AiIntentRouter` | `app/Services/Ai/Router/AiIntentRouter.php` | Intent routing legado (chamado por AiGateway/AiWorker) |
 | `Programming\\Sdd\\IntentRouter` | `app/Services/Ai/Programming/Sdd/IntentRouter.php` | SDD intent routing dentro de Programming |
 | `AtlasControlPlaneRouterService` | `app/Services/Ai/ControlPlane/` | Control plane router (read model) |
 | `AtlasForgeProviderInvocationDriverRouter` | `app/Services/Ai/Programming/` | Driver routing dentro do Forge provider invocation |
@@ -364,7 +364,7 @@ deprecated_pending_removal / orphan_candidate / test_only / unknown.
 | `Programming/AtlasForge*.php` flat (26) + `ForgeRivals/` (46) | **active_adapter** | path C HTTP em producao |
 | `AtlasProgrammingOrchestrator` + `AiWorker.php` | **legacy_supported** | path A HTTP; alvo P0 |
 | `AtlasDecideService` + `Router/AtlasAiRouterService` | **active_adapter** | Atlas Decide legado coexiste com Meta 6 |
-| `AiIntentRouter.php` | **legacy_supported** | intent router antigo |
+| `Router/AiIntentRouter.php` | **legacy_supported** | intent router antigo |
 | `SelfConstruction/` (286 files) | **canonical (parcial) + unknown (parcial)** | core ok; 12+ HumanCompletionReceipt + 15+ AgentControlPlaneCertification merecem leitura |
 | `AtlasCode/DevToForgePromotionService.php` | **active_adapter** | sera substituido por P3.1 |
 | Cyber/Automation/Strategy domains | **orphan_candidate (parcial)** | runtime sim, orchestrator nao (audit `:303`) |

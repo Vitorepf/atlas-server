@@ -18,7 +18,7 @@ This page traces one interaction end to end, from `POST /ai/interactions` throug
 | `app/Services/Ai/AiGatewayService.php` | `enqueueInteraction()` — provider selection, prompt build, trace+job persistence |
 | `app/Services/Ai/AiPromptBuilder.php` | Assembles the final provider prompt from agent, context pack, execution plan |
 | `app/Services/Ai/AiPrompt.php` | Immutable prompt DTO returned by the builder |
-| `app/Services/Ai/AiIntentRouter.php` | Keyword to agent/intent classifier |
+| `app/Services/Ai/Router/AiIntentRouter.php` | Keyword to agent/intent classifier |
 | `app/Services/Ai/CapturePrivacyService.php` | Privacy gate; can block an AI call on protected captures |
 | `app/Models/AiTrace.php`, `AiJob.php` | The two persisted entities created in the enqueue transaction |
 
