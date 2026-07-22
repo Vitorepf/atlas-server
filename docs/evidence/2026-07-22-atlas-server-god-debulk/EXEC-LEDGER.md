@@ -4,34 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0157 zero-budget replenishment guard recorded
+phase: A1-SC-0156 active-lease terminal capacity guard recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: terminal digest zero-budget replenishment selection
-finding_id: A1-SC-0157
-action_op: test-first zero-budget no-op suppression
+focus: terminal digest active-lease parallel capacity
+finding_id: A1-SC-0156
+action_op: test-first active-lease capacity cap
 queue_index: 6
-last_commit: 3df436e24
+last_commit: 7acb72eef
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_zero_max_new_tasks_blocks_replenishment_without_selecting_a_noop_command
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_active_leases_consume_the_terminal_parallelism_capacity_before_new_launches
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: public digest() reported fleet_replenishment_required for a three-task supply gap while max_new_tasks=0 bounded the actionable count to zero.
-  green: the plan reports fleet_replenishment_blocked_max_new_tasks_zero and both handoff and supervisor recheck the digest instead of selecting the guaranteed no-op replenish command.
+  red: six real active leases plus six claimable packets made digest() advertise safe_to_start_new_worker and six new terminals despite the stated six-terminal ceiling.
+  green: active leases consume terminal capacity; at the six-lease ceiling the plan is blocked with zero recommended terminals and the runbook cannot be copied.
 stdout: |
-  focused_zero_budget_contract: PASS (1 test, 9 assertions)
-  digest_unit_suite: PASS (18 tests, 61 assertions)
+  focused_active_lease_capacity_contract: PASS (1 test, 9 assertions)
+  digest_unit_suite: PASS (19 tests, 70 assertions)
   php_lint: PASS source plus changed unit test
-  loc_check: terminal_loop_health_digest=1636
+  loc_check: terminal_loop_health_digest=1647
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  max_new_tasks=0 is now an executable plan blocker, not merely a textual stop condition. The public contract follows the plan through handoff, supervisor, and launch runbook without invoking private methods.
+  The shared six-terminal cap now covers both active leases and recommended launches. The public contract creates real leases and reads digest projections without private method invocation.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -208,6 +208,45 @@ verification:
 boundary:
   - read-only preflight and contract projections only
   - no wakeup claim, receipt persistence, provider start, adapter call, or token spend
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 38 — RootSinglesRehome Knowledge, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Knowledge
+commit: aaa3d2013
+subject: "refactor(core): GOD-DEBULK RootSingles Knowledge rehome"
+scope:
+  - app/Services/Ai/Knowledge/YouTubeKnowledgeIngestionService.php
+  - app/Services/Ai/Knowledge/YoutubeCanonicalProjection.php
+  - Root consumers (worker, gateway, controller, resource, job, and unit suites)
+  - app/Services/Ai/Compat/RootSinglesLegacyAliases.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --no-coverage
+  result: "FAIL 1 test: canonical App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService did not exist before the re-home."
+green:
+  behavior: "Both YouTube knowledge owners now resolve from Ai\\Knowledge. The old root FQCNs remain lazy aliases loaded through composer for queued/deployed compatibility."
+  characterization: "The compatibility test resolves canonical services through the public container, then proves each instance satisfies its legacy root FQCN."
+verification:
+  canonical_unit_suites: "PASS 30 tests, 130 assertions"
+  prewarm_feature: "PASS 10 tests, 56 assertions"
+  parallel_compatibility: "PASS 1 test, 2 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source paths are absent; direct old FQCN/path sweep leaves only the explicit compatibility test imports."
+  php_lint: "PASS all 12 touched PHP files"
+  phpstan_alias: "PASS RootSinglesLegacyAliases.php. Broader touched-consumer PHPStan is NOT GREEN (527 diagnostics, including long-standing model/resource/consumer diagnostics and two in moved owners); it is not used as proof and no baseline ownership was established."
+  pint: "PASS new compatibility test. Strict full-file Pint is NOT GREEN for existing formatting drift in four changed consumers; no broad reformat was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=5)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; both Knowledge owners remain <2000 LOC."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; no ingestion, projection, provider, queue, token, or persistence behavior changed
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - no test directory was moved; unit suites now import the canonical names
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
@@ -1089,6 +1128,37 @@ boundary:
   - changes only the replenishment-plan state when the requested supply gap has a zero bounded task budget
   - leaves queue reads, leases, command synthesis, provider calls, token spend, and all mutations unchanged
   - the replenishment command remains an observable command string but is no longer selected by plan-driven handoff, supervisor, or runbook in this blocked state
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 38 — A1-SC-0156 cap terminal launch capacity, 2026-07-22
+
+```yaml
+finding: A1-SC-0156
+commit: 7acb72eef
+subject: "refactor(core): GOD-DEBULK cap terminal launch capacity"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_active_leases_consume_the_terminal_parallelism_capacity_before_new_launches
+  result: "FAIL 1 test, 2 assertions: six real active leases plus six claimable packets still published safe_to_start_new_worker=true."
+green:
+  behavior: "the shared six-terminal cap accounts for active leases before new recommendations; at capacity the launch plan exposes zero available capacity, zero terminals, a capacity-reached blocker, and a blocked runbook."
+  characterization: "the test enqueues twelve real packets, claims six through the lease repository, updates those queue packets to claimed, and then executes public digest() without reflection."
+verification:
+  focused_active_lease_capacity_contract: "PASS 1 test, 9 assertions"
+  digest_unit_suite: "PASS 19 tests, 70 assertions"
+  php_lint: "PASS source and changed unit test"
+  loc: "terminal_loop_health_digest=1647 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - changes only read-only launch-capacity planning and its blocker explanation
+  - queue/lease writes in the characterization test are setup only; digest remains read-only and no worker, provider, token, or mutation action is performed by production code
+  - no new class or helper was introduced
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
