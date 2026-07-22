@@ -65,7 +65,7 @@ acceptance:
   aver_safe_public_apis: 9
   aver_static_public_inventory: 10
   aver_unsafe_gap: executeFixtureCycle creates a temporary workspace and spawns a process; it was not called
-  lineage: legacy AtlasAverCertifiedExecution is persisted while AiRealExecutionCertification is absent for the same logical goal_record_id; current AVER schema has no goal_record_id column
+  lineage: "SUPERSEDED/INVALID — this initial assertion that legacy AtlasAverCertifiedExecution and an absent AiRealExecutionCertification share the same logical goal_record_id is invalid. The current AVER schema has no persisted goal_record_id, so no such correlation can be claimed before F4a; see canonical correction b3c02f4e7."
   hash_representations: AVER diff_hash hashes its payload and is asserted non-equivalent to RealExecution SHA-256 of the raw diff
   release_gate: frozen-time byte JSON snapshot for atlas.ai.runtime_release_gate.v1 and upstream report spy count equals 1
   tool_catalog: 19 static tools classified as 9 read-only and 10 gate-required without execute calls

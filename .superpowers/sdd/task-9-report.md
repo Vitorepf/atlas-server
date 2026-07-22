@@ -1,6 +1,7 @@
 # RuntimeExecution F0 receipt-hygiene report
 
-Docs-only correction commit: pending.
+Docs-only correction commit: `65e41832f` (`docs(core): GOD-DEBULK correct
+RuntimeExecution F0 receipt hygiene`).
 
 ## Delivered correction
 
