@@ -40,7 +40,7 @@ final class AutonomosAwisGateTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_blocks_when_workspace_is_not_certified(): void
+    public function test_rechecks_awis_before_each_next_and_blocks_when_certification_is_revoked(): void
     {
         $gate = new class implements AwisExecutionGatePort
         {
@@ -52,24 +52,26 @@ final class AutonomosAwisGateTest extends TestCase
 
                 return [
                     'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
-                    'allowed' => false,
-                    'status' => 'blocked',
+                    'allowed' => $this->calls === 1,
+                    'status' => $this->calls === 1 ? 'ready' : 'blocked',
                     'mode' => $mode,
-                    'blockers' => ['workspace_not_ready'],
+                    'blockers' => $this->calls === 1 ? [] : ['workspace_certification_revoked'],
                 ];
             }
         };
 
         $serving = new AtlasTaskServingService($this->orchestrator(), awisGate: $gate);
-        $result = $serving->next('worker-awis-blocked');
+        $first = $serving->next('worker-awis-revoked');
+        $this->assertNotSame('awis_execution_blocked', $first['status']);
+        $this->assertSame(1, $gate->calls);
+
+        $result = $serving->next('worker-awis-revoked');
 
         $this->assertSame('awis_execution_blocked', $result['status']);
         $this->assertTrue($result['give_back']);
         $this->assertSame('awis_workspace_not_certified_for_task_serving', $result['reason']);
-        $this->assertContains('workspace_not_ready', (array) data_get($result, 'awis_execution_gate.blockers'));
-        $this->assertSame(1, $gate->calls, 'gate result is cached per service instance');
-        $serving->next('worker-awis-blocked');
-        $this->assertSame(1, $gate->calls);
+        $this->assertContains('workspace_certification_revoked', (array) data_get($result, 'awis_execution_gate.blockers'));
+        $this->assertSame(2, $gate->calls);
     }
 
     public function test_blocks_fail_closed_when_awis_gate_throws(): void

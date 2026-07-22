@@ -83,9 +83,6 @@ final class AtlasTaskServingService
 
     private readonly AtlasRefactorProofGate $refactorProofGate;
 
-    /** @var array<string,mixed>|null */
-    private ?array $awisGateCache = null;
-
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
@@ -358,13 +355,13 @@ final class AtlasTaskServingService
 
     /**
      * ENG-06 — AWIS gate on the mutative task-serving seam (claim before provider touches files).
-     * Cached per service instance so workers do not re-pay certification on every poll.
+     * The gate is evaluated for every poll so a revoked certification stops the next mutation.
      *
      * @return array<string,mixed>|null blocked envelope, or null when execution may proceed
      */
     private function awisExecutionBlockedEnvelope(string $clientId): ?array
     {
-        $gate = $this->cachedAwisGateVerdict();
+        $gate = $this->awisGateVerdict();
         if (($gate['allowed'] ?? false) === true) {
             return null;
         }
@@ -381,21 +378,17 @@ final class AtlasTaskServingService
     /**
      * @return array<string,mixed>
      */
-    private function cachedAwisGateVerdict(): array
+    private function awisGateVerdict(): array
     {
-        if ($this->awisGateCache !== null) {
-            return $this->awisGateCache;
-        }
-
         try {
             $gateService = $this->awisGate ?? app(AwisExecutionGatePort::class);
-            $this->awisGateCache = $gateService->gate(
+            return $gateService->gate(
                 workspace: base_path(),
                 mode: 'dev',
                 task: 'atlas autonomos task serving',
             );
         } catch (Throwable $e) {
-            $this->awisGateCache = [
+            return [
                 'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
                 'allowed' => false,
                 'status' => 'blocked',
@@ -403,8 +396,6 @@ final class AtlasTaskServingService
                 'error' => mb_substr($e->getMessage(), 0, 200),
             ];
         }
-
-        return $this->awisGateCache;
     }
 
     /**
