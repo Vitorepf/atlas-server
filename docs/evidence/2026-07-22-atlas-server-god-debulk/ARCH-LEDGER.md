@@ -3,7 +3,9 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: implement   # comandante virou IMPLEMENTADOR (ordem do operador 2026-07-22): edita app/tests e derruba LOC com prova
-cluster_atual: FASE B (quarentena ACDE) safe-pass COMPLETA ✅ — ondas 1-5: 116 órfãos + 119 testes → archive/ (235 arquivos, 0 dangling, autoload+boot verde). FASE A COMPLETA ✅ (0133/0155/0056). PRÓXIMO: componente config-ref (2 cls) + 97 shared-test por caso, depois FASE C (splits).
+cluster_atual: FASE B (quarentena ACDE) QUASE COMPLETA ✅ — safe-pass (116) + shared-comp sub-pass (87) = 203 órfãos + 209 testes → archive/. Restam só os 5 KEEP corretos + Twin config-vivo. FASE A COMPLETA ✅ (0133/0155/0056, testes verdes pós-colisão). PRÓXIMO: FASE C (splits dos godfiles).
+colisao_shared_tree: |
+  ⚠️ O commit do Sol 820b04407 ("remove fabricated cost facts") VARREU meus 177 renames staged do sub-pass (janela entre git mv e meu git commit). Trabalho PRESERVADO e correto na main (0 classes movidas restam em app/, boot OK, archive=412). Reescrever history compartilhada = PROIBIDO (destruiria trabalho do Sol + no-merge/no-force). Meus 2 fixes de segurança SOBREVIVERAM intactos (6 testes verdes) — o Sol tocou outra parte do AtlasTaskServingService (as cost-facts A1-SC-0138), não o guard. LIÇÃO: git mv stage tem janela; o Sol NÃO usou commit escopado. Mitigação futura: git mv + commit o mais atômico possível.
 implementacao_fase_B: |
   Piso VIVO re-verificado (floor_check.py): 218 high-lote → 215 seguros (0 ref app viva fora do lote) · 3 DIRTY excluídos (AtlasLoopCrossLeverageRegistry/ResearchContract/WiringIntentLedger ganharam refs vivas pós-snapshot). Keep-list 27 e AAEL disjuntos do lote (provado).
   Plano de ondas (plan_waves.py): 215 → 84 componentes SEGUROS (118 classes/15.8k LOC em 5 ondas de ~25, movidos por COMPONENTE conexo + testes-espelho puros) + 55 componentes/97 classes RETIDOS (teste toca código vivo → review por caso). archive/<path original> (fora do PSR-4; reversão = tirar prefixo archive/).
