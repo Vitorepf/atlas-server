@@ -888,3 +888,45 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 32 — LearningConsolidation M3-B Context Retrieval, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 154537a6f
+subject: "refactor(core): move retrieval owners under Context"
+scope:
+  - app/Services/Ai/Context/Retrieval
+  - tests/Feature/Ai/Context/Retrieval
+  - tests/Unit/Ai/Context/Retrieval
+  - app/Services/Ai/AcosMaxNamespaceAlias.php
+  - app/Services/Ai/AcosMax/AcosMaxLedgerRotationRegistry.php
+  - app/Services/Ai/AcosMax/AcosMaxMeasureSeriesRegistry.php
+  - app/Services/Ai/AcosMax/ExecutionContextCooccurrenceService.php
+  - app/Services/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluator.php
+  - app/Services/Ai/AtlasHybridMemoryRetrievalService.php
+  - config/atlas.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/AcosMax/RagxChainMechanismServiceTest.php --filter='test_m3b_retrieval_owners_must_resolve_from_context_retrieval' --no-coverage
+  result: "FAIL 1 test, 1 assertion: App\\Services\\Ai\\Context\\Retrieval\\AsefChunkIndexService did not resolve before the migration."
+green:
+  behavior: "Twelve index, embedding, lexical, provenance, corpus, RAGX, Jina dual-read, and recall-gap owners now live under Context\\Retrieval; their production consumers and re-pointed tests use the canonical namespace."
+  compatibility: "AcosMaxNamespaceAlias prepends exact lazy aliases for all twelve retired AcosMax retrieval FQCNs, preserving deployed-worker and queue compatibility through the M3 cycle."
+  path_literals: "No moved Services/Ai/AcosMax source-path literal remains in app, tests, config, routes, or database. AcosMax remains the live root for the M3-C program owners."
+verification:
+  focused_canonical_and_legacy: "PASS 2 tests, 24 assertions"
+  retrieval_subwave: "PASS 48 tests, 242 assertions"
+  universal_gates_retrieval_subset: "PASS 7 tests, 26 assertions"
+  hybrid_recall_consumer: "PASS 2 tests, 2 assertions"
+  commands: "PASS atlas:context:golden-counterfactual, atlas:memory:kb-embedding-coverage, and atlas:semantic:jina-v3-dual-read all exit successfully; their output preserves skipped/insufficient-signal/default-off states rather than claiming promotion."
+  php_lint: "PASS all 34 PHP files committed by 154537a6f"
+  pint: "PASS strict targeted Pint over the M3-B committed paths"
+  diff_check: PASS
+boundary:
+  - no retrieval formula, default-off gate, command signature, provider call, token spend, or evidence-promotion behavior changed
+  - the old AcosMax namespace is a one-cycle autoload compatibility adapter, not a second retrieval implementation
+  - M3-C rehomes only the remaining Acos program owners
+write_back:
+  status: pending_record
+  auto_promoted: false
+```
