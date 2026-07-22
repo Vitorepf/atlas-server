@@ -285,3 +285,21 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## KernelTriad F0 — canonical append-order correction, 2026-07-22
+
+```yaml
+status: CANONICAL_ORDERED_CORRECTION
+test_commit: d83e5d25a
+receipt_commit: fc59ccf1e
+supersedes_and_makes_canonical: the earlier out-of-order KernelTriad F0 correction receipt
+preserves_false_green_record: 5d9b213a0bc9fc53641ae39201ed94e128ab2b15 remains superseded historical evidence
+focused_evidence:
+  tests: "OK (2 tests, 529 assertions)"
+  migrations:
+    - database/migrations/2026_07_12_011200_repair_atlas_ledger_events_hash_and_scope_columns.php
+    - database/migrations/2026_07_12_021500_add_hash_chain_to_atlas_ledger_events.php
+  integrity: EvidenceLedgerHashChainIntegrityVerifier::verifyStoredScopeChain(kernel_triad_f0, receipt-chain)=ok
+production_changes: false
+purpose: append-only ordering correction only
+```
