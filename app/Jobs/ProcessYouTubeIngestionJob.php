@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\Ai\YouTubeKnowledgeIngestionService;
+use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;

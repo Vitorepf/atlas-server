@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\AiYoutubeIngestion;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\YoutubeCanonicalProjection;
+use App\Services\Ai\Knowledge\YoutubeCanonicalProjection;
 use App\Support\AiAttachmentPayload;
 use App\Support\Metadata;
 use Illuminate\Http\Request;

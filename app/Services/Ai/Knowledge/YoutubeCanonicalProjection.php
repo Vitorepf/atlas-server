@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Knowledge;
 
 use App\Enums\YoutubeIngestionStatus;
 use App\Enums\YoutubeTranscriptStatus;

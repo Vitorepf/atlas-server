@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Knowledge;
 
 use App\Jobs\ProcessYouTubeIngestionJob;
 use App\Models\AiYoutubeIngestion;

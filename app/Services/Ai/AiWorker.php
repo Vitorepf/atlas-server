@@ -16,6 +16,7 @@ use App\Services\Ai\Evidence\CertificationRuntimeService;
 use App\Services\Ai\Evidence\MissionEvidenceAdapter;
 use App\Services\Ai\Gateway\ChatWeakResponseProbe;
 use App\Services\Ai\Hermes\Mesh\HermesMeshJobRunner;
+use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;

@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\Ai\YouTubeKnowledgeIngestionService;
+use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use Tests\TestCase;
 
 /**

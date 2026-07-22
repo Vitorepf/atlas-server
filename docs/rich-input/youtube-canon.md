@@ -213,7 +213,7 @@ Mobile (`atlas-app/lib/atlasAi/useYoutubePrewarm.ts`) e desktop (`atlas-desktop/
 
 - Canon: `packages/atlas-rich-input-canon/src/youtube.ts`
 - PHP enums: `atlas-server/app/Enums/Youtube{Ingestion,Transcript,Translation}Status.php`
-- Projection: `atlas-server/app/Services/Ai/YoutubeCanonicalProjection.php`
+- Projection: `atlas-server/app/Services/Ai/Knowledge/YoutubeCanonicalProjection.php`
 - Migration: `atlas-server/database/migrations/2026_05_19_120000_add_canonical_status_to_ai_youtube_ingestions.php`
 - Gateway union: `atlas-server/app/Services/Ai/AiGatewayService.php::optionsWithYouTubeKnowledge`
 - Worker union: `atlas-server/app/Services/Ai/AiWorker.php::refreshReadyYouTubePrompt`

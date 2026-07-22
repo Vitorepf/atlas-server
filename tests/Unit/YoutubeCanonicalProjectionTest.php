@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Enums\YoutubeIngestionStatus;
 use App\Enums\YoutubeTranscriptStatus;
 use App\Enums\YoutubeTranslationStatus;
-use App\Services\Ai\YoutubeCanonicalProjection;
+use App\Services\Ai\Knowledge\YoutubeCanonicalProjection;
 use PHPUnit\Framework\TestCase;
 
 /**

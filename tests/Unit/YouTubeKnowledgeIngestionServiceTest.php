@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Jobs\ProcessYouTubeIngestionJob;
 use App\Models\AiYoutubeIngestion;
-use App\Services\Ai\YouTubeKnowledgeIngestionService;
+use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\WhisperTranscriber;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;

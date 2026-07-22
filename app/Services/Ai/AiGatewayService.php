@@ -14,6 +14,7 @@ use App\Models\AiTrace;
 use App\Models\Capture;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
+use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
