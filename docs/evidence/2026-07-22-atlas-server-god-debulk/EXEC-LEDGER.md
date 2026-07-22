@@ -497,3 +497,30 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 20 — LearningConsolidation M1a canonical append-order correction, 2026-07-22
+
+```yaml
+status: CANONICAL_ORDERED_CORRECTION
+historical_out_of_order_receipt_commit: 9cd57e771
+historical_out_of_order_record: "Task 20 — LearningConsolidation M1a canonical contract freeze"
+reason: "9cd57e771 inserted the truthful Task 20 receipt before pre-existing Task 14-19 entries; history remains immutable."
+canonical_acceptance:
+  commits:
+    - 12c6d59d8
+    - 62b9dbf0c
+    - 259199d10
+    - 5d2790641
+  scope:
+    - app/Services/Ai/Learning/AtlasAiLearningLoopService.php
+    - tests/Feature/Ai/Learning/LearningConsolidationF0CharacterizationTest.php
+  behavior: "controlPlaneSummary canonically sorts all five aggregate maps before returning the literal JSON snapshot."
+  evidence:
+    - "PASS 21 tests, 117 assertions: LearningConsolidationF0CharacterizationTest plus AtlasAiLearningLoopServiceTest"
+    - "PASS lint, Pint, and diff check on service plus characterization test"
+    - "PASS independent review; raw collect/list/review and ready Control Plane snapshots precede any semantic helper"
+boundary:
+  - only aggregate-map key order changes in production
+  - no provider call, token spend, task dispatch, or external mutation
+purpose: "append-only ordering correction; the historical record above is retained, not rewritten."
+```
