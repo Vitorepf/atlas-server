@@ -126,9 +126,9 @@ JSON;
     "signals": {
         "total": 7,
         "by_source": {
-            "trace_failed": 5,
             "mission_completed": 1,
-            "mission_failed": 1
+            "mission_failed": 1,
+            "trace_failed": 5
         },
         "by_risk_level": {
             "critical": 5,
@@ -142,8 +142,8 @@ JSON;
     "proposals": {
         "total": 5,
         "by_status": {
-            "proposed": 4,
-            "approved": 1
+            "approved": 1,
+            "proposed": 4
         },
         "by_kind": {
             "heuristic": 1,

@@ -325,6 +325,9 @@ class AtlasAiLearningLoopService
                 $lastSignalAt = $collectedAt;
             }
         }
+        ksort($bySource);
+        ksort($byRisk);
+        ksort($byStatus);
 
         $proposals = [];
         $byProposalStatus = [];
@@ -351,6 +354,8 @@ class AtlasAiLearningLoopService
                 // tolerate.
             }
         }
+        ksort($byProposalStatus);
+        ksort($byKind);
 
         return [
             'status' => 'ready',
