@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\AcosMax;
+namespace App\Services\Ai\Aemor\Envelope;
 
 /**
  * ESP-06 — thin read/write adapter between a native organ payload and the

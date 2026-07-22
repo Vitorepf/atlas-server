@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AcosMax;
+namespace Tests\Unit\Ai\Aemor\Envelope;
 
-use App\Services\Ai\AcosMax\OutcomeEnvelope;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelope;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use PHPUnit\Framework\TestCase;
 

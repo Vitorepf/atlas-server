@@ -59,7 +59,7 @@ class DevOutcomeMemoryService
         ];
         $payload['outcome_memory_hash'] = MissionCanonicalHash::sha256($payload);
 
-        $envelope = app(\App\Services\Ai\AcosMax\OutcomeEnvelopeBridge::class)
+        $envelope = app(\App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge::class)
             ->project('dev_procedural', $payload, [
                 'provider' => $input['provider'] ?? null,
                 'task_category' => 'dev',

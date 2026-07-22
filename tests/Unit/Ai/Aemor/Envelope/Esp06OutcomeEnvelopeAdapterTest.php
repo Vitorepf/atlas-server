@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AcosMax;
+namespace Tests\Unit\Ai\Aemor\Envelope;
 
-use App\Services\Ai\AcosMax\AemorOutcomeEnvelopeAdapter;
-use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
-use App\Services\Ai\AcosMax\DevProceduralOutcomeEnvelopeAdapter;
-use App\Services\Ai\AcosMax\OutcomeEnvelope;
-use App\Services\Ai\AcosMax\OutcomeEnvelopeBridge;
+use App\Services\Ai\Aemor\Envelope\AemorOutcomeEnvelopeAdapter;
+use App\Services\Ai\Aemor\Envelope\CompoundingOutcomeEnvelopeAdapter;
+use App\Services\Ai\Aemor\Envelope\DevProceduralOutcomeEnvelopeAdapter;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelope;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
@@ -189,5 +189,39 @@ final class Esp06OutcomeEnvelopeAdapterTest extends TestCase
         $registry = app(\App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry::class);
         $this->assertContains('ESP-06', $registry->sliceIds());
         $this->assertContains(OutcomeEnvelopeBridge::MEASURE_ID, $registry->seriesIds());
+    }
+
+    public function test_outcome_envelope_owners_must_be_canonical_aemor_envelope_in_m3a(): void
+    {
+        foreach ([
+            'App\\Services\\Ai\\Aemor\\Envelope\\OutcomeEnvelope',
+            'App\\Services\\Ai\\Aemor\\Envelope\\OutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\Aemor\\Envelope\\OutcomeEnvelopeBridge',
+            'App\\Services\\Ai\\Aemor\\Envelope\\AemorOutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\Aemor\\Envelope\\CompoundingOutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\Aemor\\Envelope\\DevProceduralOutcomeEnvelopeAdapter',
+        ] as $canonicalFqcn) {
+            $this->assertTrue(
+                class_exists($canonicalFqcn) || interface_exists($canonicalFqcn),
+                $canonicalFqcn.' must resolve from the canonical AEMOR envelope namespace.',
+            );
+        }
+    }
+
+    public function test_legacy_acosmax_envelope_fqcns_remain_autoloadable_during_m3_compatibility_cycle(): void
+    {
+        foreach ([
+            'App\\Services\\Ai\\AcosMax\\OutcomeEnvelope',
+            'App\\Services\\Ai\\AcosMax\\OutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\AcosMax\\OutcomeEnvelopeBridge',
+            'App\\Services\\Ai\\AcosMax\\AemorOutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\AcosMax\\CompoundingOutcomeEnvelopeAdapter',
+            'App\\Services\\Ai\\AcosMax\\DevProceduralOutcomeEnvelopeAdapter',
+        ] as $legacyFqcn) {
+            $this->assertTrue(
+                class_exists($legacyFqcn) || interface_exists($legacyFqcn),
+                $legacyFqcn.' must remain autoloadable through M3 compatibility.',
+            );
+        }
     }
 }

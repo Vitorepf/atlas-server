@@ -6,6 +6,7 @@ namespace App\Services\Ai\AcosMax;
 
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideReplayDivergenceService;

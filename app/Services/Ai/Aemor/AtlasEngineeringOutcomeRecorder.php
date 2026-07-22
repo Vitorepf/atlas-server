@@ -242,7 +242,7 @@ class AtlasEngineeringOutcomeRecorder
             'outcome_contract_v2' => $contractV2,
         ];
 
-        $envelope = app(\App\Services\Ai\AcosMax\OutcomeEnvelopeBridge::class)->project('aemor', $input, [
+        $envelope = app(\App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge::class)->project('aemor', $input, [
             'executor' => $executor,
             'episode_id' => $episodeId,
             'outcome_contract_v2' => $contractV2,

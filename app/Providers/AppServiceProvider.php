@@ -102,6 +102,7 @@ use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
+use App\Services\Ai\AcosMaxNamespaceAlias;
 use App\Services\Ai\CognitiveNamespaceAlias;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
@@ -249,6 +250,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        AcosMaxNamespaceAlias::register();
         CognitiveNamespaceAlias::register();
 
         $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
