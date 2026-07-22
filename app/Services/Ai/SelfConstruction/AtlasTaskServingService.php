@@ -741,6 +741,17 @@ final class AtlasTaskServingService
             }
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
+            if ((string) ($resolved['event'] ?? '') !== 'task_resolved') {
+                return $this->reportEnvelope('settlement_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'task_settlement_failed',
+                    'commit' => $commit,
+                    'settlement' => $resolved,
+                ]);
+            }
 
             // DIARIO-3 — the scoped commit that just landed on the local main IS an
             // auto-merge; label it in the Evolution Diary in the SAME act, reversible

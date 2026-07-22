@@ -95,7 +95,11 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
     }
 
     /** Real committer against a throwaway repo, fake verifier runner (always ok), inert governance. */
-    private function servingService(\Closure $evidenceContractEvaluator, ?AtlasTaskGovernancePolicyPlane $policyPlane = null): AtlasTaskServingService
+    private function servingService(
+        \Closure $evidenceContractEvaluator,
+        ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
+        bool $bindSettlementRepository = true,
+    ): AtlasTaskServingService
     {
         $verifier = new AtlasTaskCommitVerificationGate(
             $this->repo,
@@ -103,7 +107,7 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         );
 
         return new AtlasTaskServingService(
-            orchestrator: $this->orchestrator(),
+            orchestrator: $this->orchestrator($bindSettlementRepository ? $this->repo : null),
             sentinel: null,
             inspector: null,
             committer: new AtlasTaskScopedCommitter(null, $this->repo),
@@ -184,6 +188,28 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
 
         $this->assertSame('resolved', $result['status']);
         $this->assertSame($passingVerdict, $result['evidence_contract']);
+    }
+
+    public function test_landed_commit_with_blocked_settlement_is_not_reported_as_resolved(): void
+    {
+        $served = $this->servedTask('evctr-settlement-blocked');
+        $passingVerdict = ['schema' => AtlasVerificationCourtEvidenceContract::SCHEMA, 'accepted' => true, 'blockers' => []];
+        $serving = $this->servingService(
+            static fn (array $allegation, array $evidence): array => $passingVerdict,
+            new AtlasTaskGovernancePolicyPlane(['evidence_contract_mode' => 'enforce']),
+            bindSettlementRepository: false,
+        );
+
+        $result = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], [
+            'outcome' => 'success',
+            'commit' => true,
+        ]);
+
+        $this->assertSame('settlement_failed', $result['status']);
+        $this->assertSame('task_settlement_failed', $result['reason']);
+        $this->assertFalse($result['lease_closed']);
+        $this->assertSame('resolve_blocked', $result['settlement']['event']);
+        $this->assertSame('commit_not_found', $result['settlement']['reason']);
     }
 
     // ── (c) off mode skips evaluation entirely ────────────────────────────────
@@ -267,7 +293,7 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
             fn (array $cmd, string $cwd, float $timeout): array => ['ran' => true, 'ok' => true, 'out' => ''],
         );
         $serving = new AtlasTaskServingService(
-            orchestrator: $this->orchestrator(),
+            orchestrator: $this->orchestrator($this->repo),
             sentinel: null,
             inspector: null,
             committer: new AtlasTaskScopedCommitter(null, $this->repo),
