@@ -680,30 +680,34 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
 
     public function test_mark_resolved_duplicate_replays_after_first_resolve(): void
     {
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-dup')]);
+        $input = $this->input('resolve-dup');
+        $proof = $this->committedTaskProof('resolve-dup', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-dup');
         $leaseId = (string) $claim['lease_id'];
 
-        $first = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
+        $first = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', $proof['commit_sha']);
         $this->assertSame('task_resolved', $first['event']);
 
-        $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
+        $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', $proof['commit_sha']);
         $this->assertSame('task_resolved', $second['event']);
         $this->assertTrue((bool) ($second['replayed'] ?? false));
     }
 
-    public function test_mark_resolved_replay_with_different_commit_is_blocked(): void
+    public function test_mark_resolved_replay_with_an_invalid_different_commit_is_blocked(): void
     {
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-drift')]);
+        $input = $this->input('resolve-drift');
+        $proof = $this->committedTaskProof('resolve-drift', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-drift');
 
-        $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', 'abc123');
-        $replay = $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', 'different');
+        $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', $proof['commit_sha']);
+        $replay = $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', str_repeat('d', 40));
 
         $this->assertSame('resolve_blocked', $replay['event']);
-        $this->assertSame('task_already_resolved_with_different_commit', $replay['reason']);
+        $this->assertSame('commit_not_found', $replay['reason']);
     }
 
     public function test_orchestrator_idempotent_enqueue(): void

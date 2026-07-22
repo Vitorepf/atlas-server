@@ -659,18 +659,70 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         }
     }
 
-    public function test_mark_resolved_duplicate_is_blocked_after_first_resolve(): void
+    public function test_mark_resolved_duplicate_replays_after_first_resolve(): void
     {
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-dup')]);
+        $input = $this->input('resolve-dup');
+        $proof = $this->committedTaskProof('resolve-dup', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-dup');
         $leaseId = (string) $claim['lease_id'];
 
-        $first = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
+        $first = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', $proof['commit_sha']);
         $this->assertSame('task_resolved', $first['event']);
 
-        $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
-        $this->assertSame('resolve_blocked', $second['event']);
+        $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', $proof['commit_sha']);
+        $this->assertSame('task_resolved', $second['event']);
+        $this->assertTrue((bool) $second['replayed']);
+    }
+
+    public function test_mark_resolved_rejects_an_arbitrary_commit_identifier_without_releasing_the_lease(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-unverified-commit')]);
+        $claim = $svc->claimNext('agent-unverified-commit');
+
+        $blocked = $svc->markResolved(
+            'resolve-unverified-commit',
+            (string) $claim['lease_id'],
+            'agent-unverified-commit',
+            'abc123',
+        );
+
+        $this->assertSame('resolve_blocked', $blocked['event']);
+        $this->assertSame('commit_sha_invalid', $blocked['reason']);
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('resolve-unverified-commit')['status']);
+        $this->assertNotNull((new AgentControlPlaneClaimLeaseRepository)->get((string) $claim['lease_id']));
+    }
+
+    public function test_mark_resolved_rejects_a_reachable_commit_that_changes_files_outside_the_packet_scope(): void
+    {
+        $input = $this->input('resolve-wrong-scope');
+        $proof = $this->committedTaskProof('resolve-wrong-scope', ['app/Services/Ai/SelfConstruction/other.php']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
+        $claim = $svc->claimNext('agent-wrong-scope');
+
+        $blocked = $svc->markResolved('resolve-wrong-scope', (string) $claim['lease_id'], 'agent-wrong-scope', $proof['commit_sha']);
+
+        $this->assertSame('resolve_blocked', $blocked['event']);
+        $this->assertSame('commit_changed_files_outside_scope', $blocked['reason']);
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('resolve-wrong-scope')['status']);
+    }
+
+    public function test_mark_resolved_rejects_a_reachable_scoped_commit_without_the_packet_binding(): void
+    {
+        $input = $this->input('resolve-task-binding');
+        $proof = $this->committedTaskProof('another-packet', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
+        $claim = $svc->claimNext('agent-task-binding');
+
+        $blocked = $svc->markResolved('resolve-task-binding', (string) $claim['lease_id'], 'agent-task-binding', $proof['commit_sha']);
+
+        $this->assertSame('resolve_blocked', $blocked['event']);
+        $this->assertSame('commit_task_binding_missing', $blocked['reason']);
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('resolve-task-binding')['status']);
     }
 
     public function test_orchestrator_idempotent_enqueue(): void

@@ -173,10 +173,12 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         @unlink($receiptsPath);
 
         // Real resolution through the funnel: claim + lease-validated commit.
-        $orch = $this->orchestrator();
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('exemplar-source')]);
+        $sourceInput = $this->input('exemplar-source');
+        $proof = $this->committedTaskProof('exemplar-source', $sourceInput['allowed_files']);
+        $orch = $this->orchestrator($proof['repository']);
+        $orch->prepareAndEnqueue(['task_packet' => $sourceInput]);
         $claim = $orch->claimNext('agent-exemplar');
-        $orch->markResolved('exemplar-source', (string) $claim['lease_id'], 'agent-exemplar', 'abc123ex');
+        $orch->markResolved('exemplar-source', (string) $claim['lease_id'], 'agent-exemplar', $proof['commit_sha']);
 
         // A NEW task in the same directory (different file) is served the exemplar.
         $orch->prepareAndEnqueue(['task_packet' => $this->input('exemplar-consumer')]);
@@ -185,7 +187,7 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         self::assertSame('served', $res['status']);
         self::assertCount(1, $res['task']['green_run_exemplars']);
         self::assertSame('exemplar-source', $res['task']['green_run_exemplars'][0]['task_packet_id']);
-        self::assertSame('abc123ex', $res['task']['green_run_exemplars'][0]['commit_sha']);
+        self::assertSame($proof['commit_sha'], $res['task']['green_run_exemplars'][0]['commit_sha']);
         self::assertNotSame('', $res['task']['green_run_exemplars'][0]['objective_excerpt']);
 
         @unlink($receiptsPath);

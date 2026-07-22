@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearn
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -45,6 +46,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
         private readonly AgentControlPlaneClaimLeaseRepository $leases,
         private readonly AgentControlPlaneEvidenceLedgerDryRun $evidence,
         private readonly AgentControlPlaneContinuationSummaryBuilder $continuation,
+        private readonly ?string $commitRepositoryRoot = null,
     ) {}
 
     /**
@@ -1587,9 +1589,9 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
     /**
      * Shared-main RESOLVE close: after the scoped commit landed the work, release the lease and move the queue
-     * record to its terminal `completed_dry_run` state, recording the commit SHA. The evidence gate of
-     * {@see completeDryRun} is bypassed here because the COMMIT itself is the proof of work (the AI ran its
-     * gates before reporting — see the runbook); the scope was enforced by {@see AtlasTaskScopedCommitter}.
+     * record to its terminal `completed_dry_run` state, recording a canonical SHA. The commit must be reachable
+     * from HEAD, carry the packet's Atlas-Task trailer, and change only the packet's allowed files before this
+     * terminal owner accepts it; {@see completeDryRun} remains the evidence path for non-commit completions.
      *
      * @return array<string, mixed>
      */
@@ -1598,6 +1600,41 @@ final class AgentControlPlaneTaskQueueOrchestrator
         $queueRecord = $this->queue->get($taskPacketId);
         if ($queueRecord === null) {
             return $this->envelope('resolve_blocked', ['reason' => 'task_packet_not_found', 'task_packet_id' => $taskPacketId]);
+        }
+
+        if (preg_match('/^[a-f0-9]{40,64}$/i', $commitSha) !== 1) {
+            return $this->envelope('resolve_blocked', ['reason' => 'commit_sha_invalid', 'task_packet_id' => $taskPacketId]);
+        }
+
+        $repo = $this->commitRepositoryRoot ?? base_path();
+        $resolve = new Process(['git', 'rev-parse', '--verify', $commitSha.'^{commit}'], $repo);
+        $resolve->setTimeout(3);
+        $resolve->run();
+        if (! $resolve->isSuccessful()) {
+            return $this->envelope('resolve_blocked', ['reason' => 'commit_not_found', 'task_packet_id' => $taskPacketId]);
+        }
+        $commitSha = trim($resolve->getOutput());
+
+        $ancestor = new Process(['git', 'merge-base', '--is-ancestor', $commitSha, 'HEAD'], $repo);
+        $ancestor->setTimeout(3);
+        $ancestor->run();
+        if (! $ancestor->isSuccessful()) {
+            return $this->envelope('resolve_blocked', ['reason' => 'commit_not_reachable_from_head', 'task_packet_id' => $taskPacketId]);
+        }
+
+        $message = new Process(['git', 'show', '-s', '--format=%B', $commitSha], $repo);
+        $message->setTimeout(3);
+        $message->run();
+        if (! $message->isSuccessful() || ! str_contains($message->getOutput(), 'Atlas-Task: '.$taskPacketId)) {
+            return $this->envelope('resolve_blocked', ['reason' => 'commit_task_binding_missing', 'task_packet_id' => $taskPacketId]);
+        }
+
+        $changedFiles = new Process(['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', $commitSha], $repo);
+        $changedFiles->setTimeout(3);
+        $changedFiles->run();
+        $outsideScope = array_values(array_diff(array_filter(explode("\n", trim($changedFiles->getOutput()))), $this->allowedFilesForRecord($queueRecord)));
+        if (! $changedFiles->isSuccessful() || $outsideScope !== []) {
+            return $this->envelope('resolve_blocked', ['reason' => 'commit_changed_files_outside_scope', 'task_packet_id' => $taskPacketId]);
         }
 
         // A daemon/provider retry may arrive after the first resolve released

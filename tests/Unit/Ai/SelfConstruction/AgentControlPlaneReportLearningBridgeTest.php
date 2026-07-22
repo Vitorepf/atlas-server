@@ -78,11 +78,13 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
 
     public function test_resolved_report_produces_a_success_fact(): void
     {
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input('bridge-resolved')]);
+        $input = $this->input('bridge-resolved');
+        $proof = $this->committedTaskProof('bridge-resolved', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-resolved');
 
-        $result = $svc->markResolved('bridge-resolved', (string) $claim['lease_id'], 'agent-resolved', 'abc123def');
+        $result = $svc->markResolved('bridge-resolved', (string) $claim['lease_id'], 'agent-resolved', $proof['commit_sha']);
 
         $this->assertSame('task_resolved', $result['event']);
         $this->assertArrayHasKey('learning_bridge', $result);
@@ -111,11 +113,13 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
     public function test_resolved_report_carries_the_r125_outcome_proofs_and_reaches_the_gate(): void
     {
         $id = 'bridge-ledger-'.substr(bin2hex(random_bytes(6)), 0, 10);
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input($id)]);
+        $input = $this->input($id);
+        $proof = $this->committedTaskProof($id, $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-ledger');
 
-        $result = $svc->markResolved($id, (string) $claim['lease_id'], 'agent-ledger', 'abc123def');
+        $result = $svc->markResolved($id, (string) $claim['lease_id'], 'agent-ledger', $proof['commit_sha']);
 
         $bridge = $result['learning_bridge'];
         $fact = $bridge['fact'];
@@ -219,8 +223,10 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
 
     public function test_learning_side_exception_leaves_report_envelope_intact_with_learning_bridge_error(): void
     {
-        $svc = $this->orchestrator();
-        $svc->prepareAndEnqueue(['task_packet' => $this->input('bridge-exception')]);
+        $input = $this->input('bridge-exception');
+        $proof = $this->committedTaskProof('bridge-exception', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
         $claim = $svc->claimNext('agent-exception');
 
         // Corrupt the persisted queue record's objective into a non-string (array) — a real
@@ -231,11 +237,11 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
         $record['task_packet']['objective'] = ['not', 'a', 'string'];
         Storage::disk('local')->put($path, json_encode($record));
 
-        $result = $svc->markResolved('bridge-exception', (string) $claim['lease_id'], 'agent-exception', 'deadbeef');
+        $result = $svc->markResolved('bridge-exception', (string) $claim['lease_id'], 'agent-exception', $proof['commit_sha']);
 
         $this->assertSame('task_resolved', $result['event']);
         $this->assertSame('bridge-exception', $result['task_packet_id']);
-        $this->assertSame('deadbeef', $result['commit_sha']);
+        $this->assertSame($proof['commit_sha'], $result['commit_sha']);
         $this->assertArrayHasKey('learning_bridge', $result);
         $this->assertSame('error', $result['learning_bridge']['status']);
         $this->assertNotEmpty($result['learning_bridge']['error']);
