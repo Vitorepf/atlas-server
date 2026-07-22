@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 15
+files_scanned: 16
 files_total: 1210
-lines_scanned: 104205
+lines_scanned: 105803
 ```
 
 ## Files
@@ -3130,12 +3130,280 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+loc: 1598
+kind: read_only_operator_digest_god_projector_and_terminal_fleet_policy_surface
+intent_axes: [2, 3, 6, 7, 14, 16, 17, 18, 20, 21, 22, 24, 25, 26, 27, 28, 29, 33, 35, 36, 37, 38, 40, 42, 49, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0147
+    type: godfile
+    severity: s1
+    detail: "A read-only health digest has grown to 1,598 LOC and 33 methods while owning queue/lease health, worker eligibility, muscle supply, launch and replenishment policy, recovery/resume, evidence review, operator handoff, lane isolation, cycle supervision, runbook synthesis, end-to-end contract certification, command rendering, and ten independently hashed schemas. This is an operator decision OS, not a compact digest."
+    evidence:
+      - "wc -l => 1,598; source bytes => 82,046"
+      - "3 public methods including constructor plus 30 private methods"
+      - "digest lines 56-316 builds ten nested policy/read-model surfaces before returning"
+      - "25 app files and 2 test files reference the class"
+  - id: A1-SC-0148
+    type: false_abstraction
+    severity: s1
+    detail: "The recent extraction moved small mechanics but preserved the parent as the only real owner and sole application consumer. CommandComposer, PayloadNormalizer, and QueueReader are reached through forwarding wrappers; two lazy helpers write undeclared properties back onto the god object. The result adds hops and lifecycle state without separating any terminal-loop decision authority."
+    evidence:
+      - "commands/queueTagArgs/safeCommandToken wrappers remain at lines 1423-1438"
+      - "count/list/string/hash forwarding wrappers remain at lines 1458-1581"
+      - "each of the three extracted helper classes has exactly one application consumer besides its own declaration"
+      - "git history has only two source commits, with the latest named Refactor Autonomos readiness surfaces"
+  - id: A1-SC-0149
+    type: bug
+    severity: s1
+    detail: "The lazy helper factories assign commandComposer and payloadNormalizer properties that are never declared. On the repository's PHP 8.5.5 runtime each first access emits E_DEPRECATED dynamic-property creation; Laravel's focused tests hide the warning, so ordinary digest calls silently accumulate runtime debt that will become a hard incompatibility as PHP removes dynamic properties."
+    evidence:
+      - "constructor lines 47-50 declares only queue and recovery"
+      - "lines 1441-1443 assign $this->commandComposer with no property declaration"
+      - "lines 1584-1586 assign $this->payloadNormalizer with no property declaration"
+      - "isolated error-handler probe emitted severity 8192 for both dynamic property creations on PHP 8.5.5"
+  - id: A1-SC-0150
+    type: bug
+    severity: s1
+    detail: "One digest is assembled from many independently reloaded live queue and lease views with no snapshot id, lock, version, or before/after consistency check. A concurrent claim, completion, recovery, or enqueue can make counts, eligibility, evidence, launch advice, and hashes describe different moments. Even without concurrency, terminal_task_count is global while the neighboring claimable/claimed/recovery fields are lane-filtered."
+    evidence:
+      - "lines 68-104 mix queue registry, recoverability, five count reads, and worker eligibility"
+      - "lines 155-199 derive eight downstream projections after additional queue reads"
+      - "queue repository list() reloads registry then reads each matching task file at lines 179-213"
+      - "line 99 derives terminal count from global registry status_counts; fleet resume rollup lines 748-779 filters by requested tags"
+      - "no snapshot/version/fingerprint validation exists before the final hash at line 314"
+  - id: A1-SC-0151
+    type: perf
+    severity: s1
+    detail: "A single digest performs at least 17 queue list scans plus one direct registry load before projection work: five count scans, seven recoverability scans, four eligibility scans, and one completed-evidence scan. Every list reloads registry.json and reads every matching task file; recoverability also fetches a lease per classified record. Cost therefore scales as repeated full filesystem passes rather than one bounded snapshot."
+    evidence:
+      - "digest lines 68 and 73-98: one registry plus five count/list reads"
+      - "inspectRecoverability lines 518-528 of AgentControlPlaneTaskLeaseRecoveryService performs seven status lists"
+      - "workerTaskEligibility lines 1476-1486 performs four more status lists"
+      - "fleetEvidenceRollup line 868 performs one completed_dry_run list"
+      - "AgentControlPlaneTaskPacketQueueRepository::list lines 181-207 loads registry and task files per invocation"
+  - id: A1-SC-0152
+    type: bug
+    severity: s1
+    detail: "Two decision surfaces contradict each other for ordinary partial supply. recommendedAction says replenish whenever claimable_count is below target, while muscleSupplyState selects pull_now whenever any claimable packet exists before it considers the target. A terminal reading the compact muscle surface can claim immediately while the canonical loop decision and replenishment/launch projections instruct it to replenish and block launch."
+    evidence:
+      - "recommendedAction lines 1335-1339 checks below-target before positive supply"
+      - "muscleSupplyState lines 1368-1374 checks positive supply before below-target replenishment"
+      - "controlled reflection probe with claimable=1,target=3 returned [replenish_task_supply,pull_now]"
+      - "unit tests assert each surface separately but never assert their cross-surface consistency"
+  - id: A1-SC-0153
+    type: bug
+    severity: s2
+    detail: "muscleSupplyState calls reap_recoverable the next safe action but excludes it from the wait/action-detail states. The compact surface therefore omits wait_reason, recovery command, and explanation precisely when stale/orphaned work must be recovered before another claim."
+    evidence:
+      - "line 1370 selects reap_recoverable"
+      - "line 1377 waitStates contains only blocked_by_eligibility, replenish, and wait_for_workers"
+      - "lines 1389-1391 return immediately for reap_recoverable"
+      - "controlled probe confirmed reap_has_wait_reason=false"
+  - id: A1-SC-0154
+    type: bug
+    severity: s1
+    detail: "Operator handoff and cycle supervisor encode incompatible priorities for the same snapshot. Handoff chooses replenishment and then launch before evidence review; the supervisor chooses evidence review before replenishment and launch. When completed evidence is ready alongside launchable or under-target supply, the digest exposes two different primary next actions and hashes both as authoritative."
+    evidence:
+      - "fleetOperatorHandoff priority is resume -> replenish -> launch -> evidence at lines 663-678"
+      - "terminalLoopCycleSupervisor priority is resume -> evidence -> replenish -> launch at lines 457-476"
+      - "handoff ordered sequence lines 690-696 also puts launch before evidence review"
+      - "controlled same-snapshot probe returned start_recommended_terminal_workers versus review_completed_dry_run_evidence_and_rerun_digest"
+  - id: A1-SC-0155
+    type: security
+    severity: s0
+    detail: "The evidence rollup treats a completed receipt as valid from self-declared booleans/status plus two 64-hex shapes. It never recomputes receipt_hash, evidence_hash, evidence_digest, or evidence_validation_hash, never binds them back to the task/lease/payload, and even accepts any non-empty receipt_hash into the rollup. A forged or tampered queue task file can therefore be counted green and ready_for_operator_review."
+    evidence:
+      - "validity predicate lines 891-897 trusts structured_completion_evidence_valid and evidence_validation_status"
+      - "only evidence_hash and evidence_digest receive regex shape checks; receipt_hash and evidence_validation_hash are not verified"
+      - "ready_for_operator_review becomes true solely from completed count and zero local attention at lines 920-935"
+      - "the sole positive evidence test lines 603-645 constructs a valid receipt; no tamper, forged hash, task-binding, lease-binding, or rehash test exists"
+  - id: A1-SC-0156
+    type: bug
+    severity: s1
+    detail: "The advertised six-terminal parallel safety cap ignores work already leased. safe_to_start_new_worker has no active-lease ceiling, and fleetLaunchPlan recommends up to six new terminals from claimable supply alone while separately reporting active_lease_count. Six active leases plus six recommended launches can therefore yield twelve workers under a contract that states max_safe_parallel_terminals=6."
+    evidence:
+      - "safeToStartNewWorker lines 127-129 ignores activeLeaseCount"
+      - "recommendedTerminalCount lines 1070-1072 ignores activeLeaseCount"
+      - "cycle supervisor hard-codes max_safe_parallel_terminals=6 at line 518"
+      - "controlled probe with 6 active leases and 6 claimable tasks recommended 6 additional terminals, total 12"
+  - id: A1-SC-0157
+    type: bug
+    severity: s1
+    detail: "max_new_tasks=0 does not suppress replenishment. With a supply gap, the plan reports fleet_replenishment_required and should_replenish_now=true while bounded_new_task_count is zero and the returned command carries --max-new-tasks=0. Handoff and supervisor can repeatedly select a guaranteed no-op replenishment command even though max_new_tasks_zero appears only as a textual stop condition."
+    evidence:
+      - "lines 987-992 compute shouldReplenishNow without maxNewTasks or boundedNewTaskCount"
+      - "line 1004 publishes should_replenish_now=true independently of the zero bound"
+      - "max_new_tasks_zero is merely listed at line 1032"
+      - "controlled probe returned required_new_task_count=3, bounded_new_task_count=0, status=fleet_replenishment_required"
+  - id: A1-SC-0158
+    type: doc_lie
+    severity: s1
+    detail: "The lease leak diagnostic does not detect a leak. It is activated solely by the caller-provided health_flags.lease_leak_detected boolean, then invents queue pressure, worker impact, likely cause, and healing language from aggregate counts. A caller can make a healthy empty system report a ghost leak, while a real unflagged mismatch receives no diagnostic."
+    evidence:
+      - "lines 62-63 trust the options health flag as the complete detector"
+      - "lines 236-249 project a likely cause without a parity/integrity computation"
+      - "unit tests lines 183-233 supply true/false manually and assert shape, not detection accuracy"
+      - "no claim-lease parity result or provenance is passed into the diagnostic"
+  - id: A1-SC-0159
+    type: doc_lie
+    severity: s1
+    detail: "terminal_loop_end_to_end_contract_available certifies surface presence, string fragments, declared schema names, array keys, and self-declared false capability flags—not an end-to-end loop. It does not execute, verify receipts, prove state transitions, bind one snapshot, or validate command outcomes, yet publishes all_required_surfaces_present and eight capability names. The empty-queue test accepts this vanity-green contract."
+    evidence:
+      - "checks lines 345-375 are presence/string/field/boolean assertions"
+      - "status and all_required_surfaces_present lines 378-395 derive only from those self-descriptions"
+      - "empty queue feature test asserts contract_available with zero work/evidence"
+      - "the contract explicitly cannot execute, replenish, recover, claim, complete, call providers, or spend tokens at lines 418-424"
+  - id: A1-SC-0160
+    type: test_gap
+    severity: s1
+    detail: "The two direct test files total 1,028 LOC but do not characterize atomic snapshots, cross-surface agreement, forged/tampered receipts, active-lease-aware capacity, max_new_tasks=0, real leak detection, or dynamic-property warnings. The current focused run is already red in seven feature cases because upstream enqueue/claim/completion contracts drifted, while the 15-test unit suite stays green by exercising projections in isolation. There is no trustworthy green baseline for a split."
+    evidence:
+      - "focused direct run => 7 failed / 22 passed / 281 assertions / 1.57s"
+      - "focused real time => 1.97s; maximum RSS => 170,409,984 bytes"
+      - "feature failures include expected ready versus action_required, wrong unfiltered count, second claim no_claimable_task, blocked fleet plan, and complete_dry_run_blocked"
+      - "unit-only run with --display-deprecations => 15 passed / 47 assertions and still did not surface the two E_DEPRECATED writes"
+  - id: A1-SC-0161
+    type: os_overlap
+    severity: s0
+    detail: "This digest recreates a terminal fleet operating system beside the Agent Control Plane queue/orchestrator, lease recovery owner, worker bootstrap, auto-replenishment, multi-agent certification, operational proof, and readiness projections. It re-decides eligibility, recovery order, supply policy, concurrency, evidence truth, lane sovereignty, lifecycle transitions, operator handoff, and completion language instead of consuming one canonical state-machine verdict."
+    evidence:
+      - "ten public schema constants span health, launch, replenish, resume, evidence, handoff, lane, supervisor, runbook, and end-to-end contract"
+      - "the class calls queue/recovery owners but reimplements their cross-domain policy locally"
+      - "next commands invoke separate bootstrap, replenishment, recovery, eligibility, queue, lease, and certification surfaces"
+      - "contradictory internal action priorities prove there is no single terminal-loop transition authority"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Before structural work, define one immutable TerminalLoopSnapshot and one fail-closed decision ordering. Recompute and bind evidence through the canonical receipt verifier, subtract active leases from capacity, make zero replenishment capacity a blocked state, and derive leak diagnostics from measured queue/lease parity."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskLeaseRecoveryService.php
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+    acceptance:
+      - "every nested surface carries one queue/lease snapshot id and rejects drift"
+      - "one canonical next action is shared by muscle, handoff, supervisor, and runbook"
+      - "operator-review-ready requires canonical receipt/evidence revalidation and task/lease binding"
+      - "active plus newly recommended terminals never exceeds the configured cap"
+  - op: TEST
+    detail: "Build a characterization and adversarial matrix before splitting: concurrent mutation between reads, partial supply, evidence plus launch/replenishment collisions, recoverable muscle guidance, forged receipts, altered hashes/payload/task/lease, active leases at cap, max-new zero, measured lease parity, corrupt registry/task files, and PHP deprecations. Repair the seven currently red direct feature cases first."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+    acceptance:
+      - "direct focused suite is green before extraction"
+      - "every output surface agrees on action, capacity, evidence validity, and snapshot provenance"
+      - "tampered or unbound evidence is fail-closed"
+      - "warnings/deprecations fail the focused suite"
+  - op: SPLIT
+    detail: "Split the 1,598-LOC projector into a thin digest facade over TerminalLoopSnapshotReader, TerminalLoopDecisionPolicy, FleetCapacityPolicy, EvidenceReviewProjection, RecoveryResumeProjection, and OperatorCommandProjection. Keep the compatibility facade below 250 LOC; each owner receives immutable typed input rather than querying repositories."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoop
+    acceptance:
+      - "one repository pass produces one immutable snapshot"
+      - "no projector performs I/O or chooses a competing next-action order"
+      - "no new class exceeds 500 LOC and the facade stays below 250 LOC"
+  - op: OWNER
+    detail: "Assign one canonical owner each for snapshot acquisition, terminal-loop transition policy, fleet capacity, receipt integrity, lane binding, command rendering, and operator projection. Reuse the existing queue, lease, completion, replenishment, and bootstrap authorities rather than restating their laws in the digest."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "each rule maps to one Class::method authority"
+      - "health surfaces consume verdicts and never certify their own dependencies"
+  - op: EXTRACT
+    detail: "Extract typed TerminalLoopSnapshot, TerminalLoopAction enum, FleetCapacity, EvidenceReviewVerdict, LaneBinding, and OperatorCommandSet. Include snapshot version/time, normalized tags, canonical receipt verification facts, and length-framed deterministic hashes."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoop
+    acceptance:
+      - "static analysis rejects missing snapshot, capacity, or evidence-integrity fields"
+      - "hashes bind canonical content and snapshot provenance, not self-declared status strings"
+  - op: RENAME
+    detail: "Rename health and contract surfaces to their actual roles: read-model snapshot, advisory plan, or operator command projection. Reserve verified, safe, end-to-end, and contract for outcomes backed by executable checks and canonical evidence."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+    acceptance:
+      - "no field name overstates presence checks as runtime proof"
+      - "compatibility aliases have one-cycle removal tests"
+  - op: FUSE
+    detail: "After policy ownership is explicit, fuse the three one-consumer mechanical helpers only where doing so lowers hops, or give them a second real consumer/invariant boundary. Fuse duplicated action ordering into one policy; never fuse snapshot I/O, evidence verification, and rendering into another god coordinator."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoopHealthDigestCommandComposer.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoopHealthDigestPayloadNormalizer.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoopHealthDigestQueueReader.php
+    acceptance:
+      - "zero forwarding-only extraction and zero undeclared lazy properties"
+      - "one transition table drives all advisory surfaces"
+  - op: DELETE
+    detail: "Delete presence-only end-to-end certification, caller-injected leak diagnosis, duplicate surface-local priority chains, repeated repository scans, undeclared helper caches, and textual safety claims that are not derived from executable invariants after characterization and migration."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+    acceptance:
+      - "zero E_DEPRECATED dynamic-property writes"
+      - "zero vanity-green contract or diagnosis from self-declared flags"
+      - "zero conflicting next actions in one digest"
+  - op: CODEMAP
+    detail: "Map the terminal operator path from queue and lease snapshot through recovery, eligibility, replenishment, launch, evidence, handoff, CLI projection, and actual mutating commands. Mark which surfaces are advisory, which own mutation, and the canonical transition/evidence authority."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+    acceptance:
+      - "operator can reach every mutation/evidence owner in at most three hops"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Read registry, task records, and leases once into a bounded immutable snapshot; index records by status/tag/id in memory; cap evidence summaries at the read boundary; and publish query/file-read/bytes/latency/RSS budgets for empty, 100, 1,000, and 10,000-record queues."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/ControlPlane/TerminalLoop
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
+    acceptance:
+      - "one digest performs one versioned queue snapshot and one bounded lease snapshot"
+      - "filesystem reads and wall time do not multiply by number of projected surfaces/statuses"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1598
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: a29edb30e13e4d0276d885c03f815b2d25362d4101157d55a987b02f76945a1a
+  source_bytes: 82046
+  public_method_count_including_constructor: 3
+  public_operation_method_count: 2
+  private_method_count: 30
+  data_get_call_count: 63
+  if_branch_count: 29
+  match_expression_count: 2
+  direct_queue_registry_call_count: 1
+  effective_queue_list_call_count_per_digest: 17
+  effective_queue_registry_load_count_per_digest: 18
+  app_reference_file_count: 25
+  test_reference_file_count: 2
+  referencing_test_loc: 1028
+  focused_test_passed_count: 22
+  focused_test_failed_count: 7
+  focused_test_assertion_count: 281
+  focused_test_duration_seconds: 1.57
+  focused_test_real_seconds: 1.97
+  focused_test_max_rss_bytes: 170409984
+  source_history_commit_count: 2
+  dynamic_property_deprecation_count: 2
+  controlled_action_contradiction_reproduced: true
+  controlled_parallel_cap_violation_reproduced: true
+  controlled_priority_contradiction_reproduced: true
+  controlled_zero_replenishment_capacity_reproduced: true
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 15 / 1210
-- lines_scanned: 104205
-- s0..s3: 65 / 62 / 19 / 0
+- files_scanned: 16 / 1210
+- lines_scanned: 105803
+- s0..s3: 67 / 74 / 20 / 0
 - intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
