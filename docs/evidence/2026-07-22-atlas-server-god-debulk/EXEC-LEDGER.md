@@ -4,37 +4,37 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0104 recorded
+phase: A1-SC-0125 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: fail-closed terminal commit verification
-finding_id: A1-SC-0104
-action_op: test-first canonical Git commit binding
+focus: fail-closed external completion-claim aliases
+finding_id: A1-SC-0125
+action_op: test-first missing-or-malformed policy rejection
 queue_index: 6
-last_commit: e67dd5cc9
+last_commit: c857b4d82
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php tests/Feature/Ai/AtlasTaskServingAuthorNotJudgeTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
-  /opt/homebrew/bin/php -l tests/Concerns/MakesAgentControlPlaneTaskQueueOrchestrator.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --filter=test_readiness_status_and_cli_quartet_exist
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
   git diff --check
 before_after: |
-  red: markResolved accepted abc123, returned task_resolved, released the lease, and moved the queue record to completed_dry_run.
-  green: resolve accepts only canonical commits reachable from HEAD, bound by Atlas-Task trailer to the packet, and whose changed files are wholly within allowed_files.
+  red: a public operator-readiness projection with the real section and an injected owner missing external_completion_claim_policy returned completion-claim aliases as true.
+  green: all fourteen aliases require literal boolean true; missing or malformed owner policy fields project false plus a typed schema violation and field list.
 stdout: |
-  task_queue_feature_and_unit: PASS (100 tests, 479 assertions)
-  broader_related_package: NOT GREEN (3 failures in untouched dry-run learning, worker-behavior recall, and static quarantine-call count paths)
-  php_lint: PASS service plus six changed test files
-  loc_check: task_queue_orchestrator=1971
+  section_boundary: PASS (2 tests, 19 assertions)
+  operator_readiness_facade: PASS (1 test, 129 assertions)
+  final_closure_corridor_facade: NOT COMPLETED (terminated after 3m CPU without a result; no green claim)
+  php_lint: PASS section plus focused test
+  loc_check: readiness_projection_os_evidence_section=1798
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The terminal verifier performs local Git reads only before any queue/lease mutation; it does not call providers or spend tokens.
-  The broader related package is explicitly not accepted as green. The three remaining failures execute operations outside markResolved or inspect AtlasTaskServingService source outside this diff.
-  Strict Pint reports host formatting drift; no broad reformatting was applied.
-  The source is below 2k. A shared-index race placed an older app/test diff in external commit 7d7aa7c35e with subject docs(core); this is a historical label violation, not a claim that this cycle was docs-only.
+  The drift tests call the public section method; Mockery overloads only the hard-wired owner constructor so a missing or malformed nested payload reaches the real facade projection.
+  The five transition aliases use the same literal-true and schema-validation rule; that method reconstructs a deep graph, so a redundant direct probe was removed after exceeding three minutes. A1-SC-0128 already owns that performance debt.
+  Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
+  The source is below 2k.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -332,6 +332,37 @@ verification:
 boundary:
   - local Git reads are completed before any lease release or queue transition
   - no provider call, token spend, or task dispatch
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 16 — A1-SC-0125 fail-closed external completion aliases, 2026-07-22
+
+```yaml
+finding: A1-SC-0125
+commit: c857b4d82
+subject: "refactor(core): GOD-DEBULK fail-close external claim aliases"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+  - tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSectionTest.php
+  result: "FAIL 1 test, 3 assertions: real atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus projected a missing external policy as completion_claim_external_agent_claim_accepted=true."
+green:
+  behavior: "the fourteen operator, final-closure, and Self-Programming aliases accept only literal boolean true. Missing or malformed required predicates project false and emit external_completion_claim_policy_schema_valid=false, a typed violation, and the exact violating fields."
+  characterization: "public section calls with isolated hard-owner overloads cover both an absent policy and malformed fields; no reflection is used by the test."
+verification:
+  section_boundary: "PASS 2 tests, 19 assertions"
+  operator_readiness_facade: "PASS 1 test, 129 assertions"
+  final_closure_corridor_facade: "NOT COMPLETED: focused facade test consumed more than 3m CPU without a result and was stopped; this receipt does not claim it green."
+  php_lint: "PASS section and focused test"
+  loc: "readiness_projection_os_evidence_section=1798 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - read-only projection semantics only
+  - no receipt persistence, dispatch, provider call, token spend, or Self-Programming enablement
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
