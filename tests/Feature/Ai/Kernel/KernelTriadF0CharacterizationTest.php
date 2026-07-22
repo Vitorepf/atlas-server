@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Kernel;
 
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Architecture\KernelArchitectureStaticScanner;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog\EvidenceLedgerHashChainIntegrityVerifier;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -19,6 +23,8 @@ final class KernelTriadF0CharacterizationTest extends TestCase
 
         Schema::dropIfExists('atlas_ledger_events');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+        (require database_path('migrations/2026_07_12_011200_repair_atlas_ledger_events_hash_and_scope_columns.php'))->up();
+        (require database_path('migrations/2026_07_12_021500_add_hash_chain_to_atlas_ledger_events.php'))->up();
     }
 
     protected function tearDown(): void
@@ -33,10 +39,16 @@ final class KernelTriadF0CharacterizationTest extends TestCase
         $report = app(KernelArchitectureStaticScanner::class)->complianceReport();
         $keys = array_values(array_filter(array_keys($report), static fn (string $key): bool => $key !== 'ok'));
 
+        self::assertTrue($report['ok']);
         self::assertCount(166, $keys);
         self::assertSame('c82ec2c090095aa812e2c808066276d794c672a50427b4b84ab04337dc9aa085', hash('sha256', json_encode($keys, JSON_THROW_ON_ERROR)));
         self::assertSame(['ap1_surface_provider_bypass', 'ap2_surface_context_bypass', 'ap6_decision_receipt_propagation'], array_slice($keys, 0, 3));
         self::assertSame(['ap169_personal_worked_example_privacy_contract', 'ap170_predictive_failure_governance_contract', 'ap201_runtime_language_boundary_contract'], array_slice($keys, -3));
+        foreach ($keys as $key) {
+            self::assertSame(['valid', 'violations'], array_keys($report[$key]));
+            self::assertTrue($report[$key]['valid'], $key);
+            self::assertSame([], $report[$key]['violations'], $key);
+        }
     }
 
     public function test_evidence_ledger_public_api_snapshot_also_executes_its_real_write_and_replay_path(): void
@@ -55,8 +67,27 @@ final class KernelTriadF0CharacterizationTest extends TestCase
             'App\\Services\\Ai\\Kernel\\Failure\\FailureClassifier',
             'App\\Services\\Ai\\Kernel\\Failure\\FailureHandlerRegistry',
         ], array_map(static fn (\ReflectionParameter $parameter): string => (string) $parameter->getType(), $constructor->getParameters()));
+        $computeEventHash = $reflection->getMethod('computeEventHash');
+        self::assertTrue($computeEventHash->isStatic());
+        self::assertSame(AtlasEvidenceLedger::class, $computeEventHash->getDeclaringClass()->getName());
 
         $ledger = app(AtlasEvidenceLedger::class);
+        [$firstChained, $secondChained] = $this->recordScopedDecisionEvents($ledger);
+        $storedFirstChained = AtlasLedgerEvent::query()->findOrFail($firstChained->event_id);
+        $storedSecondChained = AtlasLedgerEvent::query()->findOrFail($secondChained->event_id);
+
+        self::assertSame('kernel_triad_f0', $storedSecondChained->scope_type);
+        self::assertSame('receipt-chain', $storedSecondChained->scope_id);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $storedFirstChained->event_hash);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $storedSecondChained->event_hash);
+        self::assertNull($storedFirstChained->prev_event_hash);
+        self::assertSame($storedFirstChained->event_hash, $storedSecondChained->prev_event_hash);
+        self::assertSame(AtlasEvidenceLedger::CHAIN_BASIS_HASH_CHAINED, $storedSecondChained->chain_basis);
+        $integrity = app(EvidenceLedgerHashChainIntegrityVerifier::class)->verifyStoredScopeChain('kernel_triad_f0', 'receipt-chain');
+        self::assertSame('ok', $integrity['status']);
+        self::assertSame(2, $integrity['chain_length']);
+        self::assertSame($storedSecondChained->event_hash, $integrity['chain_head_event_hash']);
+
         $firstReceipt = $this->decisionReceipt('receipt-kernel-f0-1', null, null);
         $first = $ledger->recordDecisionIssued($firstReceipt, ['tenant_id' => 'tenant-kernel-f0', 'operator_id' => 'operator-kernel-f0']);
         $secondReceipt = $this->decisionReceipt('receipt-kernel-f0-2', 'receipt-kernel-f0-1', $firstReceipt['chain_hash']);
@@ -73,6 +104,39 @@ final class KernelTriadF0CharacterizationTest extends TestCase
         self::assertSame(0, $replay['invalid_count']);
         self::assertSame('ok', data_get($replay, 'review_signal.status'));
         self::assertSame($secondReceipt['chain_hash'], $replay['latest_chain_hash']);
+    }
+
+    /**
+     * @return array{0:AtlasLedgerEvent,1:AtlasLedgerEvent}
+     */
+    private function recordScopedDecisionEvents(AtlasEvidenceLedger $ledger): array
+    {
+        $context = [
+            'tenant_id' => 'tenant-kernel-f0',
+            'operator_id' => 'operator-kernel-f0',
+            'correlation_id' => 'kernel-triad-f0-chain',
+            'scope_type' => 'kernel_triad_f0',
+            'scope_id' => 'receipt-chain',
+        ];
+
+        return [
+            $ledger->record(LedgerEventType::DecisionIssued, [
+                'event_name' => 'kernel_triad_f0.chain.1',
+                'decision_hash' => hash('sha256', 'kernel-triad-f0-chain-1'),
+            ], $context + [
+                'event_id' => '01JKERNELTRIADF0CHAIN00000001',
+                'envelope_id' => 'env-kernel-triad-chain-1',
+                'occurred_at' => CarbonImmutable::parse('2026-07-22T19:00:01Z'),
+            ]),
+            $ledger->record(LedgerEventType::DecisionIssued, [
+                'event_name' => 'kernel_triad_f0.chain.2',
+                'decision_hash' => hash('sha256', 'kernel-triad-f0-chain-2'),
+            ], $context + [
+                'event_id' => '01JKERNELTRIADF0CHAIN00000002',
+                'envelope_id' => 'env-kernel-triad-chain-2',
+                'occurred_at' => CarbonImmutable::parse('2026-07-22T19:00:02Z'),
+            ]),
+        ];
     }
 
     /**
