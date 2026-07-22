@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 16
+files_scanned: 17
 files_total: 1210
-lines_scanned: 105803
+lines_scanned: 107237
 ```
 
 ## Files
@@ -3398,12 +3398,242 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+loc: 1434
+kind: codex_post_start_gate_status_projection_with_reflective_mother_backchannel
+intent_axes: [1, 2, 3, 6, 7, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 33, 35, 37, 38, 40, 41, 42, 45, 49, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0162
+    type: godfile
+    severity: s1
+    detail: "A nominal readiness section is 1,434 LOC with 11 public methods and owns eight Codex post-start gate status projections plus a preflight, query construction, latest-run projection, runtime policy, next-slice routing, hashes, and human summaries. Its 228-import header alone spans 229 lines. This exceeds the hot façade/projection budget and is not a bounded status owner."
+    evidence:
+      - "wc -l => 1,434; source bytes => 128,618"
+      - "11 public methods, zero private methods"
+      - "eight status methods span roughly 130 LOC each; preflight spans 123 LOC"
+      - "228 use statements occupy lines 7-234"
+  - id: A1-SC-0163
+    type: dead_code
+    severity: s1
+    detail: "Two hundred of 228 imported symbols are never referenced after their import. The extraction copied almost the full mother dependency catalog into a section that uses only 28 symbols, consuming context, hiding the real collaborators, defeating static ownership review, and making every later import change conflict-prone."
+    evidence:
+      - "token-aware import-name probe => 228 imports / 28 used / 200 unused"
+      - "unused set spans models, storage, reservation, queue, certification, runtime registry, NativeImplementation, and dozens of post-start invokers"
+      - "the actual method bodies use AtlasSelfConstructionAgentRun, Schema, eight gate/invoker pairs, adjacent gate types, and stableHash through the mother"
+  - id: A1-SC-0164
+    type: false_abstraction
+    severity: s1
+    detail: "The extraction is circular rather than independent. AtlasSelfConstructionReadinessService forwards nine public methods into this section, but the section sends stableHash and the start-execution contract back through a magic ReflectionMethod call to the mother; cross-section method calls use the same hidden route. An unbound section cannot complete any status method because its hash helper exists only on the mother."
+    evidence:
+      - "parent forwarding methods span lines 17,591-18,038 and its lazy factory setMother wiring is at lines 29,619-29,621"
+      - "section __call lines 250-258 reflects arbitrary missing methods back into the mother"
+      - "stableHash is private only on the mother at lines 29,500-29,503 but is called nine times here"
+      - "preflight line 924 calls a contract implemented in ReadinessProjectionDispatchGateSection via parent forwarding"
+      - "controlled unbound magic call failed with mother not bound for stableHash"
+  - id: A1-SC-0165
+    type: security
+    severity: s0
+    detail: "The public, unallowlisted __call bypasses the mother's visibility boundary. Any caller can instantiate the section, bind an AtlasSelfConstructionReadinessService, and invoke any private mother method through ReflectionMethod::invokeArgs. This is not limited to pure helpers: private syncAgentRunFromReservation performs AtlasSelfConstructionAgentRun::updateOrCreate, so the read-only section is a public reflection backdoor to durable mutation."
+    evidence:
+      - "setMother is public at lines 243-248; __call accepts any name/arguments at lines 250-258"
+      - "there is no allowlist, visibility check, pure-method restriction, or return contract"
+      - "controlled probe successfully invoked private mother stableHash and returned a 64-hex result"
+      - "private mother syncAgentRunFromReservation lines 29,357-29,409 performs updateOrCreate and is reachable through the same mechanism"
+  - id: A1-SC-0166
+    type: bug
+    severity: s1
+    detail: "All eight status methods advertise workspace, target, actor, session, packet, and receipt_hash options but use none of them. Counts and latest-run rows are global, so a scoped CLI/status request can return a run from another workspace/session/packet and counts unrelated to the requested target. The provider label is hard-coded Codex while the observed-run query is not even filtered by provider."
+    evidence:
+      - "method-body probe: eight status methods contain zero $options references; only the preflight passes options onward once"
+      - "docblocks before every status advertise the six scope fields"
+      - "observed queries filter only a JSON metadata path; provider queries filter run_key/status/metadata but no requested scope"
+      - "latest('updated_at')->first() at lines 288-290, 420-422, 552-554, 684-686, 815-817, 1075-1077, 1204-1206, and 1333-1335 is global"
+      - "returned latest payload exposes run id/key, packet id, provider, status, and evidence identifiers"
+  - id: A1-SC-0167
+    type: doc_lie
+    severity: s1
+    detail: "service_ready means only that two tables exist and four class/method pairs autoload. It does not require an observed run, a successful gate result, a valid receipt/hash, compatible schema contents, or any executable probe; the ledger table is never queried at all. A deployment with zero post-start evidence or broken runtime behavior can therefore receive a ready status and a human summary saying the service is ready and inspectable."
+    evidence:
+      - "each $statusReady conjunction uses table booleans plus class_exists/method_exists only"
+      - "recorded counts and latest observed payload are computed after/beside readiness but never participate in it"
+      - "ledgerTableReady is a readiness input in all eight methods despite zero Atlas ledger queries in the file"
+      - "human summaries repeat service is ready and inspectable when the structural conjunction passes"
+  - id: A1-SC-0168
+    type: bug
+    severity: s1
+    detail: "Each status composes its observation from three separate live SQL statements: latest observed row, observed count, and provider-start count. There is no transaction, snapshot time/id, database consistency level, or after-read drift check. Concurrent post-start writes can make the latest payload absent from the reported count or make the two counts and hash describe different states."
+    evidence:
+      - "each observed query is cloned independently for latest()->first() and count()"
+      - "a separate providerRunsWith* query supplies the second count"
+      - "16 ::query, 16 ->count, and 8 ->first occurrences exist in the file"
+      - "no transaction/snapshot/version/updated_at watermark is returned or hashed"
+  - id: A1-SC-0169
+    type: dupe
+    severity: s1
+    detail: "Eight status methods are copy-shaped quartets: two schema probes, four class/method probes, two queries, latest-row mapping, status conjunction, runtime policy, next slice, outer false-capability envelope, non-execution strings, stable hash, and human summary. The only meaningful variation is a descriptor table of names, methods, metadata paths, latest fields, and next slice, but it is expanded into more than one thousand handwritten lines."
+    evidence:
+      - "18 Schema::hasTable, 36 class_exists, 36 method_exists, 9 runtime_policy, 9 non_execution_guarantees, and 9 stableHash occurrences"
+      - "status methods start at lines 265, 397, 529, 661, 792, 1052, 1181, and 1310"
+      - "all repeat provider=codex, adapter=codex, false runtime flags, service-ready/blocked, and near-identical human summaries"
+  - id: A1-SC-0170
+    type: perf
+    severity: s1
+    detail: "Every status call performs two schema introspections, four autoloading class probes, four method probes, two count queries, and one latest-row query. Calling the eight status surfaces for a readiness sweep costs at least 16 schema probes and 24 model queries before downstream aggregation; the preflight recursively calls the process-envelope status and then repeats its own schema probes. No batch snapshot, query budget, cache fingerprint, or projection repository exists."
+    evidence:
+      - "source counts: 18 schema probes, 36 class probes, 36 method probes, 16 count calls, and 8 first calls"
+      - "preflight line 924 calls the parent contract, whose DispatchGate implementation calls the process-envelope status again"
+      - "the only referencing feature test takes 15.54s and peaks at 198,361,088 bytes while repeatedly constructing the wider chain audit"
+  - id: A1-SC-0171
+    type: test_gap
+    severity: s1
+    detail: "No test references the section class directly. One 2,460-LOC chain-integrity test references the long method family indirectly, and its only direct status helper checks one rehearsal status string. It does not cover non-null scope filters, zero-run readiness, provider/workspace isolation, concurrent count/latest drift, reflection visibility bypass, unbound construction, query budgets, or the other seven status payloads; the focused file is currently red in fifteen cases."
+    evidence:
+      - "rg class name in tests => 0 files"
+      - "method-family references => one test file / 2,460 LOC"
+      - "statusReadyForBrokenEdge lines 651-656 checks only ActualProcessStartRehearsalGateStatus status equality"
+      - "focused run => 135 passed / 15 failed / 3 skipped / 565 assertions / 15.54s"
+      - "focused real time => 16.03s; maximum RSS => 198,361,088 bytes"
+  - id: A1-SC-0172
+    type: os_overlap
+    severity: s0
+    detail: "The section models eight additional Codex-specific pseudo-stages between evidence acceptance and a real process start—plan, fresh release, enablement/activation, guarded start, final authorization, rehearsal, envelope, and start execution—while every surface still forbids execution. These duplicate the existing provider driver, invocation authorization, spawn enablement, supervised executor, process-start release, adapter guard, and dispatch authorities, turning readiness into an ever-growing OS chain rather than one provider-neutral process-start state machine."
+    evidence:
+      - "eight status schemas and next_required_slice chains occupy lines 265-1,432"
+      - "the header imports parallel generic, Codex, scheduler-invoker, post-start, and executor variants for the same start concepts"
+      - "all eight status envelopes hard-code actual_process_start_allowed=false and adapter_execution_allowed=false"
+      - "the only source commit is Refactor Autonomos readiness surfaces, yet the extracted section remains 1,434 LOC with a mother backchannel"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Close the reflection authority leak first: replace __call/setMother with explicit typed dependencies and a pure hash collaborator; scope every query by a validated ReadinessScope; define whether readiness means structural availability, observed evidence, or executable health; and load counts/latest from one snapshot."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDispatchGateSection.php
+    acceptance:
+      - "no public path can invoke private mother methods"
+      - "workspace/session/packet/provider filters bind every observed row and count"
+      - "ready status has one falsifiable definition and cannot be green with missing required evidence"
+  - op: TEST
+    detail: "Create direct focused characterization for all eight status methods and preflight: unbound/bound construction, private-method denial, non-null scope isolation, provider filtering, no-run/invalid-run/schema-missing states, concurrent inserts between count/latest, stable hashes, and SQL/schema query budgets. Split the 2,460-LOC chain test and repair its fifteen current failures before extraction."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/ReadinessProjectionPostStartGateStatusSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php
+    acceptance:
+      - "all nine public operation methods have direct success and fail-closed characterization"
+      - "a caller cannot reach syncAgentRunFromReservation or any other private mother method"
+      - "focused chain and section suites are green with published query/RSS/time budgets"
+  - op: SPLIT
+    detail: "Replace the file with a thin PostStartGateStatusProjector below 250 LOC driven by typed descriptors and one scoped PostStartRunSnapshotRepository. Keep preflight policy in its own owner and process-start transition law in one provider-neutral state machine."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/PostStart
+    acceptance:
+      - "one bounded descriptor table replaces eight handwritten status bodies"
+      - "projection has no mother reference, reflection, model query, or schema probe"
+      - "no new owner exceeds 500 LOC"
+  - op: OWNER
+    detail: "Name one owner for process-start transition state, one for scoped run observation, one for structural capability discovery, and one for readiness projection. Provider-specific adapters contribute descriptors/evidence but cannot create parallel lifecycle laws."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/Readiness/PostStart
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "each gate/readiness/query/mutation rule maps to one Class::method owner"
+      - "status projections cannot mutate or reflect into mutation owners"
+  - op: EXTRACT
+    detail: "Extract typed ReadinessScope, PostStartStageDescriptor, PostStartRunSnapshot, StructuralCapabilityVerdict, and PostStartStatusProjection. Represent stage/method/metadata/next-edge data once; return snapshot provenance and canonical failure reasons."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/PostStart
+    acceptance:
+      - "static analysis prevents an ignored scope field or mismatched metadata path"
+      - "latest row and counts share one snapshot watermark"
+  - op: RENAME
+    detail: "Shorten the 100-plus-character method/schema names into a closed vocabulary such as postStartStageStatus(stage, scope), structuralCapability, observedEvidence, and nextTransition. Rename service_ready to structural_surface_available unless runtime/evidence health is actually proven."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+    acceptance:
+      - "method and status names state the proven level, provider scope, and effect honestly"
+      - "one-cycle compatibility aliases have removal tests"
+  - op: FUSE
+    detail: "Fuse the eight duplicated structural/query/envelope templates into one typed projector after ownership split. Fuse parallel process-start stage labels only where they are the same invariant; do not fuse structural discovery, runtime evidence, and mutation."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/PostStart
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "one descriptor-driven implementation covers every stage"
+      - "one provider-neutral transition graph replaces parallel Codex/generic/post-start laws"
+  - op: DELETE
+    detail: "Delete 200 unused imports, public __call, public setMother, circular parent forwards, repeated false-capability envelopes, unused ledger-table readiness checks, and structural-ready wording that lacks observed proof after characterization."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "zero magic reflection and zero unused imports"
+      - "zero duplicated status body and zero unconsumed readiness prerequisite"
+  - op: CODEMAP
+    detail: "Map CLI/readiness callers through the parent facade, stage projector, run observation, evidence/gate authority, and actual process-start mutation. Mark every reflective hop and private mutation currently exposed, then remove those edges."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness
+    acceptance:
+      - "all status and mutation owners are reachable in at most three explicit typed hops"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Batch schema capability once per request/process fingerprint and fetch scoped stage counts plus latest rows in one repository query/window snapshot. Instrument SQL count, schema probes, autoload checks, wall time, and RSS for a full stage sweep."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/PostStart
+      - tests/Unit/Ai/SelfConstruction/ReadinessProjectionPostStartGateStatusSectionTest.php
+    acceptance:
+      - "one full status sweep performs one schema capability read and one bounded scoped data read"
+      - "query count is independent of the number of projected stage envelopes"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1434
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 864999da30df7bb56a5a4ffbb01ff2a58c292020983bbf42fa89882761af438c
+  source_bytes: 128618
+  public_method_count: 11
+  public_operation_method_count: 9
+  private_method_count: 0
+  import_count: 228
+  used_import_count: 28
+  unused_import_count: 200
+  schema_has_table_call_count: 18
+  class_exists_call_count: 36
+  method_exists_call_count: 36
+  model_query_call_count: 16
+  model_count_call_count: 16
+  model_first_call_count: 8
+  data_get_call_count: 118
+  stable_hash_call_count: 9
+  status_methods_ignoring_options_count: 8
+  direct_class_test_reference_file_count: 0
+  method_family_app_reference_file_count: 6
+  method_family_test_reference_file_count: 1
+  referencing_test_loc: 2460
+  focused_test_passed_count: 135
+  focused_test_failed_count: 15
+  focused_test_skipped_count: 3
+  focused_test_assertion_count: 565
+  focused_test_duration_seconds: 15.54
+  focused_test_real_seconds: 16.03
+  focused_test_max_rss_bytes: 198361088
+  source_history_commit_count: 1
+  private_mother_method_exposure_probe_succeeded: true
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 16 / 1210
-- lines_scanned: 105803
-- s0..s3: 67 / 74 / 20 / 0
+- files_scanned: 17 / 1210
+- lines_scanned: 107237
+- s0..s3: 69 / 83 / 20 / 0
 - intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
