@@ -11,18 +11,18 @@
 |---|---|---|---|---|---|---|---|
 | SelfConstruction | 398524 | 1210 | ENG-CORE | KEEP (reestrutura interna) | — | blueprint SelfConstructionReadiness.md draft; MotherCommand ~1.100 rotas wired; 167 consumidores; A1-SC-0001..0043 | proposed |
 | Aaeos | 142211 | 346 | ENG-OS-GEMEAS | KEEP (vivo ~10k) + QUARANTINE 132k | purga da Quarantine = obra separada | 93% do bloco é cemitério VERIFICADO (307 files/132.098 LOC); ⚠ CORREÇÃO ARCH: Brain vivo importa 1 classe da Quarantine (AtlasSourceConnectorsAndCaptureService) — re-home antes de purgar; não é gêmeo do Stewardship (dependência unidirecional, conceitos disjuntos) | proposed |
-| Programming | 131892 | 543 | ENG-CORE | — | — | — | pending |
+| Programming | 131892 | 543 | ENG-CORE | KEEP (absorve ProgrammingRuntime) | — | dono vivo: 229 arquivos ext, ~90 cmds, 2 providers; AtlasDev 46.8k/262 é o executor Dev; 0 consumo de AEOS/AutonomousEngineering VERIFICADO | recorded |
 | SoftwareCompanyStewardship | 116399 | 280 | ENG-OS-GEMEAS | KEEP | — | dono do operate-path (29+ cmds, schedule wired, AreaFocus=249 files); steward que fiscaliza o Aaeos — substrato+steward, não gêmeas | recorded |
 | AutonomousEvolution | 109588 | 639 | AUTONOMOS | KEEP vivo (~251 files) + QUARANTINE órfãos (~388) | archive/ físico, reversível | Brain/=98 files VERIFICADO + 25 cmds atlas:brain VERIFICADO; atlas:loop registrados=0 VERIFICADO; keep-list DENTRO da zona viva; ⚠ pré-requisito: materializar lista dos 388 com rg --no-ignore -w=0 POR ARQUIVO (amostra minha caiu na zona viva — lista exige prova individual) | proposed |
 | Holding | 44389 | 6 | DOMINIOS | — | — | — | pending |
 | Kernel | 41474 | 159 | GOVERNANCA-QUALIDADE | KEEP + SPLIT em blueprint | 3 produtos: Decision-runtime · Evidence-ledger · Architecture-linter | guarda-chuva VERIFICADO: Architecture=26.031 LOC (63%) é linter AP1..AP141; AtlasEvidenceLedger 1.096 LOC/150 callers intocável; Decision 51 callers | proposed |
 | MarketingDomain | 26853 | 180 | DOMINIOS | — | — | — | pending |
-| AgenticEngineeringOs | 26649 | 17 | ENG-CORE | — | — | — | pending |
+| AgenticEngineeringOs | 26649 | 17 | ENG-CORE | QUARANTINE godfile + FUSE | AutonomousOs (com AutonomousEngineering), APÓS split do godfile | 81% do bloco = AtlasUniversalGatesEvaluator 21.6k com SÓ 3 callers ext VERIFICADO (3ª casa de gates, sub-vivo p/ o tamanho); bloqueador: split antes de fuse | proposed |
 | Rivals | 20724 | 70 | DOMINIOS | — | — | — | pending |
 | Context | 20248 | 65 | MEMORIA-CONTEXTO | KEEP | — | espinha retrieval: 150 ext, 31 cmds; destino do re-home AcosMax em subnamespace Context\Retrieval | recorded |
 | Finance | 17631 | 100 | DOMINIOS | — | — | — | pending |
 | Vox | 16103 | 39 | SUPERFICIES | — | — | — | pending |
-| EngineeringKernel | 14293 | 110 | ENG-CORE | — | — | — | pending |
+| EngineeringKernel | 14293 | 110 | ENG-CORE | KEEP | — | chão pétreo: 136 arquivos ext (o mais consumido do cluster); fonte única de roles; NÃO fundir com Programming (2 chãos ortogonais) | recorded |
 | AcosMax | 14223 | 51 | COGNICAO | FUSE-parcial | Aemor+Context+Cognition | grab-bag 51 files, 0 providers VERIFICADO; envelope→Aemor, embedding/RAGX→Context, cockpit/series→Cognition | proposed |
 | Hermes | 13507 | 53 | TRANSPORTE | KEEP | — | 16 callers prod, 4 cmds, controller, driver no AiProviderManager; único transport verboo | recorded |
 | Cognition | 13420 | 52 | COGNICAO | KEEP | — | 118 refs ext, 27 cmds; autoridade-mãe ACOS (scorecard+immune+gates) | recorded |
@@ -50,7 +50,7 @@
 | Governance | 4687 | 16 | GOVERNANCA-QUALIDADE | KEEP | — | 113 refs (44 prod-Ai); kernel constitucional fail-closed + admit() como entrada única do stack | recorded |
 | RouterRuntime | 3778 | 14 | ROTEAMENTO | KEEP | — | motor de flow: Canon=18, HyperflowEntry=16 callers ext; owner do "que flow atende" | recorded |
 | OperatorIntelligence | 3665 | 19 | APRENDIZADO | — | — | — | pending |
-| ProgrammingRuntime | 3657 | 12 | ENG-CORE | — | — | — | pending |
+| ProgrammingRuntime | 3657 | 12 | ENG-CORE | FUSE | Programming (Programming/Runtime) | 10 callers ext re-pontáveis por import; 1 dono de "programação" em vez de 2 vizinhos | proposed |
 | Runtime | 2879 | 14 | RUNTIME | KEEP | — | 12 callers ext + 2 cmds; executor REAL de tools (file/shell/git/test) | recorded |
 | Autonomy | 2775 | 10 | AUTONOMOS | KEEP | — | toda classe ≥1 caller (auto-apply, ladder, digest); ⚠ flag: AutonomyLadderRuntimeService duplicado em Stewardship/AreaFocusLoop — investigar dedupe | recorded |
 | Router | 2764 | 10 | ROTEAMENTO | FUSE | RouterRuntime | roteia FLOW não provider (0 imports AiProviderManager VERIFICADO); IntentKernel legado 0 ext callers; facade fica fina | proposed |
@@ -62,7 +62,7 @@
 | ToolRuntime | 2080 | 15 | RUNTIME | FUSE | Runtime | mock governado (invocation "no external side effects" VERIFICADO); 2 callers; fusão = execução real GOVERNADA c/ receipt | proposed |
 | Surface | 2079 | 15 | SUPERFICIES | — | — | — | pending |
 | Evidence | 2054 | 17 | GOVERNANCA-QUALIDADE | KEEP | — | workflow de certs/claims sobre Eloquent (25 refs); NÃO é o ledger canônico (esse mora em Kernel/Evidence) | recorded |
-| AutonomousEngineering | 1897 | 4 | ENG-CORE | — | — | — | pending |
+| AutonomousEngineering | 1897 | 4 | ENG-CORE | FUSE | AutonomousOs (com AEOS) | seam-partner VERIFICADO (AutonomousWorkExecutionOs produz envelope que AtlasAutonomousEngineeringService consome, L18); 8 callers ext; não é OS, é code-intelligence | proposed |
 | AutomationDomain | 1869 | 16 | DOMINIOS | — | — | — | pending |
 | Cyber | 1742 | 14 | DOMINIOS | — | — | — | pending |
 | RuntimeBoundary | 1739 | 23 | RUNTIME | KEEP (recluster→GATEWAY-PYTHON) | — | 27 callers ext (Telemetry/Context/Semantic); ponte FFI Python — só compartilha o sufixo | recorded |
