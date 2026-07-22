@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Learning;
+namespace Tests\Feature\Ai\Compounding;
 
+use App\Console\Commands\AtlasAiLearningCommand;
 use App\Models\AiLearningProposal;
 use App\Models\AiLearningSignal;
+use App\Services\Ai\Compounding\AtlasLearningProposalService;
+use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
+use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
+use App\Services\Ai\RuntimeReadiness\AtlasAiRuntimeReadinessService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
@@ -331,7 +336,7 @@ JSON;
             'evidence_refs' => [['type' => 'test', 'id' => 'learning-f0-matching']],
         ], $list['proposals'][0]);
 
-        $summary = $this->app->make(AtlasAiLearningLoopService::class)
+        $summary = $this->app->make(AtlasLearningSignalScanner::class)
             ->controlPlaneSummary(now()->subHour()->toImmutable());
         $this->assertSame(self::CONTROL_PLANE_JSON_SNAPSHOT, json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $this->assertSame([
@@ -369,6 +374,25 @@ JSON;
         ], array_intersect_key($review, array_flip(['ok', 'proposal_id', 'kind', 'status', 'decided_by'])));
         $this->assertArrayHasKey('decided_at', $review);
 
+    }
+
+    public function test_m1b_repoints_learning_surfaces_to_compounding_owners(): void
+    {
+        $this->assertTrue(class_exists(AtlasLearningSignalScanner::class));
+        $this->assertTrue(method_exists(AtlasLearningSignalScanner::class, 'collect'));
+        $this->assertTrue(method_exists(AtlasLearningProposalService::class, 'proposeFromSignal'));
+        $this->assertTrue(method_exists(AtlasLearningProposalService::class, 'reviewById'));
+        $this->assertTrue(class_exists(AtlasAiLearningLoopService::class));
+        $this->assertSame(AtlasLearningSignalScanner::class, get_class($this->app->make(AtlasAiLearningLoopService::class)));
+
+        $commandHandle = new \ReflectionMethod(AtlasAiLearningCommand::class, 'handle');
+        $this->assertSame(AtlasLearningSignalScanner::class, $commandHandle->getParameters()[0]->getType()?->getName());
+
+        $controlPlaneConstructor = new \ReflectionMethod(AtlasAiControlPlaneService::class, '__construct');
+        $this->assertSame(AtlasLearningSignalScanner::class, $controlPlaneConstructor->getParameters()[0]->getType()?->getName());
+
+        $runtimeReadinessSource = new \ReflectionMethod(AtlasAiRuntimeReadinessService::class, 'learningLoopCheck');
+        $this->assertStringContainsString(AtlasLearningSignalScanner::class, (string) file_get_contents($runtimeReadinessSource->getFileName()));
     }
 
     public function test_learning_review_error_contracts_are_frozen_for_m1a(): void
@@ -451,7 +475,7 @@ JSON;
             'last_signal_at' => null,
             'last_proposal_at' => null,
         ];
-        $service = $this->app->make(AtlasAiLearningLoopService::class);
+        $service = $this->app->make(AtlasLearningSignalScanner::class);
         $this->assertSame($empty, $service->controlPlaneSummary(now()->subHour()->toImmutable()));
 
         $signalMigration = require base_path('database/migrations/2026_05_19_140000_create_ai_learning_signals_table.php');

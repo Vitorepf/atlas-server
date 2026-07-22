@@ -3,7 +3,10 @@
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningProposal;
+use App\Models\AiLearningSignal;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
 
@@ -126,7 +129,7 @@ class AtlasLearningProposalService
             if ($mode === 'enforce') {
                 // Do NOT persist noise. Return a transient rejected model so callers
                 // still get an object; nothing reaches the DB.
-                return (new AiLearningProposal())->forceFill(array_merge($payload, [
+                return (new AiLearningProposal)->forceFill(array_merge($payload, [
                     'status' => 'rejected_by_quality_gate',
                 ]));
             }
@@ -156,6 +159,105 @@ class AtlasLearningProposalService
             ['proposal_hash' => $payload['proposal_hash']],
             $payload,
         );
+    }
+
+    /**
+     * Retains the legacy Learning scanner proposal hash and update-or-create
+     * contract. Consolidating it into propose() would change deduplication and
+     * CaptureQualityGate behavior, so that is a separately governed follow-up.
+     */
+    public function proposeFromSignal(AiLearningSignal $signal): ?AiLearningProposal
+    {
+        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
+            return null;
+        }
+
+        $kind = $this->kindForSource($signal->source_type);
+        if ($kind === null) {
+            return null;
+        }
+        $summary = $this->proposalSummary($signal);
+        if ($summary === null) {
+            return null;
+        }
+
+        $evidenceRefs = is_array($signal->evidence_refs) ? $signal->evidence_refs : [];
+        $proposalHash = hash('sha256', json_encode([
+            'signal_id' => $signal->signal_id,
+            'kind' => $kind,
+            'summary' => $summary,
+            'evidence' => $this->canonicalize($evidenceRefs),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
+        $proposalId = (string) Str::uuid();
+        try {
+            $proposal = AiLearningProposal::query()->updateOrCreate(
+                ['proposal_hash' => $proposalHash],
+                [
+                    'id' => $proposalId,
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'kind' => $kind,
+                    'status' => 'proposed',
+                    'scope' => 'atlas_ai_runtime',
+                    'flow_id' => $signal->flow_id,
+                    'summary' => $summary,
+                    'current_state' => null,
+                    'proposed_state' => [
+                        'source_type' => $signal->source_type,
+                        'outcome' => $signal->outcome,
+                        'failure_mode' => $signal->failure_mode,
+                        'blocker_reason' => $signal->blocker_reason,
+                    ],
+                    'evidence_refs' => $evidenceRefs,
+                    'requires_human_review' => true,
+                    'payload' => [
+                        'learning_signal_id' => $signal->id,
+                        'risk_level' => $signal->risk_level,
+                    ],
+                ],
+            );
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $proposal;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function reviewById(string $proposalId, string $decision, string $operator, ?string $notes = null): array
+    {
+        if (! in_array($decision, ['approve', 'reject'], true)) {
+            return ['ok' => false, 'error' => 'invalid_decision', 'expected' => ['approve', 'reject']];
+        }
+        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
+            return ['ok' => false, 'error' => 'table_missing'];
+        }
+        $proposal = AiLearningProposal::query()->where('id', $proposalId)->orWhere('proposal_hash', $proposalId)->first();
+        if (! $proposal instanceof AiLearningProposal) {
+            return ['ok' => false, 'error' => 'proposal_not_found', 'proposal_id' => $proposalId];
+        }
+        if (in_array($proposal->status, ['approved', 'rejected'], true)) {
+            return ['ok' => false, 'error' => 'already_decided', 'status' => $proposal->status];
+        }
+
+        try {
+            $proposal = $decision === 'approve'
+                ? $this->approve($proposal, $operator, $notes)
+                : $this->reject($proposal, $operator, $notes);
+        } catch (InvalidArgumentException) {
+            return ['ok' => false, 'error' => 'already_decided', 'status' => $proposal->status];
+        }
+
+        return [
+            'ok' => true,
+            'proposal_id' => $proposal->id,
+            'kind' => $proposal->kind,
+            'status' => $proposal->status,
+            'decided_by' => $proposal->decided_by,
+            'decided_at' => $proposal->decided_at?->toJSON(),
+        ];
     }
 
     /** Capture quality gate mode: off | observe (default) | enforce. */
@@ -249,6 +351,53 @@ class AtlasLearningProposalService
             str_starts_with($key, 'benchmark.') => 'benchmark',
             default => null,
         };
+    }
+
+    private function kindForSource(string $sourceType): ?string
+    {
+        return match ($sourceType) {
+            'mission_completed', 'approval_approved' => 'heuristic',
+            'approval_denied' => 'policy',
+            'dispatch_blocked' => 'routing',
+            'quality_failed', 'quality_needs_review' => 'retrieval_hint',
+            'remediation_failed' => 'failure_pattern',
+            'forge_handoff_incomplete' => 'gate',
+            'mission_failed', 'mission_blocked', 'trace_failed' => 'failure_pattern',
+            default => null,
+        };
+    }
+
+    private function proposalSummary(AiLearningSignal $signal): ?string
+    {
+        return match ($signal->source_type) {
+            'mission_completed' => sprintf('Mission %s completed — confirm heuristic for %s.', $signal->source_id ?? 'unknown', $signal->payload['primary_domain'] ?? 'unknown_domain'),
+            'mission_failed', 'mission_blocked' => sprintf('Mission %s ended in %s — review failure_pattern.', $signal->source_id ?? 'unknown', $signal->outcome ?? 'unknown'),
+            'approval_denied' => sprintf('Operator denied approval for %s — propose policy delta.', $signal->payload['requested_action'] ?? 'unspecified_action'),
+            'approval_approved' => sprintf('Operator approved %s — record positive precedent.', $signal->payload['requested_action'] ?? 'unspecified_action'),
+            'dispatch_blocked' => sprintf('Dispatch blocked (%s) — propose routing adjustment.', $signal->blocker_reason ?? 'unspecified'),
+            'quality_failed' => sprintf('Quality failed (score %s) — propose retrieval_hint.', $signal->quality_score ?? 'n/a'),
+            'quality_needs_review' => sprintf('Quality needs_review (score %s) — propose retrieval_hint.', $signal->quality_score ?? 'n/a'),
+            'remediation_failed' => sprintf('Remediation failed: %s.', $signal->failure_mode ?? 'unspecified'),
+            'forge_handoff_incomplete' => 'Forge handoff did not reach terminal state — propose gate adjustment.',
+            'trace_failed' => sprintf('Trace failed (%s) — propose failure_pattern.', $signal->failure_mode ?? 'unspecified'),
+            default => null,
+        };
+    }
+
+    private function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        $out = [];
+        foreach ($value as $key => $item) {
+            $out[$key] = $this->canonicalize($item);
+        }
+        if (! array_is_list($out)) {
+            ksort($out);
+        }
+
+        return $out;
     }
 
     /**

@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Learning\AtlasAiLearningLoopService;
+use App\Services\Ai\Compounding\AtlasLearningProposalService;
+use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
 use Illuminate\Console\Command;
 use Throwable;
 
 /**
  * Atlas AI Memory & Learning Feedback Loop · CLI surface.
  *
- * Three actions paired with {@see AtlasAiLearningLoopService}:
+ * Three actions paired with {@see AtlasLearningSignalScanner} and
+ * {@see AtlasLearningProposalService}:
  *
  *   - `collect`  scans the last N hours of mission/approval/quality/handoff
  *                outcomes and persists learning signals + (governed)
@@ -44,14 +46,14 @@ class AtlasAiLearningCommand extends Command
 
     protected $description = 'Atlas AI Memory & Learning loop: collect signals, list inbox, review proposals.';
 
-    public function handle(AtlasAiLearningLoopService $service): int
+    public function handle(AtlasLearningSignalScanner $scanner, AtlasLearningProposalService $proposals): int
     {
         $action = strtolower(trim((string) $this->argument('action')));
         try {
             return match ($action) {
-                'collect' => $this->renderCollect($service),
-                'list' => $this->renderList($service),
-                'review' => $this->renderReview($service),
+                'collect' => $this->renderCollect($scanner),
+                'list' => $this->renderList($scanner),
+                'review' => $this->renderReview($proposals),
                 default => $this->failWithMessage("unsupported action [{$action}]; supported: collect | list | review"),
             };
         } catch (Throwable $e) {
@@ -61,16 +63,16 @@ class AtlasAiLearningCommand extends Command
         }
     }
 
-    private function renderCollect(AtlasAiLearningLoopService $service): int
+    private function renderCollect(AtlasLearningSignalScanner $scanner): int
     {
         $hours = max(1, (int) $this->option('hours'));
-        $report = $service->collect($hours);
+        $report = $scanner->collect($hours);
         $this->emit($report);
 
         return self::SUCCESS;
     }
 
-    private function renderList(AtlasAiLearningLoopService $service): int
+    private function renderList(AtlasLearningSignalScanner $scanner): int
     {
         $filters = array_filter([
             'source_type' => $this->stringOption('source-type'),
@@ -81,13 +83,13 @@ class AtlasAiLearningCommand extends Command
             'kind' => $this->stringOption('kind'),
         ], fn ($value): bool => $value !== null);
         $limit = max(1, min(200, (int) $this->option('limit')));
-        $report = $service->list($filters, $limit);
+        $report = $scanner->list($filters, $limit);
         $this->emit($report);
 
         return self::SUCCESS;
     }
 
-    private function renderReview(AtlasAiLearningLoopService $service): int
+    private function renderReview(AtlasLearningProposalService $proposals): int
     {
         $proposalId = $this->stringOption('proposal');
         $decision = $this->stringOption('decision');
@@ -100,7 +102,7 @@ class AtlasAiLearningCommand extends Command
             return self::FAILURE;
         }
 
-        $result = $service->review($proposalId, $decision, $operator, $notes);
+        $result = $proposals->reviewById($proposalId, $decision, $operator, $notes);
         $this->emit($result);
 
         return ($result['ok'] ?? false) ? self::SUCCESS : self::FAILURE;

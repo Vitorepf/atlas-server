@@ -58,11 +58,11 @@ use App\Models\AtlasRuntimeEfficiencyOutcome;
 use App\Models\AtlasStrategicDecision;
 use App\Models\AtlasWorkspaceArtifactGraphSnapshot;
 use App\Models\AtlasWorkspaceRuntimeProjectionSnapshot;
-use App\Services\Ai\Learning\AtlasAiLearningLoopService;
+use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHandoffProtocolBuilder;
 use App\Services\Ai\SelfConstruction\Support\AgentValidationGateDryRunEvaluator;
@@ -122,7 +122,7 @@ class AtlasAiControlPlaneService
     private const REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES = ['AWCO', 'AWEF', 'AWIL', 'AWNSB', 'AWTR'];
 
     public function __construct(
-        private readonly AtlasAiLearningLoopService $learningLoop,
+        private readonly AtlasLearningSignalScanner $learningScanner,
     ) {}
 
     /**
@@ -183,7 +183,7 @@ class AtlasAiControlPlaneService
             }
         }
         $blockerClassification = $this->classifyBlockers($blockers);
-        $learning = $this->learningLoop->controlPlaneSummary($since);
+        $learning = $this->learningScanner->controlPlaneSummary($since);
         $approvals = $this->approvalsSection($since);
 
         $summary = [

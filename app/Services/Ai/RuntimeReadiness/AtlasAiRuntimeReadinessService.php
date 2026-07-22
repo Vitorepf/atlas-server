@@ -5,8 +5,8 @@ namespace App\Services\Ai\RuntimeReadiness;
 use App\Console\Commands\AtlasAiApprovalCommand;
 use App\Console\Commands\AtlasAiLearningCommand;
 use App\Console\Commands\AtlasAiMissionCommand;
+use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
-use App\Services\Ai\Learning\AtlasAiLearningLoopService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mission\MissionDetectionService;
 use App\Services\Ai\Mission\MissionFollowThroughService;
@@ -678,16 +678,16 @@ class AtlasAiRuntimeReadinessService
             id: 'memory_learning_loop',
             label: 'Memory & Learning Feedback Loop service + signals/proposals tables present',
             severity: self::SEVERITY_CRITICAL,
-            source: AtlasAiLearningLoopService::class,
+            source: AtlasLearningSignalScanner::class,
             evidence: ['php artisan atlas:ai:learning collect --hours=24 --json'],
             probe: function (): array {
-                if (! class_exists(AtlasAiLearningLoopService::class)) {
+                if (! class_exists(AtlasLearningSignalScanner::class)) {
                     return [
                         'status' => self::CHECK_STATUS_FAILED,
                         'detail' => ['missing_service_class' => true],
                     ];
                 }
-                $service = $this->container->make(AtlasAiLearningLoopService::class);
+                $service = $this->container->make(AtlasLearningSignalScanner::class);
                 $hasCollect = method_exists($service, 'collect') || method_exists($service, 'collectSignals');
 
                 $signalTableExists = DatabaseTableAvailability::has('ai_learning_signals');

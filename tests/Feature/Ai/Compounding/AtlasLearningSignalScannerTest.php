@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Learning;
+namespace Tests\Feature\Ai\Compounding;
 
 use App\Models\AiLearningProposal;
 use App\Models\AiLearningSignal;
-use App\Services\Ai\Learning\AtlasAiLearningLoopService;
+use App\Services\Ai\Compounding\AtlasLearningProposalService;
+use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -23,7 +24,7 @@ use Tests\TestCase;
  * an operator decision without auto-applying anything, and the Control Plane
  * exposes the aggregated counts.
  */
-class AtlasAiLearningLoopServiceTest extends TestCase
+class AtlasLearningSignalScannerTest extends TestCase
 {
     use CreatesRouterRuntimeTables;
 
@@ -262,7 +263,7 @@ class AtlasAiLearningLoopServiceTest extends TestCase
     {
         $proposal = $this->insertProposal('proposed');
 
-        $result = $this->service()->review($proposal->id, 'approve', 'vitorepf', 'looks good');
+        $result = $this->proposals()->reviewById($proposal->id, 'approve', 'vitorepf', 'looks good');
 
         $this->assertTrue($result['ok']);
         $this->assertSame('approved', $result['status']);
@@ -275,7 +276,7 @@ class AtlasAiLearningLoopServiceTest extends TestCase
     {
         $proposal = $this->insertProposal('proposed');
 
-        $result = $this->service()->review($proposal->id, 'reject', 'vitorepf', null);
+        $result = $this->proposals()->reviewById($proposal->id, 'reject', 'vitorepf', null);
 
         $this->assertTrue($result['ok']);
         $this->assertSame('rejected', $result['status']);
@@ -286,7 +287,7 @@ class AtlasAiLearningLoopServiceTest extends TestCase
     {
         $proposal = $this->insertProposal('proposed');
 
-        $result = $this->service()->review($proposal->id, 'maybe', 'vitorepf');
+        $result = $this->proposals()->reviewById($proposal->id, 'maybe', 'vitorepf');
 
         $this->assertFalse($result['ok']);
         $this->assertSame('invalid_decision', $result['error']);
@@ -297,7 +298,7 @@ class AtlasAiLearningLoopServiceTest extends TestCase
     {
         $proposal = $this->insertProposal('approved');
 
-        $result = $this->service()->review($proposal->id, 'reject', 'vitorepf');
+        $result = $this->proposals()->reviewById($proposal->id, 'reject', 'vitorepf');
 
         $this->assertFalse($result['ok']);
         $this->assertSame('already_decided', $result['error']);
@@ -430,9 +431,14 @@ class AtlasAiLearningLoopServiceTest extends TestCase
         $this->assertStringNotContainsString('NEVER_LEAK_THIS_OPERATOR_INPUT', $serialized);
     }
 
-    private function service(): AtlasAiLearningLoopService
+    private function service(): AtlasLearningSignalScanner
     {
-        return $this->app->make(AtlasAiLearningLoopService::class);
+        return $this->app->make(AtlasLearningSignalScanner::class);
+    }
+
+    private function proposals(): AtlasLearningProposalService
+    {
+        return $this->app->make(AtlasLearningProposalService::class);
     }
 
     private function insertProposal(string $status): AiLearningProposal

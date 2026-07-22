@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Learning;
+namespace App\Services\Ai\Compounding;
 
 use App\Models\AiAtlasRuntimeDispatch;
 use App\Models\AiLearningProposal;
@@ -15,7 +15,6 @@ use App\Models\AiRealExecutionForgeHandoff;
 use App\Models\AiTrace;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -50,7 +49,7 @@ use Throwable;
  *   - Hash is deterministic over canonical content; duplicate signals are
  *     reused via `signal_hash` unique constraint instead of duplicated.
  */
-class AtlasAiLearningLoopService
+class AtlasLearningSignalScanner
 {
     public const SOURCE_MISSION_COMPLETED = 'mission_completed';
 
@@ -108,6 +107,10 @@ class AtlasAiLearningLoopService
         'atlas_forge',
         'atlas_automation',
     ];
+
+    public function __construct(
+        private readonly AtlasLearningProposalService $proposals,
+    ) {}
 
     /**
      * Collect signals from the last $hours window. Returns a summary of what
@@ -235,47 +238,6 @@ class AtlasAiLearningLoopService
                 'signals' => count($signals),
                 'proposals' => count($proposals),
             ],
-        ];
-    }
-
-    /**
-     * Apply a reviewer decision on a proposal. Hard rule: this never executes
-     * the proposed change — it only records the decision so a downstream
-     * applier (governed elsewhere) can act.
-     *
-     * @return array<string,mixed>
-     */
-    public function review(string $proposalId, string $decision, string $operator, ?string $notes = null): array
-    {
-        if (! in_array($decision, ['approve', 'reject'], true)) {
-            return ['ok' => false, 'error' => 'invalid_decision', 'expected' => ['approve', 'reject']];
-        }
-        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
-            return ['ok' => false, 'error' => 'table_missing'];
-        }
-        $proposal = AiLearningProposal::query()->where('id', $proposalId)->orWhere('proposal_hash', $proposalId)->first();
-        if (! $proposal instanceof AiLearningProposal) {
-            return ['ok' => false, 'error' => 'proposal_not_found', 'proposal_id' => $proposalId];
-        }
-        if (in_array($proposal->status, ['approved', 'rejected'], true)) {
-            return ['ok' => false, 'error' => 'already_decided', 'status' => $proposal->status];
-        }
-
-        $proposal->status = $decision === 'approve' ? 'approved' : 'rejected';
-        $proposal->decided_by = $operator;
-        $proposal->decided_at = CarbonImmutable::now();
-        if ($notes !== null) {
-            $proposal->decision_notes = $notes;
-        }
-        $proposal->save();
-
-        return [
-            'ok' => true,
-            'proposal_id' => $proposal->id,
-            'kind' => $proposal->kind,
-            'status' => $proposal->status,
-            'decided_by' => $proposal->decided_by,
-            'decided_at' => $proposal->decided_at?->toJSON(),
         ];
     }
 
@@ -785,8 +747,8 @@ class AtlasAiLearningLoopService
         if ($evidenceRefs === []) {
             $proposalSkippedReason = 'missing_evidence';
         } else {
-            $proposal = $this->maybeGenerateProposal($signal);
-            if ($proposal instanceof AiLearningProposal) {
+            $proposal = $this->proposals->proposeFromSignal($signal);
+            if ($proposal !== null) {
                 $proposalId = $proposal->id;
                 $signal->learning_proposal_id = $proposal->id;
                 $signal->status = AiLearningSignal::STATUS_PROPOSED;
@@ -797,63 +759,6 @@ class AtlasAiLearningLoopService
         }
 
         return $this->signalSummary($signal, $proposalId, $proposalSkippedReason);
-    }
-
-    private function maybeGenerateProposal(AiLearningSignal $signal): ?AiLearningProposal
-    {
-        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
-            return null;
-        }
-
-        $kind = $this->kindForSource($signal->source_type);
-        if ($kind === null) {
-            return null;
-        }
-        $summary = $this->proposalSummary($signal);
-        if ($summary === null) {
-            return null;
-        }
-
-        $evidenceRefs = is_array($signal->evidence_refs) ? $signal->evidence_refs : [];
-        $proposalHash = hash('sha256', json_encode([
-            'signal_id' => $signal->signal_id,
-            'kind' => $kind,
-            'summary' => $summary,
-            'evidence' => $this->canonicalize($evidenceRefs),
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
-
-        $proposalId = (string) Str::uuid();
-        try {
-            $proposal = AiLearningProposal::query()->updateOrCreate(
-                ['proposal_hash' => $proposalHash],
-                [
-                    'id' => $proposalId,
-                    'schema_version' => 'atlas.ai.compounding.learning_proposal.v1',
-                    'kind' => $kind,
-                    'status' => 'proposed',
-                    'scope' => 'atlas_ai_runtime',
-                    'flow_id' => $signal->flow_id,
-                    'summary' => $summary,
-                    'current_state' => null,
-                    'proposed_state' => [
-                        'source_type' => $signal->source_type,
-                        'outcome' => $signal->outcome,
-                        'failure_mode' => $signal->failure_mode,
-                        'blocker_reason' => $signal->blocker_reason,
-                    ],
-                    'evidence_refs' => $evidenceRefs,
-                    'requires_human_review' => true,
-                    'payload' => [
-                        'learning_signal_id' => $signal->id,
-                        'risk_level' => $signal->risk_level,
-                    ],
-                ],
-            );
-        } catch (Throwable) {
-            return null;
-        }
-
-        return $proposal;
     }
 
     private function classifyRisk(string $sourceType, ?string $flowId): string
@@ -873,37 +778,6 @@ class AtlasAiLearningLoopService
         }
 
         return AiLearningSignal::RISK_CRITICAL;
-    }
-
-    private function kindForSource(string $sourceType): ?string
-    {
-        return match ($sourceType) {
-            self::SOURCE_MISSION_COMPLETED, self::SOURCE_APPROVAL_APPROVED => 'heuristic',
-            self::SOURCE_APPROVAL_DENIED => 'policy',
-            self::SOURCE_DISPATCH_BLOCKED => 'routing',
-            self::SOURCE_QUALITY_FAILED, self::SOURCE_QUALITY_NEEDS_REVIEW => 'retrieval_hint',
-            self::SOURCE_REMEDIATION_FAILED => 'failure_pattern',
-            self::SOURCE_FORGE_HANDOFF_INCOMPLETE => 'gate',
-            self::SOURCE_MISSION_FAILED, self::SOURCE_MISSION_BLOCKED, self::SOURCE_TRACE_FAILED => 'failure_pattern',
-            default => null,
-        };
-    }
-
-    private function proposalSummary(AiLearningSignal $signal): ?string
-    {
-        return match ($signal->source_type) {
-            self::SOURCE_MISSION_COMPLETED => sprintf('Mission %s completed — confirm heuristic for %s.', $signal->source_id ?? 'unknown', $signal->payload['primary_domain'] ?? 'unknown_domain'),
-            self::SOURCE_MISSION_FAILED, self::SOURCE_MISSION_BLOCKED => sprintf('Mission %s ended in %s — review failure_pattern.', $signal->source_id ?? 'unknown', $signal->outcome ?? 'unknown'),
-            self::SOURCE_APPROVAL_DENIED => sprintf('Operator denied approval for %s — propose policy delta.', $signal->payload['requested_action'] ?? 'unspecified_action'),
-            self::SOURCE_APPROVAL_APPROVED => sprintf('Operator approved %s — record positive precedent.', $signal->payload['requested_action'] ?? 'unspecified_action'),
-            self::SOURCE_DISPATCH_BLOCKED => sprintf('Dispatch blocked (%s) — propose routing adjustment.', $signal->blocker_reason ?? 'unspecified'),
-            self::SOURCE_QUALITY_FAILED => sprintf('Quality failed (score %s) — propose retrieval_hint.', $signal->quality_score ?? 'n/a'),
-            self::SOURCE_QUALITY_NEEDS_REVIEW => sprintf('Quality needs_review (score %s) — propose retrieval_hint.', $signal->quality_score ?? 'n/a'),
-            self::SOURCE_REMEDIATION_FAILED => sprintf('Remediation failed: %s.', $signal->failure_mode ?? 'unspecified'),
-            self::SOURCE_FORGE_HANDOFF_INCOMPLETE => 'Forge handoff did not reach terminal state — propose gate adjustment.',
-            self::SOURCE_TRACE_FAILED => sprintf('Trace failed (%s) — propose failure_pattern.', $signal->failure_mode ?? 'unspecified'),
-            default => null,
-        };
     }
 
     /**

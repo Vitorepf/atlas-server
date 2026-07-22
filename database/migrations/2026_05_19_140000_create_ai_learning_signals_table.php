@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('schema_version', 80)->default('atlas.ai.learning_signal.v1');
             $table->string('signal_id', 80)->unique();
             // Source identifies what kind of event produced the signal. Canonical
-            // values populated by AtlasAiLearningLoopService::SOURCE_*. Open-ended
+            // values populated by AtlasLearningSignalScanner::SOURCE_*. Open-ended
             // string so new collectors can extend without migration churn.
             $table->string('source_type', 60)->index();
             $table->string('source_id', 120)->nullable()->index();
