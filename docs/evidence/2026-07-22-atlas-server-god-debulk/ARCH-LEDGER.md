@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  AUDITORIA 0044-0195 (152 findings/14 godfiles, ancorada em sha256): ~146 CONFIRMADOS, 2 divergentes, 4 REFUTADOS-SUPERSEDED corrigidos in-place pelo comandante. 8 s0 de SEGURANÇA confirmados abertos → furaram a fila do EXECUTE (item 5b). Amostras verificadas: 253 method_exists exato, 0 imports do HashSupport, fix ec53f99e0 existe.
   RE-VERIFY RuntimeExecution v2: FATAIS CONSERTADOS (migração aditiva bate com migrations reais; 10 literals reconfirmados; PSR-4 ok; 19 tools nome a nome) + 3 ressalvas de execução registradas. CICLO DE VERIFY 100% COMPLETO: 7/7 blueprints prontos p/ aprovação.
   VERIFY FINAL RootSingles+Readiness: ambos SOBREVIVE, emendas aplicadas (verde-fantasma L200 verificado; flags vivas do MotherCommand verificadas; contagens refrescadas). CRIVO COMPLETO: 7/7 blueprints atacados e endurecidos.
   VERIFY KernelTriad+QuarantineACDE: ambos SOBREVIVE c/ emendas APLICADAS. Achado contra MIM: 7 Aael no lote high (CSV corrigido → lote ≤218); KernelTriad: 4 guards fail-open protegendo path do scanner (L89 verificado) + self-scan strings — tudo no mesmo commit do mv

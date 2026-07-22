@@ -929,7 +929,9 @@ findings:
       - "140 of 228 imports are unused in the class body"
   - id: A1-SC-0046
     type: bug
-    severity: s0
+    severity: s3
+    status: refuted_superseded_em_HEAD
+    corrected_by: "arch-comandante (auditoria adversarial 2026-07-22) — fix: 0a630e750 — Schema import L79 + roteamento via colaborador tipado L93 no AgentCodexSection; estruturais 0044/0045 seguem válidos"
     detail: "Most operationally named routes in this section cannot currently return. Of the 16 methods that hard-code a *_ready contract status, 13 abort through sibling-section dependencies; all eight implementation packets also abort. The two active failure families are an undefined agentProviderAdapterRegistryPreflight call and an unimported namespaced Schema class inside ReadinessProjectionAgentCodexSection, proving that the numbered split broke cross-section reachability across the public command surface."
     evidence:
       - "runtime characterization of hard-coded-ready methods => 3 returned and 13 threw"
@@ -1538,7 +1540,9 @@ findings:
       - "each method reaches predecessor status and template logic through the mother rather than constructor-enforced interfaces"
   - id: A1-SC-0075
     type: bug
-    severity: s0
+    severity: s3
+    status: refuted_superseded_em_HEAD
+    corrected_by: "arch-comandante (auditoria adversarial 2026-07-22) — fix: 0a630e750 — Schema importado (L79); "12 threw Schema not found" não reproduz; irmãos 0073/0074/0077-0082 válidos (sha idêntico)"
     detail: "Every one of the 12 public contracts currently aborts before returning because its predecessor-status path reaches ReadinessProjectionAgentCodexSection::Schema, but that section does not import Illuminate's Schema facade. The dispatch-gate file imports Schema itself yet never uses it, so the duplicated header masks rather than fixes the actual dependency location."
     evidence:
       - "runtime characterization => 0 returned / 12 threw Class App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema not found"
@@ -1548,7 +1552,9 @@ findings:
       - "this file's own Illuminate\\Support\\Facades\\Schema import is one of its 192 unused imports"
   - id: A1-SC-0076
     type: bug
-    severity: s0
+    severity: s3
+    status: refuted_superseded_em_HEAD
+    corrected_by: "arch-comandante (auditoria adversarial 2026-07-22) — fix: 0a630e750/cea059e34 — chamada agora é $this->agentDispatchProviderSection->agentProviderAdapterRegistryPreflight (L93), colaborador tipado que expõe o método"
     detail: "The missing Schema import is only the first failure. When a process-local class alias is used solely to continue characterization, all 12 routes still abort because ReadinessProjectionAgentCodexSection calls agentProviderAdapterRegistryPreflight on itself even though that method lives on the mother/dispatch-provider section. Thus the complete contract family has at least two independent broken cross-section edges."
     evidence:
       - "process-local Schema alias characterization => 0 returned / 12 threw"
@@ -1983,7 +1989,9 @@ findings:
       - "ledger-plan CLI => 0.50s, 4,441,476,380 retired instructions, 6,179 output bytes"
   - id: A1-SC-0096
     type: bug
-    severity: s0
+    severity: s3
+    status: refuted_superseded_em_HEAD
+    corrected_by: "arch-comandante (auditoria adversarial 2026-07-22) — fix: ec53f99e0 — packet_snapshots restaurada no storage schema + vocabulário alinhado (preview→available, renewed adicionado); métricas 0093/0099 atualizadas: 1972 LOC, stableHash 20"
     detail: "The hand-copied durable-reservation contract contradicts itself before implementation. The ledger plan requires three storage objects including atlas_self_construction_packet_snapshots, but storage schema and migration blueprint emit only two tables and silently drop snapshots. State vocabularies also drift: the plan uses available/renewed while storage schema substitutes preview and omits renewed. An executor cannot satisfy all emitted contracts simultaneously."
     evidence:
       - "ledger plan storage_object_count=3 at lines 69-119"
