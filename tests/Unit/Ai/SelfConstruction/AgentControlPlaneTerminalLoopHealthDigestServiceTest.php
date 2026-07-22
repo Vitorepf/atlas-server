@@ -64,6 +64,28 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertSame('claimable_supply_below_target', $digest['muscle_supply_state']['wait_reason']);
     }
 
+    public function test_zero_max_new_tasks_blocks_replenishment_without_selecting_a_noop_command(): void
+    {
+        $digest = $this->service()->digest([
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 0,
+        ]);
+
+        $plan = $digest['terminal_loop_fleet_replenishment_plan'];
+        $handoff = $digest['terminal_loop_fleet_operator_handoff'];
+        $supervisor = $digest['terminal_loop_cycle_supervisor'];
+
+        $this->assertSame(3, $plan['required_new_task_count']);
+        $this->assertSame(0, $plan['bounded_new_task_count']);
+        $this->assertSame('fleet_replenishment_blocked_max_new_tasks_zero', $plan['status']);
+        $this->assertFalse($plan['should_replenish_now']);
+        $this->assertSame('fleet_operator_handoff_wait_or_inspect', $handoff['status']);
+        $this->assertSame($digest['next_commands']['terminal_loop_health_digest'], $handoff['primary_command']);
+        $this->assertSame('wait_or_inspect', $supervisor['cycle_state']);
+        $this->assertSame($digest['next_commands']['terminal_loop_health_digest'], $supervisor['next_command']);
+        $this->assertNotContains('run_replenishment_command_before_launch', $digest['terminal_loop_fleet_launch_runbook']['ordered_operator_sequence']);
+    }
+
     public function test_muscle_supply_state_recommends_replenish_when_no_claimable_supply(): void
     {
         $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);

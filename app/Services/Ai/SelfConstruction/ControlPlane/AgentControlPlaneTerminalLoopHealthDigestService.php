@@ -1019,10 +1019,15 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
     ): array {
         $requiredNewTaskCount = max(0, $targetMinClaimable - $claimableCount);
         $boundedNewTaskCount = min($requiredNewTaskCount, $maxNewTasks);
-        $shouldReplenishNow = $recoverableCount === 0 && $requiredNewTaskCount > 0;
+        $replenishmentBlockedByMaxNewTasks = $recoverableCount === 0
+            && $requiredNewTaskCount > 0
+            && $boundedNewTaskCount === 0;
+        $shouldReplenishNow = $recoverableCount === 0 && $boundedNewTaskCount > 0;
         $status = $recoverableCount > 0
             ? 'fleet_replenishment_blocked_recover_leases_first'
-            : ($shouldReplenishNow ? 'fleet_replenishment_required' : 'fleet_replenishment_not_required');
+            : ($replenishmentBlockedByMaxNewTasks
+                ? 'fleet_replenishment_blocked_max_new_tasks_zero'
+                : ($shouldReplenishNow ? 'fleet_replenishment_required' : 'fleet_replenishment_not_required'));
 
         $plan = [
             'schema_version' => self::FLEET_REPLENISHMENT_PLAN_SCHEMA_VERSION,
