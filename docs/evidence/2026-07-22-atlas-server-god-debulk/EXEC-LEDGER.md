@@ -4,38 +4,39 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0187 direct mutating-probe cleanup closed
+phase: A1-SC-0188 probe status-envelope contradictions closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: multi-agent-loop probe runner synthetic storage boundary
-finding_id: A1-SC-0187
-action_op: test-first finally cleanup for direct mutating probes
+focus: multi-agent-loop probe runner fail-closed status boundary
+finding_id: A1-SC-0188
+action_op: test-first status conjunction for computed verifications
 queue_index: 6
-last_commit: fb317d97d
+last_commit: df26c61e7
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=direct_released_resume_probe_removes_its_synthetic_queue_and_lease_artifacts
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=status_envelopes_fail_closed_when_a_computed_verification_is_false
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
   /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   git diff --check
 before_after: |
-  red: a direct released-resume probe left fleet_released_resume_probe_direct-cleanup in the real fake-disk queue after returning.
-  green: every public mutating probe validates its run id and executes under a finally that prunes only its run-scoped queue and lease artifacts.
+  red: a public fleet-launch probe returned available while its real health-digest snapshot was made inconsistent so lane_bound_commands_verified was false.
+  green: bootstrap, fleet launch, fleet resume, and fleet evidence envelopes return available only when every verification they calculate is true.
 stdout: |
-  red_characterization: FAIL 1 test, persisted task record observed after direct call
-  runner_unit_plus_feature: PASS 33 tests, 141 assertions
+  red_characterization: FAIL 1 test, expected blocked but got available after a real digest's lane-isolation field was corrupted
+  runner_unit_plus_feature: PASS 34 tests, 150 assertions
   php_lint: PASS source plus changed feature test
   source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
-  loc_check: probe_runner=1414
+  feature_pint: PASS
+  loc_check: probe_runner=1443
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Storage integration belongs to Feature: it executes all 10 public mutating APIs, asserts zero residual queue/lease artifacts, and injects a real post-enqueue exception to prove finally cleanup.
+  Status characterization runs each affected public probe and constructs its base health digest through the real digest service before altering only the returned verification field; it exercises runner status logic without reflection.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
-  The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0187.
+  The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0188.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
@@ -1402,6 +1403,38 @@ boundary:
   - organizational re-home only; stream sequence allocation, provider event mapping, SSE callback forwarding, and Live Activity behavior are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - canonical production and test consumers use the Streaming owner directly; docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 47 — A1-SC-0188 fail-closed probe status envelopes, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: df26c61e7
+subject: "refactor(core): GOD-DEBULK close probe status gaps"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=status_envelopes_fail_closed_when_a_computed_verification_is_false
+  result: "FAIL 1 test: fleet launch returned available after its real digest was made lane-inconsistent and lane_bound_commands_verified was false."
+green:
+  behavior: "available now means every returned verification is true: bootstrap completion evidence validity and scope, fleet launch lane/cycle/runbook, resume handoff, and evidence cycle-review path."
+  characterization: "Each negative case invokes the public runner and builds a genuine health digest, then modifies one returned verification input; no reflection or direct private call is used."
+verification:
+  runner_unit_and_feature: "PASS 34 tests, 150 assertions"
+  focused_fail_closed: "PASS 1 test, 9 assertions"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN: existing full-file host formatting drift; no broad reformatting applied"
+  diff_check: PASS
+  loc: "probe_runner=1443 (<2000)"
+  certification_feature_suite: "NOT GREEN: 10 pre-existing multi_agent_loop serving-tag contradictions recorded in EXEC-DEBTS."
+boundary:
+  - the optional health-digest seam preserves the default real digest and supplies only controlled feature-test snapshots
+  - no provider, dispatch, token, completion, recovery, or external storage behavior was enabled
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
