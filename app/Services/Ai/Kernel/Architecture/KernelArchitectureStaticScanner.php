@@ -35,7 +35,6 @@ use App\Services\Ai\Kernel\Architecture\Scanner\SloAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\SurfaceGuardAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\TelemetryRuntimeAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\VoiceAudit;
-use Illuminate\Support\Facades\File;
 
 class KernelArchitectureStaticScanner
 {
@@ -283,47 +282,5 @@ class KernelArchitectureStaticScanner
             'valid' => $violations === [],
             'violations' => $violations,
         ];
-    }
-    /**
-     * @param  array<int,string>  $tokens
-     * @param  array<int,string>  $ignoredPaths
-     * @return array<int,string>
-     */
-    private function scanPhpFilesForForbiddenTokens(string $directory, array $tokens, array $ignoredPaths = []): array
-    {
-        return $this->primitives->scanPhpFilesForForbiddenTokens($directory, $tokens, $ignoredPaths);
-    }
-
-    /**
-     * @param  array<int,string>  $tokens
-     * @return array<int,string>
-     */
-    private function missingTokenViolations(string $content, array $tokens, string $messagePrefix): array
-    {
-        return $this->primitives->missingTokenViolations($content, $tokens, $messagePrefix);
-    }
-
-    private function fileContents(string $path): string
-    {
-        return $this->primitives->fileContents($path);
-    }
-
-
-    private function kernelDocumentationCorpus(): string
-    {
-        return $this->primitives->kernelDocumentationCorpus();
-    }
-
-    private function selfImprovementDomainDocumentationCorpus(): string
-    {
-        return $this->primitives->selfImprovementDomainDocumentationCorpus();
-    }
-
-    /**
-     * @param  array<int,string>  $paths
-     */
-    private function documentationCorpus(array $paths): string
-    {
-        return $this->primitives->documentationCorpus($paths);
     }
 }
