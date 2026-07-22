@@ -619,3 +619,64 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 24 — LearningConsolidation M1b compounding owner extraction, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: e8779a077
+subject: "refactor(core): extract Learning M1b compounding owners"
+scope:
+  - app/Services/Ai/Compounding/AtlasLearningSignalScanner.php
+  - app/Services/Ai/Compounding/AtlasLearningProposalService.php
+  - app/Services/Ai/Learning/AtlasAiLearningLoopService.php
+  - app/Console/Commands/AtlasAiLearningCommand.php
+  - app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php
+  - app/Services/Ai/RuntimeReadiness/AtlasAiRuntimeReadinessService.php
+  - tests/Feature/Ai/Compounding/AtlasLearningSignalScannerTest.php
+  - tests/Feature/Ai/Compounding/LearningConsolidationF0CharacterizationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Learning/LearningConsolidationF0CharacterizationTest.php --filter='test_m1b_repoints_learning_surfaces_to_compounding_owners' --no-coverage
+  result: "FAIL 1 test, 1 assertion: AtlasLearningSignalScanner did not exist."
+green:
+  behavior: "AtlasLearningSignalScanner owns collect/list/controlPlaneSummary and signal persistence; the legacy proposal hash plus updateOrCreate path lives in AtlasLearningProposalService::proposeFromSignal, while reviewById adapts canonical approve/reject back to the frozen CLI envelope."
+  callers: "atlas:ai:learning collect/list, Control Plane, and Runtime Readiness resolve the Scanner; the dated Learning FQCN class_alias resolves to that Scanner."
+  compatibility: "M1a raw collect/list/review JSON and ready Control Plane byte snapshots remain green."
+verification:
+  learning_and_readiness: "PASS 32 tests, 306 assertions"
+  php_lint: "PASS Scanner, proposal service, and compatibility alias"
+  pint: PASS
+  diff_check: PASS
+  loc: "atlas_learning_signal_scanner=946 (<950)"
+boundary:
+  - proposal deduplication, hash format, and CaptureQualityGate behavior were not unified; proposeFromSignal preserves the legacy path deliberately
+  - no provider call, token spend, or external mutation
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 25 — LearningConsolidation M2a Cognitive public-contract freeze, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 4e2692df9
+subject: "test(core): freeze Cognitive M2a public contracts"
+scope:
+  - tests/Feature/Ai/Cognitive/CognitiveNamespaceM2aCharacterizationTest.php
+characterization:
+  red: "not applicable: M2a intentionally freezes existing public behavior before M2b; it makes no production mutation."
+  behavior: "The test freezes all 11 public Cognitive commands and verifies five legacy Cognitive FQCNs remain autoloadable, which M2b's lazy alias must preserve."
+verification:
+  cognitive_baseline: "PASS 70 tests, 486 assertions: Cognitive feature suite plus predictive command coverage"
+  command_registry: "PASS 11 expected atlas command names present in php artisan list --raw"
+  php_lint: PASS
+  pint: PASS
+  diff_check: PASS
+boundary:
+  - no namespace, import, path literal, config, migration, or command signature changed in M2a
+  - Cognitive-to-Learning git mv, consumer rewrites, scanner path updates, and lazy alias are M2b work
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
