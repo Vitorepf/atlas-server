@@ -128,21 +128,21 @@
 | Instrumentation | 155 | 1 | GOVERNANCA-QUALIDADE | QUARANTINE | FUSE→Telemetry se tocar | 1 arquivo/155 LOC, 1 command único consumidor; rg≠0 → não KILL | proposed |
 | MemoryGovernance | 148 | 3 | MEMORIA-CONTEXTO | FUSE | Memory (Memory\Governance) | consumidor único VERIFICADO (só AtlasMemoryGovernanceService); 3 scorers puros | proposed |
 | Security | 55 | 1 | DOMINIOS | KEEP | — | util VIVO: PromptInjectionScanner com 2 callers em fronteira de confiança VERIFICADO — NÃO simplificar | recorded |
-| (root singles Ai/*.php) | — | 95 | ROOT-SINGLES | — | — | — | pending |
+| (root singles Ai/*.php) | — | 95 | ROOT-SINGLES | RE-HOME (não é bloco — resíduo de migração) | ~90 files → owner-folders homônimos existentes; raiz fica com ~5 pipes canônicos (AiWorker, AiGatewayService, AiProviderManager, AiPromptBuilder, AiCompactionService) | 0 KILL; 1 QUARANTINE: ToneFilter dead-on-arrival (0 callers prod VERIFICADO — cabear ou remover c/ teste) | proposed |
 
 ## app/Services non-Ai (8) + root
 
 | Bloco | LOC | Files | Cluster | Veredito | Destino | Evidência | Status |
 |---|---|---|---|---|---|---|---|
-| Engineering | 72133 | 144 | NON-AI-ENG | — | — | — | pending |
-| AtlasCode | 11288 | 33 | NON-AI-ENG | — | — | — | pending |
-| Semantic | 5385 | 19 | NON-AI | — | — | — | pending |
-| Tools | 4309 | 14 | NON-AI | — | — | — | pending |
-| MacAgent | 1686 | 1 | NON-AI | — | — | — | pending |
-| Vault | 1446 | 7 | NON-AI | — | — | — | pending |
-| Digital | 1235 | 7 | NON-AI | — | — | — | pending |
-| Bitacula | 541 | 1 | NON-AI | — | — | — | pending |
-| (root singles Services/*.php) | — | 15 | ROOT-SINGLES | — | — | — | pending |
+| Engineering | 72133 | 144 | NON-AI-ENG | KEEP (re-estruturar interno) | subpastas DocumentationReality/ + Harness/ | espinha de code-intelligence do AOBG VERIFICADO (CodeGraph→Blackboard/Onboarding); 130 ext, 67 cmds, 183 tests | recorded |
+| AtlasCode | 11288 | 33 | NON-AI-ENG | KEEP | — | superfície de produto: 21 controllers; camada distinta de Engineering (4↔3 cross-refs) | recorded |
+| Semantic | 5385 | 19 | NON-AI | KEEP (recebe Vault) | — | 40% já é código de vault; unificar leitura Obsidian | recorded |
+| Tools | 4309 | 14 | NON-AI | KEEP | — | tool-exec de agente; 0 cross-ref com Ai/ToolRuntime VERIFICADO (planos distintos) | recorded |
+| MacAgent | 1686 | 1 | NON-AI | KEEP | — | host-agent Mac, 5 callers | recorded |
+| Vault | 1446 | 7 | NON-AI | FUSE | Semantic | 1 caller externo VERIFICADO (CartographyController); frontmatter TRIPLICADO VERIFICADO (3 parsers); ganho: -2 parsers -1 stack I/O | proposed |
+| Digital | 1235 | 7 | NON-AI | KEEP | — | bounded-context Rize isolado | recorded |
+| Bitacula | 541 | 1 | NON-AI | KEEP | — | catálogo de behavior, 3 callers | recorded |
+| (root singles Services/*.php) | — | 15 | ROOT-SINGLES | KEEP (fora do escopo Ai) | opcional: agrupar Capture/ e Bitacula/ | todos com callers de produção; domínio de negócio corretamente na raiz | recorded |
 
 ## Fases seguintes do universo (fora de app/Services — entram após blocos)
 

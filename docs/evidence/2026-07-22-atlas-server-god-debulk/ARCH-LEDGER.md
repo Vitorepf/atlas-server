@@ -2,9 +2,9 @@
 
 ```yaml
 mission: atlas-server-god-debulk-arch
-phase: record
-cluster_atual: ROOT-SINGLES + NON-AI (2 analistas finais)
-blocos_classificados: 119   # de 129 (+11 EXEC/CP/FORGE/MISC +14 DOMINIOS) — falta ROOT-SINGLES + non-Ai
+phase: review
+cluster_atual: — (mapa fechado; próxima fase: blueprints das fusões + review do EXECUTE)
+blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
 needs_operator:
@@ -21,6 +21,8 @@ needs_operator:
   - "Aprovar SUPERFICIES: QUARANTINE bloco Operator (0 callers prod, só testes AcosMax)"
   - "Aprovar FORGE-resíduo: KILL 4 classes rg=0 duplo-verificado (Ai/Forge 2 + AtlasForge 2) · FUSE coordinator+replay→Programming/Forge · dissolver 2 dirs"
   - "Aprovar DOMINIOS: FUSE Domain/ (22 files de indireção) · QUARANTINE Rivals 1.0 (Adapters/External + NativeResultNormalizer c/ teste) · QUARANTINE StrategicOS (condição: Strategy cobre)"
+  - "Aprovar NON-AI: FUSE Vault→Semantic (frontmatter triplicado)"
+  - "Aprovar ROOT-SINGLES: re-home de ~90 arquivos-raiz p/ owner-folders homônimos (raiz fica com 5 pipes canônicos) + QUARANTINE ToneFilter"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
 last_review: null
 last_commit: 27999d6c4
@@ -28,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  NON-AI+ROOT 4/4 (Vault 1 caller, frontmatter 3 parsers, Tools 0 cross-ref, ToneFilter 0 prod)
   EXEC/FORGE/DOMINIOS: 4 KILLs confirmados rg=0 --no-ignore em app+tests; 1 REBAIXADO (NativeResultNormalizer tem teste); Security scanner protegido (2 callers)
   SUPERFICIES 2/2 (Operator 4 testes-only exato, HumanSurface vivo no IntentKernel)
   APR/REAL/SKILLS 3/3 (proposal direto L797, SpecialistFlows 0 refs, Sandbox injeta Strategic L48)
