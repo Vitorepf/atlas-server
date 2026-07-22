@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiJob;
+use App\Services\Ai\Streaming\AiStreamRecorder;
 use App\Services\AuditLogService;
 use Carbon\Carbon;
 

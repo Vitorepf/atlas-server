@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiTrace;
-use App\Services\Ai\AiStreamRecorder;
+use App\Services\Ai\Streaming\AiStreamRecorder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

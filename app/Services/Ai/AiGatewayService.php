@@ -18,6 +18,7 @@ use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\Streaming\AiStreamRecorder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;

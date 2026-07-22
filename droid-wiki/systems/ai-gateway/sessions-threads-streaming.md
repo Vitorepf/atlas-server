@@ -14,7 +14,7 @@ An interaction is not a one-shot call. It belongs to a thread (the conversation)
 | `app/Services/Ai/AiContextSnapshotRecorder.php` | Records a per-trace context snapshot |
 | `app/Services/Ai/AiConversationRecorder.php` | Records user/assistant `ai_messages` |
 | `app/Services/Ai/AiConversationContextBuilder.php` | Builds conversation context for the prompt |
-| `app/Services/Ai/AiStreamRecorder.php` | Persists sequenced `ai_stream_events` |
+| `app/Services/Ai/Streaming/AiStreamRecorder.php` | Persists sequenced `ai_stream_events` |
 | `app/Services/Ai/AiThreadDeletionService.php` | Cascading thread deletion |
 | `app/Http/Controllers/AiInteractionController.php` | `stream()` (SSE) and `flowStatus()` |
 | `app/Http/Controllers/AiThreadController.php` | Thread CRUD, state, messages, compact, switch-provider, snapshots |
@@ -65,7 +65,7 @@ The compaction id is stamped onto the trace, job, and any handoff so the audit t
 
 ### Streaming
 
-The gateway streams live updates to the client through `ai_stream_events`. `AiStreamRecorder::record($job, $attempt, $eventType, $content, $metadata, $channel)` writes one row per event inside a DB transaction, computing the next `sequence` as `max(sequence) + 1` for the trace. Event types are `lifecycle`, `permission`, `progress`, `stdout`, `stderr`, `token`, `response`, `error` (unknown types default to `progress`). `recordProviderEvent` maps a provider stream chunk into a recorded event, carrying the event `name` in metadata.
+The gateway streams live updates to the client through `ai_stream_events`. `Streaming\AiStreamRecorder::record($job, $attempt, $eventType, $content, $metadata, $channel)` writes one row per event inside a DB transaction, computing the next `sequence` as `max(sequence) + 1` for the trace. Event types are `lifecycle`, `permission`, `progress`, `stdout`, `stderr`, `token`, `response`, `error` (unknown types default to `progress`). `recordProviderEvent` maps a provider stream chunk into a recorded event, carrying the event `name` in metadata.
 
 The worker emits lifecycle checkpoints at well-defined points: `pipeline_verify_passed` / `pipeline_verify_failed`, `pipeline_evidence_appended`, `permission_allowed` / `permission_denied`, `decision_receipt_blocked`, `kernel_pipeline_contract_blocked`, `policy_contract_blocked`. These are what the Live Cockpit renders as a pipeline.
 
@@ -130,7 +130,7 @@ sequenceDiagram
 | `app/Services/Ai/AiProviderHandoffService.php` | `createIfSwitching()`, `create()`, `briefText()` |
 | `app/Services/Ai/AiContextSnapshotRecorder.php` | `record()` |
 | `app/Services/Ai/AiConversationRecorder.php` | `recordUserMessage()`, `recordAssistantMessage()` |
-| `app/Services/Ai/AiStreamRecorder.php` | `record()`, `recordProviderEvent()` |
+| `app/Services/Ai/Streaming/AiStreamRecorder.php` | `record()`, `recordProviderEvent()` |
 | `app/Http/Controllers/AiInteractionController.php` | `stream()` — the SSE loop |
 | `app/Http/Controllers/AiThreadController.php` | Thread CRUD and actions |
 | `app/Models/AiStreamEvent.php` | The sequenced event entity |

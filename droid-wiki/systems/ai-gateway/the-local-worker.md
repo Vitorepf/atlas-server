@@ -68,7 +68,7 @@ flowchart TD
     PermDeny{"denied?"}
     Policy{"programming policy<br/>violation?"}
     Exec["run provider (mesh or runStreaming)<br/>inside MacAgent power session"]
-    Stream["AiStreamRecorder + SSE callback"]
+    Stream["Streaming\AiStreamRecorder + SSE callback"]
     Complete["completeAttempt"]
 
     Claim --> Council
@@ -108,7 +108,7 @@ If all gates pass, the worker creates an `AiJobAttempt` (`createAttempt`, status
 
 - The mesh runner is tried first: `HermesMeshJobRunner::run($job)` returns a result when the job is an AtlasDecide-routed mesh fan-out, or null to fall back transparently to the single provider.
 - Otherwise `provider->runStreaming($job, $job->prompt, $onStream)` runs the CLI. See [Providers and the CLI driver model](providers.md).
-- Each stream chunk is recorded by `AiStreamRecorder::recordProviderEvent` (sequence-stamped into `ai_stream_events`) and forwarded to the SSE callback. The first `token`/`response` event emits a `provider_first_token` telemetry event.
+- Each stream chunk is recorded by `Streaming\AiStreamRecorder::recordProviderEvent` (sequence-stamped into `ai_stream_events`) and forwarded to the SSE callback. The first `token`/`response` event emits a `provider_first_token` telemetry event.
 
 The power session is stopped in a `finally` block. A thrown exception becomes a `provider_exception` result. Two opt-in Patamar-4 seams run after the result: **Swarm Auto-Failover** (a failed primary triggers a K=2 swarm dispatch and the winning arm replaces the failure) and **ADML Live Outcome Feedback** (the outcome is recorded to the learned-route ledger). Both are defensive and never throw.
 
@@ -130,7 +130,7 @@ On **failure** several special paths run before the default requeue/fail:
 
 - **The queue** — `ai_jobs` polled under `lockForUpdate`, ordered by `priority, available_at, created_at`. Not Laravel's queue worker.
 - **Providers** — `AiProviderManager::get($providerKey)` returns the driver; the worker calls `runStreaming`. See [Providers and the CLI driver model](providers.md).
-- **Streaming** — `AiStreamRecorder` persists sequenced events consumed by the SSE endpoint. See [Sessions, threads and streaming](sessions-threads-streaming.md).
+- **Streaming** — `Streaming\AiStreamRecorder` persists sequenced events consumed by the SSE endpoint. See [Sessions, threads and streaming](sessions-threads-streaming.md).
 - **Quality and budget** — `evaluateQuality` runs after a successful job; the budget gate ran at enqueue. See [Quality, budget and health](quality-budget-health.md).
 - **Evidence ledger** — `AtlasEvidenceLedger` records `ExecutionStarted`, `ProviderCalled`, `ProviderReturned`, `OperationBlocked`, `OperationCompleted`. See [Evidence and receipts](../../concepts/evidence-and-receipts.md).
 - **Engineering plane** — programming jobs run through the gateway's worker. See [Engineering](../engineering/index.md).

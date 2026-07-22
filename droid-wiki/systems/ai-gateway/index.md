@@ -19,7 +19,7 @@ graph TD
     Result["Result + streaming<br/>GET /ai/interactions/{trace}<br/>or SSE /stream"]
 
     Http --> Pre --> GW --> DB --> Worker --> CLI --> Result
-    Worker -->|"AiStreamRecorder"| DB
+    Worker -->|"Streaming\AiStreamRecorder"| DB
     CLI -.->|"stdout/stderr/exit"| Worker
 ```
 
@@ -45,7 +45,7 @@ app/Services/Ai/
   AiProviderChoiceResolver.php  awaiting_user_choice pause/resolve
   AiThreadResolver.php          thread resolution / continuation
   AiSessionManager.php          session lifecycle (idle / resume)
-  AiStreamRecorder.php          sequenced streaming event persistence
+  Streaming/AiStreamRecorder.php sequenced streaming event persistence
   Arena/
     AiCouncilCoordinator.php    multi-provider council aggregation
   AiQualityEvaluator.php        post-run heuristic quality scoring
@@ -87,7 +87,7 @@ app/Console/Commands/
 | `app/Services/Ai/AtlasDecideService.php` | Sealed advisor producing the operational provider/model decision |
 | `app/Services/Ai/FairClaudePolicy.php` | Provider/model lock that disables handoff, switch, and downgrade |
 | `app/Services/Ai/AiProviderHealthService.php` | Health snapshots and operational pain score |
-| `app/Services/Ai/AiStreamRecorder.php` | Sequenced streaming events (the SSE substrate) |
+| `app/Services/Ai/Streaming/AiStreamRecorder.php` | Sequenced streaming events (the SSE substrate) |
 | `app/Services/Ai/Arena/AiCouncilCoordinator.php` | Multi-provider council aggregation |
 | `app/Services/Ai/AiQualityEvaluator.php` | Post-run heuristic quality scoring |
 | `app/Services/Ai/AiRuntimeBudgetService.php` | Token/cost budget gate |

@@ -8,7 +8,7 @@ use App\Services\Ai\Arena\AiCouncilCoordinator;
 use App\Services\Ai\AiExecutionPresentationState;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
-use App\Services\Ai\AiStreamRecorder;
+use App\Services\Ai\Streaming\AiStreamRecorder;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

@@ -15,6 +15,7 @@ final class RootSinglesLegacyAliases
     private const CLASS_MAP = [
         'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
         'App\\Services\\Ai\\AiIntentRouter' => 'App\\Services\\Ai\\Router\\AiIntentRouter',
+        'App\\Services\\Ai\\AiStreamRecorder' => 'App\\Services\\Ai\\Streaming\\AiStreamRecorder',
         'App\\Services\\Ai\\CompactionLossPolicy' => 'App\\Services\\Ai\\Compaction\\CompactionLossPolicy',
         'App\\Services\\Ai\\YouTubeKnowledgeIngestionService' => 'App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService',
         'App\\Services\\Ai\\YoutubeCanonicalProjection' => 'App\\Services\\Ai\\Knowledge\\YoutubeCanonicalProjection',

@@ -41,6 +41,7 @@ use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCanon;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use App\Services\Ai\Router\AtlasSemanticFlowArbiterService;
+use App\Services\Ai\Streaming\AiStreamRecorder;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
