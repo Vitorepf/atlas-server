@@ -1,10 +1,12 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: doing
+Status: active — Task 1 is complete; A1 continues with the queued findings.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
 ## Task 1: A1-SC-0019 Schema preflight reachability
+
+Status: complete in `0a630e750`.
 
 1. Add an executable regression test to the existing focused section test.
    It must instantiate `ReadinessProjectionAgentCodexSection` and invoke a
@@ -48,5 +50,6 @@ git diff --check
 
 ## Completion evidence
 
-Pending implementation. The report must contain both the RED unresolved
-`Readiness\\Schema` output and the GREEN focused test output.
+Complete. The executable regression recorded the RED unresolved
+`Readiness\\Schema` output before the facade import and the GREEN focused test
+output after it. A1-SC-0020..0021 remain queued and are not part of this task.

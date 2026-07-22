@@ -11,6 +11,7 @@ focus: ReadinessProjectionAgentCodexSection Schema preflight reachability
 finding_id: A1-SC-0019
 action_op: test-first facade import
 queue_index: 2
+last_commit: 0a630e750
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php --filter=liveness_monitor_preflight_reaches_read_only_storage_readiness
@@ -24,5 +25,6 @@ notes: |
   until cancel; consume META-FINDINGS; never dump findings here
   The only production change in A1-SC-0019 is the Illuminate Schema facade import; no method body, hash, bridge, split, or owner extraction changed.
   The pre-existing >2k density baseline is unchanged and is not claimed as improved.
+  Strict diff-scoped Pint reports pre-existing 13k production formatting and test-style baseline; PHPStan reports two pre-existing undefined calls in the 13k production file. The only new PHPStan diagnostic was the redundant always-true assertion, removed in the A1-SC-0019 review follow-up.
 halt_conditions_hit: []
 ```

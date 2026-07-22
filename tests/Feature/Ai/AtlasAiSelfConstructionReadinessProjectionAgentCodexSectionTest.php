@@ -92,7 +92,6 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
         $payload = (new ReadinessProjectionAgentCodexSection())
             ->agentCodexRealInvokerPostStartLivenessMonitorPreflight();
 
-        $this->assertIsArray($payload);
         $this->assertContains($payload['status'], [
             'codex_real_invoker_post_start_liveness_monitor_ready',
             'blocked',
