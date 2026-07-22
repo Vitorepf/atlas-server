@@ -653,6 +653,11 @@ final class ReadinessProjectionOsEvidenceSection
             'operator_draft_workspace_path' => (string) ($options['operator_draft_workspace_path'] ?? ''),
             'agent_control_plane_terminal_loop_operational_proof' => (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
         ]);
+        $externalCompletionClaimPolicyViolationFields = $this->externalCompletionClaimPolicyViolationFields($result, [
+            'external_agent_claim_accepted',
+            'external_agent_claim_can_mark_os_complete',
+            'external_agent_claim_can_override_audit',
+        ]);
         $diagnosticArtifactIds = [
             'runtime_promotion_receipt',
             'real_provider_smoke',
@@ -970,12 +975,15 @@ final class ReadinessProjectionOsEvidenceSection
                 'external_completion_claim_policy_completion_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
                 'completion_claim_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
                 'completion_claim_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
-                'completion_claim_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
-                'completion_claim_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
-                'completion_claim_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
-                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
-                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
-                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'completion_claim_external_agent_claim_accepted' => data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted') === true,
+                'completion_claim_external_agent_claim_can_mark_os_complete' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete') === true,
+                'completion_claim_external_agent_claim_can_override_audit' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit') === true,
+                'external_completion_claim_policy_external_agent_claim_accepted' => data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted') === true,
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete') === true,
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit') === true,
+                'external_completion_claim_policy_schema_valid' => $externalCompletionClaimPolicyViolationFields === [],
+                'external_completion_claim_policy_schema_violation' => $externalCompletionClaimPolicyViolationFields === [] ? '' : 'missing_or_malformed_external_completion_claim_policy',
+                'external_completion_claim_policy_schema_violation_fields' => $externalCompletionClaimPolicyViolationFields,
                 'external_completion_claim_policy_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
                 'external_completion_claim_policy_current_failed_count' => (int) data_get($result, 'external_completion_claim_policy.current_failed_count', 0),
                 'external_completion_claim_policy_missing_required_evidence_artifact_count' => (int) data_get($result, 'external_completion_claim_policy.missing_required_evidence_artifact_count', 0),
@@ -1347,6 +1355,11 @@ final class ReadinessProjectionOsEvidenceSection
     public function atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus(array $options = []): array
     {
         $result = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService($this->mother ?? throw new \RuntimeException("mother unbound")))->build($options);
+        $externalCompletionClaimPolicyViolationFields = $this->externalCompletionClaimPolicyViolationFields($result, [
+            'external_agent_claim_accepted',
+            'external_agent_claim_can_mark_os_complete',
+            'external_agent_claim_can_override_audit',
+        ]);
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_final_operator_evidence_closure_corridor',
@@ -1484,9 +1497,12 @@ final class ReadinessProjectionOsEvidenceSection
                 'external_completion_claim_policy_status' => (string) data_get($result, 'external_completion_claim_policy.status', ''),
                 'external_completion_claim_policy_completion_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
                 'external_completion_claim_policy_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
-                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
-                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
-                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_external_agent_claim_accepted' => data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted') === true,
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete') === true,
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit') === true,
+                'external_completion_claim_policy_schema_valid' => $externalCompletionClaimPolicyViolationFields === [],
+                'external_completion_claim_policy_schema_violation' => $externalCompletionClaimPolicyViolationFields === [] ? '' : 'missing_or_malformed_external_completion_claim_policy',
+                'external_completion_claim_policy_schema_violation_fields' => $externalCompletionClaimPolicyViolationFields,
                 'external_completion_claim_policy_current_failed_count' => (int) data_get($result, 'external_completion_claim_policy.current_failed_count', 0),
                 'external_completion_claim_policy_missing_required_evidence_artifact_count' => (int) data_get($result, 'external_completion_claim_policy.missing_required_evidence_artifact_count', 0),
                 'external_completion_claim_policy_hash' => (string) data_get($result, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
@@ -1617,6 +1633,13 @@ final class ReadinessProjectionOsEvidenceSection
             ],
         ];
         $transition['external_completion_claim_policy']['external_completion_claim_policy_hash'] = $this->stableHash($transition['external_completion_claim_policy']);
+        $externalCompletionClaimPolicyViolationFields = $this->externalCompletionClaimPolicyViolationFields($transition, [
+            'external_agent_claim_accepted',
+            'external_agent_claim_can_mark_os_complete',
+            'external_agent_claim_can_override_audit',
+            'transition_allowed_from_external_claim',
+            'self_programming_allowed_from_external_claim',
+        ]);
         $transition['transition_blocker_count'] = count((array) data_get($transition, 'blockers', []));
         $operatorOnlyHumanClosureBlockers = [
             'runtime_gap_matrix_all_runtime_y',
@@ -1738,11 +1761,14 @@ final class ReadinessProjectionOsEvidenceSection
                 'external_completion_claim_policy_status' => (string) data_get($transition, 'external_completion_claim_policy.status', ''),
                 'external_completion_claim_policy_completion_authority' => (string) data_get($transition, 'external_completion_claim_policy.completion_authority', ''),
                 'external_completion_claim_policy_required_completion_predicate' => (string) data_get($transition, 'external_completion_claim_policy.required_completion_predicate', ''),
-                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_accepted', true),
-                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
-                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
-                'external_completion_claim_policy_transition_allowed_from_external_claim' => (bool) data_get($transition, 'external_completion_claim_policy.transition_allowed_from_external_claim', true),
-                'external_completion_claim_policy_self_programming_allowed_from_external_claim' => (bool) data_get($transition, 'external_completion_claim_policy.self_programming_allowed_from_external_claim', true),
+                'external_completion_claim_policy_external_agent_claim_accepted' => data_get($transition, 'external_completion_claim_policy.external_agent_claim_accepted') === true,
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete') === true,
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_override_audit') === true,
+                'external_completion_claim_policy_transition_allowed_from_external_claim' => data_get($transition, 'external_completion_claim_policy.transition_allowed_from_external_claim') === true,
+                'external_completion_claim_policy_self_programming_allowed_from_external_claim' => data_get($transition, 'external_completion_claim_policy.self_programming_allowed_from_external_claim') === true,
+                'external_completion_claim_policy_schema_valid' => $externalCompletionClaimPolicyViolationFields === [],
+                'external_completion_claim_policy_schema_violation' => $externalCompletionClaimPolicyViolationFields === [] ? '' : 'missing_or_malformed_external_completion_claim_policy',
+                'external_completion_claim_policy_schema_violation_fields' => $externalCompletionClaimPolicyViolationFields,
                 'external_completion_claim_policy_current_failed_count' => (int) data_get($transition, 'external_completion_claim_policy.current_failed_count', 0),
                 'external_completion_claim_policy_hash' => (string) data_get($transition, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
                 'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($transition, 'terminal_loop_operational_proof_canonical_binding_path', ''),
@@ -1754,6 +1780,19 @@ final class ReadinessProjectionOsEvidenceSection
                 'completion_audit_command_with_canonical_terminal_loop_binding' => (string) data_get($transition, 'completion_audit_command_with_canonical_terminal_loop_binding', ''),
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $requiredFields
+     * @return list<string>
+     */
+    private function externalCompletionClaimPolicyViolationFields(array $payload, array $requiredFields): array
+    {
+        return array_values(array_filter(
+            $requiredFields,
+            static fn (string $field): bool => ! is_bool(data_get($payload, "external_completion_claim_policy.{$field}")),
+        ));
     }
 
 }
