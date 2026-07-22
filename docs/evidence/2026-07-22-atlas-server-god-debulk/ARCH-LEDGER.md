@@ -3,8 +3,8 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: record
-cluster_atual: APRENDIZADO/REALITY/SKILLS (aguardando analista)
-blocos_classificados: 73   # de 129 (+5 ENG-CORE: 5→3 donos)
+cluster_atual: SUPERFICIES · DOMINIOS · EXEC-INFRA/CP/FORGE/MISC (3 analistas)
+blocos_classificados: 83   # de 129 (+10 APRENDIZADO/REALITY/SKILLS)
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
 needs_operator:
@@ -17,6 +17,7 @@ needs_operator:
   - "Aprovar GOV-QUAL: dedup RISK_LEVELS · QUARANTINE Instrumentation · blueprint de SPLIT do Kernel (Decision-runtime / Evidence-ledger / Architecture-linter)"
   - "Aprovar AUTONOMOS: QUARANTINE física dos ~388 órfãos ACDE (61% do AE, ~55k LOC) p/ archive/ — pré-requisito lista materializada com prova rg por arquivo; keep-list intacta na zona viva"
   - "Aprovar ENG-CORE: FUSE ProgrammingRuntime→Programming · FUSE AEOS+AutonomousEngineering→AutonomousOs (bloqueado até split do godfile UniversalGates 21.6k, que tem só 3 callers)"
+  - "Aprovar APRENDIZADO/REALITY/SKILLS: FUSE Learning→Compounding (ANTES do rename Cognitive→Learning — colisão de namespace) · FUSE-colocação StrategicReality→RealitySandbox · RENAME Reality→RealityGraph · QUARANTINE SpecialistFlows"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
 last_review: null
 last_commit: 27999d6c4
@@ -24,6 +25,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  APR/REAL/SKILLS 3/3 (proposal direto L797, SpecialistFlows 0 refs, Sandbox injeta Strategic L48)
   ENG-CORE 3/3 exatos (godfile 3 callers, Programming 0 refs AEOS/AE, seam L18)
   TRANSPORTE 2/2 leve (CachingAiProvider L229, Mcp 3 callers) — cluster sem veredito destrutivo
   AUTONOMOS 3/4 + 1 nuance (Brain 98 exato, atlas:loop=0/brain=25 exato, keep-list viva; amostra de órfão caiu na zona VIVA → lista dos 388 exige prova por arquivo antes do move)

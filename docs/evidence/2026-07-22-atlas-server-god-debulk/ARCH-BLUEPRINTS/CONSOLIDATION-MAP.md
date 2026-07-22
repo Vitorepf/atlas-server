@@ -26,7 +26,7 @@
 | AcosMax | 14223 | 51 | COGNICAO | FUSE-parcial | Aemor+Context+Cognition | grab-bag 51 files, 0 providers VERIFICADO; envelope→Aemor, embedding/RAGX→Context, cockpit/series→Cognition | proposed |
 | Hermes | 13507 | 53 | TRANSPORTE | KEEP | — | 16 callers prod, 4 cmds, controller, driver no AiProviderManager; único transport verboo | recorded |
 | Cognition | 13420 | 52 | COGNICAO | KEEP | — | 118 refs ext, 27 cmds; autoridade-mãe ACOS (scorecard+immune+gates) | recorded |
-| SelfImprovement | 11333 | 22 | APRENDIZADO | — | — | — | pending |
+| SelfImprovement | 11333 | 22 | APRENDIZADO | KEEP | — | closed-loop de governança isolado: 66 arquivos ext, 0 cross-ref com Compounding, modelos próprios | recorded |
 | Foundry | 11331 | 47 | FOUNDRY | KEEP spine + QUARANTINE Frontier | IF funde aqui (Capability Foundry) | spine 3.1k vivo (gap-finder invocado por Stewardship); Frontier 5.1k default-off VERIFICADO (frontier_mode config); Rsi/ sai p/ bloco Rsi | proposed |
 | Product | 10211 | 34 | FOUNDRY | KEEP | — | 36 callers; injeção viva no AiInteractionController (mode=programming); fábrica de ENTREGA de software | recorded |
 | Cli | 9618 | 30 | SUPERFICIES | — | — | — | pending |
@@ -37,11 +37,11 @@
 | Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | KEEP | — | 56 refs, 10 cmds, 2 jobs agendados; dono das métricas/custo/drift | recorded |
 | VentureFoundry | 8117 | 39 | FOUNDRY | KEEP + RENAME (colisão "Foundry") | — | heartbeat agendado VERIFICADO (console.php:153 atlas:venture review-cycle); domínio negócios, não código | proposed |
 | WorkspaceIntelligence | 8059 | 17 | MEMORIA-CONTEXTO | KEEP | — | 43 ext, 4 controllers HTTP, 6 cmds; órgão vivo com superfície própria | recorded |
-| Compounding | 7321 | 40 | APRENDIZADO | — | — | — | pending |
+| Compounding | 7321 | 40 | APRENDIZADO | KEEP (núcleo, absorve Learning) | — | dono canônico de AiLearningProposal (service+applier); 103 callers, schedule wired | recorded |
 | Memory | 7238 | 34 | MEMORIA-CONTEXTO | KEEP | — | 75 arquivos ext, 17 cmds, bindings; órgão dominante de memória durável | recorded |
 | RealExecution | 6431 | 8 | EXEC-INFRA | KEEP | — | 22 callers ext, 5 cmds, job; núcleo de delivery patch→test→certify | recorded |
 | Publishing | 6254 | 2 | DOMINIOS | — | — | — | pending |
-| Reality | 5620 | 7 | REALITY | — | — | — | pending |
+| Reality | 5620 | 7 | REALITY | KEEP + RENAME→RealityGraph | — | AURG grafo fundido memory+code+docs, 60 ext; Strategic/Sandbox tocam o grafo em 0 refs — cluster era falso positivo de nome | proposed |
 | Voice | 5363 | 12 | SUPERFICIES | — | — | — | pending |
 | Mission | 5115 | 25 | MISSAO | KEEP | — | ortogonal VERIFICADO (cross-ref domínio=0); 414/428 callers eram só MissionCanonicalHash → extrair p/ Support (proposed); piso "nunca executa provider" | proposed |
 | ControlPlane | 4904 | 13 | CONTROL-PLANE | — | — | — | pending |
@@ -49,7 +49,7 @@
 | Domain | 4695 | 22 | DOMINIOS | — | — | — | pending |
 | Governance | 4687 | 16 | GOVERNANCA-QUALIDADE | KEEP | — | 113 refs (44 prod-Ai); kernel constitucional fail-closed + admit() como entrada única do stack | recorded |
 | RouterRuntime | 3778 | 14 | ROTEAMENTO | KEEP | — | motor de flow: Canon=18, HyperflowEntry=16 callers ext; owner do "que flow atende" | recorded |
-| OperatorIntelligence | 3665 | 19 | APRENDIZADO | — | — | — | pending |
+| OperatorIntelligence | 3665 | 19 | APRENDIZADO | KEEP | — | perfil-máquina do operador: 27 ext, controller, job, 5 cmds | recorded |
 | ProgrammingRuntime | 3657 | 12 | ENG-CORE | FUSE | Programming (Programming/Runtime) | 10 callers ext re-pontáveis por import; 1 dono de "programação" em vez de 2 vizinhos | proposed |
 | Runtime | 2879 | 14 | RUNTIME | KEEP | — | 12 callers ext + 2 cmds; executor REAL de tools (file/shell/git/test) | recorded |
 | Autonomy | 2775 | 10 | AUTONOMOS | KEEP | — | toda classe ≥1 caller (auto-apply, ladder, digest); ⚠ flag: AutonomyLadderRuntimeService duplicado em Stewardship/AreaFocusLoop — investigar dedupe | recorded |
@@ -70,7 +70,7 @@
 | DomainRuntime | 1574 | 10 | DOMINIOS | — | — | — | pending |
 | Strategy | 1527 | 13 | DOMINIOS | — | — | — | pending |
 | Policy | 1474 | 10 | GOVERNANCA-QUALIDADE | KEEP | — | fonte de verdade do léxico (31 refs, 12 prod); base do stack | recorded |
-| Skills | 1450 | 8 | SKILLS | — | — | — | pending |
+| Skills | 1450 | 8 | SKILLS | KEEP | — | infra de skill packs: provider binding, 3 cmds, consumido por Hermes/Cli/Aemor/PromptBuilder | recorded |
 | Patamar4 | 1428 | 6 | MISC | — | — | — | pending |
 | Support | 1413 | 12 | MISC | — | — | — | pending |
 | ValueObjects | 1370 | 7 | MISC | — | — | — | pending |
@@ -81,13 +81,13 @@
 | AgentGovernance | 1159 | 12 | GOVERNANCA-QUALIDADE | KEEP + RECLASSIFICAR (fleet-ops) | — | é a babá/reconciler de fleet (atlas:agents:on/off), 0 callers no pipeline de permissão — rótulo errado, não fusão | recorded |
 | AutonomousWorkExecution | 1152 | 2 | AUTONOMOS | KEEP | — | AWEOS: 5 callers no Service incl. Hyperflow e VerifiedExecution | recorded |
 | SelfDirectedEvolution | 1114 | 3 | AUTONOMOS | KEEP | — | frontier curation-inbox; 8 callers nos 2 principais (Foundry/Frontier, AreaFocusLoop, NightShift) | recorded |
-| StrategicReality | 1080 | 2 | REALITY | — | — | — | pending |
-| Learning | 1067 | 1 | APRENDIZADO | — | — | — | pending |
-| SpecialistFlows | 1052 | 13 | SKILLS | — | — | — | pending |
+| StrategicReality | 1080 | 2 | REALITY | FUSE-colocação | RealitySandbox (AutonomousReality) | RealitySandbox já injeta (L13/L48 VERIFICADO); manter classes/aliases — 5 entrypoints por classe | proposed |
+| Learning | 1067 | 1 | APRENDIZADO | FUSE | Compounding | escreve AiLearningProposal DIRETO ignorando o serviço canônico (maybeGenerateProposal ~L797 VERIFICADO); review() duplica lifecycle; 4 callers; ⚠ SEQUÊNCIA: esta fusão libera o nome p/ RENAME Cognitive→Learning | proposed |
+| SpecialistFlows | 1052 | 13 | SKILLS | QUARANTINE | — | routers com 0 instanciação em produção VERIFICADO (minha busca: 0 refs até em testes); substituto vivo = RouterRuntime; KILL após remover testes órfãos | proposed |
 | VerifiedExecution | 1044 | 2 | EXEC-INFRA | FUSE | RealExecution | ledger paralelo VERIFICADO: 6 models AtlasAver* vs 8 AiRealExecution*; 9 callers; fusão = linhagem única de evidência | proposed |
 | Concerns | 1027 | 3 | MISC | — | — | — | pending |
 | OperatorApproval | 1017 | 4 | GOVERNANCA-QUALIDADE | KEEP + dedup | importar PolicyCanon::RISK_LEVELS | RISK_LEVELS copiado VERIFICADO (3 files); camada acima da PolicyCanon por design | proposed |
-| RealitySandbox | 1003 | 2 | REALITY | — | — | — | pending |
+| RealitySandbox | 1003 | 2 | REALITY | KEEP (absorve StrategicReality) | — | simulate/counterfactual/projectRisk; 5 callers vivos | recorded |
 | IntelligenceFactory | 982 | 2 | FOUNDRY | FUSE | Foundry (Capability Foundry) | duplica capability_gap sob schema paralelo, 0 cross-import VERIFICADO; advise() vivo no Hyperflow L171 VERIFICADO — fusão = identidade única de gap servindo build/buy/borrow E auto-evolução | proposed |
 | PersistentContext | 977 | 2 | MEMORIA-CONTEXTO | FUSE | Context (ContextRuntimeService) | falso amigo: é runtime de CONTEXTO; 12 ext; coeso mas mal-alocado | proposed |
 | EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | KEEP | — | autoridade do roster 22 roles (EngineeringKernel::OFFICIAL_ROLES aponta aqui); 8 schemas DB + selo HMAC; teste do patamar FALHA para mover | recorded |
@@ -95,7 +95,7 @@
 | RuntimeReadiness | 857 | 1 | RUNTIME | KEEP | — | 4 callers ext incl. HTTP controller próprio | recorded |
 | Caching | 851 | 6 | TRANSPORTE | KEEP + RENAME sugerido (cost-governance) | — | CachingAiProvider vivo no AiProviderManager:229 VERIFICADO; é governança de custo, não cache | recorded |
 | Analysis | 835 | 6 | UNITARIO | — | — | — | pending |
-| PersonalDevelopment | 787 | 6 | APRENDIZADO | — | — | — | pending |
+| PersonalDevelopment | 787 | 6 | APRENDIZADO | KEEP | — | domínio de coaching (DomainOrchestrator), não é modelo do operador; 7 ext | recorded |
 | ConversationOps | 736 | 2 | SUPERFICIES | — | — | — | pending |
 | Teos | 723 | 2 | COGNICAO | KEEP | — | 19 refs ext, 4 cmds; layering I3/I4 limpo | recorded |
 | Capture | 719 | 2 | SUPERFICIES | — | — | — | pending |
