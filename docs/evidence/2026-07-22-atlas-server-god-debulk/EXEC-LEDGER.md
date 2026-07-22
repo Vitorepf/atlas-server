@@ -4,36 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0187 recorded
+phase: A1-SC-0104 recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: direct certification-probe artifact cleanup
-finding_id: A1-SC-0187
-action_op: test-first public-probe finally cleanup
+focus: fail-closed terminal commit verification
+finding_id: A1-SC-0104
+action_op: test-first canonical Git commit binding
 queue_index: 6
-last_commit: 73f951958
+last_commit: e67dd5cc9
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter='test_direct_terminal_bootstrap_probe_prunes_its_synthetic_queue_and_lease_artifacts'
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php tests/Feature/Ai/AtlasTaskServingAuthorNotJudgeTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  /opt/homebrew/bin/php -l tests/Concerns/MakesAgentControlPlaneTaskQueueOrchestrator.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
   git diff --check
 before_after: |
-  red: without the public wrapper finally cleanup, runTerminalBootstrapProbe left three synthetic queue artifacts; the real public probe asserted prepared_and_enqueued before failing 3 !== 0.
-  green: each direct terminal-probe wrapper now cleans its run-scoped artifacts in finally; certify() calls the runner directly and retains its original single final cleanup.
+  red: markResolved accepted abc123, returned task_resolved, released the lease, and moved the queue record to completed_dry_run.
+  green: resolve accepts only canonical commits reachable from HEAD, bound by Atlas-Task trailer to the packet, and whose changed files are wholly within allowed_files.
 stdout: |
-  direct_characterization: PASS (1 test, 3 assertions)
-  probe_runner_suites: PASS (30 tests, 115 assertions)
-  certification_feature_suite: NOT GREEN (10 failed, 5 passed; bootstrap/claim counts are zero and status is blocked)
-  php_lint: No syntax errors detected in service and changed feature test
-  loc_check: certification_service=1189
+  task_queue_feature_and_unit: PASS (100 tests, 479 assertions)
+  broader_related_package: NOT GREEN (3 failures in untouched dry-run learning, worker-behavior recall, and static quarantine-call count paths)
+  php_lint: PASS service plus six changed test files
+  loc_check: task_queue_orchestrator=1971
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The cleanup path operates only on synthetic in-memory queue and lease artifacts; it does not persist, dispatch, call providers, or spend tokens.
-  The broad certification feature suite is explicitly not accepted as green. Its bootstrap/claim failure predates neither is attributed by this receipt; it remains a separate failure surface for the queue/bootstrap owner.
+  The terminal verifier performs local Git reads only before any queue/lease mutation; it does not call providers or spend tokens.
+  The broader related package is explicitly not accepted as green. The three remaining failures execute operations outside markResolved or inspect AtlasTaskServingService source outside this diff.
   Strict Pint reports host formatting drift; no broad reformatting was applied.
   The source is below 2k. A shared-index race placed an older app/test diff in external commit 7d7aa7c35e with subject docs(core); this is a historical label violation, not a claim that this cycle was docs-only.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -302,4 +301,38 @@ focused_evidence:
   integrity: EvidenceLedgerHashChainIntegrityVerifier::verifyStoredScopeChain(kernel_triad_f0, receipt-chain)=ok
 production_changes: false
 purpose: append-only ordering correction only
+```
+
+## Task 15 — A1-SC-0104 terminal commit verification, 2026-07-22
+
+```yaml
+finding: A1-SC-0104
+commit: e67dd5cc9
+subject: "refactor(core): GOD-DEBULK verify resolved commits"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Concerns/MakesAgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php
+  - tests/Feature/Ai/AtlasTaskServingAuthorNotJudgeTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php --filter='test_mark_resolved_rejects_an_arbitrary_commit_identifier_without_releasing_the_lease'
+  result: "FAIL 1 test, 1 assertion: abc123 returned task_resolved rather than resolve_blocked"
+green:
+  behavior: "markResolved requires a 40-64 hex commit resolving to a canonical commit reachable from HEAD, with an Atlas-Task packet trailer and no changed files outside allowed_files before it releases the lease."
+  characterization: "real public markResolved calls against temporary Git repositories prove accepted scoped commit replay plus rejection of arbitrary id, unbound task trailer, and out-of-scope diff."
+verification:
+  task_queue_feature_and_unit: "PASS 100 tests, 479 assertions"
+  broader_related_package: "NOT GREEN: 3 failures in untouched dry-run learning, worker-behavior recall, and static quarantine-call count paths; no green claim."
+  php_lint: "PASS service plus six changed test files"
+  loc: "task_queue_orchestrator=1971 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing host formatting drift; no broad reformatting was applied"
+boundary:
+  - local Git reads are completed before any lease release or queue transition
+  - no provider call, token spend, or task dispatch
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
 ```
