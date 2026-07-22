@@ -1,6 +1,6 @@
 # BLUEPRINT — ProviderPipeUnification
 
-> status: draft
+> status: draft-v2 (SOBREVIVEU ao verify adversarial 2026-07-22 com 3 emendas aplicadas; evidências das emendas verificadas pelo comandante)
 > data: 2026-07-22
 > obra: GOD Debulk · cluster ROTEAMENTO
 > objetivo estratégico: 3 executores (Dev/Forge/Autônomos) com o MESMO poder consumindo o MESMO seam de provider — bypass cego = 0, medido.
@@ -105,10 +105,10 @@ não toca `FairClaudePolicy`; não muda `CachingAiProvider`/compressão; não al
 runner governed/não-governed → consulted/bypass.
 
 **F1 — Registry única (M1)**: config nova → facets no manager (teste de paridade fail-closed) →
-shim `@deprecated` → migrar 3 consumidores → deletar shim no ciclo seguinte. Guarda: manager ~550
+shim `@deprecated` → migrar 3 consumidores de app **+ [E3] os consumidores de TESTE (`ProviderDriverWrappersTest` L275/301/326) na mesma fase** → deletar shim no ciclo seguinte **+ remover a exceção path-literal do check ap12 (scanner L285 aponta para o arquivo da registry — ficaria stale)**. Guarda: manager ~550
 LOC (≤800); se estourar, facet compliance extrai para colaborador que LÊ o mapa único.
 
-**F2 — Resolver tipado (M2)**: interface + `setArmResolver`; `setResolver` como shim 1 ciclo;
+**F2 — Resolver tipado (M2)** [emendas E2]: interface + `setArmResolver(?SwarmArmResolver)` — **aceita null (reset)**: uso vivo `setResolver(null)` em `AtlasEngineeringRunConductorServiceTest:113`; `decorate` tem assinatura REAL `(Closure $inner, array $options)` — a versão tipada preserva `$options` (budget/schema/modo) e migra `AtlasConductorResolverGuardTest` na mesma fase; `setResolver` como shim 1 ciclo;
 produção implementa a interface (assinatura já bate — 1 linha + morte do `asClosure`); shadow/smoke
 viram classes; guard tipado NA MESMA fase (senão M2 é teatro); remover shim + regra no scanner.
 
@@ -127,7 +127,8 @@ F1⊥F2 (paralelizáveis); F3 depende só de F0; F4 de todas.
 2. `governed_rate == 1.0` com `total > 0` (baseline-zero não conta);
 3. teste de paridade de catálogos verde;
 4. `rg 'setResolver\(' app/` vazio e `rg 'new (Claude|Codex|Gemini|Hermes|Minimax)\w*Provider' app/` só no bloco do manager/scanner;
-5. characterization F0 verde inalterada.
+5. **[E1 — perna ESTÁTICA anti-spawn-cego]** a métrica do ledger é vacuamente satisfazível (spawn não-instrumentado é invisível — provado: `AtlasHermesOpsCommand:79` roda o binário hermes cru com `new Process` fora do ledger; idem `SystemFleetDriver:140` e `EngineeringHarnessRunnerService:1486`). Critério adicional obrigatório: regra no scanner (ou rg de gate) por `Process|proc_open|shell_exec` combinado com binários claude/codex/gemini/hermes/minimax FORA dos seams instrumentados = 0 hits não-justificados; todo hit vira consulted ou receipt de exceção nomeada;
+6. characterization F0 verde inalterada.
 
 Qualquer uma falhando = obra aberta. Sem média, sem "quase".
 

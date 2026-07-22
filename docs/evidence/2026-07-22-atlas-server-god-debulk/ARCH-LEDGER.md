@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  VERIFY ProviderPipe: SOBREVIVE + 3 emendas APLICADAS (E1 crítica: critério era vacuamente satisfazível — spawn cego invisível ao ledger, provado HermesOps:79; E2 reset-null + decorate($options); E3 testes da registry + ap12 stale). 3/3 evidências verificadas.
   INCIDENTE EXECUTOR: Sol caiu na armadilha do dispatcher (AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001, scope blocked, goal blocked após 3 ciclos). RAIZ: AGENTS.md L97 manda obedecer o contrato do pacote — Sol foi leal ao arquivo errado. FIX do comandante: exceção pétrea GOD-DEBULK gravada no AGENTS.md (não claimar packet, ignorar AIP-*/RES-*/scope-validator, halt só por cancel).
   RuntimeExecution v2 APLICADA (rodada 2): 3/3 claims novos verificados (diff_hash payload L233 ≠ sha256 cru L539, availableTools L24); migração aditiva especificada, 10 path-literals fechados, ciclo de vida de dir resolvido. Pronto p/ 2º verify.
   VERIFY RuntimeExecution: REFUTADO (2 fatais confirmados pelo comandante: canônico sem objective/diff_hash; ≥9 path-literal consumers) → redesign rodada 2 disparado. O processo author≠judge pagou.
