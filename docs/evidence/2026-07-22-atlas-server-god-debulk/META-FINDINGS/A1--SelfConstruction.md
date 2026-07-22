@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 10
+files_scanned: 11
 files_total: 1210
-lines_scanned: 95049
+lines_scanned: 97005
 ```
 
 ## Files
@@ -1943,15 +1943,242 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+loc: 1956
+kind: durable_reservation_planning_approval_blueprint_and_runtime_packet_projection_section
+intent_axes: [1, 2, 3, 4, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 27, 28, 29, 30, 33, 34, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0093
+    type: godfile
+    severity: s1
+    detail: "At 1,956 LOC this section sits just below the generic 2,000 LOC cutoff while exposing 18 CLI-backed domain methods. It owns a ledger plan, AP candidate, approval request/template, two preflights, implementation packet, storage/repository/guard/lifecycle/projection contracts, five blueprints, and a runtime build packet. This is a planning document and approval operating system encoded as one runtime projection class."
+    evidence:
+      - "21 public methods total: constructor, setMother, __call, and 18 durableReservation domain methods"
+      - "18 domain methods span lines 61-1,954"
+      - "parent readiness facade retains 18 one-line public delegators"
+      - "AtlasAiSelfConstructionMotherCommand exposes all 18 methods as CLI flags and human-output surfaces"
+      - "sha256=af645d54e1d159907054de89a5fbf0c2e4f64c5bc9982e019d9d79ffa19e015e"
+  - id: A1-SC-0094
+    type: false_abstraction
+    severity: s0
+    detail: "The extracted section is still bidirectionally fused to the mother. It is created by the 29,744 LOC facade, rebound through setMother, and forwards five absent helper names across 26 static call sites with unrestricted ReflectionMethod. Fifteen copied imports remain, but only Closure is used, showing that the split moved a contiguous text family without establishing typed reservation, scope, completion-gate, or hot-scope owners."
+    evidence:
+      - "nullable mother, setMother, and unrestricted __call occupy lines 29-54"
+      - "unresolved calls => hotForbiddenFiles 19, multiSessionReadinessGate 4, packetCompletionGate 1, reservationLedgerPreview 1, scopeValidator 1"
+      - "15 imports / 1 used / 14 unused"
+      - "18 parent facade delegators plus one private lazy section resolver remain"
+      - "the section cannot evaluate any public domain method without the mother binding"
+  - id: A1-SC-0095
+    type: perf
+    severity: s0
+    detail: "durableReservationRuntimeBuildPacket recomputes five overlapping blueprint branches instead of evaluating one dependency graph. Static expansion yields 1,066 domain invocations, 1,066 stable hashes, and about 2,896 magic mother calls for one final packet; the base plan alone is rebuilt 445 times. The resulting CLI takes more than ten seconds even though its output is smaller than the base plan output."
+    evidence:
+      - "expanded call frequencies: plan 445, AP candidate 245, approval request 100, decision 50, post-approval preflight 50"
+      - "total expanded domain invocations / stable hashes => 1,066"
+      - "expanded mother calls => approximately 2,896, including repeated scope/gate/hot-file projections"
+      - "runtime-build CLI => 10.61s, 134,807,552-byte max RSS, 167,714,503,711 retired instructions, 5,592 output bytes"
+      - "ledger-plan CLI => 0.50s, 4,441,476,380 retired instructions, 6,179 output bytes"
+  - id: A1-SC-0096
+    type: bug
+    severity: s0
+    detail: "The hand-copied durable-reservation contract contradicts itself before implementation. The ledger plan requires three storage objects including atlas_self_construction_packet_snapshots, but storage schema and migration blueprint emit only two tables and silently drop snapshots. State vocabularies also drift: the plan uses available/renewed while storage schema substitutes preview and omits renewed. An executor cannot satisfy all emitted contracts simultaneously."
+    evidence:
+      - "ledger plan storage_object_count=3 at lines 69-119"
+      - "storage schema table_count=2 at lines 739-798 and migration blueprint table_count=2 at lines 1,346-1,412"
+      - "atlas_self_construction_packet_snapshots appears only in the initial plan"
+      - "plan states => available, claimed, renewed, released, expired, completed, blocked"
+      - "storage schema states => preview, claimed, released, expired, completed, blocked"
+  - id: A1-SC-0097
+    type: dishonest_name
+    severity: s1
+    detail: "Every public surface is labelled *_ready while the modeled workflow has no route to approval. ApprovalDecisionTemplate always creates null/pending signer slots; PostApprovalPreflight always inserts two blocked checks and literal preflight_passed=false; every downstream implementation/blueprint/build packet is still emitted as ready. Here ready means only that a speculative document was rendered, not that its prerequisites, approval, schema, repository, runtime, or implementation exist."
+    evidence:
+      - "18 domain returns contain ready-labelled top-level statuses; 177 literal false assignments dominate the surfaces"
+      - "decision_status is template_not_signed and every signer slot is pending/null"
+      - "post-approval preflight hard-codes approval_decision_signed and approved_for_scoped_implementation to blocked"
+      - "no option accepts or verifies a signed approval decision"
+      - "runtime build packet status is ready while build_status remains blocked_until_signed_approval_preflight_and_runtime_scope_approval"
+  - id: A1-SC-0098
+    type: doc_lie
+    severity: s1
+    detail: "The implementation packet directs future work to a source path that does not exist: app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php. The real facade lives under Readiness/. The packet presents that stale string as an allowed future scope and pairs it with one 19k-line command test, so an executor following the generated plan is sent to the wrong production location and a test-monster bottleneck."
+    evidence:
+      - "stale allowed_future_scope path appears at line 661"
+      - "real source path is app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php"
+      - "AtlasAiSelfConstructionCommandTest.php is referenced as the primary future test and already exceeds 19,000 LOC"
+      - "no path-existence or CODEMAP validation runs when the implementation packet is built"
+  - id: A1-SC-0099
+    type: dupe
+    severity: s2
+    detail: "The same reservation vocabulary is manually restated through 18 cumulative projections: tables, fields, states, transitions, blockers, methods, commands, future files, tests, forbidden scopes, and literal safety booleans. The file repeats hotForbiddenFiles 19 times, stableHash 18 times, data_get 54 times, and false 177 times; downstream methods copy only predecessor hashes and then restate another near-identical contract."
+    evidence:
+      - "19 hotForbiddenFiles calls and 18 stableHash calls in source"
+      - "177 literal false assignments versus 13 true assignments"
+      - "repository methods, collision decisions, lease states, and readiness queue states are repeated in contract and blueprint variants"
+      - "schema, migration, repository, guard, lifecycle, projection, and runtime packets each repeat the same non-execution envelope"
+      - "manual duplication already produced the packet-snapshot and state-vocabulary drift"
+  - id: A1-SC-0100
+    type: test_gap
+    severity: s1
+    detail: "The dedicated section suite is structural only: four tests verify resolvability, method count, facade delegation, and lazy resolution without invoking one domain contract. The giant command suite does execute the final packet and passes, but asserts output literals rather than dependency evaluation counts, schema consistency, real approval reachability, path validity, or budgets; the passing final test takes 10.97 seconds by itself."
+    evidence:
+      - "dedicated section suite => 4 passed / 8 assertions / zero domain method invocations"
+      - "focused runtime-build command test => 1 passed / 24 assertions / 10.97s"
+      - "no test asserts packet_snapshots survives schema/migration projection"
+      - "no test rejects ready when approval is unverified or checks a signed-decision input path"
+      - "no test caps expanded calls, stable hashes, mother calls, latency, RSS, or instructions"
+  - id: A1-SC-0101
+    type: os_overlap
+    severity: s0
+    detail: "This SelfConstruction section duplicates an entire durable-reservation OS already represented by 16 AAEOS Quarantine services and their generated contract tests. Both families encode ledger plan, AP/approval, schema, repository, collision, lease, readiness, preflight, and blueprint semantics, but they differ in closed storage/state vocabularies and command names. Keeping both makes ownership, quarantine status, and future implementation authority undecidable."
+    evidence:
+      - "16 app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservation*.php files total 8,025 LOC"
+      - "eight generated AAEOS durable-reservation tests total 1,972 LOC"
+      - "AAEOS plan declares a closed three-table storage set including packet snapshots"
+      - "SelfConstruction exposes 18 parallel CLI surfaces through the readiness facade"
+      - "no live SelfConstruction Reservations implementation or matching migrations exist; only planning/projection families are present"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Define one canonical closed reservation schema/state vocabulary, restore or explicitly remove packet snapshots with a migration decision, validate every generated path/flag, and make post-approval preflight consume a typed verified approval receipt. Top-level status must derive from prerequisite truth rather than artifact-render success."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+      - app/Services/Ai/Aaeos/Quarantine
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "plan, schema, migration, repository, lifecycle, and readiness contracts share one validated table/field/state registry"
+      - "approved status is unreachable without a cryptographically/currently bound approval receipt"
+      - "every emitted path and CLI flag resolves to a mapped live or explicitly future-owned target"
+  - op: TEST
+    detail: "Add direct semantic tests for all 18 entrypoints against one fake typed dependency snapshot. Cover schema/state consistency, packet-snapshot disposition, signed/expired/drifted approval receipts, predecessor blocker propagation, path/flag validation, one-evaluation-per-node, deterministic hashes, and cold/warm latency/RSS/instruction budgets. Move this family out of the 19k command-test host."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionDurableReservationSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+      - tests/Feature/Ai/SelfConstruction
+    acceptance:
+      - "all 18 methods have direct semantic characterization and only thin CLI routing remains in the command test"
+      - "tests fail on schema/state/path/approval drift"
+      - "runtime-build packet evaluates each dependency node once and stays inside published performance budgets"
+  - op: SPLIT
+    detail: "Before any fusion, remove this family from the mother back-reference graph. Keep a temporary facade alias only; introduce typed immutable inputs for reservation policy, completion gate, scope, approval, and hot-scope registry. Hot CLI/projector owners stay at or below 800 LOC and no replacement PHP may exceed 2,000 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "zero setMother/__call/ReflectionMethod dependency edges remain"
+      - "facade compatibility aliases have a one-cycle removal date"
+      - "typed construction fails when any required snapshot/registry is absent"
+  - op: OWNER
+    detail: "Choose one owner for durable reservation law before implementation: reservation domain policy owns schema/state/claim/lease/collision; approval governance owns signed decisions; read-side projection owns status; command adapters own presentation. Explicitly dispose of or archive the AAEOS Quarantine twin instead of promoting both."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/ARCH-BLUEPRINTS
+      - app/Services/Ai/Aaeos/Quarantine
+      - app/Services/Ai/SelfConstruction
+    acceptance:
+      - "one canonical owner and one implementation of every durable-reservation invariant"
+      - "quarantine services cannot be live owners or command targets"
+      - "approval, policy, projection, and storage I/O remain one-way boundaries"
+  - op: EXTRACT
+    detail: "Replace the cumulative method chain with a validated DAG/catalog evaluated once per request snapshot. Each node declares id, prerequisites, schema/state registry version, approval predicate, owner, output/hash projection, and blocker propagation; render plan, packet, schema, blueprint, and CLI views from that single graph."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Reservations
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+    acceptance:
+      - "runtime build performs 18 or fewer node evaluations/hashes rather than 1,066"
+      - "duplicate, cyclic, ownerless, unreachable, or inconsistent nodes fail validation"
+      - "views cannot redefine tables, fields, states, transitions, or approval semantics"
+  - op: FUSE
+    detail: "After parent split and ownership decision, fuse same-owner plan/AP/approval and contract/blueprint view peels into a small catalog plus view renderer; do not retain 18 public behavior methods solely to expose phases of one never-executed planning ladder. Quarantine twins are deleted or archived, not fused into a new godfile."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+      - app/Services/Ai/Aaeos/Quarantine
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+    acceptance:
+      - "CLI exposes a bounded documented reservation family rather than 18 sibling flags"
+      - "navigation from command to canonical reservation owner is at most three hops"
+      - "LOC, method count, command count, and call depth all decrease without new oversized hosts"
+  - op: DELETE
+    detail: "Delete 14 unused imports, stale path literals, dead compatibility flags, duplicate quarantine services/tests, and copied ready/non-execution envelopes only after ownership and characterization prove which family is canonical."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+      - app/Services/Ai/Aaeos/Quarantine
+      - tests/Unit/Ai/Aaeos/Generated
+    acceptance:
+      - "one durable-reservation contract/test family remains"
+      - "zero unused imports and zero emitted nonexistent paths"
+      - "no deleted command has an unmigrated caller"
+  - op: CODEMAP
+    detail: "Map all 18 flags/facade aliases and the AAEOS twins to canonical Class::method owners, schema/state registry, approval authority, consumers, status semantics, performance cost, quarantine disposition, and migration alias."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+    acceptance:
+      - "every surface has owner, caller, truth predicate, side-effect class, performance budget, and disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "no ownership row points to both SelfConstruction and AAEOS Quarantine"
+  - op: PERF
+    detail: "Benchmark every graph view with node evaluations, hash calls, mother calls, instructions, wall/user/sys time, peak RSS, and output bytes. Cache only immutable request-scoped node results; never cache across schema/approval/scope version changes."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+      - tests/Feature/Ai/SelfConstruction
+    acceptance:
+      - "runtime-build is near-linear in graph nodes and each node evaluates once"
+      - "published cold/warm budgets cover latency, RSS, instructions, calls, hashes, and bytes"
+      - "runtime-build overhead is proportional to its 5-source output, not hundreds of repeated base plans"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1956
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: af645d54e1d159907054de89a5fbf0c2e4f64c5bc9982e019d9d79ffa19e015e
+  source_bytes: 90993
+  total_public_method_count: 21
+  public_domain_method_count: 18
+  parent_facade_delegation_count: 18
+  import_count: 15
+  used_import_count: 1
+  unused_import_count: 14
+  unresolved_mother_method_name_count: 5
+  unresolved_mother_call_occurrence_count: 26
+  data_get_call_count: 54
+  direct_stable_hash_call_count: 18
+  literal_false_assignment_count: 177
+  literal_true_assignment_count: 13
+  ready_label_occurrence_count: 19
+  hot_forbidden_files_call_count: 19
+  expanded_runtime_build_domain_invocation_count: 1066
+  expanded_runtime_build_stable_hash_count: 1066
+  expanded_runtime_build_mother_call_count_approx: 2896
+  runtime_build_cli_wall_seconds: 10.61
+  runtime_build_cli_max_rss_bytes: 134807552
+  runtime_build_cli_instructions_retired: 167714503711
+  runtime_build_cli_output_bytes: 5592
+  ledger_plan_cli_wall_seconds: 0.50
+  ledger_plan_cli_instructions_retired: 4441476380
+  ledger_plan_cli_output_bytes: 6179
+  dedicated_section_test_passed_count: 4
+  dedicated_section_test_assertion_count: 8
+  focused_runtime_build_test_passed_count: 1
+  focused_runtime_build_test_assertion_count: 24
+  focused_runtime_build_test_duration_seconds: 10.97
+  aaeos_quarantine_duplicate_service_count: 16
+  aaeos_quarantine_duplicate_service_loc: 8025
+  aaeos_generated_duplicate_test_count: 8
+  aaeos_generated_duplicate_test_loc: 1972
+  next_file_by_loc: app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 10 / 1210
-- lines_scanned: 95049
-- s0..s3: 41 / 33 / 18 / 0
-- intent_axes_covered: [1, 2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
-- intent_axes_missing_in_this_bucket: [4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
+- files_scanned: 11 / 1210
+- lines_scanned: 97005
+- s0..s3: 45 / 37 / 19 / 0
+- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+- intent_axes_missing_in_this_bucket: [8, 9, 11, 12, 13, 26, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability/transition graph, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "DELETE stale closure helper copies, dead wrappers, imports, and quartet aliases", "CODEMAP callers, routes, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and query costs", "PERF memory/task-file/query/schema/IO/hash/signature/capability/depth/payload budgets"]
+- ordered_worklist: ["BUGFIX_PLAN durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER one durable-reservation law outside AAEOS quarantine plus provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT typed validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE same-owner durable-reservation plan/blueprint peels only after parent split and ownership", "DELETE stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, paths, and quartet aliases", "CODEMAP callers, routes, reservation surfaces, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and costs", "PERF node/hash/mother/instruction/memory/task-file/query/schema/IO/signature/depth/payload budgets"]
 - meta_complete: false
 ```
