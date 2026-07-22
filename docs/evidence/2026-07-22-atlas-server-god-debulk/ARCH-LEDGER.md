@@ -4,7 +4,7 @@
 mission: atlas-server-god-debulk-arch
 phase: record
 cluster_atual: ENG-CORE (aguardando analista)
-blocos_classificados: 61   # de 129 (+5 AUTONOMOS)
+blocos_classificados: 68   # de 129 (+7 TRANSPORTE: 7/7 KEEP, 0 fusões)
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
 needs_operator:
@@ -24,6 +24,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  TRANSPORTE 2/2 leve (CachingAiProvider L229, Mcp 3 callers) — cluster sem veredito destrutivo
   AUTONOMOS 3/4 + 1 nuance (Brain 98 exato, atlas:loop=0/brain=25 exato, keep-list viva; amostra de órfão caiu na zona VIVA → lista dos 388 exige prova por arquivo antes do move)
   GOV-QUAL 3/3 com desvio de número (ledger 1.096 LOC arquivo / 150 callers vs 5.2k/197 do analista — direção correta; RISK_LEVELS 3 files; Architecture 26.031 exato)
   ENG-OS 3/4 + 1 CORRIGIDO (Quarantine 307/132k exato; unidirecional 5 files; SoftwareCompany 1 file; REFUTADO "instanciação externa=0" — Brain vivo importa 1 classe Quarantine)

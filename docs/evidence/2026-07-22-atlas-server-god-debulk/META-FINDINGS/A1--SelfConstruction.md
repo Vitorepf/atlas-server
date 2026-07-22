@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 6
+files_scanned: 10
 files_total: 1210
-lines_scanned: 82006
+lines_scanned: 95049
 ```
 
 ## Files
@@ -1717,15 +1717,241 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+loc: 2102
+kind: final_operator_evidence_closure_workflow_projection_and_command_runbook
+intent_axes: [1, 2, 3, 6, 7, 10, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0083
+    type: godfile
+    severity: s0
+    detail: "This 2,102 LOC, 136,401-byte service uses one 443-line build method plus 44 private methods to assemble completion audit, evidence status, submission preflight, workspace inspection/publishing, a 16-step operator state machine, artifact schemas, command plan, handoff, runbook, shell packet, recovery matrix, readiness gate, progress meter, completion-claim policy, command-surface audit, and 15 nested hashes. The file is simultaneously projection, workflow owner, CLI documentation, safety policy, and I/O orchestrator."
+    evidence:
+      - "46 methods total: constructor, one public build entrypoint, and 44 private methods"
+      - "build spans lines 38-480; orderedOperatorPath spans lines 1,451-1,774"
+      - "16 pathStep calls, 219 data_get calls, 39 literal self-construction command occurrences, and 15 internal stableHash calls"
+      - "eight concrete collaborators are constructed internally; only the readiness facade is injected"
+      - "sha256=f806b76a9c5e6a8aae5c30f3e0bed6c2c6523029f3b2a4045b690758a15a3dcf"
+  - id: A1-SC-0084
+    type: false_abstraction
+    severity: s1
+    detail: "Four previous split commits left the god owner and added parallel helper layers instead of one boundary. Nine private forwarding methods have no internal caller, the same envelope/command/hash APIs coexist in this class, FinalOperatorClosureCorridor, and Support adapters, and fresh concrete helpers are still selected from private accessors. The extraction reduces individual method bodies but does not reduce ownership, construction fan-out, or representations of the workflow."
+    evidence:
+      - "nine private methods have zero $this caller: five command-surface wrappers, two envelope wrappers, and two hash wrappers"
+      - "OperatorSubmissionEnvelopeBuilder exists both under FinalOperatorClosureCorridor and Support, while this class retains three private delegates"
+      - "canonical hash and command-surface APIs likewise exist in old static helpers, new Support adapters, and private delegates"
+      - "git history contains split-final-operator-closure-corridor-1 through -4, yet the source remains above the 2,000 LOC hard limit"
+      - "submissionEnvelopeBuilder and hashSupport return new instances rather than constructor-owned collaborators"
+  - id: A1-SC-0085
+    type: bug
+    severity: s0
+    detail: "The post-extraction hash path is unreachable: hashSupport instantiates FinalOperatorClosureCorridorHashSupport without importing its Support namespace. PHP resolves the symbol inside NativeImplementation, where no such class exists. Any route that reaches the first of the 15 stableHash calls terminates with a class-not-found fatal instead of returning the advertised closure payload."
+    evidence:
+      - "this file has no use statement for FinalOperatorClosureCorridorHashSupport"
+      - "the only class is App/Services/Ai/SelfConstruction/Support/FinalOperatorClosureCorridorHashSupport.php"
+      - "direct private stable-hash characterization throws Class App\\Services\\Ai\\SelfConstruction\\NativeImplementation\\FinalOperatorClosureCorridorHashSupport not found at line 2,079"
+      - "stableHash is reached by shell-packet verification, policy, progress, runbook, handoff, action, and final payload construction"
+      - "PHP lint remains green because the missing class is a runtime resolution failure"
+  - id: A1-SC-0086
+    type: bug
+    severity: s0
+    detail: "The read-only entrypoint forwards publish_operator_draft_workspace and the caller's workspace path into a real publisher. With a valid finalized bundle, that collaborator copies three JSON artifacts via Storage::put. The corridor then still emits runtime_write_allowed=false, can_write_from_corridor=false, and non-execution guarantees, so the response can attest that no write occurred after causing writes."
+    evidence:
+      - "build passes draftWorkspacePublisherOptions into AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::publish at line 62"
+      - "the publisher reads publish_operator_draft_workspace and executes three Storage::put calls when the bundle is ready"
+      - "publisher characterization proves 3 published artifacts with the explicit flag"
+      - "the corridor's direct 21-test suite never passes publish_operator_draft_workspace"
+      - "the class header says it is read-only and never closes blockers by itself"
+  - id: A1-SC-0087
+    type: perf
+    severity: s0
+    detail: "A no-option build did not return under the default 128 MiB PHP limit. In about 4.1 seconds it exhausted memory while reading task-packet storage; the stack entered completion audit, release dossier, readiness, AgentControlPlaneTaskQueueOrchestrator::prepareAndEnqueue, queue listing, and file_get_contents. The supposedly final read model therefore loads a mutating cross-OS graph and performs unbounded task-file work before it can construct its own payload."
+    evidence:
+      - "runtime result => Allowed memory size of 134217728 bytes exhausted; no payload returned"
+      - "failing allocation originated in LocalFilesystemAdapter::read via AgentControlPlaneTaskPacketQueueRepository::list"
+      - "stack includes AtlasSelfConstructionReadinessService::agentControlPlaneTaskQueueOrchestratorStatus -> prepareAndEnqueue"
+      - "the direct corridor suite stayed near one full CPU core and about 207,200 KiB RSS, did not complete in 4m17s, and was terminated"
+      - "no request snapshot, task-file cap, projection-depth budget, query/IO budget, or memoized dependency graph exists at this boundary"
+  - id: A1-SC-0088
+    type: bug
+    severity: s1
+    detail: "closureCorridorStatusCommand concatenates operator_draft_workspace_path and terminal-loop proof input directly into a copyable shell string with no tokenization or escaping. Semicolons, &&, whitespace, quotes, or substitutions survive verbatim. The shell-packet safety check only detects angle-bracket/path placeholders and does not reject shell control operators, so operator-reviewed output can become a command-injection carrier."
+    evidence:
+      - "lines 2,043-2,057 append both option values with raw string concatenation"
+      - "reflection characterization generated: --operator-draft-workspace-path=storage/app/reviewed; id --agent-control-plane-terminal-loop-operational-proof-json=@proof.json && whoami --json"
+      - "placeholderFields recognizes only <...> and @/path/to/... patterns"
+      - "safe_to_copy_after_operator_review is derived from placeholder absence, not shell-argument safety"
+      - "the direct test asserts raw context preservation but has no spaces/metacharacters/quote round-trip case"
+  - id: A1-SC-0089
+    type: doc_lie
+    severity: s1
+    detail: "Comments and emitted modes overstate both purity and the partial extraction. The file says it never writes and emits read_only/non-execution claims despite calling a flag-driven writer and a readiness route that reaches prepareAndEnqueue. Its ITEM8 accessor comments also promise lazy first-use allocation, but submissionEnvelopeBuilder and hashSupport return a new object on every call and hold no cached property."
+    evidence:
+      - "class docblock: read-only macro projection; does not close blockers by itself"
+      - "payload mode is read_only_final_operator_evidence_closure_corridor and runtime_write_allowed is literal false"
+      - "publisher call and release-dossier status graph contradict those declarations"
+      - "hashSupport comment says no construction cost beyond first use while line 2,079 returns new every time"
+      - "submissionEnvelopeBuilder makes the same first-use claim while line 1,444 returns new every time"
+  - id: A1-SC-0090
+    type: dupe
+    severity: s2
+    detail: "One 16-step closure workflow is hand-rendered repeatedly as orderedOperatorPath, operatorCommandPlan, artifact matrix, submission envelopes, next action, closure handoff, execution runbook, shell packet, verification bundle, failure recovery, readiness gate, progress meter, and completion policy. The file contains 39 command occurrences representing only 26 unique command fragments, and copies step/status/hash fields across nested arrays before hashing them again."
+    evidence:
+      - "orderedOperatorPath contains 16 hand-authored pathStep calls"
+      - "operatorExecutionRunbook rebuilds every path step into step_cards"
+      - "operatorClosureHandoff rebuilds every path step into full_ordered_command_sequence"
+      - "operatorNextActionShellPacket and postActionVerificationBundle repeat commands and hashes again"
+      - "39 literal command occurrences / 26 unique command fragments; 219 data_get calls"
+  - id: A1-SC-0091
+    type: test_gap
+    severity: s1
+    detail: "There are 21 direct corridor test methods, but they lock the large happy/blocked JSON shape while missing the three failures found by characterization: hash-helper resolution, mutation through the publish flag/default status graph, and shell-token safety. The separate publisher suite proves writes but still asserts runtime_write_allowed=false; it also currently finishes 6 passed / 1 failed because a declared quartet option no longer exists."
+    evidence:
+      - "direct corridor test reference count => 21 methods"
+      - "zero publish_operator_draft_workspace occurrences in the direct corridor test"
+      - "no test invokes stableHash in the corridor namespace after extraction"
+      - "no command test uses whitespace, semicolon, ampersand, quote, or substitution input"
+      - "publisher suite => 6 passed, 1 failed, 76 assertions; failure is missing --atlas-self-construction-operator-evidence-draft-workspace-publisher-contract"
+  - id: A1-SC-0092
+    type: os_overlap
+    severity: s0
+    detail: "A NativeImplementation read model owns a second final-operator operating system over completion authority. It decides artifact order, runtime promotion, real-provider smoke, human signature, workspace finalization/publication, persistence sequencing, terminal-loop proof, recovery, resume, final audit, and next-stage promotion while reaching the generic readiness and Agent Control Plane runtime graph. These rules duplicate the lifecycle owners they project and make a read-side class an authority over write-side behavior."
+    evidence:
+      - "16 ordered steps span refresh, draft/hash/persist, real provider activity, human receipt, workspace publish, audit, and promotion"
+      - "the service embeds verifier class names, exact mutating commands, stop conditions, forbidden shortcuts, and produced artifacts"
+      - "default build reaches Agent Control Plane queue orchestration through release-dossier readiness"
+      - "the publisher path can stage canonical submission JSON from the same entrypoint"
+      - "completion_allowed and completion_claim_allowed are projected alongside command/runbook ownership"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Restore reachability first by importing/injecting the canonical hash owner. Then enforce a read-only option allowlist at this boundary, remove all mutating status calls, move workspace publication behind an explicit writer command, render commands from validated argv tokens, and return typed dependency failures instead of continuing with contradictory defaults."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+      - app/Services/Ai/SelfConstruction/Support/FinalOperatorClosureCorridorHashSupport.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "a no-option build returns a typed payload under the configured memory/IO budget"
+      - "read-only corridor execution performs zero Storage/DB/queue mutations for every option key"
+      - "missing collaborators fail at construction or as typed blocked/degraded results, never class-not-found fatals"
+      - "shell arguments with spaces and control characters round-trip as one inert argument"
+  - op: TEST
+    detail: "Add focused boundary tests before splitting: direct hash reachability, mutation spies across all accepted options, publish-flag rejection, default-build queue/write isolation, dependency-error propagation, bounded task-packet fixtures, shell metacharacter/property cases, command-option parity, and cold/warm memory/latency budgets. Keep schema characterization separate from semantic safety tests."
+    target_paths:
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php
+      - tests/Feature/Ai/SelfConstruction/FinalOperatorClosureCorridorHashSupportTest.php
+    acceptance:
+      - "tests fail if the corridor writes storage, enqueues work, calls a mutator, or forwards a mutation flag"
+      - "all emitted command argv values survive spaces/metacharacters without becoming operators"
+      - "the focused suite completes inside explicit time/RSS/IO/query budgets"
+      - "all exposed CLI flags exist and route to one canonical owner"
+  - op: SPLIT
+    detail: "Retire the god builder behind a short compatibility facade. Split into a pure completion snapshot reader, provider-neutral closure transition graph, artifact contract catalog, operator presentation projector, safe argv renderer, and separately authorized publication/persistence commands. No replacement PHP may exceed 2,000 LOC; hot facade/command/projector owners stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+      - app/Services/Ai/SelfConstruction/FinalOperatorClosureCorridor
+      - app/Services/Ai/SelfConstruction/Support
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "projection dependencies are typed, one-way, and read-only"
+      - "writers cannot be reached from snapshot/projector entrypoints"
+  - op: OWNER
+    detail: "Give one provider-neutral owner to completion evidence state, closure transitions, command rendering, and mutation authorization. Give workspace publication and evidence persistence distinct writer owners. Keep Codex/operator presentation as an adapter; readiness and the corridor may only consume immutable snapshots."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "each of the 16 transitions, three artifact families, hashes, commands, and mutations maps to exactly one owner"
+      - "read models cannot import or instantiate writer/orchestrator implementations"
+      - "completion authority remains solely in the canonical audited predicate"
+  - op: EXTRACT
+    detail: "Define one typed closure graph whose stage descriptors hold prerequisites, artifact schema, verifier, safe argv template, authorization effect, stop condition, evidence outputs, and next edge. Project path, runbook, handoff, shell packet, recovery, progress, and hashes from that graph and one immutable request snapshot instead of copying nested arrays."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/FinalOperatorClosureCorridor
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+    acceptance:
+      - "duplicate, ownerless, cyclic, unreachable, or mutation-bearing read transitions fail graph validation"
+      - "each dependency and stage is evaluated once per request snapshot"
+      - "all public payload aliases have explicit compatibility mappings and removal dates"
+  - op: DELETE
+    detail: "After characterization and caller migration, delete the nine dead private wrappers, unused Artisan import, parallel static/Support helper copies, and stale quartet aliases. Preserve only one canonical implementation per hash, command-surface, envelope, and draft-workspace rule."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+      - app/Services/Ai/SelfConstruction/FinalOperatorClosureCorridor
+      - app/Services/Ai/SelfConstruction/Support
+    acceptance:
+      - "rg finds one implementation for every extracted helper method family"
+      - "zero private methods without an internal caller and zero unused imports remain"
+      - "compatibility payload and hash fixtures remain green"
+  - op: CODEMAP
+    detail: "Map the public build/status/CLI entrypoints, 16 stages, 26 unique command fragments, all nested status/hash aliases, eight constructed collaborators, mutation edges, completion authority, and compatibility helpers to Class::method owners. Explicitly mark read, command, writer, provider, and external-operator boundaries."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+    acceptance:
+      - "every command and payload family has caller, owner, side-effect class, authorization predicate, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "no CLI quartet advertises a missing option"
+  - op: PERF
+    detail: "Benchmark no-option and representative artifact states with cold/warm latency, peak RSS, task files/bytes read, queries, projection depth, object construction, payload bytes, and hash work. Replace recursive status reconstruction with a bounded immutable snapshot and refuse oversized task/evidence inputs before loading whole files."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest.php
+    acceptance:
+      - "no characterization case exceeds the approved RSS, latency, query, file-count, byte-read, depth, or payload budget"
+      - "one request evaluates each upstream snapshot and each stable hash at most once"
+      - "oversized/corrupt task packets produce typed bounded failures, never process OOM"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-2102
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: f806b76a9c5e6a8aae5c30f3e0bed6c2c6523029f3b2a4045b690758a15a3dcf
+  source_bytes: 136401
+  total_method_count: 46
+  public_build_method_count: 1
+  private_method_count: 44
+  dead_private_wrapper_count: 9
+  build_method_loc: 443
+  ordered_operator_path_loc: 324
+  ordered_operator_path_step_count: 16
+  internally_constructed_collaborator_count: 8
+  data_get_call_count: 219
+  internal_stable_hash_call_count: 15
+  literal_self_construction_command_occurrence_count: 39
+  unique_self_construction_command_fragment_count: 26
+  literal_false_assignment_count: 49
+  literal_true_assignment_count: 16
+  direct_corridor_test_method_count: 21
+  runtime_hash_helper_success_count: 0
+  runtime_hash_helper_class_not_found_count: 1
+  runtime_default_build_success_count: 0
+  runtime_default_build_oom_count: 1
+  runtime_default_build_memory_limit_bytes: 134217728
+  runtime_default_build_elapsed_ms_approx: 4093
+  focused_corridor_suite_completed: false
+  focused_corridor_suite_terminated_after_seconds: 257
+  focused_corridor_suite_child_rss_kib_at_termination: 207200
+  publisher_suite_passed_test_count: 6
+  publisher_suite_failed_test_count: 1
+  publisher_suite_assertion_count: 76
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionDurableReservationSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 9 / 1210
-- lines_scanned: 92947
-- s0..s3: 36 / 29 / 17 / 0
-- intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
-- intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
+- files_scanned: 10 / 1210
+- lines_scanned: 95049
+- s0..s3: 41 / 33 / 18 / 0
+- intent_axes_covered: [1, 2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+- intent_axes_missing_in_this_bucket: [4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER provider-neutral post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability/transition graph, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "CODEMAP callers, routes, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and query costs", "PERF query/schema/IO/hash/signature/capability/depth/payload budgets"]
+- ordered_worklist: ["BUGFIX_PLAN closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT one typed validated capability/transition graph, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "DELETE stale closure helper copies, dead wrappers, imports, and quartet aliases", "CODEMAP callers, routes, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and query costs", "PERF memory/task-file/query/schema/IO/hash/signature/capability/depth/payload budgets"]
 - meta_complete: false
 ```

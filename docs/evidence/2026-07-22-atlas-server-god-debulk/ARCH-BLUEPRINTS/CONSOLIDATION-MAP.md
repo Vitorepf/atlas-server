@@ -24,7 +24,7 @@
 | Vox | 16103 | 39 | SUPERFICIES | — | — | — | pending |
 | EngineeringKernel | 14293 | 110 | ENG-CORE | — | — | — | pending |
 | AcosMax | 14223 | 51 | COGNICAO | FUSE-parcial | Aemor+Context+Cognition | grab-bag 51 files, 0 providers VERIFICADO; envelope→Aemor, embedding/RAGX→Context, cockpit/series→Cognition | proposed |
-| Hermes | 13507 | 53 | TRANSPORTE | — | — | — | pending |
+| Hermes | 13507 | 53 | TRANSPORTE | KEEP | — | 16 callers prod, 4 cmds, controller, driver no AiProviderManager; único transport verboo | recorded |
 | Cognition | 13420 | 52 | COGNICAO | KEEP | — | 118 refs ext, 27 cmds; autoridade-mãe ACOS (scorecard+immune+gates) | recorded |
 | SelfImprovement | 11333 | 22 | APRENDIZADO | — | — | — | pending |
 | Foundry | 11331 | 47 | FOUNDRY | KEEP spine + QUARANTINE Frontier | IF funde aqui (Capability Foundry) | spine 3.1k vivo (gap-finder invocado por Stewardship); Frontier 5.1k default-off VERIFICADO (frontier_mode config); Rsi/ sai p/ bloco Rsi | proposed |
@@ -93,7 +93,7 @@
 | EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | KEEP | — | autoridade do roster 22 roles (EngineeringKernel::OFFICIAL_ROLES aponta aqui); 8 schemas DB + selo HMAC; teste do patamar FALHA para mover | recorded |
 | StrategicOperatingSystem | 884 | 1 | DOMINIOS | — | — | — | pending |
 | RuntimeReadiness | 857 | 1 | RUNTIME | KEEP | — | 4 callers ext incl. HTTP controller próprio | recorded |
-| Caching | 851 | 6 | TRANSPORTE | — | — | — | pending |
+| Caching | 851 | 6 | TRANSPORTE | KEEP + RENAME sugerido (cost-governance) | — | CachingAiProvider vivo no AiProviderManager:229 VERIFICADO; é governança de custo, não cache | recorded |
 | Analysis | 835 | 6 | UNITARIO | — | — | — | pending |
 | PersonalDevelopment | 787 | 6 | APRENDIZADO | — | — | — | pending |
 | ConversationOps | 736 | 2 | SUPERFICIES | — | — | — | pending |
@@ -104,12 +104,12 @@
 | Provider | 675 | 10 | ROTEAMENTO | FUSE | AiProviderManager | registry paralela de drivers VERIFICADA (2 catálogos); drivers CLI 0 ext callers; fusão = catálogo único = pipe único | proposed |
 | AtlasForge | 665 | 4 | FORGE | — | — | — | pending |
 | Attachments | 649 | 2 | SUPERFICIES | — | — | — | pending |
-| OpenBrain | 622 | 3 | TRANSPORTE | — | — | — | pending |
+| OpenBrain | 622 | 3 | TRANSPORTE | KEEP | — | latency ledger 7 callers prod + recall policy com caller prod re-provado | recorded |
 | DualCore | 620 | 5 | COGNICAO | KEEP | — | 36 HTTP controllers VERIFICADO; boundary route_decision vivo | recorded |
 | Reconciliation | 613 | 1 | MEMORIA-CONTEXTO | KEEP | — | runtime autônomo vivo (11 ext, 2 cmds); absorve Cartography | recorded |
 | Brain | 591 | 3 | AUTONOMOS | KEEP | — | distinto de AE/Brain (namespaces disjuntos VERIFICADO): journal/diário de memória, 4-5 callers cada | recorded |
 | Knowledge | 585 | 3 | MEMORIA-CONTEXTO | KEEP | — | dono canônico de ingestão, 7 ext; remover shim class_alias morto (VERIFICADO); QUARANTINE do fabric dormente em Context | proposed |
-| Compaction | 492 | 4 | TRANSPORTE | — | — | — | pending |
+| Compaction | 492 | 4 | TRANSPORTE | KEEP | — | tier L2 semântico; AiCompactionService (L1) DEPENDE deste bloco; distinto de Compression | recorded |
 | CognitiveMemory | 466 | 2 | MEMORIA-CONTEXTO | KEEP | — | working-set efêmero canônico, 5 ext; remover shim class_alias morto (VERIFICADO) | proposed |
 | Search | 456 | 2 | MEMORIA-CONTEXTO | KEEP | — | micro mas load-bearing: hot path AiToolRuntime + AiPromptBuilder | recorded |
 | VerifiedContextExecution | 442 | 1 | EXEC-INFRA | FUSE | RuntimeEfficiency | 2 callers; 100% das deps são do governor | proposed |
@@ -121,10 +121,10 @@
 | HumanSurface | 290 | 1 | SUPERFICIES | — | — | — | pending |
 | Forge | 287 | 2 | FORGE | — | — | — | pending |
 | Tasks | 284 | 1 | EXEC-INFRA | — | — | — | pending |
-| Mcp | 283 | 1 | TRANSPORTE | — | — | — | pending |
-| Tokens | 275 | 2 | TRANSPORTE | — | — | — | pending |
+| Mcp | 283 | 1 | TRANSPORTE | KEEP | (opcional: mover junto do AtlasOpenBrainMcpService) | registry de tiers, 3-4 callers prod VERIFICADO; não é 2º MCP | recorded |
+| Tokens | 275 | 2 | TRANSPORTE | KEEP | — | primitivo de cost-unit consumido por AiProviderManager/Guard/AUCRI; limpar class_alias shim | recorded |
 | RuntimeReleaseGate | 263 | 1 | RUNTIME | FUSE | RuntimeReadiness | wrapper puro — docblock "delega 100%" VERIFICADO; 2 callers ext | proposed |
-| Streaming | 167 | 1 | TRANSPORTE | — | — | — | pending |
+| Streaming | 167 | 1 | TRANSPORTE | KEEP | — | parser JSONL do codex; 1 caller vivo (CodexCliProvider) | recorded |
 | Instrumentation | 155 | 1 | GOVERNANCA-QUALIDADE | QUARANTINE | FUSE→Telemetry se tocar | 1 arquivo/155 LOC, 1 command único consumidor; rg≠0 → não KILL | proposed |
 | MemoryGovernance | 148 | 3 | MEMORIA-CONTEXTO | FUSE | Memory (Memory\Governance) | consumidor único VERIFICADO (só AtlasMemoryGovernanceService); 3 scorers puros | proposed |
 | Security | 55 | 1 | DOMINIOS | — | — | — | pending |
