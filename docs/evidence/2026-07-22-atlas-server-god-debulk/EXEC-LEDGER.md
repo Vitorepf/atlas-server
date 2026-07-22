@@ -11,7 +11,7 @@ focus: GOD-DEBULK P0 tooling
 finding_id: P0-tooling
 action_op: test-first audit-guard-codemap
 queue_index: 1
-last_commit: 0974699be
+last_commit: b8c355391
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test --parallel tests/Feature/Scripts/GodDebulkToolingTest.php
@@ -24,5 +24,6 @@ before_after: |
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
   P0 CODEMAP is intentionally incomplete and verifies concrete Class::method targets only.
+  P0 final hardening accepted after task review: semantic GFM table parsing and exact Text-only headers.
 halt_conditions_hit: []
 ```
