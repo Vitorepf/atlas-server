@@ -33,6 +33,9 @@ claimed_paths: []
 5. **A1-SC-0096** — complete: durable-reservation ledger, storage and
    migration work orders now share reservations, reservation events and packet
    snapshots, plus the canonical available-to-blocked state vocabulary.
+5b. **A1-SC-0106** — complete: missing, cancelled, and cyclic task dependencies
+   fail closed in the real serving path; only `completed_dry_run` authorizes a
+   dependent task (`c23319df3`).
 6. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
    - TEST status/write honesty + payload contracts
    - BUGFIX read-only vs mutate + fail-closed defaults
