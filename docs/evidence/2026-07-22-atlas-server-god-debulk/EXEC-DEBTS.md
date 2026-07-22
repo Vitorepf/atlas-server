@@ -36,6 +36,10 @@ claimed_paths: []
 5b. **A1-SC-0106** — complete: missing, cancelled, and cyclic task dependencies
    fail closed in the real serving path; only `completed_dry_run` authorizes a
    dependent task (`c23319df3`).
+5c. **A1-SC-0155** — complete: the terminal-loop digest now revalidates the
+   stored completion evidence, its digest, validation hash and receipt hash
+   against the persisted task/lease binding; an internally inconsistent
+   completion receipt becomes `attention_required` (`a69a6f50e`).
 6. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
    - TEST status/write honesty + payload contracts
    - BUGFIX read-only vs mutate + fail-closed defaults
