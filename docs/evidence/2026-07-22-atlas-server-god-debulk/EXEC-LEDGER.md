@@ -4,39 +4,38 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0155 complete
+phase: A1-SC-0113 and A1-SC-0114 complete
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: terminal-loop completion evidence integrity
-finding_id: A1-SC-0155
-action_op: test-first evidence and receipt revalidation repair
+focus: operator evidence entrypoint liveness and provider-safe envelope
+finding_id: A1-SC-0113+A1-SC-0114
+action_op: test-first namespace binding and envelope canonicalization repair
 queue_index: 6
-last_commit: a69a6f50e
+last_commit: 7d7aa7c35e
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php --filter='test_fleet_evidence_rollup_(summarizes_completed_dry_run_evidence|rejects_an_internally_inconsistent_completion_receipt)'
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
-  vendor/bin/phpstan analyse --memory-limit=512M [orchestrator, digest, focused test]
-  vendor/bin/pint --test [orchestrator, digest, focused test]
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+  vendor/bin/phpstan analyse --memory-limit=512M [operator-evidence service, focused unit test]
+  vendor/bin/pint --test [operator-evidence service, focused unit test]
   bash scripts/god-debulk-guard.sh
   git diff --check
 before_after: |
-  red: a later dry_run_completion_recorded receipt with self-declared valid fields and four shaped 64-hex values made the real digest fleet_evidence_rollup_green.
-  green: completion evidence is persisted by completeDryRun; the digest recomputes completion evidence validation, evidence digest, evidence validation hash and repository receipt hash against its task/lease/agent/scope binding. The same forged receipt produces fleet_evidence_rollup_attention_required.
+  red: six public build tests died before their first assertion because the NativeImplementation namespace resolved the three extracted OperatorEvidence collaborators locally; the public envelope also returned nested secret-bearing input unchanged.
+  green: the public build resolves the canonical OperatorEvidence namespace. The envelope canonicalizes payload before JSON/hash construction; secret-bearing keys are removed recursively while the non-sensitive evidence identifier remains.
 stdout: |
-  focused_test: OK (2 tests, 19 assertions)
-  php_lint: No syntax errors detected in both production files and focused test
-  loc_check: orchestrator=1934; terminal_loop_health_digest=1627
+  focused_test: OK (7 tests, 54 assertions); public fatal and secret-envelope probes: OK (2 tests, 9 assertions)
+  php_lint: No syntax errors detected in production service and focused test
+  loc_check: operator_evidence_submission_readiness=1857
   guard: GOD_DEBULK_GUARD_OK
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The correction changes only read-only digest eligibility and persists the already-validated completion evidence required for independent integrity revalidation; it adds no command, provider or token side effect.
-  The broad digest package has 24 passed and 6 pre-existing failures in supply/tag/claim scenarios, all outside this diff. The two A1-SC-0155 acceptance tests pass.
-  Strict Pint reports pre-existing host formatting findings. PHPStan reports 13 existing findings across orchestrator and digest hosts; no PHPStan error is emitted for the edited lines. No suppression or unrelated reformatting was added.
-  The pre-existing >2k density baseline remains 40; both edited production files are below 2k.
+  The correction changes a read-only envelope only; it does not persist, dispatch, call providers, or spend tokens.
+  The broad feature package was interrupted after 6m34s inactive with no output/CPU and is not counted as passed. The focused public path is green.
+  Strict Pint reports pre-existing host formatting findings. PHPStan reports 10 existing findings in the owner; no PHPStan error is emitted for the edited lines. No suppression or unrelated reformatting was added.
+  The source is below 2k. A shared-index race placed its app/test diff in external commit 7d7aa7c35e with subject docs(core); this is a historical label violation, not a claim that this cycle was docs-only.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved

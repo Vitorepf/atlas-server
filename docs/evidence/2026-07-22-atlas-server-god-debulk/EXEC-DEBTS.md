@@ -40,6 +40,11 @@ claimed_paths: []
    stored completion evidence, its digest, validation hash and receipt hash
    against the persisted task/lease binding; an internally inconsistent
    completion receipt becomes `attention_required` (`a69a6f50e`).
+5d. **A1-SC-0113 + A1-SC-0114** — complete: the public operator-evidence
+   entrypoint resolves the extracted collaborators and canonizes the envelope
+   payload before serialization/hash; nested secret-bearing fields are removed
+   from the returned surface (`7d7aa7c35e`, shared-index label collision
+   recorded in EXEC-LEDGER).
 6. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
    - TEST status/write honesty + payload contracts
    - BUGFIX read-only vs mutate + fail-closed defaults
