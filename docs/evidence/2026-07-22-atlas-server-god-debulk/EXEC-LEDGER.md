@@ -782,3 +782,41 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 29 — LearningConsolidation M3-A AEMOR outcome envelopes, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 08bbaed6a
+subject: "refactor(core): rehome outcome envelopes under Aemor"
+scope:
+  - app/Services/Ai/Aemor/Envelope
+  - app/Services/Ai/AcosMaxNamespaceAlias.php
+  - app/Providers/AppServiceProvider.php
+  - app/Services/Ai/Aemor/AtlasEngineeringOutcomeRecorder.php
+  - app/Services/Ai/Compounding/AtlasCompoundingOutcomeEvaluator.php
+  - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevOutcomeMemoryService.php
+  - app/Services/Ai/AcosMax/AcosMaxMeasureSeriesRegistry.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/AcosMax/Esp06OutcomeEnvelopeAdapterTest.php --filter='test_outcome_envelope_owners_must_be_canonical_aemor_envelope_in_m3a' --no-coverage
+  result: "FAIL 1 test, 1 assertion: App\\Services\\Ai\\Aemor\\Envelope\\OutcomeEnvelope did not resolve before the move."
+green:
+  behavior: "Six ESP-06 owners now live in Aemor\\Envelope. The producer bridge remains default-off and preserves the three native organ adapters; Aemor, Compounding, and Dev consumers resolve the canonical bridge."
+  compatibility: "AcosMaxNamespaceAlias prepends exact lazy aliases for the six retired AcosMax envelope FQCNs, including the interface, without aliasing the remaining AcosMax program."
+  path_literals: "No moved OutcomeEnvelope source-path literal remains under Services/Ai/AcosMax. AcosMax stays as the live root for the remaining M3-B/M3-C owners."
+verification:
+  focused_canonical_and_legacy: "PASS 2 tests, 12 assertions"
+  envelope_producers: "PASS 21 tests, 96 assertions"
+  outcome_gate_contracts: "PASS 14 tests, 216 assertions"
+  php_lint: "PASS all 16 PHP files committed by 08bbaed6a"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reports existing full-file formatting drift in several moved hosts; the new alias passes and no broad reformat was applied."
+  unrelated_suite_debt: "Full UniversalGates has two failures in string-list/array-field reader checks; Elev20sDeadSeriesRegistry has two failures in constructor/landed-slice checks. Their assertions and exercised methods are outside M3-A's outcome-envelope import changes, so they are not used as proof."
+boundary:
+  - no envelope payload formula, default-off flag, command signature, or native-organ shape changed
+  - no provider call, token spend, external mutation, or evidence-promotion occurred
+  - M3-B retrieval and M3-C Acos program rehoming remain separate sub-waves
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
