@@ -4,33 +4,31 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0137 settlement-truth boundary recorded
+phase: A1-SC-0138 cost-fact truth recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: task-serving post-commit settlement truth
-finding_id: A1-SC-0137
-action_op: test-first blocked-settlement visibility
+focus: task-serving truthful operational metering
+finding_id: A1-SC-0138
+action_op: test-first fabricated-cost-fact removal
 queue_index: 6
-last_commit: 491d1c388
+last_commit: 820b04407 (contaminated by concurrent staged external rename set)
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php tests/Feature/Ai/AtlasTaskServingLeaseOwnershipTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php
   git diff --check
 before_after: |
-  red: a real scoped commit followed by a resolve_blocked settlement returned status=resolved and continued into success side effects.
-  green: a rejected markResolved now returns settlement_failed with the settlement receipt, leaves the lease open, and returns before success side effects.
+  red: task-serving mapped file/check/wall-clock measures into tokens_in/tokens_out/cost_cents and labeled client_id as provider.
+  green: only an explicitly injected operational meter receives the observed file/check/wall-clock facts; no default Maestro cost ledger is created and no fabricated cost fields are emitted.
 stdout: |
-  evidence_contract_suite: PASS (8 tests, 46 assertions)
-  serving_and_ownership_suites: PASS (11 tests, 49 assertions)
+  serving_budget_court_suites: PASS (21 tests, 114 assertions)
   php_lint: PASS service plus focused test
-  loc_check: atlas_task_serving_service=1700
+  loc_check: atlas_task_serving_service=1681
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This is the truth boundary only, not a claim that A1-SC-0137's full durable settlement saga has been implemented. A landed-but-unsettled commit is now visible and downstream success effects are not emitted.
+  COMMIT INTEGRITY: commit 820b04407 contains the verified two-file A1-SC-0138 hunk PLUS 178 unrelated pre-staged external rename paths captured by a concurrent session. It is not a scoped receipt; no reset, revert, or history rewrite was used because that would destroy external work. This ledger receipt is committed with an explicit pathspec to isolate the document.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -550,6 +548,37 @@ boundary:
   - this makes failed settlement truthful and prevents downstream success effects
   - it does not claim an idempotent durable settlement saga or automatic reconciliation for an already landed commit
   - no provider call, token spend, or success outcome recording occurs on the new settlement_failed branch
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 22 — A1-SC-0138 truthful task-serving cost facts, 2026-07-22
+
+```yaml
+finding: A1-SC-0138
+commit: 820b04407
+commit_integrity: "CONTAMINATED: verified A1-SC-0138 hunks plus 178 unrelated external paths staged concurrently. Preserved intact; no reset, revert, or history rewrite."
+subject: "refactor(core): GOD-DEBULK remove fabricated cost facts"
+scope_verified:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php --filter=test_resolved_commit_emits_exactly_one_usage_fact
+  result: "FAIL 1 test, 12 assertions: injected operational meter received fabricated tokens_in."
+green:
+  behavior: "task serving sends only files_committed_count, verification_checks_run, and wall_seconds to an explicitly injected BudgetMeter. It no longer constructs the Maestro cost adapter by default and never maps those measures into provider/model/token/cost fields."
+  characterization: "a real public report commits and settles through the temporary repository, then the injected meter receives exactly one operational fact with all five fabricated cost fields absent."
+verification:
+  serving_budget_court_suites: "PASS 21 tests, 114 assertions"
+  php_lint: "PASS service and changed test"
+  loc: "atlas_task_serving_service=1681 (<2000; reduced by 19 lines)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - no synthetic token, cost, provider, or model claim reaches Maestro from task serving
+  - explicitly injected meters retain operational observability and remain fail-open
+  - this does not fabricate a replacement price/token source
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
