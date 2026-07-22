@@ -42,3 +42,29 @@ notes: |
 halt_conditions_hit:
   - historical_label_mismatch_52fd8598c_test_core_subject_for_app_diff_requires_refactor_core_unresolved
 ```
+
+## RuntimeExecution F0 receipt — 2026-07-22
+
+```yaml
+primary_commit: 5a954a59b4cc1133d006b08ff00d639c84570f58
+subject: test(core): GOD-DEBULK RuntimeExecution F0 characterization
+scope:
+  - tests/Feature/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeServiceTest.php
+  - tests/Feature/Ai/RuntimeReleaseGate/AtlasAiRuntimeReleaseGateServiceTest.php
+  - tests/Unit/AiToolRuntimeTest.php
+production_changes: false
+external_effects: false
+acceptance:
+  aver_safe_public_apis: 9
+  aver_static_public_inventory: 10
+  aver_unsafe_gap: executeFixtureCycle creates a temporary workspace and spawns a process; it was not called
+  lineage: legacy AtlasAverCertifiedExecution is persisted while AiRealExecutionCertification is absent for the same logical goal_record_id; current AVER schema has no goal_record_id column
+  hash_representations: AVER diff_hash hashes its payload and is asserted non-equivalent to RealExecution SHA-256 of the raw diff
+  release_gate: frozen-time byte JSON snapshot for atlas.ai.runtime_release_gate.v1 and upstream report spy count equals 1
+  tool_catalog: 19 static tools classified as 9 read-only and 10 gate-required without execute calls
+verification:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeServiceTest.php tests/Feature/Ai/RuntimeReleaseGate/AtlasAiRuntimeReleaseGateServiceTest.php tests/Unit/AiToolRuntimeTest.php --filter=F0
+  result: PASS 4 tests, 29 assertions
+  lint: /opt/homebrew/bin/php -l on all three changed tests PASS; vendor/bin/pint --test on all three changed tests PASS
+  diff_check: git diff --check PASS
+```
