@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 11
+files_scanned: 12
 files_total: 1210
-lines_scanned: 97005
+lines_scanned: 98942
 ```
 
 ## Files
@@ -2170,15 +2170,234 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+loc: 1937
+kind: persistent_task_queue_admission_serving_repair_lease_and_completion_orchestrator
+intent_axes: [2, 3, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 35, 36, 37, 38, 40, 42, 45, 49, 54, 55, 62, 64, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0102
+    type: godfile
+    severity: s1
+    detail: "At 1,937 LOC this final class sits 63 lines below the generic godfile threshold and exposes 42 methods across admission, anti-farm policy, dependency classification, queue serving, repair sweeps, leases, give-back, behavior learning, scope expansion, quarantine, terminal resolution, and completion evidence. The near-threshold count understates the dependency surface: 43 other app files and 51 test files name it."
+    evidence:
+      - "19 public methods and 23 private methods"
+      - "45 queue-repository calls, 12 lease-repository calls, and 33 envelope calls"
+      - "44 app references including the definition; 51 test-file references; 95 total reference files"
+      - "sha256=31b8123830c20ce49bf88a36e4d82afba5d41e1331d84c81239c23749b86070a"
+  - id: A1-SC-0103
+    type: doc_lie
+    severity: s1
+    detail: "Every response hard-codes ledger_write_allowed=false and task_queue_orchestrator_does_not_write_ledger, while the class durably appends queue receipts, a resolved-receipt JSONL, learning-transfer facts, and worker-behavior ledger events. The opening contract narrows the claim to the evidence ledger, but the machine-readable guarantee is generic and is asserted by tests even on mutating entrypoints."
+    evidence:
+      - "envelope lines 1907-1,937 always emit ledger_write_allowed=false and task_queue_orchestrator_does_not_write_ledger"
+      - "16 queue appendReceipt calls plus JsonlReceiptStore::appendWith in markResolved"
+      - "bridgeOutcomeToLearning admits learning facts and recordWorkerBehavior writes AtlasMaestroWorkerBehaviorLedger"
+      - "unit and feature suites explicitly assert the false ledger guarantee"
+  - id: A1-SC-0104
+    type: bug
+    severity: s0
+    detail: "markResolved makes a public terminal transition on an arbitrary non-empty string presented as commitSha. It deliberately bypasses structured completion evidence and never validates hash syntax, resolves the object in Git, binds changed files to allowed_files, or verifies the claimed tests. Its safety argument exists only in a caller comment; the terminal owner itself accepts abc123 and persists completed_dry_run."
+    evidence:
+      - "markResolved lines 1,600-1,697 validates queue/lease/agent binding but not commit identity or scope"
+      - "comment lines 1,593-1,596 says the commit itself is proof and assumes AtlasTaskScopedCommitter already enforced scope"
+      - "tests call markResolved directly with abc123/abc123def/deadbeef and expect task_resolved"
+      - "focused test run passed the abc123 terminal transition and replay contract"
+  - id: A1-SC-0105
+    type: bug
+    severity: s0
+    detail: "Terminal and repair workflows cross two independently locked repositories plus receipt stores without a transaction, journal, or checked compensation. markResolved releases authority before checking the queue transition and still appends a resolved receipt and learning fact; completeDryRun releases, appends completion proof, then updates status; scope expansion releases, blocks, replaces, and appends. A failure between steps can strand queue/lease truth or publish success evidence for a transition that did not occur."
+    evidence:
+      - "markResolved lines 1,649-1,697 ignores release status and does not gate receipts/learning on transition status"
+      - "completeDryRun lines 1,809-1,847 appends dry_run_completion_recorded before updateStatus"
+      - "requestScopeExpansion lines 1,422-1,453 ignores release and blocked-transition results before replacement"
+      - "releaseLease, reportGiveBack, and quarantineClaimed repeat release -> update -> receipt sequences"
+      - "repository methods each own separate file locks; there is no encompassing unit of work"
+  - id: A1-SC-0106
+    type: bug
+    severity: s0
+    detail: "Dependency safety is explicitly fail-open: a missing dependency record and a detected dependency cycle are both treated as satisfied, while cancelled is also a satisfied state. The queue can therefore serve a task whose prerequisite vanished or whose graph is structurally invalid, converting dependency corruption into execution order instead of quarantine/operator repair."
+    evidence:
+      - "AgentControlPlaneTaskDependencyClassifier classifies absent nodes and cycles as met"
+      - "DEPENDENCY_SATISFIED_STATES contains completed_dry_run and cancelled"
+      - "orchestrator claimNext delegates this verdict before leasing the candidate"
+      - "focused tests prove absent_dependency_ids/cycle_broken_dependency_ids are visible while verdict remains met"
+  - id: A1-SC-0107
+    type: bug
+    severity: s1
+    detail: "Safety and recovery failures are swallowed at admission and serving boundaries. An exception in either anti-farm gate records only its message and still enqueues; an exception while reaping expired leases is silently ignored and claim selection continues; learning and behavior writes are also swallowed. The most important duplicate, recovery, and feedback controls therefore degrade without a typed health state or operator-visible durable failure."
+    evidence:
+      - "prepareAndEnqueue lines 83-103 catches Throwable and proceeds to queue->enqueue"
+      - "reapExpiredBeforeListing lines 382-396 catches Throwable without emitting a result field"
+      - "eight catch(Throwable) sites exist in the file"
+      - "anti-farm fail-open is described as intentional in the source but has no failure-mode gate"
+  - id: A1-SC-0108
+    type: perf
+    severity: s0
+    detail: "Hot admission and serving paths repeatedly materialize the filesystem-backed queue. Anti-farm admission loads every claimable packet and performs two per-candidate similarity passes; claim, servability, malformed repair, forbidden-target repair, scope repair, and cooldown each invoke another full list. A default closure build observed this exact anti-farm list/read stack exhausting the 128 MiB PHP limit after about 4.1 seconds."
+    evidence:
+      - "seven queue->list calls in the orchestrator"
+      - "checkAntiFarmGates lines 174-255 is O(N) assessments after queue list materialization"
+      - "queue repository list reads task files from local storage; no bounded page/index contract is accepted here"
+      - "observed fatal stack reached checkAntiFarmGates via queue list/readTaskFile/file_get_contents at 134,217,728-byte limit"
+      - "claimNext plus servability/repair/cooldown paths perform additional queue-wide scans"
+  - id: A1-SC-0109
+    type: false_abstraction
+    severity: s1
+    detail: "Three clusters were extracted into static helper classes, but this class retains forwarding wrappers, repository closures, policy sequencing, and every mutable lifecycle. Dependency classification, scope repair, and evidence validation moved code without creating typed owner interfaces or shrinking the orchestrator below the threshold; concrete learning/behavior/storage collaborators are still constructed inline."
+    evidence:
+      - "wrappers delegate to AgentControlPlaneTaskDependencyClassifier, AgentControlPlaneScopeRepairInputRebuilder, and AgentControlPlaneCompletionEvidenceValidator"
+      - "orchestrator still owns 42 methods and 1,937 LOC after three split commits"
+      - "new AtlasTaskPacketQualityInspector, JsonlReceiptStore, learning orchestrator/ledger, and worker behavior ledger bypass injection"
+      - "git history contains split-acp-task-queue-1/2/3 but the lifecycle hub remains mandatory"
+  - id: A1-SC-0110
+    type: test_gap
+    severity: s1
+    detail: "The broad duplicated unit/feature suites characterize happy paths and replay but normalize unsafe contracts instead of challenging them. They explicitly accept six-to-nine-character fake commit ids and cyclic fail-open, assert the false no-ledger guarantee, and provide no injected failure between lease release, queue transition, receipt append, JSONL append, or learning admission."
+    evidence:
+      - "focused dependency/resolve run => 4 passed / 13 assertions / 0.49s"
+      - "no Mockery/createMock/failure-injection seam appears in the two orchestrator suites or scope-expansion suite"
+      - "tests assert abc123 resolves and a second different string is blocked only after the first terminal write"
+      - "no test proves rollback/reconciliation after partial multi-store failure"
+      - "no test imposes queue-size, memory, IO, or latency budgets"
+  - id: A1-SC-0111
+    type: os_overlap
+    severity: s0
+    detail: "One SelfConstruction orchestrator is simultaneously the task registry, admission court, dependency scheduler, repair daemon, lease coordinator, scope-change workflow, completion authority, outcome-learning bridge, and Maestro behavior-feedback writer. These are separate consistency and policy authorities with different failure semantics, yet 43 application consumers converge on this class and its queue/lease file stores."
+    evidence:
+      - "class imports ControlPlane, TaskQueue, LearningTransfer, Maestro Adaptive/Health, EngineeringKernel storage, and AutonomousEvolution guard concerns"
+      - "public API spans prepare, claim, lease, give-back, repair, scope expansion, quarantine, task scope, resolve, and dry-run completion"
+      - "behavior demotion changes future scheduling based on an inline-written external ledger"
+      - "the class is directly named by 44 app files including the definition"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Make terminal truth fail-closed: resolve a canonical Git object, bind it to the queue packet and allowed-file diff, require the authoritative scoped-commit/evidence receipt, and replace release/update/receipt chains with a durable state machine plus idempotent reconciliation. Missing/cyclic dependencies and admission/recovery exceptions become typed blocked/quarantined states."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php
+      - app/Services/Ai/SelfConstruction/TaskQueue/AgentControlPlaneTaskDependencyClassifier.php
+    acceptance:
+      - "arbitrary, missing, unreachable, wrong-tree, wrong-scope, or unverified commit ids cannot terminally resolve a packet"
+      - "no terminal/scope/give-back API reports success or appends success proof after a failed prerequisite mutation"
+      - "missing/cyclic dependencies and anti-farm/recovery exceptions remain non-servable until explicit repair"
+  - op: TEST
+    detail: "Add direct failure-injection characterization for every multi-store step, commit/scope/evidence binding, dependency corruption, admission/reaper exceptions, stale lease races, replay, and reconciliation. Consolidate the duplicated unit/feature hosts after preserving distinct boundary coverage."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskDependencyClassifierTest.php
+      - tests/Unit/Ai/SelfConstruction/AtlasTaskScopeExpansionTest.php
+    acceptance:
+      - "every injected failure leaves one recoverable, non-terminal canonical state and no false-success receipt"
+      - "fake commit ids and dependency corruption fail before lease authority is released"
+      - "tests separately prove queue, lease, receipt, learning, and Git failure semantics"
+  - op: SPLIT
+    detail: "Split by lifecycle authority before any fusion: admission, dependency scheduling, serving/lease coordination, packet repair, scope-change workflow, and completion reconciliation. Keep a temporary compatibility facade below 800 LOC; every extracted owner stays below 800 hot-path LOC and no replacement exceeds 2,000 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+      - app/Services/Ai/SelfConstruction/TaskQueue
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "the compatibility facade sequences typed results but owns no policy, scans, storage construction, or catch-all recovery"
+      - "each lifecycle invariant has one owner and one failure vocabulary"
+      - "all 43 application consumers migrate or retain a dated thin alias"
+  - op: OWNER
+    detail: "Assign queue-state law, lease authority, dependency policy, admission policy, completion proof, repair/reconciliation, learning transfer, and behavior scoring to distinct canonical owners. The completion owner, not its caller, must verify every terminal invariant."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/TaskQueue
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/LearningTransfer
+      - app/Services/Ai/SelfConstruction/Maestro
+    acceptance:
+      - "one owner is authoritative for each state transition and receipt vocabulary"
+      - "learning/behavior projection cannot mutate queue or decide terminal truth"
+      - "provider/CLI callers cannot bypass commit/evidence authorization"
+  - op: EXTRACT
+    detail: "Introduce one typed transition intent/result and append-only operation journal with expected queue version, lease version, actor, packet hash, evidence/commit binding, planned effects, applied effects, and reconciliation status. Use indexed snapshots for candidate selection and anti-farm lookup rather than full packet-file scans."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/TaskQueue
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "each lifecycle request has one idempotency key and one reconstructible transition journal"
+      - "partial application is detected and reconciled before the packet is servable"
+      - "admission and claim use bounded/indexed reads with published complexity"
+  - op: FUSE
+    detail: "After the owner split, fuse only same-owner forwarding wrappers into their typed policy/value objects. Do not fuse queue, lease, completion, learning, and repair into another orchestration godfile."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/TaskQueue/AgentControlPlaneTaskDependencyClassifier.php
+      - app/Services/Ai/SelfConstruction/TaskQueue/AgentControlPlaneScopeRepairInputRebuilder.php
+      - app/Services/Ai/SelfConstruction/TaskQueue/AgentControlPlaneCompletionEvidenceValidator.php
+    acceptance:
+      - "zero private pass-through wrappers remain without an invariant or second consumer"
+      - "fusion lowers hops and LOC without crossing owner boundaries"
+  - op: DELETE
+    detail: "Delete generic false no-ledger guarantees, duplicated test copies, stale compatibility wrappers, and direct concrete collaborator construction only after typed replacements and characterization prove payload compatibility."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+      - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
+    acceptance:
+      - "machine-readable envelopes truthfully enumerate performed writes and their receipts"
+      - "one canonical test owner remains per boundary case"
+      - "no deleted alias has an unmigrated caller"
+  - op: CODEMAP
+    detail: "Map all 19 public methods and 43 application consumers to canonical transition owners, side effects, locks, receipts, failure semantics, idempotency keys, and migration aliases. Include the AtlasTaskServingService commit-to-resolution path and every readiness/command consumer."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+    acceptance:
+      - "every public method has owner, caller, inputs, writes, locks, proof predicate, and failure state"
+      - "navigation from surface to transition owner is at most three hops"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Benchmark admission, claim, servability, repair sweeps, and completion at controlled queue sizes. Publish latency, peak RSS, task-file reads, bytes, lock hold time, similarity assessments, and recovery work; enforce bounded pages/indexes and no request-path full queue materialization."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+      - tests/Feature/Ai/SelfConstruction
+    acceptance:
+      - "admission and claim stay within explicit cold/warm budgets at 10, 100, 1,000, and 10,000 packets"
+      - "no ordinary request reads every task packet or exhausts the configured PHP memory limit"
+      - "performance tests expose scans, file reads, bytes, wall time, RSS, and lock contention"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1937
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 31b8123830c20ce49bf88a36e4d82afba5d41e1331d84c81239c23749b86070a
+  source_bytes: 95378
+  public_method_count: 19
+  private_method_count: 23
+  catch_throwable_count: 8
+  queue_repository_call_count: 45
+  lease_repository_call_count: 12
+  envelope_call_count: 33
+  data_get_call_count: 77
+  queue_list_call_count: 7
+  app_reference_file_count_including_definition: 44
+  test_reference_file_count: 51
+  total_reference_file_count: 95
+  focused_test_passed_count: 4
+  focused_test_assertion_count: 13
+  focused_test_duration_seconds: 0.49
+  observed_oom_memory_limit_bytes: 134217728
+  observed_oom_elapsed_ms_approx: 4093
+  next_file_by_loc: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 11 / 1210
-- lines_scanned: 97005
-- s0..s3: 45 / 37 / 19 / 0
-- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
-- intent_axes_missing_in_this_bucket: [8, 9, 11, 12, 13, 26, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
+- files_scanned: 12 / 1210
+- lines_scanned: 98942
+- s0..s3: 50 / 42 / 19 / 0
+- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+- intent_axes_missing_in_this_bucket: [9, 11, 12, 26, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER one durable-reservation law outside AAEOS quarantine plus provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT typed validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE same-owner durable-reservation plan/blueprint peels only after parent split and ownership", "DELETE stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, paths, and quartet aliases", "CODEMAP callers, routes, reservation surfaces, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and costs", "PERF node/hash/mother/instruction/memory/task-file/query/schema/IO/signature/depth/payload budgets"]
+- ordered_worklist: ["BUGFIX_PLAN transactional queue/lease/receipt completion, verified commit binding, fail-closed dependency/admission/recovery, durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST queue transition failure injection and scale budgets, 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT task queue lifecycle and parent/monster sections by authority", "OWNER queue state, lease authority, dependency policy, completion reconciliation, learning, one durable-reservation law outside AAEOS quarantine, provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT journaled typed transitions, bounded candidate indexes, validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE only same-owner peels after lifecycle/parent split", "DELETE false ledger guarantees, stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, paths, and quartet aliases", "CODEMAP queue consumers/transitions plus callers, routes, reservation surfaces, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and costs", "PERF queue-size/lock/task-file plus node/hash/mother/instruction/memory/query/schema/IO/signature/depth/payload budgets"]
 - meta_complete: false
 ```
