@@ -3,9 +3,9 @@
 ```yaml
 mission: atlas-server-god-debulk-arch
 phase: review
-cluster_atual: FASE 2 — 6 blueprints draft COMPLETOS; próximo: re-home ROOT-SINGLES + reviews contínuos
+cluster_atual: FASE 2 COMPLETA — 7 blueprints draft (todas as decisões estruturais desenhadas); FASE 3: endurecer fila do EXECUTE + auditoria/correção de findings + reviews
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
-blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation, QuarantineACDE]
+blueprints_draft: [SelfConstructionReadiness, RuntimeExecution, ProviderPipeUnification, KernelTriad, LearningConsolidation, QuarantineACDE, RootSinglesRehome]
 blueprints_approved: []
 needs_operator:
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  ROOTSINGLES 3/3 (0 colisões, same-namespace trap AiWorker confirmado, FQCNs scanner L226-228 exatos)
   REVIEW 52fd8598c APROVADA: fix A1-SC-0020 = prescrição do blueprint (chave emitida real), +44 linhas teste, 9/42 verdes rodados pelo comandante. ORDEM emitida ao META: partir findings 4.089 linhas (LAYOUT §3)
   LEARNINGCONS 3/3 (updateOrCreate L822, Harness→Compounding 2 files, Cognition→Cognitive 2 imports)
   KERNELTRIAD 3/3 (architectureScanChecks L207 exato, 0 escritas diretas fora de Evidence, 0 imports inbound do linter)
