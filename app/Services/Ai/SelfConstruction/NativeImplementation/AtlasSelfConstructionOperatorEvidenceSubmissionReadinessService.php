@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
  * never calls providers, never spends tokens.
  */
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
+use App\Services\Ai\SelfConstruction\OperatorEvidence;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceDraftHashFinalizationSummarizer;
 use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceSubmissionCommandSurfaceCollector;
@@ -1419,6 +1420,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         array $postPersistenceCommands,
         array $context = [],
     ): array {
+        $payload = OperatorEvidence\OperatorEvidenceCanonicalizer::canonicalize($payload);
+        $payloadHash = $payload === [] ? '' : $this->stableHash($payload);
         $payloadJson = $payload === []
             ? ''
             : (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

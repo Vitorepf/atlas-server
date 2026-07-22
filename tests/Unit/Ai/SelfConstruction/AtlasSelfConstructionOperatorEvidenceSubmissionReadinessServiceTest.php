@@ -91,4 +91,33 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest 
         $this->assertFalse($payload['next_action_graph']['can_run_from_graph']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['next_action_graph']['next_action_graph_hash']);
     }
+
+    public function test_public_submission_envelope_redacts_nested_operator_secrets(): void
+    {
+        $apiKey = 'sk-live-operator-secret';
+        $rawPrompt = 'private operator prompt';
+        $authorization = 'Bearer operator-secret';
+        $payload = $this->build([
+            'runtime_promotion_receipt' => [
+                'receipt_hash' => str_repeat('a', 64),
+                'api_key' => $apiKey,
+                'raw_prompt' => $rawPrompt,
+                'nested' => [
+                    'authorization' => $authorization,
+                    'evidence_id' => 'safe-evidence-id',
+                ],
+            ],
+        ]);
+
+        $envelope = (array) data_get($payload, 'operator_submission_envelopes.runtime_promotion_receipt');
+        $underReview = (array) ($envelope['payload_under_review'] ?? []);
+
+        $this->assertArrayNotHasKey('api_key', $underReview);
+        $this->assertArrayNotHasKey('raw_prompt', $underReview);
+        $this->assertArrayNotHasKey('authorization', (array) ($underReview['nested'] ?? []));
+        $this->assertSame('safe-evidence-id', data_get($underReview, 'nested.evidence_id'));
+        $this->assertStringNotContainsString($apiKey, (string) json_encode($envelope, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($rawPrompt, (string) json_encode($envelope, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($authorization, (string) json_encode($envelope, JSON_THROW_ON_ERROR));
+    }
 }

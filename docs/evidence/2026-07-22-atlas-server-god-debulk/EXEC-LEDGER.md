@@ -98,32 +98,34 @@ verification:
   diff_check: git diff --check PASS
 ```
 
-## ProviderPipeUnification F0 review-correction receipt — 2026-07-22
+## ProviderPipeUnification F0 review-correction receipt — PARTIAL/BLOCKED, 2026-07-22
 
 ```yaml
 primary_commit: 4f97afd0c8c20c018a365f7014795385a2da73dd
 subject: test(core): correct ProviderPipe F0 characterization
+truth_correction_commit: 6bf532f41001d837fc92809fa3775c9642598d92
+status: PARTIAL/BLOCKED
 scope:
   - tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php
 production_changes: false
 provider_binary_or_call: false
 assertions:
-  manager: advisory free_to_choose fallback returns the configured default provider, keeps consulted=true with consultation payload, preserves the undecorated fake provider when cache/guard are off, and returns the real CachingAiProvider decorator when wired and enabled; no provider run is invoked.
+  manager: advisory free_to_choose fallback returns the configured fake default provider via getRecommended(), keeps consulted=true with consultation payload, preserves the undecorated fake provider when cache/guard are off, and returns the real CachingAiProvider decorator when wired and enabled; no provider run is invoked.
   registry: exact six-entry manifest pins every emitted field and exact compliance report pins count/providers/errors/all six fallback warnings.
   forge: test-local concrete AtlasForgeBaseCliInvocationDriver uses real allowlist, classifier, ProviderGovernanceConsult, coverage ledger and process runner. The runner process factory intercepts codex argv and runs only PHP fixture stdout; real advisory yields CONSULTED/governed, while a deliberately unavailable seam yields BYPASS. No recordConsulted call is injected by the test.
-  swarm: exact normalized envelope and production execution-hash algorithm are pinned for the stub resolver.
+  swarm: the original emitted execution_hash first matches the production formula; only then does a copy normalize started_at and recompute that formula for the deterministic snapshot.
 boundary:
   - no application source, migration, real provider binary, provider network call, token spend, or provider run was executed.
   - the Forge runner's fake factory launches PHP only to supply deterministic fixture stdout: provider-pipe-f0 fake stdout.
 residual:
-  - AtlasSwarmExecutorService directly constructs DateTimeImmutable('now', UTC); F0 can normalize only started_at and recompute the exact production execution_hash. Literal byte-identical envelope proof remains blocked until a separately governed Swarm clock seam exists.
+  - BLOCKED only by AtlasSwarmExecutorService directly constructing DateTimeImmutable('now', UTC); F0 can normalize started_at only in a copy and recompute the exact production execution_hash. Literal byte-identical live-envelope proof remains blocked until a separately governed Swarm clock seam exists.
 verification:
   command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php --testdox
   stdout: |
-    Tests: 6 passed (41 assertions)
-    OK (6 tests, 41 assertions)
+    Tests: 6 passed (44 assertions)
+    OK (6 tests, 44 assertions)
   lint: php -l tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php PASS
   pint: vendor/bin/pint --test tests/Feature/Ai/Provider/ProviderPipeUnificationF0CharacterizationTest.php PASS
   diff_check: git diff --check PASS
-  test_loc: 482 (< 2000)
+  test_loc: 506 (< 2000)
 ```
