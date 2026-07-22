@@ -4,27 +4,26 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0019 complete
+phase: A1-SC-0076 complete
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: ReadinessProjectionAgentCodexSection Schema preflight reachability
-finding_id: A1-SC-0019
-action_op: test-first facade import
-queue_index: 2
-last_commit: 0a630e750
+focus: AgentCodexSection typed ProviderAdapter boundary
+finding_id: A1-SC-0076
+action_op: test-first typed sibling injection
+queue_index: 3
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php --filter=liveness_monitor_preflight_reaches_read_only_storage_readiness
   /opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_provider_execution_contract_template
   bash scripts/god-debulk-guard.sh
   /opt/homebrew/bin/php scripts/god-debulk-codemap-verify.php
 before_after: |
-  red: Class "App\\Services\\Ai\\SelfConstruction\\Readiness\\Schema" not found at ReadinessProjectionAgentCodexSection.php:8363
-  green: public agentCodexRealInvokerPostStartLivenessMonitorPreflight returns its typed read-only payload with agent-runs and ledger storage readiness keys.
+  red: Call to undefined method ReadinessProjectionAgentCodexSection::agentProviderAdapterRegistryPreflight() at ReadinessProjectionAgentCodexSection.php:86.
+  green: public AtlasSelfConstructionReadinessService facade returns the v1 read-only Codex ProviderAdapter template with both source preflight hashes; command consumer remains green.
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  The only production change in A1-SC-0019 is the Illuminate Schema facade import; no method body, hash, bridge, split, or owner extraction changed.
+  The only production change is a required ReadinessProjectionAgentDispatchProviderSection constructor dependency, two direct collaborator calls, and the service lazy resolver injection; no hash, bridge, split, or owner extraction changed.
   The pre-existing >2k density baseline is unchanged and is not claimed as improved.
-  Strict diff-scoped Pint is clean for the focused test and reports only pre-existing 13k production formatting; PHPStan reports two pre-existing undefined calls in the 13k production file. The only new PHPStan diagnostic was the redundant always-true assertion, removed in the A1-SC-0019 review follow-up.
+  Strict Pint is clean for the service and focused test; the Codex section retains four pre-existing style findings. PHPStan is clean for Codex section plus focused test at 3G; including the 29k service exhausts the 512M command limit and reports 253 existing service diagnostics at 3G.
 halt_conditions_hit: []
 ```

@@ -6,18 +6,13 @@ mode: implement
 meta_only: false
 awaiting_operator_token: EXECUTE GOD-DEBULK
 preferred_engine: claude  # Sol Extra Alto blocked 2026-07-22 on AIP-*-DOCS package
-queue_index: 2
+queue_index: 3
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
 current_focus: A1-SC-0020..0021 (queued; not started)
-claimed_paths:
-  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
-  - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
-  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
-  - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
-  - docs/superpowers/plans/2026-07-22-god-debulk-wave-a1-selfconstruction.md
+claimed_paths: []
 ```
 
 ## Fila (ordem — derive dos META-FINDINGS; atualize ao executar)
@@ -26,14 +21,17 @@ claimed_paths:
 1. **A1-SC-0019** — `ReadinessProjectionAgentCodexSection.php`
    - complete: executable liveness-monitor preflight regression reproduced
      `Readiness\\Schema` before the facade import and passes after it.
-2. **A1-SC-0020..0021** — same readiness bucket, after A1-SC-0019 evidence.
-3. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
+2. **A1-SC-0076** — `AgentCodexSection` → `AgentDispatchProviderSection`
+   - complete: restored the mandatory typed sibling boundary; direct facade and
+     command consumers reach the read-only ProviderAdapter contract.
+3. **A1-SC-0020..0021** — same readiness bucket, after A1-SC-0076 evidence.
+4. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
    - TEST status/write honesty + payload contracts
    - BUGFIX read-only vs mutate + fail-closed defaults
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
-4. Próximos YAMLs em `META-FINDINGS/A1--SelfConstruction.md` (LOC desc, s0 primeiro)
-5. Holding → Kernel/Gates → resto A1 → A2… (COMPLETE §5)
+5. Próximos YAMLs em `META-FINDINGS/A1--SelfConstruction.md` (LOC desc, s0 primeiro)
+6. Holding → Kernel/Gates → resto A1 → A2… (COMPLETE §5)
 
 ## Regras
 

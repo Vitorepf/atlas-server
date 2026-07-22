@@ -28538,7 +28538,9 @@ public function releasePacket(array $options = []): array
 
     private function agentCodexSection(): \App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection
     {
-        return $this->agentCodexSection ??= new \App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection();
+        return $this->agentCodexSection ??= new \App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection(
+            $this->agentDispatchProviderSection(),
+        );
     }
 
     /**

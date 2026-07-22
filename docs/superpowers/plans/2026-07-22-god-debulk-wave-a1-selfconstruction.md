@@ -1,6 +1,6 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: active — Task 1 is complete; A1 continues with the queued findings.
+Status: active — Tasks 1 and 2 are complete; A1-SC-0020..0021 remain queued.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
@@ -53,3 +53,45 @@ git diff --check
 Complete. The executable regression recorded the RED unresolved
 `Readiness\\Schema` output before the facade import and the GREEN focused test
 output after it. A1-SC-0020..0021 remain queued and are not part of this task.
+
+## Task 2: A1-SC-0076 typed ProviderAdapter boundary
+
+Status: complete.
+
+The direct A1-SC-0020 regression cannot reach its upstream real-invoker
+preflight yet: `ReadinessProjectionAgentCodexSection` calls two ProviderAdapter
+methods that are owned by `ReadinessProjectionAgentDispatchProviderSection`.
+This task restores only that concrete sibling edge.
+
+1. Add a direct, executable facade-consumer regression that initially fails
+   with the undefined `agentProviderAdapterRegistryPreflight` call. It must
+   invoke `AtlasSelfConstructionReadinessService::agentCodexProviderExecutionContractTemplate`,
+   not use reflection, a mock, a test-only alias, or a fake payload.
+2. Inject `ReadinessProjectionAgentDispatchProviderSection` into
+   `ReadinessProjectionAgentCodexSection` through the service's existing lazy
+   resolver. Replace only the two undefined self-calls with direct calls on
+   that typed collaborator. Do not add `__call`, Reflection, optional/null
+   fallback, a new interface, or a broad extraction.
+3. Assert the real facade consumer returns its v1 read-only template and both
+   source ProviderAdapter preflight hashes. Keep the existing command consumer
+   test as compatibility proof.
+4. Do not change the A1-SC-0020 doubled hash key, A1-SC-0021 bridge cycle,
+   status semantics, provider runtime behavior, or any unrelated ownership.
+
+## Task 2 acceptance
+
+```bash
+/opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_codex_provider_execution_contract_template
+/opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+/opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+bash scripts/god-debulk-guard.sh
+/opt/homebrew/bin/php scripts/god-debulk-codemap-verify.php
+git diff --check
+```
+
+Task 2 completion evidence is complete: the direct facade regression recorded
+the undefined `agentProviderAdapterRegistryPreflight` RED at line 86, then
+returned the v1 read-only template with both source ProviderAdapter hashes.
+The compatibility command consumer is GREEN. A1-SC-0020..0021 remain queued
+and were not changed.

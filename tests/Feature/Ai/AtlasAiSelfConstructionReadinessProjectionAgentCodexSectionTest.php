@@ -22,8 +22,10 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 {
     public function test_section_class_is_resolvable(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection;
-        $this->assertInstanceOf(ReadinessProjectionAgentCodexSection::class, $section);
+        $this->assertTrue(class_exists(ReadinessProjectionAgentCodexSection::class));
+
+        $runtime = app(AtlasSelfConstructionReadinessService::class);
+        $this->assertTrue(method_exists($runtime, 'agentCodexProviderExecutionContractTemplate'));
     }
 
     public function test_hashes_use_readiness_hash_stable_convention(): void
@@ -36,10 +38,8 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
     public function test_all_171_agent_codex_methods_exist_on_section(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection;
-
         // Use reflection to count actual unique public methods on the section.
-        $ref = new \ReflectionClass($section);
+        $ref = new \ReflectionClass(ReadinessProjectionAgentCodexSection::class);
         $publicMethods = array_filter(
             $ref->getMethods(\ReflectionMethod::IS_PUBLIC),
             fn (\ReflectionMethod $m): bool => str_starts_with($m->getName(), 'agentCodex')
@@ -56,7 +56,7 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
             'agentCodexRealInvokerPostStartOperatorStartHandoffBuilderImplementationPacket',
         ] as $name) {
             $this->assertTrue(
-                method_exists($section, $name),
+                method_exists(ReadinessProjectionAgentCodexSection::class, $name),
                 "ReadinessProjectionAgentCodexSection::{$name} must exist"
             );
         }
@@ -89,7 +89,7 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 
     public function test_liveness_monitor_preflight_reaches_read_only_storage_readiness(): void
     {
-        $payload = (new ReadinessProjectionAgentCodexSection)
+        $payload = app(AtlasSelfConstructionReadinessService::class)
             ->agentCodexRealInvokerPostStartLivenessMonitorPreflight();
 
         $this->assertContains($payload['status'], [
@@ -114,5 +114,30 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
         $this->assertArrayHasKey('storage', $preflight);
         $this->assertArrayHasKey('agent_runs_table_ready', $preflight['storage']);
         $this->assertArrayHasKey('ledger_table_ready', $preflight['storage']);
+    }
+
+    public function test_provider_execution_contract_template_reaches_provider_adapter_preflights(): void
+    {
+        $payload = app(AtlasSelfConstructionReadinessService::class)
+            ->agentCodexProviderExecutionContractTemplate();
+
+        $this->assertSame(
+            'atlas.self_construction_agent_codex_provider_execution_contract_template.v1',
+            $payload['schema_version']
+        );
+        $this->assertSame('read_only_agent_codex_provider_execution_contract_template', $payload['mode']);
+        $this->assertSame('codex_provider_execution_contract_template_ready', $payload['status']);
+        $this->assertFalse($payload['execution_allowed']);
+
+        $template = $payload['codex_provider_execution_contract_template'];
+        $this->assertIsArray($template);
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            $template['source_provider_adapter_registry_preflight_hash']
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            $template['source_provider_adapter_execution_guard_preflight_hash']
+        );
     }
 }

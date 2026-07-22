@@ -80,11 +80,18 @@ use Illuminate\Support\Facades\Schema;
 
 final class ReadinessProjectionAgentCodexSection
 {
+    private readonly ReadinessProjectionAgentDispatchProviderSection $agentDispatchProviderSection;
+
+    public function __construct(
+        ReadinessProjectionAgentDispatchProviderSection $agentDispatchProviderSection,
+    ) {
+        $this->agentDispatchProviderSection = $agentDispatchProviderSection;
+    }
 
 public function agentCodexProviderExecutionContractTemplate(array $options = []): array
     {
-        $registryPayload = $this->agentProviderAdapterRegistryPreflight($options);
-        $guardPayload = $this->agentProviderAdapterExecutionGuardPreflight($options);
+        $registryPayload = $this->agentDispatchProviderSection->agentProviderAdapterRegistryPreflight($options);
+        $guardPayload = $this->agentDispatchProviderSection->agentProviderAdapterExecutionGuardPreflight($options);
 
         $template = [
             'status' => 'codex_provider_execution_contract_template_ready',
