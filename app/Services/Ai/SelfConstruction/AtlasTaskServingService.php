@@ -489,8 +489,9 @@ final class AtlasTaskServingService
             // EVIDENCE CONTRACT — binds the worker's evidence to the Verification Court's receipt-chain
             // contract BEFORE governance runs. off skips evaluation entirely (byte-identical legacy
             // behavior); observe (default) records the verdict and proceeds; enforce refuses the commit
-            // on a failed verdict, keeping the lease so the worker fixes evidence and re-reports. A
-            // contract-evaluation exception is recorded and the report proceeds — fail-open in every mode.
+            // on a failed verdict, keeping the lease so the worker fixes evidence and re-reports. An
+            // evaluator exception is recorded as an unavailable Court authority: observe may continue,
+            // but enforce must fail closed before any commit.
             $evidenceContractMode = $this->policyPlane->evidenceContractMode();
             $evidenceContractVerdict = null;
             if ($evidenceContractMode !== 'off') {
@@ -503,10 +504,15 @@ final class AtlasTaskServingService
                     ];
                     $evidenceContractVerdict = ($this->evidenceContractEvaluator)($allegation, (array) ($payload['evidence'] ?? []));
                 } catch (Throwable $e) {
-                    $evidenceContractVerdict = ['schema' => AtlasVerificationCourtEvidenceContract::SCHEMA, 'accepted' => true, 'blockers' => [], 'error' => $e->getMessage()];
+                    $evidenceContractVerdict = [
+                        'schema' => AtlasVerificationCourtEvidenceContract::SCHEMA,
+                        'accepted' => false,
+                        'blockers' => ['evidence_contract_evaluator_unavailable'],
+                        'error' => $e->getMessage(),
+                    ];
                 }
 
-                if ($evidenceContractMode === 'enforce' && ($evidenceContractVerdict['accepted'] ?? true) !== true) {
+                if ($evidenceContractMode === 'enforce' && ($evidenceContractVerdict['accepted'] ?? false) !== true) {
                     return $this->reportEnvelope('commit_failed', $clientId, [
                         'outcome' => 'success',
                         'lease_closed' => false,

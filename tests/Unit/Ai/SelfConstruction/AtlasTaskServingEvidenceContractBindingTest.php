@@ -29,7 +29,8 @@ use Tests\TestCase;
 /**
  * Binds worker-supplied evidence to the Verification Court contract on the commit path:
  * observe records without blocking, enforce refuses a failing verdict (lease stays open),
- * off skips evaluation entirely, and a contract-evaluation exception is fail-open in every mode.
+ * off skips evaluation entirely, observe records evaluator failures, and enforce
+ * refuses a commit when the Verification Court evaluator is unavailable.
  */
 final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
 {
@@ -210,7 +211,7 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $this->assertArrayNotHasKey('evidence_contract', $result);
     }
 
-    // ── (d) a contract-evaluation exception still lets the report proceed ────
+    // ── (d) evaluator failures are honest and enforce fails closed ───────────
 
     public function test_contract_evaluation_exception_is_fail_open_and_error_is_recorded(): void
     {
@@ -232,7 +233,7 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $this->assertSame('contract evaluator blew up', $result['evidence_contract']['error']);
     }
 
-    public function test_contract_evaluation_exception_in_enforce_mode_is_also_fail_open(): void
+    public function test_contract_evaluation_exception_in_enforce_mode_fails_closed(): void
     {
         $served = $this->servedTask('evctr-exception-enforce');
         $serving = $this->servingService(
@@ -247,7 +248,12 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
             'commit' => true,
         ]);
 
-        $this->assertSame('resolved', $result['status'], 'infra fail-open applies in enforce mode too');
+        $this->assertSame('commit_failed', $result['status']);
+        $this->assertSame('evidence_contract_failed', $result['reason']);
+        $this->assertFalse($result['lease_closed']);
+        $this->assertFalse($result['evidence_contract']['accepted']);
+        $this->assertSame(['evidence_contract_evaluator_unavailable'], $result['evidence_contract']['blockers']);
+        $this->assertSame('boom', $result['evidence_contract']['error']);
     }
 
     // ── AtlasVerificationCourtEvidenceContract is composed, not reimplemented ──
