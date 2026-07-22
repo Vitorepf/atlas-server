@@ -143,4 +143,48 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
             $template['source_provider_adapter_execution_guard_preflight_hash']
         );
     }
+
+    public function test_post_start_release_preflight_contract_id_binds_real_upstream_hash(): void
+    {
+        $runtime = app(AtlasSelfConstructionReadinessService::class);
+        $releasePreflightPayload = $runtime->agentCodexRealInvokerReleasePreflightPreflight();
+        $dryRunPayload = $runtime->agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflight();
+        $contractPayload = $runtime->agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateContractTemplate();
+
+        $releasePreflightHash = $releasePreflightPayload['codex_real_invoker_release_preflight_hash'];
+        $dryRunHash = $dryRunPayload['codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash'];
+        $expectedContractId = 'CODEX-REAL-INVOKER-POST-START-REAL-INVOKER-RELEASE-PREFLIGHT-GATE-'.strtoupper(substr(
+            ReadinessHash::stable([
+                'post_start_external_process_invoker_dry_run_gate_preflight_hash' => $dryRunHash,
+                'codex_real_invoker_release_preflight_hash' => $releasePreflightHash,
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]),
+            0,
+            24
+        ));
+        $changedReleasePreflightHash = $releasePreflightHash === str_repeat('0', 64)
+            ? str_repeat('1', 64)
+            : str_repeat('0', 64);
+        $changedContractId = 'CODEX-REAL-INVOKER-POST-START-REAL-INVOKER-RELEASE-PREFLIGHT-GATE-'.strtoupper(substr(
+            ReadinessHash::stable([
+                'post_start_external_process_invoker_dry_run_gate_preflight_hash' => $dryRunHash,
+                'codex_real_invoker_release_preflight_hash' => $changedReleasePreflightHash,
+                'provider' => 'codex',
+                'adapter' => 'codex',
+            ]),
+            0,
+            24
+        ));
+
+        $this->assertArrayNotHasKey(
+            'codex_real_invoker_release_preflight_preflight_hash',
+            $releasePreflightPayload
+        );
+        $this->assertSame(
+            $expectedContractId,
+            $contractPayload['codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template']['contract_id']
+        );
+        $this->assertNotSame($expectedContractId, $changedContractId);
+    }
 }

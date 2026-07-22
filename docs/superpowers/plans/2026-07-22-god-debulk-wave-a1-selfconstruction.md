@@ -1,6 +1,6 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: active — Tasks 1 and 2 are complete; A1-SC-0020..0021 remain queued.
+Status: active — Tasks 1 through 3 are complete; A1-SC-0021 remains queued.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
@@ -95,3 +95,45 @@ the undefined `agentProviderAdapterRegistryPreflight` RED at line 86, then
 returned the v1 read-only template with both source ProviderAdapter hashes.
 The compatibility command consumer is GREEN. A1-SC-0020..0021 remain queued
 and were not changed.
+
+## Task 3: A1-SC-0020 real upstream hash binding
+
+Status: complete.
+
+Before this task,
+`agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateContractTemplate`
+passed the nonexistent `codex_real_invoker_release_preflight_preflight_hash`
+key to `ReadinessHash`. The real upstream result exposes
+`codex_real_invoker_release_preflight_hash`, so the prior contract identity
+silently bound `null` instead of that evidence.
+
+1. Add an executable regression using the real public facade upstream
+   preflight and the real public post-start contract template. It must first
+   fail against the current doubled key. No mock, subclass, alias, reflection,
+   fake upstream payload, schema mutation, or production API test seam.
+2. Derive the expected contract ID using the actual dry-run hash and actual
+   real-invoker release-preflight hash, then assert the public contract ID
+   equals it. Assert a second deterministic input vector with a changed
+   release-preflight hash produces a different ID; this demonstrates that this
+   real upstream evidence participates in identity without perturbing the
+   shared schema state that also affects the dry-run branch.
+3. Make exactly the key correction in the production hash input. Do not rename
+   the existing `*_preflight_preflight` payload/schema fields, change the
+   bridge, alter a status, or add a generic hash helper.
+4. Keep A1-SC-0021 entirely out of scope.
+
+## Task 3 acceptance
+
+```bash
+/opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest.php
+/opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentCodexSection.php
+bash scripts/god-debulk-guard.sh
+/opt/homebrew/bin/php scripts/god-debulk-codemap-verify.php
+git diff --check
+```
+
+Task 3 completion evidence is complete. The public regression recorded the
+real release-preflight hash, a null doubled lookup, and the RED expected-ID
+mismatch; after the one-key correction, the public contract identity matches
+the real upstream and dry-run hash vector. A1-SC-0021 remains queued and was
+not changed.

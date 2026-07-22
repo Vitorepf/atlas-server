@@ -11735,7 +11735,7 @@ public function agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateCon
             'status' => 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_ready',
             'contract_id' => 'CODEX-REAL-INVOKER-POST-START-REAL-INVOKER-RELEASE-PREFLIGHT-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_external_process_invoker_dry_run_gate_preflight_hash' => data_get($dryRunPayload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash'),
-                'codex_real_invoker_release_preflight_preflight_hash' => data_get($releasePreflightPayload, 'codex_real_invoker_release_preflight_preflight_hash'),
+                'codex_real_invoker_release_preflight_hash' => data_get($releasePreflightPayload, 'codex_real_invoker_release_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
             ]), 0, 24)),
