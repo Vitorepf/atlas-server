@@ -86,10 +86,9 @@ final class AgentControlPlaneTaskQueueOrchestrator
             ]);
         }
 
-        // Anti-farm gate: reject near-duplicate / template-farm candidates before they cost
-        // muscle. A gate exception is swallowed and admission proceeds fail-open, with the
-        // reason recorded on the eventual success envelope for observability.
-        $antiFarmGateError = null;
+        // Anti-farm gate: reject near-duplicate / template-farm candidates before they cost muscle.
+        // Unavailable authority must block admission; accepting it would turn a broken duplicate
+        // control into more queue work.
         try {
             $antiFarmBlock = $this->checkAntiFarmGates($packet, $packetInput);
             if ($antiFarmBlock !== null) {
@@ -102,7 +101,15 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 ], $antiFarmBlock));
             }
         } catch (Throwable $e) {
-            $antiFarmGateError = $e->getMessage();
+            return $this->envelope('prepare_blocked', [
+                'task_packet' => $packet,
+                'validation' => $validation,
+                'queue_entry' => null,
+                'evidence_plan' => null,
+                'continuation_summary' => null,
+                'reason' => 'anti_farm_gate_unavailable',
+                'anti_farm_gate' => ['status' => 'unavailable', 'error_class' => $e::class],
+            ]);
         }
 
         $enqueueResult = $this->queue->enqueue($packet, [
@@ -159,7 +166,6 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'queue_entry' => $enqueueResult,
             'evidence_plan' => $evidencePlan,
             'continuation_summary' => $continuation,
-            'anti_farm_gate_error' => $antiFarmGateError,
         ]);
     }
 

@@ -12,6 +12,9 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
@@ -40,6 +43,27 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         $this->assertNotEmpty(data_get($result, 'validation.scope_lock_hash'));
         $this->assertNotEmpty(data_get($result, 'evidence_plan.evidence_hash'));
         $this->assertNotEmpty(data_get($result, 'continuation_summary.continuation_hash'));
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_prepare_blocks_without_enqueuing_when_the_anti_farm_gate_is_unavailable(): void
+    {
+        $gate = Mockery::mock('overload:App\\Services\\Ai\\SelfConstruction\\TaskFabric\\AtlasTaskFabricTemplateFarmSimilarityGate');
+        $gate->shouldReceive('assess')->once()->andThrow(new \RuntimeException('anti-farm storage unavailable'));
+        $svc = $this->orchestrator();
+
+        $first = $svc->prepareAndEnqueue(['task_packet' => $this->input('anti-farm-existing')]);
+        $blocked = $svc->prepareAndEnqueue(['task_packet' => $this->input('anti-farm-unavailable')]);
+
+        $this->assertSame('prepared_and_enqueued', $first['event']);
+        $this->assertSame('prepare_blocked', $blocked['event']);
+        $this->assertSame('anti_farm_gate_unavailable', $blocked['reason']);
+        $this->assertNull($blocked['queue_entry']);
+        $this->assertSame(\RuntimeException::class, data_get($blocked, 'anti_farm_gate.error_class'));
+
+        $claim = $svc->claimNext('anti-farm-worker');
+        $this->assertSame('anti-farm-existing', $claim['task_packet_id']);
     }
 
     public function test_prepare_blocked_when_scope_lock_blocked(): void
