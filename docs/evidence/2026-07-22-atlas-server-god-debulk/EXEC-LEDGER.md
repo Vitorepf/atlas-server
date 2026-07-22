@@ -4,32 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0115 human receipt path aligned
+phase: A1-SC-0140 canonical evidence file hash recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: operator readiness canonical human receipt path
-finding_id: A1-SC-0115
-action_op: test-first canonical path alignment
+focus: task-serving Court allowed-files binding
+finding_id: A1-SC-0140
+action_op: test-first delimiter-safe file-set hash
 queue_index: 6
-last_commit: 444d5474b
+last_commit: 5b2e6a912
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
   git diff --check
 before_after: |
-  red: the public closure sequence emitted human-completion-receipt.json although the canonical registry, publisher, and loader use completion-receipt.json.
-  green: the closure sequence persist command uses the same private completion-receipt.json path as the canonical artifacts.
+  red: two distinct, valid sorted allowed-file lists with commas serialized to one delimiter-ambiguous Court hash.
+  green: a sorted, deduplicated JSON list binds each allowed-file set without delimiter collisions and preserves a reordered set's identity.
 stdout: |
-  focused_canonical_path: PASS (1 test, 129 assertions)
-  operator_readiness_feature_suite: PASS (17 tests, 500 assertions, 654.25s)
+  focused_allowed_files_hash: PASS (1 test, 11 assertions)
+  evidence_contract_suite: PASS (9 tests, 57 assertions)
+  serving_service_suite: PASS (8 tests, 37 assertions)
   php_lint: PASS source plus focused test
-  loc_check: operator_evidence_submission_readiness_service=1857
+  loc_check: atlas_task_serving_service=1683
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This is the one emitted closure-sequence path named by A1-SC-0115; it does not claim to consolidate the duplicated artifact registry or resolve the separate stale storage-root hints.
+  This is only the allowed-files slice of A1-SC-0140. command_hash still binds check names only, not outcomes or evidence, and remains unclaimed.
+  Focused PHPUnit initially could not bootstrap during a concurrent external FQCN move; after the owner aligned its registry import, the identical focused command passed. The external move was recorded once in EXEC-DEBTS and was not edited here.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -743,6 +746,38 @@ boundary:
   - no command name or invocation signature changed
   - the old namespace is a one-cycle autoload compatibility adapter, not a second implementation
   - no provider call, token spend, external mutation, or evidence-promotion occurred
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 28 — A1-SC-0140 canonical evidence file hash, 2026-07-22
+
+```yaml
+finding: A1-SC-0140
+commit: 5b2e6a912
+subject: "refactor(core): GOD-DEBULK canonicalize evidence file hash"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php --filter=test_evidence_contract_hashes_allowed_file_sets_without_delimiter_collisions_or_order_sensitivity
+  result: "FAIL 1 test, 10 assertions: distinct valid allowed-file sets [app/A.php, app/B.php,app/C.php] and [app/A.php,app/B.php, app/C.php] produced the same Court hash."
+green:
+  behavior: "report() now maps server-truth allowed_files to a deduplicated sorted JSON list before hashing. Distinct comma-bearing file sets no longer collide; reordered equivalent sets retain one identity."
+  characterization: "three actual enqueued, served, verified, committed, and settled packets reach the injected Court evaluator through public report(); the evaluator observes real allegations rather than a private helper or source string."
+verification:
+  focused_allowed_files_hash: "PASS 1 test, 11 assertions"
+  evidence_contract_suite: "PASS 9 tests, 57 assertions"
+  serving_service_suite: "PASS 8 tests, 37 assertions"
+  php_lint: "PASS source and changed test"
+  loc: "atlas_task_serving_service=1683 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - only allowed_files_hash was made unambiguous and order-independent
+  - command_hash still covers only verification check keys; binding check outcomes/evidence is separate unclaimed work
+  - no provider call, token spend, or success-side outcome effect was added
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
