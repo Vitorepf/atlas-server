@@ -4,34 +4,37 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0142 AWIS serving freshness recorded
+phase: A1-SC-0144 untrusted no-op claims fail closed recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: task-serving AWIS gate freshness
-finding_id: A1-SC-0142
-action_op: test-first allow-to-block transition
+focus: task-serving terminal completion authority
+finding_id: A1-SC-0144
+action_op: test-first fail-closed client no-op claim
 queue_index: 6
-last_commit: 5de6e5e77
+last_commit: 6db9a0eee
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingContractTest.php
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingContractTest.php
   git diff --check
 before_after: |
-  red: one service instance admitted a first poll and reused that allow after the AWIS gate revoked certification.
-  green: each public next() poll asks the gate again; the next poll after revocation returns awis_execution_blocked before claim.
+  red: a claimed worker's tests_already_green boolean and negated no-op text permanently quarantined the packet.
+  green: untrusted report payloads only take the bounded server-side give-back path, so another client can claim and verify the packet.
 stdout: |
-  focused_awis_revocation: PASS (1 test, 7 assertions)
-  awis_gate_suite: PASS (4 tests, 15 assertions)
+  focused_untrusted_noop_claim: PASS (1 test, 8 assertions)
+  give_back_reclaim_suite: PASS (8 tests, 33 assertions)
+  cli_contract_suite: PASS (11 tests, 46 assertions)
   serving_service_suite: PASS (8 tests, 37 assertions)
-  php_lint: PASS source plus focused test
-  loc_check: atlas_task_serving_service=1674
+  php_lint: PASS source plus both changed feature tests
+  loc_check: atlas_task_serving_service=1596
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This removes the instance-lifetime cache for the AWIS mutative serving gate. It does not introduce a TTL, certification fingerprint, or proactive transition notification; it makes the next mutative poll current by construction.
+  Client text, booleans, and evidence cannot make task completion terminal. The existing bounded server-side give-back policy still quarantines repeated unresolved work; no trusted completion verifier was invented.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -847,6 +850,40 @@ boundary:
   - this eliminates stale instance-lifetime authorization at the mutative next boundary
   - it does not add a TTL, cache fingerprint, revocation event stream, or proactive worker cancellation
   - no task is claimed, provider called, token spent, or mutation performed on the newly blocked poll
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 31 — A1-SC-0144 untrusted no-op claims fail closed, 2026-07-22
+
+```yaml
+finding: A1-SC-0144
+commit: 6db9a0eee
+subject: "refactor(core): GOD-DEBULK fail-close unverified no-op claims"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php
+  - tests/Feature/Ai/AtlasTaskServingContractTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingGiveBackReclaimTest.php --filter=test_untrusted_already_satisfied_claim_is_reclaimed_instead_of_quarantined
+  result: "FAIL 1 test, 3 assertions: a tests_already_green boolean and negated already-implemented/no-op text still returned quarantined=true."
+green:
+  behavior: "report() no longer gives terminal authority to client-provided reason/evidence. The exact packet is released, and a different worker can receive it through both the service and atlas:task CLI front door."
+  characterization: "the tests execute next(), report(give_back), queue read, and next() again with real orchestration; no private classifier or reflection seam is invoked."
+verification:
+  focused_untrusted_noop_claim: "PASS 1 test, 8 assertions"
+  give_back_reclaim_suite: "PASS 8 tests, 33 assertions"
+  cli_contract_suite: "PASS 11 tests, 46 assertions"
+  serving_service_suite: "PASS 8 tests, 37 assertions"
+  php_lint: "PASS source and both changed feature tests"
+  loc: "atlas_task_serving_service=1596 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - client booleans, reason strings, and evidence are no longer a terminal completion authority
+  - the established bounded server-side give-back policy still quarantines repeated unresolved work
+  - no server-trusted no-op verifier, provider call, token spend, or external mutation was introduced
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
