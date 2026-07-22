@@ -1,141 +1,117 @@
 # ARCH BLUEPRINT — Runtime de Execução
 
-> status: draft-REFUTADO (verify adversarial 2026-07-22) — redesign em curso
-> FURO FATAL 1: correlação da Fusão 2 usa objective_hash/diff_hash que NÃO existem nos models AiRealExecution* (confirmado); canônico não tem command-ledger → Evaluator "command∧diff∧test" inavaliável como especificado. Exige migração aditiva explícita OU mapeamento goal↔objective.
-> FURO FATAL 2: ≥9 consumidores por PATH-LITERAL (File::exists/fileCheck/token-scan) em 3 fusões — delete-dir quebra certificações de produto e gates de arquitetura em silêncio (ex.: Product PATH_AVCEL_SERVICE L151, ProgrammingRuntimeReadiness L442, KernelScanner tokens L9762-9815); contradição interna na fatia 4 (delete dir vs delegador congelado no mesmo dir).
-> EMENDAS: CandidateRoleReceiptEvaluator teto 2000 < ~2400 (pariria godfile) · AiPermissionSession read precisa entrar no Gateway (Policy zero-I/O) · seeding de ai_permission_gates pré-flip strict (caminhos autônomos transitivos: Orchestrator→Harness→test.run, AtlasTaskController) · VCE tem 8 consumidores (não 2/3) · compat deve preservar estáticos (availableTools).
-> data: 2026-07-22
-> obra: GOD Debulk / capability Runtime de Execução
-> insumos: CONSOLIDATION-MAP.md (fusões proposed do cluster RUNTIME)
-> modelo: SelfConstructionReadiness.md
+> status: draft-v2 (revisado pós-verify adversarial 2026-07-22 — furos 1 e 2 consertados; 5 emendas incorporadas; claims da v2 verificados pelo comandante: diff_hash payload L233 vs sha256 cru L539, availableTools estático L24)
+> v2: correlação Fusão 2 por migração aditiva provada contra fillables reais (objective_hash NÃO existe no canônico; diff_hash AVER = hash de payload ≠ sha256 do diff cru — NÃO equivalentes); command-ledger ganha tabela canônica aditiva; inventário fechado de 10 consumidores path-literal com atualização no mesmo commit; ciclo de vida de diretório sem contradição (dir só esvazia no ciclo seguinte, junto com alias).
+> data: 2026-07-22 · obra: GOD Debulk / capability Runtime de Execução · modelo: SelfConstructionReadiness.md
 
 ## 1. Contexto provado
 
-### 1.1 Estado atual (verificado por leitura + rg)
-
-| Bloco | LOC | Files | Papel real provado |
+### 1.1 Estado atual (verificado)
+| Bloco | LOC | Files | Papel real |
 |---|---|---|---|
-| `Runtime/` | 2.879 | 14 | Executor **real** de 19 tools (`AiToolRuntime::execute` L75-96: file.write, shell.run, git.apply_patch, test.run...). Permission engine própria, audit em `AiToolEvent` idempotente. **Sem receipt governado, sem policy-gate de `ai_permission_gates`** (0 refs a AiToolReceipt — verificado). |
-| `ToolRuntime/` | 2.080 | 15 | Pipeline **governado mas mock**: policy gate strict fail-closed → `mockExecute` ("No real external side effects") → receipt fail-closed. Models `AiToolDefinition/Invocation/Receipt`. |
-| `RealExecution/` | 6.431 | 8 | Delivery kernel real sobre 8 models `AiRealExecution*`. God interno: `AtlasRealEngineeringExecutionKernelService` (3.989 LOC) mistura linhagem de execução com ~2.400 LOC de famílias `candidate*` do EngineeringCompany. |
-| `VerifiedExecution/` | 1.044 | 2 | AVER: 2º ledger patch→test→repair→certify sobre 6 models `AtlasAver*`; `certify()` com regra própria (L422-424). |
-| `RuntimeReadiness/` | 857 | 1 | `report()` + `uxBundle()` agregando ~12 services; controller + command. |
-| `RuntimeReleaseGate/` | 263 | 1 | Wrapper puro ("Delega 100%"); re-emite com `certification_hash` próprio sobre o hash do readiness (duplo-hash). 2 callers. |
-| `RuntimeEfficiency/` | 2.269 | 4 | Governor de path/custo: `govern/recordOutcome/compilePolicy/counterfactualReplay` sobre models próprios + `EfficiencyOutcomeRecorder`. |
-| `VerifiedContextExecution/` | 442 | 1 | Loop `shadow()/certify()` com deps 100% do RuntimeEfficiency. **Verificado: shadow() não grava nenhum outcome (0 refs)** — o aprendizado morre no payload. |
+| Runtime/ | 2.879 | 14 | Executor REAL de 19 tools (AiToolRuntime::execute L75-96). Sem receipt governado, sem policy-gate (0 refs a AiToolReceipt) |
+| ToolRuntime/ | 2.080 | 15 | Pipeline governado mas MOCK (gate strict → mockExecute → receipt fail-closed) |
+| RealExecution/ | 6.431 | 8 | Delivery kernel real (8 models AiRealExecution*); god interno 3.989 LOC com ~2.400 de candidate* (EngineeringCompany) |
+| VerifiedExecution/ | 1.044 | 2 | AVER: 2º ledger (6 models AtlasAver*), certify próprio |
+| RuntimeReadiness/ 857/1 · RuntimeReleaseGate/ 263/1 (wrapper duplo-hash) · RuntimeEfficiency/ 2.269/4 · VerifiedContextExecution/ 442/1 (shadow() não grava outcome — 0 refs) | | | |
 
 ### 1.2 As quatro fraturas
-
-1. **Execução real sem governança / governança sem execução** — nenhum call real hoje sai com receipt governado.
-2. **Dois ledgers de evidência para o mesmo ato** — o mesmo diff pode sair `certified` num e `failed`/ausente no outro; consumidores divergem (Hyperflow/Conductor/StrategicOS leem AVER; Obra/Mission leem RealExecution).
-3. **Duplo-hash do release gate** — dois hashes "canônicos" para um único estado.
-4. **Loop verificado que não ensina o governor** — `compilePolicy`/`counterfactualReplay` aprendem só do caminho não-verificado.
+1. Execução real sem governança / governança sem execução. 2. Dois ledgers para o mesmo ato. 3. Duplo-hash do release gate. 4. Loop verificado que não ensina o governor.
 
 ### 1.3 Consumo externo real
-- Runtime real: `AtlasRuntimeCommand`, `EngineeringTestMatrixService`, `SkillDiscoveryService`, `AtlasCliQualityService`, `AtlasCliCheckpointService` + hot path Search. Interface crítica: `execute(ToolInvocation): ToolResult`.
-- ToolRuntime mock: command + `ProgrammingToolBridge` (2 callers) + 14 feature tests que congelam hashes/receipts/strict.
-- AVER: 9 callers (commands aver, ChangeOrchestrator, AWEOS, HyperflowEntry, CertifierClassificationLedger, RunConductor, StrategicOS, binding AppServiceProvider:1147). Interface crítica: 10 métodos array-in/out + status `blocked`.
-- RealExecution: `DeliverAtlasMissionJob`, commands Obra/Mission/Deliver, ObraExecutor, binding.
-- ReleaseGate: command + `AtlasPreBenchmarkReadinessService` — compat crítica = schema `atlas.ai.runtime_release_gate.v1`.
-- VCE: command + `AtlasCognitionScoreCardService`.
+- Runtime real: AtlasRuntimeCommand, AtlasAiToolRuntimeCommand, EngineeringTestMatrixService, SkillDiscoveryService, AtlasCliQualityService, AtlasCliCheckpointService + hot path Search. Interface crítica: `execute(ToolInvocation): ToolResult` **+ estático `availableTools()` (L24, callers SkillDiscoveryService/SessionSearchRuntimeTest)** — compat preserva ambos.
+- ToolRuntime mock: command + ProgrammingToolBridge + 14 feature tests.
+- AVER: 9 callers (commands aver, ChangeOrchestrator, AWEOS, HyperflowEntry, CertifierClassificationLedger, RunConductor, StrategicOS, binding AppServiceProvider:1147). Interface: 10 métodos array-in/out + status blocked.
+- RealExecution: DeliverAtlasMissionJob, commands Obra/Mission/Deliver, ObraExecutor, binding.
+- ReleaseGate: command + AtlasPreBenchmarkReadinessService — compat crítica = schema v1.
+- VCE: **8 consumidores** (verificado): command · CognitionScoreCard:517 (classe — alias cobre) · Product PATH_AVCEL_*:151-155 (path) · ProgrammingFinalCert:588-624 (path) · QualityPreservingEfficiency:91/108 (File::exists) · AutonomousEvolutionSession:150 · AreaFocusDeepFinding:2118/2383 · CodeIntelligenceAutomaticGate:97.
 
-## 2. Owners-alvo
+### 1.4 Consumidores por PATH-LITERAL (inventário FECHADO por rg; regra: cada fatia atualiza o literal NO MESMO COMMIT do move)
+| # | Consumidor | Literal | Fatia |
+|---|---|---|---|
+| 1 | Product/AtlasAiProductCertificationService:151-155 | consts PATH_AVCEL_* | 2 |
+| 2 | ProgrammingRuntime/AtlasProgrammingFinalCertificationService:590-593 | paths VCE | 2 |
+| 3 | RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemService:91/108 | File::exists VCE | 2 |
+| 4 | AreaFocusLoop/AutonomousEvolutionSessionService:149-150 | dirs VerifiedExecution/+VCE/ | 2 e 4c |
+| 5 | AreaFocusLoop/AreaFocusDeepFindingEngineService:2117-2118/2383-2384 | dirs + source/test VCE | 2 e 4c |
+| 6 | Engineering/AtlasCodeIntelligenceAutomaticGateService:97 | path VCE | 2 |
+| 7 | ProgrammingRuntime/ProgrammingRuntimeReadinessService:442 | paths ToolPolicyBridge/ToolReceipt | 3a |
+| 8 | Kernel/Architecture/KernelArchitectureStaticScanner:9762-9815 | token-scan do CONTEÚDO de AiToolRuntime.php | 3b (tokens re-apontados p/ ToolExecutionRuntime.php) |
+| 9 | Engineering/AtlasSoftwareTwinRuntimeService:69 | path AVER | 4c |
+| 10 | Engineering/AtlasSoftwareTwinVerifiedEvolutionCertificationService:33 | fileCheck path AVER + tokens planFromVerifiedEvolutionContract/source_verified_evolution_contract_hash — o delegador congelado RETÉM os tokens | 4c |
 
-Namespaces-destino (4 sobreviventes): `Ai/Runtime/`, `Ai/RealExecution/`, `Ai/RuntimeReadiness/`, `Ai/RuntimeEfficiency/`.
+## 2. Owners-alvo (destinos: Ai/Runtime/ · Ai/RealExecution/ · Ai/RuntimeReadiness/ · Ai/RuntimeEfficiency/)
 
-### 2.1 Fusão 1 — ToolRuntime ⇒ Runtime (execução real governada com receipt)
+### 2.1 Fusão 1 — ToolRuntime ⇒ Runtime (execução real governada)
+| Classe | Sufixo | Responsabilidade | Teto |
+|---|---|---|---|
+| ToolExecutionFacade | Facade | run/runPreview: resolve→decide→executa→receipt num call. Zero lógica | ≤800 |
+| ToolExecutionPolicy | Policy | decisão pura fail-closed sobre INPUTS materializados (veredicto do gate + PermissionSessionSnapshot entregue pelo Gateway). **Zero I/O de verdade — a query AiPermissionSession (PermissionEngine:83-96) NÃO entra aqui** | 500 |
+| ToolPolicyGateway | Gateway | único I/O: ai_permission_gates/ai_policy_profiles **+ leitura de AiPermissionSession** (entrega snapshot à Policy) | 450 |
+| ToolExecutionRuntime | Runtime | executor real dos 19 tools; preview honesto substitui mockExecute; só executa com allowed | 1.800 |
+| ToolReceiptGateway | Gateway | único writer: AiToolReceipt (fail-closed) + AiToolEvent no MESMO uuid | 600 |
+| ToolCatalogProvider | Provider | registry/seeds/catálogo; sem executor mapeado ⇒ só preview | 700 |
+| ToolRuntimeProjector | Projector | health/control-plane/readiness/planning read-only | 700 |
+
+Compat ≤1 ciclo: AiToolRuntime congela como delegador — execute() delega à Facade **e os estáticos (availableTools etc.) são preservados delegando ao ToolCatalogProvider**; ToolInvocationService::invoke delega com mode=preview @deprecated. AiToolInvocation canônico; AiToolEvent dupla escrita correlacionada.
+
+### 2.2 Fusão 2 — AVER ⇒ RealExecution (linhagem única)
+
+**Correlação — decidida com fillables reais**: (a) canônico é chaveado por goal_record_id→AiAutonomousEngineeringGoal (sem objective_hash); (b) AVER por execution_id→AtlasAverExecution (tem objective_hash); (c) **patch_hash/test_hash NÃO correlacionam**: AVER diff_hash = hash do payload (L233) vs canônico sha256 do diff cru (L539) — VERIFICADO, não equivalentes. **Decisão: migração aditiva mínima, zero backfill:**
+```
+1. atlas_aver_executions + goal_record_id (nullable, index) — Gateway preenche no ato; NULL ⇔ legado
+2. tabela do AiAutonomousEngineeringGoal + objective_hash (string(64) nullable, index)
+3. NOVA tabela ai_real_execution_command_runs (command-ledger canônico) — espelho estrutural 1:1 de AtlasAverCommandLedger (command_run_id unique, status, hashes, exit_code, safety_gate json, ledger_hash…)
+Backfill: NENHUM. Linhas legadas (NULL) = leitura histórica por-fonte, jamais re-certificadas.
+```
+**Command-ledger**: vira tipo de run canônico (tabela 3). Justificativa: regra por-fonte manteria 2 writers para sempre; AtlasAverTestLedger já referencia command_ledger_id — command é cidadão da linhagem.
 
 | Classe | Sufixo | Responsabilidade | Teto |
 |---|---|---|---|
-| `ToolExecutionFacade` | Facade | Único entrypoint: `run(toolId,input,ctx)` / `runPreview(...)`. Sequência fixa: resolve (Provider) → decide (Policy) → executa (Runtime) → receipt (Gateway). Zero lógica. | ≤800 |
-| `ToolExecutionPolicy` | Policy | Decisão pura fail-closed: funde permission engine local + veredicto do gate. Campo ausente/bridge down em strict ⇒ blocked. Zero I/O. | 500 |
-| `ToolPolicyGateway` | Gateway | Único I/O do gate (`ai_permission_gates`/`ai_policy_profiles`; absorve ToolPolicyBridgeService, preserva strict). | 350 |
-| `ToolExecutionRuntime` | Runtime | Executor real dos 19 tools (absorve o corpo de AiToolRuntime::execute). Modo `preview` honesto substitui mockExecute. Só executa com `PolicyDecision::allowed` — por construção. | 1.800 |
-| `ToolReceiptGateway` | Gateway | Único writer de evidência: `AiToolReceipt` (bridge Evidence, fail-closed) + `AiToolEvent` no MESMO uuid. Execução sem receipt durável ⇒ blocked. | 600 |
-| `ToolCatalogProvider` | Provider | Registry/definições/seeds/catálogo; valida na carga: definição executável mapeia p/ tool real; sem executor ⇒ só preview. | 700 |
-| `ToolRuntimeProjector` | Projector | Read-only: health/control-plane/readiness/planning. | 700 |
+| ExecutionEvidenceFacade | Facade | superfície AVER 1:1 + entrada kernel | ≤800 |
+| ExecutionEvidenceGateway | Gateway | único writer: canônico primeiro (incl. command_runs); espelho AtlasAver* best-effort correlacionado por goal_record_id — nunca por hash recomputado. SEM drop | 900 |
+| ExecutionCertificationEvaluator | Evaluator | regra ÚNICA: certified ⇔ patch passed ∧ test passed ∧ zero command failed/blocked p/ o goal_record_id, no ledger CANÔNICO. Fail-closed: ato AVER sem command_run canônico ⇒ blocked; goal NULL (legado) ⇒ fora do escopo | 800 |
+| ExecutionLineageProjector | Projector | view unificada + leitura histórica por-fonte | 700 |
+| RealExecutionKernelRuntime | Runtime | só orquestração worktree→patch→test→repair + delivery + handoff | 1.800 |
+| CandidateReceiptSealEvaluator | Evaluator | família candidate*OwnerReceiptValid + binding/signature/seal (7 roles, Kernel L623-3143) | ≤1.400 |
+| CandidateDispositionEvaluator | Evaluator | família candidate*Disposition + *Evidence (7 roles); re-home futuro p/ EngineeringCompany fora desta obra | ≤1.400 |
 
-Compat ≤1 ciclo: `AiToolRuntime::execute` delega à Facade (assinatura preservada p/ 6 callers + Search); `ToolInvocationService::invoke` delega com `mode=preview` `@deprecated`. Dados sem drop: `AiToolInvocation` canônico; `AiToolEvent` em dupla escrita correlacionada até migração aprovada.
+Compat: AtlasVerifiedExecutionRuntimeService congela como delegador (9 callers + binding) **retendo os tokens textuais do fileCheck do SoftwareTwin (#10)**; atlas:aver* mantêm flags/schema; literais #4/#5/#9/#10 atualizados na 4c.
 
-### 2.2 Fusão 2 — VerifiedExecution (AVER) ⇒ RealExecution (linhagem única)
+### 2.3 Fusão 3 — ReleaseGate ⇒ Readiness
+releaseGate() no readiness a partir do payload de report() computado 1x — hash de origem única. Compat: one-liner @deprecated; snapshot byte v1; **dir retém só o one-liner até a data do alias; esvazia no ciclo seguinte**. Teto 1.200.
 
-| Classe | Sufixo | Responsabilidade | Teto |
-|---|---|---|---|
-| `ExecutionEvidenceFacade` | Facade | Superfície AVER preservada 1:1 (plan/runCommand/verifyDiff/runTest/repair/certify/controlPlane) + entrada do fluxo kernel. | ≤800 |
-| `ExecutionEvidenceGateway` | Gateway | Único writer: `AiRealExecution*` canônico + espelho `AtlasAver*` (dupla escrita correlacionada por objective_hash/diff_hash). SEM drop de tabela. | 900 |
-| `ExecutionCertificationEvaluator` | Evaluator | A regra de certificação ÚNICA (funde os dois certify): certified ⇔ command∧diff∧test passed no ledger canônico; fail-closed. Um veredicto por diff_hash por construção. | 800 |
-| `ExecutionLineageProjector` | Projector | controlPlane/readiness/claimPolicy read-only sobre view unificada. | 700 |
-| `RealExecutionKernelRuntime` | Runtime | Debulk do god: só orquestração worktree→patch→test→repair + delivery pack + handoff. Certificação → Evaluator; escrita → Gateway. | 1.800 |
-| `CandidateRoleReceiptEvaluator` | Evaluator | Extração das famílias `candidate*` (~2.400 LOC EngineeringCompany dentro do kernel); re-home futuro avaliado fora desta obra. | 2.000 |
-
-Compat: `AtlasVerifiedExecutionRuntimeService` congela como delegador (9 callers + binding intactos); `atlas:aver*` mantêm flags/schema; `AtlasSoftwareTwinRuntimeService` (cita path literal L69) atualizado na mesma fatia.
-
-### 2.3 Fusão 3 — RuntimeReleaseGate ⇒ RuntimeReadiness
-
-`AtlasAiRuntimeReadinessService` ganha `releaseGate(): array` produzindo o schema v1 **a partir do payload de `report()` computado 1x em memória** — hash de origem única. Compat: service antigo vira one-liner `@deprecated`; snapshot byte-compat do schema; dir deletado ao fim do ciclo. Teto: 1.200 (857+~250).
-
-### 2.4 Fusão 4 — VerifiedContextExecution ⇒ RuntimeEfficiency
-
-`VerifiedContextLoopService` (move+rename) em `RuntimeEfficiency/`: ao fim de cada `shadow()` verificado, grava outcome via `recordOutcome` com `decision_ref` — o MESMO store que alimenta replay/policy. Compat: class_alias datado; dir deletado. Teto: 600.
+### 2.4 Fusão 4 — VCE ⇒ RuntimeEfficiency
+VerifiedContextLoopService movido; shadow() grava outcome via recordOutcome com decision_ref (campo outcome_ref aditivo). Compat: class_alias datado; **dir retém só o stub até a data; os 8 consumidores (6 path-literal, §1.4 #1-6) atualizados no mesmo commit do move**. Teto 600.
 
 ## 3. Grafo one-way
-
 ```
-Commands / Controllers / Jobs
-  │
-  ▼
-Facades/Services de topo: ToolExecutionFacade · ExecutionEvidenceFacade ·
-AtlasAiRuntimeReadinessService(releaseGate) · Governor · VerifiedContextLoopService
-  │        compat ≤1 ciclo: AiToolRuntime→Facade · ToolInvocationService→Facade(preview) ·
-  │        AVER service→Facade · ReleaseGate→releaseGate()
-  ▼
-Policies (puras): ToolExecutionPolicy
-Evaluators: ExecutionCertification · CandidateRoleReceipt
-Projectors: ToolRuntime · ExecutionLineage
-Runtimes (mutação explícita): ToolExecutionRuntime · RealExecutionKernelRuntime
-  │
-  ▼
-Gateways/Providers: ToolPolicyGateway · ToolReceiptGateway · ExecutionEvidenceGateway · ToolCatalogProvider
-  │
-  ▼
-Models: AiToolDefinition/Invocation/Receipt/Event · AiRealExecution*(canônico) ·
-AtlasAver*(espelho até migração) · AtlasRuntimeEfficiency* · AiToolProcessRunner · WorkspaceProfiler
+Commands/Controllers/Jobs → Facades/Services de topo
+  (compat ≤1 ciclo: AiToolRuntime→Facade · ToolInvocationService→Facade(preview) · AVER→Facade · ReleaseGate→releaseGate())
+→ Policies: ToolExecutionPolicy · Evaluators: ExecutionCertification/CandidateReceiptSeal/CandidateDisposition · Projectors: ToolRuntime/ExecutionLineage · Runtimes: ToolExecutionRuntime/RealExecutionKernelRuntime
+→ Gateways/Providers: ToolPolicyGateway · ToolReceiptGateway · ExecutionEvidenceGateway · ToolCatalogProvider
+→ Models: AiToolDefinition/Invocation/Receipt/Event · AiPermissionSession(via Gateway) · AiRealExecution* + ai_real_execution_command_runs (canônico) · AtlasAver* (espelho, +goal_record_id) · AiAutonomousEngineeringGoal (+objective_hash) · AtlasRuntimeEfficiency*
 ```
+Regras: setas só descem; Policy zero I/O; Gateway zero decisão; Projector zero mutação; Runtime só com allowed; fail-closed em toda borda; RealExecution↔VerifiedExecution nunca se importam.
 
-Regras: setas só descem; Policy zero I/O; Gateway zero decisão; Projector zero mutação; Runtime só executa após `allowed`; fail-closed em toda borda; RealExecution↔VerifiedExecution nunca se importam — só Facade+Gateway conhecem os dois conjuntos durante a dupla escrita.
+## 4. Padrões
+1. Um call, um pipeline, um receipt. 2. Writer único por linhagem (dupla escrita transitória canônico-primeiro). 3. Convergência sem drop (aditivo explícito §2.2). 4. Nomes honestos (mockExecute morre; preview declarado). 5. Hash de origem única. 6. Abstração com 2º consumidor provado. 7. Compat por alias datado ≤1 ciclo com CI pós-data.
 
-## 4. Padrões aplicados
+## 5. Testes do patamar (por fusão)
+| Fusão | Prova |
+|---|---|
+| 1 | um shell.run real via Facade produz no MESMO uuid Invocation(policy_decision_ref)+Receipt+Event; deny nunca toca o ProcessRunner (spy); Evidence down em strict ⇒ blocked. Hoje IMPOSSÍVEL de escrever |
+| 2 | certificar o mesmo goal_record_id pelas 2 rotas retorna o MESMO veredicto do Evaluator; contraprova atual (Aver certified sem cert canônica) congelada como characterization |
+| 3 | releaseGate() invoca report() exatamente 1x (spy); snapshot byte v1 |
+| 4 | após shadow() verificado existe Outcome ligado à decision; replay/policy incluem o loop (hoje: 0 escrita) |
 
-1. **Um call, um pipeline, um receipt** — impossível executar sem decidir; impossível `succeeded` sem receipt durável.
-2. **Writer único por linhagem de evidência** — dupla escrita transitória correlacionada por hash canônico, num único lugar.
-3. **Convergência sem drop** — canônico `AiRealExecution*`/`AiToolInvocation`; espelhos viram adapter de leitura até migração aprovada.
-4. **Nomes honestos** — `mockExecute` morre; modo sem efeito = `preview` declarado no receipt.
-5. **Hash de origem única** — release gate e certificação derivam de UM payload/ledger.
-6. **Abstração com 2º consumidor provado** — 9+6 consumidores dos dois lados da linhagem.
-7. **Compat por alias datado ≤1 ciclo** com verificação de CI pós-data.
-
-## 5. Mapa fusão → ganho (teste do patamar)
-
-| Fusão | Ganho | Teste do patamar |
-|---|---|---|
-| ToolRuntime⇒Runtime | execução real GOVERNADA c/ receipt | um `shell.run` real via Facade produz no MESMO uuid: Invocation c/ policy_decision_ref + Receipt durável + Event. Contraprova: deny nunca toca o ProcessRunner (spy); Evidence down em strict ⇒ blocked. Hoje esse teste é IMPOSSÍVEL de escrever. |
-| AVER⇒RealExecution | UMA linhagem | certificar o mesmo diff_hash pelas 2 rotas retorna o MESMO veredicto do Evaluator. Contraprova de hoje (characterization pré-fatia): AtlasAverCertifiedExecution certified com AiRealExecutionCertification ausente para o mesmo diff. |
-| ReleaseGate⇒Readiness | um estado, um hash | `releaseGate()` invoca `report()` exatamente 1x (spy); hash deriva do mesmo array; snapshot byte-compat v1. |
-| VCE⇒Efficiency | loop ensina a decisão | após shadow() verificado existe Outcome ligado à decision, e replay/policy incluem o loop. Hoje: zero escrita (verificado). |
-
-## 6. Ordem de migração (characterization → fatia → compat → delete)
-
-**Fatia 1 — Release gate** (menor risco, 263 LOC): snapshot v1 + StubReadinessService existente → `releaseGate()` movido (não reescrito) + report-count==1 → compat one-liner → delete dir.
-**Fatia 2 — Verified context loop** (442 LOC, 3 callers): characterization → move + `recordOutcome` (campo `outcome_ref` aditivo) → class_alias → delete dir.
-**Fatia 3 — Tool runtime governado** (coração): 3a Gateways+Provider+Policy (re-embalagem) · 3b Runtime absorve executor + receipt+event mesmo uuid (teste do patamar 1) · 3c Facade + compat (6 callers + Search com benchmark antes/depois) · delete `ToolRuntime/` + corpo antigo; `NoExternalExecutionTest` substituído explicitamente pelo teste de gate ("nunca executa sem allow").
-**Fatia 4 — Linhagem única** (maior risco, por último): 4a Gateway + dupla escrita · 4b Evaluator único (teste do patamar 2) · 4c Facade + compat 9 callers + SoftwareTwin path · 4d debulk do god (CandidateRoleReceipt extraído; pode escorregar de ciclo sem quebrar) · delete `VerifiedExecution/`; tabelas AtlasAver* ficam como espelho até migração aprovada.
+## 6. Ordem de migração (characterization → fatia → compat → esvaziar)
+**Regra de ciclo de vida de diretório**: nenhum dir de origem é deletado no ciclo da fatia — retém EXCLUSIVAMENTE o delegador/alias até a data; no ciclo seguinte dir+alias morrem no MESMO commit com CI pós-data. Path-literals re-apontados no commit da própria fatia.
+- **F1 Release gate**: snapshot v1 + StubReadinessService → releaseGate() movido + report-count==1 → one-liner → esvazia ciclo seguinte.
+- **F2 VCE**: characterization → move + recordOutcome (outcome_ref aditivo) → alias → **literais #1-#6 no mesmo commit** → esvazia depois.
+- **F3-pre (NOVO) Seeding de ai_permission_gates ANTES do flip strict**: catálogo declarado dos 19 tools — read-only default-allow (9): workspace.profile, package.detect, file.read, session.search, search.rg, git.status, git.diff, programming.git_diff, programming.code_search; mutadores gate-obrigatório (10): file.write, file.patch, shell.run, git.apply_patch, checkpoint.restore, test.run, programming.test/lint/quality_scan/visual_smoke. Caminhos autônomos transitivos com seed prévio: Orchestrator→EngineeringHarness/TestMatrix→execute('test.run') (L173); AtlasTaskController; diretos: 5 commands + Search (read-only coberto).
+- **F3a** Gateways+Provider+Policy (AiPermissionSession migra p/ Gateway — Policy zero-I/O real) + **literal #7**. **F3b** Runtime absorve executor + receipt+event mesmo uuid + **tokens do Scanner #8 re-apontados**. **F3c** Facade + compat (estáticos preservados; benchmark do hot path Search); NoExternalExecutionTest → teste de gate. Dir esvazia depois.
+- **F4a** migração aditiva §2.2 → Gateway + dupla escrita. **F4b** Evaluator único. **F4c** Facade + compat 9 callers + **literais #4/#5/#9/#10; delegador retém tokens do SoftwareTwin**. **F4d** debulk do god (2 Evaluators ≤1.400; pode escorregar de ciclo). Tabelas AtlasAver* ficam como espelho.
 
 ## 7. Riscos
-
-1. **Hot path Search** ganha gate DB — decisão cacheada por request p/ read-only; benchmark 3c; rollback via compat.
-2. **Strict no executor real muda comportamento dos 6 callers** (hoje executam sem gate) — é o objetivo; breaking change documentado da fatia 3 com classificação por tool (read-only pode ter default allow declarado; mutadores nunca).
-3. **Dupla escrita divergente** — canônico primeiro; espelho best-effort com `mirror_lag`; leitura de certificação NUNCA usa espelho.
-4. **God kernel entrelaçado com EngineeringCompany** — sub-fatia 4d isolada, por último, rg de callers por método antes do corte.
-5. **Hashes estáveis** — characterization decide quais têm consumidor vivo (byte-compat); resto ganha schema_version novo.
-6. **4 aliases simultâneos** — data de remoção + CI falha pós-data.
-7. **Dependentes do mockExecute** — só 2 callers provados; payload preview congelado com alias de campo 1 ciclo.
+1. Hot path Search ganha gate DB — decisão cacheada por request p/ read-only; benchmark F3c; rollback via compat. 2. Strict muda comportamento dos callers — F3-pre seeding + breaking change documentado com catálogo por tool. 3. Dupla escrita divergente — canônico primeiro; espelho best-effort com mirror_lag; leitura de certificação NUNCA usa espelho. 4. God entrelaçado com EngineeringCompany — F4d isolada, rg por método antes do corte. 5. Hashes golden — characterization decide quais têm consumidor vivo. 6. Aliases eternos — data + CI pós-data. 7. Dependentes do mockExecute — payload preview congelado com alias de campo. **8. Literal esquecido — o rg do §1.4 re-roda como gate de saída de cada fusão (zero hits fora de dirs de compat). 9. Linhas legadas NULL — permanentemente por-fonte; relatórios pré/pós-fusão declaram o corte, nunca inferem equivalência por hash (provado não-equivalente).**

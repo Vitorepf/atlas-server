@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  RuntimeExecution v2 APLICADA (rodada 2): 3/3 claims novos verificados (diff_hash payload L233 ≠ sha256 cru L539, availableTools L24); migração aditiva especificada, 10 path-literals fechados, ciclo de vida de dir resolvido. Pronto p/ 2º verify.
   VERIFY RuntimeExecution: REFUTADO (2 fatais confirmados pelo comandante: canônico sem objective/diff_hash; ≥9 path-literal consumers) → redesign rodada 2 disparado. O processo author≠judge pagou.
   AUDITORIA FINDINGS 0026-0043: 17/18 CONFIRMADOS (precisão notável) · 1 REFUTADO (0036 — fatal já consertado por 594d224e1 pós-snapshot) → finding REESCRITO pelo comandante (1ª correção direta em META-FINDINGS; sentinel avisou edição concorrente do codex — commit imediato p/ preservar)
   ROOTSINGLES 3/3 (0 colisões, same-namespace trap AiWorker confirmado, FQCNs scanner L226-228 exatos)
