@@ -4,37 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0141 failure capsule write-time redaction recorded
+phase: A1-SC-0152 terminal supply action consistency recorded
 wave: A1
-bucket: app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence
-focus: worker error excerpt durable redaction
-finding_id: A1-SC-0141
-action_op: test-first redact before persistence
+bucket: app/Services/Ai/SelfConstruction/ControlPlane
+focus: terminal digest partial-supply action consistency
+finding_id: A1-SC-0152
+action_op: test-first canonical replenishment precedence
 queue_index: 6
-last_commit: cb860e335
+last_commit: df5e0745a
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/AtlasDev/CompoundingFailureMemoryTest.php
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php
-  /opt/homebrew/bin/php -l app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsulePromptInjector.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: report(failed) persisted its worker-supplied bearer-shaped token and password into the durable failure capsule.
-  green: persistence redacts before truncation, and the existing prompt injector uses that same canonical redaction path as defense in depth.
+  red: with one claimable packet and a target of three, loop_decision ordered replenishment while muscle_supply_state said pull_now.
+  green: both public digest surfaces order replenishment before pull_now whenever the visible supply is below target and no hidden lane supply exists.
 stdout: |
-  focused_failure_capsule_redaction: PASS (1 test, 10 assertions)
-  failure_capsule_suite: PASS (4 tests, 17 assertions)
-  compounding_failure_memory_suite: PASS (10 tests, 45 assertions)
-  serving_service_suite: PASS (8 tests, 37 assertions)
-  php_lint: PASS both runtime services plus changed feature test
-  loc_check: failure_capsule_runtime=159; failure_capsule_injector=298
+  focused_partial_supply_contract: PASS (1 test, 3 assertions)
+  digest_unit_suite: PASS (16 tests, 50 assertions)
+  digest_feature_suite: NOT GREEN (9 passed, 6 failed on pre-existing queue-count/fixture expectations outside muscleSupplyState)
+  php_lint: PASS source plus changed unit test
+  loc_check: terminal_loop_health_digest=1627
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This covers the durable failure-capsule write boundary for the existing secret shapes and redacts before the stored 1,200-byte limit. Raw exception logging/other envelope paths cited by the finding remain separate unclaimed work.
+  The only production change reorders two mutually exclusive muscle action predicates. recommendedAction and queue reads are untouched; the feature-suite failures report queue counts/fixture state, so they cannot be caused by this reorder and are not used as proof.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -960,6 +957,38 @@ boundary:
   - this fixes durable failure-capsule persistence for the existing redaction patterns
   - raw exception logging and other raw-message envelope paths cited by A1-SC-0141 remain separate unclaimed work
   - no provider call, token spend, or new class/helper was introduced
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 34 — A1-SC-0152 align terminal partial-supply actions, 2026-07-22
+
+```yaml
+finding: A1-SC-0152
+commit: df5e0745a
+subject: "refactor(core): GOD-DEBULK align terminal supply actions"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_partial_claimable_supply_recommends_replenishment_consistently_across_digest_surfaces
+  result: "FAIL 1 test, 2 assertions: real digest() returned loop_decision=replenish_task_supply but muscle_supply_state.next_safe_action=pull_now for 1 claimable task against target 3."
+green:
+  behavior: "when visible claimable supply is below target, both digest surfaces require replenishment before a worker pulls. Full supply keeps pull_now/continue behavior, and recoverability/eligibility still precede both."
+  characterization: "the test enqueues a real claimable record and executes public digest(); it reads both returned decision surfaces without reflection or source-shape assertions."
+verification:
+  focused_partial_supply_contract: "PASS 1 test, 3 assertions"
+  digest_unit_suite: "PASS 16 tests, 50 assertions"
+  digest_feature_suite: "NOT GREEN 9 passed, 6 failed: existing queue-count/fixture drift in cases whose recommendedAction and queue reads are unchanged by this two-line predicate reorder"
+  php_lint: "PASS source and changed unit test"
+  loc: "terminal_loop_health_digest=1627 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - changes only priority between below-target replenish and positive-supply pull in muscleSupplyState
+  - no queue read, claim, lease, launch, provider, token, or mutation behavior changed
+  - the six feature-suite fixture/count failures are not accepted as proof and remain outside this narrow finding
 write_back:
   status: recorded_for_human_review
   auto_promoted: false

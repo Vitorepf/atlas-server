@@ -69,3 +69,4 @@ claimed_paths:
 - Fonte: `META-FINDINGS/<WAVE>--<Bucket>.md`
 - origin: arch-review — ROTULAGEM: commits cujo diff inclui `app/` devem usar `refactor(core): GOD-DEBULK …` (não `test(core)`); `test(core)` só quando o diff é exclusivamente tests/. Conteúdo dos commits auditados está APROVADO (0a630e750/cea059e34: fix real + teste red→green + boundary one-way); só o rótulo desvia da lei §8.
 - 2026-07-22 runtime blocker observado: move externo staged removeu `AcosMax/OutcomeEnvelopeBridge` enquanto `AcosMaxMeasureSeriesRegistry` ainda referencia o FQCN antigo; PHPUnit não inicializa até a frente dona alinhar consumer/FQCN.
+- 2026-07-22 runtime blocker observado: move externo M3-C deixou `AcosMaxMeasureSeriesRegistry` em `Cognition/AcosProgram` declarando ainda `App\\Services\\Ai\\AcosMax\\AcosMaxMeasureSeriesRegistry`; o autoload carrega a mesma classe duas vezes e PHPUnit aborta antes do teste até a frente dona corrigir namespace/alias.
