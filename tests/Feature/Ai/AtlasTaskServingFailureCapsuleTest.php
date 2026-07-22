@@ -130,15 +130,20 @@ final class AtlasTaskServingFailureCapsuleTest extends TestCase
 
         $a = $serving->next('worker-a');
         $this->assertSame('served', $a['status']);
+        $syntheticToken = 'sk-fake0123456789abcdefghijklmnop';
         $serving->report('worker-a', 'cap-write-1', $a['task']['lease_id'], [
             'outcome' => 'failed',
-            'evidence' => ['error' => 'PHPUnit: CapsuleTargetTest::test_value failed asserting 2 matches expected 3'],
+            'evidence' => ['error' => 'PHPUnit: CapsuleTargetTest failed; authorization: bearer '.$syntheticToken.' password=not-a-real-password'],
         ]);
 
         $capsule = \App\Models\AtlasDevFailureCapsule::query()->where('task_id', 'cap-write-1')->first();
         $this->assertNotNull($capsule, 'a failed report with evidence persists a capsule');
         $this->assertSame('worker_report_failed', $capsule->failing_gate);
         $this->assertSame('test_failure', $capsule->failure_class);
+        $this->assertStringNotContainsString($syntheticToken, (string) $capsule->error_excerpt, 'the durable failure capsule must not retain worker-supplied bearer material');
+        $this->assertStringNotContainsString('not-a-real-password', (string) $capsule->error_excerpt, 'the durable failure capsule must not retain worker-supplied passwords');
+        $this->assertStringContainsString('authorization: bearer REDACTED', (string) $capsule->error_excerpt);
+        $this->assertStringContainsString('password=REDACTED', (string) $capsule->error_excerpt);
 
         // Next packet in the SAME area gets the memory on serve.
         $orch->prepareAndEnqueue(['task_packet' => [

@@ -12,6 +12,18 @@ class DevFailureCapsuleRuntimeService
 {
     public const SCHEMA_VERSION = 'atlas.dev.failure_capsule.v1';
 
+    private const SECRET_PATTERNS = [
+        '/\b[A-Z0-9_]*API[_-]?KEY[A-Z0-9_]*\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+        '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+        '/authorization:\s*bearer\s+[A-Za-z0-9._\-]+/i' => 'authorization: bearer REDACTED',
+        '/bearer\s+ey[A-Za-z0-9._\-]+/i' => 'bearer REDACTED',
+        '/sk-ant-[A-Za-z0-9._\-]+/i' => 'sk-ant-REDACTED',
+        '/sk-[A-Za-z0-9]{20,}/i' => 'sk-REDACTED',
+        '/password\s*=\s*[^\s,;]+/i' => 'password=REDACTED',
+        '/secret\s*=\s*[^\s,;]+/i' => 'secret=REDACTED',
+        '/private_key/i' => 'REDACTED_PRIVATE_KEY_LABEL',
+    ];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -28,7 +40,7 @@ class DevFailureCapsuleRuntimeService
             'task_id' => $taskId,
             'failing_gate' => AiValueNormalizer::trimmedScalarStringOrNull($input['failing_gate'] ?? null) ?? 'unknown',
             'failure_class' => $failureClass,
-            'error_excerpt' => $this->truncate((string) ($input['error_excerpt'] ?? $input['error'] ?? ''), 1200),
+            'error_excerpt' => $this->truncate(self::redactErrorExcerpt((string) ($input['error_excerpt'] ?? $input['error'] ?? '')), 1200),
             'changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['changed_files'] ?? []),
             'suggested_repair' => AiValueNormalizer::trimmedScalarStringOrNull($input['suggested_repair'] ?? null) ?? $this->defaultRepair($failureClass),
             'retry_budget' => max(0, min(3, (int) ($input['retry_budget'] ?? 1))),
@@ -63,6 +75,15 @@ class DevFailureCapsuleRuntimeService
                 'escalate_to_forge' => $payload['escalate_to_forge'],
             ],
         );
+    }
+
+    public static function redactErrorExcerpt(string $value): string
+    {
+        foreach (self::SECRET_PATTERNS as $pattern => $replacement) {
+            $value = (string) preg_replace($pattern, $replacement, $value);
+        }
+
+        return $value;
     }
 
     private function classify(string $declared, string $error): string

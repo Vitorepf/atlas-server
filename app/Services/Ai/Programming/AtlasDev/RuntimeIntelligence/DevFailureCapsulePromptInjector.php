@@ -65,21 +65,6 @@ final class DevFailureCapsulePromptInjector
     private const ERROR_EXCERPT_LIMIT = 480;
 
     /**
-     * Capsule row contract (subset consumed from AtlasDevFailureCapsule).
-     */
-    private const SECRET_PATTERNS = [
-        '/\b[A-Z0-9_]*API[_-]?KEY[A-Z0-9_]*\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
-        '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
-        '/authorization:\s*bearer\s+[A-Za-z0-9._\-]+/i' => 'authorization: bearer REDACTED',
-        '/bearer\s+ey[A-Za-z0-9._\-]+/i' => 'bearer REDACTED',
-        '/sk-ant-[A-Za-z0-9._\-]+/i' => 'sk-ant-REDACTED',
-        '/sk-[A-Za-z0-9]{20,}/i' => 'sk-REDACTED',
-        '/password\s*=\s*[^\s,;]+/i' => 'password=REDACTED',
-        '/secret\s*=\s*[^\s,;]+/i' => 'secret=REDACTED',
-        '/private_key/i' => 'REDACTED_PRIVATE_KEY_LABEL',
-    ];
-
-    /**
      * @param  list<string>  $targetFiles  the run's target set (allowed_files).
      *                                     Empty list returns [] (no area → no
      *                                     injection — VAL-M5-004 honest empty).
@@ -308,11 +293,6 @@ final class DevFailureCapsulePromptInjector
      */
     private function redact(string $value): string
     {
-        $safe = $value;
-        foreach (self::SECRET_PATTERNS as $pattern => $replacement) {
-            $safe = (string) preg_replace($pattern, $replacement, $safe);
-        }
-
-        return $safe;
+        return DevFailureCapsuleRuntimeService::redactErrorExcerpt($value);
     }
 }
