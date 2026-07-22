@@ -74,14 +74,14 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $cycleEvidence = [];
         $continuationHashes = [];
         $evidenceReceiptCount = 0;
-        $terminalBootstrapProbe = $this->runTerminalBootstrapProbe($runId, min(2, $agentCount));
-        $terminalFleetLaunchPlanProbe = $this->runTerminalFleetLaunchPlanProbe($runId, min(3, $agentCount));
-        $terminalFleetPartialSupplyGateProbe = $this->runTerminalFleetPartialSupplyGateProbe($runId);
-        $terminalFleetLaneIsolationNegativeProbe = $this->runTerminalFleetLaneIsolationNegativeProbe($runId);
-        $terminalFleetResumeRollupProbe = $this->runTerminalFleetResumeRollupProbe($runId);
-        $terminalFleetMetadataOrphanRecoveryProbe = $this->runTerminalFleetMetadataOrphanRecoveryProbe($runId);
-        $terminalFleetReleasedResumeProbe = $this->runTerminalFleetReleasedResumeProbe($runId);
-        $terminalFleetEvidenceRollupProbe = $this->runTerminalFleetEvidenceRollupProbe($runId);
+        $terminalBootstrapProbe = $this->probeRunner()->runTerminalBootstrapProbe($runId, min(2, $agentCount));
+        $terminalFleetLaunchPlanProbe = $this->probeRunner()->runTerminalFleetLaunchPlanProbe($runId, min(3, $agentCount));
+        $terminalFleetPartialSupplyGateProbe = $this->probeRunner()->runTerminalFleetPartialSupplyGateProbe($runId);
+        $terminalFleetLaneIsolationNegativeProbe = $this->probeRunner()->runTerminalFleetLaneIsolationNegativeProbe($runId);
+        $terminalFleetResumeRollupProbe = $this->probeRunner()->runTerminalFleetResumeRollupProbe($runId);
+        $terminalFleetMetadataOrphanRecoveryProbe = $this->probeRunner()->runTerminalFleetMetadataOrphanRecoveryProbe($runId);
+        $terminalFleetReleasedResumeProbe = $this->probeRunner()->runTerminalFleetReleasedResumeProbe($runId);
+        $terminalFleetEvidenceRollupProbe = $this->probeRunner()->runTerminalFleetEvidenceRollupProbe($runId);
 
         for ($cycleIndex = 0; $cycleIndex < $cycles; $cycleIndex++) {
             $cycle = $this->runCycle(
@@ -892,57 +892,70 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
      */
     public function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
     {
-        return $this->probeRunner()->runTerminalBootstrapProbe($runId, $probeAgentCount);
+        return $this->runProbeWithCleanup($runId, fn (): array => $this->probeRunner()->runTerminalBootstrapProbe($runId, $probeAgentCount));
     }
 
     public function runTerminalFleetLaunchPlanProbe(string $runId, int $probeTerminalCount): array
     {
-        return $this->probeRunner()->runTerminalFleetLaunchPlanProbe($runId, $probeTerminalCount);
+        return $this->runProbeWithCleanup($runId, fn (): array => $this->probeRunner()->runTerminalFleetLaunchPlanProbe($runId, $probeTerminalCount));
     }
 
     public function runTerminalBootstrapPartialSupplyProbe(\App\Services\Ai\SelfConstruction\AgentControlPlane\AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
-        return $this->probeRunner()->runTerminalBootstrapPartialSupplyProbe($bootstrap, $runId);
+        return $this->runProbeWithCleanup($runId, fn (): array => $this->probeRunner()->runTerminalBootstrapPartialSupplyProbe($bootstrap, $runId));
     }
 
     public function runTerminalFleetPartialSupplyGateProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetPartialSupplyGateProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetPartialSupplyGateProbe($taskPacketId));
     }
 
     public function runTerminalFleetLaneIsolationNegativeProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetLaneIsolationNegativeProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetLaneIsolationNegativeProbe($taskPacketId));
     }
 
     public function runTerminalFleetResumeRollupProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetResumeRollupProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetResumeRollupProbe($taskPacketId));
     }
 
     public function runTerminalFleetMetadataOrphanRecoveryProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetMetadataOrphanRecoveryProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetMetadataOrphanRecoveryProbe($taskPacketId));
     }
 
     public function runTerminalFleetReleasedResumeProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetReleasedResumeProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetReleasedResumeProbe($taskPacketId));
     }
 
     public function runTerminalFleetEvidenceRollupProbe(string $taskPacketId): array
     {
-        return $this->probeRunner()->runTerminalFleetEvidenceRollupProbe($taskPacketId);
+        return $this->runProbeWithCleanup($taskPacketId, fn (): array => $this->probeRunner()->runTerminalFleetEvidenceRollupProbe($taskPacketId));
     }
 
     public function runTerminalBootstrapPreviewProbe(\App\Services\Ai\SelfConstruction\AgentControlPlane\AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
-        return $this->probeRunner()->runTerminalBootstrapPreviewProbe($bootstrap, $runId);
+        return $this->runProbeWithCleanup($runId, fn (): array => $this->probeRunner()->runTerminalBootstrapPreviewProbe($bootstrap, $runId));
     }
 
     public function runTerminalBootstrapInvalidScopeProbe(\App\Services\Ai\SelfConstruction\AgentControlPlane\AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
-        return $this->probeRunner()->runTerminalBootstrapInvalidScopeProbe($bootstrap, $runId);
+        return $this->runProbeWithCleanup($runId, fn (): array => $this->probeRunner()->runTerminalBootstrapInvalidScopeProbe($bootstrap, $runId));
+    }
+
+    /**
+     * @param  \Closure(): array<string, mixed>  $probe
+     * @return array<string, mixed>
+     */
+    private function runProbeWithCleanup(string $runId, \Closure $probe): array
+    {
+        try {
+            return $probe();
+        } finally {
+            $this->cleanupCertificationArtifacts($runId);
+        }
     }
 
     /**

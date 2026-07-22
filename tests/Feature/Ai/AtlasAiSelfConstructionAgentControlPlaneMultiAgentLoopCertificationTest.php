@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQue
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest extends TestCase
@@ -158,6 +159,17 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
             $this->assertNotContains('terminal_fleet_resume_rollup_probe', $tags);
             $this->assertNotContains('terminal_fleet_metadata_orphan_probe', $tags);
         }
+    }
+
+    public function test_direct_terminal_bootstrap_probe_prunes_its_synthetic_queue_and_lease_artifacts(): void
+    {
+        [$service, , $queue, $leases] = $this->newStack();
+
+        $probe = $service->runTerminalBootstrapProbe((string) Str::ulid(), 2);
+
+        $this->assertSame('prepared_and_enqueued', data_get($probe, 'partial_supply_probe.orchestration_event'));
+        $this->assertSame(0, (int) $queue->registry()['total_count']);
+        $this->assertSame([], $leases->activeLeases());
     }
 
     public function test_certification_exercises_terminal_worker_bootstrap_path(): void
