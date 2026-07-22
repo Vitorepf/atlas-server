@@ -1100,8 +1100,7 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
 function runTerminalBootstrapPreviewProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
         $tag = 'terminal_bootstrap_preview_'.$runId.'_tag';
-        $queueTotalBefore = (int) data_get($this->queue->registry(), 'total_count', 0);
-        $activeLeasesBefore = count($this->leases->activeLeases());
+        $stateBefore = $this->previewStateSnapshot();
 
         $result = $bootstrap->bootstrap([], [
             'actor' => 'terminal_bootstrap_preview_'.$runId,
@@ -1112,16 +1111,14 @@ function runTerminalBootstrapPreviewProbe(AgentControlPlaneTerminalWorkerBootstr
             'preview_only' => true,
         ]);
 
-        $queueTotalAfter = (int) data_get($this->queue->registry(), 'total_count', 0);
-        $activeLeasesAfter = count($this->leases->activeLeases());
+        $stateAfter = $this->previewStateSnapshot();
         $executeCommand = (string) ($result['preview_execute_bootstrap_command'] ?? '');
         $readOnlyVerified = (bool) ($result['preview_only'] ?? false)
             && (string) ($result['auto_replenishment_status'] ?? '') === 'preview_only_not_run'
             && (string) ($result['claim_event'] ?? '') === 'preview_only_no_claim_attempted'
             && ! (bool) ($result['runtime_claim_persisted'] ?? true)
             && (int) ($result['generated_task_count'] ?? 1) === 0
-            && $queueTotalAfter === $queueTotalBefore
-            && $activeLeasesAfter === $activeLeasesBefore
+            && $stateAfter['state_hash'] === $stateBefore['state_hash']
             && str_contains($executeCommand, '--agent-control-plane-terminal-worker-bootstrap-status')
             && ! str_contains($executeCommand, '--terminal-worker-bootstrap-preview');
 
@@ -1137,12 +1134,68 @@ function runTerminalBootstrapPreviewProbe(AgentControlPlaneTerminalWorkerBootstr
             'preview_would_replenish' => (bool) ($result['preview_would_replenish'] ?? false),
             'preview_would_generate_task_count' => (int) ($result['preview_would_generate_task_count'] ?? 0),
             'preview_execute_bootstrap_command' => $executeCommand,
-            'queue_total_before' => $queueTotalBefore,
-            'queue_total_after' => $queueTotalAfter,
-            'active_leases_before' => $activeLeasesBefore,
-            'active_leases_after' => $activeLeasesAfter,
+            'queue_total_before' => $stateBefore['queue_total_count'],
+            'queue_total_after' => $stateAfter['queue_total_count'],
+            'active_leases_before' => $stateBefore['active_lease_count'],
+            'active_leases_after' => $stateAfter['active_lease_count'],
+            'state_hash_before' => $stateBefore['state_hash'],
+            'state_hash_after' => $stateAfter['state_hash'],
+            'queue_registry_hash_before' => $stateBefore['queue_registry_hash'],
+            'queue_registry_hash_after' => $stateAfter['queue_registry_hash'],
+            'queue_file_manifest_hash_before' => $stateBefore['queue_file_manifest_hash'],
+            'queue_file_manifest_hash_after' => $stateAfter['queue_file_manifest_hash'],
+            'lease_file_manifest_hash_before' => $stateBefore['lease_file_manifest_hash'],
+            'lease_file_manifest_hash_after' => $stateAfter['lease_file_manifest_hash'],
+            'queue_file_count_before' => $stateBefore['queue_file_count'],
+            'queue_file_count_after' => $stateAfter['queue_file_count'],
+            'lease_file_count_before' => $stateBefore['lease_file_count'],
+            'lease_file_count_after' => $stateAfter['lease_file_count'],
             'read_only_verified' => $readOnlyVerified,
         ];
+    }
+
+    /**
+     * @return array{state_hash:string, queue_registry_hash:string, queue_file_manifest_hash:string, lease_file_manifest_hash:string, queue_total_count:int, active_lease_count:int, queue_file_count:int, lease_file_count:int}
+     */
+    private function previewStateSnapshot(): array
+    {
+        $activeLeaseCount = count($this->leases->activeLeases());
+        $queueRegistry = $this->queue->registry();
+        $queueFiles = $this->storageFileManifest(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
+        $leaseFiles = $this->storageFileManifest(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX);
+        $queueRegistryHash = hash('sha256', serialize($queueRegistry));
+        $queueFileManifestHash = hash('sha256', serialize($queueFiles));
+        $leaseFileManifestHash = hash('sha256', serialize($leaseFiles));
+
+        return [
+            'state_hash' => hash('sha256', serialize([$queueRegistryHash, $queueFileManifestHash, $leaseFileManifestHash])),
+            'queue_registry_hash' => $queueRegistryHash,
+            'queue_file_manifest_hash' => $queueFileManifestHash,
+            'lease_file_manifest_hash' => $leaseFileManifestHash,
+            'queue_total_count' => (int) data_get($queueRegistry, 'total_count', 0),
+            'active_lease_count' => $activeLeaseCount,
+            'queue_file_count' => count($queueFiles),
+            'lease_file_count' => count($leaseFiles),
+        ];
+    }
+
+    /** @return array<string,string> */
+    private function storageFileManifest(string $prefix): array
+    {
+        $disk = Storage::disk('local');
+        $manifest = [];
+
+        foreach ($disk->files($prefix) as $path) {
+            if (str_ends_with($path, '/.lock') || str_ends_with($path, '/.health')) {
+                continue;
+            }
+
+            $manifest[$path] = hash('sha256', $disk->get($path));
+        }
+
+        ksort($manifest);
+
+        return $manifest;
     }
 
     private function runTerminalBootstrapInvalidScopeProbeInternal(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array

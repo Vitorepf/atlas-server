@@ -333,6 +333,20 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame(0, app(AgentControlPlaneTaskPacketQueueRepository::class)->registry()['total_count']);
     }
 
+    public function test_preview_read_only_verification_compares_complete_queue_and_lease_manifests(): void
+    {
+        $result = $this->makeRunner()->runTerminalBootstrapPreviewProbe(
+            app(AgentControlPlaneTerminalWorkerBootstrapService::class),
+            'preview-manifest',
+        );
+
+        $this->assertTrue($result['read_only_verified']);
+        $this->assertSame($result['state_hash_before'], $result['state_hash_after']);
+        $this->assertSame($result['queue_registry_hash_before'], $result['queue_registry_hash_after']);
+        $this->assertSame($result['queue_file_manifest_hash_before'], $result['queue_file_manifest_hash_after']);
+        $this->assertSame($result['lease_file_manifest_hash_before'], $result['lease_file_manifest_hash_after']);
+    }
+
     public function test_status_envelopes_fail_closed_when_a_computed_verification_is_false(): void
     {
         $cases = [
