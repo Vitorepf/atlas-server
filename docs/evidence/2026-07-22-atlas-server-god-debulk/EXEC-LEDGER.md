@@ -4,14 +4,14 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0113 and A1-SC-0114 complete
+phase: A1-SC-0176 complete
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: operator evidence entrypoint liveness and provider-safe envelope
-finding_id: A1-SC-0113+A1-SC-0114
-action_op: test-first namespace binding and envelope canonicalization repair
+focus: fail-closed one-shot mutating-writer release preflight
+finding_id: A1-SC-0176
+action_op: test-first receipt-proof and contract-status repair
 queue_index: 6
-last_commit: 7d7aa7c35e
+last_commit: c6878d531
 godfiles_gt_2000_in_focus: 40
 commands: |
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest.php
@@ -180,4 +180,36 @@ providerpipe_status:
   test_commit: 6bf532f41001d837fc92809fa3775c9642598d92
   receipt: Task 11 PARTIAL/BLOCKED correction above
   acceptance_boundary: the foreign SelfConstruction content is not accepted by the ProviderPipe F0 receipt and requires separate ownership and validation.
+```
+
+## Task 13 — A1-SC-0176 release-preflight fail-close, 2026-07-22
+
+```yaml
+finding: A1-SC-0176
+commit: c6878d531
+subject: "refactor(core): GOD-DEBULK fail-close release preflight"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionMutatingWriterSection.php
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingWriterTest.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingWriterTest.php --filter='test_preflight_requires_repair_before_advertising_the_implementation_packet_when_release_proof_is_missing'
+  result: "FAIL 1 test, 1 assertion: missing receipt hash returned one_shot_tick_mutating_writer_preflight_ready"
+green:
+  behavior: "receipt_hash must be 64 lowercase hex; blocked release preflight blocks the release-writer contract and downstream mutating-writer preflight, with repair next_required_slice values"
+  characterization: "PASS 1 test, 3 assertions, through public AtlasSelfConstructionReadinessService API"
+verification:
+  writer_and_guarded_runtime: "PASS 13 tests, 106 assertions"
+  command_contract_preflight_packet: "PASS 3 tests, 99 assertions"
+  php_lint: "PASS on two production sections and two changed tests"
+  loc: "mutating_writer_section=1116; release_writer_section=1365"
+  diff_check: PASS
+  pint: "NOT GREEN: --test ran with 768M but reported legacy host formatting drift; no broad reformatting was applied"
+boundary:
+  - read-only preflight and contract projections only
+  - no wakeup claim, receipt persistence, provider start, adapter call, or token spend
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
 ```
