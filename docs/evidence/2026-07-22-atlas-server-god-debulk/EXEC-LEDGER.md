@@ -1263,3 +1263,40 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 43 — RootSinglesRehome Compaction, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Compaction
+commit: d3e7ea1e3
+subject: "refactor(core): GOD-DEBULK RootSingles Compaction rehome"
+scope:
+  - app/Services/Ai/Compaction/CompactionLossPolicy.php
+  - AiCompactionService import, one-cycle legacy alias, compatibility test, and AI CODEMAP
+  - canonical engineering knowledge-base path references
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_compaction_policy_resolves_from_its_canonical_namespace_with_a_legacy_alias --no-coverage
+  result: "FAIL 1 test, 0 assertions: canonical App\\Services\\Ai\\Compaction\\CompactionLossPolicy did not exist before the re-home."
+green:
+  behavior: "CompactionLossPolicy now has one canonical Compaction namespace. The retired root FQCN remains a lazy composer-loaded alias for queued and deployed compatibility."
+  characterization: "The test resolves the canonical policy through the public container, then proves the instance satisfies the retired root FQCN."
+verification:
+  compaction_suites: "PASS 21 tests, 117 assertions (root compatibility, compactForScope, conversation receipt, and overwrite quality gate)."
+  parallel_compact_for_scope: "PASS 13 tests, 77 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source path is absent; direct old FQCN/path sweep leaves only the explicit compatibility import, while the alias map intentionally stores escaped legacy literals."
+  php_lint: "PASS all 4 touched PHP files"
+  phpstan: "PASS CompactionLossPolicy.php and RootSinglesLegacyAliases.php. AiCompactionService is NOT GREEN (44 existing Eloquent model/collection diagnostics); it is not used as proof and no baseline ownership was established."
+  pint: "PASS moved policy, alias, and compatibility test. Strict full-file Pint is NOT GREEN for existing formatting drift in AiCompactionService; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=7)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; policy=82 LOC. Root first-level Ai owner count falls 94 to 93."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; compaction risk, write_allowed, reasons, receipt, and overwrite behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - documentation and CODEMAP now point to the canonical Compaction owner; tests remain in place and import it directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
