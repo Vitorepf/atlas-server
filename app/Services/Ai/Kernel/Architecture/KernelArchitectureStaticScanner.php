@@ -2,16 +2,14 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
+use App\Services\Ai\Kernel\Architecture\Scanner\ScanPrimitivesSupport;
 use Illuminate\Support\Facades\File;
 
 class KernelArchitectureStaticScanner
 {
-    private ?string $kernelDocumentationCorpus = null;
-
-    /**
-     * @var array<string,string>
-     */
-    private array $fileContentsCache = [];
+    public function __construct(private ScanPrimitivesSupport $primitives)
+    {
+    }
 
     /**
      * @return array{
@@ -6162,9 +6160,9 @@ class KernelArchitectureStaticScanner
      */
     private function scanProductiveFailureGovernanceContract(): array
     {
-        $flowPath = app_path('Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureFlow.php');
+        $flowPath = app_path('Services/Ai/Learning/ProductiveFailure/ProductiveFailureFlow.php');
         $commandPath = app_path('Console/Commands/AtlasProductiveFailureCommand.php');
-        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasProductiveFailureCommandTest.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Learning/AtlasProductiveFailureCommandTest.php');
         $apDocPath = base_path('docs/ap/AP-168-cognitive-productive-failure-flow.md');
         $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
@@ -6193,7 +6191,7 @@ class KernelArchitectureStaticScanner
             "'allowed_surfaces_now' => ['cli_explicit']",
         ] as $token) {
             if (! str_contains($flow, $token)) {
-                $violations[] = "app/Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureFlow.php: AP-168 governance/runtime contract must be preserved [{$token}]";
+                $violations[] = "app/Services/Ai/Learning/ProductiveFailure/ProductiveFailureFlow.php: AP-168 governance/runtime contract must be preserved [{$token}]";
             }
         }
 
@@ -6215,7 +6213,7 @@ class KernelArchitectureStaticScanner
             'test_productive_failure_blocks_when_storage_is_unavailable',
         ] as $token) {
             if (! str_contains($featureTest, $token)) {
-                $violations[] = "tests/Feature/Ai/Cognitive/AtlasProductiveFailureCommandTest.php: AP-168 CLI/evidence/governance flow must be covered [{$token}]";
+                $violations[] = "tests/Feature/Ai/Learning/AtlasProductiveFailureCommandTest.php: AP-168 CLI/evidence/governance flow must be covered [{$token}]";
             }
         }
 
@@ -6252,11 +6250,11 @@ class KernelArchitectureStaticScanner
      */
     private function scanPersonalWorkedExamplePrivacyContract(): array
     {
-        $redactorPath = app_path('Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php');
-        $extractorPath = app_path('Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractor.php');
+        $redactorPath = app_path('Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php');
+        $extractorPath = app_path('Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExampleExtractor.php');
         $privacyGatePath = app_path('Services/Ai/Kernel/Gates/PersonalWorkedExamplePrivacySafeGate.php');
-        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasWorkedExamplePersonalExtractionCommandTest.php');
-        $redactorTestPath = base_path('tests/Unit/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Learning/AtlasWorkedExamplePersonalExtractionCommandTest.php');
+        $redactorTestPath = base_path('tests/Unit/Ai/Learning/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php');
         $apDocPath = base_path('docs/ap/AP-169-cognitive-personal-worked-examples-generator.md');
         $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
@@ -6278,7 +6276,7 @@ class KernelArchitectureStaticScanner
             'provider_safe',
         ] as $token) {
             if (! str_contains($redactor, $token)) {
-                $violations[] = "app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php: AP-169 must redact metadata and quality signals before persistence [{$token}]";
+                $violations[] = "app/Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactor.php: AP-169 must redact metadata and quality signals before persistence [{$token}]";
             }
         }
 
@@ -6289,7 +6287,7 @@ class KernelArchitectureStaticScanner
             'read_only_existing_record_preserved',
         ] as $token) {
             if (! str_contains($extractor, $token)) {
-                $violations[] = "app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractor.php: AP-169 Ledger summaries must stay sanitized and duplicate-safe [{$token}]";
+                $violations[] = "app/Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExampleExtractor.php: AP-169 Ledger summaries must stay sanitized and duplicate-safe [{$token}]";
             }
         }
 
@@ -6311,7 +6309,7 @@ class KernelArchitectureStaticScanner
             'assertStringNotContainsString',
         ] as $token) {
             if (! str_contains($featureTest, $token)) {
-                $violations[] = "tests/Feature/Ai/Cognitive/AtlasWorkedExamplePersonalExtractionCommandTest.php: AP-169 e2e must prove extraction read model is sanitized [{$token}]";
+                $violations[] = "tests/Feature/Ai/Learning/AtlasWorkedExamplePersonalExtractionCommandTest.php: AP-169 e2e must prove extraction read model is sanitized [{$token}]";
             }
         }
 
@@ -6322,7 +6320,7 @@ class KernelArchitectureStaticScanner
             'assertStringContainsString',
         ] as $token) {
             if (! str_contains($redactorTest, $token)) {
-                $violations[] = "tests/Unit/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php: AP-169 redactor unit test must cover metadata and quality signals [{$token}]";
+                $violations[] = "tests/Unit/Ai/Learning/PersonalWorkedExample/PersonalWorkedExamplePrivacyRedactorTest.php: AP-169 redactor unit test must cover metadata and quality signals [{$token}]";
             }
         }
 
@@ -6356,11 +6354,11 @@ class KernelArchitectureStaticScanner
      */
     private function scanPredictiveFailureGovernanceContract(): array
     {
-        $flowPath = app_path('Services/Ai/Cognitive/PredictiveFailure/PredictiveFailureFlow.php');
+        $flowPath = app_path('Services/Ai/Learning/PredictiveFailure/PredictiveFailureFlow.php');
         $commandPath = app_path('Console/Commands/AtlasPredictCommand.php');
         $calibrationGatePath = app_path('Services/Ai/Kernel/Gates/PredictiveFailureCalibrationBandGate.php');
         $safetyGatePath = app_path('Services/Ai/Kernel/Gates/PredictiveFailureSafetyGate.php');
-        $featureTestPath = base_path('tests/Feature/Ai/Cognitive/AtlasPredictCommandTest.php');
+        $featureTestPath = base_path('tests/Feature/Ai/Learning/AtlasPredictCommandTest.php');
         $gateTestPath = base_path('tests/Unit/Ai/Kernel/Gates/PredictiveFailureGateTest.php');
         $apDocPath = base_path('docs/ap/AP-170-cognitive-predictive-failure-insertion.md');
         $briefingPath = base_path('docs/engineering-knowledge-base/cognitive/implementation-briefing.md');
@@ -6399,7 +6397,7 @@ class KernelArchitectureStaticScanner
             'PredictiveFailurePriorUpdated',
         ] as $token) {
             if (! str_contains($flow, $token)) {
-                $violations[] = "app/Services/Ai/Cognitive/PredictiveFailure/PredictiveFailureFlow.php: AP-170 governance/runtime contract must be preserved [{$token}]";
+                $violations[] = "app/Services/Ai/Learning/PredictiveFailure/PredictiveFailureFlow.php: AP-170 governance/runtime contract must be preserved [{$token}]";
             }
         }
 
@@ -6451,7 +6449,7 @@ class KernelArchitectureStaticScanner
             'daily_plan_auto_insert_allowed',
         ] as $token) {
             if (! str_contains($featureTest, $token)) {
-                $violations[] = "tests/Feature/Ai/Cognitive/AtlasPredictCommandTest.php: AP-170 CLI/evidence/governance flow must be covered [{$token}]";
+                $violations[] = "tests/Feature/Ai/Learning/AtlasPredictCommandTest.php: AP-170 CLI/evidence/governance flow must be covered [{$token}]";
             }
         }
 
@@ -6627,7 +6625,7 @@ class KernelArchitectureStaticScanner
         // here; meta/boundary/catalog subtrees (above) must not be added.
         $roots = [
             app_path('Services/Ai/Context'),
-            app_path('Services/Ai/Cognitive'),
+            app_path('Services/Ai/Learning'),
             app_path('Services/Ai/Domain'),
             app_path('Services/Ai/Memory'),
             app_path('Services/Ai/Provider'),
@@ -6693,34 +6691,7 @@ class KernelArchitectureStaticScanner
      */
     private function scanPhpFilesForForbiddenTokens(string $directory, array $tokens, array $ignoredPaths = []): array
     {
-        if (! File::isDirectory($directory)) {
-            return ["missing directory [{$directory}]"];
-        }
-
-        $violations = [];
-        $ignored = array_flip(array_map(fn (string $path): string => realpath($path) ?: $path, $ignoredPaths));
-
-        foreach (File::allFiles($directory) as $file) {
-            if ($file->getExtension() !== 'php') {
-                continue;
-            }
-
-            $path = $file->getRealPath() ?: $file->getPathname();
-            if (isset($ignored[$path])) {
-                continue;
-            }
-
-            $contents = File::get($path);
-            foreach ($tokens as $token) {
-                if (str_contains($contents, $token)) {
-                    $violations[] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $path).": forbidden token [{$token}]";
-                }
-            }
-        }
-
-        sort($violations);
-
-        return $violations;
+        return $this->primitives->scanPhpFilesForForbiddenTokens($directory, $tokens, $ignoredPaths);
     }
 
     /**
@@ -6729,20 +6700,12 @@ class KernelArchitectureStaticScanner
      */
     private function missingTokenViolations(string $content, array $tokens, string $messagePrefix): array
     {
-        $violations = [];
-        foreach ($tokens as $token) {
-            if (! str_contains($content, $token)) {
-                $violations[] = "{$messagePrefix} [{$token}]";
-            }
-        }
-
-        return $violations;
+        return $this->primitives->missingTokenViolations($content, $tokens, $messagePrefix);
     }
 
     private function fileContents(string $path): string
     {
-        // ponytail: per-run cache; compliance scans are read-only over disk
-        return $this->fileContentsCache[$path] ??= (File::exists($path) ? File::get($path) : '');
+        return $this->primitives->fileContents($path);
     }
 
     /**
@@ -15501,31 +15464,7 @@ class KernelArchitectureStaticScanner
 
     private function kernelDocumentationCorpus(): string
     {
-        if ($this->kernelDocumentationCorpus !== null) {
-            return $this->kernelDocumentationCorpus;
-        }
-
-        $paths = [
-            base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md'),
-            base_path('docs/engineering-knowledge-base/kernel/contracts.md'),
-            base_path('docs/engineering-knowledge-base/kernel/static-scans.md'),
-            base_path('docs/engineering-knowledge-base/kernel/roadmap-ap-index.md'),
-            base_path('docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md'),
-            base_path('docs/engineering-knowledge-base/archive/source-material/kernel/atlas-ai-kernel-architecture-full-2026-05-08.md'),
-        ];
-
-        foreach (glob(base_path('docs/ap/AP-*.md')) ?: [] as $apDocPath) {
-            $paths[] = $apDocPath;
-        }
-
-        $contents = [];
-        foreach (array_values(array_unique($paths)) as $path) {
-            if (is_string($path) && File::exists($path)) {
-                $contents[] = File::get($path);
-            }
-        }
-
-        return $this->kernelDocumentationCorpus = implode("\n\n---\n\n", $contents);
+        return $this->primitives->kernelDocumentationCorpus();
     }
 
     private function programmingDomainDocumentationCorpus(): string
@@ -15541,12 +15480,7 @@ class KernelArchitectureStaticScanner
 
     private function selfImprovementDomainDocumentationCorpus(): string
     {
-        return $this->documentationCorpus([
-            base_path('docs/engineering-knowledge-base/domains/self-improvement.md'),
-            base_path('docs/engineering-knowledge-base/domains/self-improvement-flows.md'),
-            base_path('docs/engineering-knowledge-base/domains/self-improvement-runtime.md'),
-            base_path('docs/engineering-knowledge-base/archive/source-material/domains-self-improvement-full-2026-05-08.md'),
-        ]);
+        return $this->primitives->selfImprovementDomainDocumentationCorpus();
     }
 
     /**
@@ -15554,13 +15488,6 @@ class KernelArchitectureStaticScanner
      */
     private function documentationCorpus(array $paths): string
     {
-        $contents = [];
-        foreach (array_values(array_unique($paths)) as $path) {
-            if (File::exists($path)) {
-                $contents[] = File::get($path);
-            }
-        }
-
-        return implode("\n\n---\n\n", $contents);
+        return $this->primitives->documentationCorpus($paths);
     }
 }
