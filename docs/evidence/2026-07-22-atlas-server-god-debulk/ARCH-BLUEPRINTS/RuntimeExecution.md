@@ -1,6 +1,9 @@
 # ARCH BLUEPRINT — Runtime de Execução
 
-> status: draft
+> status: draft-REFUTADO (verify adversarial 2026-07-22) — redesign em curso
+> FURO FATAL 1: correlação da Fusão 2 usa objective_hash/diff_hash que NÃO existem nos models AiRealExecution* (confirmado); canônico não tem command-ledger → Evaluator "command∧diff∧test" inavaliável como especificado. Exige migração aditiva explícita OU mapeamento goal↔objective.
+> FURO FATAL 2: ≥9 consumidores por PATH-LITERAL (File::exists/fileCheck/token-scan) em 3 fusões — delete-dir quebra certificações de produto e gates de arquitetura em silêncio (ex.: Product PATH_AVCEL_SERVICE L151, ProgrammingRuntimeReadiness L442, KernelScanner tokens L9762-9815); contradição interna na fatia 4 (delete dir vs delegador congelado no mesmo dir).
+> EMENDAS: CandidateRoleReceiptEvaluator teto 2000 < ~2400 (pariria godfile) · AiPermissionSession read precisa entrar no Gateway (Policy zero-I/O) · seeding de ai_permission_gates pré-flip strict (caminhos autônomos transitivos: Orchestrator→Harness→test.run, AtlasTaskController) · VCE tem 8 consumidores (não 2/3) · compat deve preservar estáticos (availableTools).
 > data: 2026-07-22
 > obra: GOD Debulk / capability Runtime de Execução
 > insumos: CONSOLIDATION-MAP.md (fusões proposed do cluster RUNTIME)

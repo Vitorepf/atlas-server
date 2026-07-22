@@ -30,6 +30,7 @@ fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  VERIFY RuntimeExecution: REFUTADO (2 fatais confirmados pelo comandante: canônico sem objective/diff_hash; ≥9 path-literal consumers) → redesign rodada 2 disparado. O processo author≠judge pagou.
   AUDITORIA FINDINGS 0026-0043: 17/18 CONFIRMADOS (precisão notável) · 1 REFUTADO (0036 — fatal já consertado por 594d224e1 pós-snapshot) → finding REESCRITO pelo comandante (1ª correção direta em META-FINDINGS; sentinel avisou edição concorrente do codex — commit imediato p/ preservar)
   ROOTSINGLES 3/3 (0 colisões, same-namespace trap AiWorker confirmado, FQCNs scanner L226-228 exatos)
   REVIEW 52fd8598c APROVADA: fix A1-SC-0020 = prescrição do blueprint (chave emitida real), +44 linhas teste, 9/42 verdes rodados pelo comandante. ORDEM emitida ao META: partir findings 4.089 linhas (LAYOUT §3)
