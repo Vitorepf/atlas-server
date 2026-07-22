@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Programming\CompletionAudit\CompletionAuditSupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingProfessionalCompletionAuditService
@@ -25,6 +26,7 @@ class ProgrammingProfessionalCompletionAuditService
         private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService $selfImprovementForgeActivation,
         private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService $selfImprovementActivationCockpit,
         private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService $selfImprovementProposalBacklog,
+        private readonly CompletionAuditSupport $support,
     ) {}
 
     /**
@@ -1264,7 +1266,7 @@ class ProgrammingProfessionalCompletionAuditService
             'test_repair_loop_is_triggered_when_test_simulated_failure',
         ];
 
-        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+        $testCoverage = $this->support->scanTestCoverage($testFile, $expectedTestMethods);
 
         $missingArtifacts = [];
         if (! $serviceExists) {
@@ -1358,7 +1360,7 @@ class ProgrammingProfessionalCompletionAuditService
             'test_atlas_code_replays_forge_run_history_read_only_with_review_context',
             'test_atlas_code_can_create_checkpoint_for_work_resume',
         ];
-        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+        $testCoverage = $this->support->scanTestCoverage($testFile, $expectedTestMethods);
 
         $missingArtifacts = [];
         if (! $serviceExists) {
@@ -1439,30 +1441,6 @@ class ProgrammingProfessionalCompletionAuditService
     }
 
     /**
-     * @param  array<int,string>  $expectedMethods
-     * @return array{present_methods:array<int,string>,missing_methods:array<int,string>}
-     */
-    private function scanTestCoverage(string $testFile, array $expectedMethods): array
-    {
-        if (! is_file($testFile)) {
-            return ['present_methods' => [], 'missing_methods' => $expectedMethods];
-        }
-
-        $source = (string) file_get_contents($testFile);
-        $present = [];
-        $missing = [];
-        foreach ($expectedMethods as $method) {
-            if (str_contains($source, 'function '.$method.'(')) {
-                $present[] = $method;
-            } else {
-                $missing[] = $method;
-            }
-        }
-
-        return ['present_methods' => $present, 'missing_methods' => $missing];
-    }
-
-    /**
      * @return array<string,mixed>
      */
     private function forgeFastPathCertification(): array
@@ -1507,7 +1485,7 @@ class ProgrammingProfessionalCompletionAuditService
             'test_fast_path_does_not_auto_complete_without_review',
             'test_fast_path_status_ignores_unrelated_latest_forge_execution',
         ];
-        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+        $testCoverage = $this->support->scanTestCoverage($testFile, $expectedTestMethods);
 
         $missingArtifacts = [];
         if (! $serviceExists) {
@@ -1684,7 +1662,7 @@ class ProgrammingProfessionalCompletionAuditService
             'test_completion_claim_only_allowed_after_human_approval',
             'test_approve_with_human_review_completes_claim',
         ];
-        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+        $testCoverage = $this->support->scanTestCoverage($testFile, $expectedTestMethods);
 
         $missingArtifacts = [];
         if (! $serviceExists) {
@@ -1950,7 +1928,7 @@ class ProgrammingProfessionalCompletionAuditService
             'test_no_provider_call',
             'test_work_item_link_available_when_governance_exists',
         ];
-        $testCoverage = $this->scanTestCoverage($testFile, $expectedTestMethods);
+        $testCoverage = $this->support->scanTestCoverage($testFile, $expectedTestMethods);
 
         $desktopTypesPresent = str_contains($domainSource, 'AtlasCodeForgeWorkIntake');
         $desktopBridgePresent = str_contains($bridgeSource, 'getForgeWorkIntake')
