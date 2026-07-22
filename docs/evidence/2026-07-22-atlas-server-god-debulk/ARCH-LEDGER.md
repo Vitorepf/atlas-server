@@ -4,7 +4,7 @@
 mission: atlas-server-god-debulk-arch
 phase: record
 cluster_atual: ENG-CORE (aguardando analista)
-blocos_classificados: 43   # de 129 (+4 FOUNDRY)
+blocos_classificados: 47   # de 129 (+4 ENG-OS-GEMEAS)
 blueprints_draft: [SelfConstructionReadiness]
 blueprints_approved: []
 needs_operator:
@@ -13,6 +13,7 @@ needs_operator:
   - "Aprovar ROTEAMENTO: FUSE Router→RouterRuntime · FUSE Provider→AiProviderManager (fecha registry paralela) · QUARANTINE CapabilityMarket; raiz do bypass = resolver-closure do Swarm + registry dupla (fix vai a blueprint)"
   - "Aprovar MEMORIA-CONTEXTO: FUSE MemoryGovernance→Memory · PersistentContext→Context · ContextIntelligence→Context · Cartography→Reconciliation; extrair MissionCanonicalHash→Support; deletar 2 shims class_alias mortos"
   - "Aprovar FOUNDRY: FUSE IntelligenceFactory→Foundry (capability_gap único) · QUARANTINE Frontier 5.1k · RENAME VentureFoundry"
+  - "Aprovar ENG-OS: FUSE SoftwareCompany→Stewardship/ProductMode · plano de purga da Aaeos/Quarantine 132k (pré-requisito: re-home AtlasSourceConnectorsAndCaptureService usado pelo Brain VIVO)"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
 last_review: null
 last_commit: 27999d6c4
@@ -22,6 +23,7 @@ fila:
   - "AUTONOMOS: AutonomousEvolution×Autonomy×AutonomousWorkExecution×SelfDirectedEvolution×Brain"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  ENG-OS 3/4 + 1 CORRIGIDO (Quarantine 307/132k exato; unidirecional 5 files; SoftwareCompany 1 file; REFUTADO "instanciação externa=0" — Brain vivo importa 1 classe Quarantine)
   FOUNDRY 4/4 (schemas paralelos 0 cross-import, advise() Hyperflow L171, frontier_mode config, venture agendado L153)
   MISSAO 3/3 (415 hash-callers, cross-ref 0, handoff L279) · MEM-CTX 4/4 (MemoryGovernance 1 consumidor, 1-via docblock-only, 2 shims, Compression←Engineering)
   ROTEAMENTO 4/4 confirmados (0 imports AiProviderManager em Router/RR, CapabilityRouteLifecycle 0 refs, setResolver Closure livre, registry dupla)

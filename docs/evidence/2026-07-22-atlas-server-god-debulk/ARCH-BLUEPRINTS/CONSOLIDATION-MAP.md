@@ -10,9 +10,9 @@
 | Bloco | LOC | Files | Cluster | Veredito | Destino | Evidência | Status |
 |---|---|---|---|---|---|---|---|
 | SelfConstruction | 398524 | 1210 | ENG-CORE | KEEP (reestrutura interna) | — | blueprint SelfConstructionReadiness.md draft; MotherCommand ~1.100 rotas wired; 167 consumidores; A1-SC-0001..0043 | proposed |
-| Aaeos | 142211 | 346 | ENG-OS-GEMEAS | — | — | — | pending |
+| Aaeos | 142211 | 346 | ENG-OS-GEMEAS | KEEP (vivo ~10k) + QUARANTINE 132k | purga da Quarantine = obra separada | 93% do bloco é cemitério VERIFICADO (307 files/132.098 LOC); ⚠ CORREÇÃO ARCH: Brain vivo importa 1 classe da Quarantine (AtlasSourceConnectorsAndCaptureService) — re-home antes de purgar; não é gêmeo do Stewardship (dependência unidirecional, conceitos disjuntos) | proposed |
 | Programming | 131892 | 543 | ENG-CORE | — | — | — | pending |
-| SoftwareCompanyStewardship | 116399 | 280 | ENG-OS-GEMEAS | — | — | — | pending |
+| SoftwareCompanyStewardship | 116399 | 280 | ENG-OS-GEMEAS | KEEP | — | dono do operate-path (29+ cmds, schedule wired, AreaFocus=249 files); steward que fiscaliza o Aaeos — substrato+steward, não gêmeas | recorded |
 | AutonomousEvolution | 109588 | 639 | AUTONOMOS | — | — | — | pending |
 | Holding | 44389 | 6 | DOMINIOS | — | — | — | pending |
 | Kernel | 41474 | 159 | GOVERNANCA-QUALIDADE | — | — | — | pending |
@@ -90,7 +90,7 @@
 | RealitySandbox | 1003 | 2 | REALITY | — | — | — | pending |
 | IntelligenceFactory | 982 | 2 | FOUNDRY | FUSE | Foundry (Capability Foundry) | duplica capability_gap sob schema paralelo, 0 cross-import VERIFICADO; advise() vivo no Hyperflow L171 VERIFICADO — fusão = identidade única de gap servindo build/buy/borrow E auto-evolução | proposed |
 | PersistentContext | 977 | 2 | MEMORIA-CONTEXTO | FUSE | Context (ContextRuntimeService) | falso amigo: é runtime de CONTEXTO; 12 ext; coeso mas mal-alocado | proposed |
-| EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | — | — | — | pending |
+| EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | KEEP | — | autoridade do roster 22 roles (EngineeringKernel::OFFICIAL_ROLES aponta aqui); 8 schemas DB + selo HMAC; teste do patamar FALHA para mover | recorded |
 | StrategicOperatingSystem | 884 | 1 | DOMINIOS | — | — | — | pending |
 | RuntimeReadiness | 857 | 1 | RUNTIME | KEEP | — | 4 callers ext incl. HTTP controller próprio | recorded |
 | Caching | 851 | 6 | TRANSPORTE | — | — | — | pending |
@@ -114,7 +114,7 @@
 | Search | 456 | 2 | MEMORIA-CONTEXTO | KEEP | — | micro mas load-bearing: hot path AiToolRuntime + AiPromptBuilder | recorded |
 | VerifiedContextExecution | 442 | 1 | EXEC-INFRA | FUSE | RuntimeEfficiency | 2 callers; 100% das deps são do governor | proposed |
 | Cartography | 388 | 1 | MEMORIA-CONTEXTO | FUSE | Reconciliation (DocCanonicalScanner) | owner de topo com 1 classe; scanner de canonicidade de docs; 5 ext | proposed |
-| SoftwareCompany | 364 | 1 | ENG-OS-GEMEAS | — | — | — | pending |
+| SoftwareCompany | 364 | 1 | ENG-OS-GEMEAS | FUSE | SoftwareCompanyStewardship/ProductMode | 1 arquivo VERIFICADO; projeção read-only; callers já são Stewardship+controller; zero-behavior-change | proposed |
 | Gateway | 357 | 2 | ROTEAMENTO | KEEP | — | preflight com 5 callers ext; concern isolado | recorded |
 | Operator | 323 | 4 | SUPERFICIES | — | — | — | pending |
 | Transcription | 304 | 1 | SUPERFICIES | — | — | — | pending |
