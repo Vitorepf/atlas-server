@@ -1397,8 +1397,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         $nextSafeAction = match (true) {
             $workerEligibilityBlocked => 'blocked_by_eligibility',
             $recoverableCount > 0 => 'reap_recoverable',
-            $claimableCount > 0 => 'pull_now',
             $claimableCount < $targetMinClaimable && $hiddenClaimableOutsideRequestedTags === 0 => 'replenish',
+            $claimableCount > 0 => 'pull_now',
             $claimedCount > 0 => 'wait_for_workers',
             default => 'replenish',
         };

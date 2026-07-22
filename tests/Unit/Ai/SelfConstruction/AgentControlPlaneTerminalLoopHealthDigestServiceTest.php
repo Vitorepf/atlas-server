@@ -52,6 +52,18 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertArrayHasKey('hidden_claimable_outside_requested_tags', $state);
     }
 
+    public function test_partial_claimable_supply_recommends_replenishment_consistently_across_digest_surfaces(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->enqueue($queue, 'task-partial-supply', 'claimable');
+
+        $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);
+
+        $this->assertSame('replenish_task_supply', $digest['loop_decision']['recommended_action']);
+        $this->assertSame('replenish', $digest['muscle_supply_state']['next_safe_action']);
+        $this->assertSame('claimable_supply_below_target', $digest['muscle_supply_state']['wait_reason']);
+    }
+
     public function test_muscle_supply_state_recommends_replenish_when_no_claimable_supply(): void
     {
         $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);
