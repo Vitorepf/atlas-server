@@ -212,6 +212,45 @@ write_back:
   auto_promoted: false
 ```
 
+## Task 20 — LearningConsolidation M1a canonical contract freeze, 2026-07-22
+
+```yaml
+status: ACCEPTED
+commits:
+  - 12c6d59d8: initial M1a characterization candidate
+  - 62b9dbf0c: canonical-schema, filter, mapper, and failure-contract correction
+  - 259199d10: frozen raw collect/list/review JSON snapshots
+  - 5d2790641: producer-side canonical aggregate ordering
+scope:
+  - app/Services/Ai/Learning/AtlasAiLearningLoopService.php
+  - tests/Feature/Ai/Learning/LearningConsolidationF0CharacterizationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Learning/LearningConsolidationF0CharacterizationTest.php --filter='test_learning_command_and_control_plane_contracts_are_frozen_for_m1a' --no-coverage
+  result: "FAIL 1 test, 32 assertions: the ready Control Plane byte snapshot observed unordered by_source and proposal by_status maps."
+green:
+  behavior: "controlPlaneSummary sorts its five aggregate maps in the producer before returning the envelope, so JSON key order is canonical across query plans and database drivers."
+  snapshots: "Frozen clock plus deterministic UUID factory byte-freeze atlas:ai:learning collect, filtered list, and successful review JSON; the ready Control Plane JSON is also compared literally before any semantic helper."
+  characterization: "M1a uses canonical learning migrations, an actual completed-mission collect path, populated mapper values, discriminating source/risk/status/flow/proposal/limit fixtures, review invalid-action/missing/invalid/not-found/already-decided/table-missing envelopes, and Control Plane ready/missing/degraded envelopes."
+verification:
+  learning_package: "PASS 21 tests, 117 assertions: LearningConsolidationF0CharacterizationTest plus AtlasAiLearningLoopServiceTest"
+  focused_reviewer_replay: "PASS 3 M1a tests, 56 assertions"
+  php_lint: "PASS service and characterization test"
+  pint: "PASS service and characterization test"
+  diff_check: PASS
+  loc:
+    learning_loop_service: 1072
+    m1a_characterization_test: 617
+review:
+  independent: PASS
+  finding_resolved: "test-side semantic snapshots could not prove byte order; runtime now owns canonical ordering."
+boundary:
+  - aggregation ordering only; counts, timestamps, risk classification, proposal lifecycle, and collection rules are unchanged
+  - no provider call, token spend, task dispatch, or external mutation
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
 ## KernelTriad F0 candidate — SUPERSEDED false-green record, 2026-07-22
 
 ```yaml
