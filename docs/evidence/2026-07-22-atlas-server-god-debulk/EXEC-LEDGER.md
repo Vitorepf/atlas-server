@@ -4,34 +4,32 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0107 anti-farm admission boundary recorded
+phase: A1-SC-0115 human receipt path aligned
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: task queue anti-farm admission fail-closed
-finding_id: A1-SC-0107
-action_op: test-first unavailable anti-farm gate rejection
+focus: operator readiness canonical human receipt path
+finding_id: A1-SC-0115
+action_op: test-first canonical path alignment
 queue_index: 6
-last_commit: 1d0e7aad3
+last_commit: 444d5474b
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
   git diff --check
 before_after: |
-  red: an anti-farm authority exception was swallowed and the candidate was enqueued with only a success-envelope error field.
-  green: an unavailable anti-farm gate returns prepare_blocked with a typed unavailable reason and no queue entry.
+  red: the public closure sequence emitted human-completion-receipt.json although the canonical registry, publisher, and loader use completion-receipt.json.
+  green: the closure sequence persist command uses the same private completion-receipt.json path as the canonical artifacts.
 stdout: |
-  focused_unavailable_gate: PASS (1 test, 8 assertions)
-  orchestrator_unit_suite: PASS (52 tests, 248 assertions)
-  orchestrator_feature_suite: PASS (49 tests, 239 assertions)
-  php_lint: PASS orchestrator plus focused test
-  loc_check: task_queue_orchestrator=1977
+  focused_canonical_path: PASS (1 test, 129 assertions)
+  operator_readiness_feature_suite: PASS (17 tests, 500 assertions, 654.25s)
+  php_lint: PASS source plus focused test
+  loc_check: operator_evidence_submission_readiness_service=1857
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This is the admission slice of A1-SC-0107. The distinct fail-open recovery and learning paths remain unclaimed, not green by implication.
+  This is the one emitted closure-sequence path named by A1-SC-0115; it does not claim to consolidate the duplicated artifact registry or resolve the separate stale storage-root hints.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -617,6 +615,37 @@ boundary:
   - recovery and learning exception paths from A1-SC-0107 remain separate work
 write_back:
   status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 26 — A1-SC-0115 human receipt path alignment, 2026-07-22
+
+```yaml
+finding: A1-SC-0115
+commit: 444d5474b
+subject: "refactor(core): GOD-DEBULK align human receipt path"
+scope:
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+  - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --filter=test_no_input_reports_runtime_promotion_receipt_as_next_required
+  result: "FAIL 1 test, 113 assertions: public closure_artifact_sequence emitted human-completion-receipt.json instead of the canonical completion-receipt.json."
+green:
+  behavior: "the public readiness payload's human_completion_receipt closure step now emits the exact canonical private completion-receipt.json command used by the registry, publisher, and loader."
+  characterization: "the real build() path constructs the full closure sequence and asserts the human step's emitted persist command, not a source string or reflection result."
+verification:
+  focused_canonical_path: "PASS 1 test, 129 assertions"
+  operator_readiness_feature_suite: "PASS 17 tests, 500 assertions, 654.25s"
+  php_lint: "PASS source and changed test"
+  loc: "operator_evidence_submission_readiness_service=1857 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file host formatting drift; no broad reformatting was applied"
+boundary:
+  - only the divergent closureArtifactSequence human receipt filename changed
+  - no command execution, persistence, provider call, token spend, signature, or completion promotion occurs in this read-only readiness path
+  - duplicated registry consolidation and distinct stale storage-root hints remain outside this one-operation repair
+write_back:
+  status: pending
   auto_promoted: false
 ```
 
