@@ -5,6 +5,7 @@ namespace App\Services\Ai\Kernel\Architecture;
 use App\Services\Ai\Kernel\Architecture\Scanner\AgentBehaviorAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\ArchitectureAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\ArchitectureOperationsAudit;
+use App\Services\Ai\Kernel\Architecture\Scanner\ChatAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\CliAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\ContextAudit;
 use App\Services\Ai\Kernel\Architecture\Scanner\DecisionReceiptAudit;
@@ -51,6 +52,7 @@ class KernelArchitectureStaticScanner
         private ProposalAudit $proposalAudit,
         private OpenBrainAudit $openBrainAudit,
         private ContextAudit $contextAudit,
+        private ChatAudit $chatAudit,
     ) {
     }
 
@@ -301,11 +303,8 @@ class KernelArchitectureStaticScanner
                             ],
                         ),
             'ap14_tool_tier_hot_path' => fn (): array => $this->scanToolTierHotPathPolicy(),
-            'ap23_chat_dev_programming_contract' => fn (): array => $this->scanChatDevProgrammingContract(),
             'ap24_surface_alias_canonicalization' => fn (): array => $this->scanSurfaceAliasCanonicalization(),
             'ap25_decide_model_selection_contract' => fn (): array => $this->scanDecideModelSelectionContract(),
-            'ap27_chat_model_selection_contract' => fn (): array => $this->scanChatModelSelectionContract(),
-            'ap30_chat_programming_contract_factory' => fn (): array => $this->scanChatProgrammingContractFactory(),
             'ap31_continue_resume_contract_factory' => fn (): array => $this->scanContinueResumeContractFactory(),
             'ap32_fix_contract_factory' => fn (): array => $this->scanFixContractFactory(),
             'ap66_replay_report_input_contract' => fn (): array => $this->scanReplayReportInputContract(),
@@ -335,7 +334,7 @@ class KernelArchitectureStaticScanner
             'ap169_personal_worked_example_privacy_contract' => fn (): array => $this->scanPersonalWorkedExamplePrivacyContract(),
             'ap170_predictive_failure_governance_contract' => fn (): array => $this->scanPredictiveFailureGovernanceContract(),
             'ap201_runtime_language_boundary_contract' => fn (): array => $this->scanRuntimeLanguageBoundaryContract(),
-        ] + $this->selfImprovementAudit->checks() + $this->agentBehaviorAudit->checks() + $this->architectureOperationsAudit->checks() + $this->decisionReceiptAudit->checks() + $this->inboxActionAudit->checks() + $this->scheduleReplayAudit->checks() + $this->repairLoopAudit->checks() + $this->engineeringAudit->checks() + $this->cliAudit->checks() + $this->providerAudit->checks() + $this->ledgerAudit->checks() + $this->architectureAudit->checks() + $this->kernelAudit->checks() + $this->voiceAudit->checks() + $this->sloAudit->checks() + $this->mcpAudit->checks() + $this->programmingAudit->checks() + $this->retrievalAudit->checks() + $this->proposalAudit->checks() + $this->openBrainAudit->checks() + $this->contextAudit->checks();
+        ] + $this->selfImprovementAudit->checks() + $this->agentBehaviorAudit->checks() + $this->architectureOperationsAudit->checks() + $this->decisionReceiptAudit->checks() + $this->inboxActionAudit->checks() + $this->scheduleReplayAudit->checks() + $this->repairLoopAudit->checks() + $this->engineeringAudit->checks() + $this->cliAudit->checks() + $this->providerAudit->checks() + $this->ledgerAudit->checks() + $this->architectureAudit->checks() + $this->kernelAudit->checks() + $this->voiceAudit->checks() + $this->sloAudit->checks() + $this->mcpAudit->checks() + $this->programmingAudit->checks() + $this->retrievalAudit->checks() + $this->proposalAudit->checks() + $this->openBrainAudit->checks() + $this->contextAudit->checks() + $this->chatAudit->checks();
     }
 
     /**
@@ -3431,104 +3430,6 @@ class KernelArchitectureStaticScanner
     /**
      * @return array<int,string>
      */
-    private function scanChatDevProgrammingContract(): array
-    {
-        $chatPath = app_path('Console/Commands/AiChatCommand.php');
-        $testPath = base_path('tests/Feature/Console/AiChatProviderChoiceTest.php');
-
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
-        $test = File::exists($testPath) ? File::get($testPath) : '';
-
-        $violations = [];
-
-        foreach ([
-            'ProgrammingSurfaceContractFactory',
-            "\$payload['programming_chat_contract'] = app(ProgrammingSurfaceContractFactory::class)->chatDev(\$devPlan, \$programmingMessagePlan, \$payload['programming_dispatch'])",
-        ] as $token) {
-            if (! str_contains($chat, $token)) {
-                $violations[] = "app/Console/Commands/AiChatCommand.php: atlas chat --dev must emit programming_chat_contract tied to Kernel Pipeline and AtlasProgrammingOrchestrator [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_chat_dev_without_explicit_dev_plan_generates_programming_contract',
-            'test_chat_dev_attaches_kernel_pipeline_to_legacy_declared_dev_plan',
-            "'atlas.ai_chat.programming_contract.v1'",
-            "'programming_chat_contract.programming_flow'",
-            "'programming_chat_contract.kernel_pipeline_flow'",
-            "'programming_chat_contract.kernel_pipeline_provider_execution_allowed'",
-            "'programming_chat_contract.kernel_pipeline_contract_required'",
-        ] as $token) {
-            if (! str_contains($test, $token)) {
-                $violations[] = "tests/Feature/Console/AiChatProviderChoiceTest.php: chat dev needs coverage proving programming_chat_contract for auto and declared dev plans [{$token}]";
-            }
-        }
-
-        return $violations;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function scanChatProgrammingContractFactory(): array
-    {
-        $factoryPath = app_path('Services/Ai/Programming/ProgrammingSurfaceContractFactory.php');
-        $testPath = base_path('tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php');
-        $chatPath = app_path('Console/Commands/AiChatCommand.php');
-
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
-        $test = File::exists($testPath) ? File::get($testPath) : '';
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
-
-        $violations = [];
-
-        foreach ([
-            'public function chatDev(?array $devPlan, array $programmingMessagePlan, ?array $dispatch): array',
-            "'schema_version' => 'atlas.ai_chat.programming_contract.v1'",
-            "'surface' => 'atlas_ai_chat'",
-            "'mode' => 'dev'",
-            "'orchestrator' => 'AtlasProgrammingOrchestrator'",
-            "'programming_flow' => data_get(\$programmingMessagePlan, 'policy_profile.profile_id')",
-            "'dispatch_path' => data_get(\$dispatch, 'dispatch_path')",
-            "'kernel_pipeline_surface' => data_get(\$devPlan, 'kernel_pipeline.input.surface_id')",
-            "'kernel_pipeline_flow' => data_get(\$devPlan, 'kernel_pipeline.input.safe_hints.flow')",
-            "'kernel_pipeline_provider_execution_allowed' => (bool) data_get(\$devPlan, 'kernel_pipeline.provider_execution_allowed', false)",
-            "'kernel_pipeline_contract_required' => (bool) data_get(\$devPlan, 'kernel_pipeline_contract.required', false)",
-        ] as $token) {
-            if (! str_contains($factory, $token)) {
-                $violations[] = "app/Services/Ai/Programming/ProgrammingSurfaceContractFactory.php: Programming must own the shared chat dev contract shape [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_chat_dev_contract_preserves_programming_dispatch_and_kernel_pipeline_binding',
-            "'atlas.ai_chat.programming_contract.v1'",
-            "'atlas_ai_chat'",
-            "'programming.repair'",
-            "'chat_dev_auto_plan'",
-            "'kernel_pipeline_contract_required'",
-        ] as $token) {
-            if (! str_contains($test, $token)) {
-                $violations[] = "tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php: chat dev contract factory needs explicit coverage [{$token}]";
-            }
-        }
-
-        foreach ([
-            "'schema_version' => 'atlas.ai_chat.programming_contract.v1'",
-            "'kernel_pipeline_surface' => data_get(\$devPlan, 'kernel_pipeline.input.surface_id')",
-            "'kernel_pipeline_contract_required' => (bool) data_get(\$devPlan, 'kernel_pipeline_contract.required', false)",
-        ] as $token) {
-            if (str_contains($chat, $token)) {
-                $violations[] = "app/Console/Commands/AiChatCommand.php: chat command must not inline programming_chat_contract schema; use ProgrammingSurfaceContractFactory [{$token}]";
-            }
-        }
-
-        return $violations;
-    }
-
-    /**
-     * @return array<int,string>
-     */
     private function scanSurfaceAliasCanonicalization(): array
     {
         $registryPath = app_path('Services/Ai/Surface/SurfaceAdapterRegistry.php');
@@ -3639,49 +3540,6 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($cliTest, $token)) {
                 $violations[] = "tests/Feature/AiAtlasDecideContractTest.php: atlas:ai:decide JSON must expose public model selection mode contract [{$token}]";
-            }
-        }
-
-        return $violations;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function scanChatModelSelectionContract(): array
-    {
-        $chatPath = app_path('Console/Commands/AiChatCommand.php');
-        $testPath = base_path('tests/Feature/Console/AiChatProviderChoiceTest.php');
-
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
-        $test = File::exists($testPath) ? File::get($testPath) : '';
-
-        $violations = [];
-
-        foreach ([
-            'ModelSelectionContractFactory',
-            "'model_selection_contract' => \$this->modelSelectionContract(",
-            'private function modelSelectionContract(?string $provider, ?array $modelSelection, ?string $modelOverride, bool $fairMode, array $context = []): array',
-            '->forAiChat($provider, $modelSelection, $modelOverride, $fairMode, $context)',
-            "'model_selection_contract' => data_get(\$trace->metadata, 'model_selection_contract')",
-        ] as $token) {
-            if (! str_contains($chat, $token)) {
-                $violations[] = "app/Console/Commands/AiChatCommand.php: atlas chat must expose model_selection_contract with Atlas Decide authority [{$token}]";
-            }
-        }
-
-        foreach ([
-            "'model_selection_contract.schema_version'",
-            "'model_selection_contract.authority'",
-            "'model_selection_contract.selection_mode'",
-            "'model_selection_contract.available_selection_modes'",
-            "'model_selection_contract.operator_requested_provider'",
-            "'model_selection_contract.requested_model'",
-            "'model_selection_contract.requested_model_alias'",
-            "data_get(\$payload, 'model_selection_contract')",
-        ] as $token) {
-            if (! str_contains($test, $token)) {
-                $violations[] = "tests/Feature/Console/AiChatProviderChoiceTest.php: atlas chat needs tests for model selection contract in auto and manual override paths [{$token}]";
             }
         }
 
