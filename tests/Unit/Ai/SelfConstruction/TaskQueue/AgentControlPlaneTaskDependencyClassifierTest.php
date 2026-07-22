@@ -28,7 +28,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         self::assertSame('met', $result);
     }
 
-    public function test_classify_absent_dependency_is_satisfied(): void
+    public function test_classify_absent_dependency_is_blocked(): void
     {
         $cache = [];
         $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
@@ -36,7 +36,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['nonexistent_dep']]],
             $cache,
         );
-        self::assertSame('met', $result);
+        self::assertSame('blocked', $result);
     }
 
     public function test_classify_completed_dependency_is_met(): void
@@ -50,7 +50,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         self::assertSame('met', $result);
     }
 
-    public function test_classify_cancelled_dependency_is_satisfied(): void
+    public function test_classify_cancelled_dependency_is_blocked(): void
     {
         $cache = [];
         $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
@@ -58,7 +58,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['dep1']]],
             $cache,
         );
-        self::assertSame('met', $result);
+        self::assertSame('blocked', $result);
     }
 
     public function test_classify_blocked_dependency_returns_blocked(): void
@@ -98,7 +98,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         self::assertSame('inflight', $result);
     }
 
-    public function test_classify_cycle_returns_met(): void
+    public function test_classify_cycle_returns_blocked(): void
     {
         $cache = [];
         $records = ['dep1' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['tp1']]]];
@@ -107,10 +107,10 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['dep1']]],
             $cache,
         );
-        self::assertSame('met', $result);
+        self::assertSame('blocked', $result);
     }
 
-    public function test_classify_ignores_non_string_dependencies(): void
+    public function test_classify_ignores_non_string_dependencies_but_blocks_a_missing_string_dependency(): void
     {
         $cache = [];
         $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
@@ -118,7 +118,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => [null, 42, 'string_dep']]],
             $cache,
         );
-        self::assertSame('met', $result);
+        self::assertSame('blocked', $result);
     }
 
     public function test_dependency_node_returns_null_for_absent(): void
@@ -234,9 +234,9 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         ));
     }
 
-    public function test_classify_deeper_transitive_cycle_returns_met(): void
+    public function test_classify_deeper_transitive_cycle_returns_blocked(): void
     {
-        // tp1 → A → B → C → tp1 (depth-4 cycle): must fail-open to met, not deadlock.
+        // tp1 → A → B → C → tp1 (depth-4 cycle): no valid prerequisite order may be served.
         $cache = [];
         $records = [
             'A' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['B']]],
@@ -248,7 +248,7 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['A']]],
             $cache,
         );
-        self::assertSame('met', $result, 'deep cycle must fail-open to met');
+        self::assertSame('blocked', $result, 'deep cycle must fail closed');
     }
 
     public function test_classify_duplicate_dependency_ids_loads_each_once(): void
@@ -294,15 +294,16 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         self::assertSame('inflight', $result, 'A and B are claimable so result is inflight');
     }
 
-    public function test_satisfied_states_constant_contains_expected(): void
+    public function test_satisfied_states_constant_contains_only_completed_state(): void
     {
         self::assertContains('completed_dry_run', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_SATISFIED_STATES);
-        self::assertContains('cancelled', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_SATISFIED_STATES);
+        self::assertNotContains('cancelled', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_SATISFIED_STATES);
     }
 
     public function test_dead_states_constant_contains_blocked(): void
     {
         self::assertContains('blocked', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_DEAD_STATES);
+        self::assertContains('cancelled', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_DEAD_STATES);
     }
 
     // ── AC: classify() verdicts ──────────────────────────────────────────────

@@ -20,7 +20,8 @@ use Tests\TestCase;
 /**
  * PART 2 · ORDER — the version-ladder needs ORDERED delivery: a task is only servable once every depends_on
  * task is COMPLETED. A worker that finds only dependency-gated work must WAIT (the ladder is still advancing),
- * not stop as if the queue were drained. An unknown dependency is fail-open — it never strands a task.
+ * not stop as if the queue were drained. Missing, cancelled, or cyclic prerequisites are fail-closed: they
+ * require repair instead of silently authorizing work without a valid dependency order.
  */
 final class AtlasTaskServingDependencyOrderTest extends TestCase
 {
@@ -66,46 +67,41 @@ final class AtlasTaskServingDependencyOrderTest extends TestCase
         $this->assertSame('wave2-B', $b2['task']['task_packet_id']);
     }
 
-    public function test_an_unknown_dependency_is_fail_open_and_never_strands(): void
+    public function test_an_unknown_dependency_is_not_served_without_a_valid_prerequisite(): void
     {
         $orch = $this->orchestrator();
         $orch->prepareAndEnqueue(['task_packet' => $this->input('solo', ['this-dep-was-never-enqueued'], 1)]);
         $serving = new AtlasTaskServingService($orch);
 
         $r = $serving->next('w1');
-        $this->assertSame('served', $r['status'], 'an unknown dependency is treated as satisfied → never strands a task');
-        $this->assertSame('solo', $r['task']['task_packet_id']);
+        $this->assertSame('no_claimable_task', $r['status'], 'a missing prerequisite must block serving until an operator repairs the dependency graph');
     }
 
-    public function test_a_cancelled_prerequisite_is_fail_open_and_never_strands(): void
+    public function test_a_cancelled_prerequisite_is_not_served_as_completion(): void
     {
         $orch = $this->orchestrator();
         $orch->prepareAndEnqueue(['task_packet' => $this->input('prereq-X', [], 1)]);
         $orch->prepareAndEnqueue(['task_packet' => $this->input('dependent-Y', ['prereq-X'], 2)]);
-        // The prerequisite is CANCELLED (terminally gone). Its dependent must NOT wait forever on a dead task —
-        // a cancelled dep is fail-open, exactly like an absent one.
+        // Cancellation does not prove the prerequisite's work completed.
         (new AgentControlPlaneTaskPacketQueueRepository)->updateStatus('prereq-X', 'cancelled', ['reason' => 'operator_cancelled']);
         $serving = new AtlasTaskServingService($orch);
 
         $r = $serving->next('w1');
-        $this->assertSame('served', $r['status'], 'a cancelled prerequisite is fail-open → the dependent is servable, never permanently stranded');
-        $this->assertSame('dependent-Y', $r['task']['task_packet_id']);
+        $this->assertSame('no_claimable_task', $r['status'], 'a cancelled prerequisite must not authorize its dependent task');
     }
 
-    public function test_a_cyclic_dependency_never_deadlocks_the_queue(): void
+    public function test_a_cyclic_dependency_is_not_served_without_a_valid_order(): void
     {
         $orch = $this->orchestrator();
         $orch->prepareAndEnqueue(['task_packet' => $this->input('cycle-A', ['cycle-B'], 1)]);
         $orch->prepareAndEnqueue(['task_packet' => $this->input('cycle-B', ['cycle-A'], 1)]);
         $serving = new AtlasTaskServingService($orch);
 
-        // A↔B mutually depend — there is NO valid topological order. The belt must NOT freeze: the cyclic edge
-        // is fail-open, so both become servable instead of waiting on each other forever.
+        // A↔B mutually depend — there is NO valid topological order, so neither task can be safely served.
         $first = $serving->next('w1');
-        $this->assertSame('served', $first['status'], 'a dependency cycle is fail-open → it never permanently deadlocks the queue');
+        $this->assertSame('no_claimable_task', $first['status'], 'a dependency cycle must not authorize either task');
         $second = $serving->next('w2');
-        $this->assertSame('served', $second['status']);
-        $this->assertNotSame($first['task']['task_packet_id'], $second['task']['task_packet_id'], 'both cyclic tasks flow');
+        $this->assertSame('no_claimable_task', $second['status']);
     }
 
     public function test_a_task_gated_only_by_a_dead_prerequisite_does_not_report_waiting(): void

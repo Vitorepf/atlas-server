@@ -38,7 +38,7 @@ final class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         return ['status' => $status, 'metadata' => ['depends_on' => $deps]];
     }
 
-    // ── AC2: completed_dry_run / cancelled / absent / cyclic → met ───────────
+    // ── AC2: only completed_dry_run satisfies a prerequisite ─────────────────
 
     public function test_completed_dry_run_dependency_is_met(): void
     {
@@ -50,27 +50,27 @@ final class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         $this->assertSame('met', $r);
     }
 
-    public function test_cancelled_dependency_is_met(): void
+    public function test_cancelled_dependency_is_blocked(): void
     {
         $r = $this->classify(
             $this->candidate('root', ['dep-a']),
             ['dep-a' => $this->node('cancelled')],
         );
 
-        $this->assertSame('met', $r);
+        $this->assertSame('blocked', $r);
     }
 
-    public function test_absent_dependency_fails_open_as_met(): void
+    public function test_absent_dependency_is_blocked(): void
     {
         $r = $this->classify(
             $this->candidate('root', ['dep-missing']),
             [],
         );
 
-        $this->assertSame('met', $r);
+        $this->assertSame('blocked', $r);
     }
 
-    public function test_cyclic_dependency_fails_open_as_met(): void
+    public function test_cyclic_dependency_is_blocked(): void
     {
         // root → dep-b → root (cycle)
         $r = $this->classify(
@@ -78,7 +78,7 @@ final class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
             ['dep-b' => $this->node('pending', ['root'])],
         );
 
-        $this->assertSame('met', $r);
+        $this->assertSame('blocked', $r);
     }
 
     public function test_no_dependencies_is_met(): void

@@ -418,17 +418,16 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return false;
         }
 
-        // ORDER: a task is servable only when its prerequisites are MET. Cancelled/absent/cyclic deps are
-        // fail-open (never a permanent indue block); a blocked (quarantined) prereq keeps the dependent gated
-        // but is operator-recoverable, not permanent. See {@see classifyDependencies}.
+        // ORDER: a task is servable only when its prerequisites are MET. Missing, cancelled, and cyclic
+        // dependencies remain gated until repaired; no invalid dependency graph may authorize a worker.
         return $this->classifyDependencies($candidate, $cache) === 'met';
     }
 
-    /** A dep in one of these states is SATISFIED: completed, or terminally GONE (cancelled ⇒ fail-open). */
-    private const DEPENDENCY_SATISFIED_STATES = ['completed_dry_run', 'cancelled'];
+    /** A dependency is SATISFIED only after its dry-run completion is recorded. */
+    private const DEPENDENCY_SATISFIED_STATES = ['completed_dry_run'];
 
-    /** A dep here is unmet but DEAD (quarantined) — operator-recoverable, NOT the advancing ladder. */
-    private const DEPENDENCY_DEAD_STATES = ['blocked'];
+    /** A dependency here is unmet and requires operator repair before its dependent can run. */
+    private const DEPENDENCY_DEAD_STATES = ['blocked', 'cancelled'];
 
     /**
      * Classify a candidate's depends_on into the gate/wait verdict — the single source of truth for ordering:
@@ -438,11 +437,8 @@ final class AgentControlPlaneTaskQueueOrchestrator
      *   - 'blocked'  unmet prerequisites exist but ALL are DEAD (quarantined) ⇒ the ladder is NOT advancing;
      *                this is escalation, never a "just wait" — so it can't masquerade as waiting_on_dependencies.
      *
-     * Three fail-open rules guarantee depends_on can NEVER create a permanent indue block:
-     *   - an ABSENT dep (typo/pruned) is satisfied,
-     *   - a CANCELLED dep (terminally gone) is satisfied,
-     *   - a CYCLIC dep (a prerequisite that transitively depends back on this task) is satisfied — a cycle has
-     *     no valid topological order, so freezing the belt on it would be exactly the deadlock we must avoid.
+     * A prerequisite is met only by recorded completion. Missing, cancelled, or cyclic prerequisites are
+     * blocked for operator repair; silently serving them would execute outside a valid dependency order.
      *
      * @param  array<string, mixed>  $candidate
      * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache

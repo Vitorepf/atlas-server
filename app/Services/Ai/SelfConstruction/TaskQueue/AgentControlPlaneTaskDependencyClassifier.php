@@ -15,11 +15,11 @@ use Closure;
  */
 final class AgentControlPlaneTaskDependencyClassifier
 {
-    /** A dep in one of these states is SATISFIED: completed, or terminally GONE (cancelled ⇒ fail-open). */
-    public const DEPENDENCY_SATISFIED_STATES = ['completed_dry_run', 'cancelled'];
+    /** A dependency is SATISFIED only after its dry-run completion is recorded. */
+    public const DEPENDENCY_SATISFIED_STATES = ['completed_dry_run'];
 
-    /** A dep here is unmet but DEAD (quarantined) — operator-recoverable, NOT the advancing ladder. */
-    public const DEPENDENCY_DEAD_STATES = ['blocked'];
+    /** A dependency here is unmet and requires operator repair before its dependent can run. */
+    public const DEPENDENCY_DEAD_STATES = ['blocked', 'cancelled'];
 
     /** Full-task classification verdicts. */
     public const VERDICT_READY = 'ready';
@@ -78,13 +78,13 @@ final class AgentControlPlaneTaskDependencyClassifier
         foreach ($dependsOn as $depId) {
             $node = self::dependencyNode($nodeLoader, $depId, $cache);
             if ($node === null) {
-                continue; // absent ⇒ fail-open (satisfied).
+                return 'blocked'; // Missing prerequisite ⇒ fail closed until the dependency graph is repaired.
             }
             if (in_array($node['status'], self::DEPENDENCY_SATISFIED_STATES, true)) {
-                continue; // completed OR cancelled ⇒ satisfied.
+                continue; // Recorded completion ⇒ satisfied.
             }
             if ($rootId !== '' && self::dependencyReaches($nodeLoader, $depId, $rootId, $cache, [])) {
-                continue; // CYCLE ⇒ fail-open (break the deadlock).
+                return 'blocked'; // Cycle ⇒ no valid execution order exists.
             }
             if (in_array($node['status'], self::DEPENDENCY_DEAD_STATES, true)) {
                 $sawDead = true;
