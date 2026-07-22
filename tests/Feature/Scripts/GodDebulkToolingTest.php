@@ -239,6 +239,108 @@ PHP,
         }
     }
 
+    public function test_codemap_verifier_rejects_a_navigation_table_in_a_four_space_indented_code_block(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\IndentedSpacesMap::check';
+        $fixture = $this->codemapRepository($this->indentedNavigationMap($target, '    '), [
+            'App\\Services\\Ai\\Fixture\\IndentedSpacesMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\IndentedSpacesMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_a_navigation_table_in_a_tab_indented_code_block(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\IndentedTabMap::check';
+        $fixture = $this->codemapRepository($this->indentedNavigationMap($target, "\t"), [
+            'App\\Services\\Ai\\Fixture\\IndentedTabMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\IndentedTabMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_keeps_a_table_hidden_after_a_different_fence_character(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\DifferentFenceMap::check';
+        $fixture = $this->codemapRepository($this->fencedNavigationMap($target, '````', '~~~~'), [
+            'App\\Services\\Ai\\Fixture\\DifferentFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\DifferentFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_keeps_a_table_hidden_after_a_shorter_fence(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\ShortFenceMap::check';
+        $fixture = $this->codemapRepository($this->fencedNavigationMap($target, '````', '```'), [
+            'App\\Services\\Ai\\Fixture\\ShortFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\ShortFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_keeps_a_table_hidden_after_a_fence_with_trailing_text(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\TrailingFenceMap::check';
+        $fixture = $this->codemapRepository($this->fencedNavigationMap($target, '```', '```not-a-close'), [
+            'App\\Services\\Ai\\Fixture\\TrailingFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\TrailingFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_ignores_a_fence_inside_a_comment_and_accepts_a_later_visible_table(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\CommentFenceMap::check';
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n<!--\n```\n-->\n\n".$this->navigationTable($target)."\n", [
+            'App\\Services\\Ai\\Fixture\\CommentFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\CommentFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_OK targets=1', $process->getOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
     /**
      * @param  list<string>  $command
      */
@@ -333,5 +435,25 @@ BASH);
     private function navigationTable(string $target): string
     {
         return "| Change concern | Concrete navigation target |\n| --- | --- |\n| Fixture | `{$target}` |";
+    }
+
+    private function indentedNavigationMap(string $target, string $indent): string
+    {
+        return "<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n".$indent.str_replace("\n", "\n{$indent}", $this->navigationTable($target))."\n";
+    }
+
+    private function fencedNavigationMap(string $target, string $open, string $falseClose): string
+    {
+        return "<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n{$open}markdown\n{$falseClose}\n".$this->navigationTable($target)."\n{$open}\n";
+    }
+
+    private function fixtureSource(string $class): string
+    {
+        $separator = strrpos($class, '\\');
+        $this->assertNotFalse($separator);
+        $namespace = substr($class, 0, $separator);
+        $name = substr($class, $separator + 1);
+
+        return "<?php\nnamespace {$namespace};\nclass {$name} { public function check(): void {} }\n";
     }
 }

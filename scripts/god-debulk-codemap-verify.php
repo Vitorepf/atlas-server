@@ -24,6 +24,61 @@ function markdownTableCells(string $line): ?array
     return array_map('trim', explode('|', trim($line, '|')));
 }
 
+function stripHtmlComments(string $line, bool &$inComment): string
+{
+    $visible = '';
+
+    while ($line !== '') {
+        if ($inComment) {
+            $end = strpos($line, '-->');
+            if ($end === false) {
+                return $visible;
+            }
+            $line = substr($line, $end + 3);
+            $inComment = false;
+
+            continue;
+        }
+
+        $start = strpos($line, '<!--');
+        if ($start === false) {
+            return $visible.$line;
+        }
+
+        $visible .= substr($line, 0, $start);
+        $line = substr($line, $start + 4);
+        $inComment = true;
+    }
+
+    return $visible;
+}
+
+/**
+ * @return array{character:string,length:int}|null
+ */
+function openingFence(string $line): ?array
+{
+    if (! preg_match('/^ {0,3}(?<fence>`{3,}|~{3,})[^\r\n]*$/', $line, $match)) {
+        return null;
+    }
+
+    return [
+        'character' => $match['fence'][0],
+        'length' => strlen($match['fence']),
+    ];
+}
+
+/**
+ * @param  array{character:string,length:int}  $fence
+ */
+function closesFence(string $line, array $fence): bool
+{
+    return preg_match(
+        '/^ {0,3}'.preg_quote($fence['character'], '/').'{'.$fence['length'].',}[ \t]*$/',
+        $line
+    ) === 1;
+}
+
 /**
  * @return list<string>
  */
@@ -35,47 +90,25 @@ function visibleMarkdownLines(string $contents): array
     }
 
     $visible = [];
-    $inFence = false;
     $inComment = false;
+    $fence = null;
 
     foreach ($lines as $line) {
-        $trimmed = ltrim($line);
-        if ($inFence) {
-            if (preg_match('/^(?:```|~~~)/', $trimmed)) {
-                $inFence = false;
+        $line = stripHtmlComments($line, $inComment);
+
+        if ($fence !== null) {
+            if (closesFence($line, $fence)) {
+                $fence = null;
             }
 
             continue;
         }
-        if (preg_match('/^(?:```|~~~)/', $trimmed)) {
-            $inFence = true;
+        if (($fence = openingFence($line)) !== null) {
 
             continue;
         }
-
-        while (true) {
-            if ($inComment) {
-                $end = strpos($line, '-->');
-                if ($end === false) {
-                    continue 2;
-                }
-                $line = substr($line, $end + 3);
-                $inComment = false;
-            }
-
-            $start = strpos($line, '<!--');
-            if ($start === false) {
-                break;
-            }
-
-            $end = strpos($line, '-->', $start + 4);
-            if ($end === false) {
-                $line = substr($line, 0, $start);
-                $inComment = true;
-
-                break;
-            }
-            $line = substr($line, 0, $start).substr($line, $end + 3);
+        if (preg_match('/^(?: {4}|\t)/', $line)) {
+            continue;
         }
 
         $visible[] = $line;
