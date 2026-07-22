@@ -23,23 +23,23 @@
 | Finance | 17631 | 100 | DOMINIOS | — | — | — | pending |
 | Vox | 16103 | 39 | SUPERFICIES | — | — | — | pending |
 | EngineeringKernel | 14293 | 110 | ENG-CORE | — | — | — | pending |
-| AcosMax | 14223 | 51 | COGNICAO | — | — | — | pending |
+| AcosMax | 14223 | 51 | COGNICAO | FUSE-parcial | Aemor+Context+Cognition | grab-bag 51 files, 0 providers VERIFICADO; envelope→Aemor, embedding/RAGX→Context, cockpit/series→Cognition | proposed |
 | Hermes | 13507 | 53 | TRANSPORTE | — | — | — | pending |
-| Cognition | 13420 | 52 | COGNICAO | — | — | — | pending |
+| Cognition | 13420 | 52 | COGNICAO | KEEP | — | 118 refs ext, 27 cmds; autoridade-mãe ACOS (scorecard+immune+gates) | recorded |
 | SelfImprovement | 11333 | 22 | APRENDIZADO | — | — | — | pending |
 | Foundry | 11331 | 47 | FOUNDRY | — | — | — | pending |
 | Product | 10211 | 34 | FOUNDRY | — | — | — | pending |
 | Cli | 9618 | 30 | SUPERFICIES | — | — | — | pending |
-| AtlasDecide | 9583 | 33 | ROTEAMENTO | — | — | — | pending |
+| AtlasDecide | 9583 | 33 | ROTEAMENTO | KEEP + QUARANTINE parcial | sub-cluster CapabilityMarket→quarentena | único decisor de provider (LiveOutcomeFeedback=23 ext); CapabilityRouteLifecycle 0 refs app VERIFICADO | proposed |
 | Mobile | 8925 | 22 | SUPERFICIES | — | — | — | pending |
-| Cognitive | 8848 | 65 | COGNICAO | — | — | — | pending |
+| Cognitive | 8848 | 65 | COGNICAO | KEEP + RENAME | Learning | cross-ref c/ Cognition = 0 VERIFICADO; 73 refs, 11 cmds; runtime de aprendizagem — colisão é de NOME | proposed |
 | LongHorizon | 8678 | 23 | MISSAO | — | — | — | pending |
 | Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | — | — | — | pending |
 | VentureFoundry | 8117 | 39 | FOUNDRY | — | — | — | pending |
 | WorkspaceIntelligence | 8059 | 17 | MEMORIA-CONTEXTO | — | — | — | pending |
 | Compounding | 7321 | 40 | APRENDIZADO | — | — | — | pending |
 | Memory | 7238 | 34 | MEMORIA-CONTEXTO | — | — | — | pending |
-| RealExecution | 6431 | 8 | EXEC-INFRA | — | — | — | pending |
+| RealExecution | 6431 | 8 | EXEC-INFRA | KEEP | — | 22 callers ext, 5 cmds, job; núcleo de delivery patch→test→certify | recorded |
 | Publishing | 6254 | 2 | DOMINIOS | — | — | — | pending |
 | Reality | 5620 | 7 | REALITY | — | — | — | pending |
 | Voice | 5363 | 12 | SUPERFICIES | — | — | — | pending |
@@ -48,25 +48,25 @@
 | Obra | 4787 | 19 | MISSAO | — | — | — | pending |
 | Domain | 4695 | 22 | DOMINIOS | — | — | — | pending |
 | Governance | 4687 | 16 | GOVERNANCA-QUALIDADE | — | — | — | pending |
-| RouterRuntime | 3778 | 14 | ROTEAMENTO | — | — | — | pending |
+| RouterRuntime | 3778 | 14 | ROTEAMENTO | KEEP | — | motor de flow: Canon=18, HyperflowEntry=16 callers ext; owner do "que flow atende" | recorded |
 | OperatorIntelligence | 3665 | 19 | APRENDIZADO | — | — | — | pending |
 | ProgrammingRuntime | 3657 | 12 | ENG-CORE | — | — | — | pending |
-| Runtime | 2879 | 14 | RUNTIME | — | — | — | pending |
+| Runtime | 2879 | 14 | RUNTIME | KEEP | — | 12 callers ext + 2 cmds; executor REAL de tools (file/shell/git/test) | recorded |
 | Autonomy | 2775 | 10 | AUTONOMOS | — | — | — | pending |
-| Router | 2764 | 10 | ROTEAMENTO | — | — | — | pending |
-| Organism | 2647 | 24 | COGNICAO | — | — | — | pending |
-| Aemor | 2444 | 5 | COGNICAO | — | — | — | pending |
+| Router | 2764 | 10 | ROTEAMENTO | FUSE | RouterRuntime | roteia FLOW não provider (0 imports AiProviderManager VERIFICADO); IntentKernel legado 0 ext callers; facade fica fina | proposed |
+| Organism | 2647 | 24 | COGNICAO | KEEP | — | 12 refs ext, singleton provider; propose-only por construção | recorded |
+| Aemor | 2444 | 5 | COGNICAO | KEEP | — | 41 refs ext, 14 cmds; sink de outcome Dev/Forge/Autônomos | recorded |
 | Compression | 2327 | 14 | MEMORIA-CONTEXTO | — | — | — | pending |
-| RuntimeEfficiency | 2269 | 4 | RUNTIME | — | — | — | pending |
+| RuntimeEfficiency | 2269 | 4 | RUNTIME | KEEP | — | 13 callers ext, binding provider, 5 cmds; governor path/custo | recorded |
 | Arena | 2231 | 7 | GOVERNANCA-QUALIDADE | — | — | — | pending |
-| ToolRuntime | 2080 | 15 | RUNTIME | — | — | — | pending |
+| ToolRuntime | 2080 | 15 | RUNTIME | FUSE | Runtime | mock governado (invocation "no external side effects" VERIFICADO); 2 callers; fusão = execução real GOVERNADA c/ receipt | proposed |
 | Surface | 2079 | 15 | SUPERFICIES | — | — | — | pending |
 | Evidence | 2054 | 17 | GOVERNANCA-QUALIDADE | — | — | — | pending |
 | AutonomousEngineering | 1897 | 4 | ENG-CORE | — | — | — | pending |
 | AutomationDomain | 1869 | 16 | DOMINIOS | — | — | — | pending |
 | Cyber | 1742 | 14 | DOMINIOS | — | — | — | pending |
-| RuntimeBoundary | 1739 | 23 | RUNTIME | — | — | — | pending |
-| AgenticWorkcell | 1699 | 3 | EXEC-INFRA | — | — | — | pending |
+| RuntimeBoundary | 1739 | 23 | RUNTIME | KEEP (recluster→GATEWAY-PYTHON) | — | 27 callers ext (Telemetry/Context/Semantic); ponte FFI Python — só compartilha o sufixo | recorded |
+| AgenticWorkcell | 1699 | 3 | EXEC-INFRA | KEEP | — | 8 callers ext, binding WorkcellAdapter; concern paralelismo próprio | recorded |
 | DomainRuntime | 1574 | 10 | DOMINIOS | — | — | — | pending |
 | Strategy | 1527 | 13 | DOMINIOS | — | — | — | pending |
 | Policy | 1474 | 10 | GOVERNANCA-QUALIDADE | — | — | — | pending |
@@ -84,7 +84,7 @@
 | StrategicReality | 1080 | 2 | REALITY | — | — | — | pending |
 | Learning | 1067 | 1 | APRENDIZADO | — | — | — | pending |
 | SpecialistFlows | 1052 | 13 | SKILLS | — | — | — | pending |
-| VerifiedExecution | 1044 | 2 | EXEC-INFRA | — | — | — | pending |
+| VerifiedExecution | 1044 | 2 | EXEC-INFRA | FUSE | RealExecution | ledger paralelo VERIFICADO: 6 models AtlasAver* vs 8 AiRealExecution*; 9 callers; fusão = linhagem única de evidência | proposed |
 | Concerns | 1027 | 3 | MISC | — | — | — | pending |
 | OperatorApproval | 1017 | 4 | GOVERNANCA-QUALIDADE | — | — | — | pending |
 | RealitySandbox | 1003 | 2 | REALITY | — | — | — | pending |
@@ -92,30 +92,30 @@
 | PersistentContext | 977 | 2 | MEMORIA-CONTEXTO | — | — | — | pending |
 | EngineeringCompany | 909 | 2 | ENG-OS-GEMEAS | — | — | — | pending |
 | StrategicOperatingSystem | 884 | 1 | DOMINIOS | — | — | — | pending |
-| RuntimeReadiness | 857 | 1 | RUNTIME | — | — | — | pending |
+| RuntimeReadiness | 857 | 1 | RUNTIME | KEEP | — | 4 callers ext incl. HTTP controller próprio | recorded |
 | Caching | 851 | 6 | TRANSPORTE | — | — | — | pending |
 | Analysis | 835 | 6 | UNITARIO | — | — | — | pending |
 | PersonalDevelopment | 787 | 6 | APRENDIZADO | — | — | — | pending |
 | ConversationOps | 736 | 2 | SUPERFICIES | — | — | — | pending |
-| Teos | 723 | 2 | COGNICAO | — | — | — | pending |
+| Teos | 723 | 2 | COGNICAO | KEEP | — | 19 refs ext, 4 cmds; layering I3/I4 limpo | recorded |
 | Capture | 719 | 2 | SUPERFICIES | — | — | — | pending |
 | CrossDomain | 706 | 2 | DOMINIOS | — | — | — | pending |
-| Rsi | 701 | 6 | COGNICAO | — | — | — | pending |
-| Provider | 675 | 10 | ROTEAMENTO | — | — | — | pending |
+| Rsi | 701 | 6 | COGNICAO | KEEP + consolidar | Rsi único (absorve Foundry/Rsi + AreaFocusLoop/Rsi) | 3 namespaces RSI VERIFICADOS; wired em AutonomousEvolutionSessionService | proposed |
+| Provider | 675 | 10 | ROTEAMENTO | FUSE | AiProviderManager | registry paralela de drivers VERIFICADA (2 catálogos); drivers CLI 0 ext callers; fusão = catálogo único = pipe único | proposed |
 | AtlasForge | 665 | 4 | FORGE | — | — | — | pending |
 | Attachments | 649 | 2 | SUPERFICIES | — | — | — | pending |
 | OpenBrain | 622 | 3 | TRANSPORTE | — | — | — | pending |
-| DualCore | 620 | 5 | COGNICAO | — | — | — | pending |
+| DualCore | 620 | 5 | COGNICAO | KEEP | — | 36 HTTP controllers VERIFICADO; boundary route_decision vivo | recorded |
 | Reconciliation | 613 | 1 | MEMORIA-CONTEXTO | — | — | — | pending |
 | Brain | 591 | 3 | AUTONOMOS | — | — | — | pending |
 | Knowledge | 585 | 3 | MEMORIA-CONTEXTO | — | — | — | pending |
 | Compaction | 492 | 4 | TRANSPORTE | — | — | — | pending |
 | CognitiveMemory | 466 | 2 | MEMORIA-CONTEXTO | — | — | — | pending |
 | Search | 456 | 2 | MEMORIA-CONTEXTO | — | — | — | pending |
-| VerifiedContextExecution | 442 | 1 | EXEC-INFRA | — | — | — | pending |
+| VerifiedContextExecution | 442 | 1 | EXEC-INFRA | FUSE | RuntimeEfficiency | 2 callers; 100% das deps são do governor | proposed |
 | Cartography | 388 | 1 | MEMORIA-CONTEXTO | — | — | — | pending |
 | SoftwareCompany | 364 | 1 | ENG-OS-GEMEAS | — | — | — | pending |
-| Gateway | 357 | 2 | ROTEAMENTO | — | — | — | pending |
+| Gateway | 357 | 2 | ROTEAMENTO | KEEP | — | preflight com 5 callers ext; concern isolado | recorded |
 | Operator | 323 | 4 | SUPERFICIES | — | — | — | pending |
 | Transcription | 304 | 1 | SUPERFICIES | — | — | — | pending |
 | HumanSurface | 290 | 1 | SUPERFICIES | — | — | — | pending |
@@ -123,7 +123,7 @@
 | Tasks | 284 | 1 | EXEC-INFRA | — | — | — | pending |
 | Mcp | 283 | 1 | TRANSPORTE | — | — | — | pending |
 | Tokens | 275 | 2 | TRANSPORTE | — | — | — | pending |
-| RuntimeReleaseGate | 263 | 1 | RUNTIME | — | — | — | pending |
+| RuntimeReleaseGate | 263 | 1 | RUNTIME | FUSE | RuntimeReadiness | wrapper puro — docblock "delega 100%" VERIFICADO; 2 callers ext | proposed |
 | Streaming | 167 | 1 | TRANSPORTE | — | — | — | pending |
 | Instrumentation | 155 | 1 | GOVERNANCA-QUALIDADE | — | — | — | pending |
 | MemoryGovernance | 148 | 3 | MEMORIA-CONTEXTO | — | — | — | pending |
