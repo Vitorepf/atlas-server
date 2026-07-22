@@ -6,8 +6,8 @@ Three guardrails sit around the gateway's execution path: a quality evaluator sc
 
 | Path | Role |
 |---|---|
-| `app/Services/Ai/AiQualityEvaluator.php` | Heuristic (`heuristic-v1`) post-run quality scoring -> `AiQualityEvaluation` |
-| `app/Services/Ai/AiQualityActionService.php` | Turns quality verdicts into remediation `ai_quality_actions` |
+| `app/Services/Ai/Analysis/AiQualityEvaluator.php` | Heuristic (`heuristic-v1`) post-run quality scoring -> `AiQualityEvaluation` |
+| `app/Services/Ai/Analysis/AiQualityActionService.php` | Turns quality verdicts into remediation `ai_quality_actions` |
 | `app/Services/Ai/AiRuntimeBudgetService.php` | `assertAllows(provider, model, options)` + budget payload |
 | `app/Services/Ai/AiProviderHealthService.php` | `checkAll()` / `check()` run each provider's `health()`, compute pain score, persist snapshots |
 | `app/Services/Ai/AiProviderHealthCheck.php` | Immutable health DTO |
@@ -139,8 +139,8 @@ flowchart TD
 
 | File | What to read |
 |---|---|
-| `app/Services/Ai/AiQualityEvaluator.php` | `evaluateTrace()`, `assess()`, `VERSION = 'heuristic-v1'` |
-| `app/Services/Ai/AiQualityActionService.php` | `planFor()`, `run()`, the dedupe key |
+| `app/Services/Ai/Analysis/AiQualityEvaluator.php` | `evaluateTrace()`, `assess()`, `VERSION = 'heuristic-v1'` |
+| `app/Services/Ai/Analysis/AiQualityActionService.php` | `planFor()`, `run()`, the dedupe key |
 | `app/Services/Ai/AiRuntimeBudgetService.php` | `assertAllows()`, `payload()`, `painScore()` |
 | `app/Services/Ai/AiProviderHealthService.php` | `checkAll()`, `check()`, `stats()`, `painScore()` |
 | `app/Services/Ai/Telemetry/AiOutcomeAttributionService.php` | `record()`, `OUTCOME_TYPES` |

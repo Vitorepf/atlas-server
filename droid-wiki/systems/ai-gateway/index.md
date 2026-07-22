@@ -48,8 +48,9 @@ app/Services/Ai/
   Streaming/AiStreamRecorder.php sequenced streaming event persistence
   Arena/
     AiCouncilCoordinator.php    multi-provider council aggregation
-  AiQualityEvaluator.php        post-run heuristic quality scoring
-  AiQualityActionService.php    quality verdict -> remediation actions
+  Analysis/
+    AiQualityEvaluator.php      post-run heuristic quality scoring
+    AiQualityActionService.php  quality verdict -> remediation actions
   AiRuntimeBudgetService.php    token / cost budget gate
   AtlasDecideService.php        sealed advisor: operational provider/model decision
   FairClaudePolicy.php          provider/model lock policy ("fair mode")
@@ -89,7 +90,7 @@ app/Console/Commands/
 | `app/Services/Ai/AiProviderHealthService.php` | Health snapshots and operational pain score |
 | `app/Services/Ai/Streaming/AiStreamRecorder.php` | Sequenced streaming events (the SSE substrate) |
 | `app/Services/Ai/Arena/AiCouncilCoordinator.php` | Multi-provider council aggregation |
-| `app/Services/Ai/AiQualityEvaluator.php` | Post-run heuristic quality scoring |
+| `app/Services/Ai/Analysis/AiQualityEvaluator.php` | Post-run heuristic quality scoring |
 | `app/Services/Ai/AiRuntimeBudgetService.php` | Token/cost budget gate |
 | `app/Http/Controllers/AiInteractionController.php` | HTTP entry plus the pre-processor pipeline |
 | `app/Console/Commands/AiWorkCommand.php` | The worker process (`atlas:ai:work`) |

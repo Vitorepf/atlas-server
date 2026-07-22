@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Analysis;
 
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;

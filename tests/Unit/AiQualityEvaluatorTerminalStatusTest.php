@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
-use App\Services\Ai\AiQualityEvaluator;
+use App\Services\Ai\Analysis\AiQualityEvaluator;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -12,7 +12,7 @@ use Tests\TestCase;
 /**
  * Verifies AiQualityEvaluator behavior across terminal trace statuses.
  *
- * The evaluator's internal gate (AiQualityEvaluator.php:27) skips ONLY when
+ * The evaluator's internal gate (Analysis/AiQualityEvaluator.php:27) skips ONLY when
  * the response is empty AND status != succeeded. Anything else gets evaluated.
  * These tests pin that contract so the worker integration in failure paths
  * (added in this change) does not produce silent gaps.
@@ -85,7 +85,7 @@ class AiQualityEvaluatorTerminalStatusTest extends TestCase
 
     public function test_failed_trace_with_empty_response_is_skipped(): void
     {
-        // Documented gate at AiQualityEvaluator:27 — empty + non-succeeded returns null
+        // Documented gate at Analysis/AiQualityEvaluator.php:27 — empty + non-succeeded returns null
         // because there is literally nothing to assess. The aggregator's fallback
         // (failed → 20) is the right answer for this case.
         $trace = AiTrace::query()->create([

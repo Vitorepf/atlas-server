@@ -188,7 +188,7 @@ class AgentBehaviorAudit
     private function scanAgentBehaviorQualityGate(): array
     {
         $gatePath = app_path('Services/Ai/Kernel/Behavior/AgentBehaviorQualityGate.php');
-        $evaluatorPath = app_path('Services/Ai/AiQualityEvaluator.php');
+        $evaluatorPath = app_path('Services/Ai/Analysis/AiQualityEvaluator.php');
         $gateTestPath = base_path('tests/Unit/Ai/Kernel/Behavior/AgentBehaviorQualityGateTest.php');
         $qualityTestPath = base_path('tests/Unit/AiQualityEvaluatorTest.php');
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
@@ -224,7 +224,7 @@ class AgentBehaviorAudit
             'verification_missing',
         ] as $token) {
             if (! str_contains($evaluator, $token)) {
-                $violations[] = "app/Services/Ai/AiQualityEvaluator.php: AP-150 quality evaluator must consume behavior gate findings [{$token}]";
+                $violations[] = "app/Services/Ai/Analysis/AiQualityEvaluator.php: AP-150 quality evaluator must consume behavior gate findings [{$token}]";
             }
         }
 
@@ -283,7 +283,7 @@ class AgentBehaviorAudit
      */
     private function scanAgentBehaviorReviewActionSurface(): array
     {
-        $actionServicePath = app_path('Services/Ai/AiQualityActionService.php');
+        $actionServicePath = app_path('Services/Ai/Analysis/AiQualityActionService.php');
         $actionTestPath = base_path('tests/Unit/AiQualityActionServiceTest.php');
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-151-agent-behavior-review-action-surface.md');
@@ -301,7 +301,7 @@ class AgentBehaviorAudit
             "str_starts_with((string) (\$finding['code'] ?? ''), 'agent.')",
         ] as $token) {
             if (! str_contains($actionService, $token)) {
-                $violations[] = "app/Services/Ai/AiQualityActionService.php: AP-151 review actions must carry structured agent behavior findings [{$token}]";
+                $violations[] = "app/Services/Ai/Analysis/AiQualityActionService.php: AP-151 review actions must carry structured agent behavior findings [{$token}]";
             }
         }
 
@@ -349,7 +349,7 @@ class AgentBehaviorAudit
     private function scanAgentBehaviorEvidenceLedger(): array
     {
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
-        $evaluatorPath = app_path('Services/Ai/AiQualityEvaluator.php');
+        $evaluatorPath = app_path('Services/Ai/Analysis/AiQualityEvaluator.php');
         $testPath = base_path('tests/Unit/AiQualityEvaluatorTest.php');
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-154-agent-behavior-evidence-ledger.md');
@@ -380,7 +380,7 @@ class AgentBehaviorAudit
             'evidence.agent_behavior_findings',
         ] as $token) {
             if (! str_contains($evaluator, $token)) {
-                $violations[] = "app/Services/Ai/AiQualityEvaluator.php: AP-154 evaluator must emit agent behavior ledger signal [{$token}]";
+                $violations[] = "app/Services/Ai/Analysis/AiQualityEvaluator.php: AP-154 evaluator must emit agent behavior ledger signal [{$token}]";
             }
         }
 

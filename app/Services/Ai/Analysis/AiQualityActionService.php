@@ -1,10 +1,13 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Analysis;
 
 use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
+use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AtlasFinalResponseSanitizer;
+use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
 use Illuminate\Support\Collection;

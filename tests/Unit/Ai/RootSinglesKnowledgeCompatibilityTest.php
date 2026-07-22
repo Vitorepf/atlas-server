@@ -4,9 +4,13 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiCouncilCoordinator as LegacyAiCouncilCoordinator;
 use App\Services\Ai\AiIntentRouter as LegacyAiIntentRouter;
+use App\Services\Ai\AiQualityActionService as LegacyAiQualityActionService;
+use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
 use App\Services\Ai\AiSkill as LegacyAiSkill;
 use App\Services\Ai\AiSkillStore as LegacyAiSkillStore;
 use App\Services\Ai\AiStreamRecorder as LegacyAiStreamRecorder;
+use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
+use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
@@ -67,5 +71,14 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiSkillStore::class));
         self::assertTrue(class_exists(LegacyAiSkillStore::class));
         self::assertTrue(is_a(CanonicalAiSkillStore::class, LegacyAiSkillStore::class, true));
+    }
+
+    public function test_analysis_services_resolve_from_their_canonical_namespace_with_legacy_aliases(): void
+    {
+        $evaluator = app(CanonicalAiQualityEvaluator::class);
+        $actions = app(CanonicalAiQualityActionService::class);
+
+        self::assertInstanceOf(LegacyAiQualityEvaluator::class, $evaluator);
+        self::assertInstanceOf(LegacyAiQualityActionService::class, $actions);
     }
 }

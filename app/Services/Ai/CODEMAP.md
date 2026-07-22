@@ -11,6 +11,8 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Route legacy keyword intents | `App\Services\Ai\Router\AiIntentRouter::route` |
 | Persist a sequenced stream event | `App\Services\Ai\Streaming\AiStreamRecorder::record` |
 | Load a canonical Atlas skill | `App\Services\Ai\Skills\AiSkillStore::load` |
+| Evaluate post-run response quality | `App\Services\Ai\Analysis\AiQualityEvaluator::evaluateTrace` |
+| Plan quality remediation | `App\Services\Ai\Analysis\AiQualityActionService::planFor` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |

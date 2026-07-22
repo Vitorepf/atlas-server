@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
-use App\Services\Ai\AiQualityActionService;
+use App\Services\Ai\Analysis\AiQualityActionService;
 use App\Services\Ai\FairClaudePolicy;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

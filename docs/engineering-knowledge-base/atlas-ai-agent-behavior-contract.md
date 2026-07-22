@@ -29,7 +29,7 @@ maintenance:
 related_paths:
   - app/Services/Ai/Kernel/Provider/AgentBehaviorContract.php
   - app/Services/Ai/Kernel/Behavior/AgentBehaviorQualityGate.php
-  - app/Services/Ai/AiQualityActionService.php
+  - app/Services/Ai/Analysis/AiQualityActionService.php
   - app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php
   - app/Services/Ai/Kernel/Provider/AtlasProviderIdentityProjector.php
   - app/Services/Ai/ValueObjects/AiExecutionPlan.php

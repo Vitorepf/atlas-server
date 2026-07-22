@@ -15,6 +15,8 @@ final class RootSinglesLegacyAliases
     private const CLASS_MAP = [
         'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
         'App\\Services\\Ai\\AiIntentRouter' => 'App\\Services\\Ai\\Router\\AiIntentRouter',
+        'App\\Services\\Ai\\AiQualityActionService' => 'App\\Services\\Ai\\Analysis\\AiQualityActionService',
+        'App\\Services\\Ai\\AiQualityEvaluator' => 'App\\Services\\Ai\\Analysis\\AiQualityEvaluator',
         'App\\Services\\Ai\\AiSkill' => 'App\\Services\\Ai\\Skills\\AiSkill',
         'App\\Services\\Ai\\AiSkillStore' => 'App\\Services\\Ai\\Skills\\AiSkillStore',
         'App\\Services\\Ai\\AiStreamRecorder' => 'App\\Services\\Ai\\Streaming\\AiStreamRecorder',

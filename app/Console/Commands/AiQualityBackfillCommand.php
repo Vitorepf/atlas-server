@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AiTrace;
-use App\Services\Ai\AiQualityEvaluator;
+use App\Services\Ai\Analysis\AiQualityEvaluator;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;

@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\AiQualityEvaluator;
+use App\Services\Ai\Analysis\AiQualityEvaluator;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

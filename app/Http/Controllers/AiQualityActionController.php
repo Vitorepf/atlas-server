@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AiQualityActionResource;
 use App\Models\AiQualityAction;
-use App\Services\Ai\AiQualityActionService;
+use App\Services\Ai\Analysis\AiQualityActionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
