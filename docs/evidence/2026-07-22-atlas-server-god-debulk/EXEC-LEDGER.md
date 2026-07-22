@@ -709,3 +709,41 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 27 — LearningConsolidation M2b canonical Learning namespace, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 011a49d3e
+subject: "refactor(core): rename Cognitive to Learning"
+scope:
+  - app/Services/Ai/CognitiveNamespaceAlias.php
+  - app/Providers/AppServiceProvider.php
+  - app/Services/Ai/Learning
+  - tests/Feature/Ai/Learning
+  - tests/Unit/Ai/Learning
+  - app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php
+  - app/Services/Ai/Kernel/Architecture/AtlasRuntimeLanguageBoundaryReportService.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/Learning/CognitiveNamespaceM2aCharacterizationTest.php --filter='test_learning_fqcns_must_become_the_canonical_namespace_in_m2b' --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Learning\\SRL\\SRLOrchestrator did not resolve before the migration."
+green:
+  behavior: "The Learning namespace is canonical across production consumers and tests. AppServiceProvider prepends a dated lazy alias from the five frozen Cognitive FQCNs to their Learning counterparts, so deployed workers and queues retain compatibility during the M2b cycle."
+  path_literals: "Kernel static scanning and runtime-language reporting now inspect app/Services/Ai/Learning; no Services/Ai/Cognitive path literal remains."
+  compatibility: "The eleven frozen command signatures remain registered; legacy FQCN literals occur only in the alias and its explicit characterization test."
+verification:
+  focused_m2b: "PASS 2 tests, 43 assertions"
+  learning_kernel_subset: "PASS 192 tests, 1312 assertions"
+  php_lint: "PASS all PHP files changed by 011a49d3e"
+  command_registry: "PASS 11 frozen atlas command names present in php artisan list --raw"
+  canonical_inventories: "66 Learning services, 17 Learning feature tests, 29 Learning unit tests"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reports existing full-file formatting drift in several touched hosts; the new alias passes and no broad reformat was applied."
+boundary:
+  - no command name or invocation signature changed
+  - the old namespace is a one-cycle autoload compatibility adapter, not a second implementation
+  - no provider call, token spend, external mutation, or evidence-promotion occurred
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
