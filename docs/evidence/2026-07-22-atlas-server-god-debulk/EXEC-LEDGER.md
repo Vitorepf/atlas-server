@@ -213,45 +213,6 @@ write_back:
   auto_promoted: false
 ```
 
-## Task 38 — RootSinglesRehome Knowledge, 2026-07-22
-
-```yaml
-status: VERIFIED_LOCAL
-blueprint: RootSinglesRehome / group Knowledge
-commit: aaa3d2013
-subject: "refactor(core): GOD-DEBULK RootSingles Knowledge rehome"
-scope:
-  - app/Services/Ai/Knowledge/YouTubeKnowledgeIngestionService.php
-  - app/Services/Ai/Knowledge/YoutubeCanonicalProjection.php
-  - Root consumers (worker, gateway, controller, resource, job, and unit suites)
-  - app/Services/Ai/Compat/RootSinglesLegacyAliases.php
-red:
-  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --no-coverage
-  result: "FAIL 1 test: canonical App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService did not exist before the re-home."
-green:
-  behavior: "Both YouTube knowledge owners now resolve from Ai\\Knowledge. The old root FQCNs remain lazy aliases loaded through composer for queued/deployed compatibility."
-  characterization: "The compatibility test resolves canonical services through the public container, then proves each instance satisfies its legacy root FQCN."
-verification:
-  canonical_unit_suites: "PASS 30 tests, 130 assertions"
-  prewarm_feature: "PASS 10 tests, 56 assertions"
-  parallel_compatibility: "PASS 1 test, 2 assertions"
-  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
-  root_sweep: "PASS: old root source paths are absent; direct old FQCN/path sweep leaves only the explicit compatibility test imports."
-  php_lint: "PASS all 12 touched PHP files"
-  phpstan_alias: "PASS RootSinglesLegacyAliases.php. Broader touched-consumer PHPStan is NOT GREEN (527 diagnostics, including long-standing model/resource/consumer diagnostics and two in moved owners); it is not used as proof and no baseline ownership was established."
-  pint: "PASS new compatibility test. Strict full-file Pint is NOT GREEN for existing formatting drift in four changed consumers; no broad reformat was applied."
-  codemap: "PASS god-debulk-codemap-verify (targets=5)"
-  density_guard: "PASS existing baseline: >5k=14, >2k=40; both Knowledge owners remain <2000 LOC."
-  diff_check: PASS
-boundary:
-  - organizational re-home only; no ingestion, projection, provider, queue, token, or persistence behavior changed
-  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
-  - no test directory was moved; unit suites now import the canonical names
-write_back:
-  status: recorded_for_human_review
-  auto_promoted: false
-```
-
 ## Task 20 — LearningConsolidation M1a canonical contract freeze, 2026-07-22
 
 ```yaml
@@ -1159,6 +1120,45 @@ boundary:
   - changes only read-only launch-capacity planning and its blocker explanation
   - queue/lease writes in the characterization test are setup only; digest remains read-only and no worker, provider, token, or mutation action is performed by production code
   - no new class or helper was introduced
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 39 — RootSinglesRehome Knowledge, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Knowledge
+commit: aaa3d2013
+subject: "refactor(core): GOD-DEBULK RootSingles Knowledge rehome"
+scope:
+  - app/Services/Ai/Knowledge/YouTubeKnowledgeIngestionService.php
+  - app/Services/Ai/Knowledge/YoutubeCanonicalProjection.php
+  - Root consumers (worker, gateway, controller, resource, job, and unit suites)
+  - app/Services/Ai/Compat/RootSinglesLegacyAliases.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --no-coverage
+  result: "FAIL 1 test: canonical App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService did not exist before the re-home."
+green:
+  behavior: "Both YouTube knowledge owners now resolve from Ai\\Knowledge. The old root FQCNs remain lazy aliases loaded through composer for queued/deployed compatibility."
+  characterization: "The compatibility test resolves canonical services through the public container, then proves each instance satisfies its legacy root FQCN."
+verification:
+  canonical_unit_suites: "PASS 30 tests, 130 assertions"
+  prewarm_feature: "PASS 10 tests, 56 assertions"
+  parallel_compatibility: "PASS 1 test, 2 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source paths are absent; direct old FQCN/path sweep leaves only the explicit compatibility test imports."
+  php_lint: "PASS all 12 touched PHP files"
+  phpstan_alias: "PASS RootSinglesLegacyAliases.php. Broader touched-consumer PHPStan is NOT GREEN (527 diagnostics, including long-standing model/resource/consumer diagnostics and two in moved owners); it is not used as proof and no baseline ownership was established."
+  pint: "PASS new compatibility test. Strict full-file Pint is NOT GREEN for existing formatting drift in four changed consumers; no broad reformat was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=5)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; both Knowledge owners remain <2000 LOC."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; no ingestion, projection, provider, queue, token, or persistence behavior changed
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - no test directory was moved; unit suites now import the canonical names
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
