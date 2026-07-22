@@ -136,7 +136,7 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
         );
 
         return new AtlasTaskServingService(
-            orchestrator: $this->orchestrator(),
+            orchestrator: $this->orchestrator($this->repo),
             sentinel: null,
             inspector: null,
             committer: new AtlasTaskScopedCommitter(null, $this->repo),
@@ -168,6 +168,11 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
         $this->assertArrayHasKey('verification_checks_run', $fact);
         $this->assertArrayHasKey('wall_seconds', $fact);
         $this->assertGreaterThanOrEqual(1, $fact['files_committed_count']);
+        $this->assertArrayNotHasKey('tokens_in', $fact);
+        $this->assertArrayNotHasKey('tokens_out', $fact);
+        $this->assertArrayNotHasKey('cost_cents', $fact);
+        $this->assertArrayNotHasKey('provider', $fact);
+        $this->assertArrayNotHasKey('model', $fact);
     }
 
     // ── zero facts on give_back ─────────────────────────────────────────────
@@ -198,7 +203,7 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
             fn (array $cmd, string $cwd, float $timeout): array => ['ran' => true, 'ok' => false, 'out' => 'boom'],
         );
         $serving = new AtlasTaskServingService(
-            orchestrator: $this->orchestrator(),
+            orchestrator: $this->orchestrator($this->repo),
             sentinel: null,
             inspector: null,
             committer: new AtlasTaskScopedCommitter(null, $this->repo),
@@ -232,9 +237,9 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
         $this->assertTrue($result['lease_closed']);
     }
 
-    // ── default meter (no override) never throws when nothing is injected ──
+    // ── no meter (no override) never breaks the resolved report ────────────
 
-    public function test_default_meter_is_used_when_none_injected(): void
+    public function test_report_resolves_when_no_meter_is_injected(): void
     {
         $served = $this->servedTask('bm-default');
         $verifier = new AtlasTaskCommitVerificationGate(
@@ -242,7 +247,7 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
             fn (array $cmd, string $cwd, float $timeout): array => ['ran' => true, 'ok' => true, 'out' => ''],
         );
         $serving = new AtlasTaskServingService(
-            orchestrator: $this->orchestrator(),
+            orchestrator: $this->orchestrator($this->repo),
             sentinel: null,
             inspector: null,
             committer: new AtlasTaskScopedCommitter(null, $this->repo),
