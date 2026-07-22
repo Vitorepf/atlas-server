@@ -221,15 +221,18 @@ final class AtlasTaskServingServiceTest extends TestCase
 
     public function test_report_validates_outcome_against_whitelist(): void
     {
+        // A report may only be filed by the current lease owner and consumes its lease (A1-SC-0133).
+        // The invalid-outcome branch rejects WITHOUT touching the lease, so one owned lease proves both
+        // sides: a hostile/typo outcome is refused, then a whitelisted outcome on the same lease is
+        // accepted. Per-outcome acceptance is covered by the dedicated success/failed/give_back tests.
         $served = $this->servedTask('op-whitelist');
         $serving = new AtlasTaskServingService($this->orchestrator());
 
-        foreach (['success', 'failed', 'give_back'] as $valid) {
-            $result = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], [
-                'outcome' => $valid,
-            ]);
-            $this->assertNotSame('invalid_report', $result['status'], "outcome $valid must not be invalid");
-        }
+        $bad = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], ['outcome' => 'sneaky_giveback']);
+        $this->assertSame('invalid_report', $bad['status'], 'a non-whitelisted outcome is refused');
+
+        $good = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], ['outcome' => 'give_back']);
+        $this->assertNotSame('invalid_report', $good['status'], 'a whitelisted outcome on the owned lease is accepted');
     }
 
     private function eliteKernel(): EliteExecutorKernel

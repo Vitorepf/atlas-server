@@ -305,6 +305,27 @@ final class AtlasTaskServingService
         ];
     }
 
+    /**
+     * The caller's OWN active lease for exactly this task+lease pair, or null when the caller does not hold it.
+     * `activeLeasesForAgent` returns only leases owned by $clientId and drops expired ones (it runs
+     * `expireLeasesInternal` first), so ownership and expiry are enforced here; a revoked authority is rejected
+     * explicitly. Same match rule as {@see renew} (hash_equals on both ids — constant-time, no id oracle).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function ownedActiveLease(string $clientId, string $taskPacketId, string $leaseId): ?array
+    {
+        foreach ($this->orchestrator->activeLeasesForAgent($clientId) as $lease) {
+            if (hash_equals($taskPacketId, (string) ($lease['task_packet_id'] ?? ''))
+                && hash_equals($leaseId, (string) ($lease['lease_id'] ?? ''))
+                && ($lease['authority_revoked'] ?? false) !== true) {
+                return $lease;
+            }
+        }
+
+        return null;
+    }
+
     public function renew(string $clientId, string $taskPacketId, string $leaseId, int $ttlSeconds = 900): bool
     {
         $active = $this->orchestrator->activeLeasesForAgent($clientId);
@@ -396,6 +417,20 @@ final class AtlasTaskServingService
         $clientId = trim($clientId);
         if ($clientId === '' || $taskPacketId === '' || $leaseId === '') {
             return $this->reportEnvelope('invalid_report', $clientId, ['reason' => 'client_id_task_packet_id_and_lease_id_required']);
+        }
+
+        // AUTHENTICATE the caller against the lease BEFORE any scope read, gate, dry-run, give-back, or scoped
+        // commit. A report may only be filed by the agent that currently HOLDS an active, non-revoked lease for
+        // exactly this task+lease pair. Without this, a foreign/expired/revoked authority that merely knows the
+        // ids could release another worker's lease, settle its task, or land a commit on shared main — the only
+        // downstream owner check (`markResolved`) runs AFTER the commit already landed (finding A1-SC-0133).
+        if ($this->ownedActiveLease($clientId, $taskPacketId, $leaseId) === null) {
+            return $this->reportEnvelope('invalid_report', $clientId, [
+                'reason' => 'lease_not_owned',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+            ]);
         }
 
         $outcome = (string) ($payload['outcome'] ?? 'success');
