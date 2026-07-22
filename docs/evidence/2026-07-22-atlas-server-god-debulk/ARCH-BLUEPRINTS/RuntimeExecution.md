@@ -1,6 +1,7 @@
 # ARCH BLUEPRINT — Runtime de Execução
 
-> status: draft-v2 (revisado pós-verify adversarial 2026-07-22 — furos 1 e 2 consertados; 5 emendas incorporadas; claims da v2 verificados pelo comandante: diff_hash payload L233 vs sha256 cru L539, availableTools estático L24)
+> status: draft-v2 RE-VERIFICADO (rodada 2 do verify: FATAIS CONSERTADOS — aprovado p/ operador). Migração aditiva conferida contra migrations/models reais (AtlasAverExecution sem goal_record_id; AiAutonomousEngineeringGoal existe sem objective_hash; 5 models canônicos com goal_record_id); 10 path-literals reconfirmados; PSR-4 do lifecycle de dir consistente; 19 tools do F3-pre batem nome a nome.
+> 3 RESSALVAS DE EXECUÇÃO (não bloqueiam): (a) F4a — a chave do AVER é execution_id (não command_run_id); o "1:1" do espelho é estrutural, e ai_real_execution_command_runs leva goal_record_id como os irmãos; (b) F2 — incluir AtlasProgrammingFinalCertificationServiceTest:256/268 (fixtures com path-literal VCE) no mesmo commit do literal #2; (c) typo de doc: path completo do Scanner é app/Services/Ai/Kernel/Architecture/.
 > v2: correlação Fusão 2 por migração aditiva provada contra fillables reais (objective_hash NÃO existe no canônico; diff_hash AVER = hash de payload ≠ sha256 do diff cru — NÃO equivalentes); command-ledger ganha tabela canônica aditiva; inventário fechado de 10 consumidores path-literal com atualização no mesmo commit; ciclo de vida de diretório sem contradição (dir só esvazia no ciclo seguinte, junto com alias).
 > data: 2026-07-22 · obra: GOD Debulk / capability Runtime de Execução · modelo: SelfConstructionReadiness.md
 
