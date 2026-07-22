@@ -4,37 +4,36 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0191 parallel worker identity validation closed
+phase: A1-SC-0192 preview storage-manifest verification closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: multi-agent-loop parallelism identity and observation-window boundary
-finding_id: A1-SC-0191
-action_op: test-first fail-closed worker identity validation
+focus: terminal bootstrap preview read-only verification boundary
+finding_id: A1-SC-0192
+action_op: snapshot complete queue and lease state instead of counts
 queue_index: 6
-last_commit: e21515517
+last_commit: dee2fc923
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=invalid_worker_identity_or_observation_window_never_reports_real_parallelism
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=preview_read_only_verification_compares_complete_queue_and_lease_manifests
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
-  vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
   git diff --check
 before_after: |
-  red: a snapshot with an active productive worker but no runtime_owner returned real_parallelism.
-  green: missing owner, blank or duplicate id, and mismatched observation windows return fake_parallelism with reasons.
+  red: preview read-only verification exposed only queue/lease counts and could not prove a same-count in-place state mutation absent.
+  green: queue registry plus queue and lease file manifests are hashed before and after the real public preview.
 stdout: |
-  red_characterization: FAIL 2 tests, expected fake_parallelism but got real_parallelism
-  runner_unit_plus_feature: PASS 36 tests, 178 assertions
-  php_lint: PASS source plus changed Unit and Feature tests
+  red_characterization: FAIL 1 test before snapshot fields existed
+  runner_unit_plus_feature: PASS 37 tests, 183 assertions
+  php_lint: PASS source plus changed Feature test
   source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
-  unit_and_feature_pint: PASS
-  loc_check: probe_runner=1528
+  feature_pint: PASS
+  loc_check: probe_runner=1580
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Classification characterization executes the public pure probe with malformed active-worker snapshots; invalid identity/window evidence cannot count toward real parallelism.
+  Preview characterization executes the real public preview and proves equality of the full state, registry, queue manifest, and lease manifest hashes.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1570,6 +1569,31 @@ boundary:
   - organizational re-home only; quality evaluation, remediation planning, gateway behavior, backfill semantics, and architecture-audit policy are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - production consumers, runtime audit literals, canonical docs, and CODEMAP name the Analysis owner directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 52 — A1-SC-0192 verify preview manifests, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: dee2fc923
+subject: "refactor(core): GOD-DEBULK verify preview manifests"
+red:
+  result: "FAIL 1 test before state snapshot fields existed."
+green:
+  behavior: "preview read-only verification compares queue registry, queue file manifest, lease file manifest, and combined state hashes before and after."
+verification:
+  focused_feature: "PASS 1 test, 5 assertions"
+  runner_unit_and_feature: "PASS 37 tests, 183 assertions"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  diff_check: PASS
+  loc: "probe_runner=1580 (<2000)"
+boundary:
+  - `.lock` and `.health` are excluded as operational sentinels; task and lease registry/file identities remain covered
+  - no provider, dispatch, token, completion, or recovery behavior is enabled
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
