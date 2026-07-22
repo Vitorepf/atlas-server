@@ -21,7 +21,7 @@
 | Rivals | 20724 | 70 | DOMINIOS | — | — | — | pending |
 | Context | 20248 | 65 | MEMORIA-CONTEXTO | KEEP | — | espinha retrieval: 150 ext, 31 cmds; destino do re-home AcosMax em subnamespace Context\Retrieval | recorded |
 | Finance | 17631 | 100 | DOMINIOS | — | — | — | pending |
-| Vox | 16103 | 39 | SUPERFICIES | — | — | — | pending |
+| Vox | 16103 | 39 | SUPERFICIES | KEEP | — | estágio 3 do pipeline de voz (intenção→execução): 50 ext, 6 cmds, 4 controllers | recorded |
 | EngineeringKernel | 14293 | 110 | ENG-CORE | KEEP | — | chão pétreo: 136 arquivos ext (o mais consumido do cluster); fonte única de roles; NÃO fundir com Programming (2 chãos ortogonais) | recorded |
 | AcosMax | 14223 | 51 | COGNICAO | FUSE-parcial | Aemor+Context+Cognition | grab-bag 51 files, 0 providers VERIFICADO; envelope→Aemor, embedding/RAGX→Context, cockpit/series→Cognition | proposed |
 | Hermes | 13507 | 53 | TRANSPORTE | KEEP | — | 16 callers prod, 4 cmds, controller, driver no AiProviderManager; único transport verboo | recorded |
@@ -29,9 +29,9 @@
 | SelfImprovement | 11333 | 22 | APRENDIZADO | KEEP | — | closed-loop de governança isolado: 66 arquivos ext, 0 cross-ref com Compounding, modelos próprios | recorded |
 | Foundry | 11331 | 47 | FOUNDRY | KEEP spine + QUARANTINE Frontier | IF funde aqui (Capability Foundry) | spine 3.1k vivo (gap-finder invocado por Stewardship); Frontier 5.1k default-off VERIFICADO (frontier_mode config); Rsi/ sai p/ bloco Rsi | proposed |
 | Product | 10211 | 34 | FOUNDRY | KEEP | — | 36 callers; injeção viva no AiInteractionController (mode=programming); fábrica de ENTREGA de software | recorded |
-| Cli | 9618 | 30 | SUPERFICIES | — | — | — | pending |
+| Cli | 9618 | 30 | SUPERFICIES | KEEP | — | superfície L2 (investimento): 51 ext, 18 cmds, REPL | recorded |
 | AtlasDecide | 9583 | 33 | ROTEAMENTO | KEEP + QUARANTINE parcial | sub-cluster CapabilityMarket→quarentena | único decisor de provider (LiveOutcomeFeedback=23 ext); CapabilityRouteLifecycle 0 refs app VERIFICADO | proposed |
-| Mobile | 8925 | 22 | SUPERFICIES | — | — | — | pending |
+| Mobile | 8925 | 22 | SUPERFICIES | KEEP | — | superfície irmã: 64 ext, 14 cmds, 10 controllers | recorded |
 | Cognitive | 8848 | 65 | COGNICAO | KEEP + RENAME | Learning | cross-ref c/ Cognition = 0 VERIFICADO; 73 refs, 11 cmds; runtime de aprendizagem — colisão é de NOME | proposed |
 | LongHorizon | 8678 | 23 | MISSAO | KEEP | — | camada TEOS advisory-only (0 decompositores, 0 mutação); 15 cmds, Canon=18 callers | recorded |
 | Telemetry | 8622 | 35 | GOVERNANCA-QUALIDADE | KEEP | — | 56 refs, 10 cmds, 2 jobs agendados; dono das métricas/custo/drift | recorded |
@@ -42,7 +42,7 @@
 | RealExecution | 6431 | 8 | EXEC-INFRA | KEEP | — | 22 callers ext, 5 cmds, job; núcleo de delivery patch→test→certify | recorded |
 | Publishing | 6254 | 2 | DOMINIOS | — | — | — | pending |
 | Reality | 5620 | 7 | REALITY | KEEP + RENAME→RealityGraph | — | AURG grafo fundido memory+code+docs, 60 ext; Strategic/Sandbox tocam o grafo em 0 refs — cluster era falso positivo de nome | proposed |
-| Voice | 5363 | 12 | SUPERFICIES | — | — | — | pending |
+| Voice | 5363 | 12 | SUPERFICIES | KEEP | — | estágio 1 (áudio realtime LiveKit/TTS): 5+ rotas HTTP vivas | recorded |
 | Mission | 5115 | 25 | MISSAO | KEEP | — | ortogonal VERIFICADO (cross-ref domínio=0); 414/428 callers eram só MissionCanonicalHash → extrair p/ Support (proposed); piso "nunca executa provider" | proposed |
 | ControlPlane | 4904 | 13 | CONTROL-PLANE | — | — | — | pending |
 | Obra | 4787 | 19 | MISSAO | KEEP | — | motor de materialização Forge; Obra→RealExecution 6 refs (caller, não callee); 9 cmds, seams no provider; handoff mission_type=obra→atlas_forge (linha 279 VERIFICADA) | recorded |
@@ -60,7 +60,7 @@
 | RuntimeEfficiency | 2269 | 4 | RUNTIME | KEEP | — | 13 callers ext, binding provider, 5 cmds; governor path/custo | recorded |
 | Arena | 2231 | 7 | GOVERNANCA-QUALIDADE | KEEP | — | medição viva: controller + drain command operados | recorded |
 | ToolRuntime | 2080 | 15 | RUNTIME | FUSE | Runtime | mock governado (invocation "no external side effects" VERIFICADO); 2 callers; fusão = execução real GOVERNADA c/ receipt | proposed |
-| Surface | 2079 | 15 | SUPERFICIES | — | — | — | pending |
+| Surface | 2079 | 15 | SUPERFICIES | KEEP | — | âncora terminal-first: registry de 11 adapters + capability-parity | recorded |
 | Evidence | 2054 | 17 | GOVERNANCA-QUALIDADE | KEEP | — | workflow de certs/claims sobre Eloquent (25 refs); NÃO é o ledger canônico (esse mora em Kernel/Evidence) | recorded |
 | AutonomousEngineering | 1897 | 4 | ENG-CORE | FUSE | AutonomousOs (com AEOS) | seam-partner VERIFICADO (AutonomousWorkExecutionOs produz envelope que AtlasAutonomousEngineeringService consome, L18); 8 callers ext; não é OS, é code-intelligence | proposed |
 | AutomationDomain | 1869 | 16 | DOMINIOS | — | — | — | pending |
@@ -96,14 +96,14 @@
 | Caching | 851 | 6 | TRANSPORTE | KEEP + RENAME sugerido (cost-governance) | — | CachingAiProvider vivo no AiProviderManager:229 VERIFICADO; é governança de custo, não cache | recorded |
 | Analysis | 835 | 6 | UNITARIO | — | — | — | pending |
 | PersonalDevelopment | 787 | 6 | APRENDIZADO | KEEP | — | domínio de coaching (DomainOrchestrator), não é modelo do operador; 7 ext | recorded |
-| ConversationOps | 736 | 2 | SUPERFICIES | — | — | — | pending |
+| ConversationOps | 736 | 2 | SUPERFICIES | KEEP | — | health/handoff/janitor de conversa; 3 callers prod | recorded |
 | Teos | 723 | 2 | COGNICAO | KEEP | — | 19 refs ext, 4 cmds; layering I3/I4 limpo | recorded |
-| Capture | 719 | 2 | SUPERFICIES | — | — | — | pending |
+| Capture | 719 | 2 | SUPERFICIES | KEEP | — | observabilidade do capture-inbox (não é mídia); 2 cmds | recorded |
 | CrossDomain | 706 | 2 | DOMINIOS | — | — | — | pending |
 | Rsi | 701 | 6 | COGNICAO | KEEP + consolidar | Rsi único (absorve Foundry/Rsi + AreaFocusLoop/Rsi) | 3 namespaces RSI VERIFICADOS; wired em AutonomousEvolutionSessionService | proposed |
 | Provider | 675 | 10 | ROTEAMENTO | FUSE | AiProviderManager | registry paralela de drivers VERIFICADA (2 catálogos); drivers CLI 0 ext callers; fusão = catálogo único = pipe único | proposed |
 | AtlasForge | 665 | 4 | FORGE | — | — | — | pending |
-| Attachments | 649 | 2 | SUPERFICIES | — | — | — | pending |
+| Attachments | 649 | 2 | SUPERFICIES | KEEP | — | ingestão real de mídia: 3 controllers + rotas + job + AiPromptBuilder | recorded |
 | OpenBrain | 622 | 3 | TRANSPORTE | KEEP | — | latency ledger 7 callers prod + recall policy com caller prod re-provado | recorded |
 | DualCore | 620 | 5 | COGNICAO | KEEP | — | 36 HTTP controllers VERIFICADO; boundary route_decision vivo | recorded |
 | Reconciliation | 613 | 1 | MEMORIA-CONTEXTO | KEEP | — | runtime autônomo vivo (11 ext, 2 cmds); absorve Cartography | recorded |
@@ -116,9 +116,9 @@
 | Cartography | 388 | 1 | MEMORIA-CONTEXTO | FUSE | Reconciliation (DocCanonicalScanner) | owner de topo com 1 classe; scanner de canonicidade de docs; 5 ext | proposed |
 | SoftwareCompany | 364 | 1 | ENG-OS-GEMEAS | FUSE | SoftwareCompanyStewardship/ProductMode | 1 arquivo VERIFICADO; projeção read-only; callers já são Stewardship+controller; zero-behavior-change | proposed |
 | Gateway | 357 | 2 | ROTEAMENTO | KEEP | — | preflight com 5 callers ext; concern isolado | recorded |
-| Operator | 323 | 4 | SUPERFICIES | — | — | — | pending |
-| Transcription | 304 | 1 | SUPERFICIES | — | — | — | pending |
-| HumanSurface | 290 | 1 | SUPERFICIES | — | — | — | pending |
+| Operator | 323 | 4 | SUPERFICIES | QUARANTINE | — | 0 callers de produção VERIFICADO (só 4 testes AcosMax); morto vestido de teste verde | proposed |
+| Transcription | 304 | 1 | SUPERFICIES | KEEP | — | estágio 2: gate fail-closed puro, 1 caller load-bearing (WhisperTranscriber) | recorded |
+| HumanSurface | 290 | 1 | SUPERFICIES | KEEP | — | classificador de ambiguidade VIVO no IntentKernelService VERIFICADO | recorded |
 | Forge | 287 | 2 | FORGE | — | — | — | pending |
 | Tasks | 284 | 1 | EXEC-INFRA | — | — | — | pending |
 | Mcp | 283 | 1 | TRANSPORTE | KEEP | (opcional: mover junto do AtlasOpenBrainMcpService) | registry de tiers, 3-4 callers prod VERIFICADO; não é 2º MCP | recorded |
