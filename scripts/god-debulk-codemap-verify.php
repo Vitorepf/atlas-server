@@ -2,6 +2,17 @@
 
 declare(strict_types=1);
 
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
+use League\CommonMark\Extension\Table\Table;
+use League\CommonMark\Extension\Table\TableCell;
+use League\CommonMark\Extension\Table\TableRow;
+use League\CommonMark\Extension\CommonMark\Node\Inline\Code;
+use League\CommonMark\Node\Inline\Text;
+use League\CommonMark\Node\Node;
+use League\CommonMark\Parser\MarkdownParser;
+
 $root = dirname(__DIR__);
 $codemap = $root.'/app/Services/Ai/CODEMAP.md';
 
@@ -11,110 +22,58 @@ function fail(string $reason): never
     exit(1);
 }
 
-/**
- * @return list<string>|null
- */
-function markdownTableCells(string $line): ?array
+$autoload = $root.'/vendor/autoload.php';
+if (! is_file($autoload)) {
+    fail('missing_autoload');
+}
+
+require_once $autoload;
+
+function renderedText(Node $node): string
 {
-    $line = trim($line);
-    if (! str_starts_with($line, '|') || ! str_ends_with($line, '|')) {
+    if ($node instanceof Text) {
+        return $node->getLiteral();
+    }
+
+    $text = '';
+    foreach ($node->children() as $child) {
+        $text .= renderedText($child);
+    }
+
+    return $text;
+}
+
+/**
+ * @return list<TableCell>
+ */
+function tableCells(TableRow $row): array
+{
+    $cells = [];
+    foreach ($row->children() as $child) {
+        if ($child instanceof TableCell) {
+            $cells[] = $child;
+        }
+    }
+
+    return $cells;
+}
+
+function exactCodeTarget(TableCell $cell): ?string
+{
+    $children = [];
+    foreach ($cell->children() as $child) {
+        $children[] = $child;
+    }
+
+    if (count($children) !== 1 || ! $children[0] instanceof Code) {
         return null;
     }
 
-    return array_map('trim', explode('|', trim($line, '|')));
-}
+    $target = $children[0]->getLiteral();
 
-function stripHtmlComments(string $line, bool &$inComment): string
-{
-    $visible = '';
-
-    while ($line !== '') {
-        if ($inComment) {
-            $end = strpos($line, '-->');
-            if ($end === false) {
-                return $visible;
-            }
-            $line = substr($line, $end + 3);
-            $inComment = false;
-
-            continue;
-        }
-
-        $start = strpos($line, '<!--');
-        if ($start === false) {
-            return $visible.$line;
-        }
-
-        $visible .= substr($line, 0, $start);
-        $line = substr($line, $start + 4);
-        $inComment = true;
-    }
-
-    return $visible;
-}
-
-/**
- * @return array{character:string,length:int}|null
- */
-function openingFence(string $line): ?array
-{
-    if (! preg_match('/^ {0,3}(?<fence>`{3,}|~{3,})[^\r\n]*$/', $line, $match)) {
-        return null;
-    }
-
-    return [
-        'character' => $match['fence'][0],
-        'length' => strlen($match['fence']),
-    ];
-}
-
-/**
- * @param  array{character:string,length:int}  $fence
- */
-function closesFence(string $line, array $fence): bool
-{
-    return preg_match(
-        '/^ {0,3}'.preg_quote($fence['character'], '/').'{'.$fence['length'].',}[ \t]*$/',
-        $line
-    ) === 1;
-}
-
-/**
- * @return list<string>
- */
-function visibleMarkdownLines(string $contents): array
-{
-    $lines = preg_split('/\R/', $contents);
-    if ($lines === false) {
-        fail('unreadable_codemap');
-    }
-
-    $visible = [];
-    $inComment = false;
-    $fence = null;
-
-    foreach ($lines as $line) {
-        $line = stripHtmlComments($line, $inComment);
-
-        if ($fence !== null) {
-            if (closesFence($line, $fence)) {
-                $fence = null;
-            }
-
-            continue;
-        }
-        if (($fence = openingFence($line)) !== null) {
-
-            continue;
-        }
-        if (preg_match('/^(?: {4}|\t)/', $line)) {
-            continue;
-        }
-
-        $visible[] = $line;
-    }
-
-    return $visible;
+    return preg_match('/^App(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+::[A-Za-z_][A-Za-z0-9_]*$/', $target) === 1
+        ? $target
+        : null;
 }
 
 /**
@@ -122,33 +81,49 @@ function visibleMarkdownLines(string $contents): array
  */
 function navigationTargets(string $contents): array
 {
-    $lines = visibleMarkdownLines($contents);
+    $environment = new Environment();
+    $environment->addExtension(new CommonMarkCoreExtension());
+    $environment->addExtension(new GithubFlavoredMarkdownExtension());
+    $document = (new MarkdownParser($environment))->parse($contents);
 
-    foreach ($lines as $index => $line) {
-        $header = markdownTableCells($line);
-        if ($header !== ['Change concern', 'Concrete navigation target']) {
+    foreach ($document->iterator() as $table) {
+        if (! $table instanceof Table) {
             continue;
         }
 
-        $separator = markdownTableCells($lines[$index + 1] ?? '');
-        if ($separator === null || count($separator) !== 2 || ! preg_match('/^:?-{3,}:?$/', $separator[0]) || ! preg_match('/^:?-{3,}:?$/', $separator[1])) {
-            fail('invalid_navigation_table');
+        $rows = [];
+        foreach ($table->iterator() as $node) {
+            if ($node instanceof TableRow) {
+                $rows[] = $node;
+            }
+        }
+
+        $header = array_shift($rows);
+        if (! $header instanceof TableRow) {
+            continue;
+        }
+
+        $headerCells = tableCells($header);
+        if (count($headerCells) !== 2
+            || $headerCells[0]->getType() !== TableCell::TYPE_HEADER
+            || $headerCells[1]->getType() !== TableCell::TYPE_HEADER
+            || renderedText($headerCells[0]) !== 'Change concern'
+            || renderedText($headerCells[1]) !== 'Concrete navigation target') {
+            continue;
         }
 
         $targets = [];
-        for ($row = $index + 2; $row < count($lines); $row++) {
-            $cells = markdownTableCells($lines[$row]);
-            if ($cells === null) {
-                break;
-            }
-            if (count($cells) !== 2 || $cells[0] === '') {
+        foreach ($rows as $row) {
+            $cells = tableCells($row);
+            if (count($cells) !== 2 || trim(renderedText($cells[0])) === '') {
                 fail('invalid_navigation_row');
             }
 
-            if (! preg_match('/^`(?<target>App(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+::[A-Za-z_][A-Za-z0-9_]*)`$/', $cells[1], $match)) {
+            $target = exactCodeTarget($cells[1]);
+            if ($target === null) {
                 fail('invalid_navigation_row');
             }
-            $targets[] = $match['target'];
+            $targets[] = $target;
         }
 
         if ($targets === []) {

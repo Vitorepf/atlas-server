@@ -138,6 +138,76 @@ PHP,
         }
     }
 
+    public function test_codemap_verifier_rejects_a_navigation_table_inside_a_fence_started_by_a_list_item(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\ListFenceMap::check';
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n- ```markdown\n  ".$this->navigationTable($target)."\n  ```\n", [
+            'App\\Services\\Ai\\Fixture\\ListFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\ListFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_a_navigation_table_in_a_mixed_indentation_list_fence(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\MixedIndentMap::check';
+        $table = str_replace("\n|", "\n  |", $this->navigationTable($target));
+        $table = str_replace("\n  | ---", "\n   | ---", $table);
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n- ```markdown\n  {$table}\n  ```\n", [
+            'App\\Services\\Ai\\Fixture\\MixedIndentMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\MixedIndentMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_rejects_html_literals_inside_a_fenced_code_block(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\HtmlFenceMap::check';
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n```html\n<section>\n{$this->navigationTable($target)}\n</section>\n```\n", [
+            'App\\Services\\Ai\\Fixture\\HtmlFenceMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\HtmlFenceMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
+    public function test_codemap_verifier_accepts_a_visible_table_after_an_invalid_backtick_fence_info_string(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\InvalidFenceInfoMap::check';
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n```invalid`info\n{$this->navigationTable($target)}\n", [
+            'App\\Services\\Ai\\Fixture\\InvalidFenceInfoMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\InvalidFenceInfoMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_OK targets=1', $process->getOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
     public function test_codemap_verifier_rejects_a_navigation_table_inside_an_html_comment(): void
     {
         $target = 'App\\Services\\Ai\\Fixture\\CommentedMap::check';
@@ -399,6 +469,8 @@ BASH);
         $root = sys_get_temp_dir().'/god-debulk-codemap-'.bin2hex(random_bytes(8));
         mkdir($root.'/scripts', 0700, true);
         copy(base_path('scripts/god-debulk-codemap-verify.php'), $root.'/scripts/god-debulk-codemap-verify.php');
+        mkdir($root.'/vendor', 0700, true);
+        file_put_contents($root.'/vendor/autoload.php', "<?php\nrequire ".var_export(base_path('vendor/autoload.php'), true).";\n");
 
         if ($codemap !== null) {
             $path = $root.'/app/Services/Ai/CODEMAP.md';
