@@ -992,37 +992,6 @@ write_back:
   auto_promoted: false
 ```
 
-## Task 36 — A1-SC-0149 declare terminal digest collaborators, 2026-07-22
-
-```yaml
-finding: A1-SC-0149
-commit: c6bb04469
-subject: "refactor(core): GOD-DEBULK declare terminal digest collaborators"
-scope:
-  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
-  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-red:
-  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_digest_initializes_lazy_collaborators_without_dynamic_property_deprecations
-  result: "FAIL 1 test, 2 assertions: public digest() created dynamic payloadNormalizer and commandComposer properties under PHP 8.5."
-green:
-  behavior: "typed nullable properties own the two existing lazy collaborators; the unchanged lazy factories initialize declared state without deprecated dynamic-property writes."
-  characterization: "an E_DEPRECATED handler wraps a real digest() call and filters only this digest class after the call; no private factory is invoked directly."
-verification:
-  focused_dynamic_property_contract: "PASS 1 test, 2 assertions"
-  digest_unit_suite: "PASS 17 tests, 52 assertions"
-  php_lint: "PASS source and changed unit test"
-  loc: "terminal_loop_health_digest=1631 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
-  diff_check: PASS
-  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
-boundary:
-  - fixes only dynamic state created by the digest's commandComposer and payloadNormalizer factories
-  - the same public call exposed AgentControlPlaneTaskPacketQueueRepository.registryIndexStore dynamic-property debt; it was recorded in EXEC-DEBTS and remains outside this owner
-  - no queue, lease, provider, token, or mutation behavior changed
-write_back:
-  status: recorded_for_human_review
-  auto_promoted: false
-```
-
 ## Task 35 — LearningConsolidation M3-C Cognition AcosProgram, 2026-07-22
 
 ```yaml
@@ -1056,6 +1025,37 @@ boundary:
   - no ACOS formula, default-off gate, command signature, provider call, token spend, or evidence-promotion behavior changed
   - the legacy AcosMax namespace is a one-cycle autoload compatibility adapter, not a second program implementation
   - the known Cockpit-to-Command back-reference remains named debt for the EXECUTE wave; it was not widened here
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 36 — A1-SC-0149 declare terminal digest collaborators, 2026-07-22
+
+```yaml
+finding: A1-SC-0149
+commit: c6bb04469
+subject: "refactor(core): GOD-DEBULK declare terminal digest collaborators"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_digest_initializes_lazy_collaborators_without_dynamic_property_deprecations
+  result: "FAIL 1 test, 2 assertions: public digest() created dynamic payloadNormalizer and commandComposer properties under PHP 8.5."
+green:
+  behavior: "typed nullable properties own the two existing lazy collaborators; the unchanged lazy factories initialize declared state without deprecated dynamic-property writes."
+  characterization: "an E_DEPRECATED handler wraps a real digest() call and filters only this digest class after the call; no private factory is invoked directly."
+verification:
+  focused_dynamic_property_contract: "PASS 1 test, 2 assertions"
+  digest_unit_suite: "PASS 17 tests, 52 assertions"
+  php_lint: "PASS source and changed unit test"
+  loc: "terminal_loop_health_digest=1631 (<2000; existing hot-size finding A1-SC-0147 remains separate)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - fixes only dynamic state created by the digest's commandComposer and payloadNormalizer factories
+  - the same public call exposed AgentControlPlaneTaskPacketQueueRepository.registryIndexStore dynamic-property debt; it was recorded in EXEC-DEBTS and remains outside this owner
+  - no queue, lease, provider, token, or mutation behavior changed
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
