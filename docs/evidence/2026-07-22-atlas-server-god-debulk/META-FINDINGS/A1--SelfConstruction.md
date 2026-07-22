@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 12
+files_scanned: 13
 files_total: 1210
-lines_scanned: 98942
+lines_scanned: 100796
 ```
 
 ## Files
@@ -2389,15 +2389,245 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+loc: 1854
+kind: operator_evidence_submission_readiness_audit_runbook_command_and_completion_policy_projection
+intent_axes: [1, 2, 3, 5, 6, 7, 8, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 33, 35, 36, 37, 38, 40, 41, 42, 43, 45, 49, 54, 55, 62, 64, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0112
+    type: godfile
+    severity: s1
+    detail: "A single public build method expands into 46 private methods and 1,854 LOC of input loading, three evidence verifiers, completion audit, runtime gap matrix, hash composition, diagnostics, persistence planning, sequencing, proof bundling, terminal-loop health, runbook generation, command integrity, next-action graph, external claim policy, and twelve safety envelopes. It sits only 146 LOC below the generic cutoff while 21 other app files consume the class."
+    evidence:
+      - "2 public methods including constructor; 46 private methods"
+      - "13 new expressions, 163 data_get calls, 40 literal self-construction command strings, and 13 stableHash calls"
+      - "12 non_execution_guarantees blocks and 55 literal false fields"
+      - "22 app reference files including the definition and two direct test files"
+      - "sha256=d28f452fad3e019749ed518f0dd0558adb81afbf9466df51ce9b73dacd9b6dc5"
+  - id: A1-SC-0113
+    type: bug
+    severity: s0
+    detail: "The live entrypoint fatals before returning any readiness payload. Thirteen calls use relative OperatorEvidence\\... names from the NativeImplementation namespace, so PHP resolves NativeImplementation\\OperatorEvidence classes that do not exist; the extracted helpers actually live at SelfConstruction\\OperatorEvidence. Syntax lint passes, but both focused unit and feature tests die in emptyVerification before their first assertion."
+    evidence:
+      - "runtime error: Class App\\Services\\Ai\\SelfConstruction\\NativeImplementation\\OperatorEvidence\\OperatorEvidenceCanonicalizer not found at line 1,844"
+      - "same namespace defect affects OperatorEvidenceFieldInspector and TerminalLoopOperationalProofCommandFactory"
+      - "focused run => 2 failed / 0 assertions / 10.42s"
+      - "git history shows four split-operatorevidencereadiness commits, but no import/fully-qualified binding remains in this owner"
+  - id: A1-SC-0114
+    type: bug
+    severity: s0
+    detail: "Operator-supplied evidence is echoed verbatim into payload_under_review, including arbitrary nested keys, although a provider-safe canonicalizer with recursive secret-key removal already exists. The service hashes and returns the raw payload instead of calling canonicalize; a reflection probe preserved api_key, raw_prompt, and nested authorization unchanged. Any CLI/status/log/provider consumer can therefore receive secret-bearing evidence bytes."
+    evidence:
+      - "operatorSubmissionEnvelope line 1,432 assigns payload_under_review => payload without redaction"
+      - "OperatorEvidenceCanonicalizer removes raw_prompt, provider_trace, raw_secret, secret, tokens, passwords, API/private keys, and authorization only when canonicalize is called"
+      - "this service calls stableHash but never canonicalize"
+      - "isolated probe returned all three dummy secret-bearing fields unchanged"
+      - "canonicalizer redaction unit test passes 5 assertions, proving the safe primitive exists but is bypassed"
+  - id: A1-SC-0115
+    type: bug
+    severity: s1
+    detail: "The generated human-receipt persistence route disagrees with its own canonical registry. Six surfaces use completion-receipt.json, while closureArtifactSequence alone emits human-completion-receipt.json. The operator checklist can therefore copy a green-looking final-step command that points at a file the publisher and loader never create; command-surface integrity still reports aligned because it validates option names, not referenced paths."
+    evidence:
+      - "canonical private path => storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json"
+      - "closureArtifactSequence line 1,639 emits .../human-completion-receipt.json"
+      - "repo-wide search finds that wrong filename only in this source"
+      - "runtime alias probe returned the conflicting command and canonical path in the same payload"
+      - "canonical_submission_directory and per-step canonical_submission_path also retain stale storage/app/atlas hints beside the real storage/app/private paths"
+  - id: A1-SC-0116
+    type: perf
+    severity: s0
+    detail: "A read-only readiness request loads the full completion audit, runtime gap matrix, persisted receipt verifiers, terminal-loop health/queue state, Artisan command definition, and multiple derivative graphs. After process-only aliases bypassed the namespace fatal, one default build took 83.28 seconds and 200,933,376 bytes maximum RSS before returning a small status summary. Even the two fataling focused tests consumed 10.42 seconds and 186,925,056 bytes RSS without reaching an assertion."
+    evidence:
+      - "post-alias read-only build => 83.28s real / 72.51s user / 4.93s sys"
+      - "maximum RSS => 200,933,376 bytes; peak memory footprint => 173,884,136 bytes"
+      - "reported retired instructions => 1,708,689,298,983"
+      - "build constructs completion audit, runtime gap matrix, three verifiers, hash composer, terminal-loop health digest, and command analyzer"
+      - "no latency, RSS, filesystem, query, command-count, or dependency-evaluation budget exists in the two direct suites"
+  - id: A1-SC-0117
+    type: bug
+    severity: s1
+    detail: "One payload does not use one immutable evidence snapshot. build calls persistedEvidenceState three separate times; every call independently reloads real-provider smoke and human completion receipt while other projections are computed before and between them. Concurrent operator persistence can make the persistence plan, sequence integrity, and proof bundle disagree within one submission_readiness_hash."
+    evidence:
+      - "persistedEvidenceState is invoked separately for canonicalSubmissionPersistencePlan, operatorEvidenceSequenceIntegrity, and operatorCompletionProofBundle"
+      - "each invocation constructs RealProviderSmokeCertificationService and HumanSignedCompletionReceiptService and reads current persisted state"
+      - "completionAudit and runtimeGapMatrix are also separately materialized before these three reads"
+      - "there is no version/hash equality assertion across the snapshots"
+  - id: A1-SC-0118
+    type: dupe
+    severity: s1
+    detail: "The same four-step closure law is manually restated through diagnostics, three envelopes, persistence plan, sequence integrity, proof bundle, five-step runbook, closure sequence, next-action graph, checklist, next-action shell packet, external claim policy, and readiness facade aliases. Commands, filenames, statuses, blockers, proof predicates, false flags, and non-execution promises drift because no single typed artifact/transition registry renders these views."
+    evidence:
+      - "40 literal atlas:ai:self-construction command strings in this file"
+      - "12 non-execution guarantee blocks and 55 literal false fields"
+      - "runtime/smoke/human/final-audit order is independently rebuilt by at least seven methods"
+      - "the human receipt filename drift is a concrete product of the copies"
+      - "submission result is projected again through ReadinessProjectionOsEvidenceSection and numerous readiness sections"
+  - id: A1-SC-0119
+    type: false_abstraction
+    severity: s1
+    detail: "Recent helper extraction left a wider owner plus dead compatibility residue. Six private forwarding methods have no in-class caller, two facade imports and three path/constants are unused, and the remaining build still constructs most collaborators directly. The helper collector itself is another object wrapper around static methods, so the split added hops without creating an injectable evidence snapshot, path registry, command registry, or lifecycle owner."
+    evidence:
+      - "unused private wrappers => collectOperatorCommands, extractCommandOptions, selfConstructionCommandOptions, legacySelfConstructionCommandAliases, isPlaceholderValue, normalizeStoragePath"
+      - "unused imports => Artisan and Storage"
+      - "unused constants => STORAGE_DISK and both canonical path maps in this source; copies live in OperatorEvidenceSubmissionInputLoader"
+      - "13 direct new expressions remain"
+      - "source remains 1,854 LOC after four named split commits"
+  - id: A1-SC-0120
+    type: test_gap
+    severity: s1
+    detail: "The 1,508 LOC feature suite and 94 LOC unit suite are not an effective gate for the current refactor. The focused happy path currently fails with a missing helper class before 0 assertions; existing tests validate 64-character hashes and command option existence, but not autoloadability of every delegated helper, canonical path identity across every emitted command, secret redaction, single-snapshot consistency, or performance budgets."
+    evidence:
+      - "focused current run => 2 failed / 0 assertions"
+      - "feature test accepts command_surface_aligned but never asserts the closure-sequence human persist filename"
+      - "no payload_under_review secret/redaction assertion exists in either direct suite"
+      - "unit suite calls full build six times for a four-node graph rather than injecting a bounded snapshot"
+      - "no performance assertion catches 5s fatal setup or 83s successful build"
+  - id: A1-SC-0121
+    type: os_overlap
+    severity: s0
+    detail: "A class named submission readiness contains an operator evidence OS: canonical/draft storage discovery, cryptographic composition, three verifier policies, completion audit authority, runtime gap evaluation, persisted-state truth, command surface inspection, terminal-loop fleet health, proof binding, ordered runbook, persistence plan, external-claim constitution, and shell-copy UX. It substantially overlaps the already-audited FinalOperatorEvidenceClosureCorridorService and the giant readiness projections, leaving no single owner for closure law or command/path truth."
+    evidence:
+      - "build directly composes AtlasSelfConstructionOsCompletionAuditService, RuntimeGapMatrixService, receipt/smoke/human verifiers, hash composer, and terminal-loop health digest"
+      - "21 application consumers outside the definition reach this service"
+      - "FinalOperatorEvidenceClosureCorridorService also owns the same runtime/smoke/human/final-audit corridor and command family"
+      - "ReadinessProjectionOsEvidenceSection reprojects this payload into another public status surface"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Restore runtime reachability with explicit imports/fully-qualified helper references; replace every evidence filename/directory literal with one canonical path registry; canonicalize/redact operator input before any payload, hash, log, or projection; compute one versioned immutable evidence snapshot and pass it through every view."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+      - app/Services/Ai/SelfConstruction/Support/OperatorEvidenceSubmissionInputLoader.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService.php
+    acceptance:
+      - "build returns without autoload errors in unit, feature, CLI, and readiness-facade paths"
+      - "all emitted human receipt commands resolve to the one publisher/loader canonical file"
+      - "secret-bearing keys and values never survive provider-bound/readiness output"
+      - "all subprojections carry the same evidence snapshot version/hash"
+  - op: TEST
+    detail: "Add an autoload smoke test for every extracted collaborator plus table-driven contracts for all four artifacts and every rendered view. Assert path equality/existence, command argv/options/placeholders, redaction at all nesting depths, snapshot drift rejection, terminal-loop preflight semantics, and cold/warm latency/RSS/IO/query budgets."
+    target_paths:
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+      - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest.php
+      - tests/Unit/Services/Ai/SelfConstruction/OperatorEvidence
+    acceptance:
+      - "current two-test fatal becomes green before structural work"
+      - "a single expected path registry drives assertions for every command and artifact"
+      - "dummy secret fields are absent/redacted in the full build result, not only canonicalizer unit tests"
+      - "performance regression fails well below the observed 83.28-second/200.9-MB baseline"
+  - op: SPLIT
+    detail: "Split the projection by authority before fusion: evidence snapshot loader, verifier/policy evaluator, closure graph, operator command renderer, and compact readiness presenter. Keep one temporary compatibility build facade below 500 LOC; no view owner may recursively construct completion audit, runtime matrix, queue health, or Artisan command graphs."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+      - app/Services/Ai/SelfConstruction/Support
+    acceptance:
+      - "one request creates one bounded immutable input snapshot"
+      - "policy/view code is pure and independently testable without booting the full readiness mother"
+      - "compatibility facade has a dated removal plan and no duplicated domain literals"
+  - op: OWNER
+    detail: "Name one canonical owner for operator evidence artifact identity/order, one for verification/completion authorization, one for persistence commands, and one for terminal-loop operational proof. FinalOperatorEvidenceClosureCorridor and readiness projections consume those owners; they cannot redefine the law."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+    acceptance:
+      - "one owner defines ids, schemas, order, canonical paths, blockers, commands, and final predicate"
+      - "closure corridor and readiness surfaces are projections, not parallel authorities"
+      - "operator-signed, provider-observed, and derived proof boundaries stay distinct"
+  - op: EXTRACT
+    detail: "Create a typed four-node closure DAG/catalog and one OperatorEvidenceSnapshot. Each node declares schema, owner, prerequisite ids, verifier, canonical storage ref, persistence command template, proof predicate, provider-safety projection, and current state; render envelopes, plan, graph, checklist, proof bundle, runbook, and shell packet from it."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/OperatorEvidence
+    acceptance:
+      - "duplicate/missing/cyclic nodes, path drift, unbound command options, or unsafe output fields fail catalog validation"
+      - "every view is derived from the same four nodes and snapshot hash"
+      - "tests can build all views without Laravel boot or filesystem access"
+  - op: FUSE
+    detail: "After owner extraction, fuse same-owner command/canonicalization forwarding wrappers and overlapping closure-corridor views into the catalog renderers. Do not fuse verification, persistence, runtime health, and presentation into a replacement godfile."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Support/OperatorEvidenceSubmissionCommandSurfaceCollector.php
+      - app/Services/Ai/SelfConstruction/OperatorEvidence/OperatorCommandSurfaceIntegrityAnalyzer.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php
+    acceptance:
+      - "every retained wrapper owns an invariant or has a second independent consumer"
+      - "hops and LOC decrease while provider-safety and completion authority stay explicit"
+  - op: DELETE
+    detail: "Delete the six dead private wrappers, two unused imports, unused duplicate constants, stale storage/app/atlas hints, wrong human filename, and repeated safety/command literals only after the canonical registry and characterization land."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - app/Services/Ai/SelfConstruction/Support/OperatorEvidenceSubmissionInputLoader.php
+    acceptance:
+      - "zero unused imports/constants/private methods"
+      - "zero human-completion-receipt.json and zero authoritative storage/app/atlas path hints"
+      - "no deleted field/alias has an unmigrated consumer"
+  - op: CODEMAP
+    detail: "Map build and all 21 application consumers to snapshot, verifier, graph, command, path, proof, completion-authority, and presentation owners. Record which surfaces are read-only, provider-bound, operator-only, persistence-capable, or diagnostic-only."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+    acceptance:
+      - "every emitted command/path/hash and every consumer has one Class::method owner"
+      - "navigation from CLI/status to canonical closure law is at most three hops"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Instrument dependency evaluations, readiness facade calls, filesystem reads/bytes, queue files, schema/DB queries, command reflection, hashes, wall/user/sys time, and RSS. Memoize only the immutable per-request snapshot and render pure views once; separate compact default readiness from opt-in deep audit/runbook detail."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+      - tests/Feature/Ai/SelfConstruction
+    acceptance:
+      - "default readiness has a published sub-second or explicitly approved bounded budget"
+      - "each expensive dependency evaluates at most once per request"
+      - "cold/warm benchmarks fail on latency, RSS, IO, query, or evaluation-count regression"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1854
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: d28f452fad3e019749ed518f0dd0558adb81afbf9466df51ce9b73dacd9b6dc5
+  source_bytes: 108899
+  public_method_count: 2
+  private_method_count: 46
+  data_get_call_count: 163
+  direct_new_expression_count: 13
+  stable_hash_call_count: 13
+  literal_self_construction_command_count: 40
+  non_execution_guarantee_block_count: 12
+  literal_false_field_count: 55
+  persisted_evidence_state_call_count: 3
+  relative_operator_evidence_reference_count: 13
+  unused_private_wrapper_count: 6
+  unused_import_count: 2
+  unused_constant_or_path_map_count: 3
+  app_reference_file_count_including_definition: 22
+  test_reference_file_count: 2
+  focused_current_test_failed_count: 2
+  focused_current_test_assertion_count: 0
+  focused_current_test_duration_seconds: 10.42
+  focused_current_test_max_rss_bytes: 186925056
+  post_alias_build_wall_seconds: 83.28
+  post_alias_build_max_rss_bytes: 200933376
+  post_alias_build_peak_memory_footprint_bytes: 173884136
+  post_alias_build_instructions_retired: 1708689298983
+  canonicalizer_redaction_test_passed_count: 1
+  canonicalizer_redaction_test_assertion_count: 5
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 12 / 1210
-- lines_scanned: 98942
-- s0..s3: 50 / 42 / 19 / 0
-- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
-- intent_axes_missing_in_this_bucket: [9, 11, 12, 26, 31, 32, 39, 43, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
+- files_scanned: 13 / 1210
+- lines_scanned: 100796
+- s0..s3: 54 / 48 / 19 / 0
+- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+- intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 39, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN transactional queue/lease/receipt completion, verified commit binding, fail-closed dependency/admission/recovery, durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST queue transition failure injection and scale budgets, 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT task queue lifecycle and parent/monster sections by authority", "OWNER queue state, lease authority, dependency policy, completion reconciliation, learning, one durable-reservation law outside AAEOS quarantine, provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT journaled typed transitions, bounded candidate indexes, validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE only same-owner peels after lifecycle/parent split", "DELETE false ledger guarantees, stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, paths, and quartet aliases", "CODEMAP queue consumers/transitions plus callers, routes, reservation surfaces, closure stages, commands, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, packet paths, and costs", "PERF queue-size/lock/task-file plus node/hash/mother/instruction/memory/query/schema/IO/signature/depth/payload budgets"]
+- ordered_worklist: ["BUGFIX_PLAN operator-evidence helper autoload, provider-safe redaction, canonical paths, immutable snapshot, transactional queue/lease/receipt completion, verified commit binding, fail-closed dependency/admission/recovery, durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST current operator-readiness fatal/path/redaction/snapshot/performance, queue transition failure injection and scale budgets, 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT operator-evidence views, task queue lifecycle, and parent/monster sections by authority", "OWNER one operator-evidence closure law plus queue state, lease authority, dependency policy, completion reconciliation, learning, one durable-reservation law outside AAEOS quarantine, provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT operator-evidence snapshot/catalog, journaled typed transitions, bounded candidate indexes, validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE only same-owner operator/closure and lifecycle peels after splits", "DELETE wrong/legacy paths, dead operator wrappers, false ledger guarantees, stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, and quartet aliases", "CODEMAP operator evidence/commands/paths plus queue consumers/transitions, callers, routes, reservation surfaces, closure stages, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, and costs", "PERF operator-readiness dependencies plus queue-size/lock/task-file and node/hash/mother/instruction/memory/query/schema/IO/signature/depth/payload budgets"]
 - meta_complete: false
 ```
