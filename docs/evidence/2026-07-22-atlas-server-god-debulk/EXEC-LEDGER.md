@@ -1439,3 +1439,42 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 48 — RootSinglesRehome Skills, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Skills
+commit: ecfa0eb3e
+subject: "refactor(core): GOD-DEBULK RootSingles Skills rehome"
+scope:
+  - app/Services/Ai/Skills/AiSkill.php and app/Services/Ai/Skills/AiSkillStore.php
+  - AiPromptBuilder, bootstrap command, provider identity projection, one-cycle legacy aliases, compatibility coverage, and AI CODEMAP
+  - canonical Skill Pack and Programming specialist-profile path references
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_skills_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Skills\\AiSkill did not exist before the re-home."
+green:
+  behavior: "AiSkill and AiSkillStore now have one canonical Skills namespace. The retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "The compatibility test proves canonical class loading, then explicitly triggers and verifies each retired root alias."
+verification:
+  skills_and_prompt_suites: "PASS 15 tests, 97 assertions (root compatibility and five AiPromptBuilder contracts)."
+  parallel_root_compatibility: "PASS 6 tests, 12 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports pre-existing PSR-4 warnings in unrelated tests)."
+  root_sweep: "PASS: old root source paths are absent; direct old FQCN sweep leaves only explicit compatibility imports, while the alias map intentionally stores escaped legacy literals."
+  php_lint: "PASS all 13 touched PHP files"
+  phpstan: "PASS AiPromptBuilder.php. AiSkillStore is NOT GREEN (3 existing CanonicalDocsFrontmatterParser discovery diagnostics); it is not used as proof and no baseline ownership was established."
+  pint: "PASS moved skills, alias, and all touched tests. Strict full-file Pint is NOT GREEN for existing formatting drift in AiPromptBuilder; no broad reformatting was applied."
+  docs_health: "NOT GREEN: repository-wide docs-health reports 378 blocking pre-existing violations; it does not establish the changed docs as clean."
+  engineering_usage_feature: "NOT CONCLUSIVE: the full AtlasCodeRealityUsageIntelligenceServiceTest runner did not complete; three duplicate long-running invocations were terminated and this gate is not used as proof."
+  codemap: "PASS god-debulk-codemap-verify (targets=10)"
+  density_guard: "PASS existing baseline: >5k=14, >2k=40; skill=20 LOC, store=1050 LOC. Root first-level Ai owner count falls 91 to 89 (58979 to 57910 LOC)."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; skill structure creation, Vault reads, frontmatter parsing, slug resolution, prompt construction, and provider identity projection are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production and test consumers use the Skills owner directly; canonical docs and CODEMAP now name the canonical path
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
