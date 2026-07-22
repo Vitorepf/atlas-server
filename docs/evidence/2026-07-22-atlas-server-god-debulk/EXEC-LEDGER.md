@@ -927,6 +927,6 @@ boundary:
   - the old AcosMax namespace is a one-cycle autoload compatibility adapter, not a second retrieval implementation
   - M3-C rehomes only the remaining Acos program owners
 write_back:
-  status: pending_record
+  status: recorded_for_human_review
   auto_promoted: false
 ```
