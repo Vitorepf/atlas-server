@@ -46,6 +46,10 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         'end_to_end_real_provider_smoke_green',
     ];
 
+    private ?TerminalLoopHealthDigestCommandComposer $commandComposer = null;
+
+    private ?TerminalLoopHealthDigestPayloadNormalizer $payloadNormalizer = null;
+
     public function __construct(
         private readonly ?AgentControlPlaneTaskPacketQueueRepository $queue = null,
         private readonly ?AgentControlPlaneTaskLeaseRecoveryService $recovery = null,

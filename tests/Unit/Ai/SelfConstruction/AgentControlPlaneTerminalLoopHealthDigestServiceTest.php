@@ -109,6 +109,33 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertNotEmpty($digest['terminal_loop_health_digest_hash']);
     }
 
+    public function test_digest_initializes_lazy_collaborators_without_dynamic_property_deprecations(): void
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $severity, string $message) use (&$deprecations): bool {
+            if ($severity === E_DEPRECATED && str_contains($message, 'Creation of dynamic property')) {
+                $deprecations[] = $message;
+
+                return true;
+            }
+
+            return false;
+        });
+
+        try {
+            $digest = $this->service()->digest();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertArrayHasKey('terminal_loop_health_digest_hash', $digest);
+        $digestDeprecations = array_values(array_filter(
+            $deprecations,
+            static fn (string $message): bool => str_contains($message, AgentControlPlaneTerminalLoopHealthDigestService::class),
+        ));
+        $this->assertSame([], $digestDeprecations, 'digest must not create lazy collaborators as dynamic properties');
+    }
+
     public function test_replenish_wait_state_includes_reason_command_and_explanation(): void
     {
         $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);
