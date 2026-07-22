@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureComparisonEngine;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureComparisonEngine;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**

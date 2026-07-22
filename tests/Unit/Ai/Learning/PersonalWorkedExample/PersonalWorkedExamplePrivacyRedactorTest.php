@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\PersonalWorkedExample;
+namespace Tests\Unit\Ai\Learning\PersonalWorkedExample;
 
-use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExamplePrivacyRedactor;
+use App\Services\Ai\Learning\PersonalWorkedExample\PersonalWorkedExamplePrivacyRedactor;
 use Tests\TestCase;
 
 class PersonalWorkedExamplePrivacyRedactorTest extends TestCase

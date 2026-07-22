@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Dreyfus;
+namespace Tests\Unit\Ai\Learning\Dreyfus;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyResolver;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyResolver;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Tests\Concerns\TestsWithLedgerEvents;

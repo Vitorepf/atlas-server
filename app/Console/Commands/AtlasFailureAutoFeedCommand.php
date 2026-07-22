@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Failure\FailureAutoFeedHarvester;
+use App\Services\Ai\Learning\Failure\FailureAutoFeedHarvester;
 use Illuminate\Console\Command;
 
 /**

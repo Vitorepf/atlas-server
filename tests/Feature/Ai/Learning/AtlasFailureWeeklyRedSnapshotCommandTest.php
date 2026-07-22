@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;

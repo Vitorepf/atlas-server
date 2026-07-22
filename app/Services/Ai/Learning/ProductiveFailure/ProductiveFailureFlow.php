@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\ProductiveFailure;
+namespace App\Services\Ai\Learning\ProductiveFailure;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;

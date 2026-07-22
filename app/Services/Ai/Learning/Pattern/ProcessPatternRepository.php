@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\Pattern;
+namespace App\Services\Ai\Learning\Pattern;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
+use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;

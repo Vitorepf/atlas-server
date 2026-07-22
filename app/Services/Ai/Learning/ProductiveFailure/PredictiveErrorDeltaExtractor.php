@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\ProductiveFailure;
+namespace App\Services\Ai\Learning\ProductiveFailure;
 
 class PredictiveErrorDeltaExtractor
 {

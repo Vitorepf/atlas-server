@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\SelfImprovement;
 
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureSessionRepository;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureSessionRepository;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;

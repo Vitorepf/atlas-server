@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Kernel\Gates;
 
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureClassifier;
+use App\Services\Ai\Learning\Failure\FailureSignatureClassifier;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 
 class FailureSignatureClassifiedGate

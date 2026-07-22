@@ -10,7 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
-use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
+use App\Services\Ai\Learning\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;

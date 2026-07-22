@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Harness;
+namespace App\Services\Ai\Learning\Harness;
 
 use Throwable;
 

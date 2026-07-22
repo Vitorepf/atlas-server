@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Gates;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Learning\PredictiveFailure\CalibrationBandClassifier;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 
 class PredictiveFailureCalibrationBandGate

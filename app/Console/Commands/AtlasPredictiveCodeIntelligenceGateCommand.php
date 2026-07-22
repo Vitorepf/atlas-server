@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 

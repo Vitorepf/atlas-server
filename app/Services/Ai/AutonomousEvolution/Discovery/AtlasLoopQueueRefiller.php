@@ -20,7 +20,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\Supply\FeatureFrontierSupplyLa
 use App\Services\Ai\AutonomousEvolution\Discovery\Supply\PatternTransferSupplyLane;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
-use App\Services\Ai\Cognitive\Failure\SuiteRedTestHandleHarvester;
+use App\Services\Ai\Learning\Failure\SuiteRedTestHandleHarvester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;

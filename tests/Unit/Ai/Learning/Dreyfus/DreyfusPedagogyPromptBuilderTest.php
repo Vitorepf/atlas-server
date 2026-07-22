@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Dreyfus;
+namespace Tests\Unit\Ai\Learning\Dreyfus;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyPromptBuilder;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyPromptBuilder;
 use Tests\TestCase;
 
 class DreyfusPedagogyPromptBuilderTest extends TestCase

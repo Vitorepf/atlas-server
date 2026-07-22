@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessFrozenSuite;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessProposalBridge;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessFrozenSuite;
+use App\Services\Ai\Learning\Harness\AtlasHarnessProposalBridge;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -80,7 +80,7 @@ class AtlasHarnessObraBTest extends TestCase
             'atlas.ai.max_attempts' => 1,
         ]);
         $bridge = new AtlasHarnessProposalBridge(
-            $this->createStub(\App\Services\Ai\Cognitive\Failure\FailureSignatureRepository::class),
+            $this->createStub(\App\Services\Ai\Learning\Failure\FailureSignatureRepository::class),
             $this->surface,
         );
         $map = new \ReflectionMethod($bridge, 'mapClusterToSurface');

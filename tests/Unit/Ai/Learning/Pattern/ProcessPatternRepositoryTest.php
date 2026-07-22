@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Pattern;
+namespace Tests\Unit\Ai\Learning\Pattern;
 
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternRepository;
+use App\Services\Ai\Learning\Pattern\ProcessPatternRepository;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 

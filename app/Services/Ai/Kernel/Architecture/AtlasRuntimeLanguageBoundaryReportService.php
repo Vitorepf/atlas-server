@@ -33,7 +33,7 @@ class AtlasRuntimeLanguageBoundaryReportService
             ],
             'protected_scopes' => [
                 'app/Services/Ai/Context',
-                'app/Services/Ai/Cognitive',
+                'app/Services/Ai/Learning',
                 'app/Services/Ai/Domain',
                 'app/Services/Ai/Memory',
                 'app/Services/Ai/Provider',

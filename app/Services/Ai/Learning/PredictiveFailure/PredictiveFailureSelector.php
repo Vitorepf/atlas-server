@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PredictiveFailure;
+namespace App\Services\Ai\Learning\PredictiveFailure;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
+use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
+use App\Services\Ai\Learning\Failure\FailureSignatureRepository;
 use Illuminate\Support\Str;
 
 class PredictiveFailureSelector

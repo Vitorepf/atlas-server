@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\SRL;
+namespace Tests\Unit\Ai\Learning\SRL;
 
-use App\Services\Ai\Cognitive\SRL\SRLPhaseController;
+use App\Services\Ai\Learning\SRL\SRLPhaseController;
 use Tests\TestCase;
 
 class SRLPhaseControllerTest extends TestCase

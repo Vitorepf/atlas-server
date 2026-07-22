@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Services\Ai\AtlasDomainProfileRegistry;
 use App\Services\Ai\Domain\AtlasLearningOrchestrator;

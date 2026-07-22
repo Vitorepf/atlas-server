@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureFlow;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureFlow;
 use Illuminate\Console\Command;
 
 class AtlasProductiveFailureCommand extends Command

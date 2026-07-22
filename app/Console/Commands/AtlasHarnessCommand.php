@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessFrozenSuite;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessProposalBridge;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessFrozenSuite;
+use App\Services\Ai\Learning\Harness\AtlasHarnessProposalBridge;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use Illuminate\Console\Command;
 
 /**
@@ -31,7 +31,7 @@ class AtlasHarnessCommand extends Command
         AtlasHarnessSurface $surface,
         AtlasHarnessProposalBridge $bridge,
         AtlasHarnessFrozenSuite $suite,
-        \App\Services\Ai\Cognitive\Harness\AtlasHarnessAutopilot $autopilot,
+        \App\Services\Ai\Learning\Harness\AtlasHarnessAutopilot $autopilot,
     ): int {
         $action = trim((string) $this->argument('action')) ?: 'surface';
 
@@ -68,7 +68,7 @@ class AtlasHarnessCommand extends Command
         if (isset($surface->sections()[$key])) {
             return $surface->reverseOverride($key);
         }
-        $instructions = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class);
+        $instructions = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class);
         if (isset($instructions->sections()[$key])) {
             return $instructions->reverseOverride($key);
         }
@@ -86,7 +86,7 @@ class AtlasHarnessCommand extends Command
             $sections[$key] = $section + ['current_value' => $surface->currentValue($key)];
         }
 
-        $instructions = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class);
+        $instructions = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class);
         $instructionSections = [];
         foreach ($instructions->sections() as $name => $declared) {
             $instructionSections[$name] = [

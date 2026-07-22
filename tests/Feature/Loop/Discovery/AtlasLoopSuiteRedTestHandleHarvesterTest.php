@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFailureHandleSource;
-use App\Services\Ai\Cognitive\Failure\SuiteRedTestHandleHarvester;
+use App\Services\Ai\Learning\Failure\SuiteRedTestHandleHarvester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;

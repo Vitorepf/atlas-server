@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\WorkedExample;
+namespace Tests\Unit\Ai\Learning\WorkedExample;
 
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRepository;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 

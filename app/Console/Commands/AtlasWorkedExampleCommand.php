@@ -2,13 +2,13 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyResolver;
-use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExampleExtractionRepository;
-use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExampleExtractor;
-use App\Services\Ai\Cognitive\WorkedExample\ProcessFadingScheduler;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRenderer;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleSelector;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyResolver;
+use App\Services\Ai\Learning\PersonalWorkedExample\PersonalWorkedExampleExtractionRepository;
+use App\Services\Ai\Learning\PersonalWorkedExample\PersonalWorkedExampleExtractor;
+use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRenderer;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRepository;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleSelector;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Gates\WorkedExampleAppropriateForStageGate;

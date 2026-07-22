@@ -2,11 +2,11 @@
 
 namespace App\Services\Ai\Domain;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyPromptBuilder;
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusPedagogyResolver;
-use App\Services\Ai\Cognitive\WorkedExample\ProcessFadingScheduler;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRenderer;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleSelector;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyPromptBuilder;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyResolver;
+use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRenderer;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleSelector;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DreyfusReceiptExtensionContract;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;

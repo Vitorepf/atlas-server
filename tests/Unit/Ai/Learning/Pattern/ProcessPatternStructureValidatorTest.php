@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Pattern;
+namespace Tests\Unit\Ai\Learning\Pattern;
 
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternStructureValidator;
+use App\Services\Ai\Learning\Pattern\ProcessPatternStructureValidator;
 use Tests\TestCase;
 
 class ProcessPatternStructureValidatorTest extends TestCase

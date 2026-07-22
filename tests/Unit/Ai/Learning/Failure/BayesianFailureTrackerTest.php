@@ -1,9 +1,9 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Failure;
+namespace Tests\Unit\Ai\Learning\Failure;
 
-use App\Services\Ai\Cognitive\Failure\BayesianFailureTracker;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
+use App\Services\Ai\Learning\Failure\BayesianFailureTracker;
+use App\Services\Ai\Learning\Failure\FailureSignatureRepository;
 use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 

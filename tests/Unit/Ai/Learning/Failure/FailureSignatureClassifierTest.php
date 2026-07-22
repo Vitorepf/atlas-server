@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Failure;
+namespace Tests\Unit\Ai\Learning\Failure;
 
-use App\Services\Ai\Cognitive\Failure\FailureSignatureClassifier;
+use App\Services\Ai\Learning\Failure\FailureSignatureClassifier;
 use Tests\TestCase;
 
 class FailureSignatureClassifierTest extends TestCase

@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;

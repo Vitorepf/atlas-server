@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\Pattern;
+namespace App\Services\Ai\Learning\Pattern;
 
 class ProcessPatternStructureValidator
 {

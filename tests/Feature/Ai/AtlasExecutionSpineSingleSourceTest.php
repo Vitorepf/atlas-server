@@ -81,7 +81,7 @@ final class AtlasExecutionSpineSingleSourceTest extends TestCase
     private const SCAN_EXCLUDED_SUBTREES = [
         'app/Services/Ai/AutonomousEvolution/',
         'app/Services/Ai/Cognition/',
-        'app/Services/Ai/Cognitive/Harness/',
+        'app/Services/Ai/Learning/Harness/',
         'app/Services/Ai/OperatorIntelligence/',
         'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
     ];

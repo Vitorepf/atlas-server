@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
-use App\Services\Ai\Cognitive\Staleness\ContextPackStalenessClassifier;
-use App\Services\Ai\Cognitive\Staleness\StalenessActionLadder;
+use App\Services\Ai\Learning\Staleness\ContextPackStalenessClassifier;
+use App\Services\Ai\Learning\Staleness\StalenessActionLadder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 

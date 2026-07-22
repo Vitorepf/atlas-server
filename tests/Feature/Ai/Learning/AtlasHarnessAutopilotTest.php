@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Cognitive\Failure\FailureRecurrenceMetricService;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureClassifier;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessAutopilot;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessFrozenSuite;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Learning\Failure\FailureRecurrenceMetricService;
+use App\Services\Ai\Learning\Failure\FailureSignatureClassifier;
+use App\Services\Ai\Learning\Harness\AtlasHarnessAutopilot;
+use App\Services\Ai\Learning\Harness\AtlasHarnessFrozenSuite;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\ProductiveFailure;
+namespace App\Services\Ai\Learning\ProductiveFailure;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
+use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 
 class ProductiveFailureProblemSelector

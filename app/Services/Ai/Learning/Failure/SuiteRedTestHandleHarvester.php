@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Failure;
+namespace App\Services\Ai\Learning\Failure;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFailureHandleSource;
 use Throwable;

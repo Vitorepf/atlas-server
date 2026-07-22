@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\SRL;
+namespace App\Services\Ai\Learning\SRL;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;

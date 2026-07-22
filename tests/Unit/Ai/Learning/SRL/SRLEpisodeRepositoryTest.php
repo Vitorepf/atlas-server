@@ -1,9 +1,9 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\SRL;
+namespace Tests\Unit\Ai\Learning\SRL;
 
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\Cognitive\SRL\SRLEpisodeRepository;
+use App\Services\Ai\Learning\SRL\SRLEpisodeRepository;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;

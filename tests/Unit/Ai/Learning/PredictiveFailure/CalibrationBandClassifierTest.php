@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\PredictiveFailure;
+namespace Tests\Unit\Ai\Learning\PredictiveFailure;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Learning\PredictiveFailure\CalibrationBandClassifier;
 use Tests\TestCase;
 
 class CalibrationBandClassifierTest extends TestCase

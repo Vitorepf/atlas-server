@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Console\Commands\AtlasDreyfusCommand;
 use App\Console\Commands\AtlasFailureAutoFeedCommand;
@@ -50,6 +50,19 @@ final class CognitiveNamespaceM2aCharacterizationTest extends TestCase
             'App\\Services\\Ai\\Cognitive\\WorkedExample\\WorkedExampleRenderer',
         ] as $legacyFqcn) {
             $this->assertTrue(class_exists($legacyFqcn), $legacyFqcn.' must remain autoloadable through M2b compatibility.');
+        }
+    }
+
+    public function test_learning_fqcns_must_become_the_canonical_namespace_in_m2b(): void
+    {
+        foreach ([
+            'App\\Services\\Ai\\Learning\\SRL\\SRLOrchestrator',
+            'App\\Services\\Ai\\Learning\\PredictiveFailure\\PredictiveFailureFlow',
+            'App\\Services\\Ai\\Learning\\Failure\\FailureSignatureRepository',
+            'App\\Services\\Ai\\Learning\\Harness\\AtlasHarnessSurface',
+            'App\\Services\\Ai\\Learning\\WorkedExample\\WorkedExampleRenderer',
+        ] as $canonicalFqcn) {
+            $this->assertTrue(class_exists($canonicalFqcn), $canonicalFqcn.' must resolve from the canonical Learning namespace.');
         }
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Learning\PredictiveFailure\CalibrationBandClassifier;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**

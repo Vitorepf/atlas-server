@@ -796,7 +796,7 @@ TXT,
     private function harnessInstructionSection(): ?string
     {
         try {
-            return app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)->promptSection();
+            return app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)->promptSection();
         } catch (\Throwable) {
             return null;
         }

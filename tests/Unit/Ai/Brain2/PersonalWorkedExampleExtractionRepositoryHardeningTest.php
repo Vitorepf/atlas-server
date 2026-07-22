@@ -13,7 +13,7 @@ final class PersonalWorkedExampleExtractionRepositoryHardeningTest extends TestC
      */
     public function test_parse_source_has_try_catch_for_parse(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractionRepository.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExampleExtractionRepository.php');
 
         $this->assertStringContainsString('Carbon::parse', $source, 'must parse dates');
         $this->assertStringContainsString('catch', $source, 'must have try/catch guard');
@@ -24,7 +24,7 @@ final class PersonalWorkedExampleExtractionRepositoryHardeningTest extends TestC
      */
     public function test_parse_old_unguarded_parse_removed(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Cognitive/PersonalWorkedExample/PersonalWorkedExampleExtractionRepository.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Learning/PersonalWorkedExample/PersonalWorkedExampleExtractionRepository.php');
 
         $this->assertStringNotContainsString(
             'now()->lt(Carbon::parse($nextRunAt))',

@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
-use App\Services\Ai\Cognitive\Failure\FailureAutoFeedHarvester;
+use App\Services\Ai\Learning\Failure\FailureAutoFeedHarvester;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Schema\Blueprint;

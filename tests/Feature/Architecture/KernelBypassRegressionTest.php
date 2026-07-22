@@ -181,7 +181,7 @@ PHP, function () use ($path): void {
 
     public function test_predictive_failure_governance_requires_explicit_target_and_partial_boundary(): void
     {
-        $flow = file_get_contents(app_path('Services/Ai/Cognitive/PredictiveFailure/PredictiveFailureFlow.php'));
+        $flow = file_get_contents(app_path('Services/Ai/Learning/PredictiveFailure/PredictiveFailureFlow.php'));
         $command = file_get_contents(app_path('Console/Commands/AtlasPredictCommand.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-170-cognitive-predictive-failure-insertion.md'));
 

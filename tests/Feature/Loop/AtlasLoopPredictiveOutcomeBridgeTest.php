@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveFailureCalibrationMetricsService;
+use App\Services\Ai\Learning\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveFailureCalibrationMetricsService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;

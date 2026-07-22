@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\Failure;
+namespace App\Services\Ai\Learning\Failure;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;

@@ -115,7 +115,7 @@ final class AtlasLearningProposalApplier
             $change = ['task_category' => (string) ($ps['task_category'] ?? ''), 'role' => (string) ($ps['role'] ?? '')];
         } elseif ($kind === 'harness_config') {
             $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-            $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface::class)
+            $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessSurface::class)
                 ->reverseOverride((string) ($ps['key'] ?? ''));
             if (! $result['reversed']) {
                 return $this->refuse('harness_config_reverse_failed:'.(string) $result['reason']);
@@ -123,7 +123,7 @@ final class AtlasLearningProposalApplier
             $change = ['key' => $result['key'], 'restored' => $result['restored']];
         } elseif ($kind === 'harness_instruction') {
             $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-            $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)
+            $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)
                 ->reverseOverride((string) ($ps['key'] ?? ''));
             if (! $result['reversed']) {
                 return $this->refuse('harness_instruction_reverse_failed:'.(string) $result['reason']);
@@ -185,7 +185,7 @@ final class AtlasLearningProposalApplier
             return null;
         }
 
-        $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface::class)
+        $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessSurface::class)
             ->applyOverride($key, $value, (string) $proposal->getKey());
         if (! $result['applied']) {
             return null;
@@ -215,7 +215,7 @@ final class AtlasLearningProposalApplier
             return null;
         }
 
-        $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)
+        $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)
             ->applyOverride($section, $text, (string) $proposal->getKey());
         if (! $result['applied']) {
             return null;

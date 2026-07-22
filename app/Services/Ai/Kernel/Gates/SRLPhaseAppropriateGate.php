@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Gates;
 
-use App\Services\Ai\Cognitive\SRL\SRLPhaseController;
+use App\Services\Ai\Learning\SRL\SRLPhaseController;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 
 class SRLPhaseAppropriateGate

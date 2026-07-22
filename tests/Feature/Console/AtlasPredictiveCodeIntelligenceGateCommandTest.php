@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;

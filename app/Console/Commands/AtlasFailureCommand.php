@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Failure\BayesianFailureTracker;
-use App\Services\Ai\Cognitive\Failure\FailureRecurrenceMetricService;
-use App\Services\Ai\Cognitive\Failure\FailureRepetitionAlerter;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
-use App\Services\Ai\Cognitive\Failure\SuiteRedTriageHelper;
-use App\Services\Ai\Cognitive\Failure\WeeklyRedCountSnapshotStore;
+use App\Services\Ai\Learning\Failure\BayesianFailureTracker;
+use App\Services\Ai\Learning\Failure\FailureRecurrenceMetricService;
+use App\Services\Ai\Learning\Failure\FailureRepetitionAlerter;
+use App\Services\Ai\Learning\Failure\FailureSignatureRepository;
+use App\Services\Ai\Learning\Failure\SuiteRedTriageHelper;
+use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 

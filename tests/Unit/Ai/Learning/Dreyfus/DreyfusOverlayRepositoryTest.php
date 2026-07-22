@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Dreyfus;
+namespace Tests\Unit\Ai\Learning\Dreyfus;
 
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
+use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 

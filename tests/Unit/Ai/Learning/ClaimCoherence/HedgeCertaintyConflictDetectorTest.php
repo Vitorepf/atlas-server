@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\Cognitive\ClaimCoherence;
+namespace Tests\Unit\Ai\Learning\ClaimCoherence;
 
-use App\Services\Ai\Cognitive\ClaimCoherence\HedgeCertaintyConflictDetector;
+use App\Services\Ai\Learning\ClaimCoherence\HedgeCertaintyConflictDetector;
 use PHPUnit\Framework\TestCase;
 
 final class HedgeCertaintyConflictDetectorTest extends TestCase

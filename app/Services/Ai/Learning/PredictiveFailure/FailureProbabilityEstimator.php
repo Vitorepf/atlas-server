@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PredictiveFailure;
+namespace App\Services\Ai\Learning\PredictiveFailure;
 
 class FailureProbabilityEstimator
 {

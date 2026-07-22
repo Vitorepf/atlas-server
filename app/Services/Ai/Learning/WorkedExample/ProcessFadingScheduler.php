@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\WorkedExample;
+namespace App\Services\Ai\Learning\WorkedExample;
 
 class ProcessFadingScheduler
 {

@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\PersonalWorkedExample;
+namespace Tests\Unit\Ai\Learning\PersonalWorkedExample;
 
-use App\Services\Ai\Cognitive\PersonalWorkedExample\WorkedExampleSerializer;
+use App\Services\Ai\Learning\PersonalWorkedExample\WorkedExampleSerializer;
 use Tests\TestCase;
 
 class WorkedExampleSerializerTest extends TestCase

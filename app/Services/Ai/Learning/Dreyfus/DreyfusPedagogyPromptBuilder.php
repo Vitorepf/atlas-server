@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\Dreyfus;
+namespace App\Services\Ai\Learning\Dreyfus;
 
 class DreyfusPedagogyPromptBuilder
 {

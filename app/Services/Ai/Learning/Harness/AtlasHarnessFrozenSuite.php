@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Harness;
+namespace App\Services\Ai\Learning\Harness;
 
 use Throwable;
 
@@ -61,14 +61,14 @@ class AtlasHarnessFrozenSuite
             'surface_rejects_unknown_key' => fn (): bool => $surface->validate('signal_pipeline.failure_classifier', 1)['valid'] === false,
             'surface_rejects_non_integer' => fn (): bool => $surface->validate('runtime_control.max_attempts', 'two')['valid'] === false,
             'classifier_clusters_identical_failures' => function (): bool {
-                $classifier = app(\App\Services\Ai\Cognitive\Failure\FailureSignatureClassifier::class);
+                $classifier = app(\App\Services\Ai\Learning\Failure\FailureSignatureClassifier::class);
                 $a = $classifier->classify(['domain' => 'engineering', 'event_type' => 'probe_failure', 'message' => 'probe timeout waiting provider']);
                 $b = $classifier->classify(['domain' => 'engineering', 'event_type' => 'probe_failure', 'message' => 'probe timeout waiting provider']);
 
                 return $a['signature_key'] === $b['signature_key'];
             },
             'classifier_separates_distinct_event_types' => function (): bool {
-                $classifier = app(\App\Services\Ai\Cognitive\Failure\FailureSignatureClassifier::class);
+                $classifier = app(\App\Services\Ai\Learning\Failure\FailureSignatureClassifier::class);
                 $a = $classifier->classify(['domain' => 'engineering', 'event_type' => 'probe_failure_a', 'message' => 'x']);
                 $b = $classifier->classify(['domain' => 'engineering', 'event_type' => 'probe_failure_b', 'message' => 'x']);
 

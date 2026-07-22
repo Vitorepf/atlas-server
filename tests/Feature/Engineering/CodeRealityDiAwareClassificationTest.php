@@ -60,11 +60,11 @@ final class CodeRealityDiAwareClassificationTest extends TestCase
         // Real Obra #12 falso-órfão: SRLForethoughtCapture is wired ONLY through
         // SRLEpisodeRepository's constructor (same namespace, no use statement).
         $payload = app(AtlasCodeRealityUsageIntelligenceService::class)
-            ->classify('app/Services/Ai/Cognitive/SRL/SRLForethoughtCapture.php');
+            ->classify('app/Services/Ai/Learning/SRL/SRLForethoughtCapture.php');
 
         $this->assertTrue(data_get($payload, 'evidence.reachability.signals.has_constructor_injectors'));
         $this->assertContains(
-            'app/Services/Ai/Cognitive/SRL/SRLEpisodeRepository.php',
+            'app/Services/Ai/Learning/SRL/SRLEpisodeRepository.php',
             data_get($payload, 'evidence.reachability.source_breakdown.constructor_injectors.paths'),
         );
         $this->assertSame('active_read_only', $payload['classification']);

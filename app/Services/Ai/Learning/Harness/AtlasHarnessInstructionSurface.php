@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Harness;
+namespace App\Services\Ai\Learning\Harness;
 
 /**
  * AP-819 Surface v2 — seções de INSTRUÇÃO evoluíveis (a outra metade do paper:

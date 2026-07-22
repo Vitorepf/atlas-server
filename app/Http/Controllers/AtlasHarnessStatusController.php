@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessAutopilot;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessAutopilot;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Http\JsonResponse;
 
@@ -33,7 +33,7 @@ class AtlasHarnessStatusController extends Controller
                 ->all();
         }
 
-        $instructions = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class);
+        $instructions = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class);
         $instructionSections = [];
         foreach ($instructions->sections() as $name => $declared) {
             $instructionSections[$name] = [

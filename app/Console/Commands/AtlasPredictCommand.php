@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveFailureFlow;
+use App\Services\Ai\Learning\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveFailureFlow;
 use Illuminate\Console\Command;
 
 class AtlasPredictCommand extends Command

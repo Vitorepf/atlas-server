@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\SRL\SRLEpisodeRepository;
-use App\Services\Ai\Cognitive\SRL\SRLOrchestrator;
-use App\Services\Ai\Cognitive\SRL\SRLPreferenceService;
+use App\Services\Ai\Learning\SRL\SRLEpisodeRepository;
+use App\Services\Ai\Learning\SRL\SRLOrchestrator;
+use App\Services\Ai\Learning\SRL\SRLPreferenceService;
 use Illuminate\Console\Command;
 
 class AtlasSRLCommand extends Command

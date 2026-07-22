@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
+namespace App\Services\Ai\Learning\PersonalWorkedExample;
 
 class PersonalWorkedExamplePrivacyRedactor
 {

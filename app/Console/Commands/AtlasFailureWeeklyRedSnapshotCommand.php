@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Failure\SuiteRedTriageHelper;
-use App\Services\Ai\Cognitive\Failure\WeeklyRedCountSnapshotStore;
+use App\Services\Ai\Learning\Failure\SuiteRedTriageHelper;
+use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 
 /**

@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Gates;
 
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternStructureValidator;
+use App\Services\Ai\Learning\Pattern\ProcessPatternStructureValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 
 class PatternStructureCompleteGate

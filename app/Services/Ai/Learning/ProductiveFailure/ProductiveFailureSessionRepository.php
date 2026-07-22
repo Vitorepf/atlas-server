@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\ProductiveFailure;
+namespace App\Services\Ai\Learning\ProductiveFailure;
 
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;

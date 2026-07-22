@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Failure;
+namespace Tests\Unit\Ai\Learning\Failure;
 
-use App\Services\Ai\Cognitive\Failure\FailureSimilarityComputer;
+use App\Services\Ai\Learning\Failure\FailureSimilarityComputer;
 use Tests\TestCase;
 
 class FailureSimilarityComputerTest extends TestCase

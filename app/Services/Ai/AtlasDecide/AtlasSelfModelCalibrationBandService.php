@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Learning\PredictiveFailure\CalibrationBandClassifier;
 
 /**
  * ASI-15 — DERIVED confidence band on the Decide's self-model candidate.

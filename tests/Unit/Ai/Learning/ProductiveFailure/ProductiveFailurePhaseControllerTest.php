@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\ProductiveFailure;
+namespace Tests\Unit\Ai\Learning\ProductiveFailure;
 
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailurePhaseController;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailurePhaseController;
 use Tests\TestCase;
 
 class ProductiveFailurePhaseControllerTest extends TestCase

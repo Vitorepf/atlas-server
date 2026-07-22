@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\WorkedExample;
+namespace Tests\Unit\Ai\Learning\WorkedExample;
 
-use App\Services\Ai\Cognitive\WorkedExample\ProcessFadingScheduler;
+use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
 use Tests\TestCase;
 
 class ProcessFadingSchedulerTest extends TestCase

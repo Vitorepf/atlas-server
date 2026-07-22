@@ -1,9 +1,9 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\WorkedExample;
+namespace Tests\Unit\Ai\Learning\WorkedExample;
 
-use App\Services\Ai\Cognitive\WorkedExample\ProcessFadingScheduler;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRenderer;
+use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRenderer;
 use Tests\TestCase;
 
 class WorkedExampleRendererTest extends TestCase

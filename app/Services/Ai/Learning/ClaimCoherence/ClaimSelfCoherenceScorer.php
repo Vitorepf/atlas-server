@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\ClaimCoherence;
+namespace App\Services\Ai\Learning\ClaimCoherence;
 
 final class ClaimSelfCoherenceScorer
 {

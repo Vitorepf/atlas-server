@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\Cognitive\ClaimCoherence;
+namespace Tests\Unit\Ai\Learning\ClaimCoherence;
 
-use App\Services\Ai\Cognitive\ClaimCoherence\ClaimSelfCoherenceScorer;
+use App\Services\Ai\Learning\ClaimCoherence\ClaimSelfCoherenceScorer;
 use PHPUnit\Framework\TestCase;
 
 final class ClaimSelfCoherenceScorerTest extends TestCase

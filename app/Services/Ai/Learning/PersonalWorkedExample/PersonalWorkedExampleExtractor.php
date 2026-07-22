@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
+namespace App\Services\Ai\Learning\PersonalWorkedExample;
 
-use App\Services\Ai\Cognitive\PersonalWorkedExample\Sources\FeynmanSessionSourceProvider;
-use App\Services\Ai\Cognitive\PersonalWorkedExample\Sources\ProgrammingPRSourceProvider;
-use App\Services\Ai\Cognitive\PersonalWorkedExample\Sources\StrategicDecisionSourceProvider;
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
+use App\Services\Ai\Learning\PersonalWorkedExample\Sources\FeynmanSessionSourceProvider;
+use App\Services\Ai\Learning\PersonalWorkedExample\Sources\ProgrammingPRSourceProvider;
+use App\Services\Ai\Learning\PersonalWorkedExample\Sources\StrategicDecisionSourceProvider;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRepository;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Gates\PersonalWorkedExamplePrivacySafeGate;

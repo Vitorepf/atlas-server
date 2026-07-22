@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRepository;
 use App\Services\Ai\Domain\AtlasLearningOrchestrator;
 use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Harness;
+namespace App\Services\Ai\Learning\Harness;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Cognitive\Failure\FailureRecurrenceMetricService;
+use App\Services\Ai\Learning\Failure\FailureRecurrenceMetricService;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Support\DatabaseTableAvailability;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessFrozenSuite;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessProposalBridge;
+use App\Services\Ai\Learning\Harness\AtlasHarnessFrozenSuite;
+use App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessProposalBridge;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use Tests\TestCase;
 
@@ -118,8 +118,8 @@ class AtlasHarnessInstructionSurfaceTest extends TestCase
     public function test_bridge_maps_behavioral_cluster_to_next_untried_variant(): void
     {
         $bridge = new AtlasHarnessProposalBridge(
-            $this->createStub(\App\Services\Ai\Cognitive\Failure\FailureSignatureRepository::class),
-            app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface::class),
+            $this->createStub(\App\Services\Ai\Learning\Failure\FailureSignatureRepository::class),
+            app(\App\Services\Ai\Learning\Harness\AtlasHarnessSurface::class),
             $this->instructions,
         );
         $map = new \ReflectionMethod($bridge, 'mapClusterToInstruction');

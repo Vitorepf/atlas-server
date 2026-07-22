@@ -314,7 +314,7 @@ return [
     |--------------------------------------------------------------------------
     | Claim-coherence cognitive kernels
     |--------------------------------------------------------------------------
-    | Pure deterministic kernels under App\Services\Ai\Cognitive\ClaimCoherence\,
+    | Pure deterministic kernels under App\Services\Ai\Learning\ClaimCoherence\,
     | consolidated into the live context-path gate ContextPackSelfReflectionGate.
     | Every flag is DEFAULT-OFF: each kernel adds NEW behavior the gate's existing
     | substring contradiction scan does not have, so blind activation would change

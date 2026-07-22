@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\Failure;
+namespace App\Services\Ai\Learning\Failure;
 
 /**
  * L5-3 — triagem do lote vermelho da suíte (mid-refactor): classifica cada falha como

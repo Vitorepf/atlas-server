@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
+namespace App\Services\Ai\Learning\PersonalWorkedExample;
 
 use App\Services\Ai\Kernel\Gates\PersonalWorkedExampleQualityGate;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;

@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\Pattern;
+namespace Tests\Unit\Ai\Learning\Pattern;
 
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternEvidenceTracker;
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternRepository;
+use App\Services\Ai\Learning\Pattern\ProcessPatternEvidenceTracker;
+use App\Services\Ai\Learning\Pattern\ProcessPatternRepository;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;

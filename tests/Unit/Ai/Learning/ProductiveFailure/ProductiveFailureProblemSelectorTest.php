@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\ProductiveFailure;
+namespace Tests\Unit\Ai\Learning\ProductiveFailure;
 
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureProblemSelector;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureProblemSelector;
 use Tests\TestCase;
 
 class ProductiveFailureProblemSelectorTest extends TestCase

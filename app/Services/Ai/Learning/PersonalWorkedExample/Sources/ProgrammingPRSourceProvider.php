@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PersonalWorkedExample\Sources;
+namespace App\Services\Ai\Learning\PersonalWorkedExample\Sources;
 
 use App\Models\AtlasLedgerEvent;
 use Carbon\CarbonImmutable;

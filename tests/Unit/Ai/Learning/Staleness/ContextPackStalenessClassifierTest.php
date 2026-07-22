@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\Cognitive\Staleness;
+namespace Tests\Unit\Ai\Learning\Staleness;
 
-use App\Services\Ai\Cognitive\Staleness\ContextPackStalenessClassifier;
+use App\Services\Ai\Learning\Staleness\ContextPackStalenessClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class ContextPackStalenessClassifierTest extends TestCase

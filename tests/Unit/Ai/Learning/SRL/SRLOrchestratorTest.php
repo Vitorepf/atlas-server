@@ -1,9 +1,9 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\SRL;
+namespace Tests\Unit\Ai\Learning\SRL;
 
-use App\Services\Ai\Cognitive\SRL\SRLOrchestrator;
-use App\Services\Ai\Cognitive\SRL\SRLPreferenceService;
+use App\Services\Ai\Learning\SRL\SRLOrchestrator;
+use App\Services\Ai\Learning\SRL\SRLPreferenceService;
 use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 

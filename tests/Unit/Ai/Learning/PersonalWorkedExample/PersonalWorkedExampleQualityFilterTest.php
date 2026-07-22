@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Cognitive\PersonalWorkedExample;
+namespace Tests\Unit\Ai\Learning\PersonalWorkedExample;
 
-use App\Services\Ai\Cognitive\PersonalWorkedExample\PersonalWorkedExampleQualityFilter;
+use App\Services\Ai\Learning\PersonalWorkedExample\PersonalWorkedExampleQualityFilter;
 use Tests\TestCase;
 
 class PersonalWorkedExampleQualityFilterTest extends TestCase

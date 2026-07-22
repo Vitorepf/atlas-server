@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\ProductiveFailure;
+namespace App\Services\Ai\Learning\ProductiveFailure;
 
-use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleSelector;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleSelector;
 
 class ProductiveFailureComparisonEngine
 {

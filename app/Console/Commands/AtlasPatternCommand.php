@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternEvidenceTracker;
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternMatcher;
-use App\Services\Ai\Cognitive\Pattern\ProcessPatternRepository;
+use App\Services\Ai\Learning\Pattern\ProcessPatternEvidenceTracker;
+use App\Services\Ai\Learning\Pattern\ProcessPatternMatcher;
+use App\Services\Ai\Learning\Pattern\ProcessPatternRepository;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;

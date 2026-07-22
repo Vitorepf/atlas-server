@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
+namespace App\Services\Ai\Learning\PersonalWorkedExample;
 
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;

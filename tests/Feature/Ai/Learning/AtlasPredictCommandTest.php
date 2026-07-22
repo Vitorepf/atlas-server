@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\Feature\Ai\Cognitive;
+namespace Tests\Feature\Ai\Learning;
 
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
-use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveFailureFlow;
+use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
+use App\Services\Ai\Learning\PredictiveFailure\PredictiveFailureFlow;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;

@@ -102,9 +102,10 @@ use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
+use App\Services\Ai\CognitiveNamespaceAlias;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
-use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compression\AtlasCcrStore;
@@ -248,6 +249,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        CognitiveNamespaceAlias::register();
+
         $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreDrillRunner::class, PgsqlAtlasMemorySubstrateRestoreDrillRunner::class);

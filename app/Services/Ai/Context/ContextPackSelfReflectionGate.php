@@ -2,9 +2,9 @@
 
 namespace App\Services\Ai\Context;
 
-use App\Services\Ai\Cognitive\ClaimCoherence\ClaimQualifierStrengthClassifier;
-use App\Services\Ai\Cognitive\ClaimCoherence\ClaimSelfCoherenceScorer;
-use App\Services\Ai\Cognitive\ClaimCoherence\HedgeCertaintyConflictDetector;
+use App\Services\Ai\Learning\ClaimCoherence\ClaimQualifierStrengthClassifier;
+use App\Services\Ai\Learning\ClaimCoherence\ClaimSelfCoherenceScorer;
+use App\Services\Ai\Learning\ClaimCoherence\HedgeCertaintyConflictDetector;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use Illuminate\Support\Str;
 

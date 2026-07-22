@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Compounding;
 
-use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Learning\PredictiveFailure\CalibrationBandClassifier;
 
 /**
  * MAXJ-08 — Frontier motor no assento de JUIZ (advisory, zero veto).

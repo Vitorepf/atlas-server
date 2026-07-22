@@ -5,7 +5,7 @@ namespace App\Services\Ai\SelfImprovement;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
-use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureSessionRepository;
+use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureSessionRepository;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;

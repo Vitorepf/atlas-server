@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Cognitive\Harness;
+namespace App\Services\Ai\Learning\Harness;
 
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
-use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
+use App\Services\Ai\Learning\Failure\FailureSignatureRepository;
 use Throwable;
 
 /**
