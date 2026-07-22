@@ -16,6 +16,7 @@ intent_coverage: {covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 
 last_commit: null
 halt_conditions_hit: []
 notes: |
+  ⭐ ORDEM DO COMANDANTE (ARCH, 2026-07-22): A1--SelfConstruction.md está com 4.089 linhas — VIOLA a regra LAYOUT §3 (~1500). No PRÓXIMO boundary de arquivo, PARTA em A1--SelfConstruction--Readiness.md (records de Readiness/) e continue os novos records no arquivo partido correspondente. Não mover records já commitados fora de boundary.
   until cancel; no app implementation
   NEVER dump findings into this ledger — only cursor fields
   NEVER create a single mega FINDINGS.md

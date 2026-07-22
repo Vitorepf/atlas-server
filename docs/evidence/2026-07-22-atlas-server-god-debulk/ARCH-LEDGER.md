@@ -24,12 +24,13 @@ needs_operator:
   - "Aprovar NON-AI: FUSE Vault→Semantic (frontmatter triplicado)"
   - "Aprovar ROOT-SINGLES: re-home de ~90 arquivos-raiz p/ owner-folders homônimos (raiz fica com 5 pipes canônicos) + QUARANTINE ToneFilter"
   - "Aprovar RENAME Cognitive→Learning + FUSE-parcial AcosMax (re-homing p/ Aemor+Context+Cognition) + consolidação dos 3 RSI"
-last_review: 7b2fb7ebe  # AUDITORIA PROFUNDA (pedido do operador): trabalho REAL e conforme — fix Schema (+1 app) com teste red→green no mesmo commit; boundary ProviderAdapter restaurada com injeção one-way por construtor (canon); ledger com evidência red→green e escopo honesto; A1-SC-0020 também fechado; 8 testes/29 assertions verdes rodados por mim. DESVIO ÚNICO: commits com diff em app/ rotulados test(core) — deveria ser refactor(core); corrigir daqui em diante (registrado em EXEC-DEBTS origin:arch-review)
+last_review: e1c0e3938  # AUDITORIA PROFUNDA (pedido do operador): trabalho REAL e conforme — fix Schema (+1 app) com teste red→green no mesmo commit; boundary ProviderAdapter restaurada com injeção one-way por construtor (canon); ledger com evidência red→green e escopo honesto; A1-SC-0020 também fechado; 8 testes/29 assertions verdes rodados por mim. DESVIO ÚNICO: commits com diff em app/ rotulados test(core) — deveria ser refactor(core); corrigir daqui em diante (registrado em EXEC-DEBTS origin:arch-review)
 last_commit: 27999d6c4
 fila:
   - "blueprint ExecutionRuntime (fusões RUNTIME) — após OK do operador"
   - "review retroativo do EXECUTE (quando houver commits)"
 verificacao_amostral: |
+  REVIEW 52fd8598c APROVADA: fix A1-SC-0020 = prescrição do blueprint (chave emitida real), +44 linhas teste, 9/42 verdes rodados pelo comandante. ORDEM emitida ao META: partir findings 4.089 linhas (LAYOUT §3)
   LEARNINGCONS 3/3 (updateOrCreate L822, Harness→Compounding 2 files, Cognition→Cognitive 2 imports)
   KERNELTRIAD 3/3 (architectureScanChecks L207 exato, 0 escritas diretas fora de Evidence, 0 imports inbound do linter)
   BLUEPRINTS: drift das registries CONFIRMADO no código (council órfão + minimax ausente); shadow() 0 refs a outcome CONFIRMADO; AiToolRuntime 0 refs a receipt CONFIRMADO
