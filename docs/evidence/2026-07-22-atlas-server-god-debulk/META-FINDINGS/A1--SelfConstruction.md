@@ -1095,15 +1095,218 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+loc: 4302
+kind: dispatch_provider_receipt_release_and_authorization_section
+intent_axes: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0053
+    type: godfile
+    severity: s0
+    detail: "This 4,302 LOC, 251,143-byte section exposes 39 domain-public methods spanning dispatch policy, receipt validation and mutation, executor release, receipt consumption, sandbox binding, provider startup, adapter registry/guard/boundary, human authorization, signature collection, persistence, and seven executable implementation packets. It is a second operating facade rather than one readiness projection."
+    evidence:
+      - "wc -l -c => 4,302 LOC and 251,143 bytes"
+      - "42 public methods total: constructor, setMother, __call, and 39 domain methods"
+      - "method-family inventory includes 13 Preflight, 12 Template, eight ContractTemplate, seven ImplementationPacket, one Draft, one Request, one Runbook, one Status, and one mutating Write route"
+      - "longest public method name => agentDispatchExecutorReleaseAuthorizationPersistenceWriterImplementationPreflight (81 characters)"
+      - "sha256=b150526798706404a819381576f406990a26feb611187bc67f27bf735de1ee44"
+  - id: A1-SC-0054
+    type: false_abstraction
+    severity: s0
+    detail: "The section is mechanically coupled back to the 29,744 LOC mother facade: that facade retains 39 one-line delegators, this class accepts the mother after construction, and unrestricted __call forwards nine statically absent method names across 12 calls by ReflectionMethod. Dependency direction and method availability remain runtime conventions instead of typed boundaries."
+    evidence:
+      - "AtlasSelfConstructionReadinessService retains 39 agentDispatchProviderSection delegators"
+      - "nullable mother injection plus setMother and unrestricted __call: lines 29-53"
+      - "static inventory => nine unresolved parent method names and 12 unresolved call occurrences"
+      - "ReflectionMethod is constructed from arbitrary $name and invoked on the mother"
+      - "seven of 15 imports are unused while required ControlPlane imports are absent"
+  - id: A1-SC-0055
+    type: bug
+    severity: s0
+    detail: "Seven runtime capability checks reference unimported short class names. PHP therefore resolves them inside the Readiness namespace, where none exists, although all seven implementations exist under ControlPlane. Registry readiness reports zero providers and six blockers, and writer/driver/guard/boundary checks remain permanently missing; the focused registry command test fails because it receives blocked instead of provider_adapter_registry_ready."
+    evidence:
+      - "affected names: AgentDispatchExecutorAdapterInvocationBoundary, AgentDispatchExecutorProviderStartDriver, AgentDispatchExecutorReceiptUseWriter, AgentDispatchExecutorReleaseAuthorizationPersistenceWriter, AgentDispatchExecutorSandboxBindingWriter, AgentProviderAdapterExecutionGuard, and AgentProviderAdapterRegistry"
+      - "runtime class_exists(Readiness\\Name)=false and class_exists(ControlPlane\\Name)=true for all seven names"
+      - "live registry preflight => provider_count=0, all five providers missing, blocking_count=6"
+      - "focused test test_command_returns_agent_provider_adapter_registry_preflight_as_json => expected provider_adapter_registry_ready, received blocked; 1 failed / 4 assertions"
+      - "unqualified capability checks occur from the receipt-use writer preflight at line 1,342 through persistence-writer preflight at line 4,183"
+  - id: A1-SC-0056
+    type: bug
+    severity: s0
+    detail: "agentDispatchReceiptWrite can manufacture an authorization-bearing signed_pending_dispatch row from caller-supplied text. It checks only a ready dispatch preflight, an allowed decision, non-empty signed_by/expires_at, and two arbitrary 64-hex strings; it never calls the adjacent receipt-validation preflight, verifies a signature, binds the receipt hash to a canonical payload, compares the envelope hash with the computed draft, validates provider/scope/budget/evidence, or proves expiry is in the future before updateOrCreate. Downstream executor flows consume this status as release authority."
+    evidence:
+      - "mutating public writer spans lines 652-792 inside a class labelled Readiness"
+      - "accepted inputs are decision, signed_by, receipt_hash, dispatch_envelope_hash, and non-empty expires_at"
+      - "successful approve_dispatch_once writes status=signed_pending_dispatch at line 737 and signed_at=now"
+      - "no call to agentDispatchReceiptValidationPreflight exists in the writer"
+      - "aggregate command test accepts either blocked or agent_dispatch_receipt_write_ready and asserts no signature/hash-binding invariant"
+  - id: A1-SC-0057
+    type: doc_lie
+    severity: s1
+    detail: "All seven implementation packets literalize ready_for_scoped_* and implementation_allowed_by_packet=true even when their source preflight is blocked. Their allowed_files and gates still point to pre-move root-level service locations: nine entries are missing, representing eight unique nonexistent paths, while the actual services live under ControlPlane. Packet tests can pass while the described work order is false."
+    evidence:
+      - "implementation packet count => seven; all seven returned a ready packet during runtime characterization"
+      - "implementation_allowed_by_packet=true appears in every packet"
+      - "allowed_files scan => nine missing entries and eight unique missing paths; the adapter-boundary path is repeated in two packets"
+      - "matching service implementations exist under app/Services/Ai/SelfConstruction/ControlPlane"
+      - "focused registry implementation-packet test passes 1 test / 14 assertions while its source registry preflight is blocked"
+  - id: A1-SC-0058
+    type: dishonest_name
+    severity: s1
+    detail: "The executor-release chain emits authorization_template_ready, ready_for_signature_collection, authorization runbook readiness, and a signed-receipt template even while its source release preflight is unconditionally blocked and provider, packet, and receipt identities are null. The release preflight itself hard-codes blocked irrespective of its computed blocker list, while later ceremony emits ready labels without acquiring authority."
+    evidence:
+      - "agentDispatchExecutorReleasePreflight at lines 1,081-1,211 hard-codes inner and outer blocked status"
+      - "live authorization-template output => template ready, inner ready_for_signature_collection, preflight_status=blocked"
+      - "live authorization-template provider, packet, and receipt identifiers => null"
+      - "signed-receipt preflight at lines 3,595-3,755 hard-codes six blockers"
+      - "all envelopes continue to deny execution/runtime/provider authority despite ready-labelled signature artifacts"
+  - id: A1-SC-0059
+    type: dupe
+    severity: s2
+    detail: "The 39-method surface is a hand-expanded template farm. It repeatedly copies predecessor payloads, constructs blocker arrays, enumerates negative authority, prescribes nearly identical implementation work, and hashes the resulting envelope. The file contains 356 literal false assignments, 43 non_execution_guarantees blocks, and 54 stableHash calls."
+    evidence:
+      - "literal => false count => 356"
+      - "non_execution_guarantees count => 43"
+      - "$this->stableHash call count => 54"
+      - "seven implementation packets repeat tasks, current/future scopes, gates, acceptance criteria, and negative policies"
+      - "authorization template, signature request, runbook, signed receipt, persistence template, and persistence preflight restate the same release identities and denial state"
+  - id: A1-SC-0060
+    type: perf
+    severity: s2
+    detail: "Readiness routes repeatedly probe schema and query receipt/ledger state without a request-scoped snapshot or stated budget. The file contains 21 Schema::hasTable probes, five query builders, three first queries, one count, and one updateOrCreate; nested template/preflight chains also rebuild and hash predecessor payloads."
+    evidence:
+      - "Schema::hasTable occurrence count => 21"
+      - "::query() occurrence count => five; ->first() => three; ->count() => one"
+      - "the public writer performs updateOrCreate from the same projection surface"
+      - "no cache, immutable projection context, query budget, or shared validated release snapshot exists"
+  - id: A1-SC-0061
+    type: test_gap
+    severity: s1
+    detail: "Tests expose the missing-import regression but do not protect the more dangerous invariants. Packet tests accept ready output without requiring a ready source preflight or existing paths, and the generic receipt-write dataset accepts blocked or ready while checking neither signature identity, expiry, hash binding, scope/provider correlation, nor absence of unauthorized writes."
+    evidence:
+      - "registry preflight focused test fails on blocked, proving at least one route detects the namespace regression"
+      - "registry packet focused test passes despite the blocked source preflight"
+      - "command dataset at lines 26,049-26,061 accepts status in [blocked, agent_dispatch_receipt_write_ready]"
+      - "no test reference to agentDispatchReceiptWrite was found outside the aggregate command dataset"
+      - "downstream tests seed signed_pending_dispatch directly instead of proving its authorization provenance"
+  - id: A1-SC-0062
+    type: os_overlap
+    severity: s0
+    detail: "This Readiness section owns a complete duplicate dispatch operating system: provider registry and guards, receipt authorization and mutation, sandbox binding, provider start, adapter invocation, executor release, human signatures, persistence, work packets, and policy. It therefore both projects and manufactures the authority that runtime consumers later trust."
+    evidence:
+      - "agentDispatchReceiptWrite performs a durable updateOrCreate"
+      - "seven provider/runtime services are detected and prescribed from this projection"
+      - "executor release and signature/persistence chains span lines 1,081-4,302"
+      - "seven implementation packets prescribe source, tests, command, docs, gates, and next slices"
+      - "the class combines read models, write authority, signature ceremony, provider policy, runtime release, and planning"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "First restore truthful reachability and authorization: import or inject the seven ControlPlane capabilities, eliminate namespace-dependent class_exists checks, make every packet and authorization label derive from validated prerequisites and canonical existing paths, and replace receiptWrite with a provider-neutral command that cryptographically verifies and atomically binds the signed canonical payload, envelope, scope, budget, evidence, provider, decision, and future expiry."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+    acceptance:
+      - "all seven capability checks resolve their current typed ControlPlane owner"
+      - "no blocked preflight or missing path can produce a ready packet or signature stage"
+      - "fabricated, replayed, expired, mismatched, or unsigned receipts cannot create or update authorization state"
+  - op: TEST
+    detail: "Add direct semantic characterization for all 39 domain methods before splitting. Cover typed construction, every prerequisite edge, blocked/ready propagation, all current path existence, writer transactional behavior, signature verification, canonical-hash binding, replay/idempotency, expiry, scope/budget/provider/evidence correlation, stable hashes, no-side-effect projections, and query budgets; keep command tests only for routing compatibility."
+    target_paths:
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentDispatchProviderSectionTest.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+    acceptance:
+      - "all 39 domain methods have direct semantic coverage and all facade/command aliases retain routing coverage"
+      - "tests reproduce then reject the seven missing-import false negatives and nine stale packet paths"
+      - "authorization tests reject arbitrary hex, identity mismatch, envelope mismatch, replay, past expiry, and blocked preflight without a durable write"
+  - op: SPLIT
+    detail: "Retire this section behind a temporary compatibility adapter and split by authority: provider catalog/health projection, receipt authorization command, executor release policy, sandbox/provider-start/adapter queries, signature workflow, authorization persistence, and packet validation. Readiness classes remain read-only; no replacement PHP may exceed 2,000 LOC and hot facades stay at or below 800 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "find app/Services/Ai/SelfConstruction -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'"
+      - "readiness projectors expose no update/insert/delete/upsert operation"
+      - "dependencies are typed and flow one way from projection to provider-neutral owners"
+  - op: OWNER
+    detail: "Assign one provider-neutral owner for signed receipt authorization and replay protection, one for executor-release policy, one for provider/adapter capability state, one for human signature workflow, one for authorization persistence, and one for canonical packet path resolution. Readiness owns projection only and cannot grant or persist runtime authority."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "every policy decision, signature verification, durable transition, provider action, and evidence read has exactly one owner"
+      - "receipt authority is derived from a verified canonical signed payload with replay protection"
+      - "implementation packets resolve current owner paths instead of embedding historical locations"
+  - op: EXTRACT
+    detail: "Extract typed release/receipt/provider descriptors with explicit prerequisite predicates, blocker propagation, capability interfaces, signature-verification results, canonical hashes, state-transition invariants, and path validation. Replace __call and class-name probing with constructor-enforced collaborators and reuse one immutable projection snapshot per request."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "unknown dependencies fail at construction with typed errors"
+      - "ready and authorized states are computed from validated invariants rather than literal strings"
+      - "every write uses an explicit command/result boundary and every projection is side-effect free"
+  - op: CODEMAP
+    detail: "Map all 39 facade aliases and command flags to callers, prerequisites, side effects, true owner, query cost, stable-hash compatibility, current packet paths, and migration disposition. Date temporary aliases and replace authorization ceremony names with bounded lifecycle vocabulary."
+    target_paths:
+      - app/Console/Commands/AtlasAiSelfConstructionCommand.php
+      - app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php
+      - docs/engineering-knowledge-base/CODEMAP.md
+    acceptance:
+      - "all 39 methods have owner, caller, prerequisites, side-effect class, authorization semantics, and migration disposition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+      - "unmapped reflection routes and stale packet/command aliases are removed after one compatibility cycle"
+  - op: PERF
+    detail: "Benchmark cold/warm provider, receipt, release, authorization, and packet chains with query count, schema probes, allocations, hash/signature work, payload bytes, p50, and p95. Share one validated owner snapshot per request and give cryptographic verification and persistence explicit budgets."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentDispatchProviderSection.php
+      - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentDispatchProviderSectionTest.php
+    acceptance:
+      - "benchmarks publish cold/warm p50 and p95 plus query, schema-probe, memory, hash/signature, and payload budgets"
+      - "one request does not repeat unchanged schema or receipt/ledger queries"
+      - "template/packet chains do not recursively rebuild and hash unchanged payloads"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-4302
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: b150526798706404a819381576f406990a26feb611187bc67f27bf735de1ee44
+  source_bytes: 251143
+  public_method_count: 42
+  public_domain_method_count: 39
+  parent_facade_delegation_count: 39
+  import_count: 15
+  used_import_count: 8
+  unused_import_count: 7
+  unresolved_parent_method_name_count: 9
+  unresolved_parent_call_occurrence_count: 12
+  missing_control_plane_import_count: 7
+  implementation_packet_count: 7
+  implementation_packet_missing_path_entry_count: 9
+  implementation_packet_unique_missing_path_count: 8
+  literal_false_assignment_count: 356
+  stable_hash_call_count: 54
+  non_execution_guarantee_block_count: 43
+  schema_has_table_count: 21
+  query_builder_count: 5
+  count_query_count: 1
+  first_query_count: 3
+  mutating_update_or_create_count: 1
+  next_file_by_loc: app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentControlPlaneSection.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 6 / 1210
-- lines_scanned: 82006
-- s0..s3: 21 / 20 / 11 / 0
+- files_scanned: 7 / 1210
+- lines_scanned: 86308
+- s0..s3: 26 / 23 / 13 / 0
 - intent_axes_covered: [2, 3, 5, 6, 7, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 29, 33, 34, 35, 36, 37, 38, 40, 41, 42, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
 - intent_axes_missing_in_this_bucket: [1, 4, 8, 9, 11, 12, 13, 26, 30, 31, 32, 39, 43, 44, 45, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
-- ownership_proposal: "thin compatibility facades -> readiness query owner + runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + receipt/provider-prestart owners + adapter invocation/execution guard owners + external-process lifecycle owner + real-invoker executor/process supervision owners + post-start evidence/liveness owner + implementation-packet validator + Codex adapter"
-- ordered_worklist: ["BUGFIX_PLAN Codex reachability, Batch1/Batch2 cross-section calls, method-existence checks, packet paths, hash binding, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, and 100 numbered automatic-dispatch contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER readiness, review/merge, scheduler, dispatch, receipt, provider pre-start, adapter guards, external process, executor/process supervision, human decision, session, evidence, and I/O authorities", "EXTRACT typed validated catalogs, prerequisite predicates, canonical packet paths, and transition projectors", "CODEMAP callers, routes, statuses, aliases, packet paths, and query costs", "PERF query/schema/IO/hash/payload budgets"]
+- ownership_proposal: "thin compatibility facades -> read-only readiness query owners + provider-neutral runtime command/writer owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
+- ordered_worklist: ["BUGFIX_PLAN Codex reachability, Batch1/Batch2 cross-section calls, seven DispatchProvider ControlPlane imports, receipt authorization/hash/signature binding, packet paths, evidence graph, and ready-versus-blocked semantics", "TEST all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT parent and monster sections by lifecycle authority", "OWNER readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, persistence, session, evidence, and I/O authorities", "EXTRACT typed validated catalogs, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and transition projectors", "CODEMAP callers, routes, statuses, aliases, authorization semantics, packet paths, and query costs", "PERF query/schema/IO/hash/signature/payload budgets"]
 - meta_complete: false
 ```
