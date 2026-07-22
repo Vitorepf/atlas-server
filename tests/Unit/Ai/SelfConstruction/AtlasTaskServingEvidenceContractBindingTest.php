@@ -68,11 +68,12 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
     }
 
     /** @return array{client:string, task_packet_id:string, lease_id:string} */
-    private function servedTask(string $id, string $file = 'app/Services/Foo/Bar.php'): array
+    private function servedTask(string $id, string|array $files = 'app/Services/Foo/Bar.php'): array
     {
+        $allowedFiles = is_array($files) ? array_values($files) : [$files];
         $exit = Artisan::call('atlas:task:enqueue', [
             '--objective' => 'wire the FooBar into the registry',
-            '--allow' => [$file],
+            '--allow' => $allowedFiles,
             '--accept' => ['the FooBar resolves from the container'],
             '--evidence' => ['tests_or_gates_result'],
             '--id' => $id,
@@ -84,8 +85,10 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $res = $serving->next('client-'.$id);
         $this->assertSame('served', $res['status']);
 
-        @mkdir(\dirname($this->repo.'/'.$file), 0775, true);
-        @file_put_contents($this->repo.'/'.$file, "<?php // {$id}\n");
+        foreach ($allowedFiles as $file) {
+            @mkdir(\dirname($this->repo.'/'.$file), 0775, true);
+            @file_put_contents($this->repo.'/'.$file, "<?php // {$id}\n");
+        }
 
         return [
             'client' => 'client-'.$id,
@@ -138,6 +141,37 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $this->assertSame('resolved', $result['status']);
         $this->assertTrue($result['lease_closed']);
         $this->assertSame($failingVerdict, $result['evidence_contract']);
+    }
+
+    public function test_evidence_contract_hashes_allowed_file_sets_without_delimiter_collisions_or_order_sensitivity(): void
+    {
+        $allegations = [];
+        $serving = $this->servingService(
+            static function (array $allegation, array $evidence) use (&$allegations): array {
+                $allegations[$allegation['task_packet_id']] = $allegation;
+
+                return ['schema' => AtlasVerificationCourtEvidenceContract::SCHEMA, 'accepted' => true, 'blockers' => []];
+            },
+            new AtlasTaskGovernancePolicyPlane(['evidence_contract_mode' => 'enforce']),
+        );
+
+        $hashes = [];
+        foreach ([
+            'first' => ['app/A.php', 'app/B.php,app/C.php'],
+            'collision' => ['app/A.php,app/B.php', 'app/C.php'],
+            'reordered' => ['app/B.php,app/C.php', 'app/A.php'],
+        ] as $label => $files) {
+            $served = $this->servedTask('evctr-hash-'.$label, $files);
+            $result = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], [
+                'outcome' => 'success',
+                'commit' => true,
+            ]);
+            $this->assertSame('resolved', $result['status']);
+            $hashes[$label] = $allegations[$served['task_packet_id']]['allowed_files_hash'];
+        }
+
+        $this->assertNotSame($hashes['first'], $hashes['collision']);
+        $this->assertSame($hashes['first'], $hashes['reordered']);
     }
 
     // ── (b) enforce mode with failing evidence refuses the commit, lease stays open ──

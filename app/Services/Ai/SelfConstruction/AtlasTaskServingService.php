@@ -488,10 +488,12 @@ final class AtlasTaskServingService
             $evidenceContractVerdict = null;
             if ($evidenceContractMode !== 'off') {
                 try {
+                    $allowedFiles = array_values(array_unique(array_map('strval', (array) $scope['allowed_files'])));
+                    sort($allowedFiles, SORT_STRING);
                     $allegation = [
                         'task_packet_id' => $taskPacketId,
                         'lease_id' => $leaseId,
-                        'allowed_files_hash' => hash('sha256', implode(',', (array) $scope['allowed_files'])),
+                        'allowed_files_hash' => hash('sha256', json_encode($allowedFiles, JSON_THROW_ON_ERROR)),
                         'command_hash' => hash('sha256', implode(',', array_keys((array) ($verification['checks'] ?? [])))),
                     ];
                     $evidenceContractVerdict = ($this->evidenceContractEvaluator)($allegation, (array) ($payload['evidence'] ?? []));
