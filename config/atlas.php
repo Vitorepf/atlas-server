@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
+use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopLearningAppendService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;

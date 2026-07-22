@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AcosMax;
+namespace Tests\Unit\Ai\Context\Retrieval;
 
-use App\Services\Ai\AcosMax\RagxChainMechanismService;
+use App\Services\Ai\Context\Retrieval\RagxChainMechanismService;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -132,5 +132,49 @@ final class RagxChainMechanismServiceTest extends TestCase
         $this->assertSame('insufficient_signal', $noEvidence['status']);
         $this->assertSame([], $noEvidence['nodes']);
         $this->assertFalse($noEvidence['generated_summary']);
+    }
+
+    public function test_m3b_retrieval_owners_must_resolve_from_context_retrieval(): void
+    {
+        foreach ([
+            'AsefChunkIndexService',
+            'AtlasCodeSymbolEmbeddingCoverageService',
+            'AtlasKnowledgeItemEmbeddingCoverageService',
+            'CitationGroundingMeter',
+            'DomainLexicalNormalizer',
+            'GatedCorpusCandidateMiner',
+            'GoldenCounterfactualReplayService',
+            'Maxa04JinaV3DualReadLedger',
+            'Maxa04JinaV3DualReadService',
+            'ProvenanceWeightCalculator',
+            'RagxChainMechanismService',
+            'RecallGapAggregator',
+        ] as $owner) {
+            $canonicalFqcn = 'App\\Services\\Ai\\Context\\Retrieval\\'.$owner;
+
+            $this->assertTrue(class_exists($canonicalFqcn), $canonicalFqcn.' must resolve from the canonical Context Retrieval namespace.');
+        }
+    }
+
+    public function test_legacy_acosmax_retrieval_fqcns_remain_autoloadable_during_m3_compatibility_cycle(): void
+    {
+        foreach ([
+            'AsefChunkIndexService',
+            'AtlasCodeSymbolEmbeddingCoverageService',
+            'AtlasKnowledgeItemEmbeddingCoverageService',
+            'CitationGroundingMeter',
+            'DomainLexicalNormalizer',
+            'GatedCorpusCandidateMiner',
+            'GoldenCounterfactualReplayService',
+            'Maxa04JinaV3DualReadLedger',
+            'Maxa04JinaV3DualReadService',
+            'ProvenanceWeightCalculator',
+            'RagxChainMechanismService',
+            'RecallGapAggregator',
+        ] as $owner) {
+            $legacyFqcn = 'App\\Services\\Ai\\AcosMax\\'.$owner;
+
+            $this->assertTrue(class_exists($legacyFqcn), $legacyFqcn.' must remain autoloadable through the M3 compatibility cycle.');
+        }
     }
 }

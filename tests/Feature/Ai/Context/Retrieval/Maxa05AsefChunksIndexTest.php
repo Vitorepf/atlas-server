@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\AcosMax;
+namespace Tests\Feature\Ai\Context\Retrieval;
 
-use App\Services\Ai\AcosMax\AsefChunkIndexService;
+use App\Services\Ai\Context\Retrieval\AsefChunkIndexService;
 use App\Services\Ai\Context\AtlasSemanticEmbeddingFoundationService;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Database\Schema\Blueprint;

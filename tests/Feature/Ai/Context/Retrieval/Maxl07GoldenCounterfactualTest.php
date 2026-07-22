@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai\AcosMax;
+namespace Tests\Feature\Ai\Context\Retrieval;
 
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
-use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
+use App\Services\Ai\Context\Retrieval\GoldenCounterfactualReplayService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

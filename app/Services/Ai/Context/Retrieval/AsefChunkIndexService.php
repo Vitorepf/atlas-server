@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\AcosMax;
+namespace App\Services\Ai\Context\Retrieval;
 
 use App\Services\Ai\Context\AtlasSemanticEmbeddingFoundationService;
 use App\Services\Ai\Mission\MissionCanonicalHash;

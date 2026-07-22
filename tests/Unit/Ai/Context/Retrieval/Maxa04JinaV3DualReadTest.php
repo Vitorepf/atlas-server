@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AcosMax;
+namespace Tests\Unit\Ai\Context\Retrieval;
 
-use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadService;
+use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

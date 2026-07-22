@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadService;
+use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadService;
 use Illuminate\Console\Command;
 use Throwable;
 

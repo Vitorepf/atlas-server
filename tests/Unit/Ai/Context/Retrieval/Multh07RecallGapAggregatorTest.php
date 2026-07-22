@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AcosMax;
+namespace Tests\Unit\Ai\Context\Retrieval;
 
-use App\Services\Ai\AcosMax\RecallGapAggregator;
+use App\Services\Ai\Context\Retrieval\RecallGapAggregator;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

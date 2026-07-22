@@ -7,7 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
-use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
+use App\Services\Ai\Context\Retrieval\DomainLexicalNormalizer;
 use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
+use App\Services\Ai\Context\Retrieval\AtlasKnowledgeItemEmbeddingCoverageService;
 use Illuminate\Console\Command;
 
 final class AtlasMemoryKbEmbeddingCoverageCommand extends Command

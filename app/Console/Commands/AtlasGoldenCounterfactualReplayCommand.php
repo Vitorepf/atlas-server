@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
+use App\Services\Ai\Context\Retrieval\GoldenCounterfactualReplayService;
 use Illuminate\Console\Command;
 
 final class AtlasGoldenCounterfactualReplayCommand extends Command
