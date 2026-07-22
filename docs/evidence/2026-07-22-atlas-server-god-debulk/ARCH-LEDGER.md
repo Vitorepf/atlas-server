@@ -34,6 +34,7 @@ verificacao_amostral: |
   RUNTIME 3/3 claims confirmados (docblock delega-100%, ToolRuntime mock 2 callers, ledgers 6×AtlasAver vs 8×AiRealExecution)
   COGNICAO 4/4 confirmados (cross-ref 2/0, AcosMax 0 providers, RSI 3 dirs, DualCore 36 controllers)
 notes: |
+  ⚠ atribuição: commit 6cf8d8930 inclui +242 linhas de META-FINDINGS/A1 staged pelo Sol META (conteúdo DELE, varrido pelo meu commit). Protocolo corrigido: commits da lane ARCH usam git commit -- <pathspec>, imune a stage alheio.
   até cancelar; lane: ARCH-BLUEPRINTS/ + este ledger + CONSOLIDATION-MAP + OWNERSHIP.
   NUNCA app/tests; NUNCA editar META-FINDINGS. Contador oficial: N/129.
   Lição COGNICAO: gêmeo de NOME ≠ gêmeo de FUNÇÃO — fusão cega lá destruiria coesão (cross-ref ≈0).
