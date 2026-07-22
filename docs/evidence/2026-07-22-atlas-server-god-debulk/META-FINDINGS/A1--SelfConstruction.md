@@ -7,9 +7,9 @@
 
 ```yaml
 meta_complete: false
-files_scanned: 14
+files_scanned: 15
 files_total: 1210
-lines_scanned: 102555
+lines_scanned: 104205
 ```
 
 ## Files
@@ -2844,14 +2844,300 @@ evidence:
   next_file_by_loc: app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
 ```
 
+```yaml
+path: app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+loc: 1650
+kind: php_task_serving_mutation_commit_governance_and_learning_orchestrator
+intent_axes: [2, 3, 5, 6, 10, 14, 16, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 33, 34, 35, 37, 38, 39, 40, 41, 42, 43, 45, 49, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+findings:
+  - id: A1-SC-0132
+    type: godfile
+    severity: s1
+    detail: "The platform-neutral two-verb serving contract has grown into a 1,650-LOC mutation and landing godfile. report alone spans 553 lines and owns lease closure, verification, Court evidence, refactor proof, merge governance, dedup/admission, context certification, git commit, outcome honesty, diary, cost, canary, learning, failure capsules, auto-repair, and outcome recording. This hot command facade exceeds the 800-LOC limit and has accumulated 47 commits of cross-owner behavior."
+    evidence:
+      - "wc -l => 1,650; report spans lines 391-943"
+      - "five public methods including a 14-parameter constructor and 22 private methods"
+      - "75 if branches, 22 try blocks, 32 fail-open mentions, 22 new expressions, and 10 service-locator calls"
+      - "git log for this source => 47 commits"
+  - id: A1-SC-0133
+    type: security
+    severity: s0
+    detail: "The report mutation boundary does not authenticate the supplied client against the lease before acting. The method validates only non-empty strings, then reads scope, executes gates, and can commit to main before markResolved finally compares queue agent_id. The dry-run path ignores clientId entirely, and neither report nor renew accepts the authority_nonce exposed by resume. A foreign, expired, or revoked authority that knows task/lease ids can therefore trigger work or land a commit before the late ownership failure."
+    evidence:
+      - "report lines 391-418 validates presence/outcome but never loads and binds the lease owner/status/expiry/authority nonce"
+      - "taskScope and all pre-commit gates run from line 419; commitScope executes at lines 653-659"
+      - "markResolved is first called at line 688, after the git commit; its queue agent comparison is downstream in the orchestrator"
+      - "non-commit success calls completeDryRun at lines 780-801 without passing clientId"
+      - "authority_nonce and authority_revoked appear only in resume lines 298-299; no cross-client/stale/revoked report test exists"
+  - id: A1-SC-0134
+    type: bug
+    severity: s0
+    detail: "Blackboard deferral leaks the canonical queue lease. next calls claimNext first, which atomically moves the task to claimed and creates an active lease; only afterward does it query file conflicts. On conflict it returns lease_deferred without releasing, giving back, or quarantining that claim. The task disappears from the claimable pool until TTL/reaping, so repeated contention can drain the queue and make the advertised advisory coordination mechanism a lease-denial path."
+    evidence:
+      - "claimNext occurs at line 156 and projectTask at line 188"
+      - "blackboard conflict detection occurs at line 195 and returns at lines 196-201"
+      - "there is no release/reportGiveBack/quarantine call in the conflict branch"
+      - "AtlasTaskServingBlackboardLeaseTest passes 2 tests but asserts only envelope status/contended file, never queue status or active lease cleanup"
+  - id: A1-SC-0135
+    type: bug
+    severity: s0
+    detail: "Verification Court enforcement is fail-open on evaluator failure. A thrown evidence evaluator is converted to accepted=true with no blockers, and the enforce predicate then permits the commit. This makes mode=enforce weaker precisely when the evidence authority is unavailable or broken, while returning the raw exception as if it were an accepted Court verdict."
+    evidence:
+      - "lines 445-458 catch any Throwable and construct accepted=true, blockers=[]"
+      - "lines 460-469 block enforce only when accepted is not true"
+      - "AtlasTaskServingEvidenceContractBindingTest explicitly names and blesses fail-open behavior in enforce mode"
+      - "the current focused suite cannot reach that assertion because a later constructor-contract regression makes all seven commit cases fail"
+  - id: A1-SC-0136
+    type: bug
+    severity: s1
+    detail: "The constructor advertises AtlasContextRuntime as optional, but every commit report now fail-closes when it is null. Existing direct constructors and focused contract tests still rely on the public default, so the current evidence-contract suite has seven failures: expected resolved, received commit_failed. The compatibility contract changed without migration or a required constructor type."
+    evidence:
+      - "constructor line 105 declares private readonly ?AtlasContextRuntime $contextRuntime = null"
+      - "eliteAutonomosContextAndOutcome lines 1,487-1,492 returns atlas_context_runtime_unavailable whenever it is null"
+      - "report invokes that gate before every scoped commit at lines 636-651"
+      - "focused run => 7 failed / 2 passed / 27 assertions / 3.64s; all seven commit-path expectations received commit_failed"
+  - id: A1-SC-0137
+    type: bug
+    severity: s0
+    detail: "Git landing and task settlement are not modeled as an idempotent transaction/saga. The commit happens before the post-commit honesty gate, which can return commit_failed while deliberately leaving the lease open; then markResolved can also return a blocked event, but its result is not checked before diary, cost, canary, learning, and outcome side effects run and the outer envelope still says resolved. The system can therefore have a real commit with an open/failed task, duplicate follow-up reports, and downstream success evidence for an unclosed lease."
+    evidence:
+      - "commitScope lands at lines 653-669"
+      - "post-commit gate lines 672-685 can return commit_failed after the commit already exists"
+      - "the existing post-commit kernel test explicitly expects commit_failed plus lease_closed=false after landing"
+      - "markResolved result at line 688 is not gated before diary, budget, canary, learning, and outcome recording at lines 690-777"
+      - "the final resolved envelope derives lease_closed from the event but never changes its own status when that event is blocked"
+  - id: A1-SC-0138
+    type: doc_lie
+    severity: s1
+    detail: "The default Maestro usage fact satisfies required field names by assigning unrelated units: file count becomes tokens_in, verification-check count becomes tokens_out, lease wall seconds becomes cost_cents, and opaque client id becomes provider. These values flow into the real shared cost ledger and its aggregations, so cost, token, provider, and per-muscle conclusions are numerically well-formed but semantically false."
+    evidence:
+      - "lines 708-726 map files_committed_count/check count/wall seconds into token and cent fields"
+      - "provider is assigned clientId and model is hard-coded n/a"
+      - "constructor lines 115-120 documents this as the same production ledger used by atlas:task:maestro:cost"
+      - "AtlasTaskServingBudgetMeterConsumerTest asserts only presence/count of the descriptive fields, not unit truth of tokens_in/tokens_out/cost_cents/provider"
+  - id: A1-SC-0139
+    type: false_abstraction
+    severity: s1
+    detail: "The advertised AUTHOR-not-JUDGE separation is two calls to the same inspector object, same method, same inputs, and same deterministic rules. No independent owner, provenance, implementation, configuration, or evidence source separates the alleged author self-check from the serve-time judge. The second call only doubles work while a source-count test labels call multiplicity as independence."
+    evidence:
+      - "lines 211-217 call $this->inspector->inspect($task) twice"
+      - "both results are judged against the same self_sufficient and blocking_deficiencies schema"
+      - "AtlasTaskServingAuthorNotJudgeTest reads this PHP source and asserts exactly two substring occurrences"
+      - "the test does not inject two authorities or prove distinct provenance/decision independence"
+  - id: A1-SC-0140
+    type: bug
+    severity: s1
+    detail: "Evidence-chain binding uses delimiter-ambiguous, order-sensitive hashes. allowed_files_hash is sha256(implode(',', allowed_files)) and command_hash hashes only comma-joined verification check keys, not a canonical framed value or check outcomes. Distinct valid path lists containing commas can produce the same hash, equivalent file sets in different order produce different hashes, and a replay can retain command keys while changing pass/fail facts."
+    evidence:
+      - "lines 449-455 construct the Court allegation with comma-joined arrays"
+      - "isolated probe: [app/A,B.php, app/C.php] and [app/A, B.php,app/C.php] serialize and hash identically"
+      - "AtlasTaskPacketQualityInspector has no comma prohibition for allowed_files"
+      - "command_hash uses only array_keys(verification.checks), excluding each check result/output/evidence"
+  - id: A1-SC-0141
+    type: security
+    severity: s1
+    detail: "Worker-controlled error text crosses durable and log boundaries before redaction. A failed/give-back report reads arbitrary evidence.error/error_excerpt/failure_excerpt and persists it as a Dev failure capsule; the persistence service truncates to 1,200 bytes but does not redact secrets. Other exception paths log or return raw messages. Redaction exists only later in the prompt injector, leaving the database and operational logs able to retain credentials, tokens, private paths, or provider payload fragments."
+    evidence:
+      - "lines 863-885 persist the raw worker excerpt through DevFailureCapsuleRuntimeService"
+      - "DevFailureCapsuleRuntimeService::build truncates error_excerpt but has no redaction"
+      - "DevFailureCapsulePromptInjector redacts only when projecting a stored capsule later"
+      - "lines 903-907 log a raw exception message; evidence-contract and elite-gate envelopes also return raw messages"
+      - "failure-capsule tests cover presence/readback, not secret removal at persistence/log time"
+  - id: A1-SC-0142
+    type: bug
+    severity: s1
+    detail: "The AWIS execution verdict is cached forever for the service instance with no TTL, certification hash, filesystem/version fingerprint, or invalidation. A long-lived worker can keep claiming after workspace certification is revoked/drifts, or remain blocked after the operator recertifies. The cache turns a safety gate into a startup snapshot rather than a current pre-mutation decision."
+    evidence:
+      - "awisGateCache is a nullable array property at line 90"
+      - "cachedAwisGateVerdict lines 357-380 returns the first verdict forever once populated"
+      - "the cache key contains no workspace id, certification artifact hash, config version, or timestamp"
+      - "AutonomosAwisGateTest covers pass/throw envelopes but not long-lived allow-to-block or block-to-allow transitions"
+  - id: A1-SC-0143
+    type: perf
+    severity: s1
+    detail: "The hot next poll synchronously assembles five advisory sources after claim and performs repeated unbounded or N-per-file work: duplicate inspection, one blackboard query per allowed file, full learning-ledger replay, one sibling resolver per file, database failure-capsule lookup, memory recall, and file() of the entire resolved-receipt ledger before slicing the last 500 rows. Up to 25 quarantine iterations can add 50 quality inspections and claim/quarantine writes. No latency, IO-byte, query, or evaluation budget guards this worker polling seam."
+    evidence:
+      - "MAX_QUARANTINE_SKIPS=25 and two inspections per candidate at lines 155-264"
+      - "blackboardConflictsFor lines 1,227-1,232 performs one service query per file"
+      - "knownLessonsFor lines 1,069-1,094 loads/reverses the full admission ledger"
+      - "greenRunExemplarsFor lines 1,288-1,292 calls file() before array_slice, so the complete ledger is loaded"
+      - "successful serve also calls sibling tests, failure memory, and hybrid memory recall serially"
+  - id: A1-SC-0144
+    type: bug
+    severity: s1
+    detail: "An untrusted worker can permanently retire a claimed task as already satisfied using self-declared booleans or broad substring matches. The classifier treats phrases such as already implemented, tests already green, nothing to commit, duplicate, pre-existing, or noop as proof without verification and does not understand negation, so text like not already implemented can false-match. It then quarantines the packet with give_back_count=0, preventing another worker from attempting it."
+    evidence:
+      - "giveBackMeansAlreadySatisfied lines 971-1,019 accepts eight boolean flags and sixteen substring needles"
+      - "the substring matcher does not tokenize, require an exact reason enum, detect negation, or bind runnable evidence"
+      - "lines 831-850 quarantine immediately as already_satisfied_noop"
+      - "existing tests prove the explicit positive path only and assert the packet is no longer served"
+  - id: A1-SC-0145
+    type: test_gap
+    severity: s1
+    detail: "The class has broad but low-leverage coverage: 33 referencing test files totaling 5,894 LOC, while source-shape assertions bless two identical inspectors, the blackboard suite misses the leaked lease, the evidence suite blesses enforce fail-open but is currently seven tests red, and the budget suite checks keys rather than units. No contract covers cross-client/stale/revoked commit authority, markResolved failure after commit, post-commit idempotency, hash ambiguity, raw-secret persistence, AWIS cache invalidation, negated no-op text, or hot-path budgets."
+    evidence:
+      - "rg AtlasTaskServingService tests => 33 files / 5,894 LOC"
+      - "focused Blackboard + EvidenceContract run => 2 passed / 7 failed / 27 assertions / 3.64s"
+      - "focused maximum RSS => 170,885,120 bytes"
+      - "AuthorNotJudge uses source substring counts rather than two independent decision authorities"
+      - "no report test supplies a client different from the lease owner"
+  - id: A1-SC-0146
+    type: os_overlap
+    severity: s0
+    detail: "AtlasTaskServingService is a parallel operating system for engineering delivery rather than a two-verb transport facade. It decides queue scheduling and quarantine, workspace certification, evidence admissibility, refactor merit, architecture judgment, dedup/wiring/kit admission, merge governance, git landing, completion authority, diary truth, cost accounting, canary response, provider-safe memory, failure learning, repair, and engineering outcome recording. These owners already exist as separate named services, but this class reassembles their lifecycle and failure policy into one sovereign report method."
+    evidence:
+      - "28 imports are all used, spanning queue, Court, kernel, context, governance, cost, memory, failure runtime, diary, blackboard, AWIS, and write-back"
+      - "report contains at least nine independently configured gates plus commit and settlement"
+      - "next combines lease authority, blackboard coordination, packet quality, five context/memory sources, and client-facing transport"
+      - "14 application files and 33 test files reference the class, making it a high-churn composition root"
+actions:
+  - op: BUGFIX_PLAN
+    detail: "Fix authority and ordering before any split: load and validate active, unexpired, unrevoked lease + owner + authority nonce before scope reads, gates, dry-run completion, or commit; release/defer the just-acquired lease transactionally on blackboard conflict; make enforce failures fail closed; migrate AtlasContextRuntime from fake-optional to required/injected; and model landed-but-unsettled as an explicit durable state rather than commit_failed."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+      - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php
+      - app/Services/Ai/SelfConstruction/Governance/AtlasTaskGovernancePolicyPlane.php
+    acceptance:
+      - "no side effect runs until lease owner/status/expiry/revocation/nonce and queue binding all validate"
+      - "blackboard deferral leaves the packet claimable/deferred with zero active orphan leases"
+      - "enforce mode cannot land when the Court evaluator throws or returns malformed output"
+      - "every real commit ends in resolved or landed_pending_settlement with an idempotent repair/revert path"
+  - op: TEST
+    detail: "Add failure-injection and authority matrices before refactoring: foreign client, wrong/missing nonce, expired/revoked lease, queue/lease drift, blackboard conflict cleanup, evaluator throw/malformed verdict in each mode, optional-runtime constructor migration, post-commit gate/markResolved/side-effect failures, canonical hash permutations/collisions, cost-unit truth, secret redaction, AWIS recertification, and negated already-satisfied phrases."
+    target_paths:
+      - tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
+      - tests/Feature/Ai/AtlasTaskServingBlackboardLeaseTest.php
+      - tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+      - tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php
+      - tests/Feature/Ai/AtlasTaskServingFailureCapsuleTest.php
+      - tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
+    acceptance:
+      - "the current focused 7-failure suite is green before structural work"
+      - "every injected failure asserts queue, lease, git HEAD, receipts, diary, cost, canary, learning, and envelope state"
+      - "no test equates repeated calls to one deterministic inspector with independent judgment"
+      - "hot-path test budgets cover latency, RSS, filesystem bytes, queries, and collaborator evaluations"
+  - op: SPLIT
+    detail: "Split before fusion into a thin TaskServingTransport, TaskLeaseAuthority, TaskServeAdmissionCoordinator, TaskReportRouter, ScopedLandingSaga, and advisory context assembler. Move each Court/governance/refactor/dedup/AWIS decision behind a typed gate registry; move diary/cost/canary/learning/outcome writes behind an idempotent post-settlement outbox. Keep AtlasTaskServingService as a temporary next/report compatibility facade below 300 LOC."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Services/Ai/SelfConstruction/TaskServing
+      - app/Services/Ai/SelfConstruction/Governance
+    acceptance:
+      - "no coordinator exceeds 500 LOC and no hot transport/facade exceeds 300 LOC"
+      - "git landing and queue settlement have an explicit durable saga state machine"
+      - "advisory context failures cannot mutate lease/commit authority"
+  - op: OWNER
+    detail: "Name one owner each for lease authority, serve admission, evidence/Court policy, scoped git landing, settlement state, post-land effects, usage facts, and provider-safe learning. The transport may route actions but cannot decide or duplicate those laws."
+    target_paths:
+      - docs/evidence/2026-07-22-atlas-server-god-debulk/OWNERSHIP.md
+      - app/Services/Ai/SelfConstruction/TaskServing
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "every mutation and failure state maps to one Class::method owner"
+      - "authority validation occurs once and its immutable verdict is consumed by every later stage"
+      - "telemetry, memory, diary, canary, and outcome recording consume settled events, never infer settlement"
+  - op: EXTRACT
+    detail: "Extract typed NextRequest, ReportRequest, LeaseAuthority, VerificationSnapshot, LandingReceipt, SettlementResult, and PostLandEvent values. Use canonical JSON/hash composition with sorted, length-framed lists and complete check verdicts. Persist a commit-sha/idempotency-keyed outbox so retries cannot duplicate side effects."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/TaskServing
+      - app/Services/Ai/SelfConstruction/VerificationCourt
+      - app/Services/Ai/SelfConstruction/ControlPlane
+    acceptance:
+      - "static analysis prevents missing owner/nonce/status fields and malformed gate verdicts"
+      - "equivalent sets hash identically; distinct framed inputs cannot collide through delimiter ambiguity"
+      - "each post-land effect is exactly-once or safely replayable by commit SHA"
+  - op: RENAME
+    detail: "Replace ambiguous report branching with explicit verbs such as reportDryRunCompletion, landScopedCommit, reportFailure, giveBack, and requestScopeExpansion. Rename cost fields to their real units unless actual provider token/cost facts are supplied; reserve resolved for confirmed queue settlement."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Console/Commands/AtlasTaskCommand.php
+      - app/Services/Ai/SelfConstruction/Maestro/Cost
+    acceptance:
+      - "method/status/metric names describe their actual effect and unit"
+      - "one-cycle CLI aliases have explicit deprecation and removal tests"
+  - op: FUSE
+    detail: "After owner extraction, fuse only repeated canonical field normalization, gate-result envelopes, and same-owner advisory area matching. Replace the duplicate inspector invocation with a genuine second authority or one honest inspection; do not fuse authorization, judgment, landing, telemetry, and learning into another coordinator."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/TaskServing
+      - app/Services/Ai/SelfConstruction/AtlasTaskPacketQualityInspector.php
+    acceptance:
+      - "author and judge have distinct implementations/provenance or the contract stops claiming independence"
+      - "one canonical area matcher and one provider-safe error canonicalizer serve all advisory sources"
+  - op: DELETE
+    detail: "Delete the second identical inspector call, broad substring no-op classifier, fake token/cost/provider synonyms, raw exception propagation, stale AWIS cache, obsolete nullable-runtime compatibility, misplaced duplicate docblocks, and in-method service construction after characterization and migration."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Services/Ai/SelfConstruction/TaskServing
+    acceptance:
+      - "zero self-declared quarantine without verified evidence"
+      - "zero raw worker/exception secret material in durable storage, logs, or provider-bound envelopes"
+      - "zero semantically false Maestro usage fields"
+  - op: CODEMAP
+    detail: "Map next/resume/renew/report and every CLI/native/kernel caller through lease, queue, gate, commit, settlement, post-land, memory, and telemetry owners. Mark irreversible boundaries and every fail-open/fail-closed policy, including current test coverage and recovery commands."
+    target_paths:
+      - docs/engineering-knowledge-base/CODEMAP.md
+      - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+      - app/Console/Commands/AtlasTaskCommand.php
+    acceptance:
+      - "a worker report reaches authority, landing, settlement, and evidence owners in at most three hops"
+      - "every post-commit failure has a documented repair/revert transition"
+      - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge codemap-verify --json"
+  - op: PERF
+    detail: "Index advisory ledgers by normalized scope owner, tail JSONL without loading whole files, batch blackboard conflicts and sibling lookup, evaluate each real gate once, and cache only with explicit certification/version fingerprints and TTL. Instrument next/report wall time, RSS, file bytes/lines, DB queries, gate counts, and quarantine iterations."
+    target_paths:
+      - app/Services/Ai/SelfConstruction/TaskServing
+      - app/Services/Ai/SelfConstruction/LearningTransfer
+      - app/Services/Ai/AtlasAobgBlackboardService.php
+      - tests/Feature/Ai/AtlasTaskServingAuthorNotJudgeTest.php
+    acceptance:
+      - "one poll performs bounded IO independent of total ledger length"
+      - "blackboard and sibling lookups are batched per packet"
+      - "AWIS cache invalidates on TTL or certification fingerprint change"
+      - "published p50/p95 and worst-case quarantine budgets fail on regression"
+caps: [A, B, C, D, E, F, G]
+evidence:
+  read_mode: full_file_sequential_no_skipped_lines
+  line_range_read: 1-1650
+  syntax: "No syntax errors detected by /opt/homebrew/bin/php -l"
+  source_modified_during_meta: false
+  source_sha256: 377825c797a5ad41ffa9478f6cb538c105056537f6bdffd2336ac7024a8972a3
+  source_bytes: 82126
+  public_method_count_including_constructor: 5
+  public_operation_method_count: 4
+  private_method_count: 22
+  constructor_parameter_count: 14
+  report_method_span_loc: 553
+  import_count: 28
+  used_import_count: 28
+  if_branch_count: 75
+  try_block_count: 22
+  fail_open_mention_count: 32
+  direct_new_expression_count: 22
+  service_locator_call_count: 10
+  data_get_call_count: 38
+  app_reference_file_count: 14
+  test_reference_file_count: 33
+  referencing_test_loc: 5894
+  focused_test_passed_count: 2
+  focused_test_failed_count: 7
+  focused_test_assertion_count: 27
+  focused_test_duration_seconds: 3.64
+  focused_test_max_rss_bytes: 170885120
+  source_history_commit_count: 47
+  delimiter_collision_probe_serialized_equal: true
+  delimiter_collision_probe_hash_equal: true
+  next_file_by_loc: app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+```
+
 ## Bucket rollup
 
 ```markdown
-- files_scanned: 14 / 1210
-- lines_scanned: 102555
-- s0..s3: 60 / 52 / 19 / 0
-- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
-- intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 39, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
+- files_scanned: 15 / 1210
+- lines_scanned: 104205
+- s0..s3: 65 / 62 / 19 / 0
+- intent_axes_covered: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 45, 49, 50, 54, 55, 62, 64, 65, 66, 67, 68, 69]
+- intent_axes_missing_in_this_bucket: [9, 11, 12, 31, 32, 44, 46, 47, 48, 51, 52, 53, 56, 57, 58, 59, 60, 61, 63]
 - ownership_proposal: "thin compatibility facades -> read-only bounded readiness owners + provider-neutral post-start transition graph + provider-neutral runtime command/writer owner + typed capability registry/certifier + next-work graph selector + reservation/liveness snapshot owner + workspace-governance owner + certification workbench owner + completion evidence owner + provider-neutral review/merge lifecycle owner + scheduler/dispatch state owners + cryptographically verified receipt-authorization owner + executor-release policy owner + provider/adapter capability owners + human-signature workflow owner + authorization-persistence owner + canonical packet-path validator + Codex adapter"
 - ordered_worklist: ["BUGFIX_PLAN operator-evidence helper autoload, provider-safe redaction, canonical paths, immutable snapshot, transactional queue/lease/receipt completion, verified commit binding, fail-closed dependency/admission/recovery, durable-reservation schema/state/approval/path truth, closure-corridor hash reachability, read-only mutation isolation, bounded task-packet reads, safe argv rendering, 12 DispatchGate fatal routes, AgentCodex Schema/sibling reachability, ControlPlane receiver/existence classifier, duplicated/dead next-slice state machine, seven DispatchProvider imports, receipt authorization, packet paths, evidence graph, local-main policy, and ready-versus-blocked semantics", "TEST current operator-readiness fatal/path/redaction/snapshot/performance, queue transition failure injection and scale budgets, 18 durable-reservation semantic/budget contracts outside the command-test monster, closure corridor mutation/hash/shell/memory boundaries, 12 post-start gate contracts, 253 ControlPlane surface entries, all 171 Codex execution, 109 agent review/merge, 149 Codex review/merge, 100 numbered automatic-dispatch, and 39 dispatch/provider contracts", "SPLIT operator-evidence views, task queue lifecycle, and parent/monster sections by authority", "OWNER one operator-evidence closure law plus queue state, lease authority, dependency policy, completion reconciliation, learning, one durable-reservation law outside AAEOS quarantine, provider-neutral completion closure, post-start lifecycle, capability certification, next-work selection, workspace governance, readiness, review/merge, scheduler, dispatch, receipt authorization, executor release, provider/adapter capabilities, external process, executor/process supervision, human signature, publication, persistence, session, evidence, and I/O authorities", "EXTRACT operator-evidence snapshot/catalog, journaled typed transitions, bounded candidate indexes, validated capability/transition DAGs, immutable request snapshots, safe argv templates, composed input schemas, prerequisite predicates, cryptographic receipt invariants, canonical packet paths, and projectors", "FUSE only same-owner operator/closure and lifecycle peels after splits", "DELETE wrong/legacy paths, dead operator wrappers, false ledger guarantees, stale closure helpers, AAEOS quarantine twins, dead wrappers, imports, and quartet aliases", "CODEMAP operator evidence/commands/paths plus queue consumers/transitions, callers, routes, reservation surfaces, closure stages, 255 slices, 467 labels, statuses, aliases, authorization semantics, lifecycle inputs, and costs", "PERF operator-readiness dependencies plus queue-size/lock/task-file and node/hash/mother/instruction/memory/query/schema/IO/signature/depth/payload budgets"]
 - meta_complete: false
