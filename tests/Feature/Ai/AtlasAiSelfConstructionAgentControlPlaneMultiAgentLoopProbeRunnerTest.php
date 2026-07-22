@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopProbeRunner;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService;
 use Closure;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -23,6 +26,13 @@ use Tests\TestCase;
  */
 final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('local');
+    }
+
     public function test_runner_class_is_resolvable_with_required_dependencies(): void
     {
         $runner = $this->makeRunner();
@@ -219,10 +229,72 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame($runner->probeParallelism($input), $runner->probeParallelism($input));
     }
 
+    public function test_direct_released_resume_probe_removes_its_synthetic_queue_and_lease_artifacts(): void
+    {
+        $runId = 'direct-cleanup';
+        $taskPacketId = 'fleet_released_resume_probe_'.$runId;
+
+        $result = $this->makeRunner()->runTerminalFleetReleasedResumeProbe($runId);
+
+        $this->assertSame('claimable', $result['final_queue_status']);
+        $this->assertNull(app(AgentControlPlaneTaskPacketQueueRepository::class)->get($taskPacketId));
+        $this->assertTrue($result['synthetic_artifacts_cleaned']);
+    }
+
+    public function test_every_public_mutating_probe_returns_with_an_empty_synthetic_control_plane(): void
+    {
+        $runner = $this->makeRunner();
+        $bootstrap = app(AgentControlPlaneTerminalWorkerBootstrapService::class);
+        $probes = [
+            fn (): array => $runner->runTerminalBootstrapProbe('cleanup-bootstrap', 1),
+            fn (): array => $runner->runTerminalFleetLaunchPlanProbe('cleanup-launch', 1),
+            fn (): array => $runner->runTerminalBootstrapPartialSupplyProbe($bootstrap, 'cleanup-partial'),
+            fn (): array => $runner->runTerminalFleetPartialSupplyGateProbe('cleanup-fleet-partial'),
+            fn (): array => $runner->runTerminalFleetLaneIsolationNegativeProbe('cleanup-lane'),
+            fn (): array => $runner->runTerminalFleetResumeRollupProbe('cleanup-resume'),
+            fn (): array => $runner->runTerminalFleetMetadataOrphanRecoveryProbe('cleanup-metadata'),
+            fn (): array => $runner->runTerminalFleetReleasedResumeProbe('cleanup-released'),
+            fn (): array => $runner->runTerminalFleetEvidenceRollupProbe('cleanup-evidence'),
+            fn (): array => $runner->runTerminalBootstrapInvalidScopeProbe($bootstrap, 'cleanup-invalid-scope'),
+        ];
+
+        foreach ($probes as $probe) {
+            $result = $probe();
+
+            $this->assertTrue($result['synthetic_artifacts_cleaned']);
+            $this->assertSame(0, app(AgentControlPlaneTaskPacketQueueRepository::class)->registry()['total_count']);
+        }
+
+        $leaseFiles = array_values(array_filter(
+            Storage::disk('local')->files(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX),
+            static fn (string $path): bool => str_starts_with(basename($path), 'lease_'),
+        ));
+
+        $this->assertSame([], $leaseFiles);
+    }
+
+    public function test_mutating_probe_cleans_its_synthetic_artifacts_when_a_post_enqueue_check_throws(): void
+    {
+        $runner = $this->makeRunner(
+            terminalBootstrapRuntimeSafetyFn: static function (array $results): bool {
+                throw new RuntimeException('forced post-enqueue probe failure');
+            },
+        );
+
+        try {
+            $runner->runTerminalBootstrapProbe('cleanup-exception', 1);
+            $this->fail('The injected post-enqueue check must abort the probe.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('forced post-enqueue probe failure', $exception->getMessage());
+        }
+
+        $this->assertSame(0, app(AgentControlPlaneTaskPacketQueueRepository::class)->registry()['total_count']);
+    }
+
     /**
      * Wire up a runner directly via the container, using in-memory fakes.
      */
-    private function makeRunner(): AgentControlPlaneMultiAgentLoopProbeRunner
+    private function makeRunner(?Closure $terminalBootstrapRuntimeSafetyFn = null): AgentControlPlaneMultiAgentLoopProbeRunner
     {
         $orchestrator = app(AgentControlPlaneTaskQueueOrchestrator::class);
         $queue = app(AgentControlPlaneTaskPacketQueueRepository::class);
@@ -234,7 +306,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
             $leases,
             fn (array $items): array => [],
             fn (array $writeSets): int => 0,
-            fn (array $results): bool => true,
+            $terminalBootstrapRuntimeSafetyFn ?? fn (array $results): bool => true,
         );
     }
 

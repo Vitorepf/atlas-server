@@ -76,8 +76,57 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
         return ($this->terminalBootstrapRuntimeSafetyFn)($results);
     }
 
+    public function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalBootstrapProbeInternal($safeRunId, $probeAgentCount));
+    }
 
-function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
+    public function runTerminalFleetLaunchPlanProbe(string $runId, int $probeTerminalCount): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetLaunchPlanProbeInternal($safeRunId, $probeTerminalCount));
+    }
+
+    public function runTerminalBootstrapPartialSupplyProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalBootstrapPartialSupplyProbeInternal($bootstrap, $safeRunId));
+    }
+
+    public function runTerminalFleetPartialSupplyGateProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetPartialSupplyGateProbeInternal($safeRunId));
+    }
+
+    public function runTerminalFleetLaneIsolationNegativeProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetLaneIsolationNegativeProbeInternal($safeRunId));
+    }
+
+    public function runTerminalFleetResumeRollupProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetResumeRollupProbeInternal($safeRunId));
+    }
+
+    public function runTerminalFleetMetadataOrphanRecoveryProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetMetadataOrphanRecoveryProbeInternal($safeRunId));
+    }
+
+    public function runTerminalFleetReleasedResumeProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetReleasedResumeProbeInternal($safeRunId));
+    }
+
+    public function runTerminalFleetEvidenceRollupProbe(string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalFleetEvidenceRollupProbeInternal($safeRunId));
+    }
+
+    public function runTerminalBootstrapInvalidScopeProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
+    {
+        return $this->runSyntheticProbe($runId, fn (string $safeRunId): array => $this->runTerminalBootstrapInvalidScopeProbeInternal($bootstrap, $safeRunId));
+    }
+
+    private function runTerminalBootstrapProbeInternal(string $runId, int $probeAgentCount): array
     {
         $probeAgentCount = max(1, $probeAgentCount);
         $probeTag = 'terminal_worker_bootstrap_probe_'.$runId;
@@ -178,9 +227,9 @@ function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
                 );
             }
         }
-        $invalidScopeProbe = $this->runTerminalBootstrapInvalidScopeProbe($bootstrap, $runId);
+        $invalidScopeProbe = $this->runTerminalBootstrapInvalidScopeProbeInternal($bootstrap, $runId);
         $previewProbe = $this->runTerminalBootstrapPreviewProbe($bootstrap, $runId);
-        $partialSupplyProbe = $this->runTerminalBootstrapPartialSupplyProbe($bootstrap, $runId);
+        $partialSupplyProbe = $this->runTerminalBootstrapPartialSupplyProbeInternal($bootstrap, $runId);
 
         $readyCount = count(array_filter(
             $results,
@@ -349,7 +398,7 @@ function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
         ];
     }
 
-function runTerminalFleetLaunchPlanProbe(string $runId, int $probeTerminalCount): array
+    private function runTerminalFleetLaunchPlanProbeInternal(string $runId, int $probeTerminalCount): array
     {
         $queueTag = 'terminal_fleet_launch_plan_probe_'.$runId;
         $seededPacketIds = [];
@@ -487,7 +536,7 @@ function runTerminalFleetLaunchPlanProbe(string $runId, int $probeTerminalCount)
         ];
     }
 
-function runTerminalBootstrapPartialSupplyProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
+    private function runTerminalBootstrapPartialSupplyProbeInternal(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
         $queueTag = 'terminal_bootstrap_partial_supply_'.$runId;
         $taskPacketId = 'terminal_bootstrap_partial_supply_'.$runId;
@@ -541,7 +590,7 @@ function runTerminalBootstrapPartialSupplyProbe(AgentControlPlaneTerminalWorkerB
         ];
     }
 
-function runTerminalFleetPartialSupplyGateProbe(string $runId): array
+    private function runTerminalFleetPartialSupplyGateProbeInternal(string $runId): array
     {
         $queueTag = 'terminal_fleet_partial_supply_probe_'.$runId;
         $taskPacketId = 'fleet_partial_supply_probe_'.$runId;
@@ -610,7 +659,7 @@ function runTerminalFleetPartialSupplyGateProbe(string $runId): array
         ];
     }
 
-function runTerminalFleetLaneIsolationNegativeProbe(string $runId): array
+    private function runTerminalFleetLaneIsolationNegativeProbeInternal(string $runId): array
     {
         $targetQueueTag = 'terminal_fleet_lane_negative_target_'.$runId;
         $otherQueueTag = 'terminal_fleet_lane_negative_other_'.$runId;
@@ -698,7 +747,7 @@ function runTerminalFleetLaneIsolationNegativeProbe(string $runId): array
         ];
     }
 
-function runTerminalFleetResumeRollupProbe(string $runId): array
+    private function runTerminalFleetResumeRollupProbeInternal(string $runId): array
     {
         $queueTag = 'terminal_fleet_resume_rollup_probe_'.$runId;
         $taskPacketId = 'fleet_resume_rollup_probe_'.$runId;
@@ -774,7 +823,7 @@ function runTerminalFleetResumeRollupProbe(string $runId): array
         ];
     }
 
-function runTerminalFleetMetadataOrphanRecoveryProbe(string $runId): array
+    private function runTerminalFleetMetadataOrphanRecoveryProbeInternal(string $runId): array
     {
         $queueTag = 'terminal_fleet_metadata_orphan_probe_'.$runId;
         $taskPacketId = 'fleet_metadata_orphan_probe_'.$runId;
@@ -844,7 +893,7 @@ function runTerminalFleetMetadataOrphanRecoveryProbe(string $runId): array
         ];
     }
 
-function runTerminalFleetReleasedResumeProbe(string $runId): array
+    private function runTerminalFleetReleasedResumeProbeInternal(string $runId): array
     {
         $queueTag = 'terminal_fleet_released_resume_probe_'.$runId;
         $taskPacketId = 'fleet_released_resume_probe_'.$runId;
@@ -928,7 +977,7 @@ function runTerminalFleetReleasedResumeProbe(string $runId): array
         ];
     }
 
-function runTerminalFleetEvidenceRollupProbe(string $runId): array
+    private function runTerminalFleetEvidenceRollupProbeInternal(string $runId): array
     {
         $queueTag = 'terminal_fleet_evidence_rollup_probe_'.$runId;
         $taskPacketId = 'fleet_evidence_rollup_probe_'.$runId;
@@ -1067,7 +1116,7 @@ function runTerminalBootstrapPreviewProbe(AgentControlPlaneTerminalWorkerBootstr
         ];
     }
 
-function runTerminalBootstrapInvalidScopeProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
+    private function runTerminalBootstrapInvalidScopeProbeInternal(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
     {
         $packetId = 'terminal_bootstrap_invalid_scope_'.$runId;
         $tag = $packetId.'_tag';
@@ -1126,6 +1175,104 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
                 'namespace' => 'terminal_bootstrap_probe_'.$runId,
                 'target_task_count' => $probeAgentCount,
             ],
+        ];
+    }
+
+    /**
+     * Execute a mutating certification probe as a bounded synthetic transaction.
+     *
+     * Probe receipts are returned to the caller, but probe-local queue and lease
+     * artifacts must never survive the call — including when the probe throws.
+     *
+     * @param  Closure(string): array<string,mixed>  $probe
+     * @return array<string,mixed>
+     */
+    private function runSyntheticProbe(string $runId, Closure $probe): array
+    {
+        $safeRunId = $this->safeSyntheticRunId($runId);
+        $result = [];
+
+        try {
+            $result = $probe($safeRunId);
+        } finally {
+            $this->cleanupSyntheticProbeArtifacts($safeRunId);
+        }
+
+        $result['synthetic_artifacts_cleaned'] = true;
+
+        return $result;
+    }
+
+    private function safeSyntheticRunId(string $runId): string
+    {
+        $safeRunId = trim($runId);
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/', $safeRunId) !== 1) {
+            throw new \InvalidArgumentException('Synthetic probe run ids must be non-empty, bounded, and path-safe.');
+        }
+
+        return $safeRunId;
+    }
+
+    private function cleanupSyntheticProbeArtifacts(string $runId): void
+    {
+        $queueCleanup = $this->queue->prune([
+            'tags' => $this->syntheticProbeTags($runId),
+            'task_packet_id_prefixes' => $this->syntheticTaskPacketPrefixes($runId),
+            'delete_task_files' => true,
+            'preserve_statuses' => [],
+        ]);
+        $leaseCleanup = $this->leases->prune([
+            'task_packet_id_prefixes' => $this->syntheticTaskPacketPrefixes($runId),
+            'agent_id_prefixes' => [
+                'terminal_bootstrap_probe_'.$runId,
+                'terminal_bootstrap_invalid_scope_'.$runId,
+                'terminal_bootstrap_partial_supply_'.$runId,
+            ],
+            'delete_lease_files' => true,
+            'preserve_statuses' => [],
+        ]);
+
+        if ((string) ($queueCleanup['status'] ?? '') !== 'ok'
+            || (string) ($leaseCleanup['status'] ?? '') !== 'ok') {
+            throw new \RuntimeException('Synthetic probe cleanup did not complete.');
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function syntheticProbeTags(string $runId): array
+    {
+        return [
+            'terminal_worker_bootstrap_probe_'.$runId,
+            'terminal_bootstrap_partial_supply_'.$runId,
+            'terminal_fleet_launch_plan_probe_'.$runId,
+            'terminal_fleet_partial_supply_probe_'.$runId,
+            'terminal_fleet_lane_negative_target_'.$runId,
+            'terminal_fleet_lane_negative_other_'.$runId,
+            'terminal_fleet_resume_rollup_probe_'.$runId,
+            'terminal_fleet_metadata_orphan_probe_'.$runId,
+            'terminal_fleet_released_resume_probe_'.$runId,
+            'terminal_fleet_evidence_rollup_probe_'.$runId,
+            'terminal_bootstrap_invalid_scope_'.$runId.'_tag',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function syntheticTaskPacketPrefixes(string $runId): array
+    {
+        return [
+            'fleet_probe_'.$runId,
+            'terminal_bootstrap_partial_supply_'.$runId,
+            'fleet_partial_supply_probe_'.$runId,
+            'fleet_lane_negative_probe_'.$runId,
+            'fleet_resume_rollup_probe_'.$runId,
+            'fleet_metadata_orphan_probe_'.$runId,
+            'fleet_released_resume_probe_'.$runId,
+            'fleet_evidence_rollup_probe_'.$runId,
+            'terminal_bootstrap_invalid_scope_'.$runId,
         ];
     }
 
