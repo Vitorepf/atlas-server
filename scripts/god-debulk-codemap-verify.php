@@ -43,6 +43,20 @@ function renderedText(Node $node): string
     return $text;
 }
 
+function exactHeaderText(TableCell $cell): ?string
+{
+    $text = '';
+    foreach ($cell->children() as $child) {
+        if (! $child instanceof Text) {
+            return null;
+        }
+
+        $text .= $child->getLiteral();
+    }
+
+    return $text;
+}
+
 /**
  * @return list<TableCell>
  */
@@ -104,11 +118,15 @@ function navigationTargets(string $contents): array
         }
 
         $headerCells = tableCells($header);
+        $changeConcern = $headerCells[0] ?? null;
+        $navigationTarget = $headerCells[1] ?? null;
         if (count($headerCells) !== 2
-            || $headerCells[0]->getType() !== TableCell::TYPE_HEADER
-            || $headerCells[1]->getType() !== TableCell::TYPE_HEADER
-            || renderedText($headerCells[0]) !== 'Change concern'
-            || renderedText($headerCells[1]) !== 'Concrete navigation target') {
+            || ! $changeConcern instanceof TableCell
+            || ! $navigationTarget instanceof TableCell
+            || $changeConcern->getType() !== TableCell::TYPE_HEADER
+            || $navigationTarget->getType() !== TableCell::TYPE_HEADER
+            || exactHeaderText($changeConcern) !== 'Change concern'
+            || exactHeaderText($navigationTarget) !== 'Concrete navigation target') {
             continue;
         }
 

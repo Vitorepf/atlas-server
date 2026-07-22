@@ -208,6 +208,24 @@ PHP,
         }
     }
 
+    public function test_codemap_verifier_rejects_a_navigation_header_with_extra_inline_code_content(): void
+    {
+        $target = 'App\\Services\\Ai\\Fixture\\InlineHeaderMap::check';
+        $table = str_replace('Change concern', 'Change concern`extra`', $this->navigationTable($target));
+        $fixture = $this->codemapRepository("<!-- GOD-DEBULK-CODEMAP: INCOMPLETE -->\n\n{$table}\n", [
+            'App\\Services\\Ai\\Fixture\\InlineHeaderMap' => $this->fixtureSource('App\\Services\\Ai\\Fixture\\InlineHeaderMap'),
+        ]);
+
+        try {
+            $process = $this->runCodemapVerifier($fixture['root']);
+
+            $this->assertSame(1, $process->getExitCode());
+            $this->assertStringContainsString('GOD_DEBULK_CODEMAP_FAIL missing_navigation_row', $process->getErrorOutput());
+        } finally {
+            $fixture['cleanup']();
+        }
+    }
+
     public function test_codemap_verifier_rejects_a_navigation_table_inside_an_html_comment(): void
     {
         $target = 'App\\Services\\Ai\\Fixture\\CommentedMap::check';
