@@ -4,31 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0138 cost-fact truth recorded
+phase: A1-SC-0107 anti-farm admission boundary recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: task-serving truthful operational metering
-finding_id: A1-SC-0138
-action_op: test-first fabricated-cost-fact removal
+focus: task queue anti-farm admission fail-closed
+finding_id: A1-SC-0107
+action_op: test-first unavailable anti-farm gate rejection
 queue_index: 6
-last_commit: 820b04407 (contaminated by concurrent staged external rename set)
+last_commit: 1d0e7aad3
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingBudgetMeterConsumerTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
   git diff --check
 before_after: |
-  red: task-serving mapped file/check/wall-clock measures into tokens_in/tokens_out/cost_cents and labeled client_id as provider.
-  green: only an explicitly injected operational meter receives the observed file/check/wall-clock facts; no default Maestro cost ledger is created and no fabricated cost fields are emitted.
+  red: an anti-farm authority exception was swallowed and the candidate was enqueued with only a success-envelope error field.
+  green: an unavailable anti-farm gate returns prepare_blocked with a typed unavailable reason and no queue entry.
 stdout: |
-  serving_budget_court_suites: PASS (21 tests, 114 assertions)
-  php_lint: PASS service plus focused test
-  loc_check: atlas_task_serving_service=1681
+  focused_unavailable_gate: PASS (1 test, 8 assertions)
+  orchestrator_unit_suite: PASS (52 tests, 248 assertions)
+  orchestrator_feature_suite: PASS (49 tests, 239 assertions)
+  php_lint: PASS orchestrator plus focused test
+  loc_check: task_queue_orchestrator=1977
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  COMMIT INTEGRITY: commit 820b04407 contains the verified two-file A1-SC-0138 hunk PLUS 178 unrelated pre-staged external rename paths captured by a concurrent session. It is not a scoped receipt; no reset, revert, or history rewrite was used because that would destroy external work. This ledger receipt is committed with an explicit pathspec to isolate the document.
+  This is the admission slice of A1-SC-0107. The distinct fail-open recovery and learning paths remain unclaimed, not green by implication.
+  Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
@@ -579,6 +583,38 @@ boundary:
   - no synthetic token, cost, provider, or model claim reaches Maestro from task serving
   - explicitly injected meters retain operational observability and remain fail-open
   - this does not fabricate a replacement price/token source
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 23 — A1-SC-0107 anti-farm admission failure, 2026-07-22
+
+```yaml
+finding: A1-SC-0107
+commit: 1d0e7aad3
+subject: "refactor(core): GOD-DEBULK fail-close anti-farm admission"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php --filter=test_prepare_blocks_without_enqueuing_when_the_anti_farm_gate_is_unavailable
+  result: "FAIL 1 test, 4 assertions: the overload made the real anti-farm gate throw, but prepareAndEnqueue returned prepared_and_enqueued."
+green:
+  behavior: "an anti-farm exception returns prepare_blocked/anti_farm_gate_unavailable with error_class, no queue entry, evidence plan, or continuation summary."
+  characterization: "public prepareAndEnqueue enqueues a first packet, then executes the hard-wired template-farm gate for a second packet through an isolated overload. The second packet is refused and claimNext can claim only the original packet."
+verification:
+  focused_unavailable_gate: "PASS 1 test, 8 assertions"
+  orchestrator_unit_suite: "PASS 52 tests, 248 assertions"
+  orchestrator_feature_suite: "PASS 49 tests, 239 assertions"
+  php_lint: "PASS orchestrator and changed test"
+  loc: "task_queue_orchestrator=1977 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - only anti-farm admission now fails closed
+  - no queue record, lease, dispatch, provider call, token spend, or completion fact is created on the unavailable branch
+  - recovery and learning exception paths from A1-SC-0107 remain separate work
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
