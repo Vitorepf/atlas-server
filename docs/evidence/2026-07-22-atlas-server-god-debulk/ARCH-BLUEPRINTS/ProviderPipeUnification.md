@@ -1,6 +1,7 @@
 # BLUEPRINT — ProviderPipeUnification
 
-> status: draft-v2 (SOBREVIVEU ao verify adversarial 2026-07-22 com 3 emendas aplicadas; evidências das emendas verificadas pelo comandante)
+> status: draft-v2.1 (2 verifies adversariais independentes — ambos SOBREVIVE; 7 emendas consolidadas)
+> DELTAS do 2º verify: (d) `FaseABatteryOrchestrator:738` spawna hermes via Process SEM consult — superfície Rivals FaseA deve ser DECLARADA fora-de-escopo com receipt OU coberta pela perna estática E1; (e) `EngineeringClaudeCodeBaselineRunnerService:84` usa app(ProviderGovernanceConsult) — entra na auditoria F3 de service-location junto com o base driver L420; (f) 9 call-sites de setResolver em tests/ (Swarm×5, AutoFailover×2, Conductor incl. null) — enumerados no shim F2; o critério 6.4 escopado a app/ não os vê, a migração das suites acontece na mesma PR.
 > data: 2026-07-22
 > obra: GOD Debulk · cluster ROTEAMENTO
 > objetivo estratégico: 3 executores (Dev/Forge/Autônomos) com o MESMO poder consumindo o MESMO seam de provider — bypass cego = 0, medido.
