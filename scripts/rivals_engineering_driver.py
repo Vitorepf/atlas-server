@@ -815,7 +815,11 @@ def evaluate_locagent(
             ).item(),
             4,
         )
-    score = metrics["Recall@5"] if valid else None
+    # Resposta inválida numa métrica de RECALL = recall 0.0 MEDIDO (o modelo
+    # localizou nada), nunca score ausente — score None em métrica continuous
+    # viola o contrato do adapter e derrubava o ingest do run INTEIRO (22/07:
+    # 58 linhas válidas reféns de 3 inválidas; ambos os braços afetados).
+    score = metrics["Recall@5"] if valid else 0.0
     native = {
         "schema_version": "locagent.native_unit.v1",
         "suite_id": "locagent",
