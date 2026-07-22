@@ -7,6 +7,8 @@ namespace Tests\Feature\Ai\Learning;
 use App\Models\AiLearningProposal;
 use App\Models\AiLearningSignal;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Events\Dispatcher;
@@ -14,15 +16,161 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 class LearningConsolidationF0CharacterizationTest extends TestCase
 {
+    private const FROZEN_NOW = '2026-07-22 18:00:00 UTC';
+
+    private const COLLECT_JSON_SNAPSHOT = <<<'JSON'
+{
+    "schema_version": "atlas.ai.learning_signal.v1",
+    "generated_at": "2026-07-22T18:00:00.000000Z",
+    "window": {
+        "hours": 1,
+        "since": "2026-07-22T17:00:00.000000Z",
+        "until": "2026-07-22T18:00:00.000000Z"
+    },
+    "summary": {
+        "signals_collected": 1,
+        "proposals_minted": 1,
+        "proposals_skipped_missing_evidence": 0,
+        "by_source": {
+            "mission_completed": 1
+        }
+    },
+    "signals": [
+        {
+            "signal_id": "als_b06c232259711862ae64c5df",
+            "source_type": "mission_completed",
+            "risk_level": "low",
+            "status": "proposed",
+            "requires_review": true,
+            "proposal_id": "287e1458-c819-e6ea-eabc-9b0c37d3e338",
+            "proposal_skipped_reason": null
+        }
+    ]
+}
+JSON;
+
+    private const LIST_JSON_SNAPSHOT = <<<'JSON'
+{
+    "schema_version": "atlas.ai.learning_signal.v1",
+    "generated_at": "2026-07-22T18:00:00.000000Z",
+    "signals": [
+        {
+            "id": "b1da7e52-97be-b73d-92d3-e74b5b79b137",
+            "signal_id": "als_learning_f0_matching",
+            "source_type": "trace_failed",
+            "source_id": "trace-matching",
+            "mission_id": "d40a19ab-8f43-857d-392e-29dce0a01ba7",
+            "flow_id": "atlas_learning",
+            "outcome": "failed",
+            "quality_score": 17,
+            "failure_mode": "provider_timeout",
+            "blocker_reason": "retry_exhausted",
+            "approval_decision": "none",
+            "evidence_refs": [],
+            "requires_review": true,
+            "risk_level": "critical",
+            "status": "collected",
+            "learning_proposal_id": null,
+            "signal_hash": "84023f918a9ab22bcbe333b7841d31cd928f97a7eccc9d253067e6f59190a0c1",
+            "collected_at": "2026-07-22T18:02:00.000000Z"
+        }
+    ],
+    "proposals": [
+        {
+            "id": "ac66fc03-0406-7b18-0dec-e0fe54c2f604",
+            "kind": "policy",
+            "status": "proposed",
+            "scope": "atlas_ai_runtime",
+            "flow_id": "atlas_learning",
+            "summary": "GOD-DEBULK F0 learning characterization proposal matching",
+            "requires_human_review": true,
+            "decided_by": null,
+            "decided_at": null,
+            "proposal_hash": "0a748f4e1f8200ceb3d9e1bd1e442b892a6483a327a672e86b708587513da9dd",
+            "evidence_refs": [
+                {
+                    "type": "test",
+                    "id": "learning-f0-matching"
+                }
+            ]
+        }
+    ],
+    "counts": {
+        "signals": 1,
+        "proposals": 1
+    }
+}
+JSON;
+
+    private const REVIEW_JSON_SNAPSHOT = <<<'JSON'
+{
+    "ok": true,
+    "proposal_id": "ac66fc03-0406-7b18-0dec-e0fe54c2f604",
+    "kind": "policy",
+    "status": "approved",
+    "decided_by": "god-debulk-f0",
+    "decided_at": "2026-07-22T18:00:00.000000Z"
+}
+JSON;
+
+    private const CONTROL_PLANE_JSON_SNAPSHOT = <<<'JSON'
+{
+    "status": "ready",
+    "signals": {
+        "total": 7,
+        "by_source": {
+            "trace_failed": 5,
+            "mission_completed": 1,
+            "mission_failed": 1
+        },
+        "by_risk_level": {
+            "critical": 5,
+            "low": 2
+        },
+        "by_status": {
+            "collected": 5,
+            "proposed": 2
+        }
+    },
+    "proposals": {
+        "total": 5,
+        "by_status": {
+            "proposed": 4,
+            "approved": 1
+        },
+        "by_kind": {
+            "heuristic": 1,
+            "policy": 3,
+            "routing": 1
+        },
+        "pending_review": 4
+    },
+    "blockers": {
+        "missing_evidence_signals": 1
+    },
+    "last_signal_at": "2026-07-22T18:02:00.000000Z",
+    "last_proposal_at": "2026-07-22T18:01:00.000000Z"
+}
+JSON;
+
     protected function setUp(): void
     {
         parent::setUp();
+        Carbon::setTestNow(self::FROZEN_NOW);
+        CarbonImmutable::setTestNow(self::FROZEN_NOW);
+        $uuidCounter = 0;
+        Str::createUuidsUsing(function () use (&$uuidCounter) {
+            $uuidCounter++;
+
+            return Uuid::fromString($this->stableUuid('runtime-'.$uuidCounter));
+        });
 
         Schema::dropIfExists('ai_learning_signals');
         Schema::dropIfExists('ai_learning_proposals');
@@ -51,6 +199,9 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
         Schema::dropIfExists('ai_missions');
         Schema::dropIfExists('ai_learning_proposals');
         Schema::dropIfExists('ai_learning_signals');
+        Carbon::setTestNow();
+        CarbonImmutable::setTestNow();
+        Str::createUuidsNormally();
 
         parent::tearDown();
     }
@@ -58,7 +209,10 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
     public function test_learning_command_and_control_plane_contracts_are_frozen_for_m1a(): void
     {
         $this->insertCompletedMission();
-        $collect = $this->runLearningCommand('collect', ['--hours' => 1]);
+        $collectResult = $this->invokeLearningCommand('collect', ['--hours' => 1]);
+        $this->assertSame(0, $collectResult['exit']);
+        $collect = $collectResult['payload'];
+        $this->assertSame(self::COLLECT_JSON_SNAPSHOT."\n", $collectResult['raw']);
         $this->assertSame(['schema_version', 'generated_at', 'window', 'summary', 'signals'], array_keys($collect));
         $this->assertSame([
             'signals_collected' => 1,
@@ -117,7 +271,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
         ]);
         $this->assertSame(['signals' => 2, 'proposals' => 2], $unlimited['counts']);
 
-        $list = $this->runLearningCommand('list', [
+        $listResult = $this->invokeLearningCommand('list', [
             '--source-type' => 'trace_failed',
             '--flow-id' => 'atlas_learning',
             '--risk-level' => 'critical',
@@ -126,6 +280,9 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
             '--kind' => 'policy',
             '--limit' => 1,
         ]);
+        $this->assertSame(0, $listResult['exit']);
+        $list = $listResult['payload'];
+        $this->assertSame(self::LIST_JSON_SNAPSHOT."\n", $listResult['raw']);
         $this->assertSame(['schema_version', 'generated_at', 'signals', 'proposals', 'counts'], array_keys($list));
         $this->assertSame([
             'schema_version' => 'atlas.ai.learning_signal.v1',
@@ -176,6 +333,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
 
         $summary = $this->app->make(AtlasAiLearningLoopService::class)
             ->controlPlaneSummary(now()->subHour()->toImmutable());
+        $this->assertSame(self::CONTROL_PLANE_JSON_SNAPSHOT, json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $this->assertSame([
             'status', 'signals', 'proposals', 'blockers', 'last_signal_at', 'last_proposal_at',
         ], array_keys($summary));
@@ -193,11 +351,14 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
         $this->assertIsString($summary['last_signal_at']);
         $this->assertIsString($summary['last_proposal_at']);
 
-        $review = $this->runLearningCommand('review', [
+        $reviewResult = $this->invokeLearningCommand('review', [
             '--proposal' => $proposal->id,
             '--decision' => 'approve',
             '--operator' => 'god-debulk-f0',
         ]);
+        $this->assertSame(0, $reviewResult['exit']);
+        $review = $reviewResult['payload'];
+        $this->assertSame(self::REVIEW_JSON_SNAPSHOT."\n", $reviewResult['raw']);
         $this->assertSame(['ok', 'proposal_id', 'kind', 'status', 'decided_by', 'decided_at'], array_keys($review));
         $this->assertSame([
             'ok' => true,
@@ -207,6 +368,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
             'decided_by' => 'god-debulk-f0',
         ], array_intersect_key($review, array_flip(['ok', 'proposal_id', 'kind', 'status', 'decided_by'])));
         $this->assertArrayHasKey('decided_at', $review);
+
     }
 
     public function test_learning_review_error_contracts_are_frozen_for_m1a(): void
@@ -329,7 +491,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
 
     /**
      * @param  array<string,mixed>  $options
-     * @return array{exit:int,payload:array<string,mixed>}
+     * @return array{exit:int,raw:string,payload:array<string,mixed>}
      */
     private function invokeLearningCommand(string $action, array $options = []): array
     {
@@ -339,9 +501,12 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
             '--json' => true,
         ], $options), $output);
 
+        $raw = $output->fetch();
+
         return [
             'exit' => $exit,
-            'payload' => json_decode($output->fetch(), true, 512, JSON_THROW_ON_ERROR),
+            'raw' => $raw,
+            'payload' => json_decode($raw, true, 512, JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -359,12 +524,12 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
     private function learningSignal(string $label, array $overrides = []): AiLearningSignal
     {
         return AiLearningSignal::query()->create(array_merge([
-            'id' => Str::uuid()->toString(),
+            'id' => $this->stableUuid('signal-row-'.$label),
             'schema_version' => AiLearningSignal::SCHEMA_VERSION,
             'signal_id' => 'als_learning_f0_'.$label,
             'source_type' => 'trace_failed',
             'source_id' => 'trace-'.$label,
-            'mission_id' => Str::uuid()->toString(),
+            'mission_id' => $this->stableUuid('signal-mission-'.$label),
             'flow_id' => 'atlas_learning',
             'outcome' => 'failed',
             'quality_score' => 17,
@@ -386,7 +551,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
     private function pendingProposal(string $label = 'review', array $overrides = [], mixed $updatedAt = null): AiLearningProposal
     {
         $proposal = AiLearningProposal::query()->create(array_merge([
-            'id' => Str::uuid()->toString(),
+            'id' => $this->stableUuid('proposal-row-'.$label),
             'schema_version' => 'atlas.ai.compounding.learning_proposal.v1',
             'kind' => 'policy',
             'status' => 'proposed',
@@ -395,7 +560,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
             'summary' => 'GOD-DEBULK F0 learning characterization proposal '.$label,
             'evidence_refs' => [['type' => 'test', 'id' => 'learning-f0-'.$label]],
             'requires_human_review' => true,
-            'proposal_hash' => hash('sha256', 'learning-f0:'.$label.':'.Str::random(24)),
+            'proposal_hash' => hash('sha256', 'learning-f0:'.$label),
         ], $overrides));
 
         if ($updatedAt !== null) {
@@ -410,7 +575,7 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
     private function insertCompletedMission(): void
     {
         DB::table('ai_missions')->insert([
-            'id' => Str::uuid()->toString(),
+            'id' => $this->stableUuid('collect-mission'),
             'uuid' => 'learning-m1a-completed-mission',
             'status' => 'completed',
             'primary_domain' => 'research',
@@ -441,5 +606,12 @@ class LearningConsolidationF0CharacterizationTest extends TestCase
         }
 
         return $summary;
+    }
+
+    private function stableUuid(string $label): string
+    {
+        $hex = substr(hash('sha256', 'learning-m1a:'.$label), 0, 32);
+
+        return sprintf('%s-%s-%s-%s-%s', substr($hex, 0, 8), substr($hex, 8, 4), substr($hex, 12, 4), substr($hex, 16, 4), substr($hex, 20, 12));
     }
 }
