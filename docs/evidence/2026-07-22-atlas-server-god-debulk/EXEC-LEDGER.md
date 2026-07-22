@@ -4,35 +4,34 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0140 canonical evidence file hash recorded
+phase: A1-SC-0142 AWIS serving freshness recorded
 wave: A1
 bucket: app/Services/Ai/SelfConstruction
-focus: task-serving Court allowed-files binding
-finding_id: A1-SC-0140
-action_op: test-first delimiter-safe file-set hash
+focus: task-serving AWIS gate freshness
+finding_id: A1-SC-0142
+action_op: test-first allow-to-block transition
 queue_index: 6
-last_commit: 5b2e6a912
+last_commit: 5de6e5e77
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AtlasTaskServingServiceTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AtlasTaskServingEvidenceContractBindingTest.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
   git diff --check
 before_after: |
-  red: two distinct, valid sorted allowed-file lists with commas serialized to one delimiter-ambiguous Court hash.
-  green: a sorted, deduplicated JSON list binds each allowed-file set without delimiter collisions and preserves a reordered set's identity.
+  red: one service instance admitted a first poll and reused that allow after the AWIS gate revoked certification.
+  green: each public next() poll asks the gate again; the next poll after revocation returns awis_execution_blocked before claim.
 stdout: |
-  focused_allowed_files_hash: PASS (1 test, 11 assertions)
-  evidence_contract_suite: PASS (9 tests, 57 assertions)
+  focused_awis_revocation: PASS (1 test, 7 assertions)
+  awis_gate_suite: PASS (4 tests, 15 assertions)
   serving_service_suite: PASS (8 tests, 37 assertions)
   php_lint: PASS source plus focused test
-  loc_check: atlas_task_serving_service=1683
+  loc_check: atlas_task_serving_service=1674
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  This is only the allowed-files slice of A1-SC-0140. command_hash still binds check names only, not outcomes or evidence, and remains unclaimed.
-  Focused PHPUnit initially could not bootstrap during a concurrent external FQCN move; after the owner aligned its registry import, the identical focused command passed. The external move was recorded once in EXEC-DEBTS and was not edited here.
+  This removes the instance-lifetime cache for the AWIS mutative serving gate. It does not introduce a TTL, certification fingerprint, or proactive transition notification; it makes the next mutative poll current by construction.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint reports full-file host formatting drift; no broad reformatting was applied.
   The source is below 2k; no new class or helper was introduced.
@@ -816,6 +815,38 @@ boundary:
   - no envelope payload formula, default-off flag, command signature, or native-organ shape changed
   - no provider call, token spend, external mutation, or evidence-promotion occurred
   - M3-B retrieval and M3-C Acos program rehoming remain separate sub-waves
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 30 — A1-SC-0142 AWIS task-serving freshness, 2026-07-22
+
+```yaml
+finding: A1-SC-0142
+commit: 5de6e5e77
+subject: "refactor(core): GOD-DEBULK refresh AWIS serving gate"
+scope:
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php --filter=test_rechecks_awis_before_each_next_and_blocks_when_certification_is_revoked
+  result: "FAIL 1 test, 3 assertions: after a ready first next(), the same service returned served instead of awis_execution_blocked after the injected AWIS gate revoked certification."
+green:
+  behavior: "each public next() obtains a current AWIS gate verdict. A ready-to-blocked transition returns awis_execution_blocked before a claim or worker mutation."
+  characterization: "a mutable injected AwisExecutionGatePort admits the first real next() and revokes on the second; no private cache/reflection seam is invoked."
+verification:
+  focused_awis_revocation: "PASS 1 test, 7 assertions"
+  awis_gate_suite: "PASS 4 tests, 15 assertions"
+  serving_service_suite: "PASS 8 tests, 37 assertions"
+  php_lint: "PASS source and changed test"
+  loc: "atlas_task_serving_service=1674 (<2000)"
+  diff_check: PASS
+  pint: "NOT GREEN: strict Pint reported existing full-file formatting drift; no broad reformatting was applied"
+boundary:
+  - this eliminates stale instance-lifetime authorization at the mutative next boundary
+  - it does not add a TTL, cache fingerprint, revocation event stream, or proactive worker cancellation
+  - no task is claimed, provider called, token spent, or mutation performed on the newly blocked poll
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
