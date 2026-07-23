@@ -4,39 +4,37 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0105 queue-resolution ordering closed
+phase: A1-SC-0150 scope terminal health counts closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction
-focus: persist terminal queue state before revoking a resolved lease
-finding_id: A1-SC-0105
-action_op: gate lease release, receipt, and learning on a durable queue transition
+bucket: app/Services/Ai/SelfConstruction/ControlPlane
+focus: keep terminal counts within the requested queue lane
+finding_id: A1-SC-0150
+action_op: derive terminal_task_count from tag-filtered terminal records
 queue_index: 6
-last_commit: fe4c10a99
+last_commit: 146e01497
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php --filter=test_mark_resolved_transitions_the_queue_before_releasing_the_lease
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php --compact
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_terminal_task_count_respects_requested_queue_tags
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: markResolved persisted the lease release before the durable completed_dry_run queue transition.
-  green: queue transition returns ok before lease release; receipt and learning can only follow both durable steps.
+  red: a lane-a digest counted two terminal tasks because its terminal count read global registry status totals, including lane-b.
+  green: terminal_task_count is now the tag-filtered completed_dry_run plus cancelled records, matching neighboring lane-scoped fields.
 stdout: |
-  red_characterization: FAIL 1 test, 2 assertions (first relevant write was leases/<lease>.json rather than task-queue/task_<packet>.json)
-  focused: PASS 1 test, 2 assertions
-  task_queue_unit_file: PASS 53 tests, 250 assertions
-  adjacent_learning_bridge: NOT GREEN baseline 2 failed, 6 passed, 33 assertions; its completeDryRun fact fails even in isolation and durable worker behavior recall is absent, recorded in EXEC-DEBTS outside this markResolved change
+  red_characterization: FAIL 1 test, 1 assertion (expected lane-a count 1; received global terminal count 2)
+  focused: PASS 1 test, 1 assertion
+  terminal_digest_unit_file: PASS 20 tests, 74 assertions
   php_lint: PASS source plus changed Unit test
-  pint: NOT GREEN; existing source formatter violations (unary_operator_spaces, braces_position, not_operator_with_successor_space, single_line_empty_body, no_extra_blank_lines, ordered_imports) and existing test class_attributes_separation, no_unused_imports, ordered_imports were left untouched outside this focused hunk
-  loc_check: task_queue_orchestrator=1997; unit_test=1018 (both <2000)
+  pint: NOT GREEN; existing source formatter violations (fully_qualified_strict_types, unary_operator_spaces, braces_position, no_unused_imports, not_operator_with_successor_space, single_line_empty_body) and existing test fully_qualified_strict_types, ordered_imports were left untouched outside this focused hunk
+  loc_check: terminal_loop_health_digest=1653; unit_test=372 (both <2000)
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the public markResolved path through its real queue and lease repositories, with a fake local disk and typed partial disk wrapper observing only durable writes; it uses no reflection.
-  The behavior change is fail-closed: an unsuccessful queue transition leaves the lease untouched, and an unsuccessful post-transition release returns an explicit reconciliation-required block before receipts or learning are published.
+  Characterization executes the public digest against the real local queue repository with two completed packets in separate lanes; no reflection or mocked target behavior.
+  This closes the documented global-versus-filtered terminal-count contradiction. The broader immutable queue/lease snapshot architecture remains governed by the approved SelfConstructionReadiness blueprint as a separate slice.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   The source remains below 2k; no new class or helper was introduced. Existing formatter drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -2307,6 +2305,62 @@ boundary:
 write_back:
   status: recorded_for_human_review
   outcome_id: A1-SC-0105
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 74 — A1-SC-0150 scope terminal health counts, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 146e01497
+subject: "refactor(core): GOD-DEBULK scope terminal counts"
+red:
+  result: "FAIL 1 test, 1 assertion: a lane-a digest reported terminal_task_count=2 after one completed packet in lane-a and one in lane-b."
+green:
+  behavior: "terminal_task_count reads completed_dry_run and cancelled records using the same requested queue_tags filter as the neighboring health fields."
+verification:
+  focused_unit: "PASS 1 test, 1 assertion"
+  terminal_digest_unit_file: "PASS 20 tests, 74 assertions"
+  php_lint: "PASS source and changed Unit test"
+  pint: "NOT GREEN only for existing formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "terminal_loop_health_digest=1653; unit_test=372 (both <2000)"
+boundary:
+  - executes the public digest with the real local queue repository and two lane-tagged terminal records
+  - changes only lane-scoping of the terminal count; no queue/lease mutation, provider call, dispatch, token spend, or runtime activation
+  - broader immutable queue/lease snapshot work remains a distinct approved blueprint slice
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0150
+  context_feedback: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
+```
+
+## Task 75 — A1-SC characterize remaining status mutations, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
+commit: 21b149eb9
+subject: "test(core): GOD-DEBULK characterize status mutations"
+verification:
+  focused_lease_recovery: "PASS 1 test, 21 assertions"
+  focused_auto_replenishment: "PASS 1 test, 22 assertions"
+  focused_draft_publisher: "PASS 1 test, 11 assertions"
+  prescribed_four_feature_files: "NOT GREEN baseline 11 failed, 67 passed, 685 assertions: pre-existing terminal reopening, replenishment count/reference, bootstrap multi-lane, and missing publisher CLI option failures remain outside this TEST-only action."
+  php_lint: "PASS changed Feature tests"
+  pint: "NOT GREEN only for existing full-file formatter violations outside the focused hunks"
+  diff_check: PASS
+  review: PASS
+boundary:
+  - public lease-recovery status reports a read-only outer envelope while it expires a lease and requeues its packet
+  - public replenishment status reports a read-only outer envelope while it writes an explicitly tagged packet
+  - public publisher status reports a read-only outer envelope while it copies each finalized artifact into its durable submission location
+  - changes only characterizations and queue metadata; no production behavior, dispatch, provider call, token spend, or runtime activation changed
+write_back:
+  status: recorded_for_human_review
   context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
