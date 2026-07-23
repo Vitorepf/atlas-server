@@ -3477,3 +3477,40 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 112 — bound malformed sweep inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0108
+commit: 3b313c44c
+subject: "refactor(core): GOD-DEBULK bound malformed sweep"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - app/Console/Commands/AtlasTaskSweepMalformedCommand.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter='test_malformed_sweep_refuses_an_unbounded_claimable_inventory|test_malformed_sweep_command_returns_failure_with_the_unbounded_inventory_receipt' --no-coverage
+  result: "FAIL 2 tests: the public sweep exposed no bound status after 65 real queue packets, and its JSON CLI exited 0 instead of returning a fail-closed receipt."
+green:
+  behavior: "The malformed sweep reads the real registry summary before list materialization. Above 64 claimable entries it returns blocked/malformed_sweep_scan_limit_exceeded with zero inspected packets; the public CLI serializes that exact receipt and exits failure in JSON and text modes."
+verification:
+  characterization: "PASS 7 tests, 37 assertions: the focused Feature file exercises both the direct public sweep and the registered Artisan command against 65 real queue records."
+  package_suite: "PASS 109 tests, 529 assertions: bounded anti-farm Feature plus Feature and Unit orchestrator suites."
+  php_lint: "PASS all three touched PHP files."
+  pint: "PASS command and focused Feature test; NOT GREEN only for inherited whole-file formatting drift in AgentControlPlaneTaskQueueOrchestrator.php. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1999 LOC; command=55 LOC; focused Feature test=196 LOC; all <2000 and hot test <800."
+boundary:
+  - "The block decision executes the actual public read-only queue registry before any task payload listing; it neither reflects into the repository nor mocks the limit."
+  - "The acceptance command invokes the real registered Artisan surface and parses its emitted JSON receipt; no direct command-method call substitutes for registration or exit semantics."
+  - "When the inventory is oversized, no queue packet, lease, receipt, provider, dispatch, token, completion, or runtime-execution mutation occurs."
+residual:
+  - "A1-SC-0108 remains partially open: forbidden-target repair, scope repair, dependency-wait, and cooldown list scans still require separate real characterizations and bounded-index ownership."
+next_cursor: "Characterize the bounded forbidden-target repair scan through its public entrypoint, or pick the next executable s0 META finding; skip structural monster work until its blueprint is approved."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-112-malformed-sweep-3b313c44c
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
