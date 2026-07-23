@@ -3337,3 +3337,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 108 — recover terminal-fleet resume probe, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_FLEET_REQUEUE_EVIDENCE_RESIDUAL
+finding: A1-SC-0187-adjacent-terminal-fleet-resume
+commit: b9a1cf505
+subject: "refactor(core): GOD-DEBULK recover fleet resume probes"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_direct_terminal_fleet_resume_rollup_probe_requires_recovery_before_claim --no-coverage
+  result: "FAIL 1 test, 1 assertion: the public resume-rollup probe returned blocked because ordinary claimNext() correctly refused its synthetic fleet packet before the probe could create its orphaned-lease condition."
+green:
+  behavior: "The fleet probe now claims only its own exact tagged packet through the real lease repository and queue CAS, then deletes the lease file to drive the orphan recovery path. Normal worker serving remains untouched."
+verification:
+  characterization: "PASS 1 test, 3 assertions through public runTerminalFleetResumeRollupProbe(): recovery-before-claim and operator-handoff recovery priority are both verified."
+  certification_file: "NOT GREEN: 17 passed, 3 failed, 234 assertions. Resume-rollup and operator-handoff recovery invariants are green. Remaining failures are released-task requeue, evidence-rollup green path, and cycle-supervisor evidence review."
+  php_lint: "PASS runner and focused Feature test."
+  pint: "NOT GREEN only for inherited whole-file runner formatting drift; the focused Feature test passes Pint. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "multi_agent_loop_probe_runner=1665 LOC; Feature test=512 LOC; both <2000, no new class or structural split."
+boundary:
+  - "The probe executes real packet admission, real lease claim/CAS, actual lease-file removal, public health digest, and cleanup. It does not mock a recoverable lease or inspect a private recovery branch."
+  - "The private fleet-probe route accepts only the precise task ID and queue tag created by the probe. All ordinary workers still use claimNext(), preserving probe exclusion, fail-closed semantics, and disabled runtime/provider authority."
+residual:
+  - "Released-task requeue and evidence-rollup still call the normal worker claim surface for their own synthetic packets; evidence completion also needs separate characterization once that owned claim is restored."
+next_cursor: "Characterize the terminal-fleet released-task requeue probe through its public entrypoint, then reuse the owned fleet-probe claim protocol without weakening normal worker serving."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
