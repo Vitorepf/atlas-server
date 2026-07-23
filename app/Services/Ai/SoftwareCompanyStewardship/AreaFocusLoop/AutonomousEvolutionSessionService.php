@@ -27,6 +27,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ProviderDiffQualitySection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\RejectionSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ReviewReceiptSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SelectionFallbackSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SandboxSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SemanticSliceSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\WorkcellSection;
@@ -194,7 +195,7 @@ final class AutonomousEvolutionSessionService
         'missing_evidence',
     ];
 
-    private const FACTORY_MAX_MAINTENANCE_STREAK_LIMIT = 4;
+    public const FACTORY_MAX_MAINTENANCE_STREAK_LIMIT = 4;
 
     /**
      * Blockers that mean the cycle spent provider or merge budget without a
@@ -317,6 +318,8 @@ final class AutonomousEvolutionSessionService
 
     private ?RejectionSection $rejection = null;
 
+    private ?SelectionFallbackSection $selectionFallback = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
@@ -421,6 +424,12 @@ final class AutonomousEvolutionSessionService
         return $this->rejection ??= new RejectionSection($this);
     }
 
+    /** Factory-max selection fallback ladder + selection-support helpers (GOD-DEBULK split; lazily constructed). */
+    private function selectionFallback(): SelectionFallbackSection
+    {
+        return $this->selectionFallback ??= new SelectionFallbackSection($this);
+    }
+
     /**
      * GOD-DEBULK split delegators: factory-max candidate origination lives in
      * {@see FactoryMaxSelectionSection}; these thin forwarders preserve the historical
@@ -430,7 +439,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<array<string,mixed>>  $rejections
      * @return array<string,mixed>
      */
-    private function factoryMaxStarvationRecoveryCandidate(array $rejections): array
+    public function factoryMaxStarvationRecoveryCandidate(array $rejections): array
     {
         return $this->factoryMaxSelection()->factoryMaxStarvationRecoveryCandidate($rejections);
     }
@@ -439,7 +448,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<array<string,mixed>>  $rejections
      * @return array<string,mixed>
      */
-    private function factoryMaxSelectionRefillReceipt(array $rejections): array
+    public function factoryMaxSelectionRefillReceipt(array $rejections): array
     {
         return $this->factoryMaxSelection()->factoryMaxSelectionRefillReceipt($rejections);
     }
@@ -448,7 +457,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<array<string,mixed>>  $rejections
      * @return array<string,mixed>
      */
-    private function terminalBacklogRankContext(array $rejections): array
+    public function terminalBacklogRankContext(array $rejections): array
     {
         return $this->factoryMaxSelection()->terminalBacklogRankContext($rejections);
     }
@@ -463,7 +472,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $priority
      * @return array<string,mixed>|null
      */
-    private function tryFactoryMaxTerminalBacklogReplenishmentSelection(
+    public function tryFactoryMaxTerminalBacklogReplenishmentSelection(
         string $areaId,
         array $forgeInputs,
         string $scopeProfile,
@@ -481,7 +490,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $priority
      * @return list<array<string,mixed>>
      */
-    private function factoryMaxPriorityBacklogCandidates(array $priority): array
+    public function factoryMaxPriorityBacklogCandidates(array $priority): array
     {
         return $this->factoryMaxSelection()->factoryMaxPriorityBacklogCandidates($priority);
     }
@@ -490,7 +499,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<array<string,mixed>>  $rejections
      * @return list<array<string,mixed>>
      */
-    private function factoryMaxTerminalBacklogUnlockCandidates(array $rejections): array
+    public function factoryMaxTerminalBacklogUnlockCandidates(array $rejections): array
     {
         return $this->factoryMaxSelection()->factoryMaxTerminalBacklogUnlockCandidates($rejections);
     }
@@ -511,7 +520,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $finding
      * @return array<string,mixed>
      */
-    private function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
+    public function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
     {
         return $this->factoryMaxSelection()->promoteSafeFactoryFinding($finding, $scopeProfile);
     }
@@ -871,7 +880,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** AP-806 factory_max -> Self-Construction admission bridge (pure; lazily constructed). */
-    private function admissionBridge(): AreaFocusSelfConstructionAdmissionBridgeService
+    public function admissionBridge(): AreaFocusSelfConstructionAdmissionBridgeService
     {
         return $this->admissionBridge ??= app(AreaFocusSelfConstructionAdmissionBridgeService::class);
     }
@@ -884,7 +893,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** AP-806/AP-790 canonical high-value backlog depth (pure; provider-free). */
-    private function canonicalBacklog(): AreaFocusFactoryMaxCanonicalBacklogService
+    public function canonicalBacklog(): AreaFocusFactoryMaxCanonicalBacklogService
     {
         return $this->canonicalBacklog ??= app(AreaFocusFactoryMaxCanonicalBacklogService::class);
     }
@@ -916,7 +925,7 @@ final class AutonomousEvolutionSessionService
     /**
      * @return array<string,true>
      */
-    private function completedSemanticSliceIds(string $areaId): array
+    public function completedSemanticSliceIds(string $areaId): array
     {
         return $this->semanticSlice()->completedSemanticSliceIds($areaId);
     }
@@ -1294,7 +1303,7 @@ final class AutonomousEvolutionSessionService
                 'selection_refill' => $selection['selection_refill'] ?? null,
                 'selection_admission' => $selection['selection_admission'] ?? null,
                 'selection_canonical_backlog' => $selection['selection_canonical_backlog'] ?? null,
-                'admission_report' => $this->buildAdmissionReport(
+                'admission_report' => $this->selectionFallback()->buildAdmissionReport(
                     $scan,
                     (array) ($selection['selection_rejections'] ?? []),
                     0,
@@ -1691,7 +1700,7 @@ final class AutonomousEvolutionSessionService
     {
         $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
-            && $this->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
+            && $this->selectionFallback()->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot, $provider)
             + $this->quarantine()->quarantinedFindingKeysForProvider($areaId, $focus, $provider)
             + $this->normalizeReviewLocked($sessionReviewLocked);
@@ -1765,238 +1774,33 @@ final class AutonomousEvolutionSessionService
             'scope_profile' => $scopeProfile,
             'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
         ]);
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
-            foreach ($this->factoryMaxPriorityBacklogCandidates($priority) as $finding) {
-                $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
-                if ($this->findingIsReviewLocked($finding, $candidateKeys)) {
-                    $rejections[] = [
-                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
-                        'title' => (string) ($finding['title'] ?? ''),
-                        'reason' => 'duplicate_candidate_key_in_pass',
-                    ];
-
-                    continue;
-                }
-                $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
-                if ($rejection !== '') {
-                    $rejections[] = [
-                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
-                        'title' => (string) ($finding['title'] ?? ''),
-                        'reason' => $rejection,
-                    ];
-
-                    continue;
-                }
-                foreach ($this->findingKeys($finding) as $key) {
-                    $candidateKeys[$key] = true;
-                }
-                $candidates[] = $finding;
-                break;
-            }
-
-            if ($candidates !== []) {
-                $priority = $this->priorityEngine->rank([
-                    'area_id' => $areaId,
-                    'focus' => self::DEFAULT_FOCUS,
-                    'candidates' => $candidates,
-                    'scope_profile' => $scopeProfile,
-                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                ]);
-            }
-        }
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
-            $completedSliceIdsForAdmission = $this->completedSemanticSliceIds($areaId);
-            $selectionCanonicalBacklog = $this->canonicalBacklog()->admissionReport(
-                $this->admissionBridge(),
-                $areaId,
-                $focus,
-                $completedSliceIdsForAdmission,
-            );
-
-            foreach ($this->canonicalBacklog()->findings($areaId, $focus) as $finding) {
-                $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
-                if ($this->findingIsReviewLocked($finding, $candidateKeys + $reviewLocked + $terminalLocked)) {
-                    $rejections[] = [
-                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
-                        'title' => (string) ($finding['title'] ?? ''),
-                        'reason' => 'review_locked_existing_branch',
-                    ];
-
-                    continue;
-                }
-
-                $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
-                if ($rejection !== '') {
-                    $rejections[] = [
-                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
-                        'title' => (string) ($finding['title'] ?? ''),
-                        'reason' => $rejection,
-                    ];
-                    if (in_array($rejection, AreaFocusSelfConstructionAdmissionBridgeService::ADMISSIBLE_REJECTION_REASONS, true)) {
-                        $rejectedHighValue[] = ['finding' => $finding, 'reason' => $rejection];
-                    }
-
-                    continue;
-                }
-
-                foreach ($this->findingKeys($finding) as $key) {
-                    $candidateKeys[$key] = true;
-                }
-                $candidates[] = $finding;
-            }
-
-            if ($candidates !== []) {
-                $priority = $this->priorityEngine->rank([
-                    'area_id' => $areaId,
-                    'focus' => self::DEFAULT_FOCUS,
-                    'candidates' => $candidates,
-                    'scope_profile' => $scopeProfile,
-                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                ]);
-            }
-        }
-        // AP-806 admission bridge: before any synthetic starvation-recovery, try to
-        // convert an authority-gated HIGH-VALUE reject into small governed packets
-        // (Self-Construction) and admit the FIRST packet as a normal candidate the
-        // SAME loop executes. Reuses AreaFocusSelfConstructionAdmissionBridgeService;
-        // the narrowed packet is re-proven through the existing gates. If nothing
-        // admits, fall through to the honest backlog stop — NEVER recovery filler.
-        $selectionAdmission = null;
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejectedHighValue !== []) {
-            $completedSliceIds = $completedSliceIdsForAdmission ?? $this->completedSemanticSliceIds($areaId);
-            foreach ($rejectedHighValue as $highValue) {
-                $admission = $this->admissionBridge()->admit(
-                    (array) $highValue['finding'],
-                    (string) $highValue['reason'],
-                    $areaId,
-                    $focus,
-                    $completedSliceIds,
-                );
-                $packetFinding = is_array($admission['first_packet_finding'] ?? null) ? $admission['first_packet_finding'] : null;
-                if (($admission['admissible'] ?? false) !== true || $packetFinding === null) {
-                    $selectionAdmission ??= $admission;
-
-                    continue;
-                }
-                $packetAllowed = $this->allowedFiles($packetFinding);
-                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
-                if ($packetRejection !== '' || $this->findingIsReviewLocked($packetFinding, $candidateKeys + $reviewLocked + $terminalLocked)) {
-                    $rejections[] = [
-                        'finding_id' => (string) ($packetFinding['finding_id'] ?? ''),
-                        'title' => (string) ($packetFinding['title'] ?? ''),
-                        'reason' => $packetRejection !== '' ? 'admission_packet_'.$packetRejection : 'admission_packet_review_locked',
-                    ];
-                    $selectionAdmission = $admission;
-
-                    continue;
-                }
-                foreach ($this->findingKeys($packetFinding) as $key) {
-                    $candidateKeys[$key] = true;
-                }
-                $candidates[] = $packetFinding;
-                $selectionAdmission = $admission;
-                break;
-            }
-            if ($candidates !== []) {
-                $priority = $this->priorityEngine->rank([
-                    'area_id' => $areaId,
-                    'focus' => self::DEFAULT_FOCUS,
-                    'candidates' => $candidates,
-                    'scope_profile' => $scopeProfile,
-                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                ]);
-            }
-        }
         $selectionRefill = null;
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
-            if ($rejections === []) {
-                $rejections[] = [
-                    'finding_id' => '',
-                    'title' => 'factory_max_no_executable_candidates',
-                    'reason' => 'no_executable_candidates_after_selection_pass',
-                ];
-            }
-            $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
-            $selectionRefill = $this->factoryMaxSelectionRefillReceipt($rejections);
-            if ($this->findingIsReviewLocked($candidate, $terminalLocked + $wastedStarvationRecoveryLocked)) {
-                $rejections[] = [
-                    'finding_id' => (string) ($candidate['finding_id'] ?? ''),
-                    'title' => (string) ($candidate['title'] ?? ''),
-                    'reason' => 'terminal_locked_existing_failure',
-                ];
-
-                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($rejections);
-                $terminalRankContext = $this->terminalBacklogRankContext($rejections);
-                foreach ($terminalUnlockCandidates as $unlockCandidate) {
-                    if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
-                        $rejections[] = [
-                            'finding_id' => (string) ($unlockCandidate['finding_id'] ?? ''),
-                            'title' => (string) ($unlockCandidate['title'] ?? ''),
-                            'reason' => 'terminal_unlock_candidate_locked',
-                        ];
-
-                        continue;
-                    }
-
-                    $priority = $this->priorityEngine->rank([
-                        'area_id' => $areaId,
-                        'focus' => self::DEFAULT_FOCUS,
-                        'candidates' => [$unlockCandidate],
-                        'scope_profile' => $scopeProfile,
-                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ] + $terminalRankContext);
-
-                    return [
-                        'finding' => $unlockCandidate,
-                        'priority_report' => $priority,
-                        'selection_rejections' => $rejections,
-                        'selection_refill' => $selectionRefill + [
-                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                        ],
-                        'selection_canonical_backlog' => $selectionCanonicalBacklog,
-                    ];
-                }
-
-                $replenished = $this->tryFactoryMaxTerminalBacklogReplenishmentSelection(
-                    $areaId,
-                    $forgeInputs,
-                    $scopeProfile,
-                    $reviewLocked,
-                    $terminalLocked,
-                    $candidateKeys,
-                    $rejections,
-                    $selectionRefill,
-                    $priority,
-                );
-                if ($replenished !== null) {
-                    return $replenished;
-                }
-
-                return [
-                    'finding' => null,
-                    'priority_report' => $priority,
-                    'selection_rejections' => $rejections,
-                    'selection_refill' => $selectionRefill,
-                    'selection_canonical_backlog' => $selectionCanonicalBacklog,
-                ];
-            }
-            $priority = $this->priorityEngine->rank([
-                'area_id' => $areaId,
-                'focus' => self::DEFAULT_FOCUS,
-                'candidates' => [$candidate],
-                'scope_profile' => $scopeProfile,
-                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-            ]);
-
-            return [
-                'finding' => $candidate,
-                'priority_report' => $priority,
-                'selection_rejections' => $rejections,
-                'selection_refill' => $selectionRefill,
-                'selection_canonical_backlog' => $selectionCanonicalBacklog,
-            ];
+        $selectionAdmission = null;
+        $fallback = $this->selectionFallback()->resolveFactoryMaxFallback(
+            [
+                'areaId' => $areaId,
+                'focus' => $focus,
+                'scopeProfile' => $scopeProfile,
+                'forgeInputs' => $forgeInputs,
+                'reviewLocked' => $reviewLocked,
+                'terminalLocked' => $terminalLocked,
+                'maintenanceBudgetExhausted' => $maintenanceBudgetExhausted,
+                'envelope' => $envelope,
+                'structuralRuntimeGapBacklogPending' => $structuralRuntimeGapBacklogPending,
+                'provider' => $provider,
+            ],
+            $candidates,
+            $candidateKeys,
+            $rejections,
+            $priority,
+            $selectionCanonicalBacklog,
+            $selectionAdmission,
+            $completedSliceIdsForAdmission,
+            $rejectedHighValue,
+            $wastedStarvationRecoveryLocked,
+        );
+        if ($fallback !== null) {
+            return $fallback;
         }
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
@@ -2023,76 +1827,6 @@ final class AutonomousEvolutionSessionService
             'selection_refill' => $selectionRefill,
             'selection_admission' => $selectionAdmission,
             'selection_canonical_backlog' => $selectionCanonicalBacklog,
-        ];
-    }
-
-    /**
-     * When the high-value backlog is fully rejected by current governance, the
-     * long-running loop should work on that exact bottleneck instead of spinning
-     * on empty selection. This fallback is narrow, factory-scoped and mergeable:
-     * it asks the owner runtime to improve candidate refill/authority handling in
-     * AP-786 itself.
-     *
-     * @param  list<array<string,string>>  $rejections
-     * @return array<string,mixed>
-     */
-    /**
-     * AP-806 admission report: an honest, machine-readable picture of WHY the loop
-     * has (or has not) real eligible work, so an empty selection becomes a clear
-     * backlog_exhausted/admission diagnosis instead of a synthetic recovery merge.
-     *
-     * @param  array<string,mixed>  $scan
-     * @param  list<array<string,string>>  $rejections
-     * @return array<string,mixed>
-     */
-    private function buildAdmissionReport(array $scan, array $rejections, int $acceptedCount, bool $hasForgeAuthority): array
-    {
-        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
-        $byReason = [];
-        foreach ($rejections as $rejection) {
-            $reason = (string) ($rejection['reason'] ?? 'unknown');
-            if ($reason === '') {
-                continue;
-            }
-            $byReason[$reason] = ($byReason[$reason] ?? 0) + 1;
-        }
-        arsort($byReason);
-
-        $authorityGatedReasons = [
-            'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
-            'factory_max_rejects_forge_without_live_authority',
-            'factory_max_rejects_atlas_dev_topology_leak_without_authority',
-            'factory_max_rejects_non_factory_scope_without_automerge_authority',
-        ];
-        $eligibleIfForgeAuthority = 0;
-        foreach ($authorityGatedReasons as $reason) {
-            $eligibleIfForgeAuthority += (int) ($byReason[$reason] ?? 0);
-        }
-        $routineCount = (int) ($byReason['factory_max_rejects_routine_missing_test_work'] ?? 0);
-
-        $topBlockers = [];
-        foreach (array_slice($byReason, 0, 5, true) as $reason => $count) {
-            $topBlockers[] = ['reason' => $reason, 'count' => $count];
-        }
-
-        $nextUnlock = match (true) {
-            $acceptedCount > 0 => 'eligible_work_available',
-            $eligibleIfForgeAuthority > 0 && ! $hasForgeAuthority => 'wire_real_forge_authority_admits_'.$eligibleIfForgeAuthority.'_high_value_findings',
-            $routineCount > 0 => 'balanced_scope_admits_'.$routineCount.'_coverage_findings_or_seed_structural_factory_work',
-            default => 'deepen_factory_scoped_structural_backlog_no_eligible_distinct_work_remains',
-        };
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.factory_max_admission_report.v1',
-            'total_findings' => count($findings),
-            'accepted' => $acceptedCount,
-            'rejected_total' => count($rejections),
-            'rejected_by_reason' => $byReason,
-            'top_blockers' => $topBlockers,
-            'eligible_if_forge_authority' => $eligibleIfForgeAuthority,
-            'routine_or_test_count' => $routineCount,
-            'has_live_forge_authority' => $hasForgeAuthority,
-            'next_unlock' => $nextUnlock,
         ];
     }
 
@@ -2282,7 +2016,7 @@ final class AutonomousEvolutionSessionService
         ];
     }
 
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, bool $structuralRuntimeGapBacklogPending = false, string $provider = ''): string
+    public function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, bool $structuralRuntimeGapBacklogPending = false, string $provider = ''): string
     {
         if ($this->findingIsReviewLocked($finding, $terminalLocked)) {
             return 'terminal_locked_existing_failure';
@@ -3749,49 +3483,6 @@ final class AutonomousEvolutionSessionService
         return '';
     }
 
-    private function recentFactoryMaintenanceCycleCount(string $areaId): int
-    {
-        $path = $this->recordPath($areaId);
-        if (! is_file($path)) {
-            return 0;
-        }
-
-        $cycles = [];
-        foreach ($this->sessionRecordLines($path) as $line) {
-            $record = json_decode($line, true);
-            if (! is_array($record)) {
-                continue;
-            }
-            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                if (is_array($cycle)) {
-                    $status = (string) ($cycle['final_status'] ?? '');
-                    if ($status === self::STATUS_DRY_RUN || str_starts_with($status, 'dry_run')) {
-                        continue;
-                    }
-                    $cycles[] = $cycle;
-                    if (count($cycles) > self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT + 3) {
-                        array_shift($cycles);
-                    }
-                }
-            }
-        }
-
-        $count = 0;
-        foreach (array_reverse($cycles) as $cycle) {
-            $status = (string) ($cycle['final_status'] ?? '');
-            if (! in_array($status, ['cycle_completed', 'cycle_completed_waiting_review_or_merge'], true)) {
-                break;
-            }
-            $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
-            if (! $this->isFactoryMaintenanceFinding($finding)) {
-                break;
-            }
-            $count++;
-        }
-
-        return $count;
-    }
-
     /**
      * Shared session-record line reader (public so GOD-DEBULK sections can read
      * durable records via the parent back-reference).
@@ -3835,7 +3526,7 @@ final class AutonomousEvolutionSessionService
      * cycleHasLiveReviewArtifact) that the orchestration + other sections bind to.
      * commitMergedIntoMain is now internal to that section.
      */
-    private function isFactoryMaintenanceFinding(array $finding): bool
+    public function isFactoryMaintenanceFinding(array $finding): bool
     {
         return $this->cyclePostProcessing()->isFactoryMaintenanceFinding($finding);
     }
@@ -3855,7 +3546,7 @@ final class AutonomousEvolutionSessionService
         return $this->cyclePostProcessing()->normalizeReviewLocked($locked);
     }
 
-    private function findingKeys(array $finding): array
+    public function findingKeys(array $finding): array
     {
         return $this->cyclePostProcessing()->findingKeys($finding);
     }
