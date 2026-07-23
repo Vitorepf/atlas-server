@@ -4,37 +4,39 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0117 persisted evidence snapshot closed
+phase: A1-SC-0105 queue-resolution ordering closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/NativeImplementation
-focus: derive all operator-evidence persistence projections from one read
-finding_id: A1-SC-0117
-action_op: materialize the persisted evidence state once per public build
+bucket: app/Services/Ai/SelfConstruction
+focus: persist terminal queue state before revoking a resolved lease
+finding_id: A1-SC-0105
+action_op: gate lease release, receipt, and learning on a durable queue transition
 queue_index: 6
-last_commit: 4a6921638
+last_commit: fe4c10a99
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --filter=test_readiness_build_uses_one_persisted_evidence_snapshot_for_all_projections
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php --filter=test_mark_resolved_transitions_the_queue_before_releasing_the_lease
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php --compact
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestratorTest.php
   git diff --check
 before_after: |
-  red: the public build reloaded the real-provider and human-receipt registries three times, yielding eight scoped registry reads with the audit baseline included.
-  green: one persisted state is passed into the plan, sequence-integrity, and proof-bundle projections; the same public build makes four reads (two audit baseline reads plus one two-registry snapshot).
+  red: markResolved persisted the lease release before the durable completed_dry_run queue transition.
+  green: queue transition returns ok before lease release; receipt and learning can only follow both durable steps.
 stdout: |
-  red_characterization: FAIL 1 test, 1 assertion (expected the bounded snapshot read count; received 8 registry reads)
+  red_characterization: FAIL 1 test, 2 assertions (first relevant write was leases/<lease>.json rather than task-queue/task_<packet>.json)
   focused: PASS 1 test, 2 assertions
-  full_feature_file: NOT GREEN/HANG; process ran 10 minutes, became idle, emitted no aggregate result, and was interrupted with SIGINT exit 130
-  php_lint: PASS source plus changed Feature test
-  pint: NOT GREEN; existing source formatter violations (unary_operator_spaces, braces_position, no_unused_imports, not_operator_with_successor_space, single_line_empty_body, blank_line_after_namespace, no_extra_blank_lines, ordered_imports) and existing test ordered_imports were left untouched outside this focused hunk
-  loc_check: operator_evidence_submission_readiness_service=1858; feature_test=1541
+  task_queue_unit_file: PASS 53 tests, 250 assertions
+  adjacent_learning_bridge: NOT GREEN baseline 2 failed, 6 passed, 33 assertions; its completeDryRun fact fails even in isolation and durable worker behavior recall is absent, recorded in EXEC-DEBTS outside this markResolved change
+  php_lint: PASS source plus changed Unit test
+  pint: NOT GREEN; existing source formatter violations (unary_operator_spaces, braces_position, not_operator_with_successor_space, single_line_empty_body, no_extra_blank_lines, ordered_imports) and existing test class_attributes_separation, no_unused_imports, ordered_imports were left untouched outside this focused hunk
+  loc_check: task_queue_orchestrator=1997; unit_test=1018 (both <2000)
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the public build with a fake local disk and a typed partial disk wrapper that delegates every real filesystem operation while observing only the two persisted-evidence registry reads; it uses no reflection.
-  The only behavior change reuses the same immutable in-process state for the three persistence-derived projections. It does not persist evidence, call a provider, spend tokens, dispatch work, or enable runtime.
+  Characterization executes the public markResolved path through its real queue and lease repositories, with a fake local disk and typed partial disk wrapper observing only durable writes; it uses no reflection.
+  The behavior change is fail-closed: an unsuccessful queue transition leaves the lease untouched, and an unsuccessful post-transition release returns an explicit reconciliation-required block before receipts or learning are published.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   The source remains below 2k; no new class or helper was introduced. Existing formatter drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -2277,4 +2279,35 @@ write_back:
   auto_promoted: false
 next: "A1-SC Task 6.1 remaining status mutation matrix"
 merged_to_main_by_aobg: false
+```
+
+## Task 73 — A1-SC-0105 order durable queue resolution, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_BASELINE_RED
+commit: fe4c10a99
+subject: "refactor(core): GOD-DEBULK order queue resolution"
+red:
+  result: "FAIL 1 test, 2 assertions: public markResolved wrote leases/<lease>.json before task-queue/task_<packet>.json."
+green:
+  behavior: "The real queue transition to completed_dry_run is persisted and returns ok before the lease release; receipt and learning publication occur only after both steps."
+verification:
+  focused_unit: "PASS 1 test, 2 assertions"
+  task_queue_unit_file: "PASS 53 tests, 250 assertions"
+  adjacent_learning_bridge: "NOT GREEN: 2 failed, 6 passed, 33 assertions. completeDryRun reports blocked in isolation and durable worker-behavior recall is absent; recorded as separate debt."
+  php_lint: "PASS source and changed Unit test"
+  pint: "NOT GREEN only for existing formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "task_queue_orchestrator=1997; unit_test=1018 (both <2000)"
+boundary:
+  - executes the real public markResolved path with real queue and lease repositories; no reflection
+  - typed partial fake-disk wrapper delegates actual writes and records their durable order
+  - queue-transition failure leaves the lease untouched; a release failure is returned explicitly before receipt or learning publication
+  - no provider call, dispatch, token spend, real completion, or runtime activation
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0105
+  context_feedback: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
 ```
