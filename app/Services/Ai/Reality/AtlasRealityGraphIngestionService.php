@@ -18,6 +18,9 @@ use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\DB;
 use Throwable;
+use App\Services\Ai\Reality\RealityGraphIngestion\RealityGraphGatherSection;
+use App\Services\Ai\Reality\RealityGraphIngestion\RealityGraphLinkSection;
+use App\Services\Ai\Reality\RealityGraphIngestion\RealityGraphIngestionSupport;
 
 /**
  * AURG Phase-2 — F1 fused-store ingestion (Salto 1, "AURG vivo").
@@ -102,22 +105,32 @@ class AtlasRealityGraphIngestionService
     public const CONFIDENCE_CO_CITED = 0.5;
 
     /** Per-node cap on linker-discovered candidate paths kept in meta. */
-    private const MAX_META_PATHS = 10;
+    public const MAX_META_PATHS = 10;
 
     /** Per-node cap on resolved canonical domains kept in meta. */
-    private const MAX_META_DOMAINS = 5;
+    public const MAX_META_DOMAINS = 5;
 
     /** Per-memory/evidence cap on emitted linker edges (bound, deterministic order). */
-    private const MAX_LINKS_PER_NODE = 10;
+    public const MAX_LINKS_PER_NODE = 10;
 
     /** MAXD-03: cap on emitted co-cited edges per memory node (transitive-blow-up guard). */
-    private const MAX_CO_CITED_PER_MEMORY = 5;
+    public const MAX_CO_CITED_PER_MEMORY = 5;
+
+    private readonly RealityGraphIngestionSupport $support;
+
+    private readonly RealityGraphGatherSection $gatherSection;
+
+    private readonly RealityGraphLinkSection $linkSection;
 
     public function __construct(
         private readonly CrossDomainTaxonomyMap $taxonomy,
         private readonly AtlasMemoryPrivacyService $memoryPrivacy,
         private readonly ?AtlasCrossDomainMeshService $mesh = null,
-    ) {}
+    ) {
+        $this->support = new RealityGraphIngestionSupport($taxonomy, $memoryPrivacy);
+        $this->gatherSection = new RealityGraphGatherSection($this->support, $taxonomy, $mesh);
+        $this->linkSection = new RealityGraphLinkSection($this->support);
+    }
 
     /**
      * Idempotent fused-store sync.
@@ -137,16 +150,16 @@ class AtlasRealityGraphIngestionService
 
         foreach ($sources as $source) {
             $gathered = match ($source) {
-                'memory' => $this->gatherMemory(),
-                'code' => $this->gatherCode(),
-                'docs' => $this->gatherDocs(),
-                'domains' => $this->gatherDomains(),
-                'evidence' => $this->gatherEvidence(),
-                'strategic' => $this->gatherStrategic(),
+                'memory' => $this->gatherSection->gatherMemory(),
+                'code' => $this->gatherSection->gatherCode(),
+                'docs' => $this->gatherSection->gatherDocs(),
+                'domains' => $this->gatherSection->gatherDomains(),
+                'evidence' => $this->gatherSection->gatherEvidence(),
+                'strategic' => $this->gatherSection->gatherStrategic(),
             };
 
-            $this->upsertNodes($gathered['nodes']);
-            $edgeCount = $this->upsertEdges($gathered['edges']);
+            $this->support->upsertNodes($gathered['nodes']);
+            $edgeCount = $this->support->upsertEdges($gathered['edges']);
 
             $stats['sources'][$source] = [
                 'nodes' => count($gathered['nodes']),
@@ -156,9 +169,9 @@ class AtlasRealityGraphIngestionService
             // Prune only when the source read-model is actually readable — a missing
             // source table means "cannot verify vanishing", not "everything vanished"
             // (honest degrade: never wipe a layer on infrastructure absence).
-            if ($prune && $this->sourceAvailable($source)) {
+            if ($prune && $this->support->sourceAvailable($source)) {
                 $keepIds = (array) ($gathered['keep_ids'] ?? array_column($gathered['nodes'], 'id'));
-                $pruned = $this->pruneSource($this->sourceKindFor($source), $keepIds);
+                $pruned = $this->support->pruneSource($this->support->sourceKindFor($source), $keepIds);
                 $stats['pruned']['nodes'] += $pruned['nodes'];
                 $stats['pruned']['edges'] += $pruned['edges'];
                 foreach ($pruned as $key => $value) {
@@ -172,18 +185,18 @@ class AtlasRealityGraphIngestionService
         // Cross-layer linkers run over DB state (not just this run's batch) so a
         // partial --source sync still links against previously ingested layers.
         $stats['linkers'] = [
-            'memory_code' => $this->linkMemoryToCode(),
-            'memory_domain' => $this->linkMemoryToDomain(),
-            'evidence_links' => $this->linkEvidence(),
-            'code_domain' => $this->linkWorkspaceToEngineeringDomain(),
-            'doc_code' => $this->linkDocsToCode(),
-            'doc_code_index' => $this->linkDocsToCodeIndex(),
-            'doc_authority' => $this->linkDocsToAuthorityGraph(),
-            'doc_memory' => $this->linkDocsToMemory(),
+            'memory_code' => $this->linkSection->linkMemoryToCode(),
+            'memory_domain' => $this->linkSection->linkMemoryToDomain(),
+            'evidence_links' => $this->linkSection->linkEvidence(),
+            'code_domain' => $this->linkSection->linkWorkspaceToEngineeringDomain(),
+            'doc_code' => $this->linkSection->linkDocsToCode(),
+            'doc_code_index' => $this->linkSection->linkDocsToCodeIndex(),
+            'doc_authority' => $this->linkSection->linkDocsToAuthorityGraph(),
+            'doc_memory' => $this->linkSection->linkDocsToMemory(),
             // MAXD-03 co-citation: emit memory→module edges when a mission
             // witnessed both. Runs AFTER the direct linkers so the transitive
             // sees the current state of mission→memory / mission→module edges.
-            'co_cited' => $this->linkCoCitations(),
+            'co_cited' => $this->linkSection->linkCoCitations(),
         ];
 
         $stats['totals'] = [
@@ -197,145 +210,6 @@ class AtlasRealityGraphIngestionService
 
         return $stats;
     }
-
-    // ------------------------------------------------------------------
-    // Source 1 — MEMORY (provider-safe projection only)
-    // ------------------------------------------------------------------
-
-    /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherMemory(): array
-    {
-        $nodes = [];
-        $edges = [];
-
-        if ($this->tableExists('atlas_memory_entries')) {
-            $limit = $this->cap('memory_limit', 500);
-            $query = AtlasMemoryEntry::query()->active();
-            if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'superseded_by_id')) {
-                $query->whereNull('superseded_by_id');
-            }
-            $entries = $query->latest('recorded_at')->limit($limit)->get();
-
-            foreach ($entries as $entry) {
-                // AOBG noise guard: skip contentless memory (smoke-test "t" echoes) — a
-                // brain node with a <3-char title is pure noise that dominates packs.
-                if (mb_strlen(trim((string) $entry->title)) < 3) {
-                    continue;
-                }
-                $nodes[] = $this->memoryEntryNode($entry);
-            }
-        }
-
-        if ($this->tableExists('atlas_verbatim_memories')) {
-            $limit = $this->cap('memory_limit', 500);
-            // Blocked verbatim rows are SKIPPED ENTIRELY (spec). Same policy
-            // authority as AtlasMemoryPrivacyService::externalAiAllowed(): the
-            // stored bit AND the privacy-class blocklist (config + 'secret').
-            $blockedClasses = array_values(array_unique(array_merge(
-                array_filter((array) config('atlas.privacy.block_external_ai_for_sensitivity', []), 'is_string'),
-                ['secret'],
-            )));
-            $verbatims = AtlasVerbatimMemory::query()
-                ->active()
-                ->where('external_ai_allowed', true)
-                ->whereNotIn('privacy_class', $blockedClasses)
-                ->latest('recorded_at')
-                ->limit($limit)
-                ->get();
-
-            foreach ($verbatims as $verbatim) {
-                $label = AtlasSecurity::redactString((string) ($verbatim->title ?: 'verbatim:'.$verbatim->verbatim_type));
-                $nodes[] = $this->node(
-                    id: $this->nodeKey('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY, (string) $verbatim->id),
-                    kind: AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY,
-                    sourceKind: 'memory',
-                    sourceId: (string) $verbatim->id,
-                    label: $label,
-                    providerSafe: true,
-                    sensitive: $verbatim->privacy_class === 'sensitive',
-                    meta: [
-                        'type' => 'verbatim:'.$verbatim->verbatim_type,
-                        'scope' => (string) $verbatim->scope_type,
-                        'privacy_class' => (string) $verbatim->privacy_class,
-                        'paths' => $this->candidatePaths(array_merge(
-                            (array) ($verbatim->metadata ?? []),
-                            ['tags' => (array) ($verbatim->tags ?? [])],
-                        )),
-                        'domains' => $this->candidateDomains((array) ($verbatim->tags ?? []), (array) ($verbatim->metadata ?? [])),
-                    ],
-                    contentHash: (string) ($verbatim->redacted_hash ?: $verbatim->content_hash ?: hash('sha256', $label)),
-                );
-
-                // Exact FK → parent memory entry (confidence 1.0, exact id).
-                if (is_string($verbatim->memory_entry_id) && $verbatim->memory_entry_id !== '') {
-                    $edges[] = $this->edge(
-                        from: $this->nodeKey('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY, (string) $verbatim->id),
-                        to: $this->nodeKey('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY, (string) $verbatim->memory_entry_id),
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_BELONGS_TO,
-                        source: 'memory_ingest',
-                        confidence: self::CONFIDENCE_EXACT,
-                        meta: ['matched' => 'memory_entry_id'],
-                    );
-                }
-            }
-        }
-
-        return ['nodes' => $nodes, 'edges' => $edges];
-    }
-
-    /**
-     * The canonical brain projection of ONE memory entry — shared verbatim by the
-     * full sync (gatherMemory) and the F4 ingest-on-write accrual so the per-row
-     * path can never drift from the batch path. Label ONLY from the redacted
-     * provider projection — never raw title.
-     *
-     * @return array<string,mixed>
-     */
-    private function memoryEntryNode(AtlasMemoryEntry $entry): array
-    {
-        $decision = $this->memoryPrivacy->providerDecision($entry);
-        $privacyClass = (string) $decision['privacy_class'];
-        $label = $this->memoryPrivacy->providerTitle($entry)
-            ?? $this->memoryPrivacy->providerSummary($entry)
-            ?? ('memory:'.$entry->memory_type);
-        $metadata = (array) ($entry->metadata ?? []);
-        $paths = $this->candidatePaths(array_merge(
-            $metadata,
-            ['tags' => (array) ($entry->tags ?? [])],
-        ));
-        if ((bool) $decision['allowed']) {
-            $paths = array_slice(array_values(array_unique(array_merge(
-                $paths,
-                $this->providerProjectionPaths($entry),
-            ))), 0, self::MAX_META_PATHS);
-        }
-
-        return $this->node(
-            id: $this->nodeKey('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY, (string) $entry->id),
-            kind: AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY,
-            sourceKind: 'memory',
-            sourceId: (string) $entry->id,
-            label: $label,
-            providerSafe: (bool) $decision['allowed'],
-            sensitive: in_array($privacyClass, ['sensitive', 'secret'], true),
-            meta: [
-                'type' => (string) $entry->memory_type,
-                'scope' => (string) $entry->scope_type,
-                'privacy_class' => $privacyClass,
-                'paths' => $paths,
-                'domains' => $this->candidateDomains((array) ($entry->tags ?? []), $metadata),
-            ],
-            contentHash: is_string($entry->content_hash) && $entry->content_hash !== ''
-                ? $entry->content_hash
-                : hash('sha256', $label.'|'.$entry->memory_type.'|'.$entry->scope_type),
-        );
-    }
-
-    // ------------------------------------------------------------------
-    // F4 — COMPOUNDING: ingest-on-write for the live accruing source (memory)
-    // ------------------------------------------------------------------
 
     /**
      * F4 (Salto 1 — "AURG vivo") accrual: upsert the brain node for ONE memory
@@ -357,7 +231,7 @@ class AtlasRealityGraphIngestionService
         if (! (bool) config('atlas.aurg.enabled', true) || ! (bool) config('atlas.aurg.ingest_on_write', true)) {
             return false;
         }
-        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+        if (! $this->support->tableExists('atlas_aurg_nodes') || ! $this->support->tableExists('atlas_aurg_edges')) {
             return false;
         }
         if (! $entry->getKey()) {
@@ -370,8 +244,8 @@ class AtlasRealityGraphIngestionService
             return false;
         }
 
-        $node = $this->memoryEntryNode($entry);
-        $this->upsertNodes([$node]);
+        $node = $this->support->memoryEntryNode($entry);
+        $this->support->upsertNodes([$node]);
 
         // Row-scoped linkers: the SAME deterministic rules, THIS node only.
         $memory = [
@@ -383,22 +257,18 @@ class AtlasRealityGraphIngestionService
         ];
 
         $edges = [];
-        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        $modules = $this->support->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
         if ($modules !== []) {
-            $edges = $this->memoryCodeEdgesFor($memory, $modules, $this->moduleSlugIndex($modules));
+            $edges = $this->support->memoryCodeEdgesFor($memory, $modules, $this->support->moduleSlugIndex($modules));
         }
-        $domainIds = $this->domainIdIndex();
+        $domainIds = $this->support->domainIdIndex();
         if ($domainIds !== []) {
-            $edges = array_merge($edges, $this->memoryDomainEdgesFor($memory, $domainIds));
+            $edges = array_merge($edges, $this->support->memoryDomainEdgesFor($memory, $domainIds));
         }
-        $this->upsertEdges($edges);
+        $this->support->upsertEdges($edges);
 
         return true;
     }
-
-    // ------------------------------------------------------------------
-    // S2.F1 — CLOSED MISSION LOOP: record a delivered-mission outcome back
-    // ------------------------------------------------------------------
 
     /**
      * S2.F1 ("the brain feeds the hands, the hands feed the brain"): after a
@@ -444,7 +314,7 @@ class AtlasRealityGraphIngestionService
         if (! (bool) config('atlas.aurg.enabled', true)) {
             return ['recorded' => false, 'reason' => 'aurg_disabled'];
         }
-        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+        if (! $this->support->tableExists('atlas_aurg_nodes') || ! $this->support->tableExists('atlas_aurg_edges')) {
             return ['recorded' => false, 'reason' => 'store_missing'];
         }
 
@@ -473,8 +343,8 @@ class AtlasRealityGraphIngestionService
         }
 
         // 1) MISSION node — request label (redacted), branch + ids/hashes only.
-        $missionNodeId = $this->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION, $id);
-        $missionNode = $this->node(
+        $missionNodeId = $this->support->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION, $id);
+        $missionNode = $this->support->node(
             id: $missionNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::NODE_MISSION,
             sourceKind: 'mission',
@@ -510,8 +380,8 @@ class AtlasRealityGraphIngestionService
         $measureStatus = is_string($measure['status'] ?? null)
             ? (string) $measure['status']
             : (array_key_exists('ok', $measure) ? ((bool) $measure['ok'] ? 'passed' : 'failed') : ($delivered ? 'delivered' : 'blocked'));
-        $evidenceNodeId = $this->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
-        $evidenceNode = $this->node(
+        $evidenceNodeId = $this->support->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
+        $evidenceNode = $this->support->node(
             id: $evidenceNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
             sourceKind: 'mission',
@@ -528,13 +398,13 @@ class AtlasRealityGraphIngestionService
             contentHash: hash('sha256', 'mission_outcome|'.$id.'|'.$measureStatus.'|'.$branch.'|'.($delivered ? '1' : '0')),
         );
 
-        $this->upsertNodes([$missionNode, $evidenceNode]);
+        $this->support->upsertNodes([$missionNode, $evidenceNode]);
 
         // 3) EDGES — generated (mission→evidence) + cite-or-omit references.
         $edges = [];
 
         // mission --generated--> evidence (1.0, by construction).
-        $edges[] = $this->edge(
+        $edges[] = $this->support->edge(
             from: $missionNodeId,
             to: $evidenceNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
@@ -547,9 +417,9 @@ class AtlasRealityGraphIngestionService
         );
 
         // mission --references--> module (cite-or-omit, same ladder as memory→code).
-        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        $modules = $this->support->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
         if ($modules !== [] && $files !== []) {
-            $edges = array_merge($edges, $this->missionTouchedModuleEdges($missionNodeId, $files, $modules, $this->moduleSlugIndex($modules)));
+            $edges = array_merge($edges, $this->missionTouchedModuleEdges($missionNodeId, $files, $modules, $this->support->moduleSlugIndex($modules)));
         }
 
         // mission --references--> memory_entry (1.0) for cited, existing memory nodes.
@@ -557,7 +427,7 @@ class AtlasRealityGraphIngestionService
             $edges = array_merge($edges, $this->missionMemoryEdges($missionNodeId, $memoryRefs));
         }
 
-        $edgeCount = $this->upsertEdges($edges);
+        $edgeCount = $this->support->upsertEdges($edges);
 
         return [
             'recorded' => true,
@@ -566,10 +436,6 @@ class AtlasRealityGraphIngestionService
             'edges' => $edgeCount,
         ];
     }
-
-    // ------------------------------------------------------------------
-    // AOBG N3.F3 — CLOSED OBRA LOOP: record a whole-obra outcome back
-    // ------------------------------------------------------------------
 
     /**
      * AOBG N3.F3 ("the obra compounds"): after the obra executor walks the whole
@@ -617,7 +483,7 @@ class AtlasRealityGraphIngestionService
         if (! (bool) config('atlas.aurg.enabled', true)) {
             return ['recorded' => false, 'reason' => 'aurg_disabled'];
         }
-        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+        if (! $this->support->tableExists('atlas_aurg_nodes') || ! $this->support->tableExists('atlas_aurg_edges')) {
             return ['recorded' => false, 'reason' => 'store_missing'];
         }
 
@@ -643,8 +509,8 @@ class AtlasRealityGraphIngestionService
         $stepIds = array_values(array_filter((array) ($outcome['step_ids'] ?? []), 'is_string'));
 
         // 1) OBRA node — intent label (redacted), branch + flags/counts/hash only.
-        $obraNodeId = $this->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_OBRA, $id);
-        $obraNode = $this->node(
+        $obraNodeId = $this->support->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_OBRA, $id);
+        $obraNode = $this->support->node(
             id: $obraNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::NODE_OBRA,
             sourceKind: 'obra',
@@ -667,8 +533,8 @@ class AtlasRealityGraphIngestionService
         );
 
         // 2) EVIDENCE node — the INTEGRATED certification RESULT (no payloads).
-        $evidenceNodeId = $this->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
-        $evidenceNode = $this->node(
+        $evidenceNodeId = $this->support->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
+        $evidenceNode = $this->support->node(
             id: $evidenceNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
             sourceKind: 'obra',
@@ -686,12 +552,12 @@ class AtlasRealityGraphIngestionService
             contentHash: hash('sha256', 'obra_certification|'.$id.'|'.$integratedStatus.'|'.$branch.'|'.($certified ? '1' : '0')),
         );
 
-        $this->upsertNodes([$obraNode, $evidenceNode]);
+        $this->support->upsertNodes([$obraNode, $evidenceNode]);
 
         // 3) EDGES — obra --generated--> evidence (1.0) + obra --generated--> step
         //    missions (1.0, cite-or-omit: only steps already recorded in the brain).
         $edges = [];
-        $edges[] = $this->edge(
+        $edges[] = $this->support->edge(
             from: $obraNodeId,
             to: $evidenceNodeId,
             kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
@@ -706,7 +572,7 @@ class AtlasRealityGraphIngestionService
         $stepEdges = $this->obraStepGeneratedEdges($obraNodeId, $stepIds);
         $edges = array_merge($edges, $stepEdges);
 
-        $edgeCount = $this->upsertEdges($edges);
+        $edgeCount = $this->support->upsertEdges($edges);
 
         return [
             'recorded' => true,
@@ -717,183 +583,6 @@ class AtlasRealityGraphIngestionService
             'edges' => $edgeCount,
         ];
     }
-
-    /**
-     * obra→mission 'generated' (1.0) for each step id whose mission node was already
-     * recorded in the brain by {@see self::recordMissionOutcome()}. Cite-or-omit: a
-     * step that never recorded its outcome (e.g. it was skipped/failed before the
-     * write-back) emits no edge — the obra links only to steps that genuinely exist
-     * in the brain.
-     *
-     * @param  list<string>  $stepIds  the per-node source ids (the executor's node ids)
-     * @return list<array<string,mixed>>
-     */
-    private function obraStepGeneratedEdges(string $obraNodeId, array $stepIds): array
-    {
-        if ($stepIds === []) {
-            return [];
-        }
-
-        // The step nodes are mission nodes recorded under the 'mission' source_kind.
-        $missionBySourceId = [];
-        foreach ($this->brainNodes('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION) as $mission) {
-            $missionBySourceId[$mission['source_id']] = $mission['id'];
-        }
-        if ($missionBySourceId === []) {
-            return [];
-        }
-
-        $edges = [];
-        $seen = [];
-        foreach ($stepIds as $stepId) {
-            $stepId = trim($stepId);
-            $target = $missionBySourceId[$stepId] ?? null;
-            if ($target === null || isset($seen[$target])) {
-                continue;
-            }
-            $edges[] = $this->edge(
-                from: $obraNodeId,
-                to: $target,
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
-                source: 'obra_outcome',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: ['matched_step_id' => $stepId],
-            );
-            $seen[$target] = true;
-        }
-
-        return $edges;
-    }
-
-    /**
-     * mission→module 'references' for each touched file path that resolves to an
-     * existing brain module: exact root_path = 1.0, under root = 0.7, label token
-     * equal to a module slug = 0.7. Deterministic, bounded, cite-or-omit — the
-     * SAME ladder/rules as {@see self::memoryCodeEdgesFor()}.
-     *
-     * @param  list<string>  $files
-     * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
-     * @param  array<string,array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $bySlug
-     * @return list<array<string,mixed>>
-     */
-    private function missionTouchedModuleEdges(string $missionNodeId, array $files, array $modules, array $bySlug): array
-    {
-        $edges = [];
-        $emitted = 0;
-        $linked = [];
-
-        foreach ($files as $path) {
-            if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                break;
-            }
-            $path = trim($path);
-            if ($path === '') {
-                continue;
-            }
-            foreach ($modules as $module) {
-                $rootPath = (string) ($module['meta']['root_path'] ?? '');
-                if ($rootPath === '') {
-                    continue;
-                }
-                $confidence = null;
-                if ($path === $rootPath) {
-                    $confidence = self::CONFIDENCE_EXACT;
-                } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
-                    $confidence = self::CONFIDENCE_DERIVED;
-                }
-                if ($confidence === null || isset($linked[$module['id']])) {
-                    continue;
-                }
-                $edges[] = $this->edge(
-                    from: $missionNodeId,
-                    to: $module['id'],
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'mission_outcome',
-                    confidence: $confidence,
-                    meta: ['matched_path' => $path, 'module_root' => $rootPath],
-                );
-                $linked[$module['id']] = true;
-                $emitted++;
-                break;
-            }
-        }
-
-        // Fall back to label-token = module-slug (0.7) for paths that matched no root.
-        if ($emitted < self::MAX_LINKS_PER_NODE) {
-            foreach ($files as $path) {
-                if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                    break;
-                }
-                foreach ($this->labelTokens($path) as $token) {
-                    $module = $bySlug[$token] ?? null;
-                    if ($module === null || isset($linked[$module['id']])) {
-                        continue;
-                    }
-                    $edges[] = $this->edge(
-                        from: $missionNodeId,
-                        to: $module['id'],
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                        source: 'mission_outcome',
-                        confidence: self::CONFIDENCE_DERIVED,
-                        meta: ['matched_token' => $token],
-                    );
-                    $linked[$module['id']] = true;
-                    $emitted++;
-                    break;
-                }
-            }
-        }
-
-        return $edges;
-    }
-
-    /**
-     * mission→memory_entry 'references' (1.0) for each cited memory id that is an
-     * EXISTING brain memory node. Cite-or-omit: an unknown id emits nothing.
-     *
-     * @param  list<string>  $memoryRefs
-     * @return list<array<string,mixed>>
-     */
-    private function missionMemoryEdges(string $missionNodeId, array $memoryRefs): array
-    {
-        $bySourceId = [];
-        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
-            $bySourceId[$memory['source_id']] = $memory['id'];
-        }
-        if ($bySourceId === []) {
-            return [];
-        }
-
-        $edges = [];
-        $emitted = 0;
-        $seen = [];
-        foreach ($memoryRefs as $ref) {
-            if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                break;
-            }
-            $ref = trim($ref);
-            $target = $bySourceId[$ref] ?? null;
-            if ($target === null || isset($seen[$target])) {
-                continue;
-            }
-            $edges[] = $this->edge(
-                from: $missionNodeId,
-                to: $target,
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                source: 'mission_outcome',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: ['matched_memory_id' => $ref],
-            );
-            $seen[$target] = true;
-            $emitted++;
-        }
-
-        return $edges;
-    }
-
-    // ------------------------------------------------------------------
-    // F4 — TEMPORAL: real 4D snapshot tick after a full sync
-    // ------------------------------------------------------------------
 
     /**
      * F4 (Salto 1 — "AURG vivo") temporal fix: record a REAL graph-state tick into
@@ -922,12 +611,12 @@ class AtlasRealityGraphIngestionService
         string $actor = 'atlas',
         string $rationale = '',
     ): array {
-        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+        if (! $this->support->tableExists('atlas_aurg_nodes') || ! $this->support->tableExists('atlas_aurg_edges')) {
             return ['recorded' => false, 'reason' => 'store_missing'];
         }
 
-        $maxNodes = $this->cap('snapshot_max_nodes', 20000);
-        $maxEdges = $this->cap('snapshot_max_edges', 60000);
+        $maxNodes = $this->support->cap('snapshot_max_nodes', 20000);
+        $maxEdges = $this->support->cap('snapshot_max_edges', 60000);
 
         $nodeRows = AtlasAurgNode::query()
             ->orderBy('id')
@@ -1010,455 +699,30 @@ class AtlasRealityGraphIngestionService
         ];
     }
 
-    // ------------------------------------------------------------------
-    // Source 2 — CODE (bounded projection: workspaces + modules, never symbols)
-    // ------------------------------------------------------------------
-
     /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherCode(): array
-    {
-        $nodes = [];
-        $edges = [];
-
-        if (! $this->tableExists('atlas_engineering_code_modules')) {
-            return ['nodes' => $nodes, 'edges' => $edges];
-        }
-
-        $hasWorkspace = DatabaseTableAvailability::hasColumn('atlas_engineering_code_modules', 'workspace_id');
-        $defaultWorkspace = (string) config('atlas.code_graph.default_workspace_id', 'atlas-server');
-        $perWorkspace = $this->cap('modules_per_workspace', 300);
-
-        $workspaceIds = $hasWorkspace
-            ? DB::table('atlas_engineering_code_modules')->whereNull('archived_at')->distinct()->pluck('workspace_id')->filter()->values()->all()
-            : [$defaultWorkspace];
-        if ($workspaceIds === []) {
-            $workspaceIds = [$defaultWorkspace];
-        }
-
-        foreach ($workspaceIds as $workspaceId) {
-            $workspaceId = (string) $workspaceId;
-            $moduleQuery = DB::table('atlas_engineering_code_modules')
-                ->whereNull('archived_at')
-                ->where('status', 'active');
-            if ($hasWorkspace) {
-                $moduleQuery->where('workspace_id', $workspaceId);
-            }
-            $modules = $moduleQuery
-                ->orderByDesc('symbol_count')
-                ->orderBy('slug')
-                ->limit($perWorkspace)
-                ->get(['id', 'slug', 'name', 'layer', 'root_path', 'source_hash', 'symbol_count']);
-
-            $workspaceNodeId = $this->nodeKey('code', AtlasRealityGraphSnapshotBuilderService::NODE_WORKSPACE, $workspaceId);
-            $nodes[] = $this->node(
-                id: $workspaceNodeId,
-                kind: AtlasRealityGraphSnapshotBuilderService::NODE_WORKSPACE,
-                sourceKind: 'code',
-                sourceId: $workspaceId,
-                label: $workspaceId,
-                providerSafe: true,
-                sensitive: false,
-                meta: ['module_count' => $modules->count()],
-                contentHash: hash('sha256', 'workspace|'.$workspaceId),
-                workspaceId: $workspaceId,
-            );
-
-            foreach ($modules as $module) {
-                $sourceId = $workspaceId.'/'.(string) $module->slug;
-                $moduleNodeId = $this->nodeKey('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE, $sourceId);
-                $nodes[] = $this->node(
-                    id: $moduleNodeId,
-                    kind: AtlasRealityGraphSnapshotBuilderService::NODE_MODULE,
-                    sourceKind: 'code',
-                    sourceId: $sourceId,
-                    label: (string) $module->name,
-                    providerSafe: true,
-                    sensitive: false,
-                    meta: [
-                        'slug' => (string) $module->slug,
-                        'layer' => (string) $module->layer,
-                        'root_path' => $module->root_path !== null ? (string) $module->root_path : null,
-                    ],
-                    contentHash: (string) ($module->source_hash ?: hash('sha256', $sourceId)),
-                    workspaceId: $workspaceId,
-                );
-
-                // Same indexed row carries both ends → exact id (1.0).
-                $edges[] = $this->edge(
-                    from: $moduleNodeId,
-                    to: $workspaceNodeId,
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_BELONGS_TO,
-                    source: 'code_ingest',
-                    confidence: self::CONFIDENCE_EXACT,
-                    meta: ['matched' => 'workspace_id'],
-                );
-            }
-        }
-
-        return ['nodes' => $nodes, 'edges' => $edges];
-    }
-
-    // ------------------------------------------------------------------
-    // Source 3 — DOCS (canonical engineering knowledge refs)
-    // ------------------------------------------------------------------
-
-    /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherDocs(): array
-    {
-        $nodes = [];
-        $keepIds = [];
-        $skippedUnchanged = 0;
-        $root = base_path('docs/engineering-knowledge-base');
-        if (! is_dir($root)) {
-            return ['nodes' => $nodes, 'edges' => []];
-        }
-
-        $base = rtrim(str_replace('\\', '/', base_path()), '/').'/';
-        $files = [];
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
-        );
-        foreach ($iterator as $file) {
-            if (! $file instanceof \SplFileInfo || ! $file->isFile() || strtolower($file->getExtension()) !== 'md') {
-                continue;
-            }
-            $absolute = str_replace('\\', '/', $file->getPathname());
-            if (! str_starts_with($absolute, $base)) {
-                continue;
-            }
-            $relative = substr($absolute, strlen($base));
-            if (! str_starts_with($relative, 'docs/engineering-knowledge-base/')) {
-                continue;
-            }
-            $files[] = $relative;
-        }
-        sort($files, SORT_STRING);
-        $files = array_slice($files, 0, $this->cap('docs_limit', 2000));
-
-        $existingById = AtlasAurgNode::query()
-            ->where('source_kind', 'doc')
-            ->where('kind', AtlasRealityGraphSnapshotBuilderService::NODE_DOC)
-            ->get(['id', 'meta'])
-            ->keyBy('id');
-
-        foreach ($files as $relative) {
-            $absolute = base_path($relative);
-            $nodeId = $this->nodeKey('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC, $relative);
-            $keepIds[] = $nodeId;
-            $mtime = @filemtime($absolute);
-            $size = @filesize($absolute);
-            $existing = $existingById->get($nodeId);
-            $existingMeta = $existing instanceof AtlasAurgNode ? (array) ($existing->meta ?? []) : [];
-            if ($mtime !== false && $size !== false
-                && (int) ($existingMeta['doc_mtime'] ?? -1) === (int) $mtime
-                && (int) ($existingMeta['doc_size'] ?? -1) === (int) $size) {
-                $skippedUnchanged++;
-
-                continue;
-            }
-
-            $content = @file_get_contents($absolute);
-            if (! is_string($content)) {
-                continue;
-            }
-
-            $nodes[] = $this->node(
-                id: $this->nodeKey('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC, $relative),
-                kind: AtlasRealityGraphSnapshotBuilderService::NODE_DOC,
-                sourceKind: 'doc',
-                sourceId: $this->compactSourceId($relative),
-                label: $this->docTitle($relative, $content),
-                providerSafe: true,
-                sensitive: false,
-                meta: [
-                    'path' => $relative,
-                    'doc_status' => 'canonical_engineering_knowledge',
-                    'paths' => $this->existingRepoPathsFromText($content),
-                    'memory_refs' => $this->memoryRefsFromText($content),
-                    'doc_mtime' => $mtime !== false ? (int) $mtime : null,
-                    'doc_size' => $size !== false ? (int) $size : null,
-                ],
-                contentHash: hash('sha256', $relative.'|'.hash('sha256', $content)),
-            );
-        }
-
-        return [
-            'nodes' => $nodes,
-            'edges' => [],
-            'keep_ids' => $keepIds,
-            'stats' => ['skipped_unchanged' => $skippedUnchanged],
-        ];
-    }
-
-    // ------------------------------------------------------------------
-    // Source 4 — DOMAINS (21 canonical + mesh allowed-crossing edges)
-    // ------------------------------------------------------------------
-
-    /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherDomains(): array
-    {
-        $nodes = [];
-        $edges = [];
-
-        foreach ($this->taxonomy->all() as $canonical => $meta) {
-            $nodes[] = $this->node(
-                id: $this->nodeKey('domain', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN, (string) $canonical),
-                kind: AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN,
-                sourceKind: 'domain',
-                sourceId: (string) $canonical,
-                label: $meta['label'],
-                // Sensitive domains NEVER enter a provider prompt → structurally unsafe.
-                providerSafe: ! $meta['sensitive'],
-                sensitive: (bool) $meta['sensitive'],
-                meta: ['mesh_id' => $meta['mesh'], 'registry_id' => $meta['registry']],
-                contentHash: hash('sha256', $canonical.'|'.$meta['label'].'|'.(int) $meta['sensitive']),
-            );
-        }
-
-        // Mesh allowed-crossing rules → references edges (reuse the EXISTING topology).
-        if ($this->mesh !== null) {
-            try {
-                $topology = $this->mesh->topology();
-            } catch (Throwable) {
-                $topology = [];
-            }
-            $allowed = is_array($topology['edges_allowed'] ?? null) ? $topology['edges_allowed'] : [];
-            foreach ($allowed as $rule) {
-                if (! is_array($rule)) {
-                    continue;
-                }
-                $from = $this->taxonomy->canonical((string) ($rule['from'] ?? ''));
-                $to = $this->taxonomy->canonical((string) ($rule['to'] ?? ''));
-                if ($from === null || $to === null || $from === $to) {
-                    continue;
-                }
-                $edges[] = $this->edge(
-                    from: $this->nodeKey('domain', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN, $from),
-                    to: $this->nodeKey('domain', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN, $to),
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'domain_mesh',
-                    confidence: self::CONFIDENCE_EXACT,
-                    meta: [
-                        'matched' => 'mesh_topology_rule',
-                        'privacy_classes_allowed' => is_array($rule['privacy_classes_allowed'] ?? null)
-                            ? array_values($rule['privacy_classes_allowed'])
-                            : [],
-                    ],
-                );
-            }
-        }
-
-        return ['nodes' => $nodes, 'edges' => $edges];
-    }
-
-    // ------------------------------------------------------------------
-    // Source 4 — EVIDENCE (refs only: ids/hashes, never payloads)
-    // ------------------------------------------------------------------
-
-    /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherEvidence(): array
-    {
-        $nodes = [];
-
-        if (! $this->tableExists('atlas_ledger_events')) {
-            return ['nodes' => $nodes, 'edges' => []];
-        }
-
-        $limit = $this->cap('evidence_limit', 200);
-        $query = AtlasLedgerEvent::query()
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('event_id')
-            ->limit($limit);
-
-        $columns = ['event_id', 'event_type', 'trace_id', 'correlation_id', 'receipt_id', 'payload', 'payload_hash', 'occurred_at'];
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')) {
-            $columns[] = 'scope_type';
-        }
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
-            $columns[] = 'scope_id';
-        }
-
-        foreach ($query->get($columns) as $row) {
-            $payload = $this->decodeJsonMap($row->payload ?? null);
-            $scopeType = is_string($row->scope_type ?? null) ? (string) $row->scope_type : null;
-            $scopeId = is_string($row->scope_id ?? null) ? (string) $row->scope_id : null;
-
-            $nodes[] = $this->node(
-                id: $this->nodeKey('evidence', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, (string) $row->event_id),
-                kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
-                sourceKind: 'evidence',
-                sourceId: (string) $row->event_id,
-                label: (string) $row->event_type,
-                providerSafe: true,
-                sensitive: false,
-                // ids/hashes + cite-or-omit refs ONLY — raw payload never enters the brain.
-                meta: [
-                    'ledger_source' => 'atlas_ledger_events',
-                    'trace_id' => $row->trace_id !== null ? (string) $row->trace_id : null,
-                    'correlation_id' => $row->correlation_id !== null ? (string) $row->correlation_id : null,
-                    'receipt_id' => $row->receipt_id !== null ? (string) $row->receipt_id : null,
-                    'scope_type' => $scopeType,
-                    'scope_id' => $scopeId,
-                    'target_id' => $this->ledgerTargetIdFrom($payload),
-                    'memory_ref' => $this->ledgerMemoryRefFrom($payload, $scopeType, $scopeId),
-                    'paths' => $this->ledgerEvidencePathsFrom($payload),
-                    'payload_hash' => (string) $row->payload_hash,
-                ],
-                contentHash: hash('sha256', (string) $row->event_id.'|'.(string) $row->event_type.'|'.(string) $row->payload_hash),
-            );
-        }
-
-        return ['nodes' => $nodes, 'edges' => []];
-    }
-
-    // ------------------------------------------------------------------
-    // Source 5 — STRATEGIC (ASRE entities + relationships, decay honoured)
-    // ------------------------------------------------------------------
-
-    /**
-     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
-     */
-    private function gatherStrategic(): array
-    {
-        $nodes = [];
-        $edges = [];
-
-        if (! $this->tableExists('atlas_reality_entities')) {
-            return ['nodes' => $nodes, 'edges' => $edges];
-        }
-
-        $limit = $this->cap('strategic_limit', 500);
-        $entities = AtlasRealityEntity::query()
-            ->where('status', 'active')
-            ->where(function ($query): void {
-                $query->whereNull('valid_until')->orWhere('valid_until', '>', now());
-            })
-            ->latest('updated_at')
-            ->limit($limit)
-            ->get();
-
-        $entityIds = [];
-        foreach ($entities as $entity) {
-            $entityIds[(string) $entity->id] = true;
-            $attributes = (array) ($entity->attributes ?? []);
-            $privacyClass = is_string($attributes['privacy_class'] ?? null) ? $attributes['privacy_class'] : 'normal';
-            $sensitive = in_array($privacyClass, ['sensitive', 'secret'], true);
-
-            $entityType = (string) $entity->entity_type;
-            $kind = in_array($entityType, AtlasRealityGraphSnapshotBuilderService::ALLOWED_NODE_KINDS, true)
-                ? $entityType
-                : AtlasRealityGraphSnapshotBuilderService::NODE_REALITY_ENTITY;
-
-            $nodes[] = $this->node(
-                id: $this->nodeKey('strategic', $kind, (string) $entity->id),
-                kind: $kind,
-                sourceKind: 'strategic',
-                sourceId: (string) $entity->id,
-                label: AtlasSecurity::redactString((string) $entity->name),
-                providerSafe: ! $sensitive,
-                sensitive: $sensitive,
-                meta: [
-                    'entity_type' => $entityType,
-                    'entity_key' => (string) $entity->entity_key,
-                    'authority_level' => (string) $entity->authority_level,
-                    'freshness_status' => (string) $entity->freshness_status,
-                ],
-                contentHash: (string) ($entity->entity_hash ?: hash('sha256', (string) $entity->entity_key)),
-            );
-        }
-
-        if ($this->tableExists('atlas_reality_relationships')) {
-            $kindByEntity = [];
-            foreach ($nodes as $node) {
-                $kindByEntity[$node['source_id']] = $node['kind'];
-            }
-            $relationships = AtlasRealityRelationship::query()
-                ->where('status', 'active')
-                ->latest('updated_at')
-                ->limit($limit)
-                ->get();
-
-            foreach ($relationships as $relationship) {
-                $sourceId = (string) ($relationship->source_entity_id ?? '');
-                $targetId = (string) ($relationship->target_entity_id ?? '');
-                // Cite-or-omit: both endpoints must be ingested entities.
-                if (! isset($entityIds[$sourceId], $entityIds[$targetId]) || $sourceId === $targetId) {
-                    continue;
-                }
-                $relationType = (string) $relationship->relationship_type;
-                $kind = in_array($relationType, AtlasRealityGraphSnapshotBuilderService::ALLOWED_EDGE_KINDS, true)
-                    ? $relationType
-                    : AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES;
-
-                $edges[] = $this->edge(
-                    from: $this->nodeKey('strategic', $kindByEntity[$sourceId], $sourceId),
-                    to: $this->nodeKey('strategic', $kindByEntity[$targetId], $targetId),
-                    kind: $kind,
-                    source: 'strategic_ingest',
-                    confidence: self::CONFIDENCE_EXACT,
-                    meta: array_filter([
-                        'matched' => 'relationship_row',
-                        'original_type' => $kind === $relationType ? null : $relationType,
-                        'weight' => $relationship->weight !== null ? (float) $relationship->weight : null,
-                    ], static fn ($v) => $v !== null),
-                );
-            }
-        }
-
-        return ['nodes' => $nodes, 'edges' => $edges];
-    }
-
-    // ------------------------------------------------------------------
-    // Cross-layer linkers (deterministic, cite-or-omit, DB-state driven)
-    // ------------------------------------------------------------------
-
-    /**
-     * (a) memory→code 'references': exact path = 1.0; path under module root /
-     * label token equal to module slug = 0.7. Cites the matched value in meta.
-     */
-    private function linkMemoryToCode(): int
-    {
-        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
-        if ($modules === []) {
-            return 0;
-        }
-
-        $bySlug = $this->moduleSlugIndex($modules);
-
-        $edges = [];
-        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
-            $edges = array_merge($edges, $this->memoryCodeEdgesFor($memory, $modules, $bySlug));
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * The memory→code rungs for ONE memory node — shared by the batch linker and
-     * the F4 ingest-on-write accrual so both paths emit identical edges.
+     * mission→module 'references' for each touched file path that resolves to an
+     * existing brain module: exact root_path = 1.0, under root = 0.7, label token
+     * equal to a module slug = 0.7. Deterministic, bounded, cite-or-omit — the
+     * SAME ladder/rules as {@see self::memoryCodeEdgesFor()}.
      *
-     * @param  array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}  $memory
+     * @param  list<string>  $files
      * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
      * @param  array<string,array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $bySlug
      * @return list<array<string,mixed>>
      */
-    private function memoryCodeEdgesFor(array $memory, array $modules, array $bySlug): array
+    private function missionTouchedModuleEdges(string $missionNodeId, array $files, array $modules, array $bySlug): array
     {
         $edges = [];
         $emitted = 0;
-        $paths = array_values(array_filter((array) ($memory['meta']['paths'] ?? []), 'is_string'));
+        $linked = [];
 
-        foreach ($paths as $path) {
+        foreach ($files as $path) {
             if ($emitted >= self::MAX_LINKS_PER_NODE) {
                 break;
+            }
+            $path = trim($path);
+            if ($path === '') {
+                continue;
             }
             foreach ($modules as $module) {
                 $rootPath = (string) ($module['meta']['root_path'] ?? '');
@@ -1471,457 +735,14 @@ class AtlasRealityGraphIngestionService
                 } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
                     $confidence = self::CONFIDENCE_DERIVED;
                 }
-                if ($confidence === null) {
+                if ($confidence === null || isset($linked[$module['id']])) {
                     continue;
                 }
-                $edges[] = $this->edge(
-                    from: $memory['id'],
+                $edges[] = $this->support->edge(
+                    from: $missionNodeId,
                     to: $module['id'],
                     kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'linker_memory_code',
-                    confidence: $confidence,
-                    meta: ['matched_path' => $path, 'module_root' => $rootPath],
-                );
-                $emitted++;
-                break;
-            }
-        }
-
-        if ($emitted < self::MAX_LINKS_PER_NODE) {
-            foreach ($this->labelTokens((string) $memory['label']) as $token) {
-                if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                    break;
-                }
-                $module = $bySlug[$token] ?? null;
-                if ($module === null) {
-                    continue;
-                }
-                $edges[] = $this->edge(
-                    from: $memory['id'],
-                    to: $module['id'],
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'linker_memory_code',
-                    confidence: self::CONFIDENCE_DERIVED,
-                    meta: ['matched_token' => $token],
-                );
-                $emitted++;
-            }
-        }
-
-        return $edges;
-    }
-
-    /**
-     * (b) memory→domain 'belongs_to': only tags/metadata domain values that the
-     * canonical taxonomy actually resolves (exact id resolution → 1.0).
-     */
-    private function linkMemoryToDomain(): int
-    {
-        $domainIds = $this->domainIdIndex();
-        if ($domainIds === []) {
-            return 0;
-        }
-
-        $edges = [];
-        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
-            $edges = array_merge($edges, $this->memoryDomainEdgesFor($memory, $domainIds));
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * The memory→domain rung for ONE memory node — shared by the batch linker and
-     * the F4 ingest-on-write accrual.
-     *
-     * @param  array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}  $memory
-     * @param  array<string,string>  $domainIds  canonical domain id → brain node id
-     * @return list<array<string,mixed>>
-     */
-    private function memoryDomainEdgesFor(array $memory, array $domainIds): array
-    {
-        $edges = [];
-        foreach (array_slice((array) ($memory['meta']['domains'] ?? []), 0, self::MAX_META_DOMAINS) as $canonical) {
-            if (! is_string($canonical) || ! isset($domainIds[$canonical])) {
-                continue;
-            }
-            $edges[] = $this->edge(
-                from: $memory['id'],
-                to: $domainIds[$canonical],
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_BELONGS_TO,
-                source: 'linker_memory_domain',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: ['matched_domain' => $canonical],
-            );
-        }
-
-        return $edges;
-    }
-
-    /**
-     * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
-     * @return array<string,array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>
-     */
-    private function moduleSlugIndex(array $modules): array
-    {
-        $bySlug = [];
-        foreach ($modules as $module) {
-            $slug = strtolower((string) ($module['meta']['slug'] ?? ''));
-            if ($slug !== '') {
-                $bySlug[$slug] = $module;
-            }
-        }
-
-        return $bySlug;
-    }
-
-    /**
-     * @return array<string,string> canonical domain id → brain node id
-     */
-    private function domainIdIndex(): array
-    {
-        $domainIds = [];
-        foreach ($this->brainNodes('domain', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN) as $domain) {
-            $domainIds[$domain['source_id']] = $domain['id'];
-        }
-
-        return $domainIds;
-    }
-
-    /**
-     * (c) evidence→memory/code/mission/obra 'proves': target_id / metadata memory id
-     * equal to a memory source_id (1.0); receipt/trace/correlation ids equal to
-     * mission/obra meta ids (1.0); file path matching a module root (exact 1.0 /
-     * prefix 0.7).
-     */
-    private function linkEvidence(): int
-    {
-        $evidence = $this->brainNodes('evidence', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE);
-        if ($evidence === []) {
-            return 0;
-        }
-
-        $memoryBydSourceId = [];
-        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
-            $memoryBydSourceId[$memory['source_id']] = $memory['id'];
-        }
-        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
-        $governedTargets = $this->evidenceGovernedTargetIndex();
-
-        $edges = [];
-        foreach ($evidence as $node) {
-            $emitted = 0;
-            $seenTargets = [];
-            foreach (['target_id', 'memory_ref'] as $field) {
-                $ref = $node['meta'][$field] ?? null;
-                if (is_string($ref) && isset($memoryBydSourceId[$ref])) {
-                    $edges[] = $this->edge(
-                        from: $node['id'],
-                        to: $memoryBydSourceId[$ref],
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
-                        source: 'linker_evidence',
-                        confidence: self::CONFIDENCE_EXACT,
-                        meta: ['matched' => $field, 'value' => $ref],
-                    );
-                    $emitted++;
-                    $seenTargets[$memoryBydSourceId[$ref]] = true;
-                }
-            }
-
-            foreach (['receipt_id', 'trace_id', 'correlation_id'] as $field) {
-                if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                    break;
-                }
-                $value = $node['meta'][$field] ?? null;
-                if (! is_string($value) || trim($value) === '') {
-                    continue;
-                }
-                foreach ($governedTargets[$field][$value] ?? [] as $target) {
-                    if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                        break;
-                    }
-                    if (isset($seenTargets[$target['id']])) {
-                        continue;
-                    }
-                    $edges[] = $this->edge(
-                        from: $node['id'],
-                        to: $target['id'],
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
-                        source: 'linker_evidence',
-                        confidence: self::CONFIDENCE_EXACT,
-                        meta: [
-                            'matched' => $field,
-                            'value' => $value,
-                            'target_source_kind' => $target['source_kind'],
-                        ],
-                    );
-                    $seenTargets[$target['id']] = true;
-                    $emitted++;
-                }
-            }
-
-            foreach (array_values(array_filter((array) ($node['meta']['paths'] ?? []), 'is_string')) as $path) {
-                if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                    break;
-                }
-                foreach ($modules as $module) {
-                    $rootPath = (string) ($module['meta']['root_path'] ?? '');
-                    if ($rootPath === '') {
-                        continue;
-                    }
-                    $confidence = null;
-                    if ($path === $rootPath) {
-                        $confidence = self::CONFIDENCE_EXACT;
-                    } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
-                        $confidence = self::CONFIDENCE_DERIVED;
-                    }
-                    if ($confidence === null) {
-                        continue;
-                    }
-                    $edges[] = $this->edge(
-                        from: $node['id'],
-                        to: $module['id'],
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
-                        source: 'linker_evidence',
-                        confidence: $confidence,
-                        meta: ['matched_path' => $path, 'module_root' => $rootPath],
-                    );
-                    $emitted++;
-                    break;
-                }
-            }
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * MAXD-03 — Co-citation memory↔code via missions.
-     *
-     * For every mission that references BOTH a memory_entry AND a code module,
-     * emit a memory→module `co_cited` edge (source=linker_co_cited, confidence
-     * 0.5, meta={witness_mission_id}). Deterministic, cite-or-omit, bounded by
-     * MAX_CO_CITED_PER_MEMORY per memory node (transitive-blow-up guard: a
-     * mission that touched 30 paths and cited 5 memories would otherwise emit
-     * a 150-edge cartesian product).
-     *
-     * Uses AtlasAurgEdge as the ground truth so it reflects EVERY producer of
-     * mission→memory / mission→module edges — including cite-or-omit ones the
-     * current run wrote seconds ago.
-     */
-    private function linkCoCitations(): int
-    {
-        if (! $this->tableExists('atlas_aurg_edges') || ! $this->tableExists('atlas_aurg_nodes')) {
-            return 0;
-        }
-
-        // 1) Collect mission node ids.
-        $missions = $this->brainNodes('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION);
-        if ($missions === []) {
-            return 0;
-        }
-        $missionNodeIds = array_column($missions, 'id');
-
-        // 2) Deterministic index: mission -> memory endpoints and mission -> module endpoints,
-        //    drawn from AURG edges. references+proves are both meaningful witnesses.
-        $memoryByMission = [];
-        $moduleByMission = [];
-
-        $rows = DB::table('atlas_aurg_edges as edge')
-            ->join('atlas_aurg_nodes as from_node', 'from_node.id', '=', 'edge.from_node_id')
-            ->join('atlas_aurg_nodes as to_node', 'to_node.id', '=', 'edge.to_node_id')
-            ->whereIn('from_node.id', $missionNodeIds)
-            ->whereIn('to_node.source_kind', ['memory', 'code'])
-            ->whereIn('edge.kind', [
-                AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
-            ])
-            ->orderBy('edge.from_node_id')
-            ->orderBy('edge.to_node_id')
-            ->get([
-                'from_node.id as mission_id',
-                'to_node.id as endpoint_id',
-                'to_node.source_kind as endpoint_source_kind',
-                'to_node.kind as endpoint_kind',
-            ]);
-
-        foreach ($rows as $row) {
-            $missionId = (string) $row->mission_id;
-            $endpointId = (string) $row->endpoint_id;
-            $kind = (string) $row->endpoint_kind;
-            if ($row->endpoint_source_kind === 'memory'
-                && $kind === AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) {
-                $memoryByMission[$missionId][$endpointId] = true;
-            } elseif ($row->endpoint_source_kind === 'code'
-                && $kind === AtlasRealityGraphSnapshotBuilderService::NODE_MODULE) {
-                $moduleByMission[$missionId][$endpointId] = true;
-            }
-        }
-
-        // 3) Emit deterministic edges (memory→module) capped per memory.
-        $emittedPerMemory = [];
-        $seenPair = [];
-        $edges = [];
-        ksort($memoryByMission);
-        foreach ($memoryByMission as $missionId => $memoryIds) {
-            $moduleIds = $moduleByMission[$missionId] ?? [];
-            if ($moduleIds === []) {
-                continue;
-            }
-            $memoryIdsList = array_keys($memoryIds);
-            $moduleIdsList = array_keys($moduleIds);
-            sort($memoryIdsList);
-            sort($moduleIdsList);
-            foreach ($memoryIdsList as $memoryId) {
-                if (($emittedPerMemory[$memoryId] ?? 0) >= self::MAX_CO_CITED_PER_MEMORY) {
-                    continue;
-                }
-                foreach ($moduleIdsList as $moduleId) {
-                    if (($emittedPerMemory[$memoryId] ?? 0) >= self::MAX_CO_CITED_PER_MEMORY) {
-                        break;
-                    }
-                    $pairKey = $memoryId.'->'.$moduleId;
-                    if (isset($seenPair[$pairKey])) {
-                        continue;
-                    }
-                    $seenPair[$pairKey] = true;
-                    $emittedPerMemory[$memoryId] = ($emittedPerMemory[$memoryId] ?? 0) + 1;
-                    $edges[] = $this->edge(
-                        from: $memoryId,
-                        to: $moduleId,
-                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_CO_CITED,
-                        source: 'linker_co_cited',
-                        confidence: self::CONFIDENCE_CO_CITED,
-                        meta: ['witness_mission_id' => $missionId],
-                    );
-                }
-            }
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * Mission/obra targets whose ids are already present in the brain. This is
-     * strict cite-or-omit: only explicit receipt/trace/correlation fields create
-     * an index entry, and only exact event values can link.
-     *
-     * @return array<string,array<string,list<array{id:string,source_kind:string}>>>
-     */
-    private function evidenceGovernedTargetIndex(): array
-    {
-        $index = [
-            'receipt_id' => [],
-            'trace_id' => [],
-            'correlation_id' => [],
-        ];
-
-        foreach ([
-            ['source_kind' => 'mission', 'kind' => AtlasRealityGraphSnapshotBuilderService::NODE_MISSION],
-            ['source_kind' => 'obra', 'kind' => AtlasRealityGraphSnapshotBuilderService::NODE_OBRA],
-        ] as $targetSpec) {
-            foreach ($this->brainNodes($targetSpec['source_kind'], $targetSpec['kind']) as $node) {
-                $target = ['id' => $node['id'], 'source_kind' => $targetSpec['source_kind']];
-                foreach (['receipt', 'receipt_hash', 'receipt_id'] as $metaField) {
-                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
-                        $index['receipt_id'][$value][] = $target;
-                    }
-                }
-                foreach (['trace_id', 'trace_ids', 'trace', 'traces'] as $metaField) {
-                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
-                        $index['trace_id'][$value][] = $target;
-                    }
-                }
-                foreach (['correlation_id', 'correlation_ids', 'correlation', 'correlations'] as $metaField) {
-                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
-                        $index['correlation_id'][$value][] = $target;
-                    }
-                }
-            }
-        }
-
-        return $index;
-    }
-
-    /**
-     * (d) code workspace→engineering domain 'belongs_to' (1.0 by construction:
-     * a code workspace IS engineering reality).
-     */
-    private function linkWorkspaceToEngineeringDomain(): int
-    {
-        $engineering = $this->nodeKey('domain', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN, 'engineering');
-        if (! AtlasAurgNode::query()->whereKey($engineering)->exists()) {
-            return 0;
-        }
-
-        $edges = [];
-        foreach ($this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_WORKSPACE) as $workspace) {
-            $edges[] = $this->edge(
-                from: $workspace['id'],
-                to: $engineering,
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_BELONGS_TO,
-                source: 'linker_code_domain',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: ['matched' => 'workspace_is_code'],
-            );
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * (e1) doc→code 'references': exact path = 1.0; path under module root = 0.7.
-     */
-    private function linkDocsToCode(): int
-    {
-        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
-        if ($modules === []) {
-            return 0;
-        }
-
-        $edges = [];
-        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
-            $edges = array_merge($edges, $this->docCodeEdgesFor($doc, $modules));
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * @param  array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}  $doc
-     * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
-     * @return list<array<string,mixed>>
-     */
-    private function docCodeEdgesFor(array $doc, array $modules): array
-    {
-        $edges = [];
-        $emitted = 0;
-        $linked = [];
-        $paths = array_values(array_filter((array) ($doc['meta']['paths'] ?? []), 'is_string'));
-
-        foreach ($paths as $path) {
-            if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                break;
-            }
-            foreach ($modules as $module) {
-                $rootPath = (string) ($module['meta']['root_path'] ?? '');
-                if ($rootPath === '' || isset($linked[$module['id']])) {
-                    continue;
-                }
-                $confidence = null;
-                if ($path === $rootPath) {
-                    $confidence = self::CONFIDENCE_EXACT;
-                } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
-                    $confidence = self::CONFIDENCE_DERIVED;
-                }
-                if ($confidence === null) {
-                    continue;
-                }
-                $edges[] = $this->edge(
-                    from: $doc['id'],
-                    to: $module['id'],
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'linker_doc_code',
+                    source: 'mission_outcome',
                     confidence: $confidence,
                     meta: ['matched_path' => $path, 'module_root' => $rootPath],
                 );
@@ -1931,877 +752,123 @@ class AtlasRealityGraphIngestionService
             }
         }
 
+        // Fall back to label-token = module-slug (0.7) for paths that matched no root.
+        if ($emitted < self::MAX_LINKS_PER_NODE) {
+            foreach ($files as $path) {
+                if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                    break;
+                }
+                foreach ($this->support->labelTokens($path) as $token) {
+                    $module = $bySlug[$token] ?? null;
+                    if ($module === null || isset($linked[$module['id']])) {
+                        continue;
+                    }
+                    $edges[] = $this->support->edge(
+                        from: $missionNodeId,
+                        to: $module['id'],
+                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                        source: 'mission_outcome',
+                        confidence: self::CONFIDENCE_DERIVED,
+                        meta: ['matched_token' => $token],
+                    );
+                    $linked[$module['id']] = true;
+                    $emitted++;
+                    break;
+                }
+            }
+        }
+
         return $edges;
     }
 
     /**
-     * MAXD-01: import audited Code Intelligence doc→code links as aggregated
-     * doc→module edges. The symbols stay in Code Intelligence; AURG only stores the
-     * bounded module-level bridge and cites the indexed link hash.
+     * mission→memory_entry 'references' (1.0) for each cited memory id that is an
+     * EXISTING brain memory node. Cite-or-omit: an unknown id emits nothing.
+     *
+     * @param  list<string>  $memoryRefs
+     * @return list<array<string,mixed>>
      */
-    private function linkDocsToCodeIndex(): int
+    private function missionMemoryEdges(string $missionNodeId, array $memoryRefs): array
     {
-        if (! $this->tableExists('atlas_engineering_doc_links') || ! $this->tableExists('atlas_engineering_code_modules')) {
-            return 0;
+        $bySourceId = [];
+        foreach ($this->support->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
+            $bySourceId[$memory['source_id']] = $memory['id'];
         }
-
-        $docNodeByPath = [];
-        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
-            $path = (string) ($doc['meta']['path'] ?? $doc['source_id']);
-            if (str_starts_with($path, 'docs/engineering-knowledge-base/')) {
-                $docNodeByPath[$path] = $doc['id'];
-            }
-        }
-        if ($docNodeByPath === []) {
-            return 0;
-        }
-
-        $defaultWorkspace = (string) config('atlas.code_graph.default_workspace_id', 'atlas-server');
-        $moduleHasWorkspace = DatabaseTableAvailability::hasColumn('atlas_engineering_code_modules', 'workspace_id');
-        $modulesById = [];
-        $moduleQuery = DB::table('atlas_engineering_code_modules')
-            ->where('status', 'active')
-            ->whereNull('archived_at');
-        if ($moduleHasWorkspace) {
-            $moduleQuery->where('workspace_id', $defaultWorkspace);
-        }
-        $moduleColumns = $moduleHasWorkspace ? ['id', 'workspace_id', 'slug'] : ['id', 'slug'];
-        foreach ($moduleQuery->get($moduleColumns) as $module) {
-            $workspaceId = is_string($module->workspace_id ?? null) && (string) $module->workspace_id !== ''
-                ? (string) $module->workspace_id
-                : $defaultWorkspace;
-            $modulesById[(string) $module->id] = $this->nodeKey(
-                'code',
-                AtlasRealityGraphSnapshotBuilderService::NODE_MODULE,
-                $workspaceId.'/'.(string) $module->slug,
-            );
-        }
-        if ($modulesById === []) {
-            return 0;
-        }
-
-        $symbolModuleById = [];
-        if ($this->tableExists('atlas_engineering_code_symbols')) {
-            $symbolQuery = DB::table('atlas_engineering_code_symbols')
-                ->where('status', 'active')
-                ->whereNull('archived_at');
-            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
-                $symbolQuery->where('workspace_id', $defaultWorkspace);
-            }
-            foreach ($symbolQuery->get(['id', 'module_id']) as $symbol) {
-                if ($symbol->module_id !== null) {
-                    $symbolModuleById[(string) $symbol->id] = (string) $symbol->module_id;
-                }
-            }
-        }
-
-        $linkQuery = DB::table('atlas_engineering_doc_links')
-            ->where('status', 'current')
-            ->whereNull('archived_at')
-            ->where('canonical_path', 'like', 'docs/engineering-knowledge-base/%')
-            ->orderBy('canonical_path')
-            ->orderBy('link_hash');
-        if (DatabaseTableAvailability::hasColumn('atlas_engineering_doc_links', 'workspace_id')) {
-            $linkQuery->where('workspace_id', $defaultWorkspace);
-        }
-
-        $groups = [];
-        foreach ($linkQuery->get(['canonical_path', 'module_id', 'symbol_id', 'link_type', 'link_hash']) as $link) {
-            $docPath = (string) $link->canonical_path;
-            $docNodeId = $docNodeByPath[$docPath] ?? null;
-            if ($docNodeId === null) {
-                continue;
-            }
-
-            $moduleId = is_string($link->module_id ?? null) && (string) $link->module_id !== ''
-                ? (string) $link->module_id
-                : ($symbolModuleById[(string) ($link->symbol_id ?? '')] ?? null);
-            if ($moduleId === null) {
-                continue;
-            }
-            $moduleNodeId = $modulesById[$moduleId] ?? null;
-            if ($moduleNodeId === null) {
-                continue;
-            }
-
-            $key = $docNodeId.'|'.$moduleNodeId;
-            $groups[$key] ??= [
-                'from' => $docNodeId,
-                'to' => $moduleNodeId,
-                'link_hashes' => [],
-                'link_types' => [],
-            ];
-            $groups[$key]['link_hashes'][] = (string) $link->link_hash;
-            $groups[$key]['link_types'][(string) $link->link_type] = true;
+        if ($bySourceId === []) {
+            return [];
         }
 
         $edges = [];
-        foreach ($groups as $group) {
-            $linkHashes = array_values(array_unique(array_filter($group['link_hashes'], 'is_string')));
-            sort($linkHashes, SORT_STRING);
-            $linkTypes = array_keys($group['link_types']);
-            sort($linkTypes, SORT_STRING);
-
-            $edges[] = $this->edge(
-                from: $group['from'],
-                to: $group['to'],
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                source: 'linker_doc_code_index',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: [
-                    'link_count' => count($linkHashes),
-                    'sample_link_hash' => $linkHashes[0] ?? null,
-                    'link_types' => $linkTypes,
-                ],
-            );
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * MAXD-09: import the docs authority read-model as bounded doc→doc edges.
-     * A row only links when its needle is an explicit canonical doc path and both
-     * endpoints are already AURG doc nodes; capability/doc-id needles remain in the
-     * authority table for locate(), not guessed into graph edges.
-     */
-    private function linkDocsToAuthorityGraph(): int
-    {
-        if (! $this->tableExists('atlas_docs_authority_graph')) {
-            return 0;
-        }
-
-        $docNodeByPath = [];
-        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
-            $path = (string) ($doc['meta']['path'] ?? $doc['source_id']);
-            if (str_starts_with($path, 'docs/engineering-knowledge-base/')) {
-                $docNodeByPath[$path] = $doc['id'];
-            }
-        }
-        if ($docNodeByPath === []) {
-            return 0;
-        }
-
-        $rows = DB::table('atlas_docs_authority_graph')
-            ->whereIn('needle_kind', ['doc_path', 'doc'])
-            ->where('needle', 'like', 'docs/engineering-knowledge-base/%')
-            ->where('owner_doc_path', 'like', 'docs/engineering-knowledge-base/%')
-            ->orderBy('needle')
-            ->orderByDesc('confidence')
-            ->orderBy('owner_doc_path')
-            ->limit($this->cap('docs_authority_links_limit', 10000))
-            ->get(['needle_kind', 'needle', 'owner_doc_path', 'owner_basis', 'confidence', 'owner_doc_id']);
-
-        $edges = [];
-        foreach ($rows as $row) {
-            $from = $docNodeByPath[(string) $row->needle] ?? null;
-            $to = $docNodeByPath[(string) $row->owner_doc_path] ?? null;
-            if ($from === null || $to === null || $from === $to) {
-                continue;
-            }
-            $edges[] = $this->edge(
-                from: $from,
-                to: $to,
-                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                source: 'linker_doc_authority',
-                confidence: self::CONFIDENCE_EXACT,
-                meta: array_filter([
-                    'needle_kind' => (string) $row->needle_kind,
-                    'needle' => (string) $row->needle,
-                    'owner_basis' => (string) $row->owner_basis,
-                    'authority_confidence' => (int) $row->confidence,
-                    'owner_doc_id' => is_string($row->owner_doc_id ?? null) ? (string) $row->owner_doc_id : null,
-                ], static fn ($value): bool => $value !== null),
-            );
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    /**
-     * (e2) doc→memory 'references': exact memory id match only.
-     */
-    private function linkDocsToMemory(): int
-    {
-        $docs = $this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC);
-        if ($docs === []) {
-            return 0;
-        }
-
-        $memoryBySourceId = [];
-        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
-            $memoryBySourceId[$memory['source_id']] = $memory['id'];
-        }
-        if ($memoryBySourceId === []) {
-            return 0;
-        }
-
-        $edges = [];
-        foreach ($docs as $doc) {
-            $emitted = 0;
-            $seen = [];
-            foreach (array_values(array_filter((array) ($doc['meta']['memory_refs'] ?? []), 'is_string')) as $ref) {
-                if ($emitted >= self::MAX_LINKS_PER_NODE) {
-                    break;
-                }
-                $target = $memoryBySourceId[$ref] ?? null;
-                if ($target === null || isset($seen[$target])) {
-                    continue;
-                }
-                $edges[] = $this->edge(
-                    from: $doc['id'],
-                    to: $target,
-                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
-                    source: 'linker_doc_memory',
-                    confidence: self::CONFIDENCE_EXACT,
-                    meta: ['matched_memory_id' => $ref],
-                );
-                $seen[$target] = true;
-                $emitted++;
-            }
-        }
-
-        return $this->upsertEdges($edges);
-    }
-
-    // ------------------------------------------------------------------
-    // Store primitives (idempotent upsert / prune / bounded reads)
-    // ------------------------------------------------------------------
-
-    /**
-     * @param  list<array<string,mixed>>  $nodes
-     */
-    private function upsertNodes(array $nodes): void
-    {
-        if ($nodes === []) {
-            return;
-        }
-
-        $now = now();
-        $rows = [];
+        $emitted = 0;
         $seen = [];
-        foreach ($nodes as $node) {
-            if (isset($seen[$node['id']])) {
+        foreach ($memoryRefs as $ref) {
+            if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                break;
+            }
+            $ref = trim($ref);
+            $target = $bySourceId[$ref] ?? null;
+            if ($target === null || isset($seen[$target])) {
                 continue;
             }
-            $seen[$node['id']] = true;
-            $rows[] = [
-                'id' => $node['id'],
-                'kind' => $node['kind'],
-                'source_kind' => $node['source_kind'],
-                'source_id' => $node['source_id'],
-                'label' => $node['label'],
-                'workspace_id' => $node['workspace_id'],
-                'provider_safe' => $node['provider_safe'],
-                'sensitive' => $node['sensitive'],
-                'meta' => json_encode($node['meta'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
-                'content_hash' => $node['content_hash'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($rows, 200) as $chunk) {
-            AtlasAurgNode::query()->upsert(
-                $chunk,
-                ['id'],
-                ['kind', 'source_kind', 'source_id', 'label', 'workspace_id', 'provider_safe', 'sensitive', 'meta', 'content_hash', 'updated_at'],
+            $edges[] = $this->support->edge(
+                from: $missionNodeId,
+                to: $target,
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                source: 'mission_outcome',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: ['matched_memory_id' => $ref],
             );
+            $seen[$target] = true;
+            $emitted++;
         }
+
+        return $edges;
     }
 
     /**
-     * Cite-or-omit at the store boundary too: an edge is only written when BOTH
-     * endpoint nodes exist in the brain.
+     * obra→mission 'generated' (1.0) for each step id whose mission node was already
+     * recorded in the brain by {@see self::recordMissionOutcome()}. Cite-or-omit: a
+     * step that never recorded its outcome (e.g. it was skipped/failed before the
+     * write-back) emits no edge — the obra links only to steps that genuinely exist
+     * in the brain.
      *
-     * @param  list<array<string,mixed>>  $edges
-     * @return int number of edges upserted
+     * @param  list<string>  $stepIds  the per-node source ids (the executor's node ids)
+     * @return list<array<string,mixed>>
      */
-    private function upsertEdges(array $edges): int
+    private function obraStepGeneratedEdges(string $obraNodeId, array $stepIds): array
     {
-        if ($edges === []) {
-            return 0;
-        }
-
-        // Dedup by (from,to,kind) keeping the HIGHEST-confidence citation — an
-        // exact match (1.0) is never downgraded by a derived rung (0.7) of the
-        // same linker pass. Deterministic regardless of emission order.
-        $deduped = [];
-        foreach ($edges as $edge) {
-            if ($edge['from_node_id'] === $edge['to_node_id']) {
-                continue;
-            }
-            $key = $edge['from_node_id'].'|'.$edge['to_node_id'].'|'.$edge['kind'];
-            if (isset($deduped[$key]) && (float) $deduped[$key]['confidence'] >= (float) $edge['confidence']) {
-                continue;
-            }
-            $deduped[$key] = $edge;
-        }
-        $edges = array_values($deduped);
-
-        $endpointIds = [];
-        foreach ($edges as $edge) {
-            $endpointIds[$edge['from_node_id']] = true;
-            $endpointIds[$edge['to_node_id']] = true;
-        }
-        $existing = [];
-        foreach (array_chunk(array_keys($endpointIds), 500) as $chunk) {
-            foreach (AtlasAurgNode::query()->whereIn('id', $chunk)->pluck('id') as $id) {
-                $existing[$id] = true;
-            }
-        }
-
-        $now = now();
-        $rows = [];
-        foreach ($edges as $edge) {
-            if (! isset($existing[$edge['from_node_id']], $existing[$edge['to_node_id']])) {
-                continue;
-            }
-            $rows[] = [
-                'from_node_id' => $edge['from_node_id'],
-                'to_node_id' => $edge['to_node_id'],
-                'kind' => $edge['kind'],
-                'source' => $edge['source'],
-                'confidence' => $edge['confidence'],
-                'meta' => json_encode($edge['meta'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($rows, 200) as $chunk) {
-            AtlasAurgEdge::query()->upsert(
-                $chunk,
-                ['from_node_id', 'to_node_id', 'kind'],
-                ['source', 'confidence', 'meta', 'updated_at'],
-            );
-        }
-
-        return count($rows);
-    }
-
-    /**
-     * Remove brain nodes of ONE source_kind whose source row vanished, plus edges
-     * left dangling by those removals. Never touches other source kinds.
-     *
-     * @param  list<string>  $keepIds
-     * @return array{nodes:int, edges:int}
-     */
-    private function pruneSource(string $sourceKind, array $keepIds): array
-    {
-        $staleQuery = AtlasAurgNode::query()->where('source_kind', $sourceKind);
-        if ($keepIds !== []) {
-            $staleQuery->whereNotIn('id', $keepIds);
-        }
-        $staleIds = $staleQuery->pluck('id')->all();
-        $keptLinked = 0;
-        if ($sourceKind === 'evidence' && $staleIds !== []) {
-            $linked = [];
-            foreach (array_chunk($staleIds, 500) as $chunk) {
-                $rows = AtlasAurgEdge::query()
-                    ->whereIn('from_node_id', $chunk)
-                    ->orWhereIn('to_node_id', $chunk)
-                    ->get(['from_node_id', 'to_node_id']);
-                foreach ($rows as $edge) {
-                    foreach ([(string) $edge->from_node_id, (string) $edge->to_node_id] as $id) {
-                        if (in_array($id, $chunk, true)) {
-                            $linked[$id] = true;
-                        }
-                    }
-                }
-            }
-            if ($linked !== []) {
-                $staleIds = array_values(array_filter($staleIds, static fn (string $id): bool => ! isset($linked[$id])));
-                $keptLinked = count($linked);
-            }
-        }
-        if ($staleIds === []) {
-            return ['nodes' => 0, 'edges' => 0, 'evidence_kept_linked' => $keptLinked];
-        }
-
-        $edgesDeleted = 0;
-        $nodesDeleted = 0;
-        foreach (array_chunk($staleIds, 500) as $chunk) {
-            $edgesDeleted += AtlasAurgEdge::query()
-                ->whereIn('from_node_id', $chunk)
-                ->orWhereIn('to_node_id', $chunk)
-                ->delete();
-            $nodesDeleted += AtlasAurgNode::query()->whereIn('id', $chunk)->delete();
-        }
-
-        return ['nodes' => (int) $nodesDeleted, 'edges' => (int) $edgesDeleted, 'evidence_kept_linked' => $keptLinked];
-    }
-
-    /**
-     * Bounded in-memory projection of brain nodes for a (source_kind, kind) pair.
-     *
-     * @return list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>
-     */
-    private function brainNodes(string $sourceKind, string $kind): array
-    {
-        $maxNodes = $this->cap('max_nodes', 5000);
-
-        return AtlasAurgNode::query()
-            ->where('source_kind', $sourceKind)
-            ->where('kind', $kind)
-            ->orderBy('id')
-            ->limit($maxNodes)
-            ->get(['id', 'source_id', 'label', 'kind', 'meta'])
-            ->map(static fn (AtlasAurgNode $node): array => [
-                'id' => (string) $node->id,
-                'source_id' => (string) $node->source_id,
-                'label' => (string) $node->label,
-                'kind' => (string) $node->kind,
-                'meta' => (array) ($node->meta ?? []),
-            ])
-            ->all();
-    }
-
-    // ------------------------------------------------------------------
-    // Deterministic helpers (pure)
-    // ------------------------------------------------------------------
-
-    /**
-     * @param  array<string,mixed>  $meta
-     * @return array<string,mixed>
-     */
-    private function node(
-        string $id,
-        string $kind,
-        string $sourceKind,
-        string $sourceId,
-        string $label,
-        bool $providerSafe,
-        bool $sensitive,
-        array $meta,
-        string $contentHash,
-        ?string $workspaceId = null,
-    ): array {
-        return [
-            'id' => $id,
-            'kind' => $kind,
-            'source_kind' => $sourceKind,
-            'source_id' => mb_substr($sourceId, 0, 220),
-            'label' => mb_substr(trim($label) !== '' ? trim($label) : $kind, 0, 220),
-            'workspace_id' => $workspaceId,
-            'provider_safe' => $providerSafe,
-            'sensitive' => $sensitive,
-            'meta' => $meta,
-            'content_hash' => $contentHash,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $meta
-     * @return array<string,mixed>
-     */
-    private function edge(string $from, string $to, string $kind, string $source, float $confidence, array $meta): array
-    {
-        return [
-            'from_node_id' => $from,
-            'to_node_id' => $to,
-            'kind' => $kind,
-            'source' => $source,
-            'confidence' => $confidence,
-            'meta' => $meta,
-        ];
-    }
-
-    /**
-     * Deterministic node key "<source_kind>:<kind>:<source_id>", hard-capped at the
-     * column width (300) with a hash suffix when a pathological source_id overflows.
-     */
-    private function nodeKey(string $sourceKind, string $kind, string $sourceId): string
-    {
-        $key = $sourceKind.':'.$kind.':'.$sourceId;
-        if (strlen($key) <= 300) {
-            return $key;
-        }
-
-        return substr($key, 0, 283).':'.substr(hash('sha256', $key), 0, 16);
-    }
-
-    private function compactSourceId(string $sourceId): string
-    {
-        if (strlen($sourceId) <= 220) {
-            return $sourceId;
-        }
-
-        return substr($sourceId, 0, 203).':'.substr(hash('sha256', $sourceId), 0, 16);
-    }
-
-    /**
-     * Path-looking strings from a source row's metadata/tags — the citations the
-     * memory→code / evidence→code linkers may later match. Deterministic: explicit
-     * fields first, then path-looking tags; bounded.
-     *
-     * @param  array<string,mixed>  $metadata
-     * @return list<string>
-     */
-    private function candidatePaths(array $metadata): array
-    {
-        $candidates = [];
-        foreach (['paths', 'files', 'related_paths'] as $field) {
-            foreach ((array) ($metadata[$field] ?? []) as $value) {
-                if (is_string($value) && str_contains($value, '/')) {
-                    $candidates[] = trim($value);
-                }
-            }
-        }
-        foreach ((array) ($metadata['tags'] ?? []) as $tag) {
-            if (is_string($tag) && str_contains($tag, '/')) {
-                $candidates[] = trim($tag);
-            }
-        }
-
-        return array_slice(array_values(array_unique(array_filter($candidates))), 0, self::MAX_META_PATHS);
-    }
-
-    /**
-     * Explicit repository paths cited by the already-redacted provider
-     * projection. This is deterministic cite-or-omit extraction, not semantic
-     * inference: only concrete paths rooted in a known repository directory
-     * can create a memory→code edge.
-     *
-     * @return list<string>
-     */
-    private function providerProjectionPaths(AtlasMemoryEntry $entry): array
-    {
-        $text = implode("\n", array_filter([
-            $this->memoryPrivacy->providerTitle($entry),
-            $this->memoryPrivacy->providerSummary($entry),
-            $this->memoryPrivacy->providerBody($entry),
-        ]));
-        if ($text === '') {
+        if ($stepIds === []) {
             return [];
         }
 
-        preg_match_all(
-            '~(?<![\pL\pN_])(?:app|tests|docs|config|routes|database|resources|scripts)/[A-Za-z0-9_./-]+~u',
-            $text,
-            $matches,
-        );
-
-        return array_slice(array_values(array_unique(array_filter(array_map(
-            static fn (string $path): string => rtrim($path, ".,;:!?)]}'\"`"),
-            $matches[0] ?? [],
-        )))), 0, self::MAX_META_PATHS);
-    }
-
-    private function docTitle(string $path, string $content): string
-    {
-        if (preg_match('/^\s*#\s+(.+)$/m', $content, $matches) === 1) {
-            return AtlasSecurity::redactString(trim((string) $matches[1]));
+        // The step nodes are mission nodes recorded under the 'mission' source_kind.
+        $missionBySourceId = [];
+        foreach ($this->support->brainNodes('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION) as $mission) {
+            $missionBySourceId[$mission['source_id']] = $mission['id'];
         }
-
-        return basename($path, '.md');
-    }
-
-    /**
-     * Existing repo-relative paths cited by a canonical doc (cite-or-omit).
-     *
-     * @return list<string>
-     */
-    private function existingRepoPathsFromText(string $text): array
-    {
-        preg_match_all(
-            '~(?<![\pL\pN_])(?:app|tests|docs|config|routes|database|resources|scripts)/[A-Za-z0-9_./-]+~u',
-            $text,
-            $matches,
-        );
-
-        $paths = [];
-        foreach ($matches[0] ?? [] as $match) {
-            $path = rtrim($match, ".,;:!?)]}'\"`");
-            if ($path === '' || str_contains($path, '..')) {
-                continue;
-            }
-            if (file_exists(base_path($path))) {
-                $paths[$path] = true;
-            }
-        }
-
-        return array_slice(array_keys($paths), 0, self::MAX_META_PATHS);
-    }
-
-    /**
-     * Memory entry ids explicitly cited by docs. Linkers still cite-or-omit by
-     * requiring a matching ingested memory node before an edge is written.
-     *
-     * @return list<string>
-     */
-    private function memoryRefsFromText(string $text): array
-    {
-        preg_match_all(
-            '/\b(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})\b/i',
-            $text,
-            $matches,
-        );
-
-        return array_slice(array_values(array_unique(array_map(
-            static fn (string $ref): string => strtolower($ref),
-            $matches[0] ?? [],
-        ))), 0, self::MAX_LINKS_PER_NODE);
-    }
-
-    /**
-     * Canonical domain ids cited by a source row (tags + metadata domain fields),
-     * resolved STRICTLY through the taxonomy — unknown ids are dropped, never invented.
-     *
-     * @param  array<int,mixed>  $tags
-     * @param  array<string,mixed>  $metadata
-     * @return list<string>
-     */
-    private function candidateDomains(array $tags, array $metadata): array
-    {
-        $raw = [];
-        foreach ($tags as $tag) {
-            if (is_string($tag)) {
-                $raw[] = $tag;
-            }
-        }
-        if (is_string($metadata['domain'] ?? null)) {
-            $raw[] = $metadata['domain'];
-        }
-        foreach ((array) ($metadata['domains'] ?? []) as $value) {
-            if (is_string($value)) {
-                $raw[] = $value;
-            }
-        }
-
-        $resolved = [];
-        foreach ($raw as $candidate) {
-            $canonical = $this->taxonomy->canonical($candidate);
-            if ($canonical !== null) {
-                $resolved[$canonical] = true;
-            }
-        }
-
-        return array_slice(array_keys($resolved), 0, self::MAX_META_DOMAINS);
-    }
-
-    /**
-     * Lowercased label tokens (≥4 chars) for the slug-equality linker rung.
-     *
-     * @return list<string>
-     */
-    private function labelTokens(string $label): array
-    {
-        $tokens = preg_split('/[^a-z0-9_-]+/i', strtolower($label)) ?: [];
-
-        return array_values(array_unique(array_filter($tokens, static fn (string $t): bool => strlen($t) >= 4)));
-    }
-
-    /**
-     * @param  array<string,mixed>  $metadata
-     */
-    private function memoryRefFrom(array $metadata): ?string
-    {
-        foreach (['memory_entry_id', 'memory_id'] as $field) {
-            if (is_string($metadata[$field] ?? null) && trim((string) $metadata[$field]) !== '') {
-                return trim((string) $metadata[$field]);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Explicit target id cited in a ledger payload (cite-or-omit).
-     *
-     * @param  array<string,mixed>  $payload
-     */
-    private function ledgerTargetIdFrom(array $payload): ?string
-    {
-        foreach (['target_id', 'memory_entry_id', 'memory_id'] as $field) {
-            if (is_string($payload[$field] ?? null) && trim((string) $payload[$field]) !== '') {
-                return trim((string) $payload[$field]);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Memory ref cited in a ledger payload or scope (cite-or-omit).
-     *
-     * @param  array<string,mixed>  $payload
-     */
-    private function ledgerMemoryRefFrom(array $payload, ?string $scopeType, ?string $scopeId): ?string
-    {
-        $ref = $this->memoryRefFrom($payload);
-        if ($ref !== null) {
-            return $ref;
-        }
-
-        foreach ($this->normalizeStringList($payload['memory_refs'] ?? null) as $candidate) {
-            if ($candidate !== '') {
-                return $candidate;
-            }
-        }
-
-        if ($scopeType !== null && in_array($scopeType, ['memory_entry', 'memory'], true)
-            && is_string($scopeId) && trim($scopeId) !== '') {
-            return trim($scopeId);
-        }
-
-        return null;
-    }
-
-    /**
-     * Repo-relative paths explicitly cited in a ledger payload (cite-or-omit).
-     *
-     * @param  array<string,mixed>  $payload
-     * @return list<string>
-     */
-    private function ledgerEvidencePathsFrom(array $payload): array
-    {
-        $paths = [];
-
-        foreach (['files', 'paths', 'touched_files'] as $key) {
-            foreach ($this->normalizeStringList($payload[$key] ?? null) as $path) {
-                if ($this->isCitedRepoPath($path)) {
-                    $paths[] = $path;
-                }
-            }
-        }
-
-        foreach (['path', 'file_path'] as $key) {
-            $path = $payload[$key] ?? null;
-            if (is_string($path) && $this->isCitedRepoPath($path)) {
-                $paths[] = $path;
-            }
-        }
-
-        foreach ((array) data_get($payload, 'result.payload.diff_refs', []) as $ref) {
-            if (! is_array($ref)) {
-                continue;
-            }
-            $path = $ref['path'] ?? null;
-            if (is_string($path) && $this->isCitedRepoPath($path)) {
-                $paths[] = $path;
-            }
-        }
-
-        foreach ($this->normalizeStringList(data_get($payload, 'local_rag.files')) as $path) {
-            if ($this->isCitedRepoPath($path)) {
-                $paths[] = $path;
-            }
-        }
-
-        return array_slice(array_values(array_unique($paths)), 0, self::MAX_META_PATHS);
-    }
-
-    private function isCitedRepoPath(string $path): bool
-    {
-        $path = trim($path);
-        if ($path === '' || str_contains($path, '..')) {
-            return false;
-        }
-
-        return (bool) preg_match('~^(?:app|tests|docs|config|routes|database|resources|scripts)/~', $path);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function normalizeStringList(mixed $value): array
-    {
-        if (! is_array($value)) {
+        if ($missionBySourceId === []) {
             return [];
         }
 
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function exactMetaStrings(mixed $value): array
-    {
-        if (is_string($value)) {
-            $trimmed = trim($value);
-
-            return $trimmed === '' ? [] : [$trimmed];
-        }
-
-        return $this->normalizeStringList($value);
-    }
-
-    /**
-     * @return list<mixed>
-     */
-    private function decodeJsonList(mixed $value): array
-    {
-        if (is_array($value)) {
-            return array_values($value);
-        }
-        if (is_string($value) && $value !== '') {
-            $decoded = json_decode($value, true);
-            if (is_array($decoded)) {
-                return array_values($decoded);
+        $edges = [];
+        $seen = [];
+        foreach ($stepIds as $stepId) {
+            $stepId = trim($stepId);
+            $target = $missionBySourceId[$stepId] ?? null;
+            if ($target === null || isset($seen[$target])) {
+                continue;
             }
+            $edges[] = $this->support->edge(
+                from: $obraNodeId,
+                to: $target,
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
+                source: 'obra_outcome',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: ['matched_step_id' => $stepId],
+            );
+            $seen[$target] = true;
         }
 
-        return [];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function decodeJsonMap(mixed $value): array
-    {
-        if (is_array($value)) {
-            return $value;
-        }
-        if (is_string($value) && $value !== '') {
-            $decoded = json_decode($value, true);
-            if (is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        return [];
-    }
-
-    private function sourceKindFor(string $source): string
-    {
-        return match ($source) {
-            'domains' => 'domain',
-            'docs' => 'doc',
-            default => $source,
-        };
-    }
-
-    /**
-     * Whether the source read-model is readable enough to make prune decisions.
-     * Domains are constant-backed (taxonomy) → always available.
-     */
-    private function sourceAvailable(string $source): bool
-    {
-        return match ($source) {
-            'memory' => $this->tableExists('atlas_memory_entries'),
-            'code' => $this->tableExists('atlas_engineering_code_modules'),
-            'docs' => is_dir(base_path('docs/engineering-knowledge-base')),
-            'domains' => true,
-            'evidence' => $this->tableExists('atlas_ledger_events'),
-            'strategic' => $this->tableExists('atlas_reality_entities'),
-            default => false,
-        };
-    }
-
-    private function cap(string $key, int $default): int
-    {
-        $value = (int) config('atlas.aurg.'.$key, $default);
-
-        return $value > 0 ? $value : $default;
-    }
-
-    private function tableExists(string $table): bool
-    {
-        return DatabaseTableAvailability::has($table);
+        return $edges;
     }
 }
