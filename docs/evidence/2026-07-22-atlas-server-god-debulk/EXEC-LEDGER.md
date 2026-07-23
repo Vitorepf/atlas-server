@@ -3268,3 +3268,38 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 106 — claim terminal-bootstrap synthetic probes, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_FLEET_RESIDUAL
+finding: A1-SC-0187-adjacent-terminal-probe
+commit: eebc7d840
+subject: "refactor(core): GOD-DEBULK claim terminal bootstrap probes"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalWorkerBootstrapService.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_direct_terminal_bootstrap_probe_prunes_its_synthetic_queue_and_lease_artifacts --no-coverage
+  result: "FAIL 1 test, 1 assertion: the public probe returned blocked rather than available because normal claimNext() correctly refused its synthetic packet."
+green:
+  behavior: "Only a context-enabled terminal-bootstrap probe on its explicitly isolated tags claims a synthetic packet through the real lease repository and queue compare-and-swap. The invalid-scope probe uses that same owned route, then the real one-shot worker packet rejects its empty allowed_files and releases the lease. Its dry-run evidence supplies the required substantive fields and scope-bound test receipt."
+verification:
+  characterization: "PASS 2 tests, 9 assertions: direct public probe reaches available with two completed dry-runs; direct public claimNext() against a terminal-bootstrap probe packet returns no_claimable_task and leaves its record claimable. The characterization test source landed concurrently in local commit 93fc60adf; implementation remains isolated in eebc7d840."
+  bootstrap_feature: "PASS 14 tests, 252 assertions. Existing real terminal bootstraps still claim distinct parallel lanes and preserve the max_new_tasks=0 pre-claim stop."
+  certification_file: "NOT GREEN: 15 passed, 3 failed, 226 assertions. Terminal-bootstrap probe tests now pass. The three remaining wrappers are driven by 8 terminal_fleet launch/resume/requeue/evidence/handoff/supervisor/runbook invariants."
+  php_lint: "PASS both production files and the certification Feature test."
+  pint: "NOT GREEN only for inherited whole-file formatting drift in both production files; no broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "terminal_bootstrap=996 LOC; multi_agent_loop_probe_runner=1596 LOC; both <2000, no new class or structural split."
+boundary:
+  - "The positive path executes public runTerminalBootstrapProbe(), real replenishment, lease claim, queue CAS, one-shot packet generation, validation, completeDryRun, and synthetic-artifact cleanup; it does not reflect into a claim helper."
+  - "The ordinary worker continues through AgentControlPlaneTaskQueueOrchestrator::claimNext(), whose certification/probe classifier is unchanged. No global serving exception, provider call, dispatch, token spend, or runtime-execution authority was introduced."
+residual:
+  - "The next independent red is terminal_fleet availability: 8 fleet-only invariants keep three certification wrappers blocked. The terminal-bootstrap probe and its invalid-scope negative path are green."
+next_cursor: "Characterize the terminal_fleet launch-plan ready-path failure through the public certification/health-digest surface; preserve the normal worker probe guard."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
