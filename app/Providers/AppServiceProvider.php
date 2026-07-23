@@ -7,7 +7,6 @@ use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
-use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
@@ -27,18 +26,13 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
-use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopModelFloorReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServedQueueInspectorSweepSentinel;
@@ -47,35 +41,12 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBugReproductionLane;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCloneDetector;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCoverageDeficitSource;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopConstraintsBlockAssembler;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopHypothesisTreeProducer;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaTreeAccessor;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopInsightBackpropService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkClassPriorService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSelectAdjuster;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
-use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawner;
-use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawnerContract;
-use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcher;
-use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcherContract;
-use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
-use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
-use App\Services\Ai\AutonomousEvolution\Verify\AtlasDeadCodeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
-use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use App\Services\Ai\AcosMaxNamespaceAlias;
@@ -261,27 +232,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
 
-        // Refiller supply-lane registry — ordered, named map of supply lanes (decompose → dedup →
-        // orphan_wiring → doc_gap). Order MUST match the canonical Refiller lane sequence so behavior
-        // remains byte-identical after the indirection. Future lanes register without editing the Refiller.
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry::class,
-            function ($app): \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry {
-                $registry = new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry();
-                try {
-                    $coordinator = $app->make(\App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerSupplyLaneCoordinator::class);
-                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDecomposeSupplyLane($coordinator));
-                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDedupSupplyLane($coordinator));
-                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerOrphanWiringSupplyLane($coordinator));
-                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDocGapSupplyLane($coordinator));
-                } catch (\Throwable) {
-                    // Coordinator's many closure deps may not all be resolvable at boot in some test
-                    // contexts — fail open with an empty registry rather than aborting boot.
-                }
-
-                return $registry;
-            },
-        );
 
         // Maestro worker-fleet probe — reads live active leases from the task-serving lease repository
         // and maps them to the shape the probe expects (client_id, opened_at, released_at).
@@ -348,12 +298,6 @@ class AppServiceProvider extends ServiceProvider
         // invariants held across cross-model triangulation events. Nullable-default ctor autowires to the
         // canonical storage path; pure I/O + hashing, so constructing it is free.
         $this->app->singleton(AtlasLoopModelFloorReceiptLedger::class);
-        $this->app->singleton(
-            AtlasLoopBenchmarkHarness::class,
-            fn ($app) => new AtlasLoopBenchmarkHarness(
-                rescue(fn () => $app->make(AtlasLoopHardCaseHarness::class), null, false),
-            ),
-        );
         $this->app->singleton(AtlasLoopTaskDecompositionAmplifier::class);
         $this->app->singleton(
             AtlasLoopScenarioProviderPortfolio::class,
@@ -361,7 +305,6 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(AtlasLoopTaskDecompositionAmplifier::class), null, false),
             ),
         );
-        $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
 
         // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue
         // (isolated from the Agent Control Plane certification-probe pollution). See AtlasTaskServingStack.
@@ -393,28 +336,9 @@ class AppServiceProvider extends ServiceProvider
             AtlasLoopBackService::class,
             fn ($app) => new AtlasLoopBackService(
                 $app->make(AtlasLoopTargetRepository::class),
-                rescue(fn () => $app->make(AtlasLoopIdeaTreeAccessor::class), null, false),
+                null, // AtlasLoopIdeaTreeAccessor deleted (cd018c6b3f); advisory dep, flag-gated OFF
                 rescue(fn () => $app->make(AtlasLoopInsightBackpropService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
-            ),
-        );
-        // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
-        // bind today (zero-config autowired), so its new nullable 4th arg would resolve to null and the
-        // parallel-wave path would never engage even with atlas.loop.scenario_fanout.enabled ON. Bind the
-        // dispatcher contract to its concrete and construct the explorer WITH the dispatcher and the wired
-        // portfolio. The portfolio's decomposition amplifier is flag-gated default-OFF, so provider rotation
-        // remains byte-identical until the operator arms it.
-        $this->app->bind(
-            ScenarioWaveDispatcherContract::class,
-            ScenarioWaveDispatcher::class,
-        );
-        $this->app->bind(
-            AtlasEvolutionScenarioExplorer::class,
-            fn ($app) => new AtlasEvolutionScenarioExplorer(
-                $app->make(LoopExecutionDriver::class),
-                $app->make(AtlasEvolutionFrozenJudge::class),
-                rescue(fn () => $app->make(AtlasLoopScenarioProviderPortfolio::class), null, false),
-                rescue(fn () => $app->make(ScenarioWaveDispatcherContract::class), null, false),
+                null, // AtlasLoopHypothesisTreeProducer deleted (cd018c6b3f); advisory dep, flag-gated OFF
             ),
         );
         // ITEM9 — MACHINE-VERIFIED completeness. Bind the resolver, and (BLOCKING) bind the certifier
@@ -591,42 +515,15 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Atlas Evolution Loop execution abstraction: the loop depends on the
-        // LoopExecutionDriver interface, never on a concrete engine or a named
-        // provider. Default = the loop-native WorkspaceProviderLoopExecutionDriver,
-        // which invokes the configured provider directly against the isolated scenario
-        // workspace (governed by the loop's own frozen judge, not Atlas Dev's routing
-        // gate) so it can land REAL logic improvements, not only trivial fast-path
-        // edits. Provider resolved from config / the per-task choice (swappable). The
-        // SeniorLoopExecutionDriver remains a valid impl — rebind this one line to use
-        // the Dev senior-loop's governance instead. Remove any provider and the loop runs.
-        $this->app->bind(
-            LoopExecutionDriver::class,
-            WorkspaceProviderLoopExecutionDriver::class,
-        );
+        // LoopExecutionDriver binding removed: its sole impl (WorkspaceProviderLoopExecutionDriver)
+        // was deleted by cd018c6b3f; the interface has no live impl and only comment-refs remain
+        // (GAP-17, ACDE-dead). Restore the impl if the trading/evolution loop is ever revived.
 
         // W40-S5 — provider effort policy sits BELOW provider routing: the router chooses the provider/tier,
         // this decorator only sets the Hermes reasoning_effort hint. Flag OFF preserves the configured
         // default effort; flag ON lets task class lower/raise effort deterministically.
         $this->app->singleton(AtlasLoopProviderEffortPolicy::class);
-        $this->app->extend(
-            LoopExecutionDriver::class,
-            static fn (LoopExecutionDriver $inner, $app): LoopExecutionDriver => new AtlasLoopProviderEffortPolicyDriverDecorator(
-                $inner,
-                $app->make(AtlasLoopProviderEffortPolicy::class),
-            ),
-        );
 
-        // CRITIC GUARD: decorate the bound driver with a per-attempt wall-clock kill so a
-        // single hung provider call can never wedge a 24h campaign. Names no provider; the
-        // contract and provider-agnosticism are unchanged (it composes with any inner driver).
-        $this->app->extend(
-            LoopExecutionDriver::class,
-            static fn (LoopExecutionDriver $inner): LoopExecutionDriver => new TimeBoundedLoopExecutionDriver(
-                $inner,
-                (int) config('atlas.loop.campaign.attempt_hard_seconds', 900),
-            ),
-        );
 
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)

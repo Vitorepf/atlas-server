@@ -6,7 +6,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopLearningAppendService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
-use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternSourceIntake;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFrontierHarvestGovernanceRunner;
 use App\Services\Ai\AutonomousEvolution\Twin\AtlasLoopSimulableTwinOrchestrator;
 use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
 
@@ -155,7 +155,7 @@ return [
         // THE PORTFOLIO OF SELF-IMPROVEMENT PATHS (data, not code). The brain ROTATES these so it always
         // seeks the highest leverage, never dries, never duplicates. Each executor_organ is a real class.
         'paths' => [
-            ['id' => 'frontier-harvest', 'intent' => 'self_improvement', 'objective_kind' => 'research', 'lens' => 'mine the defined sites (trendshift/github/arxiv) for a frontier technique to port', 'executor_organ' => AtlasLoopPatternSourceIntake::class],
+            ['id' => 'frontier-harvest', 'intent' => 'self_improvement', 'objective_kind' => 'research', 'lens' => 'mine the defined sites (trendshift/github/arxiv) for a frontier technique to port', 'executor_organ' => AtlasExternalBrainFrontierHarvestGovernanceRunner::class],
             ['id' => 'metrics-optimization', 'intent' => 'self_improvement', 'objective_kind' => 'optimization', 'lens' => 'pick the change that most moves a real measured metric, gated by causal effect+CI', 'executor_organ' => AtlasBrainCausalEffectGate::class],
             ['id' => 'pattern-design', 'intent' => 'self_improvement', 'objective_kind' => 'refactor', 'lens' => 'match a scope symptom to a known improvement pattern in the registry', 'executor_organ' => AtlasLoopPatternRegistry::class],
             ['id' => 'simulation-twin', 'intent' => 'self_improvement', 'objective_kind' => 'optimization', 'lens' => 'simulate candidates against scenarios, keep the best return', 'executor_organ' => AtlasLoopSimulableTwinOrchestrator::class],
