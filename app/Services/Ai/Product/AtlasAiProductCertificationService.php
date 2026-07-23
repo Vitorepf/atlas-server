@@ -113,17 +113,17 @@ class AtlasAiProductCertificationService
 
     public const PATH_AEMOR_RUNTIME_TEST = 'tests/Feature/Ai/Aemor/AtlasAemorRuntimeServiceTest.php';
 
-    public const PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE = 'app/Services/Ai/IntelligenceFactory/AtlasIntelligenceFactoryRuntimeService.php';
-
-    public const PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE = 'app/Services/Ai/IntelligenceFactory/AtlasIntelligenceFactoryCertificationService.php';
+    // GOD-DEBULK 3b: PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE / _CERTIFICATION_SERVICE removed —
+    // IntelligenceFactory quarantined to archive/app/Services/Ai/IntelligenceFactory (blueprint
+    // 91c334a27 §2.2); certification no longer pins the archived sources. Models/tables stay live.
 
     public const PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR = 'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php';
 
-    public const PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION = 'app/Services/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopCertificationService.php';
+    public const PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION = 'app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php';
 
-    public const PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER = 'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php';
+    public const PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER = 'app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketBuilder.php';
 
-    public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY = 'app/Services/Ai/SelfConstruction/AgentControlPlaneClaimLeaseRepository.php';
+    public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY = 'app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php';
 
     public const PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php';
 
@@ -731,8 +731,7 @@ class AtlasAiProductCertificationService
             'test:'.self::PATH_ENGINEERING_COMPANY_UNIT_TEST,
             'server:'.self::PATH_AEMOR_RUNTIME_SERVICE,
             'test:'.self::PATH_AEMOR_RUNTIME_TEST,
-            'server:'.self::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE,
-            'server:'.self::PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE,
+            // GOD-DEBULK 3b: IntelligenceFactory evidence refs removed (sources quarantined to archive/).
             'server:'.self::PATH_CODE_INTELLIGENCE_GATE_SERVICE,
             'test:'.self::PATH_CODE_INTELLIGENCE_GATE_TEST,
             'server:'.self::PATH_CODE_INTELLIGENCE_DOC,

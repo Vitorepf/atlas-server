@@ -491,10 +491,10 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['control_plane_tracks_capability_used_events']);
         $this->assertTrue($evidence['control_plane_tracks_evolution_events']);
         $this->assertTrue($evidence['control_plane_tests_cover_counters']);
-        $this->assertTrue($evidence['aemor_creates_intelligence_factory_evolution_candidate']);
-        $this->assertTrue($evidence['aemor_test_covers_evolution_candidate']);
-        $this->assertTrue($evidence['intelligence_factory_records_usage']);
-        $this->assertTrue($evidence['intelligence_factory_certifies_registry_and_evolution_tables']);
+        // GOD-DEBULK 3b: IntelligenceFactory quarantined to archive/ — the factory/AEMOR-candidate
+        // evidence keys were retired with it; the check now certifies only the surviving
+        // ControlPlane counters over the kept tables.
+        $this->assertSame('archive/app/Services/Ai/IntelligenceFactory', $evidence['intelligence_factory_quarantined']);
     }
 
     public function test_evidence_proves_assisted_execution_quality_is_wired(): void

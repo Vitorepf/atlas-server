@@ -497,7 +497,10 @@ final class AtlasAemorRuntimeService
             ]);
         } catch (\Throwable) {
             return [
-                'schema_version' => AtlasIntelligenceFactoryRuntimeService::EVOLUTION_SCHEMA,
+                // GOD-DEBULK 3b: literal (was AtlasIntelligenceFactoryRuntimeService::EVOLUTION_SCHEMA).
+                // With the class quarantined to archive/, evaluating the constant inside this catch
+                // would itself throw and kill the outcome-close path (blueprint 91c334a27 §2.2).
+                'schema_version' => 'atlas.intelligence_factory.capability_evolution.v1',
                 'status' => 'skipped',
                 'reason' => 'intelligence_factory_unavailable',
                 'writes' => false,

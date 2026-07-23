@@ -53,7 +53,10 @@ final class AtlasSkillEvolutionRuntimeServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_proposes_skill_candidate_from_verified_outcome_and_registers_factory_capability(): void
+    // GOD-DEBULK 3b: IntelligenceFactory quarantined to archive/ (blueprint 91c334a27 §2.2).
+    // The proposal path must SURVIVE the missing factory (nullable ctor) — skill candidate still
+    // certifies, but no factory capability is registered.
+    public function test_proposes_skill_candidate_from_verified_outcome_without_factory_capability(): void
     {
         $payload = app(AtlasSkillEvolutionRuntimeService::class)->propose([
             'workspace' => $this->workspace,
@@ -69,15 +72,8 @@ final class AtlasSkillEvolutionRuntimeServiceTest extends TestCase
         $this->assertSame('passed', data_get($payload, 'certification.status'));
         $this->assertFalse(data_get($payload, 'claim_policy.auto_installs_skill'));
         $this->assertStringContainsString('## Evidence', $payload['draft_markdown']);
-        $this->assertNotEmpty(data_get($payload, 'intelligence_factory_capability.capability_id'));
-        $this->assertDatabaseHas('atlas_intelligence_factory_capabilities', [
-            'capability_type' => 'skill_candidate',
-            'status' => 'certified',
-        ]);
-
-        $capability = AtlasIntelligenceFactoryCapability::query()->firstOrFail();
-        $this->assertFalse((bool) data_get($capability->safety_policy, 'auto_install_allowed'));
-        $this->assertTrue((bool) data_get($capability->safety_policy, 'operator_review_required'));
+        $this->assertNull($payload['intelligence_factory_capability']);
+        $this->assertSame(0, AtlasIntelligenceFactoryCapability::query()->count());
     }
 
     public function test_blocks_skill_candidate_without_evidence_refs(): void

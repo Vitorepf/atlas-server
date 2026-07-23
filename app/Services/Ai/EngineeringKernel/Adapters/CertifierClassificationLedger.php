@@ -12,7 +12,6 @@ use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
 use App\Services\Ai\Context\AtlasContextQualityCertificationService;
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceCertificationService;
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsCertificationService;
-use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryCertificationService;
 use App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService;
 use App\Services\Ai\LongHorizon\AtlasTeosIncrement2CertificationService;
 use App\Services\Ai\LongHorizon\AtlasTeosReadinessCertificationService;
@@ -103,7 +102,8 @@ final class CertifierClassificationLedger
         AtlasContextQualityCertificationService::class,
         AtlasContextIntelligenceCertificationService::class,
         AtlasConversationOperationsCertificationService::class,
-        AtlasIntelligenceFactoryCertificationService::class,
+        // GOD-DEBULK 3b: AtlasIntelligenceFactoryCertificationService removed — quarantined to
+        // archive/app/Services/Ai/IntelligenceFactory (blueprint 91c334a27 §2.2); no longer in app/.
         AtlasTeosFinalCertificationService::class,
         AtlasTeosIncrement2CertificationService::class,
         AtlasTeosReadinessCertificationService::class,

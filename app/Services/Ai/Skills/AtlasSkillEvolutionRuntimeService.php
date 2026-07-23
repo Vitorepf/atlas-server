@@ -21,7 +21,9 @@ final class AtlasSkillEvolutionRuntimeService
     public function __construct(
         private readonly SkillDiscoveryService $discovery,
         private readonly SkillManifestParser $parser,
-        private readonly AtlasIntelligenceFactoryRuntimeService $factory,
+        // GOD-DEBULK 3b: IntelligenceFactory quarantined (archive/app/Services/Ai/IntelligenceFactory,
+        // blueprint 91c334a27 §2.2) — nullable so the container degrades to null instead of crashing.
+        private readonly ?AtlasIntelligenceFactoryRuntimeService $factory = null,
     ) {}
 
     /**
@@ -42,7 +44,7 @@ final class AtlasSkillEvolutionRuntimeService
         $capability = null;
 
         if (($certification['status'] ?? null) === 'passed') {
-            $capability = $this->factory->registerCapability([
+            $capability = $this->factory?->registerCapability([
                 'capability_key' => 'skill-'.$skillName,
                 'name' => Str::headline($skillName),
                 'capability_type' => 'skill_candidate',

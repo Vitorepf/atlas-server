@@ -2697,11 +2697,9 @@ class AtlasAiControlPlaneService
                 'command' => 'php artisan atlas:aemor:certify --json --strict',
                 'schema' => 'atlas.aemor.certification.v1',
             ],
-            [
-                'name' => 'intelligence_factory',
-                'command' => 'php artisan atlas:intelligence-factory:certify --json --strict',
-                'schema' => 'atlas.intelligence_factory.certification.v1',
-            ],
+            // GOD-DEBULK 3b: intelligence_factory readiness ref removed — atlas:intelligence-factory:*
+            // commands quarantined to archive/ (blueprint 91c334a27 §2.2). Tables/models stay monitored
+            // by the intelligence_factory section above.
             [
                 'name' => 'strategic_reality_engine',
                 'command' => 'php artisan atlas:strategic-reality:certify --json --strict',

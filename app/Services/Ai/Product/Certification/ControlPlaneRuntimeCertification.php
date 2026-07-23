@@ -259,12 +259,12 @@ final class ControlPlaneRuntimeCertification
 
     public function capabilityEvolutionLoopCheck(): array
     {
+        // GOD-DEBULK 3b: IntelligenceFactory quarantined (archive/app/Services/Ai/IntelligenceFactory,
+        // blueprint 91c334a27 §2.2). The IF-source assertions (factory records usage / certifies
+        // registry) and the AEMOR-creates-candidate assertions were removed with it — AEMOR now
+        // degrades that path to `skipped`. ControlPlane keeps tracking the surviving tables/counters.
         $controlPlaneSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_CONTROL_PLANE_SERVICE));
         $controlPlaneTestSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_CONTROL_PLANE_TEST));
-        $aemorSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_AEMOR_RUNTIME_SERVICE));
-        $aemorTestSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_AEMOR_RUNTIME_TEST));
-        $factoryRuntimeSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE));
-        $factoryCertSource = $this->support->source($this->support->repoPath(AtlasAiProductCertificationService::PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE));
 
         $controlPlaneTracksUsage = str_contains($controlPlaneSource, 'intelligence_factory_capability_used_events')
             && str_contains($controlPlaneSource, 'capability_used_events');
@@ -272,30 +272,17 @@ final class ControlPlaneRuntimeCertification
             && str_contains($controlPlaneSource, 'evolution_events_total');
         $testsControlPlaneCounters = str_contains($controlPlaneTestSource, 'intelligence_factory_capability_used_events')
             && str_contains($controlPlaneTestSource, 'intelligence_factory_evolution_events');
-        $aemorCreatesEvolutionCandidate = str_contains($aemorSource, 'intelligenceFactoryEvolution')
-            && str_contains($aemorSource, 'atlas_intelligence_factory_evolution_events');
-        $aemorTestCoversCandidate = str_contains($aemorTestSource, 'test_close_outcome_with_evidence_creates_intelligence_factory_evolution_candidate');
-        $factoryRecordsUsage = str_contains($factoryRuntimeSource, 'capability_used')
-            && str_contains($factoryRuntimeSource, 'atlas_intelligence_factory_evolution_events');
-        $factoryCertifiesRegistry = str_contains($factoryCertSource, 'atlas_intelligence_factory_capabilities')
-            && str_contains($factoryCertSource, 'atlas_intelligence_factory_evolution_events');
 
         $passed = $controlPlaneTracksUsage && $controlPlaneTracksEvolution
-            && $testsControlPlaneCounters && $aemorCreatesEvolutionCandidate
-            && $aemorTestCoversCandidate && $factoryRecordsUsage
-            && $factoryCertifiesRegistry;
+            && $testsControlPlaneCounters;
 
         return $this->support->check('capability_usage_and_evolution_loop', $passed, 'critical', [
             'control_plane_tracks_capability_used_events' => $controlPlaneTracksUsage,
             'control_plane_tracks_evolution_events' => $controlPlaneTracksEvolution,
             'control_plane_tests_cover_counters' => $testsControlPlaneCounters,
-            'aemor_creates_intelligence_factory_evolution_candidate' => $aemorCreatesEvolutionCandidate,
-            'aemor_test_covers_evolution_candidate' => $aemorTestCoversCandidate,
-            'intelligence_factory_records_usage' => $factoryRecordsUsage,
-            'intelligence_factory_certifies_registry_and_evolution_tables' => $factoryCertifiesRegistry,
+            'intelligence_factory_quarantined' => 'archive/app/Services/Ai/IntelligenceFactory',
             'control_plane_service_path' => AtlasAiProductCertificationService::PATH_CONTROL_PLANE_SERVICE,
             'aemor_service_path' => AtlasAiProductCertificationService::PATH_AEMOR_RUNTIME_SERVICE,
-            'intelligence_factory_service_path' => AtlasAiProductCertificationService::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE,
         ]);
     }
 

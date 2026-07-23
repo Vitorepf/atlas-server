@@ -197,7 +197,9 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertNotEmpty(data_get($envelope, 'strategic_reality.context_signals'));
         $this->assertContains('persistent_context', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
         $this->assertContains('aemor', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
-        $this->assertContains('intelligence_factory', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
+        // GOD-DEBULK 3b: IntelligenceFactory quarantined to archive/ — the sidecar degrades to null,
+        // so the intelligence_factory context signal legitimately disappears from the envelope.
+        $this->assertNotContains('intelligence_factory', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
         $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.provider_invoked'));
         $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.external_execution_performed'));
         $this->assertSame('atlas_strategy', $envelope['flow_id'], 'ASRE sidecar must not rewrite RouterRuntime flow');

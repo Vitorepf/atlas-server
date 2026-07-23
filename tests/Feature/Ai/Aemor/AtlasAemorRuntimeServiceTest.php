@@ -93,7 +93,10 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $this->assertDatabaseCount('atlas_aemor_outcomes', 1);
     }
 
-    public function test_close_outcome_with_evidence_creates_intelligence_factory_evolution_candidate(): void
+    // GOD-DEBULK 3b: IntelligenceFactory quarantined to archive/ (blueprint 91c334a27 §2.2).
+    // Outcome-close must SURVIVE the missing class and degrade the evolution sidecar to `skipped`
+    // instead of throwing inside the catch (the old catch evaluated a constant on the gone class).
+    public function test_close_outcome_with_evidence_degrades_intelligence_factory_evolution_to_skipped(): void
     {
         $runtime = app(AtlasAemorRuntimeService::class);
         $episode = $runtime->openEpisode([
@@ -111,15 +114,10 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
             'evidence_refs' => ['test:youtube-ingestion-green'],
         ]);
 
-        $this->assertSame('candidate', data_get($outcome, 'intelligence_factory_evolution.status'));
-        $this->assertNotEmpty(data_get($outcome, 'intelligence_factory_evolution.event_hash'));
-
-        $event = AtlasIntelligenceFactoryEvolutionEvent::query()->firstOrFail();
-        $this->assertSame('aemor_outcome', $event->source_type);
-        $this->assertSame('successful_outcome_learning_candidate', $event->event_type);
-        $this->assertSame(['test:youtube-ingestion-green'], $event->evidence_refs);
-        $this->assertTrue((bool) data_get($event->payload, 'requires_operator_review'));
-        $this->assertFalse((bool) data_get($event->payload, 'auto_mutates_policy'));
+        $this->assertSame('succeeded', $outcome['status']);
+        $this->assertSame('skipped', data_get($outcome, 'intelligence_factory_evolution.status'));
+        $this->assertSame('intelligence_factory_unavailable', data_get($outcome, 'intelligence_factory_evolution.reason'));
+        $this->assertSame(0, AtlasIntelligenceFactoryEvolutionEvent::query()->count());
     }
 
     public function test_distill_with_evidence_creates_learning_signal_memory_candidate_and_pending_delta(): void
@@ -175,15 +173,10 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $this->assertSame('candidate', $distill['status']);
         $this->assertSame('candidate', data_get($distill, 'skill_evolution.status'));
         $this->assertFalse((bool) data_get($distill, 'skill_evolution.claim_policy.auto_installs_skill'));
-        $this->assertDatabaseHas('atlas_intelligence_factory_capabilities', [
-            'capability_type' => 'skill_candidate',
-            'status' => 'certified',
-        ]);
-
-        $capability = AtlasIntelligenceFactoryCapability::query()
-            ->where('capability_type', 'skill_candidate')
-            ->firstOrFail();
-        $this->assertTrue((bool) data_get($capability->safety_policy, 'operator_review_required'));
+        // GOD-DEBULK 3b: IntelligenceFactory quarantined — the skill candidate still certifies,
+        // but no factory capability row is registered (sidecar degrades to null).
+        $this->assertNull(data_get($distill, 'skill_evolution.intelligence_factory_capability'));
+        $this->assertSame(0, AtlasIntelligenceFactoryCapability::query()->count());
     }
 
     public function test_distill_blocks_succeeded_outcome_without_tests_passed_metric(): void
