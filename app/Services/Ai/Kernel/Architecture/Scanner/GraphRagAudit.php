@@ -367,7 +367,11 @@ class GraphRagAudit
     {
         $violations = [];
         $servicePath = app_path('Services/Ai/Surface/ConstelacaoPositionsService.php');
-        $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
+        // Pin relocated under GOD-DEBULK D3 (2026-07-23): constelacaoUsageReviewFindings moved
+        // verbatim from AtlasSelfImprovementRuntime into the Runtime/ConstelacaoUsageReviewSection
+        // family class; the AP-685 proposal-only invariant is unchanged, only the file moved
+        // (the facade keeps a same-signature delegator).
+        $constelacaoSectionPath = app_path('Services/Ai/SelfImprovement/Runtime/ConstelacaoUsageReviewSection.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasConstelacaoPositionsApiTest.php');
         $selfImprovementTestPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docPath = base_path('docs/engineering-knowledge-base/atlas-constelacao-surface.md');
@@ -375,7 +379,7 @@ class GraphRagAudit
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $constelacaoSection = File::exists($constelacaoSectionPath) ? File::get($constelacaoSectionPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
         $doc = File::exists($docPath) ? File::get($docPath) : '';
@@ -445,8 +449,8 @@ class GraphRagAudit
             "'graph_rag_promotion_allowed' => false",
             "'python_runtime_allowed' => false",
         ] as $token) {
-            if (! str_contains($selfImprovement, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-685 Curator finding must review usage without promoting runtime [{$token}]";
+            if (! str_contains($constelacaoSection, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/Runtime/ConstelacaoUsageReviewSection.php: AP-685 Curator finding must review usage without promoting runtime [{$token}]";
             }
         }
 

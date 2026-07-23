@@ -127,16 +127,29 @@ class SelfImprovementAudit
 
         foreach ([
             'inboxActionReplayFindings(',
-            'inboxActionReportForWindow(',
             'normalizedInboxActionFilters(',
+        ] as $token) {
+            if (! str_contains($runtime, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-123 Self-Improvement must consume Inbox action replay gaps [{$token}]";
+            }
+        }
+
+        // Pins relocated under GOD-DEBULK D3 (2026-07-23): inboxActionReplayFindings moved verbatim
+        // from AtlasSelfImprovementRuntime into the Runtime/InboxActionReplaySection family class;
+        // the AP-123 replay-gap invariant is unchanged, only the file moved (the facade keeps a
+        // same-signature delegator).
+        $inboxActionReplaySectionPath = app_path('Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php');
+        $inboxActionReplaySection = File::exists($inboxActionReplaySectionPath) ? File::get($inboxActionReplaySectionPath) : '';
+        foreach ([
+            'inboxActionReportForWindow(',
             'atlas.self_improvement.inbox_action_replay_gap.v1',
             'review_patch_action_without_diff_refs',
             'record_rivals_review_action_without_scores',
             'open_reviewable_inbox_action_evidence_proposal',
             'self-improvement:inbox-action-replay:',
         ] as $token) {
-            if (! str_contains($runtime, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-123 Self-Improvement must consume Inbox action replay gaps [{$token}]";
+            if (! str_contains($inboxActionReplaySection, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php: AP-123 Self-Improvement must consume Inbox action replay gaps [{$token}]";
             }
         }
 

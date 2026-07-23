@@ -338,6 +338,14 @@ class ProviderAudit
             'DynamicComputeMarketAdvisor $dynamicComputeMarket',
             'providerPerformanceFindings(',
             'dynamicComputeMarketFindings(',
+        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection"));
+
+        // Pins relocated under GOD-DEBULK D3 (2026-07-23): providerPerformanceFindings +
+        // dynamicComputeMarketFindings moved verbatim from AtlasSelfImprovementRuntime into the
+        // Runtime/ProviderPerformanceSection family class; the AP-99 proposal-only + dedupe-key
+        // invariants are unchanged, only the file moved (facade keeps same-signature delegators).
+        $providerPerformanceSection = $this->primitives->fileContents(app_path('Services/Ai/SelfImprovement/Runtime/ProviderPerformanceSection.php'));
+        $violations = array_merge($violations, $this->primitives->missingTokenViolations($providerPerformanceSection, [
             'atlas.self_improvement.dynamic_compute_market.v1',
             'Benchmark revisavel do Dynamic Compute Market',
             'run_controlled_provider_benchmark_before_policy_change',
@@ -346,7 +354,7 @@ class ProviderAudit
             'self-improvement:dynamic-compute-market:',
             'configure_provider_cost_rates',
             'atlas.provider_usage.v1',
-        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection"));
+        ], "app/Services/Ai/SelfImprovement/Runtime/ProviderPerformanceSection.php: provider_performance_review must consume AP-99 projection"));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($inboxActions, [
             "'configure_provider_cost_rates' => \$this->configureProviderCostRates(\$locked, \$input)",
@@ -852,15 +860,27 @@ class ProviderAudit
         }
 
         foreach ([
-            'configure_provider_cost_rates_action_without_applied_rate',
-            'Completar rates de custo dos providers no Inbox',
-            'atlas.provider_cost_rates.curator_completion_request.v1',
             "'available_actions' => [",
-            "'id' => 'configure_provider_cost_rates'",
-            "'gap_type' => \$providerCostRateGapReason",
         ] as $token) {
             if (! str_contains($selfImprovement, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-146 Curator must reopen previewed provider cost-rate actions [{$token}]";
+            }
+        }
+
+        // Pins relocated under GOD-DEBULK D3 (2026-07-23): inboxActionReplayFindings moved verbatim
+        // from AtlasSelfImprovementRuntime into the Runtime/InboxActionReplaySection family class;
+        // the AP-146 previewed-cost-rate reopen invariant is unchanged, only the file moved.
+        $inboxActionReplaySectionPath = app_path('Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php');
+        $inboxActionReplaySection = File::exists($inboxActionReplaySectionPath) ? File::get($inboxActionReplaySectionPath) : '';
+        foreach ([
+            'configure_provider_cost_rates_action_without_applied_rate',
+            'Completar rates de custo dos providers no Inbox',
+            'atlas.provider_cost_rates.curator_completion_request.v1',
+            "'id' => 'configure_provider_cost_rates'",
+            "'gap_type' => \$providerCostRateGapReason",
+        ] as $token) {
+            if (! str_contains($inboxActionReplaySection, $token)) {
+                $violations[] = "app/Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php: AP-146 Curator must reopen previewed provider cost-rate actions [{$token}]";
             }
         }
 
