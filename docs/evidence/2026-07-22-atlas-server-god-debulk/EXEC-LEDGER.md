@@ -3054,3 +3054,38 @@ boundary:
   - "The proof writes malformed data and reads it through the public queue repository; it does not invoke the extracted store directly."
   - "The correction restores the canonical durable registry address and grants no runtime, provider, dispatch, token, or completion authority."
 ```
+
+## Task 100 — fail-close observable Codex integration snapshot drift, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_RESIDUAL_SNAPSHOT_ARCHITECTURE
+finding: A1-SC-0179
+commit: cd251ab15
+subject: "refactor(core): GOD-DEBULK fail-close integration snapshot drift"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+  - tests/Feature/Ai/SelfConstruction/CodexIntegrationReportEvidenceTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/CodexIntegrationReportEvidenceTest.php --filter=test_report_fails_closed_when_the_queue_changes_during_its_read_snapshot --no-coverage
+  result: "FAIL 1 test, 2 assertions: the real report returned codex_integration_report_ready after its direct queue read saw a completed reservation while nested execution-status reads saw the changed ledger."
+green:
+  behavior: "The report compares its queue and reservation hashes with the hashes advertised by the nested execution status. Any mismatch changes the public status to codex_integration_report_snapshot_changed, marks the report non-actionable, clears ready_to_review_packets, and requires a refresh."
+verification:
+  characterization: "PASS 1 test, 5 assertions: a test stream wrapper changes only the durable reservation projection between the real repository's first queue reads and nested status reads; the public Readiness service executes codexIntegrationReport() without reflection or a mocked target."
+  feature_file: "PASS 2 tests, 11 assertions."
+  public_command_regressions: "PASS 2 tests, 21 assertions: the normal empty-ledger and completed-packet atlas:ai:self-construction --codex-integration-report routes remain ready and preserve review evidence."
+  php_lint: "PASS source and focused Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited whole-file source violations (class_attributes_separation, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space, ordered_imports) outside this focused hunk."
+  diff_check: "PASS scoped diff; repository-wide diff check remains red only in unrelated concurrent WIP."
+  density: "release_writer=1508 LOC (<2000); focused Feature test=207 LOC (<800 hot limit)."
+boundary:
+  - "The characterization uses the real final Readiness service and final reservation repository. The controlled stream only supplies a durable projection changing between actual repository reads; it never reflects into or replaces codexIntegrationReport()."
+  - "No claim, completion, dispatch, provider, token, or durable production ledger write is performed by the drift replay."
+residual:
+  - "This is an observable-drift fail-closed boundary, not a claim that the recursive queue, execution-status, launch-plan, and gate graph is one immutable lock-held snapshot. A full snapshot owner remains separate structural work."
+next_cursor: "Continue the next executable META finding; do not represent A1-SC-0179 as a global immutable-snapshot extraction."
+write_back:
+  status: pending
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
