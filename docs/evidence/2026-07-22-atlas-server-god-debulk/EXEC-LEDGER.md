@@ -2452,3 +2452,30 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 79 — A1-SC-0017 execute Codex alias corpus, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 1c935fbdc
+subject: "test(core): GOD-DEBULK execute Codex aliases"
+red:
+  result: "FAIL 171 data-provider cases before invoking an alias: the extracted Section needs a Closure-backed sibling collaborator and cannot be resolved directly by the container."
+green:
+  behavior: "The exact public compatibility facade constructs the live Section and executes every one of its 171 agentCodex aliases with empty options; each returned envelope remains structured and fail-closed."
+verification:
+  focused_feature: "PASS 178 tests, 891 assertions"
+  php_lint: "PASS changed Feature test"
+  pint: "PASS changed Feature test"
+  diff_check: PASS
+  loc: "feature_test=207 (<800 hot limit)"
+boundary:
+  - replaces reflection-only counting and two smoke checks with real public routing through the production facade
+  - all 171 cases require schema_version and status plus execution_allowed=false and dispatch_allowed=false
+  - the test does not expose a production accessor merely to inspect the lazy private Section; its path is the compatibility seam used by callers
+  - no Codex source behavior, split, provider call, dispatch, token spend, ledger write, runtime activation, or persistence changed
+write_back:
+  status: pending
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
