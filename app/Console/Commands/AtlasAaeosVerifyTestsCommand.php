@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  * receipts this command writes. Cost: one PHPUnit process per named test (seconds each),
  * so run it deliberately for the capability you are promoting to `verified`.
  *
- * @see app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php
+ * @see app/Services/Ai/Aaeos/AtlasImplementationTruthService.php
  */
 class AtlasAaeosVerifyTestsCommand extends Command
 {
@@ -31,8 +31,8 @@ class AtlasAaeosVerifyTestsCommand extends Command
     protected $description = 'Run the named test(s) of capabilities for REAL and record GREEN-RUN RECEIPTS that gate the verified tier.';
 
     public function handle(
-        AtlasAaeosImplementationTruthService $truth,
-        AtlasAaeosTestExecutionService $execution,
+        AtlasImplementationTruthService $truth,
+        AtlasCapabilityTestExecutionService $execution,
     ): int {
         $capability = $this->stringOption('capability');
         $capabilities = $truth->capabilityTestRefs($capability);

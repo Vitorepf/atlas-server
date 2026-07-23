@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosDepartmentQualityBarLevelClassifierTest extends TestCase
 {
-    private AtlasAaeosDepartmentQualityBarLevelClassifier $classifier;
+    private AtlasDepartmentQualityBarLevelClassifier $classifier;
 
     protected function setUp(): void
     {
-        $this->classifier = new AtlasAaeosDepartmentQualityBarLevelClassifier();
+        $this->classifier = new AtlasDepartmentQualityBarLevelClassifier();
     }
 
     /**

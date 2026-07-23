@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\Aaeos\Cores;
 
-use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
 use PHPUnit\Framework\TestCase;
 
 final class SpecCompletenessScorerTest extends TestCase

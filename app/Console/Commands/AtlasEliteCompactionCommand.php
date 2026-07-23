@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
-use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Engineering\EliteCompactionInventoryService;
@@ -31,7 +31,7 @@ class AtlasEliteCompactionCommand extends Command
     public function handle(
         EliteCompactionInventoryService $inventory,
         EliteCompactionWavePruner $pruner,
-        AaeosGeneratedContractGate $generatedGate,
+        AeosGeneratedContractGate $generatedGate,
         EliteExecutorKernel $eliteKernel,
         AtlasCognitionScoreCardService $scorecard,
     ): int {
@@ -55,7 +55,7 @@ class AtlasEliteCompactionCommand extends Command
 
     private function renderStatus(
         EliteCompactionInventoryService $inventory,
-        AaeosGeneratedContractGate $generatedGate,
+        AeosGeneratedContractGate $generatedGate,
         EliteExecutorKernel $eliteKernel,
     ): int {
         $payload = [

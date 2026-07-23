@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -25,7 +25,7 @@ final class AtlasLearningProposalsCommand extends Command
 
     protected $description = 'Decide learning-proposal rules: evidence-gated admission, weak-signal hold, justification/risk/action output, and the critical-change no-auto-apply review gate.';
 
-    public function handle(AtlasLearningProposalsService $service): int
+    public function handle(AtlasLearningProposalDecisionService $service): int
     {
         try {
             $strongCritical = $service->evaluate([
@@ -62,9 +62,9 @@ final class AtlasLearningProposalsCommand extends Command
             ]);
 
             $result = [
-                'schema_version' => AtlasLearningProposalsService::SCHEMA_VERSION,
-                'weak_signal_floor' => AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR,
-                'critical_kinds' => AtlasLearningProposalsService::CRITICAL_KINDS,
+                'schema_version' => AtlasLearningProposalDecisionService::SCHEMA_VERSION,
+                'weak_signal_floor' => AtlasLearningProposalDecisionService::WEAK_SIGNAL_FLOOR,
+                'critical_kinds' => AtlasLearningProposalDecisionService::CRITICAL_KINDS,
                 'strong_critical_proposal' => $strongCritical,
                 'no_evidence_rejected' => $noEvidence,
                 'weak_signal_held' => $weak,

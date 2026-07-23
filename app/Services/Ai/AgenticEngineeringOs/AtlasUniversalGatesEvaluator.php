@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
-use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
-use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
-use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
-use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
-use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
-use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
-use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
-use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
 use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
 use App\Services\Ai\Cognition\AcosProgram\PreReviewAdvisoryBand;
 use App\Services\Ai\Cognition\AcosProgram\Esp09IndependentChallengerService;
@@ -31,7 +31,7 @@ use App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
 use App\Services\Ai\Cognition\AcosProgram\ExecutionContextCooccurrenceService;
-use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
@@ -87,7 +87,7 @@ use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use App\Services\Ai\Cognition\AcosProgram\AtlasFlywheelFunnelService;
 use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
 use App\Services\Ai\Context\Retrieval\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\Context\Retrieval\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
@@ -111,44 +111,44 @@ use App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService;
 use App\Services\Ai\Aemor\Envelope\AemorOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aemor\Envelope\CompoundingOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aemor\Envelope\DevProceduralOutcomeEnvelopeAdapter;
-use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
-use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
-use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
-use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
-use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdComparator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasArrayFieldReader;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
-use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganMeshOrchestrator;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
-use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
-use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
-use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
-use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
-use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
-use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
-use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasAeosValueNormalizer;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection01;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection02;
@@ -603,7 +603,7 @@ final class AtlasUniversalGatesEvaluator
             ? $input
             : AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? $input['ladder'] ?? null);
         /** @var list<array{level:string,thresholds:list<array{metric:string,comparator:string,value:float}>}> $ladder */
-        $normalized = AtlasAaeosThresholdLadderNormalizer::levelLadder($ladder);
+        $normalized = AtlasThresholdLadderNormalizer::levelLadder($ladder);
 
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_THRESHOLD_LADDER_SCHEMA,
@@ -746,10 +746,10 @@ final class AtlasUniversalGatesEvaluator
 
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_STRING_LIST_NORMALIZE_SCHEMA,
-            'trimmed_strings' => AtlasAaeosStringListNormalizer::trimmedStrings($values),
-            'unique_trimmed_strings' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values),
-            'non_empty_strings' => AtlasAaeosStringListNormalizer::nonEmptyStrings($values),
-            'trimmed_string_or_int_values' => AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($values),
+            'trimmed_strings' => AtlasStringListNormalizer::trimmedStrings($values),
+            'unique_trimmed_strings' => AtlasStringListNormalizer::uniqueTrimmedStrings($values),
+            'non_empty_strings' => AtlasStringListNormalizer::nonEmptyStrings($values),
+            'trimmed_string_or_int_values' => AtlasStringListNormalizer::trimmedStringOrIntValues($values),
         ];
     }
 
@@ -771,8 +771,8 @@ final class AtlasUniversalGatesEvaluator
             'comparator' => $comparator,
             'observed' => $observed,
             'threshold' => $threshold,
-            'binary_satisfied' => AtlasAaeosThresholdComparator::binarySatisfied($comparator, $observed, $threshold),
-            'satisfied' => AtlasAaeosThresholdComparator::satisfied($comparator, $observed, $threshold),
+            'binary_satisfied' => AtlasThresholdComparator::binarySatisfied($comparator, $observed, $threshold),
+            'satisfied' => AtlasThresholdComparator::satisfied($comparator, $observed, $threshold),
         ];
     }
 
@@ -785,7 +785,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function evidenceRefNormalizeObserve(array $input = []): array
     {
-        $normalizer = new AtlasAaeosEvidenceRefNormalizer;
+        $normalizer = new AtlasEvidenceRefNormalizer;
         $refs = $normalizer->listFromRaw($input['evidence_refs'] ?? []);
 
         return [
@@ -814,7 +814,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_ARRAY_FIELD_READER_SCHEMA,
             'key' => $key,
-            'string_field' => AtlasAaeosArrayFieldReader::stringField($row, $key),
+            'string_field' => AtlasArrayFieldReader::stringField($row, $key),
         ];
     }
 
@@ -834,13 +834,13 @@ final class AtlasUniversalGatesEvaluator
     public function departmentCanonicalListObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosDepartmentRegistryService::SCHEMA,
-            'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
-            self::FIELD_COUNT => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
-            'required_fields' => AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS,
-            'required_field_count' => count(AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS),
-            'valid_maturity' => AtlasAaeosDepartmentRegistryService::VALID_MATURITY,
-            'valid_maturity_count' => count(AtlasAaeosDepartmentRegistryService::VALID_MATURITY),
+            self::FIELD_SCHEMA_VERSION => AtlasDepartmentRegistryService::SCHEMA,
+            'canonical_departments' => AtlasDepartmentRegistryService::CANONICAL_DEPARTMENTS,
+            self::FIELD_COUNT => count(AtlasDepartmentRegistryService::CANONICAL_DEPARTMENTS),
+            'required_fields' => AtlasDepartmentRegistryService::REQUIRED_FIELDS,
+            'required_field_count' => count(AtlasDepartmentRegistryService::REQUIRED_FIELDS),
+            'valid_maturity' => AtlasDepartmentRegistryService::VALID_MATURITY,
+            'valid_maturity_count' => count(AtlasDepartmentRegistryService::VALID_MATURITY),
         ];
     }
 
@@ -888,12 +888,12 @@ final class AtlasUniversalGatesEvaluator
     public function phaseRouterValidPhasesObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
-            'valid_phases' => AtlasAaeosPhaseRouterService::VALID_PHASES,
-            self::FIELD_COUNT => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
-            'active_phase_ranks' => AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS,
-            'active_phase_count' => count(AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS),
-            'phase_descriptions' => AtlasAaeosPhaseRouterService::PHASE_DESCRIPTIONS,
+            self::FIELD_SCHEMA_VERSION => AtlasPhaseRouterService::SCHEMA_VERSION,
+            'valid_phases' => AtlasPhaseRouterService::VALID_PHASES,
+            self::FIELD_COUNT => count(AtlasPhaseRouterService::VALID_PHASES),
+            'active_phase_ranks' => AtlasPhaseRouterService::ACTIVE_PHASE_RANKS,
+            'active_phase_count' => count(AtlasPhaseRouterService::ACTIVE_PHASE_RANKS),
+            'phase_descriptions' => AtlasPhaseRouterService::PHASE_DESCRIPTIONS,
         ];
     }
 
@@ -1199,21 +1199,21 @@ final class AtlasUniversalGatesEvaluator
     public function gateSignalContractObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasGateSignalEvaluator::SCHEMA_VERSION,
             'gates' => [
-                AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY,
-                AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK,
-                AtlasAaeosGateSignalEvaluator::GATE_TASK_PACK,
+                AtlasGateSignalEvaluator::GATE_INTENT_CLARITY,
+                AtlasGateSignalEvaluator::GATE_SPEC_PACK,
+                AtlasGateSignalEvaluator::GATE_TASK_PACK,
             ],
-            'intent_clarity_threshold' => AtlasAaeosGateSignalEvaluator::INTENT_CLARITY_THRESHOLD,
-            'spec_pack_min_criteria' => AtlasAaeosGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA,
+            'intent_clarity_threshold' => AtlasGateSignalEvaluator::INTENT_CLARITY_THRESHOLD,
+            'spec_pack_min_criteria' => AtlasGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA,
             'weights' => [
-                'resolved' => AtlasAaeosGateSignalEvaluator::WEIGHT_RESOLVED,
-                'bounded' => AtlasAaeosGateSignalEvaluator::WEIGHT_BOUNDED,
-                'no_ambiguity' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_AMBIGUITY,
-                'no_missing' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_MISSING,
+                'resolved' => AtlasGateSignalEvaluator::WEIGHT_RESOLVED,
+                'bounded' => AtlasGateSignalEvaluator::WEIGHT_BOUNDED,
+                'no_ambiguity' => AtlasGateSignalEvaluator::WEIGHT_NO_AMBIGUITY,
+                'no_missing' => AtlasGateSignalEvaluator::WEIGHT_NO_MISSING,
             ],
-            'compound_connectors' => AtlasAaeosGateSignalEvaluator::COMPOUND_CONNECTORS,
+            'compound_connectors' => AtlasGateSignalEvaluator::COMPOUND_CONNECTORS,
             'teto10_schema' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
             'teto10_band_rank' => Teto10PredictedRevertReviewDigest::BAND_RANK,
         ];
@@ -1596,20 +1596,20 @@ final class AtlasUniversalGatesEvaluator
     public function claimDefinitionOfDoneContractObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
-            'evaluated_against' => AtlasAaeosClaimDefinitionOfDoneValidator::EVALUATED_AGAINST,
-            'canonical_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::CANONICAL_FIELDS,
-            'unconditional_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS,
-            'canonical_field_count' => count(AtlasAaeosClaimDefinitionOfDoneValidator::CANONICAL_FIELDS),
-            'unconditional_field_count' => count(AtlasAaeosClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS),
+            self::FIELD_SCHEMA_VERSION => AtlasClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
+            'evaluated_against' => AtlasClaimDefinitionOfDoneValidator::EVALUATED_AGAINST,
+            'canonical_fields' => AtlasClaimDefinitionOfDoneValidator::CANONICAL_FIELDS,
+            'unconditional_fields' => AtlasClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS,
+            'canonical_field_count' => count(AtlasClaimDefinitionOfDoneValidator::CANONICAL_FIELDS),
+            'unconditional_field_count' => count(AtlasClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS),
             'field_statuses' => [
-                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_PRESENT,
-                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_MISSING,
-                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_NOT_APPLICABLE,
+                AtlasClaimDefinitionOfDoneValidator::STATUS_PRESENT,
+                AtlasClaimDefinitionOfDoneValidator::STATUS_MISSING,
+                AtlasClaimDefinitionOfDoneValidator::STATUS_NOT_APPLICABLE,
             ],
             'verdicts' => [
-                AtlasAaeosClaimDefinitionOfDoneValidator::VERDICT_EVIDENCE,
-                AtlasAaeosClaimDefinitionOfDoneValidator::VERDICT_NARRATIVE,
+                AtlasClaimDefinitionOfDoneValidator::VERDICT_EVIDENCE,
+                AtlasClaimDefinitionOfDoneValidator::VERDICT_NARRATIVE,
             ],
         ];
     }
@@ -1645,12 +1645,12 @@ final class AtlasUniversalGatesEvaluator
     public function docMaturityContractObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
-            'levels' => AtlasAaeosDocMaturityClassifier::LEVELS,
-            'level_count' => count(AtlasAaeosDocMaturityClassifier::LEVELS),
-            'boolean_requirements' => AtlasAaeosDocMaturityClassifier::BOOLEAN_REQUIREMENTS,
-            'strength_requirements' => AtlasAaeosDocMaturityClassifier::STRENGTH_REQUIREMENTS,
-            'l4_signals' => AtlasAaeosDocMaturityClassifier::L4_SIGNALS,
+            self::FIELD_SCHEMA_VERSION => AtlasDocMaturityClassifier::SCHEMA_VERSION,
+            'levels' => AtlasDocMaturityClassifier::LEVELS,
+            'level_count' => count(AtlasDocMaturityClassifier::LEVELS),
+            'boolean_requirements' => AtlasDocMaturityClassifier::BOOLEAN_REQUIREMENTS,
+            'strength_requirements' => AtlasDocMaturityClassifier::STRENGTH_REQUIREMENTS,
+            'l4_signals' => AtlasDocMaturityClassifier::L4_SIGNALS,
             'runtime_ready_always' => false,
         ];
     }
@@ -1781,22 +1781,22 @@ final class AtlasUniversalGatesEvaluator
     public function cognitiveImmuneInputClassifierContractObserve(array $input = []): array
     {
         return [
-            self::FIELD_SCHEMA_VERSION => AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION,
-            'recurrence_memory_threshold' => AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD,
-            'destination_classes' => array_keys(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
-            'destination_class_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
-            'embedding_forbidden_classes' => AtlasAaeosCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES,
-            'injection_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::INJECTION_MARKERS),
-            'strategic_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::STRATEGIC_MARKERS),
-            'technical_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::TECHNICAL_MARKERS),
-            'personal_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::PERSONAL_MARKERS),
-            'project_evidence_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::PROJECT_EVIDENCE_MARKERS),
-            'conversation_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::CONVERSATION_MARKERS),
-            'veto_propagation_schema' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
-            'repair_loop_auto_escalation_threshold' => AtlasAaeosVetoPropagationResolver::REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD,
-            'promotion_eligibility_schema' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION,
-            'promotion_max_evidence_age_days' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS,
-            'promotion_max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER,
+            self::FIELD_SCHEMA_VERSION => AtlasCognitiveImmuneInputClassifier::SCHEMA_VERSION,
+            'recurrence_memory_threshold' => AtlasCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD,
+            'destination_classes' => array_keys(AtlasCognitiveImmuneInputClassifier::DESTINATIONS),
+            'destination_class_count' => count(AtlasCognitiveImmuneInputClassifier::DESTINATIONS),
+            'embedding_forbidden_classes' => AtlasCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES,
+            'injection_marker_count' => count(AtlasCognitiveImmuneInputClassifier::INJECTION_MARKERS),
+            'strategic_marker_count' => count(AtlasCognitiveImmuneInputClassifier::STRATEGIC_MARKERS),
+            'technical_marker_count' => count(AtlasCognitiveImmuneInputClassifier::TECHNICAL_MARKERS),
+            'personal_marker_count' => count(AtlasCognitiveImmuneInputClassifier::PERSONAL_MARKERS),
+            'project_evidence_marker_count' => count(AtlasCognitiveImmuneInputClassifier::PROJECT_EVIDENCE_MARKERS),
+            'conversation_marker_count' => count(AtlasCognitiveImmuneInputClassifier::CONVERSATION_MARKERS),
+            'veto_propagation_schema' => AtlasVetoPropagationResolver::SCHEMA_VERSION,
+            'repair_loop_auto_escalation_threshold' => AtlasVetoPropagationResolver::REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD,
+            'promotion_eligibility_schema' => AtlasDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION,
+            'promotion_max_evidence_age_days' => AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS,
+            'promotion_max_tier' => AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER,
             'consolidation_rerank_schema' => AtlasConsolidationRerankGuard::SCHEMA_VERSION,
             'consolidation_rerank_epsilon' => AtlasConsolidationRerankGuard::EPSILON,
         ];
@@ -2420,10 +2420,10 @@ final class AtlasUniversalGatesEvaluator
             'dead_after_days' => AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS,
             'status' => AtlasAcosLongHorizonGateService::FIELD_STATUS,
             'config' => AtlasAcosLongHorizonGateService::FIELD_CONFIG,
-            'next_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND,
-            'next_band_breaches' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES,
-            'class' => AtlasAaeosTestExecutionService::FIELD_CLASS,
-            'explain' => AtlasAaeosTestExecutionService::FIELD_EXPLAIN,
+            'next_band' => AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND,
+            'next_band_breaches' => AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES,
+            'class' => AtlasCapabilityTestExecutionService::FIELD_CLASS,
+            'explain' => AtlasCapabilityTestExecutionService::FIELD_EXPLAIN,
             'denominator_min_active_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS,
             'dual_read_required' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
             'dual_read_required' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
@@ -2447,12 +2447,12 @@ final class AtlasUniversalGatesEvaluator
             'policy_status' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS,
             'v4' => AtlasCognitionScoreCardService::FIELD_V4,
             'code' => AtlasCognitionScoreCardService::FIELD_CODE,
-            'value' => AaeosDepartmentLevelClassifier::FIELD_VALUE,
-            'thresholds' => AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS,
-            'satisfied' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED,
-            'threshold' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD,
-            'level_ordinal' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL,
-            'missing_for_next' => AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT,
+            'value' => AtlasDepartmentLevelClassifier::FIELD_VALUE,
+            'thresholds' => AtlasDepartmentLevelClassifier::FIELD_THRESHOLDS,
+            'satisfied' => AtlasDepartmentQualityBarLevelClassifier::FIELD_SATISFIED,
+            'threshold' => AtlasDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD,
+            'level_ordinal' => AtlasDocMaturityClassifier::FIELD_LEVEL_ORDINAL,
+            'missing_for_next' => AtlasDocMaturityClassifier::FIELD_MISSING_FOR_NEXT,
             'fabricates_rate_on_zero_n' => PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N,
             'lift_basis' => PreReviewAdvisoryBand::FIELD_LIFT_BASIS,
             'id' => PhaseAdvanceVerdictClassifier::FIELD_ID,

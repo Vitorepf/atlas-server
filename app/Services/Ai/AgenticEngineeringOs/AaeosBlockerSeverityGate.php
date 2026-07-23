@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+
 final class AaeosBlockerSeverityGate
 {
     public const SIGNAL_BLOCKED = 'blocked';

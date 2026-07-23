@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
 use Tests\TestCase;
 
 class AtlasCrossDepartmentChoreographyServiceTest extends TestCase

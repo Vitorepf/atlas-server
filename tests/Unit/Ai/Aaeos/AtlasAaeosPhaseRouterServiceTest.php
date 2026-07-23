@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
 use Tests\TestCase;
 
 final class AtlasAaeosPhaseRouterServiceTest extends TestCase
@@ -13,7 +13,7 @@ final class AtlasAaeosPhaseRouterServiceTest extends TestCase
     {
         config(['atlas.aaeos.http_path_phase' => 'legacy']);
 
-        $router = new AtlasAaeosPhaseRouterService;
+        $router = new AtlasPhaseRouterService;
 
         self::assertSame('legacy', $router->configuredPhase());
         self::assertTrue($router->isValid());
@@ -24,32 +24,32 @@ final class AtlasAaeosPhaseRouterServiceTest extends TestCase
 
     public function test_active_phase_helpers_are_strict(): void
     {
-        self::assertFalse(AtlasAaeosPhaseRouterService::isActivePhase('legacy'));
-        self::assertTrue(AtlasAaeosPhaseRouterService::isActivePhase('1'));
-        self::assertTrue(AtlasAaeosPhaseRouterService::isActivePhase('2'));
-        self::assertTrue(AtlasAaeosPhaseRouterService::isActivePhase('3'));
-        self::assertTrue(AtlasAaeosPhaseRouterService::isActivePhase('4'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::isActivePhase(''));
-        self::assertFalse(AtlasAaeosPhaseRouterService::isActivePhase('0'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::isActivePhase('5'));
+        self::assertFalse(AtlasPhaseRouterService::isActivePhase('legacy'));
+        self::assertTrue(AtlasPhaseRouterService::isActivePhase('1'));
+        self::assertTrue(AtlasPhaseRouterService::isActivePhase('2'));
+        self::assertTrue(AtlasPhaseRouterService::isActivePhase('3'));
+        self::assertTrue(AtlasPhaseRouterService::isActivePhase('4'));
+        self::assertFalse(AtlasPhaseRouterService::isActivePhase(''));
+        self::assertFalse(AtlasPhaseRouterService::isActivePhase('0'));
+        self::assertFalse(AtlasPhaseRouterService::isActivePhase('5'));
     }
 
     public function test_phase_ordering_never_treats_invalid_values_as_zero(): void
     {
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('legacy', '1'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('0', '1'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('99', '1'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('2', '99'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('legacy', '1'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('0', '1'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('99', '1'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('2', '99'));
 
-        self::assertTrue(AtlasAaeosPhaseRouterService::phaseAtLeast('2', '1'));
-        self::assertTrue(AtlasAaeosPhaseRouterService::phaseAtLeast('2', '2'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('2', '3'));
-        self::assertFalse(AtlasAaeosPhaseRouterService::phaseAtLeast('2', '4'));
+        self::assertTrue(AtlasPhaseRouterService::phaseAtLeast('2', '1'));
+        self::assertTrue(AtlasPhaseRouterService::phaseAtLeast('2', '2'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('2', '3'));
+        self::assertFalse(AtlasPhaseRouterService::phaseAtLeast('2', '4'));
     }
 
     public function test_status_snapshot_reports_capabilities_for_phase_four(): void
     {
-        $snapshot = (new AtlasAaeosPhaseRouterService('4'))->statusSnapshot();
+        $snapshot = (new AtlasPhaseRouterService('4'))->statusSnapshot();
 
         self::assertSame('atlas.aaeos.phase_router.v1', $snapshot['schema_version']);
         self::assertSame('4', $snapshot['configured_phase']);
@@ -64,7 +64,7 @@ final class AtlasAaeosPhaseRouterServiceTest extends TestCase
 
     public function test_status_snapshot_reports_invalid_phase_honestly(): void
     {
-        $snapshot = (new AtlasAaeosPhaseRouterService('99'))->statusSnapshot();
+        $snapshot = (new AtlasPhaseRouterService('99'))->statusSnapshot();
 
         self::assertSame('99', $snapshot['configured_phase']);
         self::assertFalse($snapshot['is_valid']);

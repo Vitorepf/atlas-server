@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Differential;
 
+
 /**
  * E4 -- Pure comparison result produced by
  * {@see DifferentialTestingService::compare()}.

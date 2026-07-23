@@ -15,13 +15,13 @@ use App\Services\Ai\Cognition\AcosProgram\PreReviewAdvisoryBand;
 use App\Services\Ai\Cognition\AcosProgram\Esp09IndependentChallengerService;
 use App\Services\Ai\Cognition\AcosProgram\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\Cognition\AcosProgram\ReactiveSaturationSignal;
-use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
-use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
-use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
-use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
-use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
-use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
-use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Cognition\AcosProgram\PortfolioBudgetAllocator;
 use App\Services\Ai\Cognition\AcosProgram\AmbitionRungPolicy;
 use App\Services\Ai\Context\Retrieval\DomainLexicalNormalizer;
@@ -44,11 +44,11 @@ use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
 use App\Services\Ai\Cognition\AcosProgram\ExploratoryBetsPortfolio;
 use App\Services\Ai\Cognition\AcosProgram\AtlasNCaptureDrillService;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxLote2MeasureService;
-use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
-use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 use InvalidArgumentException;
 use Tests\TestCase;
-use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxParallelExecutionProtocol;
 use App\Services\Ai\Cognition\AcosProgram\AcosProgramCockpitService;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
@@ -77,39 +77,39 @@ use App\Services\Ai\Cognition\AcosProgram\AcosMaxObraRetroService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxWindowOrchestratorService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
 use App\Services\Ai\AgenticEngineeringOs\AaeosHttpPathEnvelopeFactory;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
-use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
 use App\Services\Ai\AgenticEngineeringOs\PhaseAdvanceVerdictClassifier;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
 use App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
-use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
-use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
-use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityService;
 use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverityGate;
@@ -124,7 +124,7 @@ use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
-use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
 use App\Services\Ai\Cognition\AcosProgram\AtlasModelCapabilitySpecService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
@@ -133,7 +133,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Aemor\Envelope\CompoundingOutcomeEnvelopeAdapter;
-use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
 use App\Services\Ai\Context\Retrieval\AsefChunkIndexService;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
@@ -142,23 +142,23 @@ use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdo
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Aemor\Envelope\OutcomeEnvelope;
 use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcLifecycle;
-use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasAeosValueNormalizer;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry;
-use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarService;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
 use App\Services\Ai\Cognition\AcosProgram\AttemptLifecycleLedger;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
+use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdComparator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
 use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverity;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
-use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -1052,7 +1052,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $payload = $this->svc->aaeosPhaseRouterObserve(['phase' => ' 2 ']);
 
-        $this->assertSame(AtlasAaeosPhaseRouterService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AtlasPhaseRouterService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('2', $payload['configured_phase']);
         $this->assertTrue($payload['is_valid']);
         $this->assertTrue($payload['is_active']);
@@ -1106,7 +1106,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $payload = $this->svc->generatedContractGateObserve([]);
 
-        $this->assertSame(AaeosGeneratedContractGate::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AeosGeneratedContractGate::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertArrayHasKey('hot_path_enabled', $payload);
         $this->assertArrayHasKey('generated_file_count', $payload);
     }
@@ -6847,10 +6847,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS, $out['dead_after_days']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_STATUS, $out['status']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CONFIG, $out['config']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXPLAIN, $out['explain']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS, $out['denominator_min_active_symbols']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
@@ -6868,12 +6868,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS, $out['policy_status']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_V4, $out['v4']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE, $out['code']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
         $this->assertSame(PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N, $out['fabricates_rate_on_zero_n']);
         $this->assertSame(PreReviewAdvisoryBand::FIELD_LIFT_BASIS, $out['lift_basis']);
         $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_ID, $out['id']);
@@ -6889,14 +6889,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosImplementationContextParetoGatePhaseImmuneCalibrationFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
         $this->assertSame(ContextParetoDominanceFilter::FIELD_ID, $out['id']);
         $this->assertSame(ContextParetoDominanceFilter::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATE, $out['gate']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
         $this->assertSame(ImmuneCalibrationService::FIELD_CLAIM_TYPE, $out['claim_type']);
         $this->assertSame(ImmuneCalibrationService::FIELD_CLASSIFIER_BAND, $out['classifier_band']);
         $this->assertSame(ImmuneSignatureIngestor::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
@@ -6914,12 +6914,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosCognitiveImplementationVetoCrossDepartmentLoteMeasureFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO, $out['escalate_to']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT, $out['from_department']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETED_E2E, $out['completed_e2e']);
@@ -6939,10 +6939,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosDepartmentStringDebugRootDocsAuthorityDailyFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_KIND, $out['kind']);
         $this->assertSame(AtlasDebugRootCauseService::FIELD_STATUS, $out['status']);
         $this->assertSame(AtlasDebugRootCauseService::FIELD_SUSPECTED_CAUSE, $out['suspected_cause']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CREATED_AT, $out['created_at']);
@@ -6964,12 +6964,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->generatedContractAaeosClaimDepartmentExploratoryBetsProvenanceFloorsContractObserve([]);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_FLAG, $out['flag']);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_FLAG_DEFAULT, $out['flag_default']);
         $this->assertSame(ProvenanceWeightCalculator::FIELD_FLOOR, $out['floor']);
@@ -6978,8 +6978,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CompactionRecoverySampleWatchdogCheck::FIELD_MESSAGE, $out['message']);
         $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CODE, $out['code']);
         $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MESSAGE, $out['message']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_REASON, $out['reason']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COSINE_MERGE_THRESHOLD, $out['cosine_merge_threshold']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNT, $out['count']);
         $this->assertSame(18, $out['generated_contract_aaeos_claim_department_exploratory_bets_provenance_floor_count']);
@@ -6989,8 +6989,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosDepartmentEvidenceVisionGoldenCounterfactualPromotionProtocolFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CANONICAL_WRITE_ALLOWED, $out['canonical_write_allowed']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_DEFICIT, $out['deficit']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_CANONICAL_WRITE_ALLOWED, $out['canonical_write_allowed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_DEFICIT, $out['deficit']);
         $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_EVIDENCE, $out['evidence']);
         $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_HIGH, $out['high']);
         $this->assertSame(GoldenCounterfactualReplayService::FIELD_DELTA, $out['delta']);
@@ -7028,10 +7028,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_MODE, $out['mode']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_CODE, $out['code']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_FLOOR_MS, $out['floor_ms']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PER_BAND, $out['per_band']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_PER_BAND, $out['per_band']);
         $this->assertSame(18, $out['segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floor_count']);
     }
 
@@ -7051,12 +7051,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasWatchdogRunner::FIELD_EMITTER_VERSION, $out['emitter_version']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_GATES_MUTATION, $out['gates_mutation']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_READ_ONLY, $out['read_only']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PRESENT_FIELDS, $out['present_fields']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLD, $out['threshold']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLDS, $out['thresholds']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PRESENT_FIELDS, $out['present_fields']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
         $this->assertSame(18, $out['memory_recall_esp_independent_maxa_jina_immune_classifier_floor_count']);
     }
 
@@ -7078,10 +7078,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_METADATA, $out['metadata']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_INTEGRATION, $out['integration']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON, $out['long_horizon']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MATURITY_TIER, $out['maturity_tier']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_NEXT_EVALUATION_DUE, $out['next_evaluation_due']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ELIGIBILITY_HASH, $out['eligibility_hash']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_MATURITY_TIER, $out['maturity_tier']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_NEXT_EVALUATION_DUE, $out['next_evaluation_due']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_ELIGIBILITY_HASH, $out['eligibility_hash']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
         $this->assertSame(18, $out['procedural_skill_verified_share_acos_program_deferred_phase_floor_count']);
     }
 
@@ -7105,8 +7105,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RunbookOrchestrator::FIELD_DUAL_SIGNATURE_REQUIRED, $out['dual_signature_required']);
         $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_KERNEL_HASH, $out['kernel_hash']);
         $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_MEMORY, $out['memory']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRIMARY_BLOCKER, $out['primary_blocker']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_PRIMARY_BLOCKER, $out['primary_blocker']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SCHEMA, $out['schema']);
         $this->assertSame(18, $out['aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floor_count']);
     }
 
@@ -7130,8 +7130,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DEFAULT_MODE, $out['default_mode']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FORGE_CYCLES_PER_WEEK_MIN, $out['forge_cycles_per_week_min']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SEVERITY, $out['severity']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SEVERITY, $out['severity']);
         $this->assertSame(18, $out['resource_budget_belief_cascade_citation_grounding_dev_procedural_floor_count']);
     }
 
@@ -7164,8 +7164,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosTestWindowOrchestratorCodeSymbolKnowledgeItemFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FRESH_HASHES, $out['fresh_hashes']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_GIT_PORCELAIN, $out['git_porcelain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_FRESH_HASHES, $out['fresh_hashes']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_GIT_PORCELAIN, $out['git_porcelain']);
         $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DURATION_DAYS, $out['duration_days']);
         $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_LAST_DATA_AT, $out['last_data_at']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
@@ -7178,10 +7178,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DIMENSIONS, $out['dimensions']);
         $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_EVALUATIONS, $out['evaluations']);
         $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_FLIP_COUNT, $out['flip_count']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_LAST_EVALUATION, $out['last_evaluation']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
         $this->assertSame(18, $out['aaeos_test_window_orchestrator_code_symbol_knowledge_item_floor_count']);
     }
 
@@ -7199,14 +7199,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_DOC, $out['doc']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_GENERATED_AT, $out['generated_at']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_NOTE, $out['note']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_AGE_DAYS, $out['max_age_days']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_EVIDENCE_AGE_DAYS, $out['max_evidence_age_days']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_MISSING_ANSWERS, $out['missing_answers']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_NO_PHASE_OUTPUTS, $out['no_phase_outputs']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_MAX_AGE_DAYS, $out['max_age_days']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_MAX_EVIDENCE_AGE_DAYS, $out['max_evidence_age_days']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_MISSING_ANSWERS, $out['missing_answers']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_NO_PHASE_OUTPUTS, $out['no_phase_outputs']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_REF, $out['ref']);
         $this->assertSame(18, $out['pre_review_http_path_phase_advance_cognition_score_floor_count']);
     }
 
@@ -7214,24 +7214,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosImplementationPhaseImmuneCalibrationSignatureAcosWatchdogFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ROUTE, $out['route']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SCORE_OUT_OF_10, $out['score_out_of_10']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_ROUTING, $out['routing']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_SPEC, $out['spec']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SCORE_OUT_OF_10, $out['score_out_of_10']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_SPEC, $out['spec']);
         $this->assertSame(ImmuneCalibrationService::FIELD_CLASSIFIER_SCHEMA_VERSION, $out['classifier_schema_version']);
         $this->assertSame(ImmuneCalibrationService::FIELD_CONSENT_GRANTED, $out['consent_granted']);
         $this->assertSame(ImmuneSignatureIngestor::FIELD_INPUT_CLASS, $out['input_class']);
         $this->assertSame(ImmuneSignatureIngestor::FIELD_MEMORY_REVERT, $out['memory_revert']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_BY_WRITER, $out['by_writer']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMMANDS, $out['commands']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_TIER, $out['max_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_REQUIRED_THRESHOLD, $out['required_threshold']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET, $out['resolved_target']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE, $out['scope']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_MAX_TIER, $out['max_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_REQUIRED_THRESHOLD, $out['required_threshold']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_RESOLVED_TARGET, $out['resolved_target']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
         $this->assertSame(18, $out['aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floor_count']);
     }
 
@@ -7243,16 +7243,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_MAX_ITERATIONS, $out['max_iterations']);
         $this->assertSame(PortfolioBudgetAllocator::FIELD_STARVATION_FLOOR_ABSOLUTE, $out['starvation_floor_absolute']);
         $this->assertSame(PortfolioBudgetAllocator::FIELD_YIELD_RECOMPUTED_HERE, $out['yield_recomputed_here']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_RESOLVED, $out['resolved']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_THRESHOLD, $out['target_threshold']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_BOUNDED, $out['scope_bounded']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_TASKS, $out['tasks']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_TOPOLOGY, $out['topology']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SEALED, $out['sealed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_THRESHOLD, $out['target_threshold']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SCOPE_BOUNDED, $out['scope_bounded']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_TOPOLOGY, $out['topology']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_SEALED, $out['sealed']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GOVERNS, $out['governs']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GRAPH_ID, $out['graph_id']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE, $out['scope']);
@@ -7268,10 +7268,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxObraRetroService::FIELD_RUN_ID, $out['run_id']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_FD, $out['fd']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5_FLOOR, $out['golden_recall_at_5_floor']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASKS, $out['tasks']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_REFS, $out['test_refs']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_UNVERIFIABLE_CLAIMS, $out['unverifiable_claims']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_TEST_REFS, $out['test_refs']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_UNVERIFIABLE_CLAIMS, $out['unverifiable_claims']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_PAYLOAD, $out['payload']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_REMAINING_REPAIRS, $out['remaining_repairs']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ID, $out['id']);
@@ -7291,8 +7291,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->exploratoryBetsAaeosImplementationCrossDepartmentDocsAuthorityFloorsContractObserve([]);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_ID, $out['id']);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_MIN_N, $out['min_n']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_VERIFIABLY_BACKED, $out['verifiably_backed']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_WIRING, $out['wiring']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_VERIFIABLY_BACKED, $out['verifiably_backed']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_WIRING, $out['wiring']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_REQUIRES_OPERATOR_RECEIPT, $out['requires_operator_receipt']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_TO_DEPARTMENT, $out['to_department']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE_KIND, $out['needle_kind']);
@@ -7805,8 +7805,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUPPLEMENTAL, $out['supplemental']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_PROVIDER_SAFE_INVARIANT, $out['provider_safe_invariant']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_R5, $out['r5']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
         $this->assertSame(18, $out['b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
     }
 
@@ -7828,9 +7828,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITH_LESSON, $out['with_lesson']);
         $this->assertSame(RunbookOrchestrator::FIELD_SAFETY_SOVEREIGNTY_BLOCK_APPLIED, $out['safety_sovereignty_block_applied']);
         $this->assertSame(RunbookOrchestrator::FIELD_SCHEMA, $out['schema']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_VETO_PROPAGATION, $out['veto_propagation']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_VETO_PROPAGATION, $out['veto_propagation']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SECURITY, $out['security']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_VALID_KIND, $out['valid_kind']);
         $this->assertSame(18, $out['b402_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
     }
@@ -8106,7 +8106,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasResourceBudgetService::FIELD_OVER_RAM_CAP, $out['over_ram_cap']);
         $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_DEFERRED, $out['deferred']);
         $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT, $out['paper_overshoot']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
         $this->assertSame(18, $out['context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floor_count']);
     }
 
@@ -8114,10 +8114,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosDepartmentCognitiveMeasureSeriesHealthReportCodeFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEDIUM, $out['medium']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_HIGH, $out['high']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_AUDIT_SESSION, $out['audit_session']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE, $out['blocked_ephemeral_evidence']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_AUDIT_SESSION, $out['audit_session']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE, $out['blocked_ephemeral_evidence']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_GENERATED_AT, $out['generated_at']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_RECORDED_AT, $out['recorded_at']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED, $out['aurg_coverage_gate_failed']);
@@ -8139,10 +8139,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosVetoTestEvidenceLedgerPredictedImpactProviderFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT_SPEC_VETO, $out['architect_spec_veto']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_NONE, $out['none']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_AMBIGUOUS_TEST_REF, $out['ambiguous_test_ref']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS, $out['atlas_aaeos_test_run_receipts']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ARCHITECT_SPEC_VETO, $out['architect_spec_veto']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_NONE, $out['none']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_AMBIGUOUS_TEST_REF, $out['ambiguous_test_ref']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS, $out['atlas_aaeos_test_run_receipts']);
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_GAP, $out['evidence_ledger_gap']);
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_TAMPERED, $out['evidence_ledger_tampered']);
         $this->assertSame(PredictedImpactBand::FIELD_LOW, $out['low']);
@@ -8153,8 +8153,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_OFF, $out['off']);
         $this->assertSame(AtlasSurpriseGateService::FIELD_HIGH, $out['high']);
         $this->assertSame(AtlasSurpriseGateService::FIELD_LOW, $out['low']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_GREEN_RUN, $out['green_run']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NONE, $out['none']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_GREEN_RUN, $out['green_run']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NONE, $out['none']);
         $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_GLOBAL, $out['global']);
         $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PROCEDURAL_SKILL_PROMOTER, $out['procedural_skill_promoter']);
         $this->assertSame(18, $out['aaeos_veto_test_evidence_ledger_predicted_impact_provider_floor_count']);
@@ -8174,14 +8174,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING, $out['operator_learning_schema_missing']);
         $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_PACK, $out['spec_pack']);
         $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_PACK, $out['delivery_pack']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT, $out['architect']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4, $out['architect_autonomous_agent_l4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4, $out['architect_autonomous_agent_l4']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_YES, $out['yes']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DEFERRED, $out['deferred']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AI_RAG_FEEDBACK_EVENTS, $out['ai_rag_feedback_events']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CANDIDATE_SIGNAL, $out['candidate_signal']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION, $out['cited_data_not_instruction']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_CANDIDATE_SIGNAL, $out['candidate_signal']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION, $out['cited_data_not_instruction']);
         $this->assertSame(18, $out['memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floor_count']);
     }
 
@@ -8195,14 +8195,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxObraRetroService::FIELD_LOCAL, $out['local']);
         $this->assertSame(DepartmentContractRuntime::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, $out['engineering_goal_disambiguated']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTION_LOG, $out['execution_log']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEBUG, $out['debug']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3, $out['debug_automated_root_cause_l3']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3, $out['debug_automated_root_cause_l3']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_YES, $out['yes']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CREATED_AT, $out['created_at']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_HIGH, $out['high']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_R1_R2_FAST_PATH_PRESERVED, $out['r1_r2_fast_path_preserved']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CONVERSATION_TRACE_SIGNAL, $out['conversation_trace_signal']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LEARNING_SIGNAL, $out['learning_signal']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_CONVERSATION_TRACE_SIGNAL, $out['conversation_trace_signal']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_LEARNING_SIGNAL, $out['learning_signal']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $out['atlas_aemor_execution_episodes']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
@@ -8220,12 +8220,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING_DELIVERY, $out['engineering_delivery']);
         $this->assertSame(DepartmentContractRuntime::FIELD_PATCH_PACK, $out['patch_pack']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER, $out['aaeos_architect_decision_ledger']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY, $out['delivery']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY_ZERO_DOWNTIME_L3, $out['delivery_zero_downtime_l3']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DELIVERY_ZERO_DOWNTIME_L3, $out['delivery_zero_downtime_l3']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_DECISION, $out['decision']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CADEIA_TIER_IMPLEMENTADA, $out['cadeia_tier_implementada']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_CONSTELLATION_CANDIDATE, $out['memory_constellation_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PERSONAL_FACT_SIGNAL, $out['personal_fact_signal']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEMORY_CONSTELLATION_CANDIDATE, $out['memory_constellation_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PERSONAL_FACT_SIGNAL, $out['personal_fact_signal']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT, $out['assisted_execution_needs_context']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, $out['classification_target_department_missing']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS, $out['atlas_long_horizon_compaction_receipts']);
@@ -8247,14 +8247,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasNCaptureDrillService::FIELD_JSONL, $out['jsonl']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_CLARIFICATION_LEDGER, $out['aaeos_clarification_ledger']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEBUG_INVESTIGATIONS, $out['aaeos_debug_investigations']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEV, $out['dev']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEV_PLAN_VISIBLE_L2, $out['dev_plan_visible_l2']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEV_PLAN_VISIBLE_L2, $out['dev_plan_visible_l2']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CADENCIA_VIVA, $out['cadencia_viva']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_EXECUCAO_GOVERNADA, $out['execucao_governada']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_UNIFIED, $out['unified']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVATE_REVIEW, $out['private_review']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PRIVATE_REVIEW, $out['private_review']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DECISION_RECEIPT_V2_SIGNED, $out['decision_receipt_v2_signed']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED, $out['department_route_owner_confirmed']);
         $this->assertSame(18, $out['evidence_vision_composed_obra_n_capture_department_contract_floor_count']);
@@ -8276,8 +8276,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RagxChainMechanismService::FIELD_LEXICAL_SPARSE_SHADOW, $out['lexical_sparse_shadow']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEBUG_LEDGER, $out['aaeos_debug_ledger']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_LEDGER, $out['aaeos_delivery_ledger']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5, $out['forge_merge_review_promotion_r5']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5, $out['forge_merge_review_promotion_r5']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AURG_STORE_UNAVAILABLE, $out['aurg_store_unavailable']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CPT_09_COMPACTION_ENFORCE, $out['cpt_09_compaction_enforce']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_FEEDBACK_LOOP_VIVO, $out['feedback_loop_vivo']);
@@ -8295,8 +8295,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_NOT_MET, $out['condition_not_met']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_PACKS, $out['aaeos_delivery_packs']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEV_EVIDENCE_LEDGER, $out['aaeos_dev_evidence_ledger']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEMORY, $out['memory']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4, $out['memory_cross_session_handoff_l4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4, $out['memory_cross_session_handoff_l4']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_COUNT_BELOW_FLOOR, $out['series_day_count_below_floor']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_GAP_EXCEEDS_FLOOR, $out['series_gap_exceeds_floor']);
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS, $out['atlas_aaeos_test_run_receipts']);
@@ -8316,10 +8316,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->departmentContractAaeosCognitiveMeasureSeriesHttpPathFloorsContractObserve([]);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEV_RUNS, $out['aaeos_dev_runs']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_ENGINEERING_GOALS, $out['aaeos_engineering_goals']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT, $out['product']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT_MOBILE_SURFACE_L4, $out['product_mobile_surface_l4']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE_SIGNAL, $out['project_evidence_signal']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REDACT_MINIMIZE, $out['redact_minimize']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_PRODUCT_MOBILE_SURFACE_L4, $out['product_mobile_surface_l4']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE_SIGNAL, $out['project_evidence_signal']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_REDACT_MINIMIZE, $out['redact_minimize']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATTESTED_AT, $out['attested_at']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_CAPTURES, $out['captures']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR, $out['engineering_or_forge_pending_aawr']);
@@ -8351,8 +8351,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_MISSING, $out['substrate_restore_drill_missing']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_EXECUTIVE_INTAKE, $out['aaeos_executive_intake']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER, $out['aaeos_forge_evidence_ledger']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_QA_CONTRACT_TESTING_E2E_L4, $out['qa_contract_testing_e2e_l4']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH, $out['research']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_QA_CONTRACT_TESTING_E2E_L4, $out['qa_contract_testing_e2e_l4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_RESEARCH, $out['research']);
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ACTIVE_ITEMS_ONLY, $out['active_items_only']);
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ARCHIVED_AT, $out['archived_at']);
         $this->assertSame(PromotionProtocol::FIELD_MIGRATE_ON_NEXT_TOUCH, $out['migrate_on_next_touch']);
@@ -8378,10 +8378,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_MISSING, $out['green_receipt_missing']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED, $out['lift_cycle_closure_stalled']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RESPOND_AND_EXPIRE, $out['respond_and_expire']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC_INSIGHT_SIGNAL, $out['strategic_insight_signal']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3, $out['research_source_backed_score_l3']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RESPOND_AND_EXPIRE, $out['respond_and_expire']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_STRATEGIC_INSIGHT_SIGNAL, $out['strategic_insight_signal']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3, $out['research_source_backed_score_l3']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_REVIEW, $out['review']);
         $this->assertSame(18, $out['compounding_outcome_acos_measure_department_contract_evolution_long_floor_count']);
     }
 
@@ -8424,8 +8424,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_QA_LEDGER, $out['aaeos_qa_ledger']);
         $this->assertSame(EvidenceVisionThesisComposer::FIELD_REALIZED_RATE, $out['realized_rate']);
         $this->assertSame(EvidenceVisionThesisComposer::FIELD_WEIGHT_ONLY_NEVER_VETO, $out['weight_only_never_veto']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR_OVERRIDE, $out['operator_override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW_DELIVERY_VETO, $out['review_delivery_veto']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OPERATOR_OVERRIDE, $out['operator_override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REVIEW_DELIVERY_VETO, $out['review_delivery_veto']);
         $this->assertSame(AcosMaxVerifiedShareService::FIELD_DEV, $out['dev']);
         $this->assertSame(AcosMaxVerifiedShareService::FIELD_EMITTER_STAGE, $out['emitter_stage']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_COMPUTED_READER_FIELD, $out['computed_reader_field']);
@@ -8464,8 +8464,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SQLITE, $out['sqlite']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTING, $out['testing']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_SQLITE, $out['sqlite']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TESTING, $out['testing']);
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR, $out['evidence_ledger_verifier_error']);
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_NOW, $out['now']);
         $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_REVIEW_REPORTS, $out['aaeos_review_reports']);
@@ -8474,10 +8474,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC_MISSING, $out['owner_doc_missing']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK_FAILED, $out['memory_quality_check_failed']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_WATCHDOG_FAILED, $out['rag_dimension_watchdog_failed']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_REMINDER_COLD_FILE, $out['task_reminder_cold_file']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_ROUTINE, $out['task_routine']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_REVIEW_CROSS_REVIEW_R4, $out['review_cross_review_r4']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TASK_REMINDER_COLD_FILE, $out['task_reminder_cold_file']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TASK_ROUTINE, $out['task_routine']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_REVIEW_CROSS_REVIEW_R4, $out['review_cross_review_r4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SECURITY, $out['security']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FIRST_SEEN, $out['first_seen']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_GROUND_TRUTH_RECEIPT, $out['ground_truth_receipt']);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CURRENT_EMBEDDING_MODEL, $out['current_embedding_model']);
@@ -8505,8 +8505,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYSTEM, $out['system']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ORCHESTRATION, $out['orchestration']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PROBE_SETUP_FAILED, $out['probe_setup_failed']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY_VETO, $out['security_veto']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SPEC, $out['spec']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SECURITY_VETO, $out['security_veto']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SPEC, $out['spec']);
         $this->assertSame(18, $out['department_contract_http_path_frontier_wave_operational_volume_floor_count']);
     }
 
@@ -8577,8 +8577,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_STABILITY_FAILED, $out['scorecard_stability_failed']);
         $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_DEV, $out['dev']);
         $this->assertSame(ExecutionContextCooccurrenceService::FIELD_CORRELATIONAL_COOCCURRENCE, $out['correlational_cooccurrence']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED, $out['evidence_complete_partial_state_caveated']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED, $out['evidence_complete_partial_state_caveated']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_STATUS, $out['status']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DEV_OR_FORGE, $out['dev_or_forge']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ATLAS_DOCS_AUTHORITY_GRAPH, $out['atlas_docs_authority_graph']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC, $out['semantic']);
@@ -8620,8 +8620,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_ATOMIC_CLAIM_PRESENT, $out['atomic_claim_present']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUCRI, $out['aucri']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE, $out['atlas_decide']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID, $out['outcome_envelope_adapter_origin_invalid']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID, $out['outcome_envelope_episode_id_invalid']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CARTOGRAPHY, $out['cartography']);
@@ -8649,8 +8649,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_BOUNDARY_VALIDATED, $out['boundary_validated']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_CYCLE_PLANNED, $out['cycle_planned']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_LEARNING_EXTRACTED, $out['learning_extracted']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SHA256, $out['sha256']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_IMPLEMENTED_PARTIAL, $out['implemented_partial']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_IMPLEMENTED_PARTIAL, $out['implemented_partial']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_OPERATOR, $out['operator']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE, $out['phase']);
         $this->assertSame(RunbookOrchestrator::FIELD_SHA256, $out['sha256']);
@@ -8722,8 +8722,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SCOPE, $out['scope']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_IMMUNE, $out['cognitive_immune']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_PATAMAR_4, $out['patamar_4']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ALGORITHM, $out['algorithm']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTRATEGICA, $out['estrategica']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ALGORITHM, $out['algorithm']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ESTRATEGICA, $out['estrategica']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FEEDBACK_RECORDED_AT, $out['feedback_recorded_at']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FRESHNESS_FULL, $out['freshness_full']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_HYBRID_SCORE, $out['hybrid_score']);
@@ -8747,12 +8747,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CLAIM_TYPE, $out['claim_type']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_GOVERNANCE, $out['governance']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION, $out['self_construction']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ANALOGIA, $out['analogia']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_COMPILER, $out['compiler']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ANALOGIA, $out['analogia']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_COMPILER, $out['compiler']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_AI_RUN_OUTCOME, $out['last_ai_run_outcome']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_DELIVERED_REFS_EVENT, $out['last_delivered_refs_event']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DIM, $out['dim']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DIM_NOT_ALLOWED, $out['dim_not_allowed']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AI_LEARNING_CANDIDATES, $out['ai_learning_candidates']);
@@ -8774,12 +8774,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTAINS_SECRET, $out['contains_secret']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_COMPOUNDING, $out['compounding']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_CORE, $out['memory_core']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_FRAMEWORK, $out['framework']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_FRAMEWORK, $out['framework']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_NEGATIVE_FEEDBACK, $out['last_negative_feedback']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_EVIDENCE, $out['evidence']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_IMPORTANCE, $out['importance']);
         $this->assertSame(18, $out['capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count']);
@@ -8789,8 +8789,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosTestMaxaJinaCognitiveFunctionDepartmentContractFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EMPTY_FILTER, $out['empty_filter']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PHPUNIT_BINARY_MISSING, $out['phpunit_binary_missing']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EMPTY_FILTER, $out['empty_filter']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PHPUNIT_BINARY_MISSING, $out['phpunit_binary_missing']);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MEAN, $out['mean']);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SHA256, $out['sha256']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CADASTR, $out['cadastr']);
@@ -8801,12 +8801,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_EVALUATED_AT, $out['evaluated_at']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_APP, $out['app']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITION, $out['cognition']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HIPOTESE, $out['hipotese']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HIPOTESE, $out['hipotese']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LEARNING_LIFT_CASES_MISSING, $out['learning_lift_cases_missing']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIFT_CASE_COUNT, $out['lift_case_count']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_HUMAN_NAME, $out['human_name']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_HUMAN_NAME, $out['human_name']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_MEMORY, $out['memory']);
         $this->assertSame(18, $out['aaeos_test_maxa_jina_cognitive_function_department_contract_floor_count']);
     }
 
@@ -8826,8 +8826,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_NEGATIVE_FEEDBACK_COUNT, $out['negative_feedback_count']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CROSS_DOMAIN, $out['cross_domain']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_PROGRAMMING, $out['programming']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HYPOTHESIS, $out['hypothesis']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HYPOTHESIS, $out['hypothesis']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIKE, $out['like']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_DOMAIN, $out['linker_memory_domain']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MIN_CTX_TOKENS, $out['min_ctx_tokens']);
@@ -8880,8 +8880,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_AEMOR, $out['aemor']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PRIVACY_CLASS, $out['privacy_class']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_ENTERED_AT, $out['probation_entered_at']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INSIGHT, $out['insight']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_INSIGHT, $out['insight']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
         $this->assertSame(18, $out['cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floor_count']);
     }
 
@@ -8889,16 +8889,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosImplementationCognitiveFunctionDepartmentContractCognitionScoreFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_APP, $out['app']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_FILE_PATH, $out['file_path']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_APP, $out['app']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_FILE_PATH, $out['file_path']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPOSE, $out['compose']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DECISAO, $out['decisao']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA, $out['every_department_declares_evidence_schema']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTE_MIGRATION, $out['execute_migration']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUTONOMY, $out['autonomy']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CARTOGRAPHY, $out['cartography']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_JAILBREAK, $out['jailbreak']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LATENCY, $out['latency']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_JAILBREAK, $out['jailbreak']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_LATENCY, $out['latency']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_EVALUATED_AT, $out['probation_evaluated_at']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_STARTED_AT, $out['probation_started_at']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEMORY_FRESHNESS_BELOW_FULL, $out['memory_freshness_below_full']);
@@ -8922,8 +8922,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOC, $out['doc']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS, $out['every_department_declares_12_canon_fields']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTION_LOG_HASH, $out['execution_log_hash']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MERGED, $out['merged']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PATCH, $out['patch']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MERGED, $out['merged']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PATCH, $out['patch']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_CACHE, $out['context_cache']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_INTELLIGENCE, $out['context_intelligence']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION, $out['probation_supervening_contradiction']);
@@ -8951,8 +8951,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOCUMENTO, $out['documento']);
         $this->assertSame(DepartmentContractRuntime::FIELD_FORGE_PARALLEL_AGENT_COUNT, $out['forge_parallel_agent_count']);
         $this->assertSame(DepartmentContractRuntime::FIELD_LEARNING_SIGNAL_EXTRACTED, $out['learning_signal_extracted']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRINCIPIO, $out['principio']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PRINCIPIO, $out['principio']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_QUALITY, $out['context_quality']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE, $out['evidence']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_HINT, $out['promotion_mode_hint']);
@@ -8978,8 +8978,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EXECUTE, $out['execute']);
         $this->assertSame(DepartmentContractRuntime::FIELD_LINT_GREEN, $out['lint_green']);
         $this->assertSame(DepartmentContractRuntime::FIELD_LOGS_HASH, $out['logs_hash']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REFACTOR, $out['refactor']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_REFACTOR, $out['refactor']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_LONG_HORIZON, $out['long_horizon']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_OPEN_BRAIN, $out['open_brain']);
         $this->assertSame(18, $out['reactive_saturation_architect_agent_autonomous_work_acos_program_floor_count']);
@@ -8999,12 +8999,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EXPLIQUE, $out['explique']);
         $this->assertSame(DepartmentContractRuntime::FIELD_LONG_HORIZON_STATE_PERSISTED, $out['long_horizon_state_persisted']);
         $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_HAS_NO_DOWNSTREAM, $out['memory_has_no_downstream']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REGRESSION, $out['regression']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RELEASE, $out['release']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_REGRESSION, $out['regression']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RELEASE, $out['release']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ATLAS_AURG_NODES, $out['atlas_aurg_nodes']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AI_COMPOUNDING_MEMORIES, $out['ai_compounding_memories']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_GATES, $out['gates']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_INPUTS, $out['inputs']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_ISSUE, $out['issue']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_PREFERENCE, $out['preference']);
         $this->assertSame(18, $out['phase_advance_structured_fact_immune_check_cognitive_function_floor_count']);
@@ -9020,14 +9020,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FIGMA, $out['figma']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_GATES, $out['every_department_declares_gates']);
         $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_EVIDENCE_LEDGER, $out['modify_evidence_ledger']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SHIPPED, $out['shipped']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGY, $out['strategy']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_SHIPPED, $out['shipped']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_STRATEGY, $out['strategy']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_TRACES_TO_REVERTED, $out['provenance_traces_to_reverted']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVIDER_SAFE, $out['provider_safe']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_OCCURRED_AT, $out['occurred_at']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RETRIEVAL_RECEIPT_ID, $out['retrieval_receipt_id']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OUTPUTS, $out['outputs']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_RESEARCH, $out['research']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_RESEARCH, $out['research']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_NON_DETERMINISTIC_MODEL_REFUSED, $out['non_deterministic_model_refused']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_PAIR_SCORING, $out['pair_scoring']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_IS_STRING, $out['is_string']);
@@ -9049,12 +9049,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_ATLAS_MISSION_DELIVERIES, $out['atlas_mission_deliveries']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID, $out['outcome_envelope_native_divergent_invalid']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID, $out['outcome_envelope_schema_invalid']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MEMORY_LIMIT, $out['memory_limit']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC, $out['strategic']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TECHNICAL_LEARNING_SIGNAL, $out['technical_learning_signal']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEV, $out['dev']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MEMORY_LIMIT, $out['memory_limit']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_STRATEGIC, $out['strategic']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TECHNICAL_LEARNING_SIGNAL, $out['technical_learning_signal']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_REVIEW, $out['review']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_PRIORITY, $out['priority']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_RESOLUTION, $out['resolution']);
         $this->assertSame(18, $out['cognitive_function_department_contract_cognition_score_lote_measure_floor_count']);
@@ -9076,8 +9076,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_NEGATIVE_FEEDBACK, $out['recall_negative_feedback']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCORE_REGRESSION, $out['score_regression']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SNAPSHOT_FRESH, $out['snapshot_fresh']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESE, $out['tese']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANKS, $out['thanks']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TESE, $out['tese']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_THANKS, $out['thanks']);
         $this->assertSame(PromotionProtocol::FIELD_MISSING_FLIP_RECEIPT, $out['missing_flip_receipt']);
         $this->assertSame(PromotionProtocol::FIELD_MISSING_OBSERVATION_WINDOW_ID, $out['missing_observation_window_id']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID, $out['placement_decision_feature_path_valid']);
@@ -9114,16 +9114,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosTestCognitiveFunctionDepartmentContractImplementationMemoryFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PROCESS_UNAVAILABLE, $out['process_unavailable']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PROCESS_UNAVAILABLE, $out['process_unavailable']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REVIEW, $out['review']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CONTROLLER, $out['controller']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_IMPLEMENTE, $out['implemente']);
         $this->assertSame(DepartmentContractRuntime::FIELD_PROPOSE_MIGRATION_PLAN, $out['propose_migration_plan']);
         $this->assertSame(DepartmentContractRuntime::FIELD_PROVIDER_TOPOLOGY_GREEN, $out['provider_topology_green']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SCOPE, $out['scope']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SECURITY, $out['security']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLI_COMMAND, $out['cli_command']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION_TABLE, $out['migration_table']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_CLI_COMMAND, $out['cli_command']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MIGRATION_TABLE, $out['migration_table']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCORE, $out['score']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC_NOTE, $out['semantic_note']);
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CONTENT_HASH, $out['content_hash']);
@@ -9143,14 +9143,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INTEGRITY, $out['integrity']);
         $this->assertSame(DepartmentContractRuntime::FIELD_QUARANTINE_CAPSULE, $out['quarantine_capsule']);
         $this->assertSame(DepartmentContractRuntime::FIELD_REGRESSION_TESTS_ADDED, $out['regression_tests_added']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_STRTOLOWER, $out['strtolower']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_STRTOLOWER, $out['strtolower']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RETENTION_OK, $out['retention_ok']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SURFACE_ID, $out['surface_id']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_UTILITY_REAL_SHARE, $out['utility_real_share']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THESIS, $out['thesis']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VALEU, $out['valeu']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_THESIS, $out['thesis']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_VALEU, $out['valeu']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TERM_WEIGHTS_EXPOSED, $out['term_weights_exposed']);
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TOKEN_EMBEDDINGS_EXPOSED, $out['token_embeddings_exposed']);
         $this->assertSame(PromotionProtocol::FIELD_SHA256, $out['sha256']);
@@ -9225,9 +9225,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DepartmentContractRuntime::FIELD_RISK_ACKNOWLEDGED, $out['risk_acknowledged']);
         $this->assertSame(DepartmentContractRuntime::FIELD_RUN_REPRO, $out['run_repro']);
         $this->assertSame(DepartmentContractRuntime::FIELD_RUN_TESTS, $out['run_tests']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SECURITY_THREAT_MODELING_L4, $out['security_threat_modeling_l4']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SHA256, $out['sha256']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RUNTIME_VERIFIED, $out['runtime_verified']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SECURITY_THREAT_MODELING_L4, $out['security_threat_modeling_l4']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_RUNTIME_VERIFIED, $out['runtime_verified']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FORGE, $out['forge']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CAPABILITY, $out['capability']);
         $this->assertSame(SegmentImportanceRanker::FIELD_IMPORTANCE, $out['importance']);
@@ -9376,10 +9376,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISUALIZE, $out['visualize']);
         $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_STALE, $out['substrate_restore_drill_stale']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID, $out['outcome_envelope_verified_invalid']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BELEZA, $out['beleza']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_TRIGGERS, $out['triggers']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIGNATURE, $out['signature']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BELEZA, $out['beleza']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_DELIVERY, $out['delivery']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TECHNICAL_CONTEXT, $out['technical_context']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITHOUT, $out['without']);
         $this->assertSame(18, $out['cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floor_count']);
@@ -9406,7 +9406,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_STORAGE_PATH, $out['storage_path']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_WATCH_STARTED_AT, $out['watch_started_at']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_WINDOWED_CONCENTRATION_GUARDED, $out['windowed_concentration_guarded']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
         $this->assertSame(18, $out['cognitive_function_memory_recall_verified_share_knowledge_item_floor_count']);
     }
 
@@ -9416,8 +9416,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->memoryFeedbackAaeosGateLocalModelFlywheelFunnelFloorsContractObserve([]);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_ARCHIVED_BY_STALE_FEEDBACK, $out['archived_by_stale_feedback']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_FEEDBACK_PRESSURE, $out['degraded_by_feedback_pressure']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_, $out['task_']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_ALL_TASKS_ATOMIC, $out['all_tasks_atomic']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_TASK_, $out['task_']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_ALL_TASKS_ATOMIC, $out['all_tasks_atomic']);
         $this->assertSame(AtlasLocalModelIntegrityService::FIELD_ARTIFACT_UNREADABLE, $out['artifact_unreadable']);
         $this->assertSame(AtlasLocalModelIntegrityService::FIELD_HASH_FAILED, $out['hash_failed']);
         $this->assertSame(AtlasFlywheelFunnelService::FIELD_AUTONOMOS, $out['autonomos']);
@@ -9455,8 +9455,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED, $out['consent_privacy_retention_unconfirmed']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_GIT_LOG, $out['git_log']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_LINEAGE_LEDGER, $out['lineage_ledger']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INJECTION_MARKER, $out['injection_marker']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUG, $out['bug']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_INJECTION_MARKER, $out['injection_marker']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BUG, $out['bug']);
         $this->assertSame(18, $out['ragx_chain_acos_rollback_immune_hybrid_signature_department_floor_count']);
     }
 
@@ -9472,8 +9472,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTS_NEWER_AUTHORITY, $out['contradicts_newer_authority']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DRAFT, $out['draft']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDITE, $out['audite']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EPHEMERAL_DEFAULT, $out['ephemeral_default']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTRATEGIA, $out['estrategia']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_EPHEMERAL_DEFAULT, $out['ephemeral_default']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ESTRATEGIA, $out['estrategia']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_DECISION_RECEIPT_MISSING, $out['decision_receipt_missing']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_DELIVERED_CONTEXT_MISSING, $out['delivered_context_missing']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ASK_ID, $out['ask_id']);
@@ -9499,8 +9499,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_GATE_UNKNOWN, $out['gate_unknown']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_BUSQUE, $out['busque']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODIGO, $out['codigo']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_TASK, $out['imperative_task']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OBRIGADO, $out['obrigado']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_TASK, $out['imperative_task']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_OBRIGADO, $out['obrigado']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_LEARNING_CANDIDATE_MISSING, $out['learning_candidate_missing']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR, $out['operator_request_window_below_floor']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE_BELOW_FLOOR, $out['pipeline_score_below_floor']);
@@ -9526,8 +9526,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_IMAGEM, $out['imagem']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_NO, $out['no']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT, $out['recurrent']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT_EPHEMERAL, $out['recurrent_ephemeral']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RECURRENT, $out['recurrent']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RECURRENT_EPHEMERAL, $out['recurrent_ephemeral']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_OUTCOME_NOT_PROVEN_REAL, $out['outcome_not_proven_real']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM, $out['paired_peek_floor_below_minimum']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FLIP_ID, $out['flip_id']);
@@ -9539,12 +9539,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->aaeosImplementationDocsAuthorityDepartmentCrossContractAcosFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_MD, $out['md']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ARCHIVE, $out['archive']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_MD, $out['md']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_ARCHIVE, $out['archive']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_LIKE, $out['like']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ARCHIVE, $out['archive']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ALREADY_AT_MAX_TIER, $out['already_at_max_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_EVIDENCE_STALE, $out['evidence_stale']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_ALREADY_AT_MAX_TIER, $out['already_at_max_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_EVIDENCE_STALE, $out['evidence_stale']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DEV, $out['dev']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DELIVERY, $out['delivery']);
         $this->assertSame(DepartmentContractRuntime::FIELD_ALLOW, $out['allow']);
@@ -9555,8 +9555,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_ACTOR_COUNTS, $out['probation_recall_actor_counts']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PLAN, $out['plan']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1, $out['mission_foundation_optional_at_phase_1']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT_CLEAR, $out['intent_clear']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET_MISSING, $out['resolved_target_missing']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_INTENT_CLEAR, $out['intent_clear']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_RESOLVED_TARGET_MISSING, $out['resolved_target_missing']);
         $this->assertSame(18, $out['aaeos_implementation_docs_authority_department_cross_contract_acos_floor_count']);
     }
 
@@ -9595,8 +9595,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIFT_BLOCKER_STALLED, $out['lift_blocker_stalled']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_BLOCKED_BY_POLICY, $out['promotion_blocked_by_policy']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_UNRESOLVED, $out['promotion_mode_unresolved']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SECRET_MARKER_PRIVACY, $out['secret_marker_privacy']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TRIVIAL_QUESTION, $out['trivial_question']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_SECRET_MARKER_PRIVACY, $out['secret_marker_privacy']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TRIVIAL_QUESTION, $out['trivial_question']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN, $out['promoted_lesson_denominator_below_min']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING, $out['subsequent_measured_recall_missing']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PATCH_REF, $out['patch_ref']);
@@ -9620,18 +9620,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_CODE, $out['linker_memory_code']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SAFETY_UNEVALUATED, $out['safety_unevaluated']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SCOPE_UNRESOLVED, $out['scope_unresolved']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_PRODUCT, $out['product']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_UNBOUNDED, $out['scope_unbounded']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK_EMPTY, $out['task_pack_empty']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_PARTIAL_RUNTIME, $out['partial_runtime']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SOLID_RUNTIME, $out['solid_runtime']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SCOPE_UNBOUNDED, $out['scope_unbounded']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_TASK_PACK_EMPTY, $out['task_pack_empty']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_PARTIAL_RUNTIME, $out['partial_runtime']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SOLID_RUNTIME, $out['solid_runtime']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_DECISION, $out['decision']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY, $out['memory']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_SOFT_STALE_AGE_EXCEEDS_45D, $out['soft_stale_age_exceeds_45d']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_STALE_AGE_EXCEEDS_180D, $out['stale_age_exceeds_180d']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_HIGH, $out['high']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_LOW, $out['low']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_LOW, $out['low']);
         $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_aaeos_gate_floor_count']);
     }
 
@@ -9680,8 +9680,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_PORTAO, $out['portao']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE, $out['atlas_aemor_memory_candidate']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_AGENT, $out['agent']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_4TH_ITERATION, $out['repair_loop_4th_iteration']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_LOOP_4TH_ITERATION, $out['repair_loop_4th_iteration']);
         $this->assertSame(18, $out['joint_resource_department_contract_acos_watchdog_cognitive_function_floor_count']);
     }
 
@@ -9700,8 +9700,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TASK, $out['task']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR, $out['total_event_count_below_floor']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_WATCH_REGRESSED, $out['watch_regressed']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_GIT, $out['git']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_NAME, $out['symbol_name']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_GIT, $out['git']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL_NAME, $out['symbol_name']);
         $this->assertSame(SummaryFidelityCoverageScorer::FIELD_ID, $out['id']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TS, $out['ts']);
         $this->assertSame(AcosMaxObraRetroService::FIELD_SCOREBOARD_SLICE_REFS, $out['scoreboard_slice_refs']);
@@ -9802,8 +9802,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_JSONL, $out['jsonl']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DEFAULT_PAYLOAD, $out['default_payload']);
         $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_MISSING, $out['local_model_missing']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_UNTRUSTED_URL, $out['untrusted_url']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR_NOT_MET, $out['quality_bar_not_met']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_UNTRUSTED_URL, $out['untrusted_url']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR_NOT_MET, $out['quality_bar_not_met']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_MD, $out['md']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITH, $out['with']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ROLLBACK_COMMAND, $out['rollback_command']);
@@ -9887,8 +9887,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLedgerRotationRegistry::INT_90, $out['90']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_REPORT, $out['aurgCoverageReport']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_WATCH_REPORT, $out['compactionSoakWatchReport']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DESIGN, $out['Design']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DESIGN, $out['Design']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
         $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT, $out['BigramJaccardImmuneSemanticSimilarityPort']);
         $this->assertSame(AtlasImmuneClassifierHybridFreeze::INT_20, $out['20']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_UTC, $out['UTC']);
@@ -9918,10 +9918,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT, $out['engineeringEnforceReadinessReport']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_16, $out['16']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_10, $out['10']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_FINANCE, $out['Finance']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_LEGAL, $out['Legal']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_APP_ENV, $out['APP_ENV']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DB_CONNECTION, $out['DB_CONNECTION']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_FINANCE, $out['Finance']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_LEGAL, $out['Legal']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_APP_ENV, $out['APP_ENV']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_DB_CONNECTION, $out['DB_CONNECTION']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_30, $out['30']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_90, $out['90']);
         $this->assertSame(18, $out['b486_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count']);
@@ -9943,8 +9943,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_REPORT, $out['liftCycleClosureReport']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_11, $out['11']);
         $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_12, $out['12']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_MARKETING, $out['Marketing']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_OPERATIONS, $out['Operations']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_MARKETING, $out['Marketing']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_OPERATIONS, $out['Operations']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_D3_RELATION_DENSITY, $out['D3_relation_density']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_D4_D5_FEEDBACK, $out['D4_D5_feedback']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS2, $out['SIS2']);
@@ -9972,8 +9972,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasDocsAuthorityGraphService::INT_40, $out['40']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_10, $out['10']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_100, $out['100']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DB_DATABASE, $out['DB_DATABASE']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_HEAD, $out['HEAD']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_DB_DATABASE, $out['DB_DATABASE']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_HEAD, $out['HEAD']);
         $this->assertSame(18, $out['b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floor_count']);
     }
 
@@ -10006,16 +10006,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b490AaeosImplementationCognitionScorePromotionProtocolQualityFrontierFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_BY_TYPE, $out['byType']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_2, $out['Test']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_BY_TYPE, $out['byType']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST_2, $out['Test']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACFQ, $out['ACFQ']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACIE, $out['ACIE']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE_2, $out['GOVERNANCE']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_IMMUNE, $out['IMMUNE']);
         $this->assertSame(PromotionProtocol::FIELD_FEE, $out['FEE']);
         $this->assertSame(PromotionProtocol::FIELD_MAXB, $out['MAXB']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_PRODUCT, $out['Product']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_RESEARCH, $out['Research']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_PRODUCT, $out['Product']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_RESEARCH, $out['Research']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS5, $out['SIS5']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS6, $out['SIS6']);
         $this->assertSame(AcosMaxLote2MeasureService::INT_20, $out['20']);
@@ -10039,8 +10039,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FLOAT_10_0, $out['10.0']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_20, $out['20']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_999, $out['999']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_HOME, $out['HOME']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PATH, $out['PATH']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_HOME, $out['HOME']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PATH, $out['PATH']);
         $this->assertSame(PromotionProtocol::FIELD_MULTV, $out['MULTV']);
         $this->assertSame(PromotionProtocol::FIELD_RAGX, $out['RAGX']);
         $this->assertSame(RunbookOrchestrator::FIELD_L13, $out['L13']);
@@ -10147,7 +10147,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLedgerRotationRegistry::INT_64, $out['64']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_180, $out['180']);
         $this->assertSame(DepartmentContractRuntime::INT_11, $out['11']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SALES, $out['Sales']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_SALES, $out['Sales']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS7, $out['SIS7']);
         $this->assertSame(18, $out['b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floor_count']);
     }
@@ -10184,8 +10184,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(SegmentImportanceRanker::FLOAT_0_1, $out['0.1']);
         $this->assertSame(CaptureHmacLineageService::FIELD_MAXI_07, $out['MAXI-07']);
         $this->assertSame(CaptureHmacLineageService::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE, $out['cognitive_quarantine.lineage.hmac_lineage']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_2, $out['2']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_3, $out['3']);
+        $this->assertSame(AtlasPhaseRouterService::INT_2, $out['2']);
+        $this->assertSame(AtlasPhaseRouterService::INT_3, $out['3']);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED, $out['atlas.loop.exploratory_bets_portfolio_enabled']);
         $this->assertSame(ExploratoryBetsPortfolio::FLOAT_0_0, $out['0.0']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_TETO_10, $out['TETO-10']);
@@ -10236,8 +10236,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasNCaptureDrillService::FIELD_ADMISSION_BYPASS, $out['admission.bypass']);
         $this->assertSame(PromotionProtocol::FIELD_ASI_06, $out['ASI-06']);
         $this->assertSame(PromotionProtocol::FIELD_ASI_07, $out['ASI-07']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_80, $out['0.80']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_75, $out['0.75']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_80, $out['0.80']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_75, $out['0.75']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACMF_SE, $out['ACMF-SE']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_AKIF_OCR, $out['AKIF-OCR']);
         $this->assertSame(18, $out['b499_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
@@ -10261,8 +10261,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_VERIFIED, $out['capability_spec.verified']);
         $this->assertSame(PromotionProtocol::FIELD_ASI_08, $out['ASI-08']);
         $this->assertSame(PromotionProtocol::FIELD_ASI_10, $out['ASI-10']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_85, $out['0.85']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_68, $out['0.68']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_85, $out['0.85']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_68, $out['0.68']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_HTTP_PATH_FACADE, $out['aaeos.http_path_facade']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_MISSION_DETECTION, $out['aaeos.mission_detection']);
         $this->assertSame(18, $out['b500_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
@@ -10311,8 +10311,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasNCaptureDrillService::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS, $out['times.time_to_first_routed_task_seconds']);
         $this->assertSame(PromotionProtocol::FIELD_RAGX_02, $out['RAGX-02']);
         $this->assertSame(PromotionProtocol::FIELD_CODEX_ELEV26S_JUDGE, $out['codex-elev26s-judge']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_70, $out['0.70']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_72, $out['0.72']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_70, $out['0.70']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_72, $out['0.72']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_PLACEMENT, $out['aaeos.placement']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_POLICY_GATE, $out['aaeos.policy_gate']);
         $this->assertSame(18, $out['b502_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
@@ -10363,8 +10363,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED, $out['atlas.memory.contextual_blurb_enabled']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_METRICS_SCORECARD_OVERALL, $out['metrics.scorecard_overall']);
         $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, $out['score.dimensions.pipeline.score_out_of_10']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_74, $out['0.74']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_77, $out['0.77']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_74, $out['0.74']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_77, $out['0.77']);
         $this->assertSame(18, $out['b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floor_count']);
     }
 
@@ -10484,8 +10484,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_STATUS, $out['s.status']);
         $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2, $out['atlas.memory.feedback_ranking_enabled']);
         $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED, $out['atlas.memory.fusion_v2_enabled']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_78, $out['0.78']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_79, $out['0.79']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_78, $out['0.78']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_79, $out['0.79']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE, $out['codex-independent-teto01-judge']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_CURSOR_ACOS_MAX_TETO01, $out['cursor-acos-max-teto01']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_SPEC, $out['aaeos.spec']);
@@ -10557,8 +10557,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON_2, $out['LONG-HORIZON']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_EMBEDDED_CONTENT_HASH, $out['e.embedded_content_hash']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_SOURCE_HASH, $out['s.source_hash']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_81, $out['0.81']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_82, $out['0.82']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_81, $out['0.81']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_82, $out['0.82']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED, $out['denominators.proven_real_outcomes_observed']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED, $out['denominators.routed_tasks_observed']);
         $this->assertSame(PromotionProtocol::FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED, $out['acos.land.autonomous_verification_required']);
@@ -10609,8 +10609,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY, $out['pip-08.scorecard_stability']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_2, $out['OPEN-BRAIN']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_2, $out['PERSISTENT-CONTEXT']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_88, $out['0.88']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_90, $out['0.90']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_88, $out['0.88']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_90, $out['0.90']);
         $this->assertSame(SpecCompletenessScorer::INT_6, $out['6']);
         $this->assertSame(SpecCompletenessScorer::INT_7, $out['7']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE, $out['codex-independent-maxa06-fase2-judge']);
@@ -10710,9 +10710,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1, $out['atlas.provider_leak_corpus.v1']);
         $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1, $out['atlas.resource_budget.v1']);
         $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_KIND_2, $out['condition.kind']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::INT_2, $out['2']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_4, $out['4']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REV_PARSE, $out['rev-parse']);
+        $this->assertSame(AtlasImplementationTruthService::INT_2, $out['2']);
+        $this->assertSame(AtlasPhaseRouterService::INT_4, $out['4']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REV_PARSE, $out['rev-parse']);
         $this->assertSame(MemoryFeedbackDecayScorer::FLOAT_0_0, $out['0.0']);
         $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR, $out['thresholds.procedural_case_count_floor']);
         $this->assertSame(18, $out['b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floor_count']);
@@ -10824,7 +10824,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->b523AcosEvolutionCognitionScoreAaeosQualitySpecCompletenessFloorsContractObserve([]);
         $this->assertSame(AtlasAcosEvolutionScoreService::FLOAT_2_5, $out['2.5']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_2, $out['VERIFIED-CONTEXT']);
-        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_92, $out['0.92']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FLOAT_0_92, $out['0.92']);
         $this->assertSame(SpecCompletenessScorer::INT_9, $out['9']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FLOAT_1_0, $out['1.0']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK_REGRET_MEASURE_ID, $out['yardstick.regret_measure_id']);
@@ -10911,8 +10911,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve([]);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK, $out['keyword_fallback']);
         $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE_NORMALIZED, $out['needle_normalized']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_IN, $out['phase_in']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_OUT, $out['phase_out']);
         $this->assertSame(AsefChunkIndexService::FIELD_ASEF_CHUNKS, $out['asef_chunks']);
@@ -10923,8 +10923,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LICENSE, $out['license']);
         $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR, $out['blocked_gates_repair']);
         $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR, $out['missing_required_gates_repair']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
         $this->assertSame(AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION, $out['lessons_without_promotion']);
         $this->assertSame(AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION, $out['recalls_without_citation']);
         $this->assertSame(18, $out['b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floor_count']);
@@ -10936,20 +10936,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->b528QualityBarAaeosCognitiveOutcomeEnvelopeOperationalVolumeFloorsContractObserve([]);
         $this->assertSame(QualityBarTelemetryContract::FIELD_BREACH_COUNT, $out['breach_count']);
         $this->assertSame(QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS, $out['evaluated_window_days']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID, $out['outcome_envelope_certified_receipt_id_invalid']);
         $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID, $out['outcome_envelope_evidence_ref_count_invalid']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $out['atlas_aemor_execution_episodes']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
         $this->assertSame(ContextParetoDominanceFilter::FIELD_EQUALS, $out['equals']);
         $this->assertSame(ContextParetoDominanceFilter::FIELD_MAX, $out['max']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR, $out['quality_bar']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR, $out['quality_bar']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID, $out['capability_id']);
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
         $this->assertSame(18, $out['b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floor_count']);
@@ -10969,8 +10969,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PreReviewAdvisoryBand::FIELD_LOW, $out['low']);
         $this->assertSame(GoldenCounterfactualReplayService::FIELD_RECALL_AT_5, $out['recall_at_5']);
         $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITH, $out['with']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_DOC_STATUS, $out['doc_status']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE_STATUS, $out['code_status']);
         $this->assertSame(AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED, $out['promote_allowed']);
@@ -11011,10 +11011,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->b531MemoryFeedbackAaeosTestImplementationDepartmentContractLoteFloorsContractObserve([]);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_BASE_PRIORITY, $out['base_priority']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_LAST_USED_AT_AGE_DAYS, $out['last_used_at_age_days']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST, $out['test']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE, $out['docs/engineering-knowledge-base']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE, $out['docs/engineering-knowledge-base']);
         $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_SECURITY_POLICY, $out['modify_security_policy']);
         $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_RELEASE, $out['approve_release']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_CREATED_AT, $out['created_at']);
@@ -11067,8 +11067,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DepartmentContractRuntime::FIELD_GATES, $out['gates']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE, $out['fixture']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_TASK_ID, $out['task_id']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY, $out['security']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_DELIVERY, $out['delivery']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ITEM, $out['item']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIP, $out['pending_flip']);
         $this->assertSame(AtlasMissionControlCockpitService::FIELD_ACTIVE_LEASES, $out['active_leases']);
@@ -11117,8 +11117,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DepartmentContractRuntime::FIELD_PERSISTENCE, $out['persistence']);
         $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_HASH, $out['chunk_hash']);
         $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING, $out['embedding']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_DEV, $out['dev']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
         $this->assertSame(SpecCompletenessScorer::FIELD_BLOCKING_QUESTIONS, $out['blocking_questions']);
         $this->assertSame(SpecCompletenessScorer::FIELD_ASSUMPTIONS, $out['assumptions']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_NEGATIVE_COUNT, $out['negative_count']);
@@ -11184,8 +11184,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___FILTER, $out['--filter']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD___FILTER, $out['--filter']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY, $out['topology']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_HIGH, $out['high']);
         $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE, $out['scope']);
@@ -11209,8 +11209,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b539AaeosVetoSegmentImportanceFlywheelFunnelPreReviewFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REVIEW, $out['review']);
         $this->assertSame(SegmentImportanceRanker::FIELD_RECENCY_RANK, $out['recency_rank']);
         $this->assertSame(SegmentImportanceRanker::FIELD_TOKEN_ESTIMATE, $out['token_estimate']);
         $this->assertSame(AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME, $out['citations_without_better_outcome']);
@@ -11221,8 +11221,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES, $out['threshold_breaches']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION, $out['generation']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISION, $out['vision']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
         $this->assertSame(SpecCompletenessScorer::FIELD_REQUIREMENTS, $out['requirements']);
         $this->assertSame(SpecCompletenessScorer::FIELD_ACCEPTANCE_CRITERIA, $out['acceptance_criteria']);
         $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOVERABLE, $out['recoverable']);
@@ -11238,8 +11238,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ImmuneCalibrationService::FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE, $out['informational_only_never_auto_adjusts_gate']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REF_STABILITY, $out['ref_stability']);
         $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER, $out['no_raw_query_or_context_in_report_or_ledger']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL, $out['completion_claim_allowed_without_proven_real']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN, $out['fixture_chain']);
         $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL, $out['app/atlas/evidence/ragx-ab-registrations.jsonl']);
@@ -11284,8 +11284,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___NO_COVERAGE, $out['--no-coverage']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___PORCELAIN, $out['--porcelain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD___NO_COVERAGE, $out['--no-coverage']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD___PORCELAIN, $out['--porcelain']);
         $this->assertSame(AcosMaxVerifiedShareService::FIELD_FORGE, $out['forge']);
         $this->assertSame(AcosMaxVerifiedShareService::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL, $out['storage/atlas/atlas_decide/live_outcomes.jsonl']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS, $out['atlas:flywheel:loops']);
@@ -11309,15 +11309,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
         $this->assertSame(ContextParetoDominanceFilter::FIELD_MIN, $out['min']);
         $this->assertSame(OutcomeCausalityRanker::FIELD_TESTS_PASSED, $out['tests_passed']);
         $this->assertSame(SummaryFidelityCoverageScorer::FIELD_DIGEST, $out['digest']);
         $this->assertSame(AtlasNCaptureDrillService::FIELD_ENGINE_ID, $out['engine_id']);
         $this->assertSame(ExploratoryBetsPortfolio::FIELD_PATH_YIELD, $out['path_yield']);
         $this->assertSame(PromotionProtocol::FIELD_ROLLBACK_TRIGGER, $out['rollback_trigger']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
         $this->assertSame(AtlasResourceBudgetService::FIELD_OVER_RAM_CAP, $out['over_ram_cap']);
         $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITHOUT, $out['without']);
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST, $out['test']);
@@ -11325,8 +11325,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_TABLE, $out['table']);
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH, $out['chain_length']);
         $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_RESTORED_OK, $out['restored_ok']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT, $out['evidence_complete_all_required_fields_present']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT, $out['evidence_complete_all_required_fields_present']);
         $this->assertSame(18, $out['b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floor_count']);
     }
 
@@ -11334,9 +11334,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SYMBOL, $out['symbol']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
         $this->assertSame(PortfolioBudgetAllocator::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT, $out['weight_change_refused_missing_amendment_receipt']);
         $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_JSONL, $out['atlas/aaeos/deferred.jsonl']);
         $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH, $out['spec_pack_hash']);
@@ -11359,9 +11359,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR, $out['repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR, $out['repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator']);
         $this->assertSame(SegmentImportanceRanker::FIELD_ID, $out['id']);
         $this->assertSame(SpecCompletenessScorer::FIELD_NON_GOALS, $out['non_goals']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW, $out['no_complete_proven_real_loop_window']);
@@ -11384,16 +11384,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b546AaeosDepartmentAutonomousWorkHttpAobgLatencyQualityFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L2, $out['L2']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L3, $out['L3']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_L2, $out['L2']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_L3, $out['L3']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_L6, $out['L6']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_L7, $out['L7']);
         $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD__COUNT, $out['.count']);
         $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD__MAX, $out['.max']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD__P95_MS, $out['.p95_ms']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD__OPS, $out['.ops']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_CUSTOMER_SUCCESS, $out['Customer Success']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_HUMAN_RESOURCES, $out['Human Resources']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_CUSTOMER_SUCCESS, $out['Customer Success']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_HUMAN_RESOURCES, $out['Human Resources']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_AGENTIC_RAG_FRAMEWORK, $out['Agentic RAG Framework']);
         $this->assertSame(AtlasCognitionScoreCardService::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC, $out['Antifragility Composition Metric']);
         $this->assertSame(DepartmentContractRuntime::FIELD_L2, $out['L2']);
@@ -11421,8 +11421,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G1, $out['G1']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON, $out['atlas:acos:operational-volume --json']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON, $out['atlas:acos:rollback-triggers --json']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R0, $out['R0']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R1, $out['R1']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R0, $out['R0']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R1, $out['R1']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_L0, $out['L0']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_L1, $out['L1']);
         $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASKS_2, $out['Batched asks']);
@@ -11446,8 +11446,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G2, $out['G2']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON, $out['atlas:flywheel:loops --json']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES___JSON, $out['atlas:acos:m-series --json']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R2, $out['R2']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R3, $out['R3']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R2, $out['R2']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R3, $out['R3']);
         $this->assertSame(ImmuneCalibrationService::FIELD_G3, $out['G3']);
         $this->assertSame(ImmuneCalibrationService::FIELD_ATLAS_IMMUNE_CALIBRATION___JSON, $out['atlas:immune:calibration --json']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD__JSONL, $out['.jsonl']);
@@ -11471,10 +11471,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G4, $out['G4']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON, $out['atlas:atlas-decide:live-feedback --regret --json']);
         $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS___JSON, $out['atlas:promotions --json']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L1, $out['L1']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L4, $out['L4']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R4, $out['R4']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R5, $out['R5']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_L1, $out['L1']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_L4, $out['L4']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R4, $out['R4']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R5, $out['R5']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_L4, $out['L4']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_L5, $out['L5']);
         $this->assertSame(18, $out['b549_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
@@ -11675,22 +11675,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b558AaeosCognitiveFunctionConsolidationRerankCaptureHmacDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOA_TARDE, $out['boa tarde']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOM_DIA, $out['bom dia']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU, $out['build passou']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK, $out['deploy ok']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL, $out['disregard all']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS, $out['disregard previous']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW, $out['do anything now']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO, $out['em producao']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES, $out['esqueca as instrucoes']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BOA_TARDE, $out['boa tarde']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BOM_DIA, $out['bom dia']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU, $out['build passou']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK, $out['deploy ok']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL, $out['disregard all']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS, $out['disregard previous']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW, $out['do anything now']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO, $out['em producao']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES, $out['esqueca as instrucoes']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_POR_QUE, $out['por que']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PULL_REQUEST, $out['pull request']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_QUAIS_SAO, $out['quais sao']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_QUAL_E, $out['qual e']);
         $this->assertSame(AtlasConsolidationRerankGuard::FIELD_FALHA_AO_GRAVAR_BASELINE, $out['falha ao gravar baseline']);
         $this->assertSame(CaptureHmacLineageService::FIELD_CAPTURES_TABLE_UNAVAILABLE, $out['captures table unavailable']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO, $out['falta threat modeling automatico']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO, $out['falta threat modeling automatico']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_GATES_REQUIRED, $out['gates required']);
         $this->assertSame(AutonomousWorkExecutionOs::FIELD_GOAL_TEXT_REQUIRED, $out['goal text required']);
         $this->assertSame(18, $out['b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floor_count']);
@@ -11700,24 +11700,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b559AaeosCognitiveFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO, $out['esta funcionando']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_MORO, $out['eu moro']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO, $out['eu prefiro']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING, $out['good morning']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS, $out['ignore all previous']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES, $out['ignore as instrucoes']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS, $out['ignore previous']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES, $out['ignore suas instrucoes']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS, $out['ignore the previous']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK, $out['memory leak']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO, $out['meu aniversario']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E, $out['meu nome e']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA, $out['minha esposa']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY, $out['my birthday']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE, $out['my favorite']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_NULL_POINTER, $out['null pointer']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS, $out['override instructions']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION, $out['race condition']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO, $out['esta funcionando']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_EU_MORO, $out['eu moro']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO, $out['eu prefiro']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING, $out['good morning']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS, $out['ignore all previous']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES, $out['ignore as instrucoes']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS, $out['ignore previous']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES, $out['ignore suas instrucoes']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS, $out['ignore the previous']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK, $out['memory leak']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO, $out['meu aniversario']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E, $out['meu nome e']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA, $out['minha esposa']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY, $out['my birthday']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE, $out['my favorite']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_NULL_POINTER, $out['null pointer']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS, $out['override instructions']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION, $out['race condition']);
         $this->assertSame(18, $out['b559_aaeos_cognitive_floor_count']);
     }
 
@@ -11725,14 +11725,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b560AaeosCognitiveFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR, $out['reveal your']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STACK_TRACE, $out['stack trace']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT, $out['system prompt']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM, $out['testes passaram']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANK_YOU, $out['thank you']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TUDO_BEM, $out['tudo bem']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E, $out['voce agora e']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW, $out['you are now']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR, $out['reveal your']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_STACK_TRACE, $out['stack trace']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT, $out['system prompt']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM, $out['testes passaram']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_THANK_YOU, $out['thank you']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_TUDO_BEM, $out['tudo bem']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E, $out['voce agora e']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW, $out['you are now']);
         $this->assertSame(8, $out['b560_aaeos_cognitive_floor_count']);
     }
 
@@ -11849,15 +11849,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_TEXT, $out['chunk_text']);
         $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDED_TEXT, $out['embedded_text']);
         $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING_STATUS, $out['embedding_status']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_REF, $out['ref']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_EVIDENCE, $out['evidence']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_CLAIMED_STATE_RAW, $out['claimed_state_raw']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_RESOLUTION, $out['test_resolution']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_BY_COMPUTED_STATE, $out['by_computed_state']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_BEARING_ROWS, $out['test_bearing_rows']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_CLAIMED_STATE_RAW, $out['claimed_state_raw']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_TEST_RESOLUTION, $out['test_resolution']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_BY_COMPUTED_STATE, $out['by_computed_state']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_TEST_BEARING_ROWS, $out['test_bearing_rows']);
         $this->assertSame(18, $out['b565_asef_chunk_aaeos_implementation_floor_count']);
     }
 
@@ -11965,12 +11965,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHED, $out['breached']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SIGNAL, $out['signal']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACHED, $out['breached']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACHES, $out['breaches']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_ALLOWED_BASIS, $out['allowed_basis']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_BASIS, $out['counterfactual_basis']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR, $out['denominator']);
@@ -12027,12 +12027,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ImmuneSignatureStore::FIELD_MODE, $out['mode']);
         $this->assertSame(ImmuneSignatureStore::FIELD_DECAY_DAYS, $out['decay_days']);
         $this->assertSame(ImmuneSignatureStore::FIELD_CREATED_AT, $out['created_at']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
         $this->assertSame(18, $out['b572_execution_context_immune_signature_aaeos_veto_floor_count']);
     }
 
@@ -12271,9 +12271,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CaptureHmacLineageService::FIELD_STAMPED_AT, $out['stamped_at']);
         $this->assertSame(CaptureHmacLineageService::FIELD_KIND, $out['kind']);
         $this->assertSame(CaptureHmacLineageService::FIELD_STAGE_PAYLOAD_HASH, $out['stage_payload_hash']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
         $this->assertSame(OutcomeCausalityRanker::FIELD_STATUS, $out['status']);
         $this->assertSame(OutcomeCausalityRanker::FIELD_CAUSES, $out['causes']);
         $this->assertSame(OutcomeCausalityRanker::FIELD_SCHEMA_VERSION, $out['schema_version']);
@@ -12327,12 +12327,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DAY, $out['day']);
         $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
         $this->assertSame(18, $out['b584_cognitive_function_immune_hybrid_calibration_aobg_latency_department_floor_count']);
     }
 
@@ -12340,8 +12340,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b585AaeosQualityMemoryFeedbackInjectionLoteMeasureSeriesFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_THRESHOLD_REASONS, $out['threshold_reasons']);
         $this->assertSame(MemoryFeedbackDecayScorer::FIELD_INPUTS_ECHO, $out['inputs_echo']);
         $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_SCHEMA_VERSION, $out['schema_version']);
@@ -12402,12 +12402,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_CHECKED, $out['checked']);
         $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_DRILL_AT, $out['last_successful_drill_at']);
         $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_AGE_DAYS, $out['age_days']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_GREEN_RUN_ROWS, $out['green_run_rows']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_BAND, $out['band']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_GREEN_RUN_ROWS, $out['green_run_rows']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['b587_immune_signature_verdict_acos_dead_disk_free_provider_floor_count']);
     }
 
@@ -12461,10 +12461,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S, $out['chain implemented=%s audited=%s tier=%s signed=%s']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_, $out['COM-10 context feedback health is below the pinned floor.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_, $out['CPT-09 compaction soak is not ready for enforce.']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO, $out['A2 Plan-Visible incompleto, HTTP path legado']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3, $out['falta automated root-cause para L3']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_, $out['Invalid AAEOS HTTP path phase.']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_, $out['Legacy HTTP path; AAEOS facade inactive.']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO, $out['A2 Plan-Visible incompleto, HTTP path legado']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3, $out['falta automated root-cause para L3']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_, $out['Invalid AAEOS HTTP path phase.']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_, $out['Legacy HTTP path; AAEOS facade inactive.']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_C_REBRO, $out['cérebro']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_DECIS_O, $out['decisão']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ATLAS_DECIDE___SWARM, $out['Atlas Decide + Swarm']);
@@ -12482,18 +12482,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AaeosPhaseHandoffService::FIELD_ACTOR_KIND_REQUIRED, $out['actor.kind required']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_, $out['Adversarial probe orchestration failed.']);
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE, $out['promotes_selection=false AND blocker=false']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__, $out['DOC L0: no mother_doc and no contracts (idea/research/source material without contract).']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__, $out['DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL, $out['needs >=1 resolved route or command for partial']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL, $out['needs >=1 resolved symbol (class/method) for partial']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__, $out['DOC L0: no mother_doc and no contracts (idea/research/source material without contract).']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__, $out['DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL, $out['needs >=1 resolved route or command for partial']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL, $out['needs >=1 resolved symbol (class/method) for partial']);
         $this->assertSame(PromotionProtocol::FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR, $out['mutation MSI low advisory correlates with later real failure for the executor']);
         $this->assertSame(PromotionProtocol::FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH, $out['suspend executor family on negative root A/B or cost breach']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_RECEIPT_ILEG_VEL, $out['receipt ilegível']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_RECEIPT_N_O_OBJETO, $out['receipt não-objeto']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E, $out['atlas_code_symbol_embeddings as e']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S, $out['atlas_engineering_code_symbols as s']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_LIVE_IN, $out['i live in']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_PREFER, $out['i prefer']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_I_LIVE_IN, $out['i live in']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_I_PREFER, $out['i prefer']);
         $this->assertSame(18, $out['b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floor_count']);
     }
 
@@ -12536,10 +12536,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D, $out['heartbeat_fresh=%s organs_scheduled=%d/%d']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_, $out['ENG-11 enforcement flips are not ready for promotion.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_, $out['FEE-13 learning cadence is stalled or under-evidenced.']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CONTRACT_TESTING_E2_E, $out['falta contract testing E2E']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4, $out['falta cross-session handoff pack L4']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_, $out['Phase 1; placement gate active.']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_, $out['Phase 2; classification and policy gates active.']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_CONTRACT_TESTING_E2_E, $out['falta contract testing E2E']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4, $out['falta cross-session handoff pack L4']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_, $out['Phase 1; placement gate active.']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_, $out['Phase 2; classification and policy gates active.']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_EVID_NCIA, $out['evidência']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_EXECU__O, $out['execução']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_, $out['Context Runtime (AUCRI policies)']);
@@ -12561,12 +12561,12 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_LEG_VEL, $out['legível']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_, $out['MEM-09 memory quality watchdog is not green.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_, $out['OPE-08 lift cycle blockers are not closing.']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO, $out['falta merge review promotion R5 governado']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4, $out['falta surface mobile completa para L4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO, $out['falta merge review promotion R5 governado']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4, $out['falta surface mobile completa para L4']);
         $this->assertSame(EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_PATH_, $out['archive when path ']);
         $this->assertSame(EvidenceVisionThesisComposer::FIELD_LEDGER_CLUSTER_AT_, $out['ledger cluster at ']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_, $out['Phase 3; topology and routing envelopes active.']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_, $out['Phase 4; spec, tasks and receipt envelopes active.']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_, $out['Phase 3; topology and routing envelopes active.']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_, $out['Phase 4; spec, tasks and receipt envelopes active.']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_MEM_RIA, $out['memória']);
         $this->assertSame(DomainLexicalNormalizer::FIELD_VERIFICA__O, $out['verificação']);
         $this->assertSame(18, $out['b594_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
@@ -12586,8 +12586,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S, $out['master_switch=%s tier_exposed=%s governanca_autonoma=%s']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_, $out['OPE-10 found persistent partial scorecard receipts.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_, $out['PIP-08 scorecard stability has not reached a green pipeline series.']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_ZERO_DOWNTIME_GATE_L3, $out['falta zero-downtime gate L3']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4, $out['precisa Architect agent autonomo para L4']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_FALTA_ZERO_DOWNTIME_GATE_L3, $out['falta zero-downtime gate L3']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4, $out['precisa Architect agent autonomo para L4']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS, $out['evidence_hashes must be sha256:* strings']);
         $this->assertSame(AaeosPhaseHandoffService::FIELD_SCHEMA_MUST_BE_, $out['schema must be ']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_REALITY_GRAPH___CROSS_DOMAIN, $out['Reality Graph + Cross-Domain']);
@@ -12615,7 +12615,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_STORE_AUSENTE__0_HONESTO_, $out['store ausente (0 honesto)']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_, $out['RAG-10 AURG cross-layer coverage is below floor.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_, $out['RAG-12 retrieval dimension watchdog found a regression or masking issue.']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF, $out['escalation_to must not point to the department itself']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF, $out['escalation_to must not point to the department itself']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_UNKNOWN_VETOING_DEPARTMENT__ONLY_SECURITY_ARCHITECT_REVIEW_OPERATOR_CAN_VETO, $out['unknown vetoing department; only security/architect/review/operator can veto']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_UNKNOWN_LOTE_2_MEASURE_FREEZE_, $out['Unknown LOTE 2 measure freeze.']);
         $this->assertSame(AcosMaxObraRetroService::FIELD_ACOS_MAX_LOTE__D_SLICE__S_REACHED__S, $out['ACOS Max lote %d slice %s reached %s']);
@@ -12714,9 +12714,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_ARTIFACT_INTEGRITY_BROKEN_VS_MANIFEST_PIN_, $out['Local model artifact integrity broken vs manifest pin.']);
         $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_CHAT_CAPTURE_IS_ENABLED_BUT_REQUIRED_OPERATOR___TABLES_ARE_MISSING_, $out['Operator chat capture is enabled but required operator_* tables are missing.']);
         $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BOUND_REDACTION_STATUS_DRIFT_DETECTED_, $out['Provider-bound redaction status drift detected.']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3, $out['source-backed score baixo para L3']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_, $out['DOC L3: mother_doc + contracts + strong runbook, but ']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED, $out['needs >=1 resolved test for verified']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3, $out['source-backed score baixo para L3']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_, $out['DOC L3: mother_doc + contracts + strong runbook, but ']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED, $out['needs >=1 resolved test for verified']);
         $this->assertSame(EvidenceVisionThesisComposer::FIELD_OUTCOME_PREDICTED_IMPACT_CALIBRATION_HIGH_BAND_REALIZED_RATE_, $out['outcome:predicted_impact_calibration high_band realized_rate ']);
         $this->assertSame(PromotionProtocol::FIELD_DISABLE_CONTEXTUAL_BLURBS_ON_PRECISION_REGRESSION_OR_HALLUCINATED_BLURB_SAMPLE_FAILURE, $out['disable contextual blurbs on precision regression or hallucinated-blurb sample failure']);
         $this->assertSame(18, $out['b600_ledger_rotation_local_model_operator_learning_provider_bound_floor_count']);
@@ -12745,16 +12745,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b602AaeosVetoCitationGroundingGatedCorpusCognitiveLoteFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::RESOLUTION_REDIRECT_UPSTREAM, $out['redirect_upstream']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::RESOLUTION_OVERRIDE_PASS, $out['override_pass']);
+        $this->assertSame(AtlasVetoPropagationResolver::RESOLUTION_REDIRECT_UPSTREAM, $out['redirect_upstream']);
+        $this->assertSame(AtlasVetoPropagationResolver::RESOLUTION_OVERRIDE_PASS, $out['override_pass']);
         $this->assertSame(CitationGroundingMeter::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
         $this->assertSame(GatedCorpusCandidateMiner::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
         $this->assertSame(AcosMaxLote2MeasureService::MISSION_STATUS_DELIVERED, $out['delivered']);
         $this->assertSame(AcosMaxLote2MeasureService::MISSION_STATUS_SUCCEEDED, $out['succeeded']);
         $this->assertSame(12, $out['b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floor_count']);
@@ -12766,22 +12766,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $out = $gates->b603MaxaJinaGeneratedContractLoteMeasureDepartmentAcosFloorsContractObserve([]);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_RAG_MODEL_JINAAI_JINA_EMBEDDINGS_V3_PHP_ARTISAN_ATLAS_MEMORY_EMBED_BACKFILL___STALE___JSON, $out['ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json']);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MAXA_04_ONLY_LANDS_THE_DUAL_READ_RE_EMBED_MECHANISM__PROMOTION_REQUIRES_A_LATER_OPERATOR_REVIEWED_BENCHMARK_WINDOW_, $out['MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_, $out['Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_, $out['Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_A_VALID_LOOP_CHAINS_TASK__DECISION_RECEIPT__DELIVERED_CONTEXT__EXECUTION_OUTCOME__LESSON__AND_SUBSEQUENT_MEASURED_RECALL__PROVEN_REAL_OUTCOME_IS_MANDATORY_, $out['A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_BUCKET_LESSON_LIFT_BY_AGE_SINCE_PROMOTION_USING_TWO_WEEK_BUCKETS__BUCKETS_BELOW_N_8_PUBLISH_INSUFFICIENT_INSTEAD_OF_NULL_, $out['Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.']);
         $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTA_OBRAS_PESADAS_MULTI_M_DULO_R3_R5_COM_PARALELISMO__DURABLE_RESERVATION__MULTI_PROVIDER, $out['executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider']);
         $this->assertSame(DepartmentContractRuntime::FIELD_DEFINE_SPEC_PACK_CAN_NICO__BREAKING_CHANGE_MATRIX_E_MIGRATION_PLAN_ANTES_DE_QUALQUER_EXECU__O, $out['define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TODA_PARCELA___FUN__O_DE_EVID_NCIA_RESOLVIDA_EM_RUNTIME__PROBE_DE_DB_ARQUIVO_AGENDA_CLASSE___NENHUM_LITERAL_AUTO_DECLARADO_, $out['Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_DUAL_READ_OLD_FEEDBACK___2F_NEW_FEEDBACK___2F_LIFT_STATUS__S_WITH_CASES__D_WITHOUT_CASES__D_MEASUREMENT_READY__S, $out['dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_, $out['needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED, $out['needs >=1 resolved receipt (evidence file) for verified']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_, $out['needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED, $out['needs >=1 resolved receipt (evidence file) for verified']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_EMBEDDED_CONTENT_HASH____ATLAS_ENGINEERING_CODE_SYMBOLS_SOURCE_HASH, $out['atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash']);
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_MATCHING_ROW_IN_ATLAS_CODE_SYMBOL_EMBEDDINGS_FOR_SYMBOL_ID, $out['no matching row in atlas_code_symbol_embeddings for symbol_id']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_CONSTITUI__O__SCORECARD_10__CONGELADO_POR_HASH___QUARENTENA_DE_S_NTESE___RAZ_O_DE_TRANSA__ES___JOURNAL_FIRST__SISTEMA_8____O_PORT_O, $out['Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS6_F_BRICA_DE_FROTAS___SIS7_SIMBIOSE_MULTI_DOM_NIO__TRADING_SHADOW_ONLY__EXECU__O_REAL_PROIBIDA_, $out['SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)']);
         $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_CHAR_BIGRAM_JACCARD_IS_A_FLOOR_LEXICAL_ARM__DAEMON_BACKED_REAL_EMBEDDINGS_CAN_RAISE_RECALL___DROP_FP_WITHOUT_CHANGING_THE_FREEZE_CONTRACT_, $out['char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.']);
-        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_, $out['lexical_score = 1.0 iff the base AtlasAaeosCognitiveImmuneInputClassifier routes to a hostile class ']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_, $out['lexical_score = 1.0 iff the base AtlasCognitiveImmuneInputClassifier routes to a hostile class ']);
         $this->assertSame(18, $out['b603_maxa_jina_generated_contract_lote_measure_department_acos_floor_count']);
     }
 
@@ -12801,7 +12801,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_PARADO_AUSENTE, $out['parado/ausente']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_, $out['Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.']);
         $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_, $out['Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_, $out['DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_, $out['DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.']);
         $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS, $out['TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs']);
         $this->assertSame(AcosMaxVerifiedShareService::FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR, $out['verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor']);
         $this->assertSame(Maxa04JinaV3DualReadService::FIELD_RESTORE_ATLAS_SEMANTIC_RAG_MODEL_TO_THE_PRIOR_MODEL_AND_DISCARD_JINA_V3_SHADOW_ROWS_BEFORE_ANY_OPERATOR_PROMOTION_, $out['Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.']);
@@ -12849,13 +12849,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G6, $out['G6']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G7, $out['G7']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G8, $out['G8']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RISK, $out['risk']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTING, $out['routing']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SAMPLE_SIZE, $out['sample_size']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_STRENGTH, $out['strength']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RISK, $out['risk']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SAMPLE_SIZE, $out['sample_size']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_STRENGTH, $out['strength']);
         $this->assertSame(AtlasWatchdogCheckRegistry::FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_, $out['Watchdog check id cannot be empty.']);
         $this->assertSame(18, $out['b606_promotion_protocol_memory_cognitive_learning_proposals_watchdog_check_floor_count']);
     }
@@ -12873,15 +12873,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REASONS, $out['reasons']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM, $out['atomic_claim']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CAPTURE_CONSENTED, $out['capture_consented']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SUGGESTED_ACTION, $out['suggested_action']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SUMMARY, $out['summary']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_CHALLENGER, $out['challenger']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_INCUMBENT, $out['incumbent']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_EFFECT_SIZE, $out['effect_size']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_JUSTIFICATION, $out['justification']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_MAY_AUTO_APPLY, $out['may_auto_apply']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_REQUIRES_REVIEW, $out['requires_review']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SUGGESTED_ACTION, $out['suggested_action']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_CHALLENGER, $out['challenger']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_INCUMBENT, $out['incumbent']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_EFFECT_SIZE, $out['effect_size']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_JUSTIFICATION, $out['justification']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_MAY_AUTO_APPLY, $out['may_auto_apply']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_REQUIRES_REVIEW, $out['requires_review']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['b607_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -12898,15 +12898,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REVIEW, $out['review']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SCOPE, $out['scope']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RETRIEVAL_HINT, $out['retrieval_hint']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_TASK, $out['task']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_APPLICATION, $out['application']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_CANON_READY, $out['canon_ready']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_CANON_READY_COUNT, $out['canon_ready_count']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_CRITICAL, $out['critical']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_DECISION, $out['decision']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_DOCUMENTATION_HEALTH, $out['documentation_health']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RETRIEVAL_HINT, $out['retrieval_hint']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_TASK, $out['task']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_APPLICATION, $out['application']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_CANON_READY, $out['canon_ready']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_CANON_READY_COUNT, $out['canon_ready_count']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_CRITICAL, $out['critical']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_DOCUMENTATION_HEALTH, $out['documentation_health']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_GATE, $out['gate']);
         $this->assertSame(18, $out['b608_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -12923,15 +12923,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PENDING_GATE_IDS, $out['pending_gate_ids']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_EVAL_GATE, $out['eval_gate']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_HUMAN_OR_POLICY_DECIDES, $out['human_or_policy_decides']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_LEARNING_EMITS_PROPOSAL, $out['learning_emits_proposal']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_MEMORY, $out['memory']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_CHANGE_FOR_REVIEW, $out['propose_change_for_review']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE, $out['propose_default_route_change']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RANKED, $out['ranked']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RENDER_TO_HUMAN, $out['render_to_human']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_EVAL_GATE, $out['eval_gate']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_HUMAN_OR_POLICY_DECIDES, $out['human_or_policy_decides']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_LEARNING_EMITS_PROPOSAL, $out['learning_emits_proposal']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_PROPOSE_CHANGE_FOR_REVIEW, $out['propose_change_for_review']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE, $out['propose_default_route_change']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RANKED, $out['ranked']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RENDER_TO_HUMAN, $out['render_to_human']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RETRIEVAL, $out['retrieval']);
         $this->assertSame(18, $out['b609_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -12948,15 +12948,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SCOPE_RESOLVED, $out['scope_resolved']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_FAILURE_PATTERN, $out['failure_pattern']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_HEURISTIC, $out['heuristic']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RETRIEVAL_HINTS, $out['retrieval_hints']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTER, $out['router']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SUGGESTION, $out['suggestion']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_TASK_CLASS, $out['task_class']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_TERMINAL_STAGE, $out['terminal_stage']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_TOTAL, $out['total']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_UNSPECIFIED_LEARNING_SIGNAL, $out['unspecified learning signal']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_FAILURE_PATTERN, $out['failure_pattern']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_HEURISTIC, $out['heuristic']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RETRIEVAL_HINTS, $out['retrieval_hints']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_ROUTER, $out['router']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SUGGESTION, $out['suggestion']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_TASK_CLASS, $out['task_class']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_TERMINAL_STAGE, $out['terminal_stage']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_UNSPECIFIED_LEARNING_SIGNAL, $out['unspecified learning signal']);
         $this->assertSame(18, $out['b610_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -12973,15 +12973,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVAL, $out['archival']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED, $out['archive_is_not_memory_approved']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM_PRESENT, $out['atomic_claim_present']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_WIN_RATE, $out['win_rate']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_ACCUMULATE_MORE_SIGNAL, $out['accumulate_more_signal']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_DISCARD, $out['discard']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_GATHER_EVIDENCE, $out['gather_evidence']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON, $out['no_evidence_cannot_become_canon']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD, $out['pattern_meets_evidence_and_strength_threshold']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_POLICY, $out['policy']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_CHANGE, $out['propose_change']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S, $out['route %s default to %s over %s']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_WIN_RATE, $out['win_rate']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_ACCUMULATE_MORE_SIGNAL, $out['accumulate_more_signal']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_DISCARD, $out['discard']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_GATHER_EVIDENCE, $out['gather_evidence']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON, $out['no_evidence_cannot_become_canon']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD, $out['pattern_meets_evidence_and_strength_threshold']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_POLICY, $out['policy']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_PROPOSE_CHANGE, $out['propose_change']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S, $out['route %s default to %s over %s']);
         $this->assertSame(18, $out['b611_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -13000,13 +13000,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSENT_GRANTED, $out['consent_granted']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSTELLATION_ELIGIBLE, $out['constellation_eligible']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSTELLATION_ELIGIBLE_TRUE, $out['constellation_eligible_true']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SIGNAL_KIND_NOT_RECOGNISED, $out['signal_kind_not_recognised']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SUGESTAO__DECISAO__APLICACAO, $out['sugestao, decisao, aplicacao']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_UNKNOWN, $out['unknown']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_WEAK_SIGNAL_BELOW_FLOOR, $out['weak_signal_below_floor']);
-        $this->assertSame(AtlasLearningProposalsService::FLOAT_0_8, $out['0.8']);
-        $this->assertSame(AtlasLearningProposalsService::FLOAT_0_6, $out['0.6']);
-        $this->assertSame(AtlasLearningProposalsService::INT_2, $out['2']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SIGNAL_KIND_NOT_RECOGNISED, $out['signal_kind_not_recognised']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SUGESTAO__DECISAO__APLICACAO, $out['sugestao, decisao, aplicacao']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_WEAK_SIGNAL_BELOW_FLOOR, $out['weak_signal_below_floor']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FLOAT_0_8, $out['0.8']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FLOAT_0_6, $out['0.6']);
+        $this->assertSame(AtlasLearningProposalDecisionService::INT_2, $out['2']);
         $this->assertSame(18, $out['b612_memory_cognitive_learning_proposals_floor_count']);
     }
 
@@ -13139,16 +13139,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b618LearningProposalsMemoryCognitiveFloorsContractObserve([]);
-        $this->assertSame(AtlasLearningProposalsService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_LOW, $out['low']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_MEDIUM, $out['medium']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_HIGH, $out['high']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_ADMITTED, $out['admitted']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_REJECTED, $out['rejected']);
-        $this->assertSame(AtlasLearningProposalsService::APPLY_AUTO, $out['auto']);
-        $this->assertSame(AtlasLearningProposalsService::APPLY_REVIEW, $out['human_review']);
-        $this->assertSame(AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR, $out['0.5']);
+        $this->assertSame(AtlasLearningProposalDecisionService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_LOW, $out['low']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_HIGH, $out['high']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_REJECTED, $out['rejected']);
+        $this->assertSame(AtlasLearningProposalDecisionService::APPLY_AUTO, $out['auto']);
+        $this->assertSame(AtlasLearningProposalDecisionService::APPLY_REVIEW, $out['human_review']);
+        $this->assertSame(AtlasLearningProposalDecisionService::WEAK_SIGNAL_FLOOR, $out['0.5']);
         $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::SCHEMA, $out['atlas.memory.cognitive_immune_learning_kernel.v1']);
         $this->assertSame(11, $out['b618_learning_proposals_memory_cognitive_floor_count']);
     }
@@ -13157,24 +13157,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b619AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::SCHEMA, $out['atlas.aaeos.department.v1']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_VALID, $out['valid']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_BLOCKERS, $out['blockers']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENT_COUNT, $out['department_count']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::SCHEMA, $out['atlas.aaeos.department.v1']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_VALID, $out['valid']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEPARTMENT_COUNT, $out['department_count']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
         $this->assertSame(18, $out['b619_aaeos_department_floor_count']);
     }
 
@@ -13182,24 +13182,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b620AaeosPhaseFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::SCHEMA_VERSION, $out['atlas.aaeos.phase_router.v1']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_LEGACY, $out['legacy']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_1, $out['1']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_2, $out['2']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_3, $out['3']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_4, $out['4']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY, $out['atlas.aaeos.http_path_phase']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_CONFIGURED_PHASE, $out['configured_phase']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_VALID, $out['is_valid']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_ACTIVE, $out['is_active']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_LEGACY, $out['is_legacy']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_DESCRIPTION, $out['description']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_INTENT_CAPTURE, $out['intent_capture']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasPhaseRouterService::SCHEMA_VERSION, $out['atlas.aaeos.phase_router.v1']);
+        $this->assertSame(AtlasPhaseRouterService::PHASE_LEGACY, $out['legacy']);
+        $this->assertSame(AtlasPhaseRouterService::PHASE_1, $out['1']);
+        $this->assertSame(AtlasPhaseRouterService::INT_2, $out['2']);
+        $this->assertSame(AtlasPhaseRouterService::INT_3, $out['3']);
+        $this->assertSame(AtlasPhaseRouterService::INT_4, $out['4']);
+        $this->assertSame(AtlasPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY, $out['atlas.aaeos.http_path_phase']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_CONFIGURED_PHASE, $out['configured_phase']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_VALID, $out['is_valid']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_ACTIVE, $out['is_active']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_LEGACY, $out['is_legacy']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_INTENT_CAPTURE, $out['intent_capture']);
         $this->assertSame(18, $out['b620_aaeos_phase_floor_count']);
     }
 
@@ -13207,24 +13207,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b621AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.department_promotion_eligibility.v1']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS, $out['30']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER, $out['5']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE, $out['eligible']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED, $out['blocked']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT, $out['verdict']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER, $out['current_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER, $out['target_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS, $out['preconditions']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS, $out['failed_preconditions']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AGE_DAYS, $out['age_days']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AS_OF, $out['as_of']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AUTO_PROMOTE_ALLOWED, $out['auto_promote_allowed']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.department_promotion_eligibility.v1']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS, $out['30']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER, $out['5']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE, $out['eligible']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER, $out['current_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER, $out['target_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS, $out['preconditions']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS, $out['failed_preconditions']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AS_OF, $out['as_of']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AUTO_PROMOTE_ALLOWED, $out['auto_promote_allowed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
         $this->assertSame(18, $out['b621_aaeos_department_floor_count']);
     }
 
@@ -13232,24 +13232,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b622AaeosThresholdTestFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosThresholdComparator::EPSILON, $out['1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
-        $this->assertSame(AtlasAaeosTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RUNNER, $out['runner']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RAN, $out['ran']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FILTER, $out['filter']);
+        $this->assertSame(AtlasThresholdComparator::EPSILON, $out['1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RUNNER, $out['runner']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RAN, $out['ran']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_FILTER, $out['filter']);
         $this->assertSame(18, $out['b622_aaeos_threshold_test_floor_count']);
     }
 
@@ -13257,24 +13257,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b623AaeosTestFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
-        $this->assertSame(AtlasAaeosTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RUNNER, $out['runner']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RAN, $out['ran']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FILTER, $out['filter']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_COMMIT_STAMP, $out['commit_stamp']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RUNNER, $out['runner']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RAN, $out['ran']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_FILTER, $out['filter']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_COMMIT_STAMP, $out['commit_stamp']);
         $this->assertSame(18, $out['b623_aaeos_test_floor_count']);
     }
 
@@ -13282,24 +13282,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b624AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity.v1']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::LAST_EVALUATION, $out['2026-05-26T00:00:00+00:00']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::NEXT_EVALUATION_DUE, $out['2026-06-26T00:00:00+00:00']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::OWNER, $out['atlas-ai']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT_ID, $out['department_id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_CURRENT_LEVEL, $out['current_level']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_EVIDENCE, $out['evidence']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_ID, $out['blocker_id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SUMMARY, $out['blocker_summary']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SEVERITY, $out['blocker_severity']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_OWNER, $out['owner']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SUMMARY, $out['summary']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SIGNALS, $out['signals']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(AtlasDepartmentMaturityService::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity.v1']);
+        $this->assertSame(AtlasDepartmentMaturityService::LAST_EVALUATION, $out['2026-05-26T00:00:00+00:00']);
+        $this->assertSame(AtlasDepartmentMaturityService::NEXT_EVALUATION_DUE, $out['2026-06-26T00:00:00+00:00']);
+        $this->assertSame(AtlasDepartmentMaturityService::OWNER, $out['atlas-ai']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_CURRENT_LEVEL, $out['current_level']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_ID, $out['blocker_id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_SUMMARY, $out['blocker_summary']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_SEVERITY, $out['blocker_severity']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SIGNALS, $out['signals']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
         $this->assertSame(18, $out['b624_aaeos_department_floor_count']);
     }
 
@@ -13307,24 +13307,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b625AaeosThresholdStringVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_VALUE, $out['value']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_THRESHOLDS, $out['thresholds']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_RANK, $out['rank']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_LEVEL, $out['level']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_BAND, $out['band']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
         $this->assertSame(18, $out['b625_aaeos_threshold_string_veto_floor_count']);
     }
 
@@ -13332,24 +13332,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b626AaeosStringVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['b626_aaeos_string_veto_floor_count']);
     }
 
@@ -13357,24 +13357,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b627AaeosVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW, $out['review']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PRODUCT, $out['product']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
         $this->assertSame(18, $out['b627_aaeos_veto_floor_count']);
     }
 
@@ -13382,24 +13382,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b628AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity_band.v1']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_MISSING, $out['missing']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BAND, $out['band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_RANK, $out['rank']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIES, $out['qualifies']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BREACHES, $out['breaches']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND, $out['qualified_band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_VALUE, $out['value']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED, $out['all_bands_breached']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity_band.v1']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIES, $out['qualifies']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND, $out['qualified_band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED, $out['all_bands_breached']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
         $this->assertSame(18, $out['b628_aaeos_department_floor_count']);
     }
 
@@ -13407,24 +13407,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b629AaeosClaimFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION, $out['atlas.aaeos.claim_definition_of_done.v1']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::EVALUATED_AGAINST, $out['atlas-agentic-engineering-os-implementation-reality.md:244']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::STATE_PARTIAL, $out['partial']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_OWNER_DOC, $out['owner_doc']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_DOCUMENTAL_STATE, $out['documental_state']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_RUNTIME_STATE, $out['runtime_state']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_PATH, $out['code_command_path']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PROOF, $out['proof']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CAVEAT, $out['caveat']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_MISSING_FIELDS, $out['missing_fields']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SUBJECT, $out['subject']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_APPLICABLE, $out['code_command_applicable']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_VERDICT, $out['verdict']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
-        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::SCHEMA_VERSION, $out['atlas.aaeos.claim_definition_of_done.v1']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::EVALUATED_AGAINST, $out['atlas-agentic-engineering-os-implementation-reality.md:244']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::STATE_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_OWNER_DOC, $out['owner_doc']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_DOCUMENTAL_STATE, $out['documental_state']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_RUNTIME_STATE, $out['runtime_state']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_PATH, $out['code_command_path']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PROOF, $out['proof']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_CAVEAT, $out['caveat']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_MISSING_FIELDS, $out['missing_fields']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_SUBJECT, $out['subject']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_APPLICABLE, $out['code_command_applicable']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
+        $this->assertSame(AtlasClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
         $this->assertSame(18, $out['b629_aaeos_claim_floor_count']);
     }
 
@@ -13432,24 +13432,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b630AaeosQualityFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosQualityBarService::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar.v1']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENT, $out['department']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_THRESHOLD, $out['threshold']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_CURRENT, $out['current']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHED, $out['breached']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEFICIT, $out['deficit']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SIGNAL, $out['signal']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHES, $out['breaches']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DESIGN, $out['Design']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_FINANCE, $out['Finance']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_LEGAL, $out['Legal']);
-        $this->assertSame(AtlasAaeosQualityBarService::FIELD_MARKETING, $out['Marketing']);
+        $this->assertSame(AtlasDepartmentQualityBarService::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar.v1']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_CURRENT, $out['current']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACHED, $out['breached']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DEFICIT, $out['deficit']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_DESIGN, $out['Design']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_FINANCE, $out['Finance']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_LEGAL, $out['Legal']);
+        $this->assertSame(AtlasDepartmentQualityBarService::FIELD_MARKETING, $out['Marketing']);
         $this->assertSame(18, $out['b630_aaeos_quality_floor_count']);
     }
 
@@ -13457,15 +13457,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b631GeneratedContractRepairLoopFloorsContractObserve([]);
-        $this->assertSame(AaeosGeneratedContractGate::SCHEMA_VERSION, $out['atlas.aaeos.generated_contract_gate.v1']);
-        $this->assertSame(AaeosGeneratedContractGate::HOT_PATH_ENABLED_CONFIG_KEY, $out['atlas_elite_compaction.generated.hot_path_enabled']);
-        $this->assertSame(AaeosGeneratedContractGate::QUARANTINE_NAMESPACE_CONFIG_KEY, $out['atlas_elite_compaction.generated.quarantine_namespace']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_HOT_PATH_ENABLED, $out['hot_path_enabled']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_GENERATED_FILE_COUNT, $out['generated_file_count']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
-        $this->assertSame(AaeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
+        $this->assertSame(AeosGeneratedContractGate::SCHEMA_VERSION, $out['atlas.aaeos.generated_contract_gate.v1']);
+        $this->assertSame(AeosGeneratedContractGate::HOT_PATH_ENABLED_CONFIG_KEY, $out['atlas_elite_compaction.generated.hot_path_enabled']);
+        $this->assertSame(AeosGeneratedContractGate::QUARANTINE_NAMESPACE_CONFIG_KEY, $out['atlas_elite_compaction.generated.quarantine_namespace']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_HOT_PATH_ENABLED, $out['hot_path_enabled']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_GENERATED_FILE_COUNT, $out['generated_file_count']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
+        $this->assertSame(AeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
         $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE, $out['escalate']);
         $this->assertSame(AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE_TO, $out['escalate_to']);
@@ -13491,15 +13491,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATED, $out['escalated']);
         $this->assertSame(AtlasRepairLoopGuard::FIELD_DECISION, $out['decision']);
         $this->assertSame(AtlasRepairLoopGuard::FIELD_REPAIR, $out['repair']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::SCHEMA, $out['atlas.aaeos.implementation_state.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEDGER_SCHEMA, $out['atlas.aaeos.capability_truth_ledger.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT, $out['atlas.aaeos.impl_files_hash.v2']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA, $out['atlas.aaeos.doc_runtime_coverage.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_SPEC, $out['spec']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_PARTIAL, $out['partial']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_VERIFIED, $out['verified']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
+        $this->assertSame(AtlasImplementationTruthService::SCHEMA, $out['atlas.aaeos.implementation_state.v1']);
+        $this->assertSame(AtlasImplementationTruthService::LEDGER_SCHEMA, $out['atlas.aaeos.capability_truth_ledger.v1']);
+        $this->assertSame(AtlasImplementationTruthService::IMPL_FILES_HASH_FORMAT, $out['atlas.aaeos.impl_files_hash.v2']);
+        $this->assertSame(AtlasImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA, $out['atlas.aaeos.doc_runtime_coverage.v1']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_SPEC, $out['spec']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_VERIFIED, $out['verified']);
         $this->assertSame(18, $out['b632_repair_loop_aaeos_implementation_floor_count']);
     }
 
@@ -13507,24 +13507,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b633AaeosImplementationFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::SCHEMA, $out['atlas.aaeos.implementation_state.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEDGER_SCHEMA, $out['atlas.aaeos.capability_truth_ledger.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT, $out['atlas.aaeos.impl_files_hash.v2']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA, $out['atlas.aaeos.doc_runtime_coverage.v1']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_SPEC, $out['spec']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_PARTIAL, $out['partial']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_VERIFIED, $out['verified']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_EXISTENCE_ONLY, $out['existence_only']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::STATUS_ACTIVE, $out['active']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::STATUS_BUILDING, $out['building']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::TEST_RESOLUTION_GREEN, $out['green']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::TEST_RESOLUTION_MIXED, $out['mixed']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RESOLVED, $out['resolved']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
+        $this->assertSame(AtlasImplementationTruthService::SCHEMA, $out['atlas.aaeos.implementation_state.v1']);
+        $this->assertSame(AtlasImplementationTruthService::LEDGER_SCHEMA, $out['atlas.aaeos.capability_truth_ledger.v1']);
+        $this->assertSame(AtlasImplementationTruthService::IMPL_FILES_HASH_FORMAT, $out['atlas.aaeos.impl_files_hash.v2']);
+        $this->assertSame(AtlasImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA, $out['atlas.aaeos.doc_runtime_coverage.v1']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_SPEC, $out['spec']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_VERIFIED, $out['verified']);
+        $this->assertSame(AtlasImplementationTruthService::LEVEL_EXISTENCE_ONLY, $out['existence_only']);
+        $this->assertSame(AtlasImplementationTruthService::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasImplementationTruthService::STATUS_BUILDING, $out['building']);
+        $this->assertSame(AtlasImplementationTruthService::TEST_RESOLUTION_GREEN, $out['green']);
+        $this->assertSame(AtlasImplementationTruthService::TEST_RESOLUTION_MIXED, $out['mixed']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImplementationTruthService::FIELD_REF, $out['ref']);
         $this->assertSame(18, $out['b633_aaeos_implementation_floor_count']);
     }
 
@@ -13732,24 +13732,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b642LearningProposalsFloorsContractObserve([]);
-        $this->assertSame(AtlasLearningProposalsService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_LOW, $out['low']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_MEDIUM, $out['medium']);
-        $this->assertSame(AtlasLearningProposalsService::RISK_HIGH, $out['high']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_ADMITTED, $out['admitted']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
-        $this->assertSame(AtlasLearningProposalsService::STATUS_REJECTED, $out['rejected']);
-        $this->assertSame(AtlasLearningProposalsService::APPLY_AUTO, $out['auto']);
-        $this->assertSame(AtlasLearningProposalsService::APPLY_REVIEW, $out['human_review']);
-        $this->assertSame(AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR, $out['0.5']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_RISK, $out['risk']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTING, $out['routing']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SAMPLE_SIZE, $out['sample_size']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_STRENGTH, $out['strength']);
-        $this->assertSame(AtlasLearningProposalsService::FIELD_SUGGESTED_ACTION, $out['suggested_action']);
+        $this->assertSame(AtlasLearningProposalDecisionService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_LOW, $out['low']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasLearningProposalDecisionService::RISK_HIGH, $out['high']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
+        $this->assertSame(AtlasLearningProposalDecisionService::STATUS_REJECTED, $out['rejected']);
+        $this->assertSame(AtlasLearningProposalDecisionService::APPLY_AUTO, $out['auto']);
+        $this->assertSame(AtlasLearningProposalDecisionService::APPLY_REVIEW, $out['human_review']);
+        $this->assertSame(AtlasLearningProposalDecisionService::WEAK_SIGNAL_FLOOR, $out['0.5']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_RISK, $out['risk']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SAMPLE_SIZE, $out['sample_size']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_STRENGTH, $out['strength']);
+        $this->assertSame(AtlasLearningProposalDecisionService::FIELD_SUGGESTED_ACTION, $out['suggested_action']);
         $this->assertSame(18, $out['b642_learning_proposals_floor_count']);
     }
 
@@ -13782,15 +13782,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b644AaeosValueHttpPathFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_HIGH, $out['high']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_LOW, $out['low']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R0, $out['R0']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R1, $out['R1']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R2, $out['R2']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R3, $out['R3']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R4, $out['R4']);
-        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R5, $out['R5']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_LOW, $out['low']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R0, $out['R0']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R1, $out['R1']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R2, $out['R2']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R3, $out['R3']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R4, $out['R4']);
+        $this->assertSame(AtlasAeosValueNormalizer::FIELD_R5, $out['R5']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ID, $out['id']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS, $out['policy_status']);
         $this->assertSame(AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH, $out['r1_r2_fast_path']);
@@ -16666,15 +16666,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_STATUS, $out['status']);
         $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE, $out['elev_25_review_debt_unavailable']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_NONE, $out['none']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(AtlasDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
+        $this->assertSame(AtlasDocMaturityClassifier::STRENGTH_NONE, $out['none']);
         $this->assertSame(18, $out['b759_operator_review_aaeos_doc_floor_count']);
     }
 
@@ -16682,24 +16682,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b760AaeosDocFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_NONE, $out['none']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_PARTIAL, $out['partial']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_STRONG, $out['strong']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL, $out['level']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
-        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(AtlasDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
+        $this->assertSame(AtlasDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
+        $this->assertSame(AtlasDocMaturityClassifier::STRENGTH_NONE, $out['none']);
+        $this->assertSame(AtlasDocMaturityClassifier::STRENGTH_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasDocMaturityClassifier::STRENGTH_STRONG, $out['strong']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
+        $this->assertSame(AtlasDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
         $this->assertSame(18, $out['b760_aaeos_doc_floor_count']);
     }
 
@@ -16707,24 +16707,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b761AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar_level.v1']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_LEVEL, $out['achieved_level']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_BAND_INDEX, $out['achieved_band_index']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_HIGHEST_EVALUABLE_LEVEL, $out['highest_evaluable_level']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_NEXT_LEVEL, $out['next_level']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_LEVEL, $out['level']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_VALUE, $out['value']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_BINDING_BREACHES, $out['binding_breaches']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
-        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_METRICS, $out['evaluated_metrics']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar_level.v1']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_LEVEL, $out['achieved_level']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_BAND_INDEX, $out['achieved_band_index']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_HIGHEST_EVALUABLE_LEVEL, $out['highest_evaluable_level']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_NEXT_LEVEL, $out['next_level']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_BINDING_BREACHES, $out['binding_breaches']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
+        $this->assertSame(AtlasDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_METRICS, $out['evaluated_metrics']);
         $this->assertSame(18, $out['b761_aaeos_department_floor_count']);
     }
 
@@ -16732,24 +16732,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b762DepartmentLevelFloorsContractObserve([]);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_level_classification.v1']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL, $out['earned_level']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL_INDEX, $out['earned_level_index']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_HIGHEST_BAND_OFFERED, $out['highest_band_offered']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_LEVEL, $out['level']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_OBSERVED, $out['observed']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
-        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_FAILED_THRESHOLDS, $out['failed_thresholds']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_level_classification.v1']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_EARNED_LEVEL, $out['earned_level']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_EARNED_LEVEL_INDEX, $out['earned_level_index']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_HIGHEST_BAND_OFFERED, $out['highest_band_offered']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
+        $this->assertSame(AtlasDepartmentLevelClassifier::FIELD_FAILED_THRESHOLDS, $out['failed_thresholds']);
         $this->assertSame(18, $out['b762_department_level_floor_count']);
     }
 
@@ -16832,24 +16832,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b766AaeosGateFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATE, $out['gate']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.gate_signal.v1']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY, $out['intent_clarity_score_min_0_8']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK, $out['spec_pack_acceptance_criteria_min_3']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_TASK_PACK, $out['task_pack_atomic_true_for_each']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::INTENT_CLARITY_THRESHOLD, $out['0.8']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA, $out['3']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_RESOLVED, $out['0.4']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_BOUNDED, $out['0.3']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_NO_AMBIGUITY, $out['0.2']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_NO_MISSING, $out['0.1']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::AMBIGUITY_SATURATION, $out['2']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::MISSING_SATURATION, $out['1']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATES, $out['gates']);
-        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_ALL_PASSED, $out['all_passed']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasGateSignalEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.gate_signal.v1']);
+        $this->assertSame(AtlasGateSignalEvaluator::GATE_INTENT_CLARITY, $out['intent_clarity_score_min_0_8']);
+        $this->assertSame(AtlasGateSignalEvaluator::GATE_SPEC_PACK, $out['spec_pack_acceptance_criteria_min_3']);
+        $this->assertSame(AtlasGateSignalEvaluator::GATE_TASK_PACK, $out['task_pack_atomic_true_for_each']);
+        $this->assertSame(AtlasGateSignalEvaluator::INTENT_CLARITY_THRESHOLD, $out['0.8']);
+        $this->assertSame(AtlasGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA, $out['3']);
+        $this->assertSame(AtlasGateSignalEvaluator::WEIGHT_RESOLVED, $out['0.4']);
+        $this->assertSame(AtlasGateSignalEvaluator::WEIGHT_BOUNDED, $out['0.3']);
+        $this->assertSame(AtlasGateSignalEvaluator::WEIGHT_NO_AMBIGUITY, $out['0.2']);
+        $this->assertSame(AtlasGateSignalEvaluator::WEIGHT_NO_MISSING, $out['0.1']);
+        $this->assertSame(AtlasGateSignalEvaluator::AMBIGUITY_SATURATION, $out['2']);
+        $this->assertSame(AtlasGateSignalEvaluator::MISSING_SATURATION, $out['1']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasGateSignalEvaluator::FIELD_ALL_PASSED, $out['all_passed']);
         $this->assertSame(18, $out['b766_aaeos_gate_floor_count']);
     }
 
@@ -16857,8 +16857,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b767AaeosEvidenceVetoPropagationImplementationFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosEvidenceRefNormalizer::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosEvidenceRefNormalizer::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasEvidenceRefNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasEvidenceRefNormalizer::FIELD_REF, $out['ref']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_PAUSED_DEPARTMENTS, $out['paused_departments']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_DEPARTMENT, $out['department']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_RECOGNIZED, $out['recognized']);
@@ -16867,14 +16867,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_PAUSE_SLA_SECONDS, $out['pause_sla_seconds']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE, $out['final_override']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_VETO_RECEIPTS, $out['veto_receipts']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
         $this->assertSame(18, $out['b767_aaeos_evidence_veto_propagation_implementation_floor_count']);
     }
 
@@ -16891,15 +16891,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE, $out['final_override']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_VETO_RECEIPTS, $out['veto_receipts']);
         $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
         $this->assertSame(18, $out['b768_veto_propagation_aaeos_implementation_floor_count']);
     }
 
@@ -16907,24 +16907,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b769AaeosImplementationFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_PATHS, $out['paths']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_COMMAND, $out['command']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_REF, $out['ref']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
-        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_PATHS, $out['paths']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
         $this->assertSame(18, $out['b769_aaeos_implementation_floor_count']);
     }
 
@@ -16932,24 +16932,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b770AaeosCognitiveFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION, $out['atlas.aaeos.cognitive_immune_input_classifier.v1']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD, $out['3']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TRIVIAL_QUERY, $out['trivial_query']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT, $out['untrusted_content']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PROMPT_INJECTION, $out['prompt_injection']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PRIVATE_SENSITIVE, $out['private_sensitive']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEFAULT_DESTINATION, $out['default_destination']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EMBEDDING_ALLOWED, $out['embedding_allowed']);
-        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::SCHEMA_VERSION, $out['atlas.aaeos.cognitive_immune_input_classifier.v1']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD, $out['3']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_TRIVIAL_QUERY, $out['trivial_query']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::CLASS_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_DEFAULT_DESTINATION, $out['default_destination']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_EMBEDDING_ALLOWED, $out['embedding_allowed']);
+        $this->assertSame(AtlasCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
         $this->assertSame(18, $out['b770_aaeos_cognitive_floor_count']);
     }
 
@@ -16957,24 +16957,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b771AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::SCHEMA, $out['atlas.aaeos.department.v1']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_VALID, $out['valid']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_BLOCKERS, $out['blockers']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENT_COUNT, $out['department_count']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
-        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::SCHEMA, $out['atlas.aaeos.department.v1']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_VALID, $out['valid']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEPARTMENT_COUNT, $out['department_count']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(AtlasDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
         $this->assertSame(18, $out['b771_aaeos_department_floor_count']);
     }
 
@@ -16982,24 +16982,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b772AaeosPhaseFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::SCHEMA_VERSION, $out['atlas.aaeos.phase_router.v1']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_LEGACY, $out['legacy']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_1, $out['1']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_2, $out['2']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_3, $out['3']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::INT_4, $out['4']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY, $out['atlas.aaeos.http_path_phase']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_CONFIGURED_PHASE, $out['configured_phase']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_VALID, $out['is_valid']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_ACTIVE, $out['is_active']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_LEGACY, $out['is_legacy']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_DESCRIPTION, $out['description']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
-        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_INTENT_CAPTURE, $out['intent_capture']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasPhaseRouterService::SCHEMA_VERSION, $out['atlas.aaeos.phase_router.v1']);
+        $this->assertSame(AtlasPhaseRouterService::PHASE_LEGACY, $out['legacy']);
+        $this->assertSame(AtlasPhaseRouterService::PHASE_1, $out['1']);
+        $this->assertSame(AtlasPhaseRouterService::INT_2, $out['2']);
+        $this->assertSame(AtlasPhaseRouterService::INT_3, $out['3']);
+        $this->assertSame(AtlasPhaseRouterService::INT_4, $out['4']);
+        $this->assertSame(AtlasPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY, $out['atlas.aaeos.http_path_phase']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_CONFIGURED_PHASE, $out['configured_phase']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_VALID, $out['is_valid']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_ACTIVE, $out['is_active']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_IS_LEGACY, $out['is_legacy']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
+        $this->assertSame(AtlasPhaseRouterService::FIELD_INTENT_CAPTURE, $out['intent_capture']);
         $this->assertSame(18, $out['b772_aaeos_phase_floor_count']);
     }
 
@@ -17007,24 +17007,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b773AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.department_promotion_eligibility.v1']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS, $out['30']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER, $out['5']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE, $out['eligible']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED, $out['blocked']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT, $out['verdict']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER, $out['current_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER, $out['target_tier']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS, $out['preconditions']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS, $out['failed_preconditions']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AGE_DAYS, $out['age_days']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AS_OF, $out['as_of']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AUTO_PROMOTE_ALLOWED, $out['auto_promote_allowed']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
-        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.department_promotion_eligibility.v1']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS, $out['30']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER, $out['5']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE, $out['eligible']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER, $out['current_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER, $out['target_tier']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS, $out['preconditions']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS, $out['failed_preconditions']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AS_OF, $out['as_of']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_AUTO_PROMOTE_ALLOWED, $out['auto_promote_allowed']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
         $this->assertSame(18, $out['b773_aaeos_department_floor_count']);
     }
 
@@ -17032,24 +17032,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b774AaeosThresholdTestFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosThresholdComparator::EPSILON, $out['1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
-        $this->assertSame(AtlasAaeosTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RUNNER, $out['runner']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RAN, $out['ran']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FILTER, $out['filter']);
+        $this->assertSame(AtlasThresholdComparator::EPSILON, $out['1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RUNNER, $out['runner']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RAN, $out['ran']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_FILTER, $out['filter']);
         $this->assertSame(18, $out['b774_aaeos_threshold_test_floor_count']);
     }
 
@@ -17057,24 +17057,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b775AaeosTestFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
-        $this->assertSame(AtlasAaeosTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RUNNER, $out['runner']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
-        $this->assertSame(AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PASSED, $out['passed']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RAN, $out['ran']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FILTER, $out['filter']);
-        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_COMMIT_STAMP, $out['commit_stamp']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RUNNER, $out['runner']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_RAN, $out['ran']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_FILTER, $out['filter']);
+        $this->assertSame(AtlasCapabilityTestExecutionService::FIELD_COMMIT_STAMP, $out['commit_stamp']);
         $this->assertSame(18, $out['b775_aaeos_test_floor_count']);
     }
 
@@ -17082,24 +17082,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b776AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity.v1']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::LAST_EVALUATION, $out['2026-05-26T00:00:00+00:00']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::NEXT_EVALUATION_DUE, $out['2026-06-26T00:00:00+00:00']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::OWNER, $out['atlas-ai']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT_ID, $out['department_id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_CURRENT_LEVEL, $out['current_level']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_EVIDENCE, $out['evidence']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_ID, $out['blocker_id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SUMMARY, $out['blocker_summary']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SEVERITY, $out['blocker_severity']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_OWNER, $out['owner']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SUMMARY, $out['summary']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SIGNALS, $out['signals']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(AtlasDepartmentMaturityService::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity.v1']);
+        $this->assertSame(AtlasDepartmentMaturityService::LAST_EVALUATION, $out['2026-05-26T00:00:00+00:00']);
+        $this->assertSame(AtlasDepartmentMaturityService::NEXT_EVALUATION_DUE, $out['2026-06-26T00:00:00+00:00']);
+        $this->assertSame(AtlasDepartmentMaturityService::OWNER, $out['atlas-ai']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_CURRENT_LEVEL, $out['current_level']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_ID, $out['blocker_id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_SUMMARY, $out['blocker_summary']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKER_SEVERITY, $out['blocker_severity']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_SIGNALS, $out['signals']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
         $this->assertSame(18, $out['b776_aaeos_department_floor_count']);
     }
 
@@ -17107,24 +17107,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b777AaeosThresholdStringVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_VALUE, $out['value']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_THRESHOLDS, $out['thresholds']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_RANK, $out['rank']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_LEVEL, $out['level']);
-        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_BAND, $out['band']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasThresholdLadderNormalizer::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
         $this->assertSame(18, $out['b777_aaeos_threshold_string_veto_floor_count']);
     }
 
@@ -17132,24 +17132,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b778AaeosStringVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
-        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['b778_aaeos_string_veto_floor_count']);
     }
 
@@ -17157,24 +17157,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b779AaeosVetoFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW, $out['review']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PRODUCT, $out['product']);
-        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
         $this->assertSame(18, $out['b779_aaeos_veto_floor_count']);
     }
 
@@ -17182,24 +17182,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     {
         $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
         $out = $gates->b780AaeosDepartmentFloorsContractObserve([]);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity_band.v1']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_MISSING, $out['missing']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BAND, $out['band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_RANK, $out['rank']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIES, $out['qualifies']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BREACHES, $out['breaches']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND, $out['qualified_band']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_COMPARATOR, $out['comparator']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_METRIC, $out['metric']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_VALUE, $out['value']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED, $out['all_bands_breached']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS, $out['departments']);
-        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity_band.v1']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIES, $out['qualifies']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND, $out['qualified_band']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED, $out['all_bands_breached']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
         $this->assertSame(18, $out['b780_aaeos_department_floor_count']);
     }
 

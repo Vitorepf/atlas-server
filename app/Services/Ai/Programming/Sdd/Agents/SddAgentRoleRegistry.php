@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Sdd\Agents;
 
+
 /**
  * Canonical Atlas SDD agent role registry.
  *

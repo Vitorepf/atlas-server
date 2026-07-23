@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
 use LogicException;
 
@@ -27,7 +27,7 @@ use LogicException;
  * NEVER re-derives truth; it INJECTS and CALLS the real ladder signals, read-only,
  * and assembles them into a CAUSAL CHAIN per capability:
  *   - intent : what the doc CLAIMS — claimed_state from the capability truth ledger
- *     row (AtlasAaeosImplementationTruthService::ledger) — the declared INTENTION.
+ *     row (AtlasImplementationTruthService::ledger) — the declared INTENTION.
  *   - truth  : what the code RESOLVES — computed_state + which evidence_refs
  *     resolved (the same ledger row) — the machine TRUTH.
  *   - result : what OUTCOME resulted — the L2-O1 grade for this capability
@@ -83,7 +83,7 @@ class AtlasDocumentationRealityCausalSelfModelService
     public const INFERENCE_INFERRED = 'inferred';
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly AtlasDocumentationRealityOutcomeGroundingService $outcomeGrounding,
         private readonly AtlasDocumentationRealityBidirectionalReconciliationService $reconciliation,
         private readonly AtlasDocumentationRealityReflectiveStatusService $reflectiveStatus,
@@ -839,8 +839,8 @@ class AtlasDocumentationRealityCausalSelfModelService
             'linf_fragment' => true,
             'linf_complete' => false,
             'composes' => [
-                'intent' => 'AtlasAaeosImplementationTruthService::ledger (claimed_state)',
-                'truth' => 'AtlasAaeosImplementationTruthService::ledger (computed_state + per-ref resolution)',
+                'intent' => 'AtlasImplementationTruthService::ledger (claimed_state)',
+                'truth' => 'AtlasImplementationTruthService::ledger (computed_state + per-ref resolution)',
                 'result' => 'AtlasDocumentationRealityOutcomeGroundingService (L2-O1 grade)',
                 'why' => 'ledger drift/under_claim + AtlasDocumentationRealityBidirectionalReconciliationService',
                 'calibration' => 'AtlasDocumentationRealityReflectiveStatusService (R2 epistemic humility)',

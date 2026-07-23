@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 
 /**
  * L1-P2 — Generative / Self-Healing, second increment: the BIDIRECTIONAL
@@ -53,7 +53,7 @@ class AtlasDocumentationRealityBidirectionalReconciliationService
     public const DIRECTION_UNDER_CLAIM = 'under_claim_doc_upgrade';
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly AtlasDocumentationRealityRepairProposerService $repairProposer,
     ) {}
 

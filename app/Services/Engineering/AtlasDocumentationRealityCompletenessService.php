@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
 use Illuminate\Foundation\Console\Kernel;
@@ -60,7 +60,7 @@ use Symfony\Component\Console\Command\Command;
  *
  * COMPOSITION (does NOT re-derive truth): it REUSES the existing read-only ladder
  * collaborators —
- *   - AtlasAaeosImplementationTruthService::ledger() — per-owner-doc drift (the
+ *   - AtlasImplementationTruthService::ledger() — per-owner-doc drift (the
  *     "hardened" half of each mechanism).
  *   - AtlasDocumentationRealityReflectiveStatusService::selfAssessment() — the R2
  *     reflective self-status; its linf_complete IS the asymptote axis and its
@@ -248,7 +248,7 @@ class AtlasDocumentationRealityCompletenessService
     ];
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly AtlasDocumentationRealityReflectiveStatusService $reflective,
         private readonly AtlasDocumentationRealityOutcomeGroundingService $outcomeGrounding,
     ) {}

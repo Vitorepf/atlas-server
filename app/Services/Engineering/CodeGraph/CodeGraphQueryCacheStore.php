@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * AP-815 · E-9 — Plain array-backed store for {@see CodeGraphQueryCache}.
  *

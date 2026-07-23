@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
 use Illuminate\Console\Command;
 
 /**

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\FrontmatterParser;
 use Illuminate\Support\Facades\File;
@@ -96,9 +96,9 @@ class AtlasDocumentationRealityCodeContractProposerService
     private const RECOMMENDED_ORDER = ['symbol', 'command', 'route', 'test', 'receipt'];
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly FrontmatterParser $frontmatter,
-        private readonly AtlasAaeosEvidenceRefNormalizer $evidenceRefNormalizer = new AtlasAaeosEvidenceRefNormalizer,
+        private readonly AtlasEvidenceRefNormalizer $evidenceRefNormalizer = new AtlasEvidenceRefNormalizer,
     ) {}
 
     /**

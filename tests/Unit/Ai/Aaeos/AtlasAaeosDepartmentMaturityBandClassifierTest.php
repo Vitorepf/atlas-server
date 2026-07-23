@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosDepartmentMaturityBandClassifierTest extends TestCase
 {
-    private AtlasAaeosDepartmentMaturityBandClassifier $classifier;
+    private AtlasDepartmentMaturityBandClassifier $classifier;
 
     protected function setUp(): void
     {
-        $this->classifier = new AtlasAaeosDepartmentMaturityBandClassifier();
+        $this->classifier = new AtlasDepartmentMaturityBandClassifier();
     }
 
     /**

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use Illuminate\Console\Command;
 
 /**
  * P3 (Obra #19, Frente P) — the receipt-cached test gate. Before spending a test
  * run on a WO's command, check the (test-file hash, impl-files hash) pair against a
  * GREEN-CURRENT receipt: a fresh green ⇒ SKIP (~0s); otherwise runAndRecord — which
- * is anti-fake-green by construction ({@see AtlasAaeosTestExecutionService}: passed
+ * is anti-fake-green by construction ({@see AtlasCapabilityTestExecutionService}: passed
  * only when tests_run>=1 AND exit 0). In a multi-slice obra 60-80% of commands
  * repeat unchanged, so the cache turns most re-runs into ~0s.
  *
@@ -31,7 +31,7 @@ class AtlasTestCachedCommand extends Command
 
     protected $description = 'P3 · skip a test run when a fresh green receipt matches (hash test,impl); else run + record (Obra #19).';
 
-    public function handle(AtlasAaeosTestExecutionService $svc): int
+    public function handle(AtlasCapabilityTestExecutionService $svc): int
     {
         $capability = trim((string) $this->argument('capability'));
         $test = trim((string) $this->argument('test'));

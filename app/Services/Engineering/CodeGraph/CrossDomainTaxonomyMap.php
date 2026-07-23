@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Canonical cross-domain taxonomy — the single source of truth that reconciles the
  * TWO divergent 15-domain lists Atlas had grown (AP-814 §8.1, operator decision =

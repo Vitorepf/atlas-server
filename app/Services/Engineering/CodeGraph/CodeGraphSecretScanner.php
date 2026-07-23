@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * AP-815 · G-5 (keystone, [php] half) — Secret / PII scanner at the INGESTION edge
  * of the code graph.

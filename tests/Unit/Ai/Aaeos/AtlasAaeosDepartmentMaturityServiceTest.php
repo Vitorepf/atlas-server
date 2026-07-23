@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosDepartmentMaturityServiceTest extends TestCase
 {
-    private AtlasAaeosDepartmentMaturityService $service;
+    private AtlasDepartmentMaturityService $service;
 
     protected function setUp(): void
     {
-        $this->service = new AtlasAaeosDepartmentMaturityService();
+        $this->service = new AtlasDepartmentMaturityService();
     }
 
     public function testMaturityReturnsCorrectSchemaVersion(): void

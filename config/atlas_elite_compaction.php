@@ -68,11 +68,11 @@ return [
     'generated' => [
         'hot_path_enabled' => false,
         'quarantine_namespace' => 'App\\Services\\Ai\\Aaeos\\Quarantine',
-        'contract_gate_class' => \App\Services\Ai\Aaeos\AaeosGeneratedContractGate::class,
+        'contract_gate_class' => \App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate::class,
         // Obra 3 / AAEOS-01: the only Generated/*.php with live non-wrapper callers.
         // Keep hot_path_enabled=false — these stay Generated, not Cognition migrate, until explicit decision.
         'allowlist' => [
-            'AtlasLearningProposalsService',
+            'AtlasLearningProposalDecisionService',
             'AtlasMemoryCognitiveImmuneLearningKernelService',
         ],
         // Obra 3 / AAEOS-02 / ACOS-06: Quarantine policy (not blind delete).

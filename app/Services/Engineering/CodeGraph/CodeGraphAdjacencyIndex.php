@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * AP-815 · D-1 — Fast in-memory adjacency index for code-graph traversal at scale.
  *

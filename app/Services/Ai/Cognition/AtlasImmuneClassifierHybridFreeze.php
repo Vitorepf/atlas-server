@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+
 /**
  * MAXI-04 freeze \u2014 stamps the semantic-arm floors of the immune input
  * classifier BEFORE implementation runs on real corpora (ELEV-03 law: X and FP
@@ -82,7 +83,7 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_CURSOR_ACOS_MAX_MAXI_04 = 'cursor-acos-max-maxi-04';
     public const FIELD_TAU_IS_A_MAXI_03_FREEZE_STAMPED_INPUT__RECALIBRATION_FLOWS_THROUGH_THE_MAXI_03_SEAM_ = 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.';
     public const FIELD_CHAR_BIGRAM_JACCARD_IS_A_FLOOR_LEXICAL_ARM__DAEMON_BACKED_REAL_EMBEDDINGS_CAN_RAISE_RECALL___DROP_FP_WITHOUT_CHANGING_THE_FREEZE_CONTRACT_ = 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.';
-    public const FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_ = 'lexical_score = 1.0 iff the base AtlasAaeosCognitiveImmuneInputClassifier routes to a hostile class ';
+    public const FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_ = 'lexical_score = 1.0 iff the base AtlasCognitiveImmuneInputClassifier routes to a hostile class ';
     public const FLOAT_0_30 = 0.30;
     public const FLOAT_0_80 = 0.80;
     public const FLOAT_0_10 = 0.10;

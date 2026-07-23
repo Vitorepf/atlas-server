@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Console;
 
+
 /**
  * Canonical enums + envelope shape for the Atlas Programming Console.
  *

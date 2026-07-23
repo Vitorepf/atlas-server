@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Cross-domain adapter (AP-812 M-8): proves the code-graph machinery is
  * domain-agnostic by mapping ANY domain's relations into the same canonical

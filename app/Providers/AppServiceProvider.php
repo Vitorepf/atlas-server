@@ -242,6 +242,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -278,8 +279,8 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
             $class = $resolved::class;
-            if (str_contains($class, 'Aaeos\\Generated\\')) {
-                app(\App\Services\Ai\Aaeos\AaeosGeneratedContractGate::class)->assertHotPathAllowed($class);
+            if (str_contains($class, 'Aaeos\\Generated\\') || str_contains($class, 'Aaeos\\Quarantine\\')) {
+                app(\App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate::class)->assertHotPathAllowed($class);
             }
         });
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Support\BaselineSignature;
 
+
 /**
  * SCOPED delta-gate: compares a fresh-run snapshot of failures against the
  * pinned {@see BaselineSignature} and reports ONLY the new failures.

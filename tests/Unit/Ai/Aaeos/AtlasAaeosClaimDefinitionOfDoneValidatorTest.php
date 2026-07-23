@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosClaimDefinitionOfDoneValidatorTest extends TestCase
 {
-    private AtlasAaeosClaimDefinitionOfDoneValidator $validator;
+    private AtlasClaimDefinitionOfDoneValidator $validator;
 
     protected function setUp(): void
     {
-        $this->validator = new AtlasAaeosClaimDefinitionOfDoneValidator();
+        $this->validator = new AtlasClaimDefinitionOfDoneValidator();
     }
 
     /**

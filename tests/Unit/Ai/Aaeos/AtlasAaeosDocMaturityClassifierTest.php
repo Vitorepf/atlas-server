@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosDocMaturityClassifierTest extends TestCase
 {
-    private AtlasAaeosDocMaturityClassifier $classifier;
+    private AtlasDocMaturityClassifier $classifier;
 
     protected function setUp(): void
     {
-        $this->classifier = new AtlasAaeosDocMaturityClassifier();
+        $this->classifier = new AtlasDocMaturityClassifier();
     }
 
     public function testSchemaVersionIsStable(): void

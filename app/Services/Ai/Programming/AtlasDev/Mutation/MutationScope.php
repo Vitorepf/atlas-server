@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Mutation;
 
+
 /**
  * The deduplicated scope for a scoped E3 infection run.
  *

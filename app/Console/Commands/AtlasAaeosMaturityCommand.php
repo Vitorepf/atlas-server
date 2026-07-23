@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -26,7 +26,7 @@ class AtlasAaeosMaturityCommand extends Command
 
     protected $description = 'Compute machine-verified implementation_state for docs declaring evidence_refs, from the code intelligence index.';
 
-    public function handle(AtlasAaeosImplementationTruthService $truth, AtlasDebugRootCauseService $rootCause): int
+    public function handle(AtlasImplementationTruthService $truth, AtlasDebugRootCauseService $rootCause): int
     {
         if ((bool) $this->option('coverage')) {
             return $this->renderCoverage($truth);
@@ -82,7 +82,7 @@ class AtlasAaeosMaturityCommand extends Command
         return $exit;
     }
 
-    private function renderCoverage(AtlasAaeosImplementationTruthService $truth): int
+    private function renderCoverage(AtlasImplementationTruthService $truth): int
     {
         $coverage = $truth->coverage();
 

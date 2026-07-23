@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+
 final class NumericRangeOverlapContradictionDetector
 {
     public const RELATION_INVALID = 'invalid';

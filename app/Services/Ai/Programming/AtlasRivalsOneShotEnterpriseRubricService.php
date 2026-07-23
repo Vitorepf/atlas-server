@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+
 /**
  * Rivals One-Shot Enterprise Evaluation Rubric v1.
  *

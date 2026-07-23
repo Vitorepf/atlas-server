@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CanonicalWorktreeWriteGuard;
 use Throwable;
 
@@ -21,7 +21,7 @@ use Throwable;
  *     is the frozen debt and is IGNORED here (blocking on it would freeze every
  *     commit on debt this change did not introduce). Each violation string begins
  *     with the doc repo-relative path: "<path>: <message>".
- *   - {@see AtlasAaeosImplementationTruthService::driftForFrontmatter()} — the
+ *   - {@see AtlasImplementationTruthService::driftForFrontmatter()} — the
  *     authoritative per-doc over-claim verdict from a touched doc's RAW frontmatter
  *     (state + evidence_refs as authored). It normalizes refs the same way the
  *     ledger does, then computes tier vs claim — but WITHOUT the ledger's pre-filter,
@@ -80,7 +80,7 @@ final class AtlasDocumentationRealityWriteGateService
 
     public function __construct(
         private readonly EngineeringDocumentationHealthService $docsHealth,
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
     ) {}
 
     /**
@@ -288,7 +288,7 @@ final class AtlasDocumentationRealityWriteGateService
     /**
      * Over-claim rows for touched docs, computed PER DOC from the caller-supplied
      * RAW frontmatter via the truth service's authoritative evaluator
-     * {@see AtlasAaeosImplementationTruthService::driftForFrontmatter()}. ONE path,
+     * {@see AtlasImplementationTruthService::driftForFrontmatter()}. ONE path,
      * ONE normalization — it replaces both the old ledger filter (which SKIPPED a
      * doc whose evidence was empty or all-junk) and the count-keyed naked check
      * (which trusted any non-empty list). A touched doc claiming partial/verified

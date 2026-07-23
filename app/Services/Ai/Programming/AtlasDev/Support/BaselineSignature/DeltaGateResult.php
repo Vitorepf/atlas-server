@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Support\BaselineSignature;
 
+
 /**
  * Result of a single delta-gate evaluation. The gate's verdict is GREEN iff
  * every fresh-run failure is in the pinned baseline-signature; any item NOT

@@ -6,8 +6,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasDocsAuthorityGraph;
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Engineering\EngineeringStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -36,7 +36,7 @@ class AtlasSoftwareTwinSimulationPredictor
      * @param  Closure(array<mixed>): array<int,string>  $mergedUniqueStrings
      */
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $implementationTruth,
+        private readonly AtlasImplementationTruthService $implementationTruth,
         private readonly AtlasDocsAuthorityGraphService $authorityGraph,
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly Closure $mergedUniqueStrings,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+
 /**
  * MAXI-04 — Port for the semantic arm of the immune input classifier.
  *

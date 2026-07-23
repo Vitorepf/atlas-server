@@ -2,10 +2,10 @@
 
 namespace App\Services\Ai\Memory;
 
-use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
-use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
-use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
-use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Memory\MemoryMmrTopKSelector;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\Support\AiValueNormalizer;

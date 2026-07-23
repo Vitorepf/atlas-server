@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
-use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
-use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
 use Tests\TestCase;
 
 class AtlasChoreographyWatchdogsTest extends TestCase

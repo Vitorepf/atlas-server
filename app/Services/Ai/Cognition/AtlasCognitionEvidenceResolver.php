@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Models\AtlasAaeosTestRunReceipt;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
@@ -28,7 +28,7 @@ use Throwable;
  *
  *   - doc_status=ready (per service_class FQN): some canonical doc declares a
  *     `symbol: <ref>` evidence_ref AND
- *     AtlasAaeosImplementationEvidenceResolver::resolve(self::FIELD_SYMBOL, <ref>) matches
+ *     AtlasImplementationEvidenceResolver::resolve(self::FIELD_SYMBOL, <ref>) matches
  *     the scorecard FQN EXACTLY (or by the FQN suffix '\<FQN>'). This FQN-BIND is
  *     mandatory: a doc declaring `symbol: AtlasTokenEconomyRuntimeService` (which
  *     resolves to App\Services\Ai\Context\AtlasTokenEconomyRuntimeService) must NOT
@@ -38,9 +38,9 @@ use Throwable;
  *
  *   - pipeline_status=ready (per service_class FQN): the owner doc's declared test
  *     ref (or the <Short>Test naming convention) has a REAL, FRESH GREEN-RUN RECEIPT
- *     (AtlasAaeosTestExecutionService::hasGreenReceipt), keyed on the OWNER DOC id
+ *     (AtlasCapabilityTestExecutionService::hasGreenReceipt), keyed on the OWNER DOC id
  *     exactly as atlas:aaeos:verify-tests recorded it, with freshness hashes from
- *     AtlasAaeosImplementationTruthService::freshnessHashes (cheap — hashes a few
+ *     AtlasImplementationTruthService::freshnessHashes (cheap — hashes a few
  *     files, NEVER runs a test). A test symbol that exists but has no green receipt
  *     computes to PARTIAL (existence_only_unrun), mirroring the truth service.
  *
@@ -52,9 +52,9 @@ use Throwable;
  * DEGRADE-SAFE: a blind index (resolve returns nothing) or an absent receipts table
  * yields an honest non-ready status (building/partial), NEVER a false ready.
  *
- * @see app/Services/Ai/Aaeos/AtlasAaeosImplementationEvidenceResolver.php
- * @see app/Services/Ai/Aaeos/AtlasAaeosTestExecutionService.php
- * @see app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php
+ * @see app/Services/Ai/Aaeos/AtlasImplementationEvidenceResolver.php
+ * @see app/Services/Ai/Aaeos/AtlasCapabilityTestExecutionService.php
+ * @see app/Services/Ai/Aaeos/AtlasImplementationTruthService.php
  */
 class AtlasCognitionEvidenceResolver
 {
@@ -112,10 +112,10 @@ class AtlasCognitionEvidenceResolver
     private ?array $ownershipIndex = null;
 
     public function __construct(
-        private readonly AtlasAaeosImplementationEvidenceResolver $resolver = new AtlasAaeosImplementationEvidenceResolver,
-        private readonly AtlasAaeosTestExecutionService $testExecution = new AtlasAaeosTestExecutionService,
-        private readonly AtlasAaeosImplementationTruthService $truth = new AtlasAaeosImplementationTruthService(
-            new AtlasAaeosImplementationEvidenceResolver,
+        private readonly AtlasImplementationEvidenceResolver $resolver = new AtlasImplementationEvidenceResolver,
+        private readonly AtlasCapabilityTestExecutionService $testExecution = new AtlasCapabilityTestExecutionService,
+        private readonly AtlasImplementationTruthService $truth = new AtlasImplementationTruthService(
+            new AtlasImplementationEvidenceResolver,
             new CanonicalDocsFrontmatterParser,
         ),
     ) {}
@@ -149,7 +149,7 @@ class AtlasCognitionEvidenceResolver
      * green-run receipt — REUSING the B3 green-receipt gate verbatim.
      *
      * ready    -> the owner doc's declared test ref (or <Short>Test) has a green-CURRENT
-     *             receipt (AtlasAaeosTestExecutionService::hasGreenReceipt) keyed on the
+     *             receipt (AtlasCapabilityTestExecutionService::hasGreenReceipt) keyed on the
      *             OWNER DOC id, fresh against the current code+test content.
      * partial  -> a <Short>Test / declared test symbol resolves in the index but has NO
      *             green receipt (existence_only_unrun), mirroring the truth service.

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosQualityBarServiceTest extends TestCase
 {
-    private AtlasAaeosQualityBarService $service;
+    private AtlasDepartmentQualityBarService $service;
 
     protected function setUp(): void
     {
-        $this->service = new AtlasAaeosQualityBarService();
+        $this->service = new AtlasDepartmentQualityBarService();
     }
 
     public function testReturnsCorrectSchemaVersion(): void

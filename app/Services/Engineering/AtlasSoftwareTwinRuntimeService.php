@@ -9,8 +9,8 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasSoftwareTwinSnapshot;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
@@ -21,7 +21,7 @@ use SplFileInfo;
 // Intentionally NOT final: this read-only predictive service is designed to be
 // injected and wrapped (e.g. by the L2-O2 intent advisory), and downstream tests
 // mock simulate() for determinism — mirroring the non-final, mockable convention
-// of the other injected truth services (e.g. AtlasAaeosImplementationTruthService).
+// of the other injected truth services (e.g. AtlasImplementationTruthService).
 class AtlasSoftwareTwinRuntimeService
 {
     public const SCHEMA_VERSION = 'atlas.software_twin.v1';
@@ -72,7 +72,7 @@ class AtlasSoftwareTwinRuntimeService
 
     public function __construct(
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
-        private readonly AtlasAaeosImplementationTruthService $implementationTruth,
+        private readonly AtlasImplementationTruthService $implementationTruth,
         private readonly AtlasDocsAuthorityGraphService $authorityGraph,
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
     ) {}

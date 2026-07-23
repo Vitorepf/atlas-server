@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+
 final class AtlasDocumentationEnforcementService
 {
     public const SCHEMA_VERSION = 'atlas.documentation_enforcement.v1';

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Symfony\Component\Process\Process;
@@ -24,7 +24,7 @@ use Throwable;
  * honest doc instead of being stopped or sailing through a lie.
  *
  * COMPOSES, never re-derives. The (claimed, computed, drift) triple is produced ONCE by
- * {@see AtlasAaeosImplementationTruthService::driftForFrontmatter()} (the SAME authoritative
+ * {@see AtlasImplementationTruthService::driftForFrontmatter()} (the SAME authoritative
  * per-doc evaluator the write-gate consumes — no ledger pre-filter, so empty/junk evidence
  * on a partial/verified claim still computes to spec => drift). This service resolves
  * NOTHING itself: it does not resolve evidence, recompute a tier, or re-rank. It reads the
@@ -84,7 +84,7 @@ final class AtlasDocumentationRealityAutoHealService
     private const RANK = ['spec' => 0, 'partial' => 1, 'verified' => 2];
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
     ) {}
 

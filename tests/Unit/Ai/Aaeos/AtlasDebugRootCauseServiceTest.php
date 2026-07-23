@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasDebugRootCauseServiceTest extends TestCase

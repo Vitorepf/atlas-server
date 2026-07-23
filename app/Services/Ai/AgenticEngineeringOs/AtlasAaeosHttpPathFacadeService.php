@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
-use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Mission\MissionDetectionService;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -159,7 +159,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     public static function isActive(string $configuredPhase): bool
     {
-        return AtlasAaeosPhaseRouterService::isActivePhase($configuredPhase);
+        return AtlasPhaseRouterService::isActivePhase($configuredPhase);
     }
 
     /**
@@ -329,7 +329,7 @@ final class AtlasAaeosHttpPathFacadeService
             self::FIELD_SCHEMA => self::STATUS_SCHEMA,
             self::FIELD_CONFIGURED_PHASE => $configuredPhase,
             self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
-            self::FIELD_PHASE_ROUTER => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
+            self::FIELD_PHASE_ROUTER => (new AtlasPhaseRouterService($configuredPhase))->statusSnapshot(),
             self::FIELD_COUNTERS => [
                 self::FIELD_REQUESTS => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
@@ -501,7 +501,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function phaseAtLeast(string $configuredPhase, string $threshold): bool
     {
-        return AtlasAaeosPhaseRouterService::phaseAtLeast($configuredPhase, $threshold);
+        return AtlasPhaseRouterService::phaseAtLeast($configuredPhase, $threshold);
     }
 
     private function elapsedMs(int $startedAtNs): int

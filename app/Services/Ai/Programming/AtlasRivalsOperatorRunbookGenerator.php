@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+
 /**
  * Atlas Rivals · Operator Runbook Generator v1.
  *

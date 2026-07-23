@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Forge;
 
+
 /**
  * Canonical enums, defaults and gate map for `atlas.forge.long_horizon_state.v1`.
  *

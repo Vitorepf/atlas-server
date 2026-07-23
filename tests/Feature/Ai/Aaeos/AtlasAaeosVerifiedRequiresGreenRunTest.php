@@ -6,9 +6,9 @@ namespace Tests\Feature\Ai\Aaeos;
 
 use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -44,7 +44,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
 
         // Seed the index so the capability's refs RESOLVE (existence-only): a real
         // class symbol, a CLI command (wiring), and a *Test* symbol (existence match).
-        $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasAaeosImplementationTruthService', 'class-1');
+        $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService', 'class-1');
         $this->seedSymbol('cli_command', 'atlas:aaeos:maturity', 'cmd-1');
         $this->seedSymbol(
             'test_method',
@@ -116,7 +116,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
     {
         $this->recordGreenReceipt(self::CAPABILITY, self::TEST_REF, passed: false, testsRun: 1);
 
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
         $this->assertFalse($execution->hasGreenReceipt(self::CAPABILITY, self::TEST_REF));
 
         $result = $this->computeProofCapability();
@@ -131,7 +131,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
     {
         $this->recordGreenReceipt(self::CAPABILITY, self::TEST_REF, passed: true, testsRun: 0);
 
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
         $this->assertFalse(
             $execution->hasGreenReceipt(self::CAPABILITY, self::TEST_REF),
             'passed=true with 0 tests executed must not count as green',
@@ -179,7 +179,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         Schema::dropIfExists('atlas_aaeos_test_run_receipts');
         $this->assertFalse(Schema::hasTable('atlas_aaeos_test_run_receipts'));
 
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
         $this->assertFalse($execution->hasGreenReceipt(self::CAPABILITY, self::TEST_REF));
 
         $result = $this->computeProofCapability();
@@ -200,7 +200,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $fixture = base_path('tests/Fixtures/Aaeos/AtlasAaeosGreenRunProofFixtureTest.php');
         $this->assertFileExists($fixture);
 
-        $execution = new AtlasAaeosTestExecutionService(timeout: 120.0);
+        $execution = new AtlasCapabilityTestExecutionService(timeout: 120.0);
 
         $pass = $execution->runAndRecord(self::CAPABILITY, 'test_atlas_green_proof_passes', $fixture);
         if (($pass['ran'] ?? false) !== true) {
@@ -210,7 +210,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $pass['tests_run']);
         $this->assertSame(0, $pass['exit_code']);
         $this->assertTrue(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::CAPABILITY, 'test_atlas_green_proof_passes'),
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(self::CAPABILITY, 'test_atlas_green_proof_passes'),
         );
 
         $fail = $execution->runAndRecord(self::CAPABILITY, 'test_atlas_green_proof_fails', $fixture);
@@ -218,7 +218,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $this->assertFalse($fail['passed'], 'a real FAILING test must record passed=false. tail: '.($fail['output_tail'] ?? ''));
         $this->assertNotSame(0, $fail['exit_code']);
         $this->assertFalse(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::CAPABILITY, 'test_atlas_green_proof_fails'),
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(self::CAPABILITY, 'test_atlas_green_proof_fails'),
             'a present-but-failing test must not produce a green receipt',
         );
     }
@@ -254,7 +254,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         return $this->service()->compute(
             'runtime_verified',
             [
-                ['kind' => 'symbol', 'ref' => 'AtlasAaeosImplementationTruthService'],
+                ['kind' => 'symbol', 'ref' => 'AtlasImplementationTruthService'],
                 ['kind' => 'command', 'ref' => 'atlas:aaeos:maturity'],
                 ['kind' => 'test', 'ref' => self::TEST_REF],
                 // A present receipt file (this very test file) satisfies the receipt kind.
@@ -279,7 +279,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
 
     private function assertNoGreenReceipt(): void
     {
-        $this->assertFalse((new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::CAPABILITY, self::TEST_REF));
+        $this->assertFalse((new AtlasCapabilityTestExecutionService)->hasGreenReceipt(self::CAPABILITY, self::TEST_REF));
     }
 
     private function recordGreenReceipt(string $capabilityId, string $testRef, bool $passed, int $testsRun): void
@@ -308,7 +308,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
     private const FRESH_TEST_REF = 'FreshnessProofGreenRunTest';
 
     /** A real impl file whose CONTENT backs impl_files_hash. */
-    private const REAL_IMPL_FILE = 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php';
+    private const REAL_IMPL_FILE = 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php';
 
     /** A real test file whose CONTENT backs test_file_hash. */
     private const REAL_TEST_FILE = 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php';
@@ -331,7 +331,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $this->assertSame('verified', $verified['computed_state'], 'matching content hashes must keep verified');
         $this->assertTrue($verified['resolved']['test_green']);
         $this->assertTrue(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(
                 self::FRESH_CAP,
                 self::FRESH_TEST_REF,
                 $current['test_file_hash'],
@@ -353,7 +353,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         // The receipt now stores the tampered impl hash; against the REAL current hashes
         // (what compute() recomputes from the live files) it no longer matches -> not green.
         $this->assertFalse(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(
                 self::FRESH_CAP,
                 self::FRESH_TEST_REF,
                 $current['test_file_hash'],
@@ -380,7 +380,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $this->assertSame('partial', $stale['computed_state'], 'a stale TEST hash must drop the capability from verified');
         $this->assertFalse($stale['resolved']['test_green']);
         $this->assertFalse(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(
                 self::FRESH_CAP,
                 self::FRESH_TEST_REF,
                 $current['test_file_hash'],
@@ -409,13 +409,13 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         // The DECLARED class (Tests\Ghost\AbsentDeclaredClassTest) is NOT indexed.
         $ref = 'Tests\\Ghost\\AbsentDeclaredClassTest::test_shared_fqn_method';
         $this->assertNull(
-            (new AtlasAaeosImplementationEvidenceResolver)->resolveTestFqn($ref),
+            (new AtlasImplementationEvidenceResolver)->resolveTestFqn($ref),
             'a ref whose declared class is absent must not resolve to a real Class::method',
         );
 
         $before = AtlasAaeosTestRunReceipt::query()->count();
 
-        $receipt = (new AtlasAaeosTestExecutionService)->runAndRecord(self::FRESH_CAP, $ref);
+        $receipt = (new AtlasCapabilityTestExecutionService)->runAndRecord(self::FRESH_CAP, $ref);
         $this->assertFalse($receipt['passed'], 'an ambiguous ref must never record green');
         $this->assertFalse($receipt['ran'] ?? false, 'an ambiguous ref must not run a broad filter');
         $this->assertSame('ambiguous_test_ref', $receipt['reason'] ?? null);
@@ -434,7 +434,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         );
 
         $this->assertFalse(
-            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::FRESH_CAP, $ref),
+            (new AtlasCapabilityTestExecutionService)->hasGreenReceipt(self::FRESH_CAP, $ref),
             'no green receipt may exist for an ambiguous Class::method ref',
         );
     }
@@ -452,7 +452,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
             'anchored-1',
         );
 
-        $fqn = (new AtlasAaeosImplementationEvidenceResolver)->resolveTestFqn(
+        $fqn = (new AtlasImplementationEvidenceResolver)->resolveTestFqn(
             'ConcreteAnchoredTest::test_anchored_method',
         );
         $this->assertIsArray($fqn);
@@ -562,12 +562,12 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         ];
     }
 
-    private function service(): AtlasAaeosImplementationTruthService
+    private function service(): AtlasImplementationTruthService
     {
-        return new AtlasAaeosImplementationTruthService(
-            new AtlasAaeosImplementationEvidenceResolver,
+        return new AtlasImplementationTruthService(
+            new AtlasImplementationEvidenceResolver,
             new CanonicalDocsFrontmatterParser,
-            new AtlasAaeosTestExecutionService,
+            new AtlasCapabilityTestExecutionService,
         );
     }
 

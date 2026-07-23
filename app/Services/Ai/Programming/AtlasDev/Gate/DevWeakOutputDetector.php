@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+
 /**
  * Catches weak model output BEFORE it touches code. Feeds the fact into the existing repair loop
- * ({@see \App\Services\Ai\Aaeos\AtlasRepairLoopGuard}) instead of building a second loop: this
+ * ({@see \App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard}) instead of building a second loop: this
  * detector only produces {weak, signals, repair_hint} — it never iterates, never escalates, never
  * calls a provider. The guard owns iteration/escalation once a caller decides to act on the fact.
  *

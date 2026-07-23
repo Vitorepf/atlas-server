@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AiOutcomeLink;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
 use Illuminate\Support\Collection;
@@ -116,7 +116,7 @@ class AtlasDocumentationRealityOutcomeGroundingService
     private const CAPABILITY_TARGET_TYPES = ['capability', 'capability_id', 'owner_doc', 'doc', 'documentation'];
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly AiOutcomeLink $outcomeLinks,
     ) {}
 

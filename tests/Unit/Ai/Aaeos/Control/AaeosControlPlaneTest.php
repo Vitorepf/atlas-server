@@ -15,7 +15,7 @@ use App\Services\Ai\Aaeos\Control\AaeosOrgStateProjector;
 use App\Services\Ai\Aaeos\Control\AaeosScorecardProjector;
 use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
 use App\Services\Ai\Aaeos\Spine\AaeosSpineGate;
-use App\Services\Ai\Aaeos\Support\AtlasSourceConnectorsAndCaptureService;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasSourceConnectorsAndCaptureService;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use PHPUnit\Framework\TestCase;
 
@@ -154,10 +154,10 @@ final class AaeosControlPlaneTest extends TestCase
         $this->assertSame(0, $card['quarantine_production_imports']);
     }
 
-    public function test_source_connectors_live_in_support_not_quarantine(): void
+    public function test_source_connectors_live_in_brain_not_quarantine(): void
     {
         $this->assertSame(
-            'App\\Services\\Ai\\Aaeos\\Support\\AtlasSourceConnectorsAndCaptureService',
+            'App\\Services\\Ai\\AutonomousEvolution\\Brain\\AtlasSourceConnectorsAndCaptureService',
             AtlasSourceConnectorsAndCaptureService::class,
         );
         $this->assertSame('atlas.evidence_source.v1', AtlasSourceConnectorsAndCaptureService::EVIDENCE_SCHEMA);
@@ -165,7 +165,15 @@ final class AaeosControlPlaneTest extends TestCase
         $ref = new \ReflectionClass(AtlasSourceConnectorsAndCaptureService::class);
         $path = $ref->getFileName();
         $this->assertIsString($path);
-        $this->assertStringContainsString('/Aaeos/Support/', $path);
+        $this->assertStringContainsString('/AutonomousEvolution/Brain/', $path);
         $this->assertStringNotContainsString('/Aaeos/Quarantine/', $path);
+    }
+
+    public function test_aaeos_tree_is_control_and_spine_only(): void
+    {
+        $card = (new AaeosScorecardProjector)->project();
+        $this->assertTrue($card['aaeos_tree']['pure']);
+        $this->assertSame(0, $card['orphan_generated_tests']);
+        $this->assertSame([], $card['aaeos_tree']['foreign']);
     }
 }

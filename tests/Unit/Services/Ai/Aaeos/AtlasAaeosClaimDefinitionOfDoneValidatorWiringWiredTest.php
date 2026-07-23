@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
- * Proves AtlasAaeosClaimDefinitionOfDoneValidator is wired into a real call path: the
+ * Proves AtlasClaimDefinitionOfDoneValidator is wired into a real call path: the
  * atlas:aaeos:department-status command now validates an optional completion claim file
  * against the Definition of Done. It is no longer an orphan.
  */

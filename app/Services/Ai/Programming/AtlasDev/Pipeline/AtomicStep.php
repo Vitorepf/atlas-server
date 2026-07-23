@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+
 /**
  * Immutable, self-contained FIRST step emitted by {@see AtomicSemanticDecomposer}.
  *

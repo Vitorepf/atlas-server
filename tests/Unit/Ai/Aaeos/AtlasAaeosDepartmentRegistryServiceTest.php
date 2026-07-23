@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
 use Tests\TestCase;
 
 class AtlasAaeosDepartmentRegistryServiceTest extends TestCase
@@ -89,8 +89,8 @@ class AtlasAaeosDepartmentRegistryServiceTest extends TestCase
         ];
     }
 
-    private function service(): AtlasAaeosDepartmentRegistryService
+    private function service(): AtlasDepartmentRegistryService
     {
-        return new AtlasAaeosDepartmentRegistryService;
+        return new AtlasDepartmentRegistryService;
     }
 }

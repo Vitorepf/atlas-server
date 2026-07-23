@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasDocsAuthorityGraph;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 

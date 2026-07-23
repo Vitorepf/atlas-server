@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Sdd\Enums;
 
+
 /**
  * Spec lifecycle status per templates-and-schemas.md:106.
  *

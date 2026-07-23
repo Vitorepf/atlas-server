@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\DurableExecution;
 
+
 /**
  * Programming Harness — Durable Execution Receipt (AP-285).
  *

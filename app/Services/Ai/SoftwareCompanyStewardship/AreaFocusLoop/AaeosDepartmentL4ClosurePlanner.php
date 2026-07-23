@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
+
 /**
  * S87 — Builds the missing-work packets every AAEOS department still needs to
  * reach a computed maturity of L4 or higher.
@@ -29,7 +31,7 @@ final class AaeosDepartmentL4ClosurePlanner
     private const OWNER_DOC = 'docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md';
 
     /**
-     * Canonical AAEOS departments (mirrors AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS).
+     * Canonical AAEOS departments (mirrors AtlasDepartmentRegistryService::CANONICAL_DEPARTMENTS).
      *
      * @var list<string>
      */

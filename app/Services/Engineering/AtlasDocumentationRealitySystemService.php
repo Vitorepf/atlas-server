@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Engineering\DocumentationReality\DocumentationRealityEvaluationsSection;
@@ -187,8 +187,8 @@ class AtlasDocumentationRealitySystemService
         // the existing constructor contract is preserved; resolved lazily from the
         // container when absent (and re-resolved in driftDuplicationEvaluation so a test
         // that swaps the binding after construction is honoured).
-        private readonly ?AtlasAaeosImplementationTruthService $aaeosTruth = null,
-        private readonly ?AtlasAaeosImplementationEvidenceResolver $evidenceResolver = null,
+        private readonly ?AtlasImplementationTruthService $aaeosTruth = null,
+        private readonly ?AtlasImplementationEvidenceResolver $evidenceResolver = null,
         // Batch A — the cross-source authority adjudicator. It scans the WHOLE canonical
         // corpus and emits a real conflict verdict (identity/runtime duplicate groups,
         // capability overlaps, owner gaps). Six formerly-partial evaluators now compute their
@@ -833,7 +833,7 @@ class AtlasDocumentationRealitySystemService
      * and FIRES on real divergence. It is read-only; it never writes or mutates.
      *
      * PRIMARY signal 1 — OVER-CLAIM DRIFT: compose the AAEOS capability truth ledger
-     * (AtlasAaeosImplementationTruthService::ledger). A capability whose doc declares a
+     * (AtlasImplementationTruthService::ledger). A capability whose doc declares a
      * higher implementation_state than the code index can prove (rank(claimed) >
      * rank(computed)) is real drift. We surface drift_count + the drifting
      * {owner_doc, capability_id, claimed, computed} rows. We DO NOT re-derive drift — the
@@ -841,7 +841,7 @@ class AtlasDocumentationRealitySystemService
      *
      * PRIMARY signal 2 — DOC-CLAIMED-FACT DRIFT: for each canonical source doc this system
      * governs, resolve every declared evidence_ref (symbol/command/route) against the code
-     * index via AtlasAaeosImplementationEvidenceResolver. A doc claiming a symbol/command/
+     * index via AtlasImplementationEvidenceResolver. A doc claiming a symbol/command/
      * route that does NOT resolve is a claimed-but-absent drift — the doc asserts a code
      * fact reality cannot back. Each unresolved ref becomes a drift row.
      *
@@ -1046,14 +1046,14 @@ class AtlasDocumentationRealitySystemService
             ->exists();
     }
 
-    private function aaeosTruthService(): AtlasAaeosImplementationTruthService
+    private function aaeosTruthService(): AtlasImplementationTruthService
     {
-        return $this->aaeosTruth ?? App::make(AtlasAaeosImplementationTruthService::class);
+        return $this->aaeosTruth ?? App::make(AtlasImplementationTruthService::class);
     }
 
-    private function resolver(): AtlasAaeosImplementationEvidenceResolver
+    private function resolver(): AtlasImplementationEvidenceResolver
     {
-        return $this->evidenceResolver ?? App::make(AtlasAaeosImplementationEvidenceResolver::class);
+        return $this->evidenceResolver ?? App::make(AtlasImplementationEvidenceResolver::class);
     }
 
     private function resolveAuthorityAudit(): EngineeringDocumentationAuthorityAuditService

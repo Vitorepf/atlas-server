@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
- * Proves AaeosDepartmentLevelClassifier is wired into a real call path: the
+ * Proves AtlasDepartmentLevelClassifier is wired into a real call path: the
  * atlas:aaeos:department-status command now runs it per department alongside the existing
  * quality-bar band classification. It is no longer an orphan.
  */

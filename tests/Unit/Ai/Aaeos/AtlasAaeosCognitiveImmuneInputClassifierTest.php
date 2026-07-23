@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosCognitiveImmuneInputClassifierTest extends TestCase
 {
-    private AtlasAaeosCognitiveImmuneInputClassifier $classifier;
+    private AtlasCognitiveImmuneInputClassifier $classifier;
 
     protected function setUp(): void
     {
-        $this->classifier = new AtlasAaeosCognitiveImmuneInputClassifier();
+        $this->classifier = new AtlasCognitiveImmuneInputClassifier();
     }
 
     public function testSchemaVersionIsPinned(): void

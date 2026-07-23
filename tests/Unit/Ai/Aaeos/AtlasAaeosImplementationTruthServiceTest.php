@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Aaeos;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -168,7 +168,7 @@ class AtlasAaeosImplementationTruthServiceTest extends TestCase
         $explain = $service->explainImplFilesHash($refs);
 
         $this->assertIsArray($explain);
-        $this->assertSame(AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT, $explain['format']);
+        $this->assertSame(AtlasImplementationTruthService::IMPL_FILES_HASH_FORMAT, $explain['format']);
         $this->assertArrayHasKey($relativePath, $explain['paths']);
         $this->assertSame(hash('sha256', '<?php // explain-me'), $explain['paths'][$relativePath]);
         $this->assertSame(
@@ -264,17 +264,17 @@ class AtlasAaeosImplementationTruthServiceTest extends TestCase
         ]);
     }
 
-    private function freshTruthService(): AtlasAaeosImplementationTruthService
+    private function freshTruthService(): AtlasImplementationTruthService
     {
-        return new AtlasAaeosImplementationTruthService(
-            new AtlasAaeosImplementationEvidenceResolver,
+        return new AtlasImplementationTruthService(
+            new AtlasImplementationEvidenceResolver,
             new CanonicalDocsFrontmatterParser,
         );
     }
 
-    private function serviceWithResolver(AtlasAaeosImplementationEvidenceResolver $resolver): AtlasAaeosImplementationTruthService
+    private function serviceWithResolver(AtlasImplementationEvidenceResolver $resolver): AtlasImplementationTruthService
     {
-        return new AtlasAaeosImplementationTruthService(
+        return new AtlasImplementationTruthService(
             $resolver,
             new CanonicalDocsFrontmatterParser,
         );
@@ -293,17 +293,17 @@ class AtlasAaeosImplementationTruthServiceTest extends TestCase
         ];
     }
 
-    private function service(): AtlasAaeosImplementationTruthService
+    private function service(): AtlasImplementationTruthService
     {
-        return new AtlasAaeosImplementationTruthService(
-            new AtlasAaeosImplementationEvidenceResolver,
+        return new AtlasImplementationTruthService(
+            new AtlasImplementationEvidenceResolver,
             new CanonicalDocsFrontmatterParser,
         );
     }
 }
 
 /** Returns the same path in different orders / with duplicates — hash must dedupe+sort. */
-final class OrderShufflingSymbolPathResolver extends AtlasAaeosImplementationEvidenceResolver
+final class OrderShufflingSymbolPathResolver extends AtlasImplementationEvidenceResolver
 {
     private int $calls = 0;
 
@@ -322,7 +322,7 @@ final class OrderShufflingSymbolPathResolver extends AtlasAaeosImplementationEvi
 }
 
 /** Single deterministic path for explain / content sensitivity tests. */
-final class SinglePathSymbolResolver extends AtlasAaeosImplementationEvidenceResolver
+final class SinglePathSymbolResolver extends AtlasImplementationEvidenceResolver
 {
     public function __construct(private readonly string $path) {}
 

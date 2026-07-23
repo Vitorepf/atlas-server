@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * AP-815 · E-8 — Anti-context pruner: drop graph-irrelevant context.
  *

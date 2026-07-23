@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Differential\Shadow;
 
+
 /**
  * E4 -- Generates probe inputs for a pure-function signature.
  *

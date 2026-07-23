@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class AaeosDepartmentLevelClassifierTest extends TestCase
 {
-    private AaeosDepartmentLevelClassifier $classifier;
+    private AtlasDepartmentLevelClassifier $classifier;
 
     protected function setUp(): void
     {
-        $this->classifier = new AaeosDepartmentLevelClassifier();
+        $this->classifier = new AtlasDepartmentLevelClassifier();
     }
 
     /**

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -23,8 +23,8 @@ class AtlasCognitionRemintTouchedCommand extends Command
 
     public function handle(
         AtlasCognitionEvidenceResolver $resolver,
-        AtlasAaeosImplementationTruthService $truth,
-        AtlasAaeosTestExecutionService $execution,
+        AtlasImplementationTruthService $truth,
+        AtlasCapabilityTestExecutionService $execution,
     ): int {
         $limit = max(1, min(100, (int) $this->option('limit')));
         $paths = $this->paths();

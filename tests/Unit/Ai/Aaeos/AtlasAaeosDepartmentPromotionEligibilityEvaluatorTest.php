@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosDepartmentPromotionEligibilityEvaluatorTest extends TestCase
 {
-    private AtlasAaeosDepartmentPromotionEligibilityEvaluator $evaluator;
+    private AtlasDepartmentPromotionEligibilityEvaluator $evaluator;
 
     protected function setUp(): void
     {
-        $this->evaluator = new AtlasAaeosDepartmentPromotionEligibilityEvaluator();
+        $this->evaluator = new AtlasDepartmentPromotionEligibilityEvaluator();
     }
 
     public function testSchemaVersionAndPreconditionKeysAreCanonical(): void

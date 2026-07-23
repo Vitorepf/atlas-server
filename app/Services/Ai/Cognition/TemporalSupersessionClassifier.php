@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+
 /**
  * Classifies the temporal relationship between two timestamped assertions that
  * may or may not share the same logical key. Pure and deterministic: the verdict

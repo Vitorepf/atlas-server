@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeRealityUsageIntelligence;
 
+
 final class CodeRealityFlowFamilySection
 {
     public function __construct(

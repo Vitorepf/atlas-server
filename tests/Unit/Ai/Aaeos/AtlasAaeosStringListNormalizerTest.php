@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
 use Tests\TestCase;
 
 final class AtlasAaeosStringListNormalizerTest extends TestCase
@@ -13,7 +13,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['alpha', 'alpha', 'beta'],
-            AtlasAaeosStringListNormalizer::trimmedStrings([' alpha ', 'alpha', '', null, ' beta ']),
+            AtlasStringListNormalizer::trimmedStrings([' alpha ', 'alpha', '', null, ' beta ']),
         );
     }
 
@@ -21,7 +21,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['alpha', '42', '4.2', 'alpha'],
-            AtlasAaeosStringListNormalizer::trimmedScalarValues([' alpha ', 42, false, ' ', ['nested'], 4.2, 'alpha']),
+            AtlasStringListNormalizer::trimmedScalarValues([' alpha ', 42, false, ' ', ['nested'], 4.2, 'alpha']),
         );
     }
 
@@ -29,7 +29,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['alpha', '42', 'alpha'],
-            AtlasAaeosStringListNormalizer::trimmedStringOrIntValues([' alpha ', 42, true, false, ' ', ['nested'], 4.2, 'alpha']),
+            AtlasStringListNormalizer::trimmedStringOrIntValues([' alpha ', 42, true, false, ' ', ['nested'], 4.2, 'alpha']),
         );
     }
 
@@ -37,7 +37,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             [' alpha ', '42', '0'],
-            AtlasAaeosStringListNormalizer::nonBlankStringOrIntValues([' alpha ', 42, true, false, ' ', ['nested'], 4.2, '0']),
+            AtlasStringListNormalizer::nonBlankStringOrIntValues([' alpha ', 42, true, false, ' ', ['nested'], 4.2, '0']),
         );
     }
 
@@ -45,16 +45,16 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             [' app/Foo.php ', '', '0'],
-            AtlasAaeosStringListNormalizer::strings([' app/Foo.php ', '', null, 42, '0']),
+            AtlasStringListNormalizer::strings([' app/Foo.php ', '', null, 42, '0']),
         );
     }
 
     public function test_non_empty_array_strings_rejects_scalar_input(): void
     {
-        $this->assertSame([], AtlasAaeosStringListNormalizer::nonEmptyArrayStrings('app/Foo.php'));
+        $this->assertSame([], AtlasStringListNormalizer::nonEmptyArrayStrings('app/Foo.php'));
         $this->assertSame(
             [' app/Foo.php ', '0'],
-            AtlasAaeosStringListNormalizer::nonEmptyArrayStrings([' app/Foo.php ', '', null, 42, '0']),
+            AtlasStringListNormalizer::nonEmptyArrayStrings([' app/Foo.php ', '', null, 42, '0']),
         );
     }
 
@@ -62,7 +62,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             [' app/Foo.php ', '0', ' app/Foo.php '],
-            AtlasAaeosStringListNormalizer::nonEmptyStrings([' app/Foo.php ', '', null, 42, '0', ' app/Foo.php ']),
+            AtlasStringListNormalizer::nonEmptyStrings([' app/Foo.php ', '', null, 42, '0', ' app/Foo.php ']),
         );
     }
 
@@ -70,7 +70,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['source ', ' ', 'bundle'],
-            AtlasAaeosStringListNormalizer::uniqueNonEmptyStrings(['source ', '', ' ', 'bundle', 'source ']),
+            AtlasStringListNormalizer::uniqueNonEmptyStrings(['source ', '', ' ', 'bundle', 'source ']),
         );
     }
 
@@ -78,7 +78,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             [' app/Foo.php ', '0'],
-            AtlasAaeosStringListNormalizer::nonBlankStrings([' app/Foo.php ', '', '   ', null, 42, '0']),
+            AtlasStringListNormalizer::nonBlankStrings([' app/Foo.php ', '', '   ', null, 42, '0']),
         );
     }
 
@@ -86,7 +86,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['alpha', 'beta'],
-            AtlasAaeosStringListNormalizer::uniqueTrimmedStrings([' alpha ', 'alpha', '', null, ' beta ']),
+            AtlasStringListNormalizer::uniqueTrimmedStrings([' alpha ', 'alpha', '', null, ' beta ']),
         );
     }
 
@@ -94,7 +94,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['--sandbox', '--sandbox', 'plugin'],
-            AtlasAaeosStringListNormalizer::lowerTrimmedStrings([' --Sandbox ', '--sandbox', '', null, ' Plugin ']),
+            AtlasStringListNormalizer::lowerTrimmedStrings([' --Sandbox ', '--sandbox', '', null, ' Plugin ']),
         );
     }
 
@@ -102,7 +102,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['desktop', 'mobile'],
-            AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings([' Desktop ', 'desktop', '', null, ' MOBILE ']),
+            AtlasStringListNormalizer::uniqueLowerTrimmedStrings([' Desktop ', 'desktop', '', null, ' MOBILE ']),
         );
     }
 
@@ -110,7 +110,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['source_candidates', 'claim', 'artifact-id', 'named-artifact', 'raw'],
-            AtlasAaeosStringListNormalizer::stringsFromArtifactRefs([
+            AtlasStringListNormalizer::stringsFromArtifactRefs([
                 ['kind' => ' source_candidates '],
                 ['type' => 'claim'],
                 ['id' => 'artifact-id'],
@@ -127,7 +127,7 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
     {
         $this->assertSame(
             ['', 'alpha', 'beta'],
-            AtlasAaeosStringListNormalizer::uniqueSortedStrings(['beta', '', 'alpha', 'beta', '']),
+            AtlasStringListNormalizer::uniqueSortedStrings(['beta', '', 'alpha', 'beta', '']),
         );
     }
 }

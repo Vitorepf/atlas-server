@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+
 /**
  * Single source of truth for the two settings every Atlas path that runs Hermes
  * as an autonomous WORKSPACE EDITOR must get right — and which previously each

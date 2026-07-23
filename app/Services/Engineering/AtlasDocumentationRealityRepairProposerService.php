@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
@@ -16,7 +16,7 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  * higher implementation_state than the code intelligence index can prove (an
  * over-claim). This decider begins to HEAL — from a detected drift it GENERATES a
  * concrete, conservative repair PROPOSAL. It does NOT detect drift itself: it
- * REUSES AtlasAaeosImplementationTruthService::ledger() as the single source of
+ * REUSES AtlasImplementationTruthService::ledger() as the single source of
  * the drift verdict.
  *
  * CRITICAL SAFETY ("auto-reparo cego", named as a risk in the generative-leap
@@ -38,7 +38,7 @@ class AtlasDocumentationRealityRepairProposerService
     public const SCHEMA = 'atlas.documentation_reality.repair_proposal.v1';
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
     ) {}
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+
 /**
  * Pure, deterministic renderer: assembles everything the fast-path pipeline already produced
  * (a decomposed workcell, the budget-distilled context, the mini spec, and green-run exemplars)

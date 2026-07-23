@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * AP-815 · E-7 — Progressive disclosure for the code graph (skeleton-first reads).
  *

@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Self-construction — the SAFE proposal step (AP-811 / AP-812 M-7).
  *

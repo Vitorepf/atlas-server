@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
 use Illuminate\Console\Command;
 use Throwable;
 

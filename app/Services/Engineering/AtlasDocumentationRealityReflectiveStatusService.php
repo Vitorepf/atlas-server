@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 
 /**
  * L-inf (ONE promoted fragment: R2 EPISTEMIC HUMILITY) — the REFLECTIVE SELF-STATUS.
@@ -36,7 +36,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
  *
  * COMPOSITION (does NOT re-derive truth): the status is COMPOSED from the real
  * ladder collaborators, read-only:
- *   - AtlasAaeosImplementationTruthService::coverage() — the doc<->runtime measure
+ *   - AtlasImplementationTruthService::coverage() — the doc<->runtime measure
  *     (coverage_pct / score_out_of_10) AND, crucially, its KNOWN blind spot: it
  *     measures what CLAIMS runtime, not whether the claim-SET is complete.
  *   - AtlasDocumentationRealityOutcomeGroundingService::gradeAll() — the L2-O1
@@ -78,7 +78,7 @@ class AtlasDocumentationRealityReflectiveStatusService
     private const COMPLETION_TOKENS = ['complete', 'completo', 'done', 'concluido', 'concluído', '10/10', 'finished', 'finalizado'];
 
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
         private readonly AtlasDocumentationRealityOutcomeGroundingService $outcomeGrounding,
         private readonly AtlasDocumentationRealitySystemService $system,
     ) {}
@@ -250,7 +250,7 @@ class AtlasDocumentationRealityReflectiveStatusService
                 'A high coverage number means the claims made are backed; it does NOT mean every capability that SHOULD be claimed has a doc.',
                 $coverageReadable ? null : 'The coverage read model was unavailable this run, so confidence is low rather than asserted.',
             ])),
-            evidenceRef: 'AtlasAaeosImplementationTruthService::coverage (atlas:aaeos:maturity)',
+            evidenceRef: 'AtlasImplementationTruthService::coverage (atlas:aaeos:maturity)',
         );
 
         return $claims;

@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Jobs\ProcessAudioTranscription;
 use App\Models\Capture;
 use App\Models\TranscriptionJob;
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use App\Services\Ai\Memory\AiMemoryDeltaProposer;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
@@ -34,7 +34,7 @@ class CaptureService
         private readonly ActivationEngine $activations,
         private readonly AiMemoryDeltaProposer $memoryDeltas,
         private readonly CognitiveImmunePromotionGateEvaluator $immuneGateEvaluator,
-        private readonly AtlasAaeosCognitiveImmuneInputClassifier $immuneInputClassifier,
+        private readonly AtlasCognitiveImmuneInputClassifier $immuneInputClassifier,
         private readonly ImmuneVerdictLedger $immuneVerdictLedger,
         private readonly CaptureHmacLineageService $captureHmacLineage,
         private readonly ImmuneSignatureIngestor $immuneSignatureIngestor,

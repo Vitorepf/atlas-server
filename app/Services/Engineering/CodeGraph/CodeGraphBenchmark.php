@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Token-economy benchmark for the code graph (AP-811/812, FRONT 3 — harden/prove).
  *

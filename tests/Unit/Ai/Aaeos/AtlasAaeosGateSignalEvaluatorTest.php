@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosGateSignalEvaluatorTest extends TestCase
 {
-    private AtlasAaeosGateSignalEvaluator $evaluator;
+    private AtlasGateSignalEvaluator $evaluator;
 
     protected function setUp(): void
     {
-        $this->evaluator = new AtlasAaeosGateSignalEvaluator();
+        $this->evaluator = new AtlasGateSignalEvaluator();
     }
 
     public function testEachReturnDeclaresGateSignalSchemaVersion(): void

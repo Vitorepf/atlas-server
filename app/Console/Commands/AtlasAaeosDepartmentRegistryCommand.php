@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
 use Illuminate\Console\Command;
 
 /**
@@ -21,7 +21,7 @@ class AtlasAaeosDepartmentRegistryCommand extends Command
 
     protected $description = 'Inspect and validate the AAEOS department registry (atlas.aaeos.department.v1).';
 
-    public function handle(AtlasAaeosDepartmentRegistryService $registry): int
+    public function handle(AtlasDepartmentRegistryService $registry): int
     {
         $raw = $this->option('registry');
         if (is_string($raw) && trim($raw) !== '') {
@@ -33,8 +33,8 @@ class AtlasAaeosDepartmentRegistryCommand extends Command
         }
 
         $payload = [
-            'schema_version' => AtlasAaeosDepartmentRegistryService::SCHEMA,
-            'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
+            'schema_version' => AtlasDepartmentRegistryService::SCHEMA,
+            'canonical_departments' => AtlasDepartmentRegistryService::CANONICAL_DEPARTMENTS,
         ];
 
         return $this->emit($payload, true);

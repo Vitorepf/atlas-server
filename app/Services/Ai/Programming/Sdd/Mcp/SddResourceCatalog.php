@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Sdd\Mcp;
 
+
 /**
  * Read-only MCP resource catalog for the SDD pipeline.
  *

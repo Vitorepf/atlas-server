@@ -2,24 +2,24 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
-use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
-use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
-use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
 use Illuminate\Console\Command;
 
 /**
  * Runtime surface for the AAEOS department maturity + quality-bar matrices —
  * the command those canonical docs name in their next_actions. Exposes the
- * existing AtlasAaeosDepartmentMaturityService and AtlasAaeosQualityBarService
+ * existing AtlasDepartmentMaturityService and AtlasDepartmentQualityBarService
  * (per-department L0..L7 maturity and numeric SLA/SLO quality bar) so the
  * matrices stop being doc-only and become a queryable runtime read-model.
  *
@@ -41,18 +41,18 @@ class AtlasAaeosDepartmentStatusCommand extends Command
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
 
     public function handle(
-        AtlasAaeosDepartmentMaturityService $maturity,
-        AtlasAaeosQualityBarService $qualityBar,
-        AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier,
-        AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
-        AtlasAaeosClaimDefinitionOfDoneValidator $claimValidator,
-        AaeosDepartmentLevelClassifier $levelClassifier,
+        AtlasDepartmentMaturityService $maturity,
+        AtlasDepartmentQualityBarService $qualityBar,
+        AtlasDepartmentMaturityBandClassifier $bandClassifier,
+        AtlasDepartmentPromotionEligibilityEvaluator $promotionEligibility,
+        AtlasClaimDefinitionOfDoneValidator $claimValidator,
+        AtlasDepartmentLevelClassifier $levelClassifier,
         AtlasRepairLoopGuard $repairLoopGuard,
-        AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
+        AtlasDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
         AtlasVetoPropagationWatchdog $vetoPropagationWatchdog,
-        AtlasAaeosDocMaturityClassifier $docMaturityClassifier,
-        AtlasAaeosGateSignalEvaluator $gateSignalEvaluator,
-        AtlasAaeosCognitiveImmuneInputClassifier $cognitiveImmuneInputClassifier,
+        AtlasDocMaturityClassifier $docMaturityClassifier,
+        AtlasGateSignalEvaluator $gateSignalEvaluator,
+        AtlasCognitiveImmuneInputClassifier $cognitiveImmuneInputClassifier,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -169,7 +169,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
      * @param  array<string,mixed>  $qualityBarResult
      * @return array<string,mixed>
      */
-    private function classifyQualityBarBands(AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier, array $qualityBarResult): array
+    private function classifyQualityBarBands(AtlasDepartmentMaturityBandClassifier $bandClassifier, array $qualityBarResult): array
     {
         $bandLadders = [];
         $snapshots = [];
@@ -196,14 +196,14 @@ class AtlasAaeosDepartmentStatusCommand extends Command
     }
 
     /**
-     * Runs AaeosDepartmentLevelClassifier per department over the same real quality-bar
+     * Runs AtlasDepartmentLevelClassifier per department over the same real quality-bar
      * threshold/current data as classifyQualityBarBands, so the earned-level read (with capping
      * metric and missing-metric diagnostics) is available alongside the coarser pass/fail band.
      *
      * @param  array<string,mixed>  $qualityBarResult
      * @return array<string,mixed>
      */
-    private function classifyDepartmentLevels(AaeosDepartmentLevelClassifier $levelClassifier, array $qualityBarResult): array
+    private function classifyDepartmentLevels(AtlasDepartmentLevelClassifier $levelClassifier, array $qualityBarResult): array
     {
         $results = [];
 
@@ -233,7 +233,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
     }
 
     /**
-     * Runs AtlasAaeosDepartmentQualityBarLevelClassifier per department over the same real
+     * Runs AtlasDepartmentQualityBarLevelClassifier per department over the same real
      * quality-bar threshold/current data as classifyDepartmentLevels, so the cumulative-climb
      * band read (achieved_level/next_level/binding_breaches) is available alongside the other
      * two classifications.
@@ -241,7 +241,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
      * @param  array<string,mixed>  $qualityBarResult
      * @return array<string,mixed>
      */
-    private function classifyQualityBarLevels(AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier, array $qualityBarResult): array
+    private function classifyQualityBarLevels(AtlasDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier, array $qualityBarResult): array
     {
         $results = [];
 
@@ -282,7 +282,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
      * @return array<string,mixed>
      */
     private function evaluatePromotionEligibility(
-        AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
+        AtlasDepartmentPromotionEligibilityEvaluator $promotionEligibility,
         array $maturityResult,
         array $qualityBarResult,
     ): array {

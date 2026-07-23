@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 /**
  * L2-9 — sobe a dimensão MAIS FRACA medida do scorecard ACOS (pipeline: 0/73 green-run
  * receipts ⇒ 5.22/10) por EVIDÊNCIA REAL: roda os testes declarados das capabilities e
- * cunha green-run receipts (reusando AtlasAaeosTestExecutionService::runAndRecord — real
+ * cunha green-run receipts (reusando AtlasCapabilityTestExecutionService::runAndRecord — real
  * PHPUnit, FQN-anchored, freshness-bound). Mede o overall do scorecard ANTES e DEPOIS,
  * provando o lift. Bounded por --limit (cada teste é segundos) para uso incremental
  * durante o soak; NUNCA fabrica receipt (verde reprovado = receipt não-verde honesto).
@@ -29,8 +29,8 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
     protected $description = 'Cunha green-run receipts reais para subir a dimensão pipeline do scorecard ACOS (mede o lift antes/depois).';
 
     public function handle(
-        AtlasAaeosImplementationTruthService $truth,
-        AtlasAaeosTestExecutionService $execution,
+        AtlasImplementationTruthService $truth,
+        AtlasCapabilityTestExecutionService $execution,
         AtlasCognitionScoreCardService $scorecard,
         \App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver $resolver,
     ): int {
@@ -406,7 +406,7 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
      *
      * @return array{capability_id:string, owner_doc:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array}|null
      */
-    private function syntheticCapFromDocs(AtlasAaeosImplementationTruthService $truth, string $capabilityId): ?array
+    private function syntheticCapFromDocs(AtlasImplementationTruthService $truth, string $capabilityId): ?array
     {
         foreach ($truth->docsWithEvidence() as $doc) {
             if ((string) ($doc['id'] ?? '') !== $capabilityId) {

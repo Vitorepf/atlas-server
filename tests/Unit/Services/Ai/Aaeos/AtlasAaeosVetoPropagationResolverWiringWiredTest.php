@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
-use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
 use Tests\TestCase;
 
 /**
- * Proves AtlasAaeosVetoPropagationResolver is wired into a real call path:
- * AtlasAaeosTestExecutionService now resolves a delivery-stage veto whenever a run is red. It is
+ * Proves AtlasVetoPropagationResolver is wired into a real call path:
+ * AtlasCapabilityTestExecutionService now resolves a delivery-stage veto whenever a run is red. It is
  * no longer an orphan.
  */
 final class AtlasAaeosVetoPropagationResolverWiringWiredTest extends TestCase
@@ -20,9 +20,9 @@ final class AtlasAaeosVetoPropagationResolverWiringWiredTest extends TestCase
     {
         // A resolver that never resolves a test ref always yields a red, no-process-spawned run —
         // deterministic without depending on the real code_symbols index table.
-        $resolver = $this->createMock(AtlasAaeosImplementationEvidenceResolver::class);
+        $resolver = $this->createMock(AtlasImplementationEvidenceResolver::class);
         $resolver->method('resolveTestFqn')->willReturn(null);
-        $service = new AtlasAaeosTestExecutionService(180.0, $resolver);
+        $service = new AtlasCapabilityTestExecutionService(180.0, $resolver);
 
         $payload = $service->runAndRecord(
             'capability-unknown',
@@ -37,7 +37,7 @@ final class AtlasAaeosVetoPropagationResolverWiringWiredTest extends TestCase
 
     public function test_resolver_matches_the_same_review_delivery_rule_the_service_now_relies_on(): void
     {
-        $direct = (new AtlasAaeosVetoPropagationResolver)->resolve('review', 'delivery');
+        $direct = (new AtlasVetoPropagationResolver)->resolve('review', 'delivery');
 
         $this->assertSame('redirect_upstream', $direct['resolution']);
         $this->assertSame(['dev', 'forge'], $direct['redirect_to']);

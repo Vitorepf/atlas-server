@@ -1,14 +1,9 @@
-# AAEOS Quarantine — FROZEN
+# FROZEN CEMETERY — DO NOT IMPORT
 
-**Do not reanimate.** ~306 PHP files / ~132k LOC of doc-materialized services.
+This directory is the AAEOS Quarantine archive (~132k LOC of docs-as-code history).
 
-| Rule | |
-|---|---|
-| New `use` from app code | **Forbidden** |
-| Move class to live root without owner | **Forbidden** |
-| Extract useful contract | → markdown/catalog only |
-| Live exception (re-homed) | `AtlasSourceConnectorsAndCaptureService` → `App\Services\Ai\Aaeos\Support` |
+- **DO NOT** `use App\Services\Ai\Aaeos\Quarantine\...` from live code
+- **DO NOT** move these files back into `app/Services/Ai/Aaeos/`
+- **DO NOT** reanimate as runtime
 
-Catalog: `docs/evidence/2026-07-22-atlas-server-god-debulk/AAEOS-QUARANTINE-CATALOG.md`
-
-Control plane (live): `App\Services\Ai\Aaeos\Control\*`
+Live AAEOS is only: `app/Services/Ai/Aaeos/{Control,Spine}`.

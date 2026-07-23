@@ -3,7 +3,7 @@
 namespace Tests\Unit\Ai\Aaeos;
 
 use App\Models\AtlasDocsAuthorityGraph;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

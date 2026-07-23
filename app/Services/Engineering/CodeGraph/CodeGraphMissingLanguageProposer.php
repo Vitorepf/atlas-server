@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Self-construction proposer: surfaces the languages/extensions the code-graph
  * cannot yet extract, ranked by how much of the codebase they lock out (AP-811/AP-812 M-7).

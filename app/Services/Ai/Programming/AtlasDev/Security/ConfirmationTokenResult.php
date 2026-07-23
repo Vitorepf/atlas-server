@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Security;
 
+
 final class ConfirmationTokenResult
 {
     public const REASON_OK = 'ok';

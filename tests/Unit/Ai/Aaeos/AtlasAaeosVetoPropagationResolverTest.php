@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosVetoPropagationResolverTest extends TestCase
 {
-    private AtlasAaeosVetoPropagationResolver $resolver;
+    private AtlasVetoPropagationResolver $resolver;
 
     protected function setUp(): void
     {
-        $this->resolver = new AtlasAaeosVetoPropagationResolver();
+        $this->resolver = new AtlasVetoPropagationResolver();
     }
 
     public function testSchemaVersionIsStable(): void

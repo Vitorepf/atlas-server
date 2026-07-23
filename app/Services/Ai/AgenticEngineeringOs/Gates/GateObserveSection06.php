@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs\Gates;
 
-use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
-use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
-use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
-use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
-use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
-use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
-use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
-use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
 use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
 use App\Services\Ai\Cognition\AcosProgram\PreReviewAdvisoryBand;
 use App\Services\Ai\Cognition\AcosProgram\Esp09IndependentChallengerService;
@@ -31,7 +31,7 @@ use App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
 use App\Services\Ai\Cognition\AcosProgram\ExecutionContextCooccurrenceService;
-use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
@@ -87,7 +87,7 @@ use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use App\Services\Ai\Cognition\AcosProgram\AtlasFlywheelFunnelService;
 use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
 use App\Services\Ai\Context\Retrieval\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\Context\Retrieval\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
@@ -111,44 +111,44 @@ use App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService;
 use App\Services\Ai\Aemor\Envelope\AemorOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aemor\Envelope\CompoundingOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aemor\Envelope\DevProceduralOutcomeEnvelopeAdapter;
-use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
-use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
-use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
-use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
-use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdComparator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasArrayFieldReader;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
-use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganMeshOrchestrator;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
-use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
-use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
-use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
-use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
-use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
-use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
-use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
-use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasAeosValueNormalizer;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection01;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection02;
@@ -200,8 +200,8 @@ final class GateObserveSection06
             'atlas.memory.contextual_blurb_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED,
             'metrics.scorecard_overall' => AtlasAcosLongHorizonGateService::FIELD_METRICS_SCORECARD_OVERALL,
             'score.dimensions.pipeline.score_out_of_10' => AtlasAcosLongHorizonGateService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10,
-            '0.74' => AtlasAaeosQualityBarService::FLOAT_0_74,
-            '0.77' => AtlasAaeosQualityBarService::FLOAT_0_77,
+            '0.74' => AtlasDepartmentQualityBarService::FLOAT_0_74,
+            '0.77' => AtlasDepartmentQualityBarService::FLOAT_0_77,
             'b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floor_count' => 18,
         ];
     }
@@ -351,8 +351,8 @@ final class GateObserveSection06
             's.status' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_STATUS,
             'atlas.memory.feedback_ranking_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2,
             'atlas.memory.fusion_v2_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
-            '0.78' => AtlasAaeosQualityBarService::FLOAT_0_78,
-            '0.79' => AtlasAaeosQualityBarService::FLOAT_0_79,
+            '0.78' => AtlasDepartmentQualityBarService::FLOAT_0_78,
+            '0.79' => AtlasDepartmentQualityBarService::FLOAT_0_79,
             'codex-independent-teto01-judge' => AtlasNCaptureDrillService::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE,
             'cursor-acos-max-teto01' => AtlasNCaptureDrillService::FIELD_CURSOR_ACOS_MAX_TETO01,
             'aaeos.spec' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_SPEC,
@@ -442,8 +442,8 @@ final class GateObserveSection06
             'LONG-HORIZON' => AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON_2,
             'e.embedded_content_hash' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_EMBEDDED_CONTENT_HASH,
             's.source_hash' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_SOURCE_HASH,
-            '0.81' => AtlasAaeosQualityBarService::FLOAT_0_81,
-            '0.82' => AtlasAaeosQualityBarService::FLOAT_0_82,
+            '0.81' => AtlasDepartmentQualityBarService::FLOAT_0_81,
+            '0.82' => AtlasDepartmentQualityBarService::FLOAT_0_82,
             'denominators.proven_real_outcomes_observed' => AtlasNCaptureDrillService::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED,
             'denominators.routed_tasks_observed' => AtlasNCaptureDrillService::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED,
             'acos.land.autonomous_verification_required' => PromotionProtocol::FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED,
@@ -506,8 +506,8 @@ final class GateObserveSection06
             'pip-08.scorecard_stability' => HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY,
             'OPEN-BRAIN' => AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_2,
             'PERSISTENT-CONTEXT' => AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_2,
-            '0.88' => AtlasAaeosQualityBarService::FLOAT_0_88,
-            '0.90' => AtlasAaeosQualityBarService::FLOAT_0_90,
+            '0.88' => AtlasDepartmentQualityBarService::FLOAT_0_88,
+            '0.90' => AtlasDepartmentQualityBarService::FLOAT_0_90,
             '6' => SpecCompletenessScorer::INT_6,
             '7' => SpecCompletenessScorer::INT_7,
             'codex-independent-maxa06-fase2-judge' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE,
@@ -631,9 +631,9 @@ final class GateObserveSection06
             'atlas.provider_leak_corpus.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1,
             'atlas.resource_budget.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1,
             'condition.kind' => AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_KIND_2,
-            '2' => AtlasAaeosImplementationTruthService::INT_2,
-            '4' => AtlasAaeosPhaseRouterService::INT_4,
-            'rev-parse' => AtlasAaeosTestExecutionService::FIELD_REV_PARSE,
+            '2' => AtlasImplementationTruthService::INT_2,
+            '4' => AtlasPhaseRouterService::INT_4,
+            'rev-parse' => AtlasCapabilityTestExecutionService::FIELD_REV_PARSE,
             '0.0' => MemoryFeedbackDecayScorer::FLOAT_0_0,
             'thresholds.procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR,
             'b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floor_count' => 18,
@@ -775,7 +775,7 @@ final class GateObserveSection06
         return [
             '2.5' => AtlasAcosEvolutionScoreService::FLOAT_2_5,
             'VERIFIED-CONTEXT' => AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_2,
-            '0.92' => AtlasAaeosQualityBarService::FLOAT_0_92,
+            '0.92' => AtlasDepartmentQualityBarService::FLOAT_0_92,
             '9' => SpecCompletenessScorer::INT_9,
             '1.0' => AtlasCodeSymbolEmbeddingCoverageService::FLOAT_1_0,
             'yardstick.regret_measure_id' => AtlasNCaptureDrillService::FIELD_YARDSTICK_REGRET_MEASURE_ID,
@@ -886,8 +886,8 @@ final class GateObserveSection06
         return [
             'keyword_fallback' => AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK,
             'needle_normalized' => AtlasDocsAuthorityGraphService::FIELD_NEEDLE_NORMALIZED,
-            'forge' => AtlasAaeosVetoPropagationResolver::FIELD_FORGE,
-            'architect' => AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT,
+            'forge' => AtlasVetoPropagationResolver::FIELD_FORGE,
+            'architect' => AtlasVetoPropagationResolver::FIELD_ARCHITECT,
             'phase_in' => AaeosPhaseHandoffService::FIELD_PHASE_IN,
             'phase_out' => AaeosPhaseHandoffService::FIELD_PHASE_OUT,
             'asef_chunks' => AsefChunkIndexService::FIELD_ASEF_CHUNKS,
@@ -898,8 +898,8 @@ final class GateObserveSection06
             'license' => AtlasModelCapabilitySpecService::FIELD_LICENSE,
             'blocked_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR,
             'missing_required_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR,
-            'test' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST,
-            'test_method' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD,
+            'test' => AtlasImplementationEvidenceResolver::FIELD_TEST,
+            'test_method' => AtlasImplementationEvidenceResolver::FIELD_TEST_METHOD,
             'lessons_without_promotion' => AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION,
             'recalls_without_citation' => AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION,
             'b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floor_count' => 18,
@@ -917,20 +917,20 @@ final class GateObserveSection06
         return [
             'breach_count' => QualityBarTelemetryContract::FIELD_BREACH_COUNT,
             'evaluated_window_days' => QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS,
-            'privacy_hint' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT,
-            'has_secret_marker' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER,
+            'privacy_hint' => AtlasCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT,
+            'has_secret_marker' => AtlasCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER,
             'outcome_envelope_certified_receipt_id_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID,
             'outcome_envelope_evidence_ref_count_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID,
             'ai_run_outcomes' => AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES,
             'atlas_aemor_execution_episodes' => AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES,
-            'contracts' => AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS,
-            'mother_doc' => AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC,
-            'intent' => AtlasAaeosGateSignalEvaluator::FIELD_INTENT,
-            'spec_pack' => AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK,
+            'contracts' => AtlasDocMaturityClassifier::FIELD_CONTRACTS,
+            'mother_doc' => AtlasDocMaturityClassifier::FIELD_MOTHER_DOC,
+            'intent' => AtlasGateSignalEvaluator::FIELD_INTENT,
+            'spec_pack' => AtlasGateSignalEvaluator::FIELD_SPEC_PACK,
             'equals' => ContextParetoDominanceFilter::FIELD_EQUALS,
             'max' => ContextParetoDominanceFilter::FIELD_MAX,
-            'quality_bar' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR,
-            'blockers' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS,
+            'quality_bar' => AtlasDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR,
+            'blockers' => AtlasDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS,
             'capability_id' => AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID,
             'symbol' => AtlasCognitionEvidenceResolver::FIELD_SYMBOL,
             'b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floor_count' => 18,
@@ -956,8 +956,8 @@ final class GateObserveSection06
             'low' => PreReviewAdvisoryBand::FIELD_LOW,
             'recall_at_5' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5,
             'with' => GoldenCounterfactualReplayService::FIELD_WITH,
-            'escalation_to' => AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO,
-            'maturity_level' => AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL,
+            'escalation_to' => AtlasDepartmentRegistryService::FIELD_ESCALATION_TO,
+            'maturity_level' => AtlasDepartmentRegistryService::FIELD_MATURITY_LEVEL,
             'doc_status' => AtlasCognitionScoreCardService::FIELD_DOC_STATUS,
             'code_status' => AtlasCognitionScoreCardService::FIELD_CODE_STATUS,
             'promote_allowed' => AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED,
@@ -1010,10 +1010,10 @@ final class GateObserveSection06
         return [
             'base_priority' => MemoryFeedbackDecayScorer::FIELD_BASE_PRIORITY,
             'last_used_at_age_days' => MemoryFeedbackDecayScorer::FIELD_LAST_USED_AT_AGE_DAYS,
-            'capability_id' => AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID,
-            'test_ref' => AtlasAaeosTestExecutionService::FIELD_TEST_REF,
-            'test' => AtlasAaeosImplementationTruthService::FIELD_TEST,
-            'docs/engineering-knowledge-base' => AtlasAaeosImplementationTruthService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE,
+            'capability_id' => AtlasCapabilityTestExecutionService::FIELD_CAPABILITY_ID,
+            'test_ref' => AtlasCapabilityTestExecutionService::FIELD_TEST_REF,
+            'test' => AtlasImplementationTruthService::FIELD_TEST,
+            'docs/engineering-knowledge-base' => AtlasImplementationTruthService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE,
             'modify_security_policy' => DepartmentContractRuntime::FIELD_MODIFY_SECURITY_POLICY,
             'approve_release' => DepartmentContractRuntime::FIELD_APPROVE_RELEASE,
             'created_at' => AcosMaxLote2MeasureService::FIELD_CREATED_AT,
@@ -1078,8 +1078,8 @@ final class GateObserveSection06
             'gates' => DepartmentContractRuntime::FIELD_GATES,
             'fixture' => AcosMaxLote2MeasureService::FIELD_FIXTURE,
             'task_id' => AcosMaxLote2MeasureService::FIELD_TASK_ID,
-            'security' => AtlasAaeosVetoPropagationResolver::FIELD_SECURITY,
-            'delivery' => AtlasAaeosVetoPropagationResolver::FIELD_DELIVERY,
+            'security' => AtlasVetoPropagationResolver::FIELD_SECURITY,
+            'delivery' => AtlasVetoPropagationResolver::FIELD_DELIVERY,
             'item' => Teto10PredictedRevertReviewDigest::FIELD_ITEM,
             'pending_flip' => Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIP,
             'active_leases' => AtlasMissionControlCockpitService::FIELD_ACTIVE_LEASES,
@@ -1140,8 +1140,8 @@ final class GateObserveSection06
             'persistence' => DepartmentContractRuntime::FIELD_PERSISTENCE,
             'chunk_hash' => AsefChunkIndexService::FIELD_CHUNK_HASH,
             'embedding' => AsefChunkIndexService::FIELD_EMBEDDING,
-            'dev' => AtlasAaeosVetoPropagationResolver::FIELD_DEV,
-            'operator' => AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR,
+            'dev' => AtlasVetoPropagationResolver::FIELD_DEV,
+            'operator' => AtlasVetoPropagationResolver::FIELD_OPERATOR,
             'blocking_questions' => SpecCompletenessScorer::FIELD_BLOCKING_QUESTIONS,
             'assumptions' => SpecCompletenessScorer::FIELD_ASSUMPTIONS,
             'negative_count' => MemoryFeedbackDecayScorer::FIELD_NEGATIVE_COUNT,
@@ -1225,8 +1225,8 @@ final class GateObserveSection06
     public function b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve(array $input = []): array
     {
         return [
-            'status' => AtlasAaeosTestExecutionService::FIELD_STATUS,
-            '--filter' => AtlasAaeosTestExecutionService::FIELD___FILTER,
+            'status' => AtlasCapabilityTestExecutionService::FIELD_STATUS,
+            '--filter' => AtlasCapabilityTestExecutionService::FIELD___FILTER,
             'topology' => AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY,
             'high' => AaeosHttpPathEnvelopeFactory::FIELD_HIGH,
             'scope' => DepartmentContractRuntime::FIELD_SCOPE,
@@ -1256,8 +1256,8 @@ final class GateObserveSection06
     public function b539AaeosVetoSegmentImportanceFlywheelFunnelPreReviewFloorsContractObserve(array $input = []): array
     {
         return [
-            'override' => AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE,
-            'review' => AtlasAaeosVetoPropagationResolver::FIELD_REVIEW,
+            'override' => AtlasVetoPropagationResolver::FIELD_OVERRIDE,
+            'review' => AtlasVetoPropagationResolver::FIELD_REVIEW,
             'recency_rank' => SegmentImportanceRanker::FIELD_RECENCY_RANK,
             'token_estimate' => SegmentImportanceRanker::FIELD_TOKEN_ESTIMATE,
             'citations_without_better_outcome' => AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME,
@@ -1268,8 +1268,8 @@ final class GateObserveSection06
             'threshold_breaches' => QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES,
             'generation' => AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION,
             'vision' => AtlasCognitiveFunctionDecomposerService::FIELD_VISION,
-            'route' => AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE,
-            'method' => AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD,
+            'route' => AtlasImplementationEvidenceResolver::FIELD_ROUTE,
+            'method' => AtlasImplementationEvidenceResolver::FIELD_METHOD,
             'requirements' => SpecCompletenessScorer::FIELD_REQUIREMENTS,
             'acceptance_criteria' => SpecCompletenessScorer::FIELD_ACCEPTANCE_CRITERIA,
             'recoverable' => AtlasMissionControlCockpitService::FIELD_RECOVERABLE,
@@ -1291,8 +1291,8 @@ final class GateObserveSection06
             'informational_only_never_auto_adjusts_gate' => ImmuneCalibrationService::FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE,
             'ref_stability' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REF_STABILITY,
             'no_raw_query_or_context_in_report_or_ledger' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER,
-            'has_url' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL,
-            'imperative_verb' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB,
+            'has_url' => AtlasCognitiveImmuneInputClassifier::FIELD_HAS_URL,
+            'imperative_verb' => AtlasCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB,
             'completion_claim_allowed_without_proven_real' => AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL,
             'fixture_chain' => AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN,
             'app/atlas/evidence/ragx-ab-registrations.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL,
@@ -1349,8 +1349,8 @@ final class GateObserveSection06
     public function b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve(array $input = []): array
     {
         return [
-            '--no-coverage' => AtlasAaeosTestExecutionService::FIELD___NO_COVERAGE,
-            '--porcelain' => AtlasAaeosTestExecutionService::FIELD___PORCELAIN,
+            '--no-coverage' => AtlasCapabilityTestExecutionService::FIELD___NO_COVERAGE,
+            '--porcelain' => AtlasCapabilityTestExecutionService::FIELD___PORCELAIN,
             'forge' => AcosMaxVerifiedShareService::FIELD_FORGE,
             'storage/atlas/atlas_decide/live_outcomes.jsonl' => AcosMaxVerifiedShareService::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
             'atlas:flywheel:loops' => AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS,
@@ -1380,15 +1380,15 @@ final class GateObserveSection06
     public function b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve(array $input = []): array
     {
         return [
-            'runbook' => AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK,
-            'task_pack' => AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK,
+            'runbook' => AtlasDocMaturityClassifier::FIELD_RUNBOOK,
+            'task_pack' => AtlasGateSignalEvaluator::FIELD_TASK_PACK,
             'min' => ContextParetoDominanceFilter::FIELD_MIN,
             'tests_passed' => OutcomeCausalityRanker::FIELD_TESTS_PASSED,
             'digest' => SummaryFidelityCoverageScorer::FIELD_DIGEST,
             'engine_id' => AtlasNCaptureDrillService::FIELD_ENGINE_ID,
             'path_yield' => ExploratoryBetsPortfolio::FIELD_PATH_YIELD,
             'rollback_trigger' => PromotionProtocol::FIELD_ROLLBACK_TRIGGER,
-            'freshness' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS,
+            'freshness' => AtlasDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS,
             'over_ram_cap' => AtlasResourceBudgetService::FIELD_OVER_RAM_CAP,
             'without' => GoldenCounterfactualReplayService::FIELD_WITHOUT,
             'test' => AtlasCognitionEvidenceResolver::FIELD_TEST,
@@ -1396,8 +1396,8 @@ final class GateObserveSection06
             'table' => AcosDeadSeriesWatchdogCheck::FIELD_TABLE,
             'chain_length' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH,
             'restored_ok' => SubstrateRestoreDrillWatchdogCheck::FIELD_RESTORED_OK,
-            'app/Services/Ai/Aaeos/Generated' => AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED,
-            'evidence_complete_all_required_fields_present' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT,
+            'app/Services/Ai/Aaeos/Generated' => AeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED,
+            'evidence_complete_all_required_fields_present' => AtlasClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT,
             'b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floor_count' => 18,
         ];
     }
@@ -1411,9 +1411,9 @@ final class GateObserveSection06
     public function b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve(array $input = []): array
     {
         return [
-            'symbol' => AtlasAaeosImplementationTruthService::FIELD_SYMBOL,
-            'id' => AtlasAaeosDepartmentRegistryService::FIELD_ID,
-            'medium' => AtlasAaeosValueNormalizer::FIELD_MEDIUM,
+            'symbol' => AtlasImplementationTruthService::FIELD_SYMBOL,
+            'id' => AtlasDepartmentRegistryService::FIELD_ID,
+            'medium' => AtlasAeosValueNormalizer::FIELD_MEDIUM,
             'weight_change_refused_missing_amendment_receipt' => PortfolioBudgetAllocator::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT,
             'atlas/aaeos/deferred.jsonl' => AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_JSONL,
             'spec_pack_hash' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH,
@@ -1442,9 +1442,9 @@ final class GateObserveSection06
     public function b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve(array $input = []): array
     {
         return [
-            'is_question' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION,
-            'symbol_type' => AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE,
-            'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR,
+            'is_question' => AtlasCognitiveImmuneInputClassifier::FIELD_IS_QUESTION,
+            'symbol_type' => AtlasImplementationEvidenceResolver::FIELD_SYMBOL_TYPE,
+            'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator' => AtlasVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR,
             'id' => SegmentImportanceRanker::FIELD_ID,
             'non_goals' => SpecCompletenessScorer::FIELD_NON_GOALS,
             'no_complete_proven_real_loop_window' => AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW,
@@ -1473,16 +1473,16 @@ final class GateObserveSection06
     public function b546AaeosDepartmentAutonomousWorkHttpAobgLatencyQualityFloorsContractObserve(array $input = []): array
     {
         return [
-            'L2' => AtlasAaeosDepartmentMaturityService::FIELD_L2,
-            'L3' => AtlasAaeosDepartmentMaturityService::FIELD_L3,
+            'L2' => AtlasDepartmentMaturityService::FIELD_L2,
+            'L3' => AtlasDepartmentMaturityService::FIELD_L3,
             'L6' => AutonomousWorkExecutionOs::FIELD_L6,
             'L7' => AutonomousWorkExecutionOs::FIELD_L7,
             '.count' => AtlasAaeosHttpPathFacadeService::FIELD__COUNT,
             '.max' => AtlasAaeosHttpPathFacadeService::FIELD__MAX,
             '.p95_ms' => AobgLatencyWatchdogCheck::FIELD__P95_MS,
             '.ops' => AobgLatencyWatchdogCheck::FIELD__OPS,
-            'Customer Success' => AtlasAaeosQualityBarService::FIELD_CUSTOMER_SUCCESS,
-            'Human Resources' => AtlasAaeosQualityBarService::FIELD_HUMAN_RESOURCES,
+            'Customer Success' => AtlasDepartmentQualityBarService::FIELD_CUSTOMER_SUCCESS,
+            'Human Resources' => AtlasDepartmentQualityBarService::FIELD_HUMAN_RESOURCES,
             'Agentic RAG Framework' => AtlasCognitionScoreCardService::FIELD_AGENTIC_RAG_FRAMEWORK,
             'Antifragility Composition Metric' => AtlasCognitionScoreCardService::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,
             'L2' => DepartmentContractRuntime::FIELD_L2,
@@ -1516,8 +1516,8 @@ final class GateObserveSection06
             'G1' => CognitiveImmunePromotionGateEvaluator::FIELD_G1,
             'atlas:acos:operational-volume --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON,
             'atlas:acos:rollback-triggers --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON,
-            'R0' => AtlasAaeosValueNormalizer::FIELD_R0,
-            'R1' => AtlasAaeosValueNormalizer::FIELD_R1,
+            'R0' => AtlasAeosValueNormalizer::FIELD_R0,
+            'R1' => AtlasAeosValueNormalizer::FIELD_R1,
             'L0' => AutonomyLadderAdversarialWatchdogCheck::FIELD_L0,
             'L1' => AutonomyLadderAdversarialWatchdogCheck::FIELD_L1,
             'Batched asks' => Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASKS_2,
@@ -1547,8 +1547,8 @@ final class GateObserveSection06
             'G2' => CognitiveImmunePromotionGateEvaluator::FIELD_G2,
             'atlas:flywheel:loops --json' => AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
             'atlas:acos:m-series --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES___JSON,
-            'R2' => AtlasAaeosValueNormalizer::FIELD_R2,
-            'R3' => AtlasAaeosValueNormalizer::FIELD_R3,
+            'R2' => AtlasAeosValueNormalizer::FIELD_R2,
+            'R3' => AtlasAeosValueNormalizer::FIELD_R3,
             'G3' => ImmuneCalibrationService::FIELD_G3,
             'atlas:immune:calibration --json' => ImmuneCalibrationService::FIELD_ATLAS_IMMUNE_CALIBRATION___JSON,
             '.jsonl' => AutonomyLadderAdversarialWatchdogCheck::FIELD__JSONL,
@@ -1578,10 +1578,10 @@ final class GateObserveSection06
             'G4' => CognitiveImmunePromotionGateEvaluator::FIELD_G4,
             'atlas:atlas-decide:live-feedback --regret --json' => AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON,
             'atlas:promotions --json' => AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS___JSON,
-            'L1' => AtlasAaeosDepartmentMaturityService::FIELD_L1,
-            'L4' => AtlasAaeosDepartmentMaturityService::FIELD_L4,
-            'R4' => AtlasAaeosValueNormalizer::FIELD_R4,
-            'R5' => AtlasAaeosValueNormalizer::FIELD_R5,
+            'L1' => AtlasDepartmentMaturityService::FIELD_L1,
+            'L4' => AtlasDepartmentMaturityService::FIELD_L4,
+            'R4' => AtlasAeosValueNormalizer::FIELD_R4,
+            'R5' => AtlasAeosValueNormalizer::FIELD_R5,
             'L4' => AutonomousWorkExecutionOs::FIELD_L4,
             'L5' => AutonomousWorkExecutionOs::FIELD_L5,
             'b549_cognition_score_department_contract_measure_series_immune_promotion_floor_count' => 18,
@@ -1836,22 +1836,22 @@ final class GateObserveSection06
     public function b558AaeosCognitiveFunctionConsolidationRerankCaptureHmacDepartmentFloorsContractObserve(array $input = []): array
     {
         return [
-            'boa tarde' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOA_TARDE,
-            'bom dia' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOM_DIA,
-            'build passou' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU,
-            'deploy ok' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK,
-            'disregard all' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL,
-            'disregard previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS,
-            'do anything now' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW,
-            'em producao' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO,
-            'esqueca as instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES,
+            'boa tarde' => AtlasCognitiveImmuneInputClassifier::FIELD_BOA_TARDE,
+            'bom dia' => AtlasCognitiveImmuneInputClassifier::FIELD_BOM_DIA,
+            'build passou' => AtlasCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU,
+            'deploy ok' => AtlasCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK,
+            'disregard all' => AtlasCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL,
+            'disregard previous' => AtlasCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS,
+            'do anything now' => AtlasCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW,
+            'em producao' => AtlasCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO,
+            'esqueca as instrucoes' => AtlasCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES,
             'por que' => AtlasCognitiveFunctionDecomposerService::FIELD_POR_QUE,
             'pull request' => AtlasCognitiveFunctionDecomposerService::FIELD_PULL_REQUEST,
             'quais sao' => AtlasCognitiveFunctionDecomposerService::FIELD_QUAIS_SAO,
             'qual e' => AtlasCognitiveFunctionDecomposerService::FIELD_QUAL_E,
             'falha ao gravar baseline' => AtlasConsolidationRerankGuard::FIELD_FALHA_AO_GRAVAR_BASELINE,
             'captures table unavailable' => CaptureHmacLineageService::FIELD_CAPTURES_TABLE_UNAVAILABLE,
-            'falta threat modeling automatico' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO,
+            'falta threat modeling automatico' => AtlasDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO,
             'gates required' => AaeosPhaseHandoffService::FIELD_GATES_REQUIRED,
             'goal text required' => AutonomousWorkExecutionOs::FIELD_GOAL_TEXT_REQUIRED,
             'b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floor_count' => 18,
@@ -1867,24 +1867,24 @@ final class GateObserveSection06
     public function b559AaeosCognitiveFloorsContractObserve(array $input = []): array
     {
         return [
-            'esta funcionando' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO,
-            'eu moro' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_MORO,
-            'eu prefiro' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO,
-            'good morning' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING,
-            'ignore all previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS,
-            'ignore as instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES,
-            'ignore previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS,
-            'ignore suas instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES,
-            'ignore the previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS,
-            'memory leak' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK,
-            'meu aniversario' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO,
-            'meu nome e' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E,
-            'minha esposa' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA,
-            'my birthday' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY,
-            'my favorite' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE,
-            'null pointer' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_NULL_POINTER,
-            'override instructions' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS,
-            'race condition' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION,
+            'esta funcionando' => AtlasCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO,
+            'eu moro' => AtlasCognitiveImmuneInputClassifier::FIELD_EU_MORO,
+            'eu prefiro' => AtlasCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO,
+            'good morning' => AtlasCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING,
+            'ignore all previous' => AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS,
+            'ignore as instrucoes' => AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES,
+            'ignore previous' => AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS,
+            'ignore suas instrucoes' => AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES,
+            'ignore the previous' => AtlasCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS,
+            'memory leak' => AtlasCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK,
+            'meu aniversario' => AtlasCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO,
+            'meu nome e' => AtlasCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E,
+            'minha esposa' => AtlasCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA,
+            'my birthday' => AtlasCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY,
+            'my favorite' => AtlasCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE,
+            'null pointer' => AtlasCognitiveImmuneInputClassifier::FIELD_NULL_POINTER,
+            'override instructions' => AtlasCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS,
+            'race condition' => AtlasCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION,
             'b559_aaeos_cognitive_floor_count' => 18,
         ];
     }
@@ -1898,14 +1898,14 @@ final class GateObserveSection06
     public function b560AaeosCognitiveFloorsContractObserve(array $input = []): array
     {
         return [
-            'reveal your' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR,
-            'stack trace' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STACK_TRACE,
-            'system prompt' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT,
-            'testes passaram' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM,
-            'thank you' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANK_YOU,
-            'tudo bem' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TUDO_BEM,
-            'voce agora e' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E,
-            'you are now' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW,
+            'reveal your' => AtlasCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR,
+            'stack trace' => AtlasCognitiveImmuneInputClassifier::FIELD_STACK_TRACE,
+            'system prompt' => AtlasCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT,
+            'testes passaram' => AtlasCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM,
+            'thank you' => AtlasCognitiveImmuneInputClassifier::FIELD_THANK_YOU,
+            'tudo bem' => AtlasCognitiveImmuneInputClassifier::FIELD_TUDO_BEM,
+            'voce agora e' => AtlasCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E,
+            'you are now' => AtlasCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW,
             'b560_aaeos_cognitive_floor_count' => 8,
         ];
     }
@@ -2052,15 +2052,15 @@ final class GateObserveSection06
             'chunk_text' => AsefChunkIndexService::FIELD_CHUNK_TEXT,
             'embedded_text' => AsefChunkIndexService::FIELD_EMBEDDED_TEXT,
             'embedding_status' => AsefChunkIndexService::FIELD_EMBEDDING_STATUS,
-            'schema_version' => AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION,
-            'ref' => AtlasAaeosImplementationTruthService::FIELD_REF,
-            'kind' => AtlasAaeosImplementationTruthService::FIELD_KIND,
-            'evidence' => AtlasAaeosImplementationTruthService::FIELD_EVIDENCE,
-            'claimed_state_raw' => AtlasAaeosImplementationTruthService::FIELD_CLAIMED_STATE_RAW,
-            'test_resolution' => AtlasAaeosImplementationTruthService::FIELD_TEST_RESOLUTION,
-            'impl_files_hash' => AtlasAaeosImplementationTruthService::FIELD_IMPL_FILES_HASH,
-            'by_computed_state' => AtlasAaeosImplementationTruthService::FIELD_BY_COMPUTED_STATE,
-            'test_bearing_rows' => AtlasAaeosImplementationTruthService::FIELD_TEST_BEARING_ROWS,
+            'schema_version' => AtlasImplementationTruthService::FIELD_SCHEMA_VERSION,
+            'ref' => AtlasImplementationTruthService::FIELD_REF,
+            'kind' => AtlasImplementationTruthService::FIELD_KIND,
+            'evidence' => AtlasImplementationTruthService::FIELD_EVIDENCE,
+            'claimed_state_raw' => AtlasImplementationTruthService::FIELD_CLAIMED_STATE_RAW,
+            'test_resolution' => AtlasImplementationTruthService::FIELD_TEST_RESOLUTION,
+            'impl_files_hash' => AtlasImplementationTruthService::FIELD_IMPL_FILES_HASH,
+            'by_computed_state' => AtlasImplementationTruthService::FIELD_BY_COMPUTED_STATE,
+            'test_bearing_rows' => AtlasImplementationTruthService::FIELD_TEST_BEARING_ROWS,
             'b565_asef_chunk_aaeos_implementation_floor_count' => 18,
         ];
     }
@@ -2198,12 +2198,12 @@ final class GateObserveSection06
     public function b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve(array $input = []): array
     {
         return [
-            'breached' => AtlasAaeosQualityBarService::FIELD_BREACHED,
-            'schema_version' => AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION,
-            'departments' => AtlasAaeosQualityBarService::FIELD_DEPARTMENTS,
-            'signal' => AtlasAaeosQualityBarService::FIELD_SIGNAL,
-            'breach_count' => AtlasAaeosQualityBarService::FIELD_BREACH_COUNT,
-            'breaches' => AtlasAaeosQualityBarService::FIELD_BREACHES,
+            'breached' => AtlasDepartmentQualityBarService::FIELD_BREACHED,
+            'schema_version' => AtlasDepartmentQualityBarService::FIELD_SCHEMA_VERSION,
+            'departments' => AtlasDepartmentQualityBarService::FIELD_DEPARTMENTS,
+            'signal' => AtlasDepartmentQualityBarService::FIELD_SIGNAL,
+            'breach_count' => AtlasDepartmentQualityBarService::FIELD_BREACH_COUNT,
+            'breaches' => AtlasDepartmentQualityBarService::FIELD_BREACHES,
             'allowed_basis' => AcosMaxLote2MeasureService::FIELD_ALLOWED_BASIS,
             'counterfactual_basis' => AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_BASIS,
             'denominator' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR,
@@ -2272,12 +2272,12 @@ final class GateObserveSection06
             'mode' => ImmuneSignatureStore::FIELD_MODE,
             'decay_days' => ImmuneSignatureStore::FIELD_DECAY_DAYS,
             'created_at' => ImmuneSignatureStore::FIELD_CREATED_AT,
-            'escalation_target' => AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET,
-            'matched_rule' => AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE,
-            'reason' => AtlasAaeosVetoPropagationResolver::FIELD_REASON,
-            'origin_department' => AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT,
-            'veto_kind' => AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND,
-            'repair_iteration' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION,
+            'escalation_target' => AtlasVetoPropagationResolver::FIELD_ESCALATION_TARGET,
+            'matched_rule' => AtlasVetoPropagationResolver::FIELD_MATCHED_RULE,
+            'reason' => AtlasVetoPropagationResolver::FIELD_REASON,
+            'origin_department' => AtlasVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT,
+            'veto_kind' => AtlasVetoPropagationResolver::FIELD_VETO_KIND,
+            'repair_iteration' => AtlasVetoPropagationResolver::FIELD_REPAIR_ITERATION,
             'b572_execution_context_immune_signature_aaeos_veto_floor_count' => 18,
         ];
     }

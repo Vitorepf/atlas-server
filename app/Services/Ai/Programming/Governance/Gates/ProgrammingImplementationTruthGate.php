@@ -4,7 +4,7 @@ namespace App\Services\Ai\Programming\Governance\Gates;
 
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasProgrammingWorkItem;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
@@ -23,7 +23,7 @@ use Throwable;
 class ProgrammingImplementationTruthGate implements ProgrammingGateContract
 {
     public function __construct(
-        private readonly AtlasAaeosImplementationTruthService $truth,
+        private readonly AtlasImplementationTruthService $truth,
     ) {}
 
     public function name(): string

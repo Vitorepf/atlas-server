@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MAXI-04 \u2014 the hybrid classifier that wraps the base
- * {@see AtlasAaeosCognitiveImmuneInputClassifier} with an OPTIONAL semantic arm
+ * {@see AtlasCognitiveImmuneInputClassifier} with an OPTIONAL semantic arm
  * gated by `atlas.aaeos.immune_classifier.semantic_arm_enabled` (default OFF).
  *
  * Contract:
@@ -89,7 +89,7 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_SEMANTIC = 'semantic';
     public const FIELD_SEMANTIC_ARM_SIMILARITY_ = 'semantic_arm_similarity_';
 
-    private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
+    private readonly AtlasCognitiveImmuneInputClassifier $base;
 
     private readonly ImmuneSemanticSimilarityPort $port;
 
@@ -108,14 +108,14 @@ final class AtlasImmuneHybridInputClassifier
      *         anchors fixture.
      */
     public function __construct(
-        ?AtlasAaeosCognitiveImmuneInputClassifier $base = null,
+        ?AtlasCognitiveImmuneInputClassifier $base = null,
         ?ImmuneSemanticSimilarityPort $port = null,
         ?array $anchors = null,
         ?float $tau = null,
         ?bool $enabled = null,
         ?ImmuneSignatureStore $signatureStore = null,
     ) {
-        $this->base = $base ?? new AtlasAaeosCognitiveImmuneInputClassifier;
+        $this->base = $base ?? new AtlasCognitiveImmuneInputClassifier;
         $this->port = $port ?? new BigramJaccardImmuneSemanticSimilarityPort;
         $this->signatureStore = $signatureStore ?? new ImmuneSignatureStore;
         $this->anchors = $anchors;

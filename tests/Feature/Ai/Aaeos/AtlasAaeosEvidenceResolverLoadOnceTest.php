@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Aaeos;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 
 /**
  * PERF CONTRACT (no behavior change) — the resolver loads the code-symbol candidate set
@@ -38,15 +39,15 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
         // A small but representative index: each matchable kind, plus a same-named-method
         // imposter on an unrelated class (the FQN-binding guard), plus an archived/inactive
         // row that must never match.
-        $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasAaeosImplementationTruthService', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
-        $this->seedSymbol('method', 'App\\Services\\Ai\\Aaeos\\AtlasAaeosImplementationTruthService::compute', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
+        $this->seedSymbol('method', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService::compute', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('route', 'POST /ai/interactions', 'routes/api.php', signature: 'POST /ai/interactions');
         $this->seedSymbol('cli_command', 'atlas:aaeos:maturity', 'app/Console/Commands/Aaeos/MaturityCommand.php');
         $this->seedSymbol('migration_table', 'atlas_aaeos_test_run_receipts', 'database/migrations/x.php');
         $this->seedSymbol('test_method', 'Tests\\Unit\\Ai\\Aaeos\\AtlasAaeosImplementationTruthServiceTest::test_partial_requires_symbol_plus_wiring', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
         $this->seedSymbol('class', 'Tests\\Unit\\Ai\\Aaeos\\AtlasAaeosImplementationTruthServiceTest', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
         // An archived row with a name that WOULD boundary-match must be ignored (status gate).
-        $this->seedSymbol('class', 'App\\Ghost\\AtlasAaeosImplementationTruthService', 'app/Ghost/Stale.php', status: 'archived');
+        $this->seedSymbol('class', 'App\\Ghost\\AtlasImplementationTruthService', 'app/Ghost/Stale.php', status: 'archived');
     }
 
     protected function tearDown(): void
@@ -64,21 +65,21 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
      */
     public function test_resolving_many_refs_issues_one_symbol_query_per_instance(): void
     {
-        $resolver = new AtlasAaeosImplementationEvidenceResolver;
+        $resolver = new AtlasImplementationEvidenceResolver;
 
         DB::flushQueryLog();
         DB::enableQueryLog();
 
         // Hundreds of resolutions across every kind, plus the file-path / FQN helpers.
         for ($i = 0; $i < 50; $i++) {
-            $resolver->resolve('symbol', 'AtlasAaeosImplementationTruthService');
-            $resolver->resolve('symbol', 'AtlasAaeosImplementationTruthService::compute');
+            $resolver->resolve('symbol', 'AtlasImplementationTruthService');
+            $resolver->resolve('symbol', 'AtlasImplementationTruthService::compute');
             $resolver->resolve('symbol', 'DefinitelyNotIndexed'.$i); // unresolved path too
             $resolver->resolve('route', '/ai/interactions');
             $resolver->resolve('command', 'atlas:aaeos:maturity');
             $resolver->resolve('migration', 'atlas_aaeos_test_run_receipts');
             $resolver->resolve('test', 'AtlasAaeosImplementationTruthServiceTest');
-            $resolver->resolveSymbolFilePaths('AtlasAaeosImplementationTruthService');
+            $resolver->resolveSymbolFilePaths('AtlasImplementationTruthService');
             $resolver->resolveTestFilePath('AtlasAaeosImplementationTruthServiceTest');
             $resolver->resolveTestFqn('AtlasAaeosImplementationTruthServiceTest::test_partial_requires_symbol_plus_wiring');
         }
@@ -107,22 +108,22 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $a = new AtlasAaeosImplementationEvidenceResolver;
-        $a->resolve('symbol', 'AtlasAaeosImplementationTruthService');
+        $a = new AtlasImplementationEvidenceResolver;
+        $a->resolve('symbol', 'AtlasImplementationTruthService');
         $this->assertSame(1, $this->symbolTableQueryCount(DB::getQueryLog()), 'first resolver in the request: one load');
 
         // A DIFFERENT instance in the SAME request reuses the shared index — no second load.
         DB::flushQueryLog();
-        $b = new AtlasAaeosImplementationEvidenceResolver;
-        $b->resolve('symbol', 'AtlasAaeosImplementationTruthService');
+        $b = new AtlasImplementationEvidenceResolver;
+        $b->resolve('symbol', 'AtlasImplementationTruthService');
         $b->resolve('route', '/ai/interactions');
         $this->assertSame(0, $this->symbolTableQueryCount(DB::getQueryLog()), 'second instance, same request: reuses the shared index, zero loads');
 
         // Next request: scoped bindings are cleared, so the index reloads exactly once.
         $this->app->forgetScopedInstances();
         DB::flushQueryLog();
-        $c = new AtlasAaeosImplementationEvidenceResolver;
-        $c->resolve('symbol', 'AtlasAaeosImplementationTruthService');
+        $c = new AtlasImplementationEvidenceResolver;
+        $c->resolve('symbol', 'AtlasImplementationTruthService');
         $this->assertSame(1, $this->symbolTableQueryCount(DB::getQueryLog()), 'new request: reloads once (never a stale cross-request cache)');
 
         DB::disableQueryLog();
@@ -135,16 +136,16 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
      */
     public function test_results_are_unchanged_by_the_load_once_refactor(): void
     {
-        $resolver = new AtlasAaeosImplementationEvidenceResolver;
+        $resolver = new AtlasImplementationEvidenceResolver;
 
         // symbol: FQN-suffix and method-suffix both resolve to the indexed canonical name.
-        $class = $resolver->resolve('symbol', 'AtlasAaeosImplementationTruthService');
+        $class = $resolver->resolve('symbol', 'AtlasImplementationTruthService');
         $this->assertTrue($class['resolved']);
-        $this->assertSame('App\\Services\\Ai\\Aaeos\\AtlasAaeosImplementationTruthService', $class['matched']);
+        $this->assertSame('App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService', $class['matched']);
 
-        $method = $resolver->resolve('symbol', 'AtlasAaeosImplementationTruthService::compute');
+        $method = $resolver->resolve('symbol', 'AtlasImplementationTruthService::compute');
         $this->assertTrue($method['resolved']);
-        $this->assertSame('App\\Services\\Ai\\Aaeos\\AtlasAaeosImplementationTruthService::compute', $method['matched']);
+        $this->assertSame('App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService::compute', $method['matched']);
 
         // A bare fragment that no symbol ends with does NOT resolve.
         $this->assertFalse($resolver->resolve('symbol', 'NopeNotAThing')['resolved']);
@@ -158,8 +159,8 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
         $this->assertTrue($resolver->resolve('test', 'AtlasAaeosImplementationTruthServiceTest')['resolved']);
 
         // sorted, distinct file paths for the symbol ref.
-        $paths = $resolver->resolveSymbolFilePaths('AtlasAaeosImplementationTruthService');
-        $this->assertSame(['app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php'], $paths);
+        $paths = $resolver->resolveSymbolFilePaths('AtlasImplementationTruthService');
+        $this->assertSame(['app/Services/Ai/Aaeos/AtlasImplementationTruthService.php'], $paths);
 
         // test file path resolves to the test class file (class-priority).
         $this->assertSame(
@@ -175,7 +176,7 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
 
         // STATUS GATE: the archived ghost row (whose name boundary-matches) must NOT win —
         // matchSymbol returns the active row, never the archived one.
-        $this->assertNotSame('App\\Ghost\\AtlasAaeosImplementationTruthService', $class['matched']);
+        $this->assertNotSame('App\\Ghost\\AtlasImplementationTruthService', $class['matched']);
     }
 
     /**

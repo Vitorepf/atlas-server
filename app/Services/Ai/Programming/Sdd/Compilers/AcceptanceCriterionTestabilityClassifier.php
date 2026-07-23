@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\Sdd\Compilers;
 
+
 /**
  * Classifies a single acceptance criterion into a closed-set testability label.
  *

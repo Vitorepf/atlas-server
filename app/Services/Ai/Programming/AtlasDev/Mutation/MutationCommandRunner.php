@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Mutation;
 
+
 /**
  * Runs the scoped infection invocation produced by {@see MutationTestingAdapter}.
  *

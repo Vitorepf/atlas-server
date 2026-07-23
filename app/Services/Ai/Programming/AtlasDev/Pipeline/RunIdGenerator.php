@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+
 /**
  * Deterministic-ish run id generator for the Atlas Dev fast path.
  *

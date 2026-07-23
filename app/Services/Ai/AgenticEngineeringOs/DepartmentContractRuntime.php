@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
-use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**

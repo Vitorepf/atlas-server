@@ -25,6 +25,8 @@ final class AaeosScorecardProjector
     public function project(array $runtimeHints = []): array
     {
         $quarantineImports = $this->countQuarantineImports();
+        $tree = $this->aaeosTreePurity();
+        $orphanGeneratedTests = $this->countOrphanGeneratedTests();
         $dimensions = [
             'thesis_clarity' => 9.5,
             'elite_same_bar' => 9.5,
@@ -33,10 +35,13 @@ final class AaeosScorecardProjector
             'spine_enforced' => (float) ($runtimeHints['spine_enforced'] ?? 9.0),
             'antifragile_loop' => (float) ($runtimeHints['antifragile_loop'] ?? 9.0),
             'quarantine_clean' => $quarantineImports === 0 ? 10.0 : 5.0,
-            'density_live' => 9.0,
+            'density_live' => $tree['pure'] ? 10.0 : 6.0,
+            'aaeos_tree_pure' => $tree['pure'] ? 10.0 : 4.0,
+            'orphan_generated_tests_clean' => $orphanGeneratedTests === 0 ? 10.0 : 3.0,
         ];
 
         $composite = array_sum($dimensions) / count($dimensions);
+        $purityOk = $tree['pure'] && $orphanGeneratedTests === 0;
 
         return [
             'schema' => self::SCHEMA,
@@ -44,9 +49,11 @@ final class AaeosScorecardProjector
             'org' => $this->org->project(),
             'spine_sample' => $this->spine->contractForMode(AaeosExecutorMode::AUTONOMOS),
             'quarantine_production_imports' => $quarantineImports,
+            'aaeos_tree' => $tree,
+            'orphan_generated_tests' => $orphanGeneratedTests,
             'dimensions' => $dimensions,
             'composite' => round($composite, 2),
-            'god_sota' => $composite >= 9.0 && $quarantineImports === 0,
+            'god_sota' => $composite >= 9.0 && $quarantineImports === 0 && $purityOk,
             'target_composite' => 9.0,
             'runtime_write_performed' => false,
             'counters' => [
@@ -95,4 +102,62 @@ final class AaeosScorecardProjector
 
         return $count;
     }
+
+    /**
+     * @return array{pure:bool,php_files:int,foreign:list<string>}
+     */
+    private function aaeosTreePurity(): array
+    {
+        $aaeos = dirname(__DIR__);
+        $foreign = [];
+        $php = 0;
+        if (! is_dir($aaeos)) {
+            return ['pure' => false, 'php_files' => 0, 'foreign' => ['missing_aaeos_dir']];
+        }
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($aaeos));
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $php++;
+            $path = $file->getPathname();
+            $rel = str_replace($aaeos.'/', '', $path);
+            if (str_starts_with($rel, 'Control/') || str_starts_with($rel, 'Spine/')) {
+                continue;
+            }
+            $foreign[] = $rel;
+        }
+
+        return [
+            'pure' => $foreign === [] && $php > 0,
+            'php_files' => $php,
+            'foreign' => $foreign,
+        ];
+    }
+
+    private function countOrphanGeneratedTests(): int
+    {
+        $root = dirname(__DIR__, 5);
+        $dir = $root.'/tests/Unit/Ai/Aaeos/Generated';
+        if (! is_dir($dir)) {
+            return 0;
+        }
+        $count = 0;
+        foreach (glob($dir.'/*.php') ?: [] as $file) {
+            $text = @file_get_contents($file);
+            if ($text === false) {
+                continue;
+            }
+            if (preg_match('/use\\s+App\\\\Services\\\\Ai\\\\Aaeos\\\\Generated\\\\/', $text) === 1) {
+                // still points at dissolved Generated namespace without live target
+                if (! str_contains($text, 'AtlasLearningProposalDecisionService')
+                    && ! str_contains($text, 'AtlasMemoryCognitiveImmuneLearningKernelService')) {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
+    }
+
 }

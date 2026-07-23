@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
-use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasAaeosThresholdLadderNormalizerTest extends TestCase
 {
     public function test_level_ladder_normalizes_numeric_threshold_values(): void
     {
-        $ladder = AtlasAaeosThresholdLadderNormalizer::levelLadder([
+        $ladder = AtlasThresholdLadderNormalizer::levelLadder([
             [
                 'level' => 'L3',
                 'thresholds' => [
@@ -26,7 +26,7 @@ final class AtlasAaeosThresholdLadderNormalizerTest extends TestCase
 
     public function test_ranked_band_ladder_preserves_band_rank_and_threshold_shape(): void
     {
-        $ladder = AtlasAaeosThresholdLadderNormalizer::rankedBandLadder([
+        $ladder = AtlasThresholdLadderNormalizer::rankedBandLadder([
             [
                 'band' => 'L4',
                 'rank' => 4,
@@ -43,11 +43,11 @@ final class AtlasAaeosThresholdLadderNormalizerTest extends TestCase
 
     public function test_invalid_ladder_shape_returns_empty_array(): void
     {
-        $this->assertSame([], AtlasAaeosThresholdLadderNormalizer::levelLadder([
+        $this->assertSame([], AtlasThresholdLadderNormalizer::levelLadder([
             'not-a-list' => ['level' => 'L3', 'thresholds' => []],
         ]));
 
-        $this->assertSame([], AtlasAaeosThresholdLadderNormalizer::rankedBandLadder([
+        $this->assertSame([], AtlasThresholdLadderNormalizer::rankedBandLadder([
             ['band' => 'L3', 'rank' => '3', 'thresholds' => []],
         ]));
     }

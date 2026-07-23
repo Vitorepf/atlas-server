@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+
 /**
  * Sovereignty + tombstone redaction applied to a code-graph result before it
  * reaches any agent / provider (AP-811/812 M-4).
