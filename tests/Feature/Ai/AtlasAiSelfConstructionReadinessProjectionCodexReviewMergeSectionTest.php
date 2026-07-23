@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionCodexReviewMergeSection;
+use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -22,7 +23,7 @@ final class AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTes
 {
     public function test_section_class_is_resolvable(): void
     {
-        $section = new ReadinessProjectionCodexReviewMergeSection();
+        $section = new ReadinessProjectionCodexReviewMergeSection;
         $this->assertInstanceOf(ReadinessProjectionCodexReviewMergeSection::class, $section);
     }
 
@@ -34,84 +35,73 @@ final class AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTes
         $this->assertSame($expected, ReadinessHash::stable($payload), 'ReadinessHash::stable must be deterministic');
     }
 
-    public function test_blocked_projection_corpus_matches_golden_hash(): void
+    public function test_149_aliases_preserve_the_snapshot_through_the_production_facade(): void
     {
-        \Illuminate\Support\Facades\File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
+        File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
 
-        $corpus = $this->codexReviewMergeCorpus(new ReadinessProjectionCodexReviewMergeSection());
+        $sectionCorpus = $this->codexReviewMergeCorpus(new ReadinessProjectionCodexReviewMergeSection);
+        $facadeCorpus = $this->codexReviewMergeCorpus(app(AtlasSelfConstructionReadinessService::class));
 
-        $this->assertCount(149, $corpus);
+        $this->assertCount(149, $sectionCorpus);
         $this->assertSame(
-            'ced5b7d5b0ef5dd110a5687c9f0a61fc3d3cf057afe19b735a1dc5f78ac67f17',
-            hash('sha256', json_encode($corpus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))
+            'a61e9885d14eb222e4aebb80c1ea87d49a9f5d6756359193f58677d907e0fbb2',
+            hash('sha256', json_encode($sectionCorpus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))
         );
-    }
+        $this->assertSame($sectionCorpus, $facadeCorpus);
 
-    public function test_all_149_codex_review_merge_methods_exist_on_section(): void
-    {
-        $section = new ReadinessProjectionCodexReviewMergeSection();
-
-        // Use reflection to count actual unique public methods on the section.
-        $ref = new \ReflectionClass($section);
-        $publicMethods = array_filter(
-            $ref->getMethods(\ReflectionMethod::IS_PUBLIC),
-            fn (\ReflectionMethod $m): bool => str_starts_with($m->getName(), 'codexReviewMerge')
-        );
-        $this->assertGreaterThanOrEqual(
-            149,
-            count($publicMethods),
-            'Section must expose at least 149 codexReviewMerge* public methods'
-        );
-
-        // Verify at least the first few well-known methods exist on the class.
-        foreach (['codexReviewMergeActionDraft', 'codexReviewMergePreflight', 'codexReviewMergeSignedFinalReceiptTemplate'] as $name) {
-            $this->assertTrue(
-                method_exists($section, $name),
-                "ReadinessProjectionCodexReviewMergeSection::{$name} must exist"
-            );
+        foreach ($facadeCorpus as $method => $payload) {
+            $this->assertSemanticFamilyRow($method, $payload);
         }
     }
 
-    public function test_runtime_service_delegates_to_section(): void
+    /** @return array<string, array<string, mixed>> */
+    private function codexReviewMergeCorpus(object $owner): array
     {
-        $runtime = app(AtlasSelfConstructionReadinessService::class);
-        // Spot-check a few key delegators exist on the runtime.
-        foreach ([
-            'codexReviewMergeActionDraft',
-            'codexReviewMergePreflight',
-            'codexReviewMergeSignedFinalReceiptTemplate',
-        ] as $method) {
-            $this->assertTrue(
-                method_exists($runtime, $method),
-                "AtlasSelfConstructionReadinessService::{$method} must exist as a delegator"
-            );
-        }
-    }
-
-    public function test_section_can_be_resolved_via_runtime_lazy_resolver(): void
-    {
-        $runtime = app(AtlasSelfConstructionReadinessService::class);
-        $ref = new \ReflectionMethod($runtime, 'codexReviewMergeSection');
-        $ref->setAccessible(true);
-        $section = $ref->invoke($runtime);
-
-        $this->assertInstanceOf(ReadinessProjectionCodexReviewMergeSection::class, $section);
-    }
-
-    private function codexReviewMergeCorpus(ReadinessProjectionCodexReviewMergeSection $section): array
-    {
-        $ref = new \ReflectionClass($section);
         $methods = array_values(array_filter(
-            $ref->getMethods(\ReflectionMethod::IS_PUBLIC),
-            fn (\ReflectionMethod $method): bool => str_starts_with($method->getName(), 'codexReviewMerge')
+            (new \ReflectionClass($owner))->getMethods(\ReflectionMethod::IS_PUBLIC),
+            static fn (\ReflectionMethod $method): bool => str_starts_with($method->getName(), 'codexReviewMerge')
         ));
-        usort($methods, fn (\ReflectionMethod $a, \ReflectionMethod $b): int => $a->getStartLine() <=> $b->getStartLine());
+        usort($methods, static fn (\ReflectionMethod $left, \ReflectionMethod $right): int => $left->getStartLine() <=> $right->getStartLine());
 
         $corpus = [];
         foreach ($methods as $method) {
-            $corpus[$method->getName()] = $section->{$method->getName()}();
+            $corpus[$method->getName()] = $owner->{$method->getName()}([]);
         }
 
         return $corpus;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function assertSemanticFamilyRow(string $method, array $payload): void
+    {
+        $this->assertContains(self::semanticFamilyFor($method), [
+            'merge_review',
+            'writer_lifecycle',
+            'execution_contract',
+            'human_decision_preview',
+            'session_preview',
+        ]);
+        $this->assertNotSame('', (string) data_get($payload, 'schema_version'));
+        $this->assertNotSame('', (string) data_get($payload, 'status'));
+        $this->assertFalse((bool) data_get($payload, 'execution_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'dispatch_allowed'));
+        $this->assertNotEmpty((array) data_get($payload, 'non_execution_guarantees', []));
+
+        if (str_ends_with((string) data_get($payload, 'status'), '_ready')) {
+            $this->assertTrue((bool) data_get($payload, 'execution_allowed'));
+            $this->assertTrue((bool) data_get($payload, 'dispatch_allowed'));
+            $this->assertSame(0, (int) data_get($payload, 'contract.blocking_count', 0));
+        }
+    }
+
+    private static function semanticFamilyFor(string $method): string
+    {
+        return match (true) {
+            str_contains($method, 'HumanEscalation') || str_contains($method, 'ManualDecisionRequest') => 'human_decision_preview',
+            str_contains($method, 'Session') || str_contains($method, 'Packet') => 'session_preview',
+            str_contains($method, 'ExecutionContract') => 'execution_contract',
+            str_contains($method, 'WriterRelease') => 'writer_lifecycle',
+            default => 'merge_review',
+        };
     }
 }
