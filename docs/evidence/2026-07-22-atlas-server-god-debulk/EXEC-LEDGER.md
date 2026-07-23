@@ -3191,3 +3191,42 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 104 — validate certification completion evidence, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_TERMINAL_PROBE_RESIDUAL
+finding: A1-SC-0187-adjacent-completion
+commit: 0752ae00b
+subject: "refactor(core): GOD-DEBULK validate certification completion evidence"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+  - app/Services/Ai/SelfConstruction/TaskQueue/AgentControlPlaneCompletionEvidenceValidator.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+  - tests/Feature/Ai/AgentControlPlaneCompletionEvidenceValidatorTest.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneCompletionEvidenceValidatorTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_complete_dry_run_closes_every_lease --no-coverage
+  result: "FAIL 1 test, 1 assertion: public certify() completed zero of four claimed leases. The real lease write-set was lowercased while the packet allowed_files kept its source casing; the synthetic receipt also omitted implementation_notes, capability_delta, and all three required evidence labels."
+green:
+  behavior: "Completion evidence records the real in-process completeDryRun transition, the packet/lease/continuation receipts, and required fields. Scope membership compares the observed lease write-set via AgentControlPlaneLeasePathCanonicalizer while preserving the observed path in the validation report."
+verification:
+  characterization: "PASS 1 test, 32 assertions through public certify(): four leases close, queue binding is verified, every completion validation is valid, and every lease write-set is within scope."
+  validator_unit: "PASS 5 tests, 12 assertions."
+  validator_feature: "PASS 18 tests, 35 assertions."
+  certification_file: "NOT GREEN: 5 failed, 12 passed, 132 assertions. Main-cycle completion/replenishment/recovery tests pass; all residual failures are terminal-bootstrap probe availability/status contracts."
+  php_lint: "PASS both production files and all three focused test files."
+  pint: "PASS validator plus focused multi-agent and Unit tests. NOT GREEN only for inherited whole-file formatting drift in the certification service and the legacy Feature validator test; no broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "certification_service=1256 LOC (<2000); completion_validator=370 LOC (<800); multi-agent Feature test=456 LOC (<800)."
+boundary:
+  - "The positive contract invokes public certify(), its real lease claim/CAS/completeDryRun path, and the actual completion-evidence validator; it does not reflect into the seed, claim, or validator internals."
+  - "The canonical comparison is limited to lease write-set versus allowed-file membership. It preserves fail-closed behavior for a truly different file, does not restore the ordinary worker tag exception, and enables no provider, dispatch, token, or runtime-execution authority."
+residual:
+  - "Terminal bootstrap and fleet probes still manufacture separately governed completion evidence and remain blocked; this task deliberately leaves those paths untouched."
+next_cursor: "Characterize the terminal bootstrap's second parallel/lane-isolated ready_for_worker failure through its public probe before altering its evidence producer or bootstrap lane contract."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
