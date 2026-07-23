@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\Foundry\FoundrySemanticGapFinderService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\DeepFindingSupport;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
@@ -225,6 +226,7 @@ class AreaFocusDeepFindingEngineService
 
     public function __construct(
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
+        private readonly DeepFindingSupport $deepFindingSupport = new DeepFindingSupport,
         private readonly ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
         private readonly ?FoundrySemanticGapFinderService $semanticGapFinder = null,
         private readonly ?SelfTargetSelectorService $selfTargetSelector = null,
@@ -573,7 +575,7 @@ class AreaFocusDeepFindingEngineService
         foreach ($ownerDocs as $doc) {
             $exists = $override !== null && array_key_exists($doc, $override)
                 ? (bool) $override[$doc]
-                : $this->pathExists($doc);
+                : $this->deepFindingSupport->pathExists($doc);
             if ($exists) {
                 $present++;
 
@@ -627,7 +629,7 @@ class AreaFocusDeepFindingEngineService
             }
             $exists = $override !== null && array_key_exists($link, $override)
                 ? (bool) $override[$link]
-                : $this->pathExists($path);
+                : $this->deepFindingSupport->pathExists($path);
             if ($exists) {
                 $present++;
 
@@ -955,7 +957,7 @@ class AreaFocusDeepFindingEngineService
                 'severity' => $severity,
                 'confidence' => 'high',
                 'evidence_refs' => $evidenceRefs,
-                'affected_paths' => array_values(array_filter([$missingRuntimeRef], $this->isCodePath(...))),
+                'affected_paths' => array_values(array_filter([$missingRuntimeRef], $this->deepFindingSupport->isCodePath(...))),
                 'why_it_matters' => 'A documented capability with no runtime evidence is a real, measurable gap — not "keep the doc in sync" noise. '
                     .'It carries an outcome_contract so closing it must move metric "'.(string) ($outcomeContract['metric_id'] ?? '').'" by at least '
                     .(string) ($outcomeContract['target_delta'] ?? '').' (measured-or-reverted), proving the capability actually landed.',
@@ -1590,7 +1592,7 @@ class AreaFocusDeepFindingEngineService
         ];
 
         foreach (self::ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES as $source) {
-            if (! $this->pathExists($source)) {
+            if (! $this->deepFindingSupport->pathExists($source)) {
                 continue;
             }
 
@@ -1639,7 +1641,7 @@ class AreaFocusDeepFindingEngineService
             $signals[] = 'execution_bottleneck';
         }
         $test = $this->expectedTestPath(basename($source, '.php').'Test.php', [$source]);
-        if ($test !== '' && ! $this->pathExists($test) && $this->isFactoryRuntimeCoverageCandidate($source)) {
+        if ($test !== '' && ! $this->deepFindingSupport->pathExists($test) && $this->isFactoryRuntimeCoverageCandidate($source)) {
             $signals[] = 'missing_test';
         }
 
@@ -1683,7 +1685,7 @@ class AreaFocusDeepFindingEngineService
 
     private function readSourceHead(string $source, int $maxBytes): string
     {
-        if (! $this->pathExists($source)) {
+        if (! $this->deepFindingSupport->pathExists($source)) {
             return '';
         }
 
@@ -1745,7 +1747,7 @@ class AreaFocusDeepFindingEngineService
                 'why_it_matters' => 'Factory and 24h loops can stall provider throughput when a hot path blocks without bounded waits or budget stop reasons.',
                 'proposed_next_action' => 'Replace unbounded blocking in '.$source.' with timeout/budget-aware pacing and prove recovery in '.($test !== '' ? $test : 'focused tests').'.',
             ], $focusConfig),
-            'missing_test' => $test === '' || $this->pathExists($test)
+            'missing_test' => $test === '' || $this->deepFindingSupport->pathExists($test)
                 ? null
                 : $this->makeFinding([
                     'area_id' => $areaId,
@@ -1805,7 +1807,7 @@ class AreaFocusDeepFindingEngineService
                 continue;
             }
             $test = $this->expectedTestPath(basename($file, '.php').'Test.php', [$file]);
-            if ($test === '' || $this->pathExists($test)) {
+            if ($test === '' || $this->deepFindingSupport->pathExists($test)) {
                 $skippedCovered++;
 
                 continue;
@@ -1883,7 +1885,7 @@ class AreaFocusDeepFindingEngineService
         $missingSource = [];
         foreach (self::STRATEGIC_MULTIPLIER_SEEDS as $index => $seed) {
             $source = $seed['source'];
-            if (! $this->pathExists($source)) {
+            if (! $this->deepFindingSupport->pathExists($source)) {
                 $missingSource[] = $source;
 
                 continue;
@@ -1947,7 +1949,7 @@ class AreaFocusDeepFindingEngineService
         $title = (string) $base['title'];
 
         $affectedPaths = AreaFocusStringListNormalizer::coercedStringValues($base['affected_paths'] ?? []);
-        $affectedFiles = array_values(array_filter($affectedPaths, $this->isCodePath(...)));
+        $affectedFiles = array_values(array_filter($affectedPaths, $this->deepFindingSupport->isCodePath(...)));
         $affectedDocs = array_values(array_filter($affectedPaths, static fn (string $p): bool => str_starts_with($p, 'docs/')));
 
         $sourceRef = (string) ($base['source_ref'] ?? ($kind.':'.$title));
@@ -2064,17 +2066,6 @@ class AreaFocusDeepFindingEngineService
         $haystack = strtolower($text.' '.implode(' ', $affectedPaths));
         foreach ($tokens as $token) {
             if ($token !== '' && str_contains($haystack, $token)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isCodePath(string $path): bool
-    {
-        foreach (['app/', 'tests/', 'config/', 'routes/', 'database/', 'packages/'] as $prefix) {
-            if (str_starts_with($path, $prefix)) {
                 return true;
             }
         }
@@ -2735,7 +2726,7 @@ class AreaFocusDeepFindingEngineService
 
         $files = array_merge(
             AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []),
-            array_values(array_filter(AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_paths'] ?? []), $this->isCodePath(...))),
+            array_values(array_filter(AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_paths'] ?? []), $this->deepFindingSupport->isCodePath(...))),
         );
         foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['evidence_refs'] ?? []) as $ref) {
             if (str_starts_with($ref, 'impl:')) {
@@ -2936,7 +2927,7 @@ class AreaFocusDeepFindingEngineService
     private function isAlreadyCoveredByTest(array $finding, array $testsRequired): bool
     {
         foreach ($testsRequired as $testPath) {
-            if ($this->pathExists($testPath)) {
+            if ($this->deepFindingSupport->pathExists($testPath)) {
                 return true;
             }
         }
@@ -2946,7 +2937,7 @@ class AreaFocusDeepFindingEngineService
         foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []) as $file) {
             $basename = basename($file, '.php').'Test.php';
             $expected = $this->expectedTestPath($basename, [$file]);
-            if ($expected !== '' && $this->pathExists($expected)) {
+            if ($expected !== '' && $this->deepFindingSupport->pathExists($expected)) {
                 return true;
             }
         }
@@ -2996,7 +2987,7 @@ class AreaFocusDeepFindingEngineService
                 continue;
             }
             $testPath = $testDir.'/'.basename($candidate, '.php').'Test.php';
-            if ($this->pathExists($testPath)) {
+            if ($this->deepFindingSupport->pathExists($testPath)) {
                 return true;
             }
         }
@@ -3012,7 +3003,7 @@ class AreaFocusDeepFindingEngineService
 
         foreach ($this->stewardshipImplementationPathsForInterface($interfaceShortName) as $implementationPath) {
             $testPath = $this->expectedTestPath(basename($implementationPath, '.php').'Test.php', [$implementationPath]);
-            if ($testPath !== '' && $this->pathExists($testPath)) {
+            if ($testPath !== '' && $this->deepFindingSupport->pathExists($testPath)) {
                 return true;
             }
         }
@@ -3069,12 +3060,12 @@ class AreaFocusDeepFindingEngineService
     private function hasExistingRuntimeSource(array $finding): bool
     {
         foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []) as $file) {
-            if (str_starts_with($file, 'app/') && $this->pathExists($file)) {
+            if (str_starts_with($file, 'app/') && $this->deepFindingSupport->pathExists($file)) {
                 return true;
             }
         }
         foreach ($this->resolveAllowedFilesForFinding($finding) as $file) {
-            if (str_starts_with($file, 'app/') && $this->pathExists($file)) {
+            if (str_starts_with($file, 'app/') && $this->deepFindingSupport->pathExists($file)) {
                 return true;
             }
         }
@@ -3569,7 +3560,7 @@ class AreaFocusDeepFindingEngineService
 
     private function isFactoryRuntimeCoverageCandidate(string $file): bool
     {
-        if (! $this->factoryRuntimeFile($file) || ! str_ends_with($file, '.php') || ! $this->pathExists($file)) {
+        if (! $this->factoryRuntimeFile($file) || ! str_ends_with($file, '.php') || ! $this->deepFindingSupport->pathExists($file)) {
             return false;
         }
 
@@ -3600,16 +3591,6 @@ class AreaFocusDeepFindingEngineService
         }
 
         return preg_match('/\b(?:final\s+)?class\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1;
-    }
-
-    /**
-     * Read-only existence seam (overridable in tests via the per-check overrides).
-     */
-    protected function pathExists(string $relativePath): bool
-    {
-        $base = function_exists('base_path') ? base_path() : getcwd();
-
-        return file_exists(rtrim((string) $base, '/').'/'.ltrim($relativePath, '/'));
     }
 
     // ---------- envelope / policy ----------
