@@ -30,8 +30,8 @@ related_paths:
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
   - app/Services/Ai/AtlasMemoryPrivacyService.php
   - app/Services/Ai/AtlasMemorySourcePrivacyPolicy.php
-  - app/Services/Ai/AtlasProviderProjectionService.php
-  - app/Services/Ai/AtlasProviderProjectionAuditService.php
+  - app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php
+  - app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php
   - config/atlas.php
 doc_schema: atlas_canonical_module_doc.v1
 

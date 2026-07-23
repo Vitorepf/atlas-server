@@ -24,7 +24,7 @@ maintenance:
 related_paths:
   - app/Services/Ai/AiContextPackBuilder.php
   - app/Services/Ai/AtlasMemoryRegistryService.php
-  - app/Services/Ai/AtlasProviderProjectionAuditService.php
+  - app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php
   - app/Services/Engineering/EngineeringContextPackService.php
 doc_schema: atlas_canonical_module_doc.v1
 

@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\OpenBrain\RecallTrigger\RecallExceptionDetector;
 use App\Services\Ai\OpenBrain\RecallTrigger\RecallTriggerClassifier;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;

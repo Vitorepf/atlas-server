@@ -23,6 +23,7 @@ use App\Services\Ai\Governance\AiPermissionDecision;
 use App\Services\Ai\Governance\AiPermissionEngine;
 use App\Services\Ai\Hermes\Mesh\HermesMeshJobRunner;
 use App\Services\Ai\HumanSurface\AiExecutionPresentationState;
+use App\Services\Ai\Instrumentation\AiWorkerLogger;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;

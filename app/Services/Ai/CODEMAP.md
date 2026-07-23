@@ -24,7 +24,12 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Update structured AI session state | `App\Services\Ai\ConversationOps\AiSessionStateService::updateForUserInput` |
 | Purge a user-visible thread | `App\Services\Ai\ConversationOps\AiThreadDeletionService::delete` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
-| Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
+| Project safe trace artifacts for a trace | `App\Services\Ai\Instrumentation\AiTraceArtifactsProjection::forTrace` |
+| Project an engineering review for a trace | `App\Services\Ai\Instrumentation\AiTraceEngineeringReviewProjection::forTrace` |
+| Write an AI worker lifecycle event | `App\Services\Ai\Instrumentation\AiWorkerLogger::event` |
+| Generate a provider-safe projection | `App\Services\Ai\Instrumentation\AtlasProviderProjectionService::generate` |
+| Audit a provider projection apply | `App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService::recordApply` |
+| Authorize provider-projection audit purge | `App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditPurgePolicy::evaluate` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |
 | Project canonical YouTube knowledge | `App\Services\Ai\Knowledge\YoutubeCanonicalProjection::projectIngestion` |
 | Aggregate a multi-provider council trace | `App\Services\Ai\Arena\AiCouncilCoordinator::sync` |

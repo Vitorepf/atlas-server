@@ -589,7 +589,7 @@ class ProviderAudit
     private function scanProviderProjectionAuditInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Provider/ProviderProjectionAuditInput.php');
-        $servicePath = app_path('Services/Ai/AtlasProviderProjectionAuditService.php');
+        $servicePath = app_path('Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php');
         $testPath = base_path('tests/Unit/Ai/Provider/ProviderProjectionAuditInputTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
@@ -623,7 +623,7 @@ class ProviderAudit
             '$this->input->purgeOlderThanDays(',
         ] as $token) {
             if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasProviderProjectionAuditService.php: provider projection audit must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php: provider projection audit must use shared input contract [{$token}]";
             }
         }
 
@@ -655,7 +655,7 @@ class ProviderAudit
     private function scanProviderProjectionInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Provider/ProviderProjectionInput.php');
-        $servicePath = app_path('Services/Ai/AtlasProviderProjectionService.php');
+        $servicePath = app_path('Services/Ai/Instrumentation/AtlasProviderProjectionService.php');
         $testPath = base_path('tests/Unit/Ai/Provider/ProviderProjectionInputTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
@@ -690,7 +690,7 @@ class ProviderAudit
             'private function projectionInput(): ProviderProjectionInput',
         ] as $token) {
             if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasProviderProjectionService.php: provider projection must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php: provider projection must use shared input contract [{$token}]";
             }
         }
 
@@ -723,7 +723,7 @@ class ProviderAudit
     private function scanProviderMemoryPrivacy(): array
     {
         $privacyPath = app_path('Services/Ai/AtlasMemoryPrivacyService.php');
-        $projectionPath = app_path('Services/Ai/AtlasProviderProjectionService.php');
+        $projectionPath = app_path('Services/Ai/Instrumentation/AtlasProviderProjectionService.php');
         $openBrainPath = app_path('Services/Ai/AtlasHybridMemoryRetrievalService.php');
 
         $violations = [];
@@ -763,11 +763,11 @@ class ProviderAudit
         }
 
         if (! str_contains($projection, 'providerDecision($entry)')) {
-            $violations[] = 'app/Services/Ai/AtlasProviderProjectionService.php: provider projections must filter memory through AtlasMemoryPrivacyService::providerDecision';
+            $violations[] = 'app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php: provider projections must filter memory through AtlasMemoryPrivacyService::providerDecision';
         }
 
         if (! str_contains($projection, 'recordProviderMemoryBlocked($entry')) {
-            $violations[] = 'app/Services/Ai/AtlasProviderProjectionService.php: provider projections must record blocked memory decisions to the Evidence Ledger';
+            $violations[] = 'app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php: provider projections must record blocked memory decisions to the Evidence Ledger';
         }
 
         if (! str_contains($openBrain, 'providerAllowed($entry)')) {

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Instrumentation;
 
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;

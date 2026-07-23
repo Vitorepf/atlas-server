@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;

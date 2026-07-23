@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai;
 
-use App\Models\AiTrace;
 use App\Models\AiStreamEvent;
+use App\Models\AiTrace;
 use App\Models\AtlasEngineeringControlResult;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringReviewFinding;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunOperatorAction;
 use App\Models\AtlasEngineeringTestRun;
-use App\Services\Ai\AiTraceEngineeringReviewProjection;
+use App\Services\Ai\Instrumentation\AiTraceEngineeringReviewProjection;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

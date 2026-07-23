@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AiWorker;
-use App\Services\Ai\AiWorkerLogger;
+use App\Services\Ai\Instrumentation\AiWorkerLogger;
 use Illuminate\Console\Command;
 
 class AiWorkCommand extends Command

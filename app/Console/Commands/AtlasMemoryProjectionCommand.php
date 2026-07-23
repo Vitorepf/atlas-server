@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AtlasProviderProjectionService;
-use App\Services\Ai\AtlasProviderProjectionAuditService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 

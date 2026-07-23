@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AiProviderHealthService;
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Cli\AtlasCliDoctorService;
 use App\Services\Ai\Cli\AtlasCliInstallService;
 use App\Services\Ai\Cli\AtlasCliSetupService;

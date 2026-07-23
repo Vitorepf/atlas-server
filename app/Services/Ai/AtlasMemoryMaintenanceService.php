@@ -3,6 +3,8 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 

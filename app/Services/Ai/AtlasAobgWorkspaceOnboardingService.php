@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Services\Ai\Obra\AtlasDeterministicBriefService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;

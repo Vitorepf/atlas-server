@@ -8,7 +8,7 @@ use App\Models\AiTrace;
 use App\Models\AiStreamEvent;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
-use App\Services\Ai\AiTraceEngineeringReviewProjection;
+use App\Services\Ai\Instrumentation\AiTraceEngineeringReviewProjection;
 use App\Services\Engineering\EngineeringRunFileReviewService;
 use App\Services\Engineering\EngineeringRunOperatorActionService;
 use Illuminate\Http\JsonResponse;

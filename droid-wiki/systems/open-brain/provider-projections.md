@@ -8,7 +8,7 @@ sync without manual editing. They are **provider projections**: compact,
 provider-safe, and never the source of truth. Canonical repo docs and
 `atlas_memory_entries` outrank them in the
 [knowledge authority hierarchy](../../concepts/knowledge-governance.md). This
-page documents `app/Services/Ai/AtlasProviderProjectionService.php`, the
+page documents `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php`, the
 generate/write/adopt/inspect lifecycle, the lean-nested optimization, the
 checksum and manual-block preservation, and the audit + purge trail.
 
@@ -16,9 +16,9 @@ checksum and manual-block preservation, and the audit + purge trail.
 
 | Path / constant | Role |
 |---|---|
-| `app/Services/Ai/AtlasProviderProjectionService.php` | `generate`, `write`, `adopt`, `inspect`, `status` |
-| `app/Services/Ai/AtlasProviderProjectionAuditService.php` | Audit trail (`recordApply`, `search`) |
-| `app/Services/Ai/AtlasProviderProjectionAuditPurgePolicy.php` | Retention/purge authorization policy |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php` | `generate`, `write`, `adopt`, `inspect`, `status` |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php` | Audit trail (`recordApply`, `search`) |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditPurgePolicy.php` | Retention/purge authorization policy |
 | `app/Services/Ai/Provider/ProviderProjectionInput.php` | Input normalisation (`maxLines`, `memoryLimit`) |
 | `app/Models/AtlasMemoryProviderProjectionAudit.php` | The audit row |
 | `AtlasProviderProjectionService::VERSION` | `atlas_provider_projection_v1` |
@@ -176,9 +176,9 @@ flowchart TD
 
 | File | What |
 |---|---|
-| `app/Services/Ai/AtlasProviderProjectionService.php` | Generator/writer/adopter/inspector |
-| `app/Services/Ai/AtlasProviderProjectionAuditService.php` | Audit trail |
-| `app/Services/Ai/AtlasProviderProjectionAuditPurgePolicy.php` | Purge authorization |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php` | Generator/writer/adopter/inspector |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditService.php` | Audit trail |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionAuditPurgePolicy.php` | Purge authorization |
 | `app/Services/Ai/Provider/ProviderProjectionInput.php` | Input normalisation |
 | `app/Services/Ai/AtlasMemoryPrivacyService.php` | Privacy floor for the entry subset |
 | `app/Models/AtlasMemoryProviderProjectionAudit.php` | Audit row model |

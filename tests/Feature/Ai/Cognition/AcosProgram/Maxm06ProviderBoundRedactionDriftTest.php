@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;

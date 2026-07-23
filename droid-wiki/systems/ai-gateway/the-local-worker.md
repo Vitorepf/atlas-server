@@ -8,7 +8,7 @@
 |---|---|
 | `app/Console/Commands/AiWorkCommand.php` | The worker command: loop, `--once`, `--limit`, `--sleep`, `--provider`, `--worker-id` |
 | `app/Services/Ai/AiWorker.php` | The worker engine: claim, gate chain, execute, complete |
-| `app/Services/Ai/AiWorkerLogger.php` | Writes `ai_worker_events` (started, claimed, heartbeat, stopped) |
+| `app/Services/Ai/Instrumentation/AiWorkerLogger.php` | Writes `ai_worker_events` (started, claimed, heartbeat, stopped) |
 | `app/Services/Ai/Governance/AiPermissionEngine.php` | The permission gate (`authorizeJob`) |
 | `app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php` | Decision-receipt enforcement before a provider call |
 | `app/Services/Ai/Kernel/Pipeline/KernelPipelineRuntimeGuard.php` | Kernel pipeline contract enforcement |
@@ -142,7 +142,7 @@ On **failure** several special paths run before the default requeue/fail:
 |---|---|
 | `app/Console/Commands/AiWorkCommand.php` | The command signature and loop |
 | `app/Services/Ai/AiWorker.php` | `runNextMatching()`, `claimJob()`, `macBackgroundReadinessDefer()`, `recoverStaleProcessingJobs()`, `createAttempt()`, `completeAttempt()`, `evaluateQuality()` |
-| `app/Services/Ai/AiWorkerLogger.php` | `event()` — worker event persistence |
+| `app/Services/Ai/Instrumentation/AiWorkerLogger.php` | `event()` — worker event persistence |
 | `app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php` | `violationForJob()` |
 | `app/Services/Ai/Kernel/Pipeline/KernelPipelineRuntimeGuard.php` | `violationForJob()` |
 | `app/Services/Ai/Governance/AiPermissionEngine.php` | `authorizeJob()` |

@@ -14,7 +14,7 @@ use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;

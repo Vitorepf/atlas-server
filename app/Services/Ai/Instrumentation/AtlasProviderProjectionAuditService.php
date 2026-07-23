@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Instrumentation;
 
 use App\Models\AtlasMemoryProviderProjectionAudit;
 use App\Services\Ai\Provider\ProviderProjectionAuditInput;

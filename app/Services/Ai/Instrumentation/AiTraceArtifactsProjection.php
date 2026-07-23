@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Instrumentation;
 
 use App\Models\AiTrace;
 use App\Models\AtlasEngineeringControlResult;

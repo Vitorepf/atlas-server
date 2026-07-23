@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Support\Facades\File;
 
 final class AtlasArchitectureReadinessService

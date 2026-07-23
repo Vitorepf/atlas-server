@@ -411,7 +411,7 @@ Cada node do mapa tem 7 camadas canonicas. Para inspecionar qualquer node do dia
 | Quality | `AtlasMemoryQualityService` | `app/Services/Ai/AtlasMemoryQualityService.php` | 1020 |
 | Review Queue | `AtlasMemoryReviewQueueService` | `app/Services/Ai/AtlasMemoryReviewQueueService.php` | - |
 | Delta Promotion | `AtlasMemoryDeltaPromotionService` | `app/Services/Ai/AtlasMemoryDeltaPromotionService.php` | - |
-| Provider Projection | `AtlasProviderProjectionService` | `app/Services/Ai/AtlasProviderProjectionService.php` | - |
+| Provider Projection | `AtlasProviderProjectionService` | `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php` | - |
 | Maintenance | `AtlasMemoryMaintenanceService` | `app/Services/Ai/AtlasMemoryMaintenanceService.php` | - |
 | Conflict Resolution | `AtlasMemoryConflictResolutionService` | `app/Services/Ai/Memory/AtlasMemoryConflictResolutionService.php` | 480 |
 

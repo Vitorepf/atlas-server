@@ -18,10 +18,16 @@ use App\Services\Ai\AiStreamRecorder as LegacyAiStreamRecorder;
 use App\Services\Ai\AiSurfaceHandoffService as LegacyAiSurfaceHandoffService;
 use App\Services\Ai\AiThreadDeletionService as LegacyAiThreadDeletionService;
 use App\Services\Ai\AiThreadResolver as LegacyAiThreadResolver;
+use App\Services\Ai\AiTraceArtifactsProjection as LegacyAiTraceArtifactsProjection;
+use App\Services\Ai\AiTraceEngineeringReviewProjection as LegacyAiTraceEngineeringReviewProjection;
+use App\Services\Ai\AiWorkerLogger as LegacyAiWorkerLogger;
 use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
 use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
 use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
+use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy as LegacyAtlasProviderProjectionAuditPurgePolicy;
+use App\Services\Ai\AtlasProviderProjectionAuditService as LegacyAtlasProviderProjectionAuditService;
+use App\Services\Ai\AtlasProviderProjectionService as LegacyAtlasProviderProjectionService;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
 use App\Services\Ai\ConversationOps\AiSessionManager as CanonicalAiSessionManager;
@@ -32,6 +38,12 @@ use App\Services\Ai\Governance\AiPermissionDecision as CanonicalAiPermissionDeci
 use App\Services\Ai\Governance\AiPermissionEngine as CanonicalAiPermissionEngine;
 use App\Services\Ai\Governance\AiPermissionEngineSupport as CanonicalAiPermissionEngineSupport;
 use App\Services\Ai\HumanSurface\AiExecutionPresentationState as CanonicalAiExecutionPresentationState;
+use App\Services\Ai\Instrumentation\AiTraceArtifactsProjection as CanonicalAiTraceArtifactsProjection;
+use App\Services\Ai\Instrumentation\AiTraceEngineeringReviewProjection as CanonicalAiTraceEngineeringReviewProjection;
+use App\Services\Ai\Instrumentation\AiWorkerLogger as CanonicalAiWorkerLogger;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditPurgePolicy as CanonicalAtlasProviderProjectionAuditPurgePolicy;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService as CanonicalAtlasProviderProjectionAuditService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService as CanonicalAtlasProviderProjectionService;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
 use App\Services\Ai\Router\AiIntentRouter as CanonicalAiIntentRouter;
@@ -142,5 +154,27 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiThreadResolver::class));
         self::assertTrue(class_exists(LegacyAiThreadResolver::class));
         self::assertTrue(is_a(CanonicalAiThreadResolver::class, LegacyAiThreadResolver::class, true));
+    }
+
+    public function test_instrumentation_services_resolve_from_their_canonical_namespace_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAiTraceArtifactsProjection::class));
+        self::assertTrue(class_exists(LegacyAiTraceArtifactsProjection::class));
+        self::assertTrue(is_a(CanonicalAiTraceArtifactsProjection::class, LegacyAiTraceArtifactsProjection::class, true));
+        self::assertTrue(class_exists(CanonicalAiTraceEngineeringReviewProjection::class));
+        self::assertTrue(class_exists(LegacyAiTraceEngineeringReviewProjection::class));
+        self::assertTrue(is_a(CanonicalAiTraceEngineeringReviewProjection::class, LegacyAiTraceEngineeringReviewProjection::class, true));
+        self::assertTrue(class_exists(CanonicalAiWorkerLogger::class));
+        self::assertTrue(class_exists(LegacyAiWorkerLogger::class));
+        self::assertTrue(is_a(CanonicalAiWorkerLogger::class, LegacyAiWorkerLogger::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasProviderProjectionService::class));
+        self::assertTrue(class_exists(LegacyAtlasProviderProjectionService::class));
+        self::assertTrue(is_a(CanonicalAtlasProviderProjectionService::class, LegacyAtlasProviderProjectionService::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasProviderProjectionAuditService::class));
+        self::assertTrue(class_exists(LegacyAtlasProviderProjectionAuditService::class));
+        self::assertTrue(is_a(CanonicalAtlasProviderProjectionAuditService::class, LegacyAtlasProviderProjectionAuditService::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasProviderProjectionAuditPurgePolicy::class));
+        self::assertTrue(class_exists(LegacyAtlasProviderProjectionAuditPurgePolicy::class));
+        self::assertTrue(is_a(CanonicalAtlasProviderProjectionAuditPurgePolicy::class, LegacyAtlasProviderProjectionAuditPurgePolicy::class, true));
     }
 }

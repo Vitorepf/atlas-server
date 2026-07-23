@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Cli;
 
 use App\Services\Ai\AiProviderHealthService;
-use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInstallService;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;

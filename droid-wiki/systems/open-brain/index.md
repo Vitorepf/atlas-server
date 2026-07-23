@@ -44,7 +44,7 @@ proposals, never auto-merged), per-file **brain-delta** context, and generated
 | `app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php` | Multi-project AWIS onboarding/activation + provider bootstraps |
 | `app/Services/Ai/AtlasOpenBrainGuardService.php` | Provider-safety guard / redaction enforcement for outbound brain content |
 | `app/Services/Ai/AtlasMemoryRegistryService.php` | Canonical memory CRUD + relevance retrieval + harness-learning capture |
-| `app/Services/Ai/AtlasProviderProjectionService.php` | Generates/writes `CLAUDE.md` / `AGENTS.md` from canonical memory |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php` | Generates/writes `CLAUDE.md` / `AGENTS.md` from canonical memory |
 
 ## How it works
 
@@ -146,7 +146,7 @@ flowchart LR
 | `app/Services/Ai/AtlasOpenBrainWriteBackService.php` | Governed write-back |
 | `app/Services/Ai/AtlasAobgBlackboardService.php` | Multi-engine blackboard |
 | `app/Services/Ai/AtlasMemoryRegistryService.php` | Canonical memory writer/reader |
-| `app/Services/Ai/AtlasProviderProjectionService.php` | Provider projection generator |
+| `app/Services/Ai/Instrumentation/AtlasProviderProjectionService.php` | Provider projection generator |
 | `app/Services/Ai/AtlasOpenBrainGuardService.php` | Provider-safety guard |
 | `config/atlas.php` | `open_brain.*`, `aobg.*`, `code_graph.*` blocks |
 | `.mcp.json` | Claude Code MCP registration |

@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiProviderHealthSnapshot;
+use App\Services\Ai\Instrumentation\AiWorkerLogger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 
