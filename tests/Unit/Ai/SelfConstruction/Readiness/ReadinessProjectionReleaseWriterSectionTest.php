@@ -6,6 +6,8 @@ namespace Tests\Unit\Ai\SelfConstruction\Readiness;
 
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionReleaseWriterSection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class ReadinessProjectionReleaseWriterSectionTest extends TestCase
@@ -69,6 +71,34 @@ final class ReadinessProjectionReleaseWriterSectionTest extends TestCase
         $this->assertSame(
             'repair_signed_one_shot_scheduler_tick_release_receipt_persistence_contract_preflight_blockers',
             $persistenceContract['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract']['next_required_slice']
+        );
+    }
+
+    public function test_persistence_writer_preflight_uses_live_schema_evidence_for_atomicity_requirements(): void
+    {
+        $readiness = app(AtlasSelfConstructionReadinessService::class);
+        $contract = $readiness->agentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceContract();
+        $preflight = $readiness->agentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriterPreflight();
+        $storageReadiness = $preflight['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight']['storage_readiness'];
+        $uniqueIndexes = collect(Schema::getIndexes('atlas_self_construction_agent_dispatch_receipts'))
+            ->filter(static fn (array $index): bool => ($index['unique'] ?? false) === true);
+
+        $this->assertSame(
+            ['receipt_hash'],
+            $contract['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract']['storage_target']['idempotency_key_fields']
+        );
+        $this->assertSame(DB::connection()->getDriverName(), $storageReadiness['database_driver']);
+        $this->assertSame(
+            $uniqueIndexes->contains(static fn (array $index): bool => ($index['columns'] ?? []) === ['receipt_hash']),
+            $storageReadiness['unique_indexes']['receipt_hash']
+        );
+        $this->assertSame(
+            $uniqueIndexes->contains(static fn (array $index): bool => ($index['columns'] ?? []) === ['receipt_key']),
+            $storageReadiness['unique_indexes']['receipt_key']
+        );
+        $this->assertSame(
+            $storageReadiness['unique_indexes']['receipt_hash'],
+            $preflight['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight']['preflight_checks']['receipt_hash_unique_index_ready']
         );
     }
 }

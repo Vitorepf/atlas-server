@@ -14,6 +14,7 @@ use App\Models\AtlasSelfConstructionAgentWakeupItem;
 use App\Models\AtlasSelfConstructionAgentWorkProduct;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
@@ -586,7 +587,9 @@ final class ReadinessProjectionReleaseWriterSection
         $contract = (array) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract', []);
         $contractHash = (string) data_get($contractPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract_hash');
         $table = 'atlas_self_construction_agent_dispatch_receipts';
+        $wakeupTable = 'atlas_self_construction_agent_wakeup_items';
         $tableReady = Schema::hasTable($table);
+        $wakeupTableReady = Schema::hasTable($wakeupTable);
         $requiredColumns = [
             'id',
             'wakeup_item_id',
@@ -610,6 +613,40 @@ final class ReadinessProjectionReleaseWriterSection
             }
         }
 
+        $databaseDriver = null;
+        $receiptIndexes = [];
+        $wakeupIndexes = [];
+        $wakeupLockColumnsReady = false;
+
+        try {
+            $databaseDriver = DB::connection()->getDriverName();
+            $receiptIndexes = $tableReady ? Schema::getIndexes($table) : [];
+            $wakeupIndexes = $wakeupTableReady ? Schema::getIndexes($wakeupTable) : [];
+            $wakeupLockColumnsReady = $wakeupTableReady
+                && Schema::hasColumn($wakeupTable, 'id')
+                && Schema::hasColumn($wakeupTable, 'wakeup_key');
+        } catch (\Throwable) {
+            // Schema evidence remains absent and blocks the implementation packet.
+        }
+
+        $receiptHashUniqueIndexReady = collect($receiptIndexes)->contains(
+            static fn (array $index): bool => ($index['unique'] ?? false) === true
+                && ($index['columns'] ?? []) === ['receipt_hash'],
+        );
+        $receiptKeyUniqueIndexReady = collect($receiptIndexes)->contains(
+            static fn (array $index): bool => ($index['unique'] ?? false) === true
+                && ($index['columns'] ?? []) === ['receipt_key'],
+        );
+        $wakeupPrimaryKeyReady = collect($wakeupIndexes)->contains(
+            static fn (array $index): bool => ($index['primary'] ?? false) === true
+                && ($index['columns'] ?? []) === ['id'],
+        );
+        $transactionSupported = in_array($databaseDriver, ['mysql', 'pgsql', 'sqlite', 'sqlsrv'], true);
+        $wakeupRowLockSupported = in_array($databaseDriver, ['mysql', 'pgsql', 'sqlsrv'], true)
+            && $wakeupTableReady
+            && $wakeupLockColumnsReady
+            && $wakeupPrimaryKeyReady;
+
         $preflightChecks = [
             'persistence_contract_available' => data_get($contractPayload, 'status') === 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract_ready',
             'persistence_contract_hash_present' => $contractHash !== '',
@@ -620,10 +657,11 @@ final class ReadinessProjectionReleaseWriterSection
             'storage_target_matches_contract' => data_get($contract, 'storage_target.table') === $table,
             'receipt_kind_defined' => (string) data_get($contract, 'storage_target.receipt_kind', '') !== '',
             'status_on_write_defined' => (string) data_get($contract, 'storage_target.status_on_write', '') !== '',
-            'idempotency_key_fields_defined' => count((array) data_get($contract, 'storage_target.idempotency_key_fields', [])) >= 3,
-            'database_transaction_required' => data_get($contract, 'lock_policy.requires_database_transaction') === true,
-            'wakeup_row_lock_required' => data_get($contract, 'lock_policy.requires_wakeup_row_lock') === true,
-            'unique_key_required' => data_get($contract, 'lock_policy.requires_dispatch_receipt_unique_key') === true,
+            'idempotency_key_fields_defined' => data_get($contract, 'storage_target.idempotency_key_fields') === ['receipt_hash'],
+            'database_transaction_supported' => $transactionSupported,
+            'wakeup_row_lock_supported' => $wakeupRowLockSupported,
+            'receipt_hash_unique_index_ready' => $receiptHashUniqueIndexReady,
+            'receipt_key_unique_index_ready' => $receiptKeyUniqueIndexReady,
             'provider_start_forbidden' => data_get($contract, 'contract_scope.provider_start_allowed') === false,
             'self_programming_forbidden' => data_get($contract, 'contract_scope.self_programming_allowed') === false,
         ];
@@ -647,6 +685,19 @@ final class ReadinessProjectionReleaseWriterSection
                 'model' => AtlasSelfConstructionAgentDispatchReceipt::class,
                 'model_exists' => class_exists(AtlasSelfConstructionAgentDispatchReceipt::class),
                 'required_columns' => $columns,
+                'database_driver' => $databaseDriver,
+                'transaction_supported' => $transactionSupported,
+                'unique_indexes' => [
+                    'receipt_hash' => $receiptHashUniqueIndexReady,
+                    'receipt_key' => $receiptKeyUniqueIndexReady,
+                ],
+                'wakeup_row_lock' => [
+                    'table' => $wakeupTable,
+                    'table_ready' => $wakeupTableReady,
+                    'primary_key_ready' => $wakeupPrimaryKeyReady,
+                    'driver_supported' => in_array($databaseDriver, ['mysql', 'pgsql', 'sqlsrv'], true),
+                    'supported' => $wakeupRowLockSupported,
+                ],
             ],
             'writer_policy' => [
                 'writer_allowed_here' => false,
@@ -1064,10 +1115,7 @@ final class ReadinessProjectionReleaseWriterSection
                 'receipt_kind' => 'scheduler_one_shot_tick_release',
                 'status_on_write' => 'release_authorized_pending_one_shot_tick',
                 'idempotency_key_fields' => [
-                    'source_release_receipt_draft_hash',
-                    'selected_wakeup_key',
-                    'dispatch_envelope_hash',
-                    'decision',
+                    'receipt_hash',
                 ],
             ],
             'lock_policy' => [
