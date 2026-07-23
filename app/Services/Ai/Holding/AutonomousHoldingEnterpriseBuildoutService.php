@@ -4,6 +4,8 @@ namespace App\Services\Ai\Holding;
 
 use App\Services\Ai\DomainRuntime\DomainSeedManifests;
 use App\Services\Ai\Finance\Kernel\FinanceEnterpriseAnalysisService;
+use App\Services\Ai\Holding\EnterpriseBuildout\EnterpriseBuildoutSupport;
+use App\Services\Ai\Holding\EnterpriseBuildout\PortfolioReportSection;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 
 class AutonomousHoldingEnterpriseBuildoutService
@@ -17,9 +19,16 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private ?array $reportCache = null;
 
+    private readonly EnterpriseBuildoutSupport $support;
+
+    private readonly PortfolioReportSection $portfolioReport;
+
     public function __construct(
         private readonly FinanceEnterpriseAnalysisService $finance,
-    ) {}
+    ) {
+        $this->support = new EnterpriseBuildoutSupport($this->finance);
+        $this->portfolioReport = new PortfolioReportSection();
+    }
 
     /**
      * @return array<string,mixed>
@@ -45,8 +54,8 @@ class AutonomousHoldingEnterpriseBuildoutService
                 static fn (array $company): bool => (bool) ($company['readiness']['ok'] ?? false),
             )),
             'companies' => $companies,
-            'cross_company_fabric' => $this->crossCompanyFabric(DomainSeedManifests::all()),
-            'portfolio_governance_stack' => $this->portfolioGovernanceStack(DomainSeedManifests::all()),
+            'cross_company_fabric' => $this->portfolioReport->crossCompanyFabric(DomainSeedManifests::all()),
+            'portfolio_governance_stack' => $this->portfolioReport->portfolioGovernanceStack(DomainSeedManifests::all()),
             'structural_completion_policy' => [
                 'schema' => 'atlas.ai.holding.structural_completion_policy.v1',
                 'enterprise_buildout_requires_observed_history_window' => false,
@@ -75,191 +84,9 @@ class AutonomousHoldingEnterpriseBuildoutService
                 ],
             ],
         ];
-        $report['receipt_hash'] = MissionCanonicalHash::sha256($this->reportHashInput($report));
+        $report['receipt_hash'] = MissionCanonicalHash::sha256($this->portfolioReport->reportHashInput($report));
 
         return $this->reportCache = $report;
-    }
-
-    /**
-     * @param array<string,mixed> $report
-     * @return array<string,mixed>
-     */
-    private function reportHashInput(array $report): array
-    {
-        $companies = array_values(array_map(
-            static fn (array $company): array => [
-                'company_id' => (string) ($company['company_id'] ?? ''),
-                'schema' => (string) ($company['schema'] ?? ''),
-                'ok' => (bool) ($company['ok'] ?? false),
-                'readiness_ok' => (bool) data_get($company, 'readiness.ok', false),
-                'flow_count' => (int) data_get($company, 'readiness.flow_count', 0),
-                'connector_count' => (int) data_get($company, 'readiness.connector_count', 0),
-                'receipt_hash' => (string) ($company['receipt_hash'] ?? ''),
-            ],
-            (array) ($report['companies'] ?? []),
-        ));
-
-        return [
-            'schema' => (string) ($report['schema'] ?? ''),
-            'company_count' => (int) ($report['company_count'] ?? 0),
-            'enterprise_company_count' => (int) ($report['enterprise_company_count'] ?? 0),
-            'company_receipts' => $companies,
-            'cross_company_fabric_hash' => (string) data_get($report, 'cross_company_fabric.fabric_hash', ''),
-            'portfolio_governance_hash' => (string) data_get($report, 'portfolio_governance_stack.governance_hash', ''),
-            'structural_completion_policy_hash' => (string) data_get($report, 'structural_completion_policy.policy_hash', ''),
-            'portfolio_operating_model_hash' => (string) data_get($report, 'portfolio_operating_model.portfolio_governance.portfolio_hash', ''),
-        ];
-    }
-
-    /**
-     * @param list<array<string,mixed>> $manifests
-     * @return array<string,mixed>
-     */
-    private function crossCompanyFabric(array $manifests): array
-    {
-        $handoffs = [];
-        foreach ($manifests as $manifest) {
-            $source = (string) ($manifest['domain_id'] ?? 'unknown');
-            foreach ((array) data_get($manifest, 'handoff_rules.allowed', []) as $target) {
-                $target = (string) $target;
-                $handoffs[] = [
-                    'schema' => 'atlas.ai.holding.cross_company_handoff_contract.v1',
-                    'source_company' => $source,
-                    'target_company' => $target,
-                    'contract' => $source.'->'.$target,
-                    'handoff_packet_required' => true,
-                    'typed_context_required' => true,
-                    'evidence_refs_required' => true,
-                    'acceptance_required' => true,
-                    'external_side_effects' => false,
-                    'contract_hash' => hash('sha256', 'cross_company_handoff|'.$source.'|'.$target),
-                ];
-            }
-        }
-
-        $sharedServices = [
-            'evidence_ledger',
-            'decision_receipts',
-            'policy_gate',
-            'source_registry',
-            'review_queue',
-            'benchmark_harness',
-            'operator_approval_gate',
-        ];
-
-        return [
-            'schema' => 'atlas.ai.holding.cross_company_fabric.v1',
-            'handoff_contract_count' => count($handoffs),
-            'handoff_contracts' => $handoffs,
-            'shared_service_catalog' => array_map(
-                static fn (string $service): array => [
-                    'service_id' => $service,
-                    'mode' => 'governed_internal_shared_service',
-                    'external_side_effects' => false,
-                    'service_hash' => hash('sha256', 'holding_shared_service|'.$service),
-                ],
-                $sharedServices,
-            ),
-            'dependency_map' => array_map(
-                static fn (array $manifest): array => [
-                    'company_id' => (string) ($manifest['domain_id'] ?? 'unknown'),
-                    'depends_on' => array_values((array) data_get($manifest, 'handoff_rules.allowed', [])),
-                    'integration_contracts' => array_values((array) ($manifest['integration_contracts'] ?? [])),
-                    'dependency_hash' => hash('sha256', 'dependency_map|'.(string) ($manifest['domain_id'] ?? 'unknown').'|'.implode('|', (array) data_get($manifest, 'handoff_rules.allowed', []))),
-                ],
-                $manifests,
-            ),
-            'fabric_gates' => [
-                'source_company_packet_required',
-                'target_company_acceptance_required',
-                'evidence_refs_required',
-                'policy_checked',
-                'receipt_hash_required',
-            ],
-            'fabric_hash' => hash('sha256', 'atlas|cross_company_fabric|'.count($handoffs).'|'.implode('|', $sharedServices)),
-        ];
-    }
-
-    /**
-     * @param list<array<string,mixed>> $manifests
-     * @return array<string,mixed>
-     */
-    private function portfolioGovernanceStack(array $manifests): array
-    {
-        $companyIds = array_values(array_map(
-            static fn (array $manifest): string => (string) ($manifest['domain_id'] ?? 'unknown'),
-            $manifests,
-        ));
-
-        $decisionDomains = [
-            'capital_allocation',
-            'cross_company_priority_conflict',
-            'new_external_connector',
-            'external_side_effect_mandate',
-            'incident_or_policy_exception',
-            'company_promotion_or_pause',
-        ];
-
-        return [
-            'schema' => 'atlas.ai.holding.portfolio_governance_stack.v1',
-            'company_count' => count($companyIds),
-            'portfolio_board' => [
-                'cadence' => 'weekly_portfolio_operating_review',
-                'chair' => 'portfolio_governor',
-                'members' => array_values(array_map(
-                    static fn (string $companyId): string => $companyId.'.company_manager_agent',
-                    $companyIds,
-                )),
-                'operator_role' => 'final_approver_for_external_side_effects_and_real_capital',
-                'required_inputs' => ['company_packet', 'operating_packet', 'risk_register', 'dependency_status', 'investment_committee_packet'],
-            ],
-            'decision_rights_matrix' => array_values(array_map(
-                static fn (string $decisionDomain): array => [
-                    'decision_domain' => $decisionDomain,
-                    'recommendation_owner' => $decisionDomain === 'capital_allocation'
-                        ? 'finance.company_manager_agent'
-                        : 'portfolio_governor',
-                    'consulted_companies' => $companyIds,
-                    'approval_authority' => str_contains($decisionDomain, 'external') || $decisionDomain === 'capital_allocation'
-                        ? 'operator'
-                        : 'portfolio_governor_advisory_with_operator_override',
-                    'required_evidence' => ['decision_packet', 'company_receipts', 'risk_review', 'rollback_or_pause_plan'],
-                    'external_side_effects_allowed_without_operator' => false,
-                    'decision_hash' => hash('sha256', 'portfolio_decision_right|'.$decisionDomain),
-                ],
-                $decisionDomains,
-            )),
-            'portfolio_dependency_registry' => array_values(array_map(
-                static fn (array $manifest): array => [
-                    'company_id' => (string) ($manifest['domain_id'] ?? 'unknown'),
-                    'upstream_dependencies' => array_values((array) data_get($manifest, 'handoff_rules.allowed', [])),
-                    'integration_contracts' => array_values((array) ($manifest['integration_contracts'] ?? [])),
-                    'dependency_review_cadence' => 'weekly_or_before_promotion',
-                    'blocked_when' => ['missing_handoff_acceptance', 'missing_policy_profile', 'stale_operating_packet', 'unresolved_sev1_or_sev2'],
-                    'dependency_hash' => hash('sha256', 'portfolio_dependency_registry|'.(string) ($manifest['domain_id'] ?? 'unknown')),
-                ],
-                $manifests,
-            )),
-            'conflict_resolution_protocol' => [
-                'priority_method' => 'portfolio_value_risk_urgency_confidence_and_operator_preference',
-                'tie_breaker' => 'operator',
-                'mandatory_artifacts' => ['conflict_packet', 'options_considered', 'tradeoff_record', 'decision_receipt'],
-                'blocked_actions_until_resolved' => ['external_publish', 'external_spend', 'production_write', 'company_promotion'],
-            ],
-            'portfolio_resource_allocation' => [
-                'allocation_units' => ['agent_capacity', 'review_capacity', 'tool_budget', 'integration_enablement_capacity'],
-                'allocation_cadence' => 'weekly',
-                'requires_company_capacity_stack' => true,
-                'requires_finance_stack' => true,
-                'real_spend_enabled' => false,
-            ],
-            'portfolio_observability' => [
-                'required_metrics' => ['cross_company_handoff_acceptance_rate', 'portfolio_wip', 'dependency_blocker_count', 'review_queue_depth', 'policy_exception_count'],
-                'dashboard' => 'atlas_portfolio_governance_board',
-                'alert_routes' => ['portfolio_governor_queue', 'operator_review_queue'],
-            ],
-            'governance_hash' => hash('sha256', 'atlas|portfolio_governance|'.implode('|', $companyIds).'|'.implode('|', $decisionDomains)),
-        ];
     }
 
     /**
@@ -293,7 +120,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     private function company(array $manifest): array
     {
         $domainId = (string) ($manifest['domain_id'] ?? 'unknown');
-        $blueprint = $this->blueprint($domainId);
+        $blueprint = $this->support->blueprint($domainId);
         $functions = array_values((array) ($manifest['enterprise_functions'] ?? $manifest['departments'] ?? []));
         $agents = array_values((array) ($manifest['agent_roles'] ?? []));
         $flows = array_values((array) ($manifest['flow_profiles'] ?? []));
@@ -405,236 +232,10 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'operator_approval_required' => true,
             ],
         ];
-        $company['readiness'] = $this->readiness($company);
-        $company['receipt_hash'] = MissionCanonicalHash::sha256($this->companyHashInput($company));
+        $company['readiness'] = $this->portfolioReport->readiness($company);
+        $company['receipt_hash'] = MissionCanonicalHash::sha256($this->portfolioReport->companyHashInput($company));
 
         return $company;
-    }
-
-    /**
-     * @param array<string,mixed> $company
-     * @return array<string,mixed>
-     */
-    private function companyHashInput(array $company): array
-    {
-        return [
-            'schema' => (string) ($company['schema'] ?? ''),
-            'company_id' => (string) ($company['company_id'] ?? ''),
-            'name' => (string) ($company['name'] ?? ''),
-            'ok' => (bool) ($company['ok'] ?? false),
-            'readiness' => [
-                'ok' => (bool) data_get($company, 'readiness.ok', false),
-                'function_count' => (int) data_get($company, 'readiness.function_count', 0),
-                'agent_role_count' => (int) data_get($company, 'readiness.agent_role_count', 0),
-                'flow_count' => (int) data_get($company, 'readiness.flow_count', 0),
-                'connector_count' => (int) data_get($company, 'readiness.connector_count', 0),
-                'runtime_command_count' => (int) data_get($company, 'readiness.runtime_command_count', 0),
-            ],
-            'stack_hashes' => [
-                'workload_agent_template_stack_hash' => (string) data_get($company, 'enterprise_domain_workload_agent_template_stack.workload_agent_template_stack_hash', ''),
-                'company_operating_blueprint_hash' => (string) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_hash', ''),
-                'business_backbone_hash' => (string) data_get($company, 'enterprise_business_operating_backbone_stack.backbone_hash', ''),
-                'command_center_hash' => (string) data_get($company, 'enterprise_company_command_center_stack.command_center_hash', ''),
-                'semantic_graph_hash' => (string) data_get($company, 'enterprise_semantic_operating_graph_stack.semantic_graph_hash', ''),
-                'flow_delivery_hash' => (string) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_stack_hash', ''),
-                'domain_data_fabric_hash' => (string) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_fabric_hash', ''),
-                'revenue_delivery_operating_mesh_hash' => (string) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.revenue_delivery_mesh_hash', ''),
-                'agent_repository_operating_catalog_hash' => (string) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_hash', ''),
-            ],
-            'policy' => [
-                'autonomy' => (string) data_get($company, 'policy.autonomy', ''),
-                'risk' => (string) data_get($company, 'policy.risk', ''),
-                'external_side_effects_allowed' => (bool) data_get($company, 'policy.external_side_effects_allowed', true),
-                'operator_approval_required' => (bool) data_get($company, 'policy.operator_approval_required', false),
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function blueprint(string $domainId): array
-    {
-        $map = $this->blueprints();
-
-        return $map[$domainId] ?? $map['operations'];
-    }
-
-    /**
-     * @return array<string,array<string,mixed>>
-     */
-    private function blueprints(): array
-    {
-        return [
-            'software' => [
-                'agent_roles' => ['principal_architect_agent', 'code_intelligence_agent', 'release_captain_agent', 'security_reviewer_agent'],
-                'connectors' => ['git_workspace', 'test_runner', 'code_intelligence_index', 'ci_status_read_adapter', 'evidence_ledger'],
-                'reference_patterns' => ['execution_grounded_software_agents', 'repo_state_feedback_loop', 'durable_patch_review_repair'],
-                'flow_specs' => [
-                    'product_spec_to_patch' => ['principal_architect_agent', ['git_workspace', 'code_intelligence_index'], 'spec_pack_to_patch_plan'],
-                    'autonomous_repair_loop' => ['code_intelligence_agent', ['test_runner', 'evidence_ledger'], 'failure_triage_patch_repair'],
-                    'release_certification' => ['release_captain_agent', ['ci_status_read_adapter', 'evidence_ledger'], 'release_evidence_packet'],
-                    'security_review' => ['security_reviewer_agent', ['git_workspace', 'code_intelligence_index'], 'security_review_report'],
-                    'dependency_impact_map' => ['code_intelligence_agent', ['git_workspace', 'code_intelligence_index'], 'dependency_impact_map'],
-                    'post_release_learning_loop' => ['release_captain_agent', ['ci_status_read_adapter', 'evidence_ledger'], 'post_release_learning_record'],
-                ],
-                'work_products' => ['architecture_decision_record', 'patch_plan', 'repair_packet', 'release_certification', 'security_review_report'],
-                'metrics' => ['test_pass_rate', 'repair_cycle_time', 'release_certification_rate', 'security_findings_closed'],
-                'cadences' => ['per_patch_repair_loop', 'daily_ci_certification', 'weekly_security_review'],
-                'dashboards' => ['delivery_flow_board', 'quality_gate_board', 'release_risk_board'],
-                'review_queue' => 'engineering_review_queue',
-            ],
-            'research' => [
-                'agent_roles' => ['principal_researcher_agent', 'source_intelligence_agent', 'fact_check_agent', 'synthesis_editor_agent'],
-                'connectors' => ['web_search', 'paper_pdf_parser', 'source_registry', 'citation_graph', 'evidence_bridge'],
-                'reference_patterns' => ['source_linked_claim_verification', 'citation_graph_review', 'contradiction_adjudication'],
-                'flow_specs' => [
-                    'deep_research_brief' => ['principal_researcher_agent', ['web_search', 'source_registry'], 'source_linked_research_brief'],
-                    'citation_graph_review' => ['source_intelligence_agent', ['citation_graph', 'paper_pdf_parser'], 'citation_health_report'],
-                    'contradiction_adjudication' => ['fact_check_agent', ['source_registry', 'evidence_bridge'], 'contradiction_decision_packet'],
-                    'executive_synthesis' => ['synthesis_editor_agent', ['evidence_bridge'], 'operator_ready_research_memo'],
-                    'source_watchlist_monitor' => ['source_intelligence_agent', ['web_search', 'source_registry'], 'source_watchlist_delta'],
-                    'primary_source_gap_review' => ['fact_check_agent', ['source_registry', 'citation_graph'], 'primary_source_gap_report'],
-                ],
-                'work_products' => ['research_brief', 'source_quality_report', 'citation_graph', 'contradiction_packet', 'executive_synthesis'],
-                'metrics' => ['primary_source_ratio', 'citation_health', 'claim_support_rate', 'contradiction_resolution_rate'],
-                'cadences' => ['daily_source_watch', 'per_claim_fact_check', 'weekly_research_synthesis'],
-                'dashboards' => ['source_quality_board', 'claims_and_contradictions_board', 'research_pipeline_board'],
-                'review_queue' => 'research_editorial_queue',
-            ],
-            'strategy' => [
-                'agent_roles' => ['venture_partner_agent', 'market_mapper_agent', 'gtm_operator_agent', 'experiment_allocator_agent'],
-                'connectors' => ['research_handoff', 'finance_model_handoff', 'market_dataset_read_adapter', 'competitive_intelligence_read_adapter', 'experiment_registry'],
-                'reference_patterns' => ['portfolio_thesis_loop', 'experiment_allocator_committee', 'assumption_ledger'],
-                'flow_specs' => [
-                    'venture_thesis' => ['venture_partner_agent', ['research_handoff', 'market_dataset_read_adapter'], 'venture_thesis_memo'],
-                    'market_map' => ['market_mapper_agent', ['research_handoff', 'competitive_intelligence_read_adapter'], 'tam_sam_som_market_map'],
-                    'gtm_system_design' => ['gtm_operator_agent', ['experiment_registry'], 'gtm_operating_plan'],
-                    'portfolio_experiment_review' => ['experiment_allocator_agent', ['finance_model_handoff', 'experiment_registry'], 'experiment_allocation_packet'],
-                    'competitive_wargame' => ['market_mapper_agent', ['research_handoff', 'market_dataset_read_adapter', 'competitive_intelligence_read_adapter'], 'competitive_wargame_memo'],
-                    'board_decision_dossier' => ['venture_partner_agent', ['research_handoff', 'finance_model_handoff'], 'board_decision_dossier'],
-                ],
-                'work_products' => ['venture_thesis', 'market_map', 'gtm_operating_plan', 'experiment_allocation_packet', 'board_strategy_memo'],
-                'metrics' => ['assumption_coverage', 'experiment_velocity', 'opportunity_quality_score', 'capital_efficiency_estimate'],
-                'cadences' => ['weekly_opportunity_committee', 'per_experiment_review', 'monthly_strategy_board'],
-                'dashboards' => ['opportunity_pipeline_board', 'experiment_portfolio_board', 'strategy_decision_log'],
-                'review_queue' => 'strategy_committee_queue',
-            ],
-            'finance' => [
-                'agent_roles' => array_column((array) $this->finance->packet('AAPL')['agent_desk'], 'role'),
-                'connectors' => array_column((array) $this->finance->packet('AAPL')['connectors'], 'id'),
-                'reference_patterns' => ['unified_financial_data_interface', 'source_linked_claim_verification', 'financial_modeling_audit_trail', 'portfolio_monitoring', 'compliance_automation', 'data_room_due_diligence'],
-                'flow_specs' => collect((array) $this->finance->packet('AAPL')['flows'])
-                    ->mapWithKeys(static fn (array $flow): array => [
-                        (string) $flow['id'] => [
-                            (string) $flow['agent_role'],
-                            (array) $flow['connectors'],
-                            (string) $flow['output'],
-                        ],
-                    ])
-                    ->all(),
-                'work_products' => (array) $this->finance->packet('AAPL')['work_products'],
-                'metrics' => (array) $this->finance->packet('AAPL')['metrics'],
-                'cadences' => (array) $this->finance->packet('AAPL')['operating_cadences'],
-                'dashboards' => ['portfolio_monitoring_board', 'model_risk_board', 'investment_committee_board'],
-                'review_queue' => 'investment_committee_queue',
-            ],
-            'marketing' => [
-                'agent_roles' => ['growth_lead_agent', 'brand_strategy_agent', 'creative_director_agent', 'analytics_agent', 'lifecycle_agent'],
-                'connectors' => ['analytics_read_adapter', 'crm_read_adapter', 'content_repository', 'approval_gate', 'experiment_registry'],
-                'reference_patterns' => ['crew_planning_reasoning_tools_memory', 'growth_experiment_registry', 'approval_gated_campaign_ops'],
-                'flow_specs' => [
-                    'growth_strategy' => ['growth_lead_agent', ['analytics_read_adapter', 'crm_read_adapter'], 'growth_strategy_packet'],
-                    'brand_positioning_system' => ['brand_strategy_agent', ['research_handoff', 'content_repository'], 'positioning_system'],
-                    'creative_production_brief' => ['creative_director_agent', ['content_repository', 'approval_gate'], 'creative_brief_and_copy_pack'],
-                    'funnel_experiment_loop' => ['analytics_agent', ['analytics_read_adapter', 'experiment_registry'], 'funnel_experiment_readout'],
-                    'lifecycle_campaign_system' => ['lifecycle_agent', ['crm_read_adapter', 'approval_gate'], 'lifecycle_campaign_plan'],
-                    'channel_mix_review' => ['growth_lead_agent', ['analytics_read_adapter', 'experiment_registry'], 'channel_mix_reallocation_proposal'],
-                    'voice_of_customer_synthesis' => ['brand_strategy_agent', ['crm_read_adapter', 'content_repository'], 'voc_synthesis_packet'],
-                ],
-                'work_products' => ['growth_strategy_packet', 'positioning_system', 'creative_brief', 'copy_pack', 'funnel_experiment_readout', 'lifecycle_campaign_plan'],
-                'metrics' => ['activation_rate', 'conversion_rate', 'creative_throughput', 'experiment_velocity', 'approval_latency'],
-                'cadences' => ['weekly_growth_review', 'per_campaign_approval', 'monthly_positioning_review'],
-                'dashboards' => ['growth_dashboard', 'creative_pipeline_board', 'campaign_approval_board'],
-                'review_queue' => 'marketing_approval_queue',
-            ],
-            'cyber' => [
-                'agent_roles' => ['security_architect_agent', 'appsec_triage_agent', 'grc_lead_agent', 'detection_engineer_agent', 'remediation_manager_agent'],
-                'connectors' => ['sbom_read_adapter', 'repo_read_adapter', 'vulnerability_feed_read_adapter', 'evidence_chain', 'ticketing_proposal_adapter'],
-                'reference_patterns' => ['stateful_incident_response_graph', 'human_in_loop_remediation_approval', 'scope_and_roe_gate'],
-                'flow_specs' => [
-                    'security_posture_review' => ['security_architect_agent', ['sbom_read_adapter', 'vulnerability_feed_read_adapter'], 'security_posture_report'],
-                    'appsec_triage' => ['appsec_triage_agent', ['repo_read_adapter', 'evidence_chain'], 'finding_triage_packet'],
-                    'grc_obligation_map' => ['grc_lead_agent', ['evidence_chain'], 'grc_control_mapping'],
-                    'detection_authoring_review' => ['detection_engineer_agent', ['vulnerability_feed_read_adapter'], 'detection_rule_proposal'],
-                    'remediation_program' => ['remediation_manager_agent', ['ticketing_proposal_adapter', 'evidence_chain'], 'remediation_program_plan'],
-                    'incident_response_readiness' => ['security_architect_agent', ['evidence_chain', 'vulnerability_feed_read_adapter'], 'incident_response_readiness_packet'],
-                    'attack_surface_delta_review' => ['appsec_triage_agent', ['repo_read_adapter', 'sbom_read_adapter'], 'attack_surface_delta_report'],
-                ],
-                'work_products' => ['security_posture_report', 'finding_triage_packet', 'grc_control_mapping', 'detection_rule_proposal', 'remediation_program_plan'],
-                'metrics' => ['critical_finding_count', 'mttr', 'control_coverage', 'remediation_sla_risk', 'scope_block_rate'],
-                'cadences' => ['daily_security_posture_scan', 'per_finding_triage', 'monthly_grc_review'],
-                'dashboards' => ['security_posture_board', 'remediation_board', 'grc_controls_board'],
-                'review_queue' => 'security_review_queue',
-            ],
-            'automation' => [
-                'agent_roles' => ['automation_architect_agent', 'tool_scout_agent', 'browser_workflow_agent', 'api_workflow_agent', 'tool_reliability_agent'],
-                'connectors' => ['tool_registry', 'browser_planning_adapter', 'api_schema_read_adapter', 'repo_read_adapter', 'execution_receipt_ledger'],
-                'reference_patterns' => ['agent_tool_selection_benchmark', 'mcp_tool_surface', 'durable_automation_receipts'],
-                'flow_specs' => [
-                    'automation_opportunity_intake' => ['automation_architect_agent', ['tool_registry'], 'automation_opportunity_pack'],
-                    'tool_selection_benchmark' => ['tool_scout_agent', ['tool_registry', 'repo_read_adapter'], 'tool_selection_scorecard'],
-                    'browser_workflow_design' => ['browser_workflow_agent', ['browser_planning_adapter'], 'browser_workflow_runbook'],
-                    'api_workflow_design' => ['api_workflow_agent', ['api_schema_read_adapter'], 'api_workflow_runbook'],
-                    'tool_reliability_loop' => ['tool_reliability_agent', ['execution_receipt_ledger'], 'tool_reliability_report'],
-                    'mcp_adapter_design' => ['api_workflow_agent', ['api_schema_read_adapter', 'tool_registry'], 'mcp_adapter_design_packet'],
-                    'automation_replay_review' => ['tool_reliability_agent', ['execution_receipt_ledger'], 'automation_replay_review'],
-                ],
-                'work_products' => ['automation_opportunity_pack', 'tool_selection_scorecard', 'browser_workflow_runbook', 'api_workflow_runbook', 'tool_reliability_report'],
-                'metrics' => ['automation_roi_score', 'blocked_action_rate', 'tool_success_rate', 'manual_time_saved_estimate', 'reliability_regression_count'],
-                'cadences' => ['daily_tool_health_review', 'per_automation_receipt_review', 'weekly_automation_portfolio_review'],
-                'dashboards' => ['automation_portfolio_board', 'tool_reliability_board', 'risk_block_board'],
-                'review_queue' => 'automation_governance_queue',
-            ],
-            'personal_development' => [
-                'agent_roles' => ['executive_coach_agent', 'learning_designer_agent', 'habit_system_agent', 'reflection_analyst_agent', 'privacy_guardian_agent'],
-                'connectors' => ['private_memory_surface', 'goal_registry', 'habit_log_read_adapter', 'learning_resource_registry', 'human_review_packet'],
-                'reference_patterns' => ['persistent_learner_model', 'privacy_first_memory_review', 'deliberate_practice_loop'],
-                'flow_specs' => [
-                    'life_operating_review' => ['executive_coach_agent', ['private_memory_surface', 'goal_registry'], 'life_operating_review'],
-                    'learning_curriculum_design' => ['learning_designer_agent', ['learning_resource_registry'], 'learning_curriculum'],
-                    'habit_system_iteration' => ['habit_system_agent', ['habit_log_read_adapter'], 'habit_system_plan'],
-                    'reflection_synthesis' => ['reflection_analyst_agent', ['private_memory_surface'], 'reflection_synthesis'],
-                    'privacy_safe_memory_review' => ['privacy_guardian_agent', ['human_review_packet'], 'privacy_review_packet'],
-                    'skill_gap_diagnosis' => ['learning_designer_agent', ['goal_registry', 'learning_resource_registry'], 'skill_gap_diagnosis'],
-                    'practice_session_review' => ['habit_system_agent', ['habit_log_read_adapter'], 'practice_session_review'],
-                ],
-                'work_products' => ['life_operating_review', 'learning_curriculum', 'habit_system_plan', 'reflection_synthesis', 'privacy_review_packet'],
-                'metrics' => ['goal_progress_rate', 'habit_adherence', 'learning_session_count', 'privacy_review_pass_rate'],
-                'cadences' => ['daily_reflection', 'weekly_goal_review', 'monthly_learning_review'],
-                'dashboards' => ['goal_progress_board', 'habit_system_board', 'learning_pipeline_board'],
-                'review_queue' => 'personal_review_queue',
-            ],
-            'operations' => [
-                'agent_roles' => ['sre_lead_agent', 'incident_commander_agent', 'runbook_engineer_agent', 'capacity_planner_agent', 'postmortem_editor_agent'],
-                'connectors' => ['log_read_adapter', 'metrics_read_adapter', 'alert_read_adapter', 'runbook_repository', 'evidence_ledger'],
-                'reference_patterns' => ['stateful_incident_response_graph', 'durable_human_approval_checkpoint', 'slo_runbook_feedback_loop'],
-                'flow_specs' => [
-                    'operational_readiness_review' => ['sre_lead_agent', ['metrics_read_adapter', 'runbook_repository'], 'readiness_review'],
-                    'incident_command_packet' => ['incident_commander_agent', ['alert_read_adapter', 'log_read_adapter'], 'incident_command_packet'],
-                    'runbook_system_update' => ['runbook_engineer_agent', ['runbook_repository', 'evidence_ledger'], 'runbook_update_packet'],
-                    'capacity_and_slo_review' => ['capacity_planner_agent', ['metrics_read_adapter'], 'capacity_slo_review'],
-                    'postmortem_action_loop' => ['postmortem_editor_agent', ['evidence_ledger'], 'postmortem_action_plan'],
-                    'alert_noise_reduction' => ['sre_lead_agent', ['alert_read_adapter', 'metrics_read_adapter'], 'alert_noise_reduction_plan'],
-                    'change_readiness_review' => ['incident_commander_agent', ['runbook_repository', 'evidence_ledger'], 'change_readiness_review'],
-                ],
-                'work_products' => ['readiness_review', 'incident_command_packet', 'runbook_update_packet', 'capacity_slo_review', 'postmortem_action_plan'],
-                'metrics' => ['slo_breach_count', 'mttr', 'runbook_coverage', 'alert_noise_rate', 'postmortem_action_completion'],
-                'cadences' => ['daily_readiness_review', 'per_incident_command', 'weekly_slo_review'],
-                'dashboards' => ['ops_readiness_board', 'incident_board', 'slo_capacity_board'],
-                'review_queue' => 'operations_review_queue',
-            ],
-        ];
     }
 
     /**
@@ -670,7 +271,7 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'handoff',
                     'explain_with_evidence',
                 ],
-                'allowed_connector_scope' => $this->enterpriseConnectorsForBlueprint($blueprint),
+                'allowed_connector_scope' => $this->support->enterpriseConnectorsForBlueprint($blueprint),
                 'memory_scope' => [
                     'company_scoped_memory' => true,
                     'cross_company_memory_requires_handoff' => true,
@@ -700,9 +301,9 @@ class AutonomousHoldingEnterpriseBuildoutService
         $agents = array_values(array_unique($agentRoles));
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $frameworkSources = $this->agentFrameworkSourceCatalog($domainId);
-        $domainSources = $this->domainSolutionSourceCatalog($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $frameworkSources = $this->support->agentFrameworkSourceCatalog($domainId);
+        $domainSources = $this->support->domainSolutionSourceCatalog($domainId);
         $frameworkIds = array_column($frameworkSources, 'source_id');
         $domainSourceIds = array_column($domainSources, 'source_id');
 
@@ -806,8 +407,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $domainSources = $this->domainSolutionSourceCatalog($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $domainSources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($domainSources, 'source_id'));
 
         return [
@@ -841,14 +442,14 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'owner_agent' => (string) ($spec[0] ?? ($agentRoles[0] ?? 'domain_operator_agent')),
                     'workload_family' => $this->domainWorkloadFamily($domainId),
                     'target_artifact' => (string) ($spec[2] ?? 'enterprise_artifact'),
-                    'skills' => $this->domainWorkloadSkills($domainId, $flowId),
+                    'skills' => $this->support->domainWorkloadSkills($domainId, $flowId),
                     'connectors' => [
                         'required' => array_values((array) ($spec[1] ?? [])),
                         'available_company_connectors' => $connectors,
                         'domain_source_refs' => array_values(array_slice($sourceIds, 0, min(5, count($sourceIds)))),
                         'governance' => ['least_privilege_scope', 'read_only_or_fixture_default', 'schema_snapshot_required', 'source_lineage_required', 'receipt_export_required'],
                     ],
-                    'subagents' => $this->domainWorkloadSubagents($domainId, $flowId),
+                    'subagents' => $this->support->domainWorkloadSubagents($domainId, $flowId),
                     'source_pattern_receipts' => [
                         'schema' => 'atlas.ai.company.domain_workload_source_pattern_receipts.v1',
                         'reference_pattern' => 'anthropic_financial_services_agents_generalized_to_domain_workloads',
@@ -885,7 +486,7 @@ class AutonomousHoldingEnterpriseBuildoutService
                         'plugin_manifest' => [
                             'manifest_id' => $domainId.'.'.$flowId.'.plugin_manifest.v1',
                             'entrypoint' => 'workload_agent_template',
-                            'trigger_skills' => $this->domainWorkloadSkills($domainId, $flowId),
+                            'trigger_skills' => $this->support->domainWorkloadSkills($domainId, $flowId),
                             'permission_profile' => 'read_fixture_shadow_until_operator_scope',
                             'external_effects_enabled' => false,
                         ],
@@ -900,12 +501,12 @@ class AutonomousHoldingEnterpriseBuildoutService
                         'skill_bundle' => [
                             'load_mode' => 'trigger_loaded',
                             'always_on_context_allowed' => false,
-                            'skill_count' => count($this->domainWorkloadSkills($domainId, $flowId)),
+                            'skill_count' => count($this->support->domainWorkloadSkills($domainId, $flowId)),
                             'bundle_hash' => hash('sha256', $domainId.'|'.$flowId.'|workload_skill_bundle'),
                         ],
                         'subagent_bundle' => [
                             'context_mode' => 'minimal_scoped_context',
-                            'subagent_count' => count($this->domainWorkloadSubagents($domainId, $flowId)),
+                            'subagent_count' => count($this->support->domainWorkloadSubagents($domainId, $flowId)),
                             'external_effects_enabled' => false,
                             'bundle_hash' => hash('sha256', $domainId.'|'.$flowId.'|workload_subagent_bundle'),
                         ],
@@ -1020,27 +621,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return list<string>
-     */
-    private function domainWorkloadSkills(string $domainId, string $flowId): array
-    {
-        $base = ['scope_intake', 'source_grounding', 'tool_plan', 'typed_artifact_authoring', 'methodology_check', 'policy_review', 'handoff_packet'];
-        $domain = match ($domainId) {
-            'finance' => ['financial_model_audit', 'valuation_methodology', 'kyc_or_compliance_screening', 'investment_committee_memo'],
-            'marketing' => ['audience_segmentation', 'campaign_strategy', 'creative_briefing', 'attribution_analysis'],
-            'cyber' => ['defensive_security_triage', 'control_mapping', 'risk_register_update', 'remediation_plan'],
-            'software' => ['repo_context_loading', 'code_patch_planning', 'test_repair_loop', 'release_risk_review'],
-            'research' => ['citation_graph_building', 'claim_verification', 'contradiction_register', 'synthesis_briefing'],
-            'strategy' => ['market_mapping', 'competitive_intelligence', 'experiment_design', 'board_decision_packet'],
-            'automation' => ['tool_selection', 'workflow_replay', 'mcp_adapter_design', 'reliability_review'],
-            'personal_development' => ['private_context_minimization', 'learning_plan_design', 'habit_review', 'privacy_guard_review'],
-            default => ['incident_triage', 'runbook_execution', 'capacity_review', 'postmortem_action_tracking'],
-        };
-
-        return array_values(array_unique(array_merge($base, $domain, [$flowId.'_procedure'])));
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
@@ -1048,8 +628,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->externalResearchSourceBasis($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->externalResearchSourceBasis($domainId);
         $sourceIds = array_column($sources, 'source_id');
         $archetypes = $this->enterpriseWorkloadArchetypes($domainId);
         $archetypeIds = array_column($archetypes, 'archetype_id');
@@ -1097,12 +677,12 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'flow_id' => $flowId,
                     'owner_agent' => (string) ($spec[0] ?? 'company_manager_agent'),
                     'primary_archetype' => (string) ($archetypeIds[$index % max(1, count($archetypeIds))] ?? 'enterprise_operator_workload'),
-                    'required_skills' => $this->domainWorkloadSkills($domainId, $flowId),
+                    'required_skills' => $this->support->domainWorkloadSkills($domainId, $flowId),
                     'required_connectors' => array_values((array) ($spec[1] ?? [])),
                     'source_refs' => array_values(array_slice($sourceIds, $index % max(1, count($sourceIds)), min(6, count($sourceIds)))),
                     'subagent_lanes' => [
                         'source_grounding_lane' => $flowId.'.source_grounding_subagent',
-                        'domain_methodology_lane' => $flowId.'.'.(string) data_get($this->domainWorkloadSubagents($domainId, $flowId), '1.subagent_id', 'domain_reviewer_subagent'),
+                        'domain_methodology_lane' => $flowId.'.'.(string) data_get($this->support->domainWorkloadSubagents($domainId, $flowId), '1.subagent_id', 'domain_reviewer_subagent'),
                         'risk_policy_lane' => $flowId.'.risk_policy_reviewer_subagent',
                         'artifact_quality_lane' => $flowId.'.artifact_quality_reviewer_subagent',
                         'handoff_audit_lane' => $flowId.'.handoff_and_audit_subagent',
@@ -1277,48 +857,6 @@ class AutonomousHoldingEnterpriseBuildoutService
         ));
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function domainWorkloadSubagents(string $domainId, string $flowId): array
-    {
-        $domainReviewer = match ($domainId) {
-            'finance' => 'valuation_or_compliance_reviewer_subagent',
-            'marketing' => 'growth_and_brand_reviewer_subagent',
-            'cyber' => 'defensive_security_reviewer_subagent',
-            'software' => 'code_quality_and_test_reviewer_subagent',
-            'research' => 'source_faithfulness_reviewer_subagent',
-            'strategy' => 'strategy_assumption_reviewer_subagent',
-            'automation' => 'tool_reliability_reviewer_subagent',
-            'personal_development' => 'privacy_and_learning_reviewer_subagent',
-            default => 'operations_reliability_reviewer_subagent',
-        };
-
-        return [
-            [
-                'subagent_id' => $flowId.'.source_grounding_subagent',
-                'purpose' => 'select_and_verify_sources_before_artifact_work',
-                'context_scope' => ['flow_objective', 'source_catalog_refs', 'connector_schema_snapshots'],
-                'tools' => ['source_registry', 'read_only_connector_probe', 'lineage_builder'],
-                'external_effects_allowed' => false,
-            ],
-            [
-                'subagent_id' => $flowId.'.'.$domainReviewer,
-                'purpose' => 'check_domain_methodology_risk_and_quality',
-                'context_scope' => ['draft_artifact', 'methodology_notes', 'risk_policy_profile'],
-                'tools' => ['critic_review', 'policy_gate', 'quality_scorecard'],
-                'external_effects_allowed' => false,
-            ],
-            [
-                'subagent_id' => $flowId.'.handoff_and_audit_subagent',
-                'purpose' => 'assemble_receipts_handoff_packet_and_operator_review_queue',
-                'context_scope' => ['artifact_hash', 'tool_receipts', 'decision_receipt', 'acceptance_criteria'],
-                'tools' => ['receipt_verifier', 'handoff_packet_builder', 'operator_review_queue'],
-                'external_effects_allowed' => false,
-            ],
-        ];
-    }
-
     private function domainWorkloadFamily(string $domainId): string
     {
         return match ($domainId) {
@@ -1342,11 +880,11 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->externalResearchSourceBasis($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->externalResearchSourceBasis($domainId);
         $sourceIds = array_column($sources, 'source_id');
         $repositoryCatalog = $this->externalResearchRepositoryCatalog($domainId);
-        $templates = $this->premiumAgentTemplates($domainId);
+        $templates = $this->support->premiumAgentTemplates($domainId);
         $templateIds = array_column($templates, 'template_id');
 
         return [
@@ -1433,42 +971,6 @@ class AutonomousHoldingEnterpriseBuildoutService
             ],
             'research_adoption_hash' => hash('sha256', $domainId.'|external_research_adoption|'.implode('|', $sourceIds).'|'.implode('|', $flowIds).'|'.implode('|', $connectors)),
         ];
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function externalResearchSourceBasis(string $domainId): array
-    {
-        $sources = array_values(array_merge(
-            $this->flowRuntimeImplementationSourceCatalog(),
-            $this->agentFrameworkSourceCatalog($domainId),
-            $this->domainSolutionSourceCatalog($domainId),
-            $this->premiumReferenceSourceBasis($domainId),
-        ));
-        $seen = [];
-
-        return array_values(array_filter(array_map(
-            static function (array $source) use (&$seen): ?array {
-                $sourceId = (string) ($source['source_id'] ?? 'unknown_source');
-                if (isset($seen[$sourceId])) {
-                    return null;
-                }
-                $seen[$sourceId] = true;
-
-                return [
-                    'source_id' => $sourceId,
-                    'url' => (string) ($source['url'] ?? ''),
-                    'capability' => (string) ($source['capability'] ?? $source['pattern'] ?? $source['adopted_pattern'] ?? $source['use'] ?? 'enterprise_agentic_pattern'),
-                    'review_state' => 'architecture_reviewed_local_runtime_adoption_requires_tests',
-                    'source_links_required' => true,
-                    'external_side_effects_default' => false,
-                    'adoption_boundary' => 'reference_to_contract_only_until_license_security_fixture_and_operator_review',
-                    'source_hash' => hash('sha256', 'external_research_source_basis|'.$sourceId),
-                ];
-            },
-            $sources,
-        )));
     }
 
     /**
@@ -1803,7 +1305,7 @@ class AutonomousHoldingEnterpriseBuildoutService
         $domainRepositories = array_values((array) ($repositoryCatalog['domain_repository_candidates'] ?? []));
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $frameworkIds = array_values(array_map(static fn (array $repo): string => (string) ($repo['source_id'] ?? 'unknown_framework'), $frameworks));
         $domainRepoIds = array_values(array_map(static fn (array $repo): string => (string) ($repo['source_id'] ?? 'unknown_domain_repo'), $domainRepositories));
         $securityThreats = [
@@ -2230,7 +1732,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     private function goToProductionPack(string $domainId, array $blueprint): array
     {
         $flowIds = array_keys((array) $blueprint['flow_specs']);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
 
         return [
             'schema' => 'atlas.ai.company.go_to_production_pack.v1',
@@ -2613,10 +2115,10 @@ class AutonomousHoldingEnterpriseBuildoutService
             array_values((array) $blueprint['work_products']),
             array_values(array_map(static fn (array $spec): string => (string) ($spec[2] ?? 'enterprise_artifact'), $flowSpecs)),
         )));
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $profile = $this->domainOperatingDepthProfile($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $profile = $this->support->domainOperatingDepthProfile($domainId);
         $valueChain = array_values((array) $profile['value_chain']);
         $dataProducts = array_values((array) $profile['data_products']);
 
@@ -3370,7 +2872,7 @@ class AutonomousHoldingEnterpriseBuildoutService
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
         $workProducts = array_values((array) $blueprint['work_products']);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $sourceCatalog = $this->financeTreasurySourceCatalog($domainId);
 
         return [
@@ -3591,10 +3093,10 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseVendorLegalProcurementStack(string $domainId, array $blueprint): array
     {
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_vendor_legal_procurement_stack.v1',
@@ -3681,7 +3183,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $workProducts = array_values((array) $blueprint['work_products']);
 
         return [
@@ -3866,10 +3368,10 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $metrics = array_values(array_unique(array_merge($manifestMetrics, (array) $blueprint['metrics'])));
         $workProducts = array_values(array_unique(array_merge($manifestProducts, (array) $blueprint['work_products'])));
-        $sourceIds = array_column($this->domainSolutionSourceCatalog($domainId), 'source_id');
+        $sourceIds = array_column($this->support->domainSolutionSourceCatalog($domainId), 'source_id');
 
         return [
             'schema' => 'atlas.ai.company.enterprise_knowledge_memory_learning_stack.v1',
@@ -3969,7 +3471,7 @@ class AutonomousHoldingEnterpriseBuildoutService
         $agents = array_values((array) $blueprint['agent_roles']);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $dataClasses = ['public', 'internal', 'confidential', 'regulated_or_sensitive', 'secret_or_credential'];
 
         return [
@@ -4080,7 +3582,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $cadences = array_values(array_unique(array_merge($manifestCadences, (array) $blueprint['cadences'])));
         $dashboards = array_values((array) $blueprint['dashboards']);
         $reviewQueue = (string) $blueprint['review_queue'];
@@ -4196,11 +3698,11 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $agents = array_values((array) $blueprint['agent_roles']);
         $workProducts = array_values((array) $blueprint['work_products']);
         $metrics = array_values($companyMetrics);
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
         $sourceUrlById = [];
         foreach ($sources as $source) {
@@ -4367,7 +3869,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     ): array {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
 
         $nodes = array_merge(
             $this->graphNodes('function', $functions, $domainId),
@@ -4637,7 +4139,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $agents = array_values((array) $blueprint['agent_roles']);
 
         return [
@@ -4795,7 +4297,7 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseGrcStack(string $domainId, array $blueprint): array
     {
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowIds = array_keys((array) $blueprint['flow_specs']);
 
         return [
@@ -5079,7 +4581,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     private function enterpriseFlowOrchestrationRunbookStack(string $domainId, array $blueprint): array
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $referencePatterns = array_values((array) $blueprint['reference_patterns']);
 
         return [
@@ -5184,9 +4686,9 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $agents = array_values((array) $blueprint['agent_roles']);
-        $sourceCatalog = $this->flowRuntimeImplementationSourceCatalog();
+        $sourceCatalog = $this->support->flowRuntimeImplementationSourceCatalog();
 
         return [
             'schema' => 'atlas.ai.company.enterprise_flow_runtime_implementation_stack.v1',
@@ -5307,30 +4809,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return list<array<string,mixed>>
-     */
-    private function flowRuntimeImplementationSourceCatalog(): array
-    {
-        $sources = [
-            ['source_id' => 'anthropic_financial_services', 'url' => 'https://www.anthropic.com/news/claude-for-financial-services', 'pattern' => 'source_verified_financial_services_agents_with_audit_trails'],
-            ['source_id' => 'openai_agents_sdk', 'url' => 'https://platform.openai.com/docs/guides/agents-sdk/', 'pattern' => 'tools_handoffs_guardrails_tracing_for_agentic_applications'],
-            ['source_id' => 'crewai_flows', 'url' => 'https://docs.crewai.com/en/concepts/flows', 'pattern' => 'stateful_multi_step_flow_orchestration_with_crews'],
-            ['source_id' => 'langgraph_durable_execution', 'url' => 'https://langchain-5e9cc07a.mintlify.app/oss/python/langgraph/durable-execution', 'pattern' => 'durable_execution_checkpoints_and_human_interrupts'],
-            ['source_id' => 'temporal_durable_execution', 'url' => 'https://docs.temporal.io/evaluate/development-production-features/durable-execution', 'pattern' => 'durable_workflow_replay_and_failure_recovery'],
-        ];
-
-        return array_values(array_map(
-            static fn (array $source): array => [
-                ...$source,
-                'adoption_boundary' => 'pattern_reference_until_local_contract_tests_and_operator_review',
-                'evidence_required_before_adoption' => ['source_review', 'license_or_terms_review', 'security_review', 'local_replay_result', 'operator_acceptance'],
-                'source_hash' => hash('sha256', 'flow_runtime_implementation_source|'.$source['source_id']),
-            ],
-            $sources,
-        ));
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
@@ -5338,8 +4816,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $commandBase = $this->commandBase($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $commandBase = $this->support->commandBase($domainId);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_flow_fixture_simulation_stack.v1',
@@ -5454,8 +4932,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $commandBase = $this->commandBase($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $commandBase = $this->support->commandBase($domainId);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_flow_action_runtime_stack.v1',
@@ -5703,7 +5181,7 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'blocked_until_requirements_met' => ['write', 'publish', 'spend', 'trade', 'deploy', 'mutate_infrastructure'],
                 'integration_hash' => hash('sha256', $domainId.'|external_integration|'.$connector),
             ],
-            $this->enterpriseConnectorsForBlueprint($blueprint),
+            $this->support->enterpriseConnectorsForBlueprint($blueprint),
         ));
     }
 
@@ -5713,7 +5191,7 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseConnectorCertificationStack(string $domainId, array $blueprint): array
     {
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
 
@@ -5839,7 +5317,7 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseProductionConnectorPreflightStack(string $domainId, array $blueprint): array
     {
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
 
@@ -5949,25 +5427,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @param array<string,mixed> $blueprint
-     * @return list<string>
-     */
-    private function enterpriseConnectorsForBlueprint(array $blueprint): array
-    {
-        $connectors = array_values(array_filter((array) ($blueprint['connectors'] ?? []), 'is_string'));
-
-        foreach ((array) ($blueprint['flow_specs'] ?? []) as $spec) {
-            foreach ((array) ($spec[1] ?? []) as $connector) {
-                if (is_string($connector) && $connector !== '') {
-                    $connectors[] = $connector;
-                }
-            }
-        }
-
-        return array_values(array_unique($connectors));
-    }
-
-    /**
      * @return list<array<string,mixed>>
      */
     private function connectorCertificationSourceCatalog(): array
@@ -5997,7 +5456,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     private function apiSurface(string $domainId, array $blueprint): array
     {
         $flowIds = array_keys((array) $blueprint['flow_specs']);
-        $commandBase = $this->commandBase($domainId);
+        $commandBase = $this->support->commandBase($domainId);
 
         return [
             'schema' => 'atlas.ai.company.api_surface.v1',
@@ -6212,13 +5671,13 @@ class AutonomousHoldingEnterpriseBuildoutService
     private function enterpriseToolingResearchStack(string $domainId, array $blueprint): array
     {
         $flowIds = array_keys((array) $blueprint['flow_specs']);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $referencePatterns = array_values((array) $blueprint['reference_patterns']);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_tooling_research_stack.v1',
             'company_id' => $domainId,
-            'source_catalog' => $this->agentFrameworkSourceCatalog($domainId),
+            'source_catalog' => $this->support->agentFrameworkSourceCatalog($domainId),
             'domain_adoption_strategy' => [
                 'reference_patterns' => $referencePatterns,
                 'default_orchestration' => 'typed_flow_with_specialist_crews_handoffs_guardrails_tracing_and_durable_resume',
@@ -6298,78 +5757,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     /**
      * @return list<array<string,mixed>>
      */
-    private function agentFrameworkSourceCatalog(string $domainId): array
-    {
-        $catalog = [
-            [
-                'source_id' => 'anthropic_claude_for_financial_services',
-                'url' => 'https://www.anthropic.com/news/claude-for-financial-services',
-                'adopted_pattern' => 'unified_interface_over_internal_external_data_mcp_connectors_and_domain_expert_support',
-                'applies_to' => $domainId === 'finance' ? 'primary_domain_blueprint' : 'regulated_domain_connector_blueprint',
-            ],
-            [
-                'source_id' => 'openai_agents_sdk',
-                'url' => 'https://developers.openai.com/api/docs/guides/agents',
-                'adopted_pattern' => 'specialist_agents_tools_handoffs_guardrails_state_and_tracing',
-                'applies_to' => 'all_company_flows',
-            ],
-            [
-                'source_id' => 'crewai_flows_crews',
-                'url' => 'https://docs.crewai.com/en/introduction',
-                'adopted_pattern' => 'stateful_flows_with_specialist_crews_for_complex_work',
-                'applies_to' => 'multi_agent_work_decomposition',
-            ],
-            [
-                'source_id' => 'microsoft_agent_framework',
-                'url' => 'https://github.com/microsoft/agent-framework',
-                'adopted_pattern' => 'production_grade_agents_multi_agent_workflows_durability_observability_governance_and_human_in_loop',
-                'applies_to' => 'production_agent_runtime_benchmark',
-            ],
-            [
-                'source_id' => 'microsoft_autogen_agent_framework_lineage',
-                'url' => 'https://github.com/microsoft/autogen',
-                'adopted_pattern' => 'enterprise_grade_multi_agent_orchestration_mcp_and_a2a_migration_path',
-                'applies_to' => 'agent_framework_benchmark',
-            ],
-            [
-                'source_id' => 'langgraph_durable_execution',
-                'url' => 'https://docs.langchain.com/oss/javascript/langgraph/durable-execution',
-                'adopted_pattern' => 'checkpointed_durable_execution_resume_after_interrupt_or_failure',
-                'applies_to' => 'long_running_flows_and_recovery',
-            ],
-            [
-                'source_id' => 'model_context_protocol_servers',
-                'url' => 'https://github.com/modelcontextprotocol/servers',
-                'adopted_pattern' => 'standardized_tool_and_context_server_catalog_for_connector_backplanes',
-                'applies_to' => 'connector_tool_surface_design',
-            ],
-            [
-                'source_id' => 'temporal_durable_workflows',
-                'url' => 'https://github.com/temporalio/sdk-php',
-                'adopted_pattern' => 'durable_workflow_replay_retry_and_long_running_business_process_orchestration',
-                'applies_to' => 'durable_company_flow_runtime',
-            ],
-            [
-                'source_id' => 'opentelemetry_collector_tracing',
-                'url' => 'https://github.com/open-telemetry/opentelemetry-collector',
-                'adopted_pattern' => 'trace_metric_log_collection_for_agent_runtime_observability',
-                'applies_to' => 'runtime_observability_and_audit_export',
-            ],
-        ];
-
-        return array_values(array_map(
-            static fn (array $source): array => [
-                ...$source,
-                'evidence_required_before_adoption' => ['source_review', 'license_review', 'security_review', 'sandbox_probe', 'benchmark_result'],
-                'source_hash' => hash('sha256', 'agent_framework_source|'.$source['source_id']),
-            ],
-            $catalog,
-        ));
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
     private function candidateToolingPatterns(string $domainId): array
     {
         $patterns = [
@@ -6420,7 +5807,7 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseDomainSolutionStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_column($sources, 'source_id');
         $flowSpecs = (array) $blueprint['flow_specs'];
         $workProducts = array_values((array) $blueprint['work_products']);
@@ -6584,9 +5971,9 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseDomainOperatingDepthStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
         $workProducts = array_values(array_unique(array_merge(
@@ -6594,7 +5981,7 @@ class AutonomousHoldingEnterpriseBuildoutService
             array_values(array_map(static fn (array $spec): string => (string) ($spec[2] ?? 'enterprise_artifact'), $flowSpecs)),
         )));
         $metrics = array_values((array) $blueprint['metrics']);
-        $profile = $this->domainOperatingDepthProfile($domainId);
+        $profile = $this->support->domainOperatingDepthProfile($domainId);
         $domainSkills = array_values((array) $profile['skills']);
         $domainSystems = array_values((array) $profile['systems']);
         $domainDataProducts = array_values((array) $profile['data_products']);
@@ -6738,89 +6125,17 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return array<string,list<string>>
-     */
-    private function domainOperatingDepthProfile(string $domainId): array
-    {
-        return match ($domainId) {
-            'software' => [
-                'value_chain' => ['intake', 'architecture', 'implementation', 'test_repair', 'security_review', 'release', 'learning'],
-                'skills' => ['ast_reasoning', 'dependency_impact_analysis', 'test_failure_triage', 'patch_review', 'release_risk_assessment'],
-                'systems' => ['git_provider', 'ci_system', 'issue_tracker', 'artifact_registry', 'observability_stack'],
-                'data_products' => ['repo_graph', 'test_failure_corpus', 'release_evidence_pack', 'security_findings_register', 'dependency_impact_map'],
-                'controls' => ['no_unreviewed_destructive_git_operation', 'tests_before_release', 'security_findings_closed_or_waived'],
-            ],
-            'research' => [
-                'value_chain' => ['question_scope', 'source_discovery', 'citation_graph', 'claim_extraction', 'contradiction_review', 'synthesis', 'knowledge_update'],
-                'skills' => ['primary_source_retrieval', 'citation_quality_scoring', 'claim_support_mapping', 'contradiction_adjudication', 'evidence_synthesis'],
-                'systems' => ['web_search', 'paper_index', 'citation_graph', 'source_registry', 'knowledge_base'],
-                'data_products' => ['source_pack', 'claim_table', 'citation_graph', 'contradiction_register', 'synthesis_memo'],
-                'controls' => ['primary_sources_required', 'unsupported_claims_blocked', 'source_disagreement_disclosed'],
-            ],
-            'strategy' => [
-                'value_chain' => ['opportunity_scan', 'market_map', 'business_model', 'experiment_design', 'capital_option', 'board_dossier'],
-                'skills' => ['market_mapping', 'assumption_modeling', 'scenario_analysis', 'experiment_portfolio_design', 'board_memo_writing'],
-                'systems' => ['market_dataset', 'research_handoff', 'finance_model', 'experiment_registry', 'board_decision_log'],
-                'data_products' => ['opportunity_map', 'tam_model', 'assumption_ledger', 'experiment_scorecard', 'board_decision_packet'],
-                'controls' => ['assumptions_must_be_explicit', 'capital_commitment_operator_only', 'forecast_uncertainty_disclosed'],
-            ],
-            'finance' => [
-                'value_chain' => ['market_research', 'filing_ingestion', 'model_build', 'valuation_review', 'risk_compliance', 'committee_pack'],
-                'skills' => ['pitchbook_building', 'earnings_review', 'model_building', 'valuation_methodology_check', 'kyc_screening'],
-                'systems' => ['market_data_terminal', 'sec_filings', 'spreadsheet_model', 'portfolio_analytics', 'compliance_system'],
-                'data_products' => ['comps_model', 'earnings_update', 'valuation_packet', 'kyc_file', 'investment_committee_memo'],
-                'controls' => ['source_attribution_required', 'model_audit_trail_required', 'live_trade_blocked', 'compliance_escalation_required'],
-            ],
-            'marketing' => [
-                'value_chain' => ['market_insight', 'positioning', 'creative_brief', 'campaign_plan', 'experiment_readout', 'lifecycle_iteration'],
-                'skills' => ['audience_segmentation', 'positioning_strategy', 'creative_briefing', 'funnel_analysis', 'lifecycle_orchestration'],
-                'systems' => ['crm', 'analytics', 'content_repository', 'ads_platform', 'approval_system'],
-                'data_products' => ['audience_segments', 'positioning_system', 'creative_pack', 'experiment_readout', 'campaign_plan'],
-                'controls' => ['claims_review_required', 'campaign_publish_operator_only', 'regulated_targeting_review_required'],
-            ],
-            'cyber' => [
-                'value_chain' => ['scope_and_roe', 'asset_inventory', 'finding_triage', 'control_mapping', 'detection_proposal', 'remediation_plan'],
-                'skills' => ['threat_modeling', 'vulnerability_enrichment', 'appsec_review', 'detection_engineering', 'grc_mapping'],
-                'systems' => ['sbom', 'repo_read_adapter', 'vulnerability_feed', 'ticketing_system', 'evidence_chain'],
-                'data_products' => ['attack_surface_delta', 'finding_triage_packet', 'control_map', 'detection_rule_proposal', 'remediation_plan'],
-                'controls' => ['authorized_scope_required', 'offensive_execution_blocked', 'remediation_requires_owner_acceptance'],
-            ],
-            'automation' => [
-                'value_chain' => ['opportunity_intake', 'tool_selection', 'workflow_design', 'fixture_replay', 'reliability_review', 'supervised_handoff'],
-                'skills' => ['api_schema_analysis', 'browser_workflow_design', 'mcp_adapter_design', 'tool_benchmarking', 'replay_debugging'],
-                'systems' => ['tool_registry', 'browser_adapter', 'api_schema_registry', 'workflow_engine', 'receipt_ledger'],
-                'data_products' => ['automation_opportunity_pack', 'tool_scorecard', 'workflow_runbook', 'mcp_adapter_packet', 'reliability_report'],
-                'controls' => ['destructive_action_blocked', 'credential_export_blocked', 'idempotency_required'],
-            ],
-            'personal_development' => [
-                'value_chain' => ['goal_scope', 'baseline_review', 'curriculum_design', 'habit_iteration', 'reflection', 'privacy_review'],
-                'skills' => ['coaching_intake', 'curriculum_design', 'habit_system_design', 'reflection_synthesis', 'privacy_filtering'],
-                'systems' => ['goal_registry', 'private_memory', 'habit_log', 'learning_resource_registry', 'review_packet'],
-                'data_products' => ['life_operating_review', 'learning_curriculum', 'habit_plan', 'reflection_synthesis', 'privacy_review_packet'],
-                'controls' => ['private_memory_review_required', 'sensitive_export_blocked', 'operator_controls_all_external_sharing'],
-            ],
-            default => [
-                'value_chain' => ['readiness', 'incident_intake', 'triage', 'runbook_execution', 'capacity_review', 'postmortem_learning'],
-                'skills' => ['slo_analysis', 'incident_command', 'log_metric_correlation', 'runbook_authoring', 'postmortem_editing'],
-                'systems' => ['metrics_stack', 'logs_stack', 'alerting_system', 'runbook_repository', 'incident_tracker'],
-                'data_products' => ['readiness_review', 'incident_packet', 'capacity_review', 'runbook_update', 'postmortem_action_plan'],
-                'controls' => ['production_mutation_operator_only', 'incident_receipts_required', 'rollback_plan_required'],
-            ],
-        };
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
     private function enterpriseDomainAgentWorkforceStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $profile = $this->domainOperatingDepthProfile($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $profile = $this->support->domainOperatingDepthProfile($domainId);
         $domainSkills = array_values((array) $profile['skills']);
         $domainSystems = array_values((array) $profile['systems']);
         $domainDataProducts = array_values((array) $profile['data_products']);
@@ -6965,97 +6280,14 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return list<array<string,mixed>>
-     */
-    private function domainSolutionSourceCatalog(string $domainId): array
-    {
-        $catalog = match ($domainId) {
-            'software' => [
-                ['source_id' => 'github_rest_api', 'url' => 'https://docs.github.com/en/rest', 'use' => 'repository_pull_request_issue_and_ci_context'],
-                ['source_id' => 'opentelemetry_docs', 'url' => 'https://opentelemetry.io/docs/', 'use' => 'trace_metric_log_instrumentation'],
-                ['source_id' => 'owasp_asvs', 'url' => 'https://owasp.org/www-project-application-security-verification-standard/', 'use' => 'secure_software_verification_controls'],
-                ['source_id' => 'openai_agents_sdk', 'url' => 'https://developers.openai.com/api/docs/guides/agents', 'use' => 'agent_tools_handoffs_guardrails_tracing'],
-                ['source_id' => 'microsoft_autogen', 'url' => 'https://github.com/microsoft/autogen', 'use' => 'multi_agent_orchestration_benchmark'],
-            ],
-            'research' => [
-                ['source_id' => 'semantic_scholar_api', 'url' => 'https://www.semanticscholar.org/product/api', 'use' => 'paper_citation_author_graph'],
-                ['source_id' => 'arxiv_api', 'url' => 'https://info.arxiv.org/help/api/index.html', 'use' => 'preprint_discovery'],
-                ['source_id' => 'crossref_api', 'url' => 'https://www.crossref.org/documentation/retrieve-metadata/rest-api/', 'use' => 'doi_metadata_and_references'],
-                ['source_id' => 'pubmed_eutilities', 'url' => 'https://www.ncbi.nlm.nih.gov/books/NBK25501/', 'use' => 'biomedical_literature'],
-                ['source_id' => 'openalex_api', 'url' => 'https://docs.openalex.org/', 'use' => 'open_scholarly_graph'],
-            ],
-            'strategy' => [
-                ['source_id' => 'sec_edgar_apis', 'url' => 'https://www.sec.gov/search-filings/edgar-application-programming-interfaces', 'use' => 'public_company_filings'],
-                ['source_id' => 'world_bank_api', 'url' => 'https://datahelpdesk.worldbank.org/knowledgebase/topics/125589-developer-information', 'use' => 'macro_market_indicators'],
-                ['source_id' => 'fred_api', 'url' => 'https://fred.stlouisfed.org/docs/api/fred/', 'use' => 'economic_time_series'],
-                ['source_id' => 'oecd_data_api', 'url' => 'https://data-explorer.oecd.org/', 'use' => 'country_and_sector_indicators'],
-                ['source_id' => 'google_trends', 'url' => 'https://trends.google.com/trends/', 'use' => 'demand_signal_research'],
-            ],
-            'finance' => [
-                ['source_id' => 'anthropic_financial_services', 'url' => 'https://www.anthropic.com/news/claude-for-financial-services', 'use' => 'financial_services_agent_solution_pattern'],
-                ['source_id' => 'sec_edgar_apis', 'url' => 'https://www.sec.gov/search-filings/edgar-application-programming-interfaces', 'use' => 'filings_fundamentals_disclosure'],
-                ['source_id' => 'fred_api', 'url' => 'https://fred.stlouisfed.org/docs/api/fred/', 'use' => 'macro_rates_and_economic_series'],
-                ['source_id' => 'alpha_vantage_docs', 'url' => 'https://www.alphavantage.co/documentation/', 'use' => 'market_data_sandbox'],
-                ['source_id' => 'openbb_docs', 'url' => 'https://docs.openbb.co/', 'use' => 'financial_research_terminal_pattern'],
-            ],
-            'marketing' => [
-                ['source_id' => 'google_ads_api', 'url' => 'https://developers.google.com/google-ads/api/docs/campaigns', 'use' => 'campaign_reporting_and_management'],
-                ['source_id' => 'google_analytics_data_api', 'url' => 'https://developers.google.com/analytics/devguides/reporting/data/v1', 'use' => 'web_and_product_analytics'],
-                ['source_id' => 'hubspot_crm_api', 'url' => 'https://developers.hubspot.com/docs/api/crm/understanding-the-crm', 'use' => 'crm_lifecycle_context'],
-                ['source_id' => 'meta_marketing_api', 'url' => 'https://developers.facebook.com/docs/marketing-apis/', 'use' => 'paid_social_campaign_context'],
-                ['source_id' => 'linkedin_marketing_api', 'url' => 'https://learn.microsoft.com/en-us/linkedin/marketing/', 'use' => 'b2b_campaign_context'],
-            ],
-            'cyber' => [
-                ['source_id' => 'owasp_asvs', 'url' => 'https://owasp.org/www-project-application-security-verification-standard/', 'use' => 'application_security_control_verification'],
-                ['source_id' => 'mitre_attack', 'url' => 'https://attack.mitre.org/', 'use' => 'adversary_tactics_techniques'],
-                ['source_id' => 'nvd_api', 'url' => 'https://nvd.nist.gov/developers/vulnerabilities', 'use' => 'vulnerability_enrichment'],
-                ['source_id' => 'cisa_kev', 'url' => 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', 'use' => 'known_exploited_vulnerability_priority'],
-                ['source_id' => 'opencti_docs', 'url' => 'https://docs.opencti.io/latest/', 'use' => 'threat_intelligence_graph'],
-            ],
-            'automation' => [
-                ['source_id' => 'model_context_protocol', 'url' => 'https://modelcontextprotocol.io/docs/getting-started/intro', 'use' => 'tool_and_context_integration_standard'],
-                ['source_id' => 'playwright_docs', 'url' => 'https://playwright.dev/docs/intro', 'use' => 'browser_automation'],
-                ['source_id' => 'n8n_docs', 'url' => 'https://docs.n8n.io/', 'use' => 'workflow_automation_patterns'],
-                ['source_id' => 'zapier_platform_docs', 'url' => 'https://platform.zapier.com/docs', 'use' => 'saas_connector_patterns'],
-                ['source_id' => 'openapi_spec', 'url' => 'https://spec.openapis.org/oas/latest.html', 'use' => 'api_adapter_contracts'],
-            ],
-            'personal_development' => [
-                ['source_id' => 'xapi_spec', 'url' => 'https://github.com/adlnet/xAPI-Spec', 'use' => 'learning_experience_records'],
-                ['source_id' => 'open_badges', 'url' => 'https://www.imsglobal.org/spec/ob/v3p0/', 'use' => 'skill_and_credential_records'],
-                ['source_id' => 'caldav_rfc', 'url' => 'https://www.rfc-editor.org/rfc/rfc4791', 'use' => 'calendar_and_schedule_context'],
-                ['source_id' => 'apple_healthkit_docs', 'url' => 'https://developer.apple.com/documentation/healthkit', 'use' => 'health_context_with_privacy_review'],
-                ['source_id' => 'schema_org', 'url' => 'https://schema.org/', 'use' => 'structured_goal_learning_event_metadata'],
-            ],
-            default => [
-                ['source_id' => 'opentelemetry_docs', 'url' => 'https://opentelemetry.io/docs/', 'use' => 'trace_metric_log_instrumentation'],
-                ['source_id' => 'prometheus_docs', 'url' => 'https://prometheus.io/docs/introduction/overview/', 'use' => 'metrics_and_alerting'],
-                ['source_id' => 'kubernetes_api', 'url' => 'https://kubernetes.io/docs/reference/kubernetes-api/', 'use' => 'platform_state_and_workload_context'],
-                ['source_id' => 'grafana_docs', 'url' => 'https://grafana.com/docs/', 'use' => 'dashboard_and_observability_context'],
-                ['source_id' => 'pagerduty_api', 'url' => 'https://developer.pagerduty.com/api-reference/', 'use' => 'incident_response_context'],
-            ],
-        };
-
-        return array_values(array_map(
-            static fn (array $source): array => [
-                ...$source,
-                'mode' => 'source_catalog_reference_until_connector_probe_green',
-                'source_links_required' => true,
-                'external_side_effects_default' => false,
-                'source_hash' => hash('sha256', 'domain_solution_source|'.$source['source_id']),
-            ],
-            $catalog,
-        ));
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
     private function enterpriseVerticalSolutionSuiteStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
         $workProducts = array_values(array_unique(array_merge(
@@ -7240,8 +6472,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
         $executionModes = $this->domainExecutionModes($domainId);
         $workProducts = array_values(array_unique(array_merge(
@@ -7372,9 +6604,9 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseDomainProviderWorkbenchStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
 
@@ -7482,8 +6714,8 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseIntegrationActivationPlan(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowIds = array_keys((array) $blueprint['flow_specs']);
 
         return [
@@ -7572,9 +6804,9 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function enterpriseIndustrySolutionEcosystemStack(string $domainId, array $blueprint): array
     {
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
         $partnerTracks = $this->enterpriseImplementationPartnerTracks($domainId);
@@ -7793,10 +7025,10 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->domainCompanyExecutionSuiteSources($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->domainCompanyExecutionSuiteSources($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $profile = $this->domainCompanyExecutionSuiteProfile($domainId);
+        $profile = $this->support->domainCompanyExecutionSuiteProfile($domainId);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_domain_company_execution_suite_stack.v1',
@@ -7908,78 +7140,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function domainCompanyExecutionSuiteProfile(string $domainId): array
-    {
-        return match ($domainId) {
-            'cyber' => [
-                'category' => 'security_operations_appsec_grc_detection_response',
-                'roles' => ['security_architect', 'appsec_triage_lead', 'grc_control_owner', 'detection_engineer', 'incident_commander', 'remediation_manager'],
-                'workbenches' => ['security_posture_workbench', 'vulnerability_triage_queue', 'control_mapping_lab', 'detection_engineering_lab', 'incident_readiness_room'],
-                'cadences' => ['daily_posture_review', 'per_finding_triage', 'weekly_detection_review', 'monthly_grc_attestation'],
-                'control_frameworks' => ['nist_csf_2', 'mitre_attack_enterprise', 'owasp_asvs', 'cisa_kev', 'soc2_style_control_evidence'],
-                'risk_checks' => ['known_exploited_vulnerability', 'attack_path_exposure', 'auth_boundary_gap', 'data_exfiltration_risk', 'unreviewed_offensive_action', 'missing_remediation_owner'],
-                'decision_types' => ['prioritize_remediation', 'approve_detection_rule', 'accept_or_reject_control_gap', 'escalate_incident_readiness'],
-            ],
-            'strategy' => [
-                'category' => 'market_strategy_portfolio_intelligence_and_board_decisions',
-                'roles' => ['market_intelligence_lead', 'venture_thesis_owner', 'portfolio_strategy_partner', 'experiment_allocator', 'board_memo_editor', 'competitive_analyst'],
-                'workbenches' => ['market_map_room', 'rival_intelligence_table', 'venture_thesis_lab', 'experiment_allocation_board', 'board_memo_factory'],
-                'cadences' => ['weekly_opportunity_committee', 'per_experiment_review', 'monthly_strategy_board', 'quarterly_portfolio_reset'],
-                'control_frameworks' => ['source_reliability_matrix', 'assumption_register', 'decision_log', 'counterfactual_review', 'portfolio_risk_register'],
-                'risk_checks' => ['weak_source_basis', 'unclear_customer_segment', 'unpriced_execution_risk', 'strategy_without_metric', 'overfit_to_single_source', 'capital_allocation_without_review'],
-                'decision_types' => ['approve_thesis', 'rank_opportunity', 'allocate_experiment_budget', 'revise_go_to_market_motion'],
-            ],
-            'finance' => [
-                'category' => 'financial_research_treasury_billing_risk_and_investment_committee',
-                'roles' => ['financial_research_lead', 'valuation_model_owner', 'treasury_controller', 'billing_ops_owner', 'model_risk_reviewer', 'investment_committee_secretary'],
-                'workbenches' => ['financial_research_terminal', 'valuation_model_room', 'treasury_risk_board', 'billing_reconciliation_desk', 'investment_committee_room'],
-                'cadences' => ['daily_cash_risk_review', 'weekly_forecast_review', 'monthly_close_review', 'per_investment_committee'],
-                'control_frameworks' => ['source_linked_financial_claims', 'model_risk_management', 'cash_movement_segregation', 'close_and_audit_evidence', 'billing_reconciliation'],
-                'risk_checks' => ['unlinked_financial_claim', 'model_assumption_drift', 'cash_movement_request', 'billing_exception', 'capital_commitment_without_committee', 'unreviewed_market_data_staleness'],
-                'decision_types' => ['approve_forecast', 'escalate_model_risk', 'prepare_investment_packet', 'block_cash_or_trade_action'],
-            ],
-            'marketing' => [
-                'category' => 'growth_marketing_brand_lifecycle_and_attribution',
-                'roles' => ['growth_strategy_lead', 'brand_steward', 'creative_director', 'lifecycle_operator', 'attribution_analyst', 'claim_review_owner'],
-                'workbenches' => ['growth_intelligence_room', 'campaign_factory', 'claim_evidence_lab', 'attribution_model_room', 'brand_review_queue'],
-                'cadences' => ['weekly_growth_review', 'per_campaign_review', 'monthly_brand_claim_audit', 'quarterly_channel_mix_review'],
-                'control_frameworks' => ['brand_policy', 'source_backed_claims', 'privacy_review', 'budget_guardrails', 'crm_handoff_quality'],
-                'risk_checks' => ['unverified_claim', 'public_publish_request', 'paid_spend_request', 'privacy_sensitive_audience', 'brand_mismatch', 'unsupported_roi_claim'],
-                'decision_types' => ['approve_internal_campaign', 'route_brand_revision', 'rank_experiment', 'block_public_claim'],
-            ],
-            'software' => [
-                'category' => 'software_engineering_delivery_release_security_and_repair',
-                'roles' => ['principal_architect', 'code_intelligence_owner', 'release_captain', 'security_reviewer', 'test_repair_owner', 'developer_experience_lead'],
-                'workbenches' => ['architecture_decision_room', 'patch_repair_queue', 'test_failure_lab', 'release_certification_room', 'security_review_queue'],
-                'cadences' => ['per_patch_repair_loop', 'daily_ci_certification', 'weekly_security_review', 'per_release_go_no_go'],
-                'control_frameworks' => ['test_matrix', 'code_review_receipts', 'release_slo', 'security_findings', 'rollback_plan'],
-                'risk_checks' => ['untested_patch', 'breaking_contract_change', 'security_regression', 'missing_rollback', 'unreviewed_dependency', 'release_without_receipt'],
-                'decision_types' => ['approve_patch_plan', 'merge_or_repair', 'promote_release', 'block_security_regression'],
-            ],
-            'research' => [
-                'category' => 'primary_research_source_graph_synthesis_and_evidence_delivery',
-                'roles' => ['primary_source_researcher', 'citation_graph_curator', 'contradiction_reviewer', 'methodology_critic', 'executive_brief_editor', 'source_auditor'],
-                'workbenches' => ['source_discovery_room', 'citation_graph_lab', 'contradiction_resolution_table', 'methodology_review_queue', 'brief_delivery_factory'],
-                'cadences' => ['per_research_question', 'weekly_source_quality_review', 'monthly_methodology_audit', 'per_executive_brief'],
-                'control_frameworks' => ['source_quality_rubric', 'citation_lineage', 'contradiction_register', 'methodology_notes', 'confidence_calibration'],
-                'risk_checks' => ['unsupported_claim', 'stale_source', 'citation_gap', 'contradictory_evidence', 'low_confidence_without_disclosure', 'private_data_leak'],
-                'decision_types' => ['accept_source', 'resolve_contradiction', 'publish_internal_brief', 'route_methodology_review'],
-            ],
-            default => [
-                'category' => 'operations_automation_delivery_assurance_and_control_tower',
-                'roles' => ['operations_controller', 'automation_architect', 'process_owner', 'slo_manager', 'incident_coordinator', 'continuous_improvement_lead'],
-                'workbenches' => ['process_command_center', 'automation_design_lab', 'runbook_drill_room', 'capacity_slo_board', 'incident_exception_desk'],
-                'cadences' => ['daily_operations_review', 'weekly_capacity_review', 'per_incident_postmortem', 'monthly_process_improvement'],
-                'control_frameworks' => ['runbook_evidence', 'slo_sli_catalog', 'incident_postmortem', 'change_control', 'automation_risk_register'],
-                'risk_checks' => ['runbook_gap', 'capacity_overrun', 'automation_without_fallback', 'incident_route_missing', 'change_without_window', 'external_action_without_mandate'],
-                'decision_types' => ['prioritize_run', 'approve_internal_automation', 'escalate_incident', 'schedule_change_window'],
-            ],
-        };
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @param list<string> $workProducts
      * @param list<string> $companyMetrics
@@ -7989,8 +7149,8 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $profile = $this->domainCompanyExecutionSuiteProfile($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $profile = $this->support->domainCompanyExecutionSuiteProfile($domainId);
 
         $catalog = array_values(array_map(
             static fn (string $workProduct, int $index): array => [
@@ -8110,10 +7270,10 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->domainCompanyExecutionSuiteSources($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->domainCompanyExecutionSuiteSources($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $profile = $this->domainCompanyExecutionSuiteProfile($domainId);
+        $profile = $this->support->domainCompanyExecutionSuiteProfile($domainId);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_domain_data_connector_operating_stack.v1',
@@ -8232,7 +7392,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_flow_live_read_connector_probe_stack.v1',
@@ -8304,67 +7464,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return list<array<string,mixed>>
-     */
-    private function domainCompanyExecutionSuiteSources(string $domainId): array
-    {
-        $common = [
-            ['source_id' => 'openai_agents_sdk', 'url' => 'https://openai.github.io/openai-agents-python/', 'use' => 'agents_handoffs_guardrails_sessions_tracing'],
-            ['source_id' => 'model_context_protocol', 'url' => 'https://modelcontextprotocol.io/', 'use' => 'tool_and_data_connector_context_protocol'],
-        ];
-
-        $domain = match ($domainId) {
-            'cyber' => [
-                ['source_id' => 'nist_csf_2', 'url' => 'https://www.nist.gov/cyberframework', 'use' => 'cybersecurity_governance_risk_and_control_outcomes'],
-                ['source_id' => 'mitre_attack_enterprise', 'url' => 'https://attack.mitre.org/matrices/enterprise/', 'use' => 'threat_modeling_detection_and_response_mapping'],
-                ['source_id' => 'owasp_asvs', 'url' => 'https://owasp.org/www-project-application-security-verification-standard/', 'use' => 'application_security_verification_requirements'],
-                ['source_id' => 'cisa_kev', 'url' => 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', 'use' => 'exploited_vulnerability_prioritization'],
-                ['source_id' => 'semgrep', 'url' => 'https://github.com/semgrep/semgrep', 'use' => 'static_analysis_rule_reference'],
-            ],
-            'strategy' => [
-                ['source_id' => 'sec_edgar_apis', 'url' => 'https://www.sec.gov/search-filings/edgar-application-programming-interfaces', 'use' => 'public_company_filings_and_market_diligence'],
-                ['source_id' => 'world_bank_data', 'url' => 'https://data.worldbank.org/', 'use' => 'macro_market_and_country_data'],
-                ['source_id' => 'fred', 'url' => 'https://fred.stlouisfed.org/', 'use' => 'economic_time_series_for_strategy'],
-                ['source_id' => 'google_trends', 'url' => 'https://trends.google.com/trends/', 'use' => 'market_interest_signal_reference'],
-                ['source_id' => 'crunchbase', 'url' => 'https://www.crunchbase.com/', 'use' => 'company_and_funding_landscape_reference'],
-            ],
-            'finance' => [
-                ['source_id' => 'anthropic_financial_services', 'url' => 'https://www.anthropic.com/news/claude-for-financial-services', 'use' => 'financial_services_reference_architecture'],
-                ['source_id' => 'sec_edgar_apis', 'url' => 'https://www.sec.gov/search-filings/edgar-application-programming-interfaces', 'use' => 'financial_filings'],
-                ['source_id' => 'stripe_billing', 'url' => 'https://stripe.com/billing/features', 'use' => 'billing_revenue_operations'],
-                ['source_id' => 'fred', 'url' => 'https://fred.stlouisfed.org/', 'use' => 'macro_financial_data'],
-                ['source_id' => 'openbb', 'url' => 'https://github.com/OpenBB-finance/OpenBB', 'use' => 'financial_research_terminal_reference'],
-            ],
-            'marketing' => [
-                ['source_id' => 'hubspot_marketing_hub', 'url' => 'https://www.hubspot.com/products/marketing', 'use' => 'marketing_campaign_and_lifecycle_reference'],
-                ['source_id' => 'salesforce_marketing_cloud', 'url' => 'https://www.salesforce.com/marketing/', 'use' => 'enterprise_marketing_cloud_reference'],
-                ['source_id' => 'amplitude_experiment', 'url' => 'https://amplitude.com/experiment', 'use' => 'experimentation_reference'],
-                ['source_id' => 'segment_cdp', 'url' => 'https://segment.com/', 'use' => 'customer_data_platform_reference'],
-                ['source_id' => 'google_analytics', 'url' => 'https://analytics.google.com/', 'use' => 'attribution_and_analytics_reference'],
-            ],
-            default => [
-                ['source_id' => 'servicenow_ai_agents', 'url' => 'https://www.servicenow.com/products/ai-agents.html', 'use' => 'enterprise_operations_ai_agents_reference'],
-                ['source_id' => 'temporal', 'url' => 'https://github.com/temporalio/temporal', 'use' => 'durable_workflow_orchestration_reference'],
-                ['source_id' => 'opentelemetry', 'url' => 'https://opentelemetry.io/', 'use' => 'tracing_metrics_logs_observability_reference'],
-                ['source_id' => 'grafana', 'url' => 'https://github.com/grafana/grafana', 'use' => 'operations_dashboard_reference'],
-                ['source_id' => 'linear', 'url' => 'https://linear.app/', 'use' => 'issue_and_workflow_tracking_reference'],
-            ],
-        };
-
-        return array_values(array_map(
-            static fn (array $source): array => [
-                ...$source,
-                'schema' => 'atlas.ai.company.domain_company_execution_source.v1',
-                'domain_id' => $domainId,
-                'evidence_required_before_adoption' => ['source_review', 'terms_or_license_review', 'security_review', 'fixture_eval', 'operator_acceptance'],
-                'external_side_effects_enabled' => false,
-                'source_hash' => hash('sha256', 'domain_company_execution_source|'.$domainId.'|'.$source['source_id']),
-            ],
-            array_values(array_merge($domain, $common)),
-        ));
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
@@ -8372,7 +7471,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
 
         return [
             'schema' => 'atlas.ai.company.enterprise_operational_dress_rehearsal_stack.v1',
@@ -8511,12 +7610,12 @@ class AutonomousHoldingEnterpriseBuildoutService
      */
     private function premiumEnterpriseAgentReferenceModel(string $domainId, array $blueprint): array
     {
-        $templates = $this->premiumAgentTemplates($domainId);
+        $templates = $this->support->premiumAgentTemplates($domainId);
         $templateIds = array_column($templates, 'template_id');
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sourceIds = array_column($this->domainSolutionSourceCatalog($domainId), 'source_id');
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sourceIds = array_column($this->support->domainSolutionSourceCatalog($domainId), 'source_id');
 
         return [
             'schema' => 'atlas.ai.company.premium_enterprise_agent_reference_model.v1',
@@ -8535,7 +7634,7 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'zero_policy_findings',
                 ],
             ],
-            'reference_source_basis' => $this->premiumReferenceSourceBasis($domainId),
+            'reference_source_basis' => $this->support->premiumReferenceSourceBasis($domainId),
             'managed_agent_templates' => $templates,
             'enterprise_agentic_architecture_basis' => [
                 'schema' => 'atlas.ai.company.enterprise_agentic_architecture_basis.v1',
@@ -8672,10 +7771,10 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
-        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->support->domainSolutionSourceCatalog($domainId);
         $sourceIds = array_values(array_column($sources, 'source_id'));
-        $profile = $this->domainOperatingDepthProfile($domainId);
+        $profile = $this->support->domainOperatingDepthProfile($domainId);
         $dataProducts = array_values(array_unique(array_merge(
             array_values((array) $profile['data_products']),
             $workProducts,
@@ -8839,7 +7938,7 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $commercialStages = ['package', 'qualify', 'scope', 'deliver', 'support', 'bill', 'renew', 'learn'];
         $operatingSystems = [
             'product_catalog',
@@ -8937,54 +8036,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
-     * @return list<array<string,mixed>>
-     */
-    private function premiumReferenceSourceBasis(string $domainId): array
-    {
-        $sources = [
-            [
-                'source_id' => 'anthropic_agents_for_financial_services_2026',
-                'url' => 'https://www.anthropic.com/news/finance-agents',
-                'adopted_pattern' => 'skills_connectors_subagents_managed_agents_per_tool_permissions_credential_vault_and_audit_log',
-                'applies_to' => $domainId === 'finance' ? 'primary_finance_template_catalog' : 'enterprise_template_packaging_pattern',
-            ],
-            [
-                'source_id' => 'anthropic_claude_for_financial_services_2025',
-                'url' => 'https://www.anthropic.com/news/claude-for-financial-services',
-                'adopted_pattern' => 'financial_analysis_solution_custom_apps_compliance_underwriting_customer_and_back_office_transformation',
-                'applies_to' => $domainId === 'finance' ? 'finance_solution_reference' : 'regulated_workflow_reference',
-            ],
-            [
-                'source_id' => 'kpmg_enterprise_ai_agents_strategy_2026',
-                'url' => 'https://kpmg.com/us/en/articles/2026/enterprise-ai-agents-strategy.html',
-                'adopted_pattern' => 'enterprise_readiness_governance_operating_model_modern_architecture_and_measurement',
-                'applies_to' => 'all_companies',
-            ],
-            [
-                'source_id' => 'replayable_financial_agents_dfah_2026',
-                'url' => 'https://arxiv.org/abs/2601.15322',
-                'adopted_pattern' => 'measure_decision_determinism_and_evidence_faithfulness_independently_for_audit_replay',
-                'applies_to' => 'regulated_and_high_risk_flow_replay',
-            ],
-            [
-                'source_id' => 'ai_trust_os_2026',
-                'url' => 'https://arxiv.org/abs/2604.04749',
-                'adopted_pattern' => 'telemetry_first_continuous_governance_zero_trust_observability_and_trust_artifacts',
-                'applies_to' => 'portfolio_control_tower_and_company_observability',
-            ],
-        ];
-
-        return array_values(array_map(
-            static fn (array $source): array => [
-                ...$source,
-                'review_state' => 'reference_reviewed_for_architecture_not_runtime_ingested',
-                'source_hash' => hash('sha256', 'premium_reference_source|'.$source['source_id']),
-            ],
-            $sources,
-        ));
-    }
-
-    /**
      * @param array<string,mixed> $blueprint
      * @return array<string,mixed>
      */
@@ -8992,16 +8043,16 @@ class AutonomousHoldingEnterpriseBuildoutService
     {
         $flowSpecs = (array) $blueprint['flow_specs'];
         $flowIds = array_keys($flowSpecs);
-        $templates = $this->premiumAgentTemplates($domainId);
+        $templates = $this->support->premiumAgentTemplates($domainId);
         $templateIds = array_column($templates, 'template_id');
-        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $connectors = $this->support->enterpriseConnectorsForBlueprint($blueprint);
         $metrics = array_values((array) $blueprint['metrics']);
         $cadences = array_values((array) $blueprint['cadences']);
-        $commandBase = $this->commandBase($domainId);
+        $commandBase = $this->support->commandBase($domainId);
         $sourceBasis = array_values(array_merge(
-            $this->flowRuntimeImplementationSourceCatalog(),
-            $this->agentFrameworkSourceCatalog($domainId),
-            $this->premiumReferenceSourceBasis($domainId),
+            $this->support->flowRuntimeImplementationSourceCatalog(),
+            $this->support->agentFrameworkSourceCatalog($domainId),
+            $this->support->premiumReferenceSourceBasis($domainId),
         ));
 
         return [
@@ -9175,137 +8226,6 @@ class AutonomousHoldingEnterpriseBuildoutService
     /**
      * @return list<array<string,mixed>>
      */
-    private function premiumAgentTemplates(string $domainId): array
-    {
-        $templates = match ($domainId) {
-            'software' => [
-                ['template_id' => 'product_spec_architect', 'purpose' => 'turn_operator_intent_into_spec_architecture_and_acceptance_contract'],
-                ['template_id' => 'repo_cartographer', 'purpose' => 'map_code_ownership_dependencies_tests_and_runtime_boundaries'],
-                ['template_id' => 'patch_builder', 'purpose' => 'produce_minimal_patch_with_receipts_and_rollback_plan'],
-                ['template_id' => 'test_repair_operator', 'purpose' => 'run_tests_triage_failures_and_repair_with_evidence'],
-                ['template_id' => 'security_release_reviewer', 'purpose' => 'review_security_release_risk_and_certification_packet'],
-                ['template_id' => 'post_release_learning_agent', 'purpose' => 'convert_results_into_playbook_and_fixture_improvements'],
-                ['template_id' => 'dependency_modernization_agent', 'purpose' => 'plan_dependency_upgrades_version_pins_and_contract_test_rollout'],
-                ['template_id' => 'observability_instrumentation_agent', 'purpose' => 'bind_logs_metrics_traces_and_runtime_slos_to_delivery_flows'],
-                ['template_id' => 'incident_repair_commander', 'purpose' => 'triage_runtime_incidents_patch_candidates_and_rollback_decisions'],
-                ['template_id' => 'developer_platform_operator', 'purpose' => 'operate_ci_harness_tooling_and_internal_developer_experience_backlog'],
-            ],
-            'research' => [
-                ['template_id' => 'source_scout', 'purpose' => 'discover_primary_sources_and_rank_source_quality'],
-                ['template_id' => 'claim_attributor', 'purpose' => 'bind_claims_to_source_refs_and_quote_boundaries'],
-                ['template_id' => 'contradiction_judge', 'purpose' => 'surface_conflicts_and_decide_resolution_or_disclosure'],
-                ['template_id' => 'citation_graph_builder', 'purpose' => 'build_source_and_citation_lineage'],
-                ['template_id' => 'executive_synthesizer', 'purpose' => 'produce_decision_ready_research_briefs'],
-                ['template_id' => 'watchlist_monitor', 'purpose' => 'track_source_deltas_and_refresh_staleness'],
-                ['template_id' => 'methodology_reviewer', 'purpose' => 'review_study_design_sampling_bias_and_confidence_limits'],
-                ['template_id' => 'data_room_librarian', 'purpose' => 'organize_private_context_source_sets_and_access_boundaries'],
-                ['template_id' => 'expert_interview_analyst', 'purpose' => 'extract_claims_from_interviews_and_bind_them_to_verbatim_evidence'],
-                ['template_id' => 'research_delivery_editor', 'purpose' => 'package_findings_into_operator_ready_briefs_with_disclosures'],
-            ],
-            'strategy' => [
-                ['template_id' => 'venture_thesis_builder', 'purpose' => 'build_company_thesis_assumptions_and_market_logic'],
-                ['template_id' => 'market_mapper', 'purpose' => 'map_competitors_segments_tam_sam_som_and_demand_signals'],
-                ['template_id' => 'gtm_system_designer', 'purpose' => 'design_channel_offer_pricing_and_sales_motion'],
-                ['template_id' => 'experiment_allocator', 'purpose' => 'rank_experiments_by_value_risk_speed_and_learning'],
-                ['template_id' => 'competitive_wargamer', 'purpose' => 'simulate_rival_moves_and_defensive_options'],
-                ['template_id' => 'board_dossier_writer', 'purpose' => 'package_decisions_for_operator_or_portfolio_review'],
-                ['template_id' => 'pricing_packaging_strategist', 'purpose' => 'model_offer_packaging_pricing_power_and_willingness_to_pay_evidence'],
-                ['template_id' => 'partnership_scout', 'purpose' => 'identify_distribution_technology_and_capital_partnership_options'],
-                ['template_id' => 'portfolio_capital_allocator', 'purpose' => 'rank_company_investment_options_by_risk_capacity_and_expected_learning'],
-                ['template_id' => 'moat_and_risk_reviewer', 'purpose' => 'stress_test_strategy_against_competition_regulation_and_execution_risk'],
-            ],
-            'finance' => [
-                ['template_id' => 'pitch_builder', 'purpose' => 'create_target_lists_comparables_and_pitchbook_materials'],
-                ['template_id' => 'meeting_preparer', 'purpose' => 'assemble_client_counterparty_and_asset_briefs'],
-                ['template_id' => 'earnings_reviewer', 'purpose' => 'read_transcripts_filings_update_models_and_flag_thesis_changes'],
-                ['template_id' => 'model_builder', 'purpose' => 'build_and_maintain_financial_models_from_filings_data_feeds_and_inputs'],
-                ['template_id' => 'market_researcher', 'purpose' => 'track_sector_issuer_news_filings_research_and_risk_items'],
-                ['template_id' => 'valuation_reviewer', 'purpose' => 'check_valuation_against_comparables_methodology_and_review_standards'],
-                ['template_id' => 'general_ledger_reconciler', 'purpose' => 'reconcile_accounts_and_nav_style_book_records'],
-                ['template_id' => 'month_end_closer', 'purpose' => 'run_close_checklists_prepare_journal_entries_and_close_reports'],
-                ['template_id' => 'statement_auditor', 'purpose' => 'review_statements_for_consistency_completeness_and_audit_readiness'],
-                ['template_id' => 'kyc_screener', 'purpose' => 'assemble_entity_files_review_documents_and_package_compliance_escalations'],
-            ],
-            'marketing' => [
-                ['template_id' => 'growth_strategist', 'purpose' => 'build_growth_strategy_from_analytics_crm_and_market_research'],
-                ['template_id' => 'icp_positioning_builder', 'purpose' => 'define_icp_pain_positioning_claims_and_proof_points'],
-                ['template_id' => 'campaign_planner', 'purpose' => 'plan_campaign_objectives_channels_assets_and_approval_gates'],
-                ['template_id' => 'creative_director', 'purpose' => 'produce_copy_briefs_creative_variants_and_brand_consistency_reviews'],
-                ['template_id' => 'funnel_analyst', 'purpose' => 'diagnose_conversion_dropoffs_and_experiment_opportunities'],
-                ['template_id' => 'lifecycle_operator', 'purpose' => 'design_lifecycle_and_retention_campaigns_without_auto_send'],
-                ['template_id' => 'seo_content_operator', 'purpose' => 'plan_search_content_clusters_claim_evidence_and_refresh_cadence'],
-                ['template_id' => 'paid_media_controller', 'purpose' => 'prepare_budget_pacing_audience_controls_and_spend_approval_packets'],
-                ['template_id' => 'brand_claim_reviewer', 'purpose' => 'audit_public_claims_proof_points_compliance_and_tone_consistency'],
-                ['template_id' => 'crm_revenue_ops_handoff', 'purpose' => 'convert_growth_signals_into_sales_crm_and_success_handoff_packets'],
-            ],
-            'cyber' => [
-                ['template_id' => 'scope_and_roe_gatekeeper', 'purpose' => 'validate_authorized_scope_rules_of_engagement_and_allowed_actions'],
-                ['template_id' => 'appsec_triager', 'purpose' => 'review_findings_reproducibility_severity_and_remediation'],
-                ['template_id' => 'security_posture_analyst', 'purpose' => 'map_attack_surface_dependencies_vulnerabilities_and_exposure'],
-                ['template_id' => 'grc_mapper', 'purpose' => 'map_controls_obligations_evidence_and_audit_gaps'],
-                ['template_id' => 'detection_engineer', 'purpose' => 'draft_detection_rules_and_validation_plans'],
-                ['template_id' => 'remediation_program_manager', 'purpose' => 'prioritize_fix_programs_tickets_and_sla_risk_without_unauthorized_mutation'],
-                ['template_id' => 'threat_intel_correlator', 'purpose' => 'correlate_cves_advisories_assets_and_exploitability_signals'],
-                ['template_id' => 'incident_response_scribe', 'purpose' => 'assemble_timeline_decision_log_evidence_and_post_incident_actions'],
-                ['template_id' => 'identity_access_reviewer', 'purpose' => 'review_access_paths_privilege_risk_and_segregation_of_duties'],
-                ['template_id' => 'secure_change_reviewer', 'purpose' => 'gate_security_sensitive_changes_with_rollback_and_monitoring_requirements'],
-            ],
-            'automation' => [
-                ['template_id' => 'automation_architect', 'purpose' => 'select_high_roi_safe_automation_opportunities'],
-                ['template_id' => 'tool_scout', 'purpose' => 'evaluate_repositories_tools_mcp_servers_and_api_surfaces'],
-                ['template_id' => 'browser_workflow_designer', 'purpose' => 'design_browser_runbooks_with_screenshots_and_replay_fixtures'],
-                ['template_id' => 'api_workflow_designer', 'purpose' => 'design_openapi_mcp_and_connector_workflows'],
-                ['template_id' => 'terminal_workflow_designer', 'purpose' => 'draft_terminal_automation_with_dry_run_and_rollback'],
-                ['template_id' => 'tool_reliability_operator', 'purpose' => 'monitor_receipts_replay_failures_and_regressions'],
-                ['template_id' => 'integration_test_builder', 'purpose' => 'turn_automation_flows_into_fixtures_assertions_and_regression_suites'],
-                ['template_id' => 'approval_policy_designer', 'purpose' => 'map_tool_permissions_approval_steps_and_forbidden_side_effects'],
-                ['template_id' => 'workflow_queue_operator', 'purpose' => 'operate_prioritized_runs_retries_dead_letters_and_sla_backlogs'],
-                ['template_id' => 'automation_roi_auditor', 'purpose' => 'measure_saved_time_quality_risk_and_maintenance_cost_per_automation'],
-            ],
-            'personal_development' => [
-                ['template_id' => 'life_operating_reviewer', 'purpose' => 'review_goals_energy_focus_and_weekly_commitments'],
-                ['template_id' => 'learning_designer', 'purpose' => 'build_curricula_practice_loops_and_skill_gap_maps'],
-                ['template_id' => 'habit_system_designer', 'purpose' => 'design_habit_protocols_review_cadence_and_friction_removal'],
-                ['template_id' => 'reflection_analyst', 'purpose' => 'synthesize_private_reflections_into_safe_learning_records'],
-                ['template_id' => 'focus_planner', 'purpose' => 'plan_deep_work_blocks_priorities_and_review_checkpoints'],
-                ['template_id' => 'privacy_guardian', 'purpose' => 'protect_private_memory_and_block_sensitive_externalization'],
-                ['template_id' => 'performance_review_coach', 'purpose' => 'convert_weekly_evidence_into_skill_growth_and_behavior_adjustments'],
-                ['template_id' => 'project_commitment_operator', 'purpose' => 'manage_personal_projects_next_actions_blockers_and_review_packets'],
-                ['template_id' => 'decision_journal_analyst', 'purpose' => 'track_decisions_assumptions_outcomes_and_calibration_learning'],
-                ['template_id' => 'wellbeing_boundary_reviewer', 'purpose' => 'surface_overload_risk_recovery_needs_and_private_boundary_controls'],
-            ],
-            default => [
-                ['template_id' => 'readiness_reviewer', 'purpose' => 'review_slo_runbooks_capacity_and_operational_risk'],
-                ['template_id' => 'incident_commander', 'purpose' => 'assemble_incident_timeline_diagnostics_and_decision_packet'],
-                ['template_id' => 'runbook_engineer', 'purpose' => 'create_and_update_runbooks_from_operational_evidence'],
-                ['template_id' => 'capacity_planner', 'purpose' => 'forecast_capacity_slo_risk_and_resource_needs'],
-                ['template_id' => 'postmortem_editor', 'purpose' => 'convert_incidents_into_actions_and_learning_records'],
-                ['template_id' => 'alert_noise_reducer', 'purpose' => 'diagnose_alert_quality_and_propose_noise_reduction'],
-                ['template_id' => 'process_mining_analyst', 'purpose' => 'find_operational_bottlenecks_variance_and_automation_candidates'],
-                ['template_id' => 'vendor_sla_controller', 'purpose' => 'track_vendor_service_levels_escalations_and_procurement_handoffs'],
-                ['template_id' => 'change_management_operator', 'purpose' => 'prepare_change_windows_risk_reviews_and_communication_packets'],
-                ['template_id' => 'continuous_improvement_allocator', 'purpose' => 'rank_process_improvement_backlog_by_value_risk_and_capacity'],
-            ],
-        };
-
-        return array_values(array_map(
-            static fn (array $template): array => [
-                ...$template,
-                'skills' => ['domain_context_loading', 'connector_reasoning', 'structured_artifact_authoring', 'risk_review', 'receipt_export', 'handoff_packet'],
-                'connectors_required' => 'mapped_per_flow_or_workbench',
-                'subagent_pattern' => 'specialist_subagent_for_research_methodology_or_critic_review',
-                'tool_permissions' => 'least_privilege_read_or_fixture_until_operator_mandate',
-                'audit_log_required' => true,
-                'human_in_loop_required_before_external_action' => true,
-                'template_hash' => hash('sha256', 'premium_agent_template|'.$template['template_id']),
-            ],
-            $templates,
-        ));
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
     private function autonomyPromotionLadder(string $domainId): array
     {
         return [
@@ -9338,15 +8258,6 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'stage_hash' => hash('sha256', $domainId.'|autonomy|stage_4'),
             ],
         ];
-    }
-
-    private function commandBase(string $domainId): string
-    {
-        return match ($domainId) {
-            'software' => 'atlas:ai:engineering-company',
-            'personal_development' => 'atlas:ai:personal-development-domain',
-            default => 'atlas:ai:'.str_replace('_', '-', $domainId).'-domain',
-        };
     }
 
     /**
@@ -9588,473 +8499,8 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'source_links_required' => true,
                 'contract_hash' => hash('sha256', $domainId.'|'.$connector),
             ],
-            $this->enterpriseConnectorsForBlueprint($blueprint),
+            $this->support->enterpriseConnectorsForBlueprint($blueprint),
         ));
     }
 
-    /**
-     * readiness() rule table: [output_key|null, kind, path, default, op, ref].
-     * kind: cp=count(data_get(path, [])), cf=count($company[field]), b=(bool) data_get, i=(int) data_get, s=raw data_get.
-     * op: gte(ref=int), ref(ref=company field count), refp(ref=data_get path count), false(===false), true, eq(===ref); op=null rows are report-only.
-     * key=null rows are gate-only (checked, not exposed). The key ORDER below is the JSON output contract — do not reorder.
-     */
-    private const READINESS_RULES = [
-        ['function_count', 'cf', 'functions', null, 'gte', 4],
-        ['agent_count', 'cf', 'agent_roles', null, 'gte', 5],
-        ['flow_count', 'cf', 'flows', null, 'gte', 4],
-        ['flow_execution_contract_count', 'cf', 'flow_execution_contracts', null, 'ref', 'flows'],
-        ['flow_playbook_count', 'cf', 'flow_playbooks', null, 'ref', 'flows'],
-        ['flow_runtime_blueprint_count', 'cf', 'flow_runtime_blueprints', null, 'ref', 'flows'],
-        ['enterprise_flow_runbook_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', null, 'ref', 'flows'],
-        ['enterprise_flow_connector_backplane_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.shared_connector_backplane', null, 'ref', 'connectors'],
-        ['enterprise_flow_runbook_metric_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.runbook_observability.required_metrics', null, 'gte', 5],
-        ['flow_runtime_implementation_source_count', 'cp', 'enterprise_flow_runtime_implementation_stack.source_catalog', null, 'gte', 5],
-        ['executable_flow_packet_count', 'cp', 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', null, 'ref', 'flows'],
-        ['agent_tool_routing_count', 'cp', 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', null, 'ref', 'flows'],
-        ['flow_artifact_io_contract_count', 'cp', 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', null, 'ref', 'flows'],
-        ['supervision_shadow_gate_count', 'cp', 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', null, 'ref', 'flows'],
-        ['connector_runtime_adapter_count', 'cp', 'enterprise_flow_runtime_implementation_stack.connector_runtime_adapters', null, 'ref', 'connectors'],
-        ['runtime_implementation_metric_count', 'cp', 'enterprise_flow_runtime_implementation_stack.implementation_observability.required_metrics', null, 'gte', 6],
-        ['flow_fixture_count', 'cp', 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', null, 'ref', 'flows'],
-        ['connector_stub_count', 'cp', 'enterprise_flow_fixture_simulation_stack.connector_stub_catalog', null, 'ref', 'connectors'],
-        ['expected_trace_trajectory_count', 'cp', 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', null, 'ref', 'flows'],
-        ['quality_assertion_suite_count', 'cp', 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', null, 'ref', 'flows'],
-        ['failure_injection_case_count', 'cp', 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', null, 'ref', 'flows'],
-        ['dry_run_command_count', 'cp', 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', null, 'ref', 'flows'],
-        ['flow_fixture_simulation_metric_count', 'cp', 'enterprise_flow_fixture_simulation_stack.simulation_observability.required_metrics', null, 'gte', 6],
-        ['runtime_action_count', 'cp', 'enterprise_flow_action_runtime_stack.runtime_action_catalog', null, 'ref', 'flows'],
-        ['command_adapter_matrix_count', 'cp', 'enterprise_flow_action_runtime_stack.command_adapter_matrix', null, 'ref', 'flows'],
-        ['handler_state_schema_count', 'cp', 'enterprise_flow_action_runtime_stack.handler_state_schemas', null, 'ref', 'flows'],
-        ['runtime_event_emission_plan_count', 'cp', 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', null, 'ref', 'flows'],
-        ['operator_checkpoint_contract_count', 'cp', 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', null, 'ref', 'flows'],
-        ['action_runtime_metric_count', 'cp', 'enterprise_flow_action_runtime_stack.action_runtime_observability.required_metrics', null, 'gte', 6],
-        ['enterprise_agent_registry_count', 'cf', 'enterprise_agent_registry', null, 'ref', 'agent_roles'],
-        ['agent_toolkit_framework_source_count', 'cp', 'enterprise_domain_agent_toolkit_stack.framework_source_catalog', null, 'gte', 9],
-        ['agent_toolkit_profile_count', 'cp', 'enterprise_domain_agent_toolkit_stack.agent_toolkit_profiles', null, 'ref', 'agent_roles'],
-        ['flow_toolkit_assignment_count', 'cp', 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', null, 'ref', 'flows'],
-        ['agent_repository_watch_count', 'cp', 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', null, 'gte', 8],
-        ['agent_toolkit_certification_count', 'cp', 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', null, 'ref', 'agent_roles'],
-        ['agent_toolkit_metric_count', 'cp', 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', null, 'gte', 6],
-        ['company_operating_blueprint_archetype_count', 'cp', 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', null, 'gte', 5],
-        ['company_operating_blueprint_data_provider_contract_count', 'cp', 'enterprise_company_operating_blueprint_stack.data_provider_contracts', null, 'ref', 'connectors'],
-        ['company_operating_blueprint_connector_permission_count', 'cp', 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', null, 'ref', 'connectors'],
-        ['company_operating_blueprint_flow_count', 'cp', 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', null, 'ref', 'flows'],
-        ['company_operating_blueprint_artifact_assembly_count', 'cp', 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', null, 'ref', 'flows'],
-        ['company_operating_blueprint_handoff_count', 'cp', 'enterprise_company_operating_blueprint_stack.control_room_handoffs', null, 'ref', 'flows'],
-        ['company_operating_blueprint_metric_count', 'cp', 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', null, 'gte', 10],
-        ['company_operating_blueprint_wait_blocker_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['company_operating_blueprint_external_execution_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true, 'false', null],
-        ['company_operating_blueprint_external_side_effects_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true, 'false', null],
-        ['external_research_source_count', 'cp', 'enterprise_external_research_adoption_stack.source_basis', null, 'gte', 12],
-        ['external_research_framework_repo_count', 'cp', 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', null, 'gte', 8],
-        ['external_research_domain_repo_count', 'cp', 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', null, 'gte', 3],
-        ['external_research_flow_adoption_count', 'cp', 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', null, 'ref', 'flows'],
-        ['external_research_capability_map_count', 'cp', 'enterprise_external_research_adoption_stack.source_to_company_capability_map', null, 'gte', 12],
-        ['external_research_connector_backlog_count', 'cp', 'enterprise_external_research_adoption_stack.connector_and_data_provider_backlog', null, 'ref', 'connectors'],
-        ['external_research_wait_blocker_enabled', 'b', 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['agent_repository_intake_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', null, 'gte', 11],
-        ['agent_repository_framework_scorecard_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', null, 'gte', 8],
-        ['agent_repository_flow_adoption_matrix_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', null, 'ref', 'flows'],
-        ['agent_repository_flow_epic_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', null, 'ref', 'flows'],
-        ['agent_repository_tool_permission_manifest_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', null, 'ref', 'flows'],
-        ['agent_repository_eval_replay_recipe_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', null, 'ref', 'flows'],
-        ['agent_repository_version_pin_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', null, 'gte', 11],
-        ['agent_repository_metric_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', null, 'gte', 8],
-        ['agent_repository_external_side_effects_enabled', 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true, 'false', null],
-        ['agent_repository_operating_source_count', 'cp', 'enterprise_agent_repository_operating_catalog.source_basis', null, 'gte', 4],
-        ['agent_repository_operating_framework_profile_count', 'cp', 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', null, 'gte', 8],
-        ['agent_repository_operating_mcp_security_profile_count', 'cp', 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', null, 'ref', 'connectors'],
-        ['agent_repository_operating_flow_map_count', 'cp', 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', null, 'ref', 'flows'],
-        ['agent_repository_operating_supply_chain_artifact_count', 'cp', 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', null, 'gte', 8],
-        ['agent_repository_operating_metric_count', 'cp', 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', null, 'gte', 7],
-        ['agent_repository_operating_wait_blocker_enabled', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['agent_repository_operating_mcp_hardening_required', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false, 'true', null],
-        ['agent_repository_operating_external_write_enabled', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['workforce_agent_capacity_count', 'cp', 'enterprise_workforce_capacity_stack.agent_capacity_plan', null, 'gte', 4],
-        ['workforce_flow_staffing_count', 'cp', 'enterprise_workforce_capacity_stack.flow_staffing_matrix', null, 'ref', 'flows'],
-        ['workforce_training_count', 'cp', 'enterprise_workforce_capacity_stack.training_and_enablement', null, 'gte', 4],
-        ['portfolio_dependency_handoff_count', 'cp', 'enterprise_portfolio_dependency_stack.upstream_dependency_map', null, null, null],
-        ['portfolio_integration_dependency_count', 'cp', 'enterprise_portfolio_dependency_stack.integration_dependency_map', null, null, null],
-        ['portfolio_flow_dependency_routing_count', 'cp', 'enterprise_portfolio_dependency_stack.flow_dependency_routing', null, 'ref', 'flows'],
-        ['portfolio_reporting_metric_count', 'cp', 'enterprise_portfolio_dependency_stack.portfolio_reporting_contract.required_metrics', null, 'gte', 4],
-        ['domain_data_entity_count', 'cp', 'domain_data_model.entities', null, 'gte', 4],
-        ['business_process_count', 'cf', 'business_process_map', null, 'ref', 'flows'],
-        ['deliverable_quality_contract_count', 'cf', 'deliverable_quality_contracts', null, 'gte', 5],
-        ['production_slo_count', 'cp', 'go_to_production_pack.slo_sli_catalog', null, 'ref', 'flows'],
-        ['production_integration_enablement_count', 'cp', 'go_to_production_pack.integration_enablement_plan', null, 'ref', 'connectors'],
-        ['service_catalog_count', 'cp', 'commercial_operating_stack.service_catalog', null, 'gte', 5],
-        ['business_kpi_count', 'cp', 'commercial_operating_stack.business_kpis', null, 'gte', 4],
-        ['customer_offer_count', 'cp', 'enterprise_customer_market_operations_stack.offer_and_packaging_catalog', null, 'gte', 5],
-        ['customer_journey_count', 'cp', 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', null, 'ref', 'flows'],
-        ['customer_success_metric_count', 'cp', 'enterprise_customer_market_operations_stack.customer_success_scorecard', null, 'gte', 4],
-        ['account_playbook_count', 'cp', 'enterprise_account_contract_delivery_stack.account_segment_playbooks', null, 'gte', 4],
-        ['account_entitlement_count', 'cp', 'enterprise_account_contract_delivery_stack.contract_and_entitlement_catalog', null, 'gte', 5],
-        ['account_onboarding_success_plan_count', 'cp', 'enterprise_account_contract_delivery_stack.onboarding_success_plans', null, 'ref', 'flows'],
-        ['account_service_review_count', 'cp', 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', null, 'ref', 'flows'],
-        ['account_health_risk_count', 'cp', 'enterprise_account_contract_delivery_stack.account_health_and_risk_register', null, 'ref', 'metrics'],
-        ['account_contract_metric_count', 'cp', 'enterprise_account_contract_delivery_stack.account_contract_observability.required_metrics', null, 'gte', 5],
-        ['productized_service_product_line_count', 'cp', 'enterprise_productized_service_stack.domain_product_lines', null, 'gte', 5],
-        ['productized_service_offer_count', 'cp', 'enterprise_productized_service_stack.flow_service_offers', null, 'ref', 'flows'],
-        ['productized_service_delivery_blueprint_count', 'cp', 'enterprise_productized_service_stack.service_delivery_blueprints', null, 'ref', 'flows'],
-        ['productized_service_intake_contract_count', 'cp', 'enterprise_productized_service_stack.intake_and_qualification_contracts', null, 'ref', 'flows'],
-        ['productized_service_sla_contract_count', 'cp', 'enterprise_productized_service_stack.sla_success_contracts', null, 'ref', 'flows'],
-        ['productized_service_pricing_package_count', 'cp', 'enterprise_productized_service_stack.pricing_packaging_model', null, 'gte', 5],
-        ['productized_service_gtm_motion_count', 'cp', 'enterprise_productized_service_stack.go_to_market_motion_catalog', null, 'gte', 5],
-        ['productized_service_proof_template_count', 'cp', 'enterprise_productized_service_stack.proof_and_case_study_templates', null, 'ref', 'flows'],
-        ['productized_service_metric_count', 'cp', 'enterprise_productized_service_stack.product_observability.required_metrics', null, 'gte', 10],
-        ['productized_service_external_commitment_enabled', 'b', 'enterprise_productized_service_stack.product_policy.public_gtm_or_customer_commitment_allowed', true, 'false', null],
-        ['productized_service_external_billing_enabled', 'b', 'enterprise_productized_service_stack.product_policy.external_billing_allowed', true, 'false', null],
-        ['sales_crm_source_count', 'cp', 'enterprise_sales_crm_pipeline_stack.source_catalog', null, 'gte', 5],
-        ['sales_crm_object_count', 'cp', 'enterprise_sales_crm_pipeline_stack.crm_object_model.objects', null, 'gte', 8],
-        ['sales_crm_segment_play_count', 'cp', 'enterprise_sales_crm_pipeline_stack.segment_sales_plays', null, 'gte', 4],
-        ['sales_crm_opportunity_route_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', null, 'ref', 'flows'],
-        ['sales_crm_proposal_packet_count', 'cp', 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', null, 'ref', 'flows'],
-        ['sales_crm_mutual_action_plan_count', 'cp', 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', null, 'ref', 'flows'],
-        ['sales_crm_account_research_workbench_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', null, 'ref', 'flows'],
-        ['sales_crm_deal_room_packet_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', null, 'ref', 'flows'],
-        ['sales_crm_pipeline_forecast_review_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', null, 'ref', 'flows'],
-        ['sales_crm_map_risk_review_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', null, 'ref', 'flows'],
-        ['sales_crm_renewal_expansion_signal_count', 'cp', 'enterprise_sales_crm_pipeline_stack.renewal_and_expansion_signals', null, 'ref', 'metrics'],
-        ['sales_crm_handoff_contract_count', 'cp', 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', null, 'ref', 'flows'],
-        ['sales_crm_metric_count', 'cp', 'enterprise_sales_crm_pipeline_stack.pipeline_observability.required_metrics', null, 'gte', 13],
-        ['sales_crm_wait_blocker_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['sales_crm_external_commitment_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.external_outreach_contract_signature_or_customer_commitment_allowed', true, 'false', null],
-        ['sales_crm_public_claim_paid_campaign_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.public_claim_or_paid_campaign_allowed', true, 'false', null],
-        ['support_service_desk_source_count', 'cp', 'enterprise_customer_support_service_desk_stack.source_catalog', null, 'gte', 5],
-        ['support_service_desk_object_count', 'cp', 'enterprise_customer_support_service_desk_stack.service_desk_object_model.objects', null, 'gte', 9],
-        ['support_segment_playbook_count', 'cp', 'enterprise_customer_support_service_desk_stack.support_segment_playbooks', null, 'gte', 4],
-        ['support_flow_lane_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_support_lanes', null, 'ref', 'flows'],
-        ['support_ticket_sla_contract_count', 'cp', 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', null, 'ref', 'flows'],
-        ['support_kb_template_count', 'cp', 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', null, 'ref', 'flows'],
-        ['support_escalation_runbook_count', 'cp', 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', null, 'ref', 'flows'],
-        ['support_resolution_rca_count', 'cp', 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', null, 'ref', 'flows'],
-        ['support_case_resolution_workbench_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', null, 'ref', 'flows'],
-        ['support_customer_health_escalation_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', null, 'ref', 'flows'],
-        ['support_knowledge_quality_review_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', null, 'ref', 'flows'],
-        ['support_automation_deflection_test_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', null, 'ref', 'flows'],
-        ['support_feedback_learning_loop_count', 'cp', 'enterprise_customer_support_service_desk_stack.feedback_to_product_learning_loops', null, 'ref', 'metrics'],
-        ['support_service_desk_metric_count', 'cp', 'enterprise_customer_support_service_desk_stack.support_observability.required_metrics', null, 'gte', 13],
-        ['support_service_desk_wait_blocker_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['support_service_desk_external_message_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.external_customer_message_or_support_commitment_allowed', true, 'false', null],
-        ['support_service_desk_unreviewed_regulated_advice_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.regulated_support_advice_allowed_without_review', true, 'false', null],
-        ['marketing_growth_source_count', 'cp', 'enterprise_marketing_growth_engine_stack.source_catalog', null, 'gte', 5],
-        ['marketing_growth_role_count', 'cp', 'enterprise_marketing_growth_engine_stack.growth_operating_model.operating_roles', null, 'gte', 6],
-        ['marketing_audience_segment_count', 'cp', 'enterprise_marketing_growth_engine_stack.audience_segment_map', null, 'gte', 4],
-        ['marketing_campaign_blueprint_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', null, 'ref', 'flows'],
-        ['marketing_content_factory_count', 'cp', 'enterprise_marketing_growth_engine_stack.content_asset_factories', null, 'ref', 'flows'],
-        ['marketing_experiment_count', 'cp', 'enterprise_marketing_growth_engine_stack.experiment_backlog', null, 'ref', 'flows'],
-        ['marketing_growth_intelligence_workbench_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', null, 'ref', 'flows'],
-        ['marketing_attribution_experiment_model_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', null, 'ref', 'flows'],
-        ['marketing_channel_budget_guardrail_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', null, 'ref', 'flows'],
-        ['marketing_public_claim_evidence_packet_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', null, 'ref', 'flows'],
-        ['marketing_channel_distribution_count', 'cp', 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', null, 'ref', 'flows'],
-        ['marketing_brand_review_count', 'cp', 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', null, 'ref', 'flows'],
-        ['marketing_crm_handoff_count', 'cp', 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', null, 'ref', 'flows'],
-        ['marketing_growth_metric_count', 'cp', 'enterprise_marketing_growth_engine_stack.marketing_observability.required_metrics', null, 'gte', 14],
-        ['marketing_growth_wait_blocker_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['marketing_growth_external_publish_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.external_publish_paid_campaign_or_outreach_allowed', true, 'false', null],
-        ['marketing_growth_unreviewed_public_claim_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.public_claim_allowed_without_source_and_operator_review', true, 'false', null],
-        ['finance_treasury_source_count', 'cp', 'enterprise_finance_treasury_billing_stack.source_catalog', null, 'gte', 5],
-        ['finance_treasury_data_interface_connector_class_count', 'cp', 'enterprise_finance_treasury_billing_stack.financial_data_interface.provider_connector_classes', null, 'gte', 7],
-        ['finance_treasury_provider_connector_count', 'cp', 'enterprise_finance_treasury_billing_stack.provider_connector_matrix', null, 'refp', 'enterprise_finance_treasury_billing_stack.source_catalog'],
-        ['finance_treasury_cfo_role_count', 'cp', 'enterprise_finance_treasury_billing_stack.cfo_operating_model.operating_roles', null, 'gte', 9],
-        ['finance_treasury_research_workbench_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', null, 'ref', 'flows'],
-        ['finance_treasury_budget_envelope_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', null, 'ref', 'flows'],
-        ['finance_treasury_forecast_model_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_forecast_models', null, 'ref', 'flows'],
-        ['finance_treasury_model_risk_control_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', null, 'ref', 'flows'],
-        ['finance_treasury_investment_committee_packet_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', null, 'ref', 'flows'],
-        ['finance_treasury_pnl_line_item_count', 'cp', 'enterprise_finance_treasury_billing_stack.pnl_line_item_model', null, 'gte', 5],
-        ['finance_treasury_billing_ledger_count', 'cp', 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', null, 'ref', 'flows'],
-        ['finance_treasury_blocked_capital_action_count', 'cp', 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.capital_actions_blocked', null, 'gte', 6],
-        ['finance_treasury_close_section_count', 'cp', 'enterprise_finance_treasury_billing_stack.finance_close_and_audit_pack.close_packet_sections', null, 'gte', 9],
-        ['finance_treasury_metric_count', 'cp', 'enterprise_finance_treasury_billing_stack.finance_observability.required_metrics', null, 'gte', 14],
-        ['finance_treasury_wait_blocker_enabled', 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['finance_treasury_external_financial_action_enabled', 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.external_invoice_payment_collection_capital_transfer_or_trade_allowed', true, 'false', null],
-        ['finance_treasury_real_money_movement_enabled', 'b', 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.real_money_movement_allowed', true, 'false', null],
-        ['vendor_due_diligence_count', 'cp', 'enterprise_vendor_legal_procurement_stack.vendor_due_diligence_register', null, 'ref', 'connectors'],
-        ['source_terms_review_count', 'cp', 'enterprise_vendor_legal_procurement_stack.source_terms_review_register', null, 'gte', 5],
-        ['flow_procurement_routing_count', 'cp', 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', null, 'ref', 'flows'],
-        ['vendor_operability_scorecard_count', 'cp', 'enterprise_vendor_legal_procurement_stack.vendor_operability_scorecard', null, 'ref', 'connectors'],
-        ['flow_failure_mode_analysis_count', 'cp', 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', null, 'ref', 'flows'],
-        ['connector_resilience_plan_count', 'cp', 'enterprise_resilience_continuity_stack.connector_resilience_plan', null, 'ref', 'connectors'],
-        ['incident_exercise_count', 'cp', 'enterprise_resilience_continuity_stack.incident_exercise_program', null, 'ref', 'flows'],
-        ['resilience_metric_count', 'cp', 'enterprise_resilience_continuity_stack.resilience_observability.required_metrics', null, 'gte', 5],
-        ['analytics_metric_lineage_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.metric_lineage_catalog', null, 'ref', 'metrics'],
-        ['executive_dashboard_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.executive_dashboard_catalog', null, 'gte', 3],
-        ['flow_decision_register_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', null, 'ref', 'flows'],
-        ['scenario_forecast_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', null, 'ref', 'flows'],
-        ['work_product_analytics_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.work_product_analytics_map', null, 'gte', 5],
-        ['knowledge_source_registry_count', 'cp', 'enterprise_knowledge_memory_learning_stack.knowledge_source_registry', null, 'gte', 5],
-        ['flow_learning_loop_count', 'cp', 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', null, 'ref', 'flows'],
-        ['postmortem_program_count', 'cp', 'enterprise_knowledge_memory_learning_stack.postmortem_and_retrospective_program', null, 'ref', 'flows'],
-        ['playbook_change_control_count', 'cp', 'enterprise_knowledge_memory_learning_stack.playbook_change_control', null, 'ref', 'flows'],
-        ['work_product_feedback_memory_count', 'cp', 'enterprise_knowledge_memory_learning_stack.work_product_feedback_memory', null, 'gte', 5],
-        ['connector_knowledge_sync_count', 'cp', 'enterprise_knowledge_memory_learning_stack.connector_knowledge_sync_plan', null, 'ref', 'connectors'],
-        ['agent_access_matrix_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.agent_access_matrix', null, 'gte', 4],
-        ['flow_data_boundary_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', null, 'ref', 'flows'],
-        ['connector_secret_binding_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.connector_secret_binding_plan', null, 'ref', 'connectors'],
-        ['sensitive_data_handling_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.sensitive_data_handling_catalog', null, 'gte', 5],
-        ['purpose_consent_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', null, 'ref', 'flows'],
-        ['control_tower_lane_count', 'cp', 'enterprise_control_tower_run_operations_stack.control_tower_lanes', null, 'ref', 'flows'],
-        ['control_tower_cadence_count', 'cp', 'enterprise_control_tower_run_operations_stack.cadence_scheduler', null, 'ref', 'cadences'],
-        ['exception_desk_count', 'cp', 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', null, 'ref', 'flows'],
-        ['change_window_count', 'cp', 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', null, 'ref', 'flows'],
-        ['connector_probe_plan_count', 'cp', 'enterprise_control_tower_run_operations_stack.connector_operations_probe_plan', null, 'ref', 'connectors'],
-        ['dashboard_operations_map_count', 'cp', 'enterprise_control_tower_run_operations_stack.dashboard_operations_map', null, 'gte', 3],
-        ['command_center_operating_cell_count', 'cp', 'enterprise_company_command_center_stack.operating_cells', null, 'gte', 6],
-        ['command_center_flow_card_count', 'cp', 'enterprise_company_command_center_stack.flow_command_cards', null, 'ref', 'flows'],
-        ['command_center_connector_panel_count', 'cp', 'enterprise_company_command_center_stack.connector_workbench_panels', null, 'ref', 'connectors'],
-        ['command_center_console_view_count', 'cp', 'enterprise_company_command_center_stack.operator_console_views', null, 'gte', 4],
-        ['command_center_work_product_factory_count', 'cp', 'enterprise_company_command_center_stack.work_product_factory_map', null, 'gte', 5],
-        ['command_center_kpi_count', 'cp', 'enterprise_company_command_center_stack.command_center_kpis', null, 'ref', 'metrics'],
-        ['command_center_wait_blocker_enabled', 'b', 'enterprise_company_command_center_stack.command_center_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['command_center_external_execution_enabled', 'b', 'enterprise_company_command_center_stack.command_center_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['semantic_graph_node_count', 'cp', 'enterprise_semantic_operating_graph_stack.node_catalog', null, null, null],
-        ['semantic_graph_edge_count', 'cp', 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', null, 'ref', 'flows'],
-        ['semantic_graph_view_count', 'cp', 'enterprise_semantic_operating_graph_stack.operating_views', null, 'gte', 4],
-        ['semantic_graph_drift_rule_count', 'cp', 'enterprise_semantic_operating_graph_stack.drift_detection_rules', null, 'gte', 5],
-        ['delivery_contract_count', 'cp', 'enterprise_delivery_assurance_stack.work_product_delivery_contracts', null, 'gte', 5],
-        ['delivery_sla_count', 'cp', 'enterprise_delivery_assurance_stack.flow_delivery_sla', null, 'ref', 'flows'],
-        ['finance_cost_center_count', 'cp', 'portfolio_finance_stack.flow_cost_centers', null, 'ref', 'flows'],
-        ['flow_unit_economics_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', null, 'ref', 'flows'],
-        ['capacity_simulation_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', null, 'ref', 'flows'],
-        ['work_product_pricing_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', null, 'gte', 5],
-        ['agent_capacity_cost_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.agent_capacity_cost_model', null, 'gte', 4],
-        ['connector_cost_limit_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.connector_cost_and_limit_model', null, 'ref', 'connectors'],
-        ['intelligence_rival_map_count', 'cp', 'strategic_intelligence_stack.rival_and_alternative_map', null, 'ref', 'flows'],
-        ['intelligence_kpi_count', 'cp', 'strategic_intelligence_stack.intelligence_kpis', null, 'gte', 4],
-        ['grc_vendor_risk_count', 'cp', 'enterprise_grc_stack.vendor_and_tool_risk', null, 'ref', 'connectors'],
-        ['grc_audit_evidence_count', 'cp', 'enterprise_grc_stack.audit_evidence_requirements', null, 'ref', 'flows'],
-        ['capability_matrix_count', 'cf', 'enterprise_capability_matrix', null, 'ref', 'flows'],
-        ['external_integration_contract_count', 'cf', 'external_integration_catalog', null, 'ref', 'connectors'],
-        ['connector_adapter_contract_count', 'cp', 'enterprise_connector_certification_stack.adapter_contract_catalog', null, 'ref', 'connectors'],
-        ['connector_auth_boundary_count', 'cp', 'enterprise_connector_certification_stack.auth_and_secret_boundary', null, 'ref', 'connectors'],
-        ['connector_sandbox_probe_count', 'cp', 'enterprise_connector_certification_stack.sandbox_probe_matrix', null, 'ref', 'connectors'],
-        ['connector_contract_test_count', 'cp', 'enterprise_connector_certification_stack.consumer_provider_contract_tests', null, 'ref', 'connectors'],
-        ['connector_data_mapping_count', 'cp', 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', null, 'ref', 'connectors'],
-        ['flow_connector_usage_count', 'cp', 'enterprise_connector_certification_stack.flow_connector_usage_matrix', null, 'ref', 'flows'],
-        ['connector_replay_fixture_count', 'cp', 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', null, 'ref', 'connectors'],
-        ['connector_slo_failure_count', 'cp', 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', null, 'ref', 'connectors'],
-        ['connector_certification_metric_count', 'cp', 'enterprise_connector_certification_stack.connector_certification_observability.required_metrics', null, 'gte', 5],
-        ['production_connector_preflight_contract_count', 'cp', 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', null, 'ref', 'connectors'],
-        ['production_connector_cutover_flow_count', 'cp', 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', null, 'ref', 'flows'],
-        ['production_connector_evidence_register_count', 'cp', 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', null, 'ref', 'connectors'],
-        ['production_connector_cutover_metric_count', 'cp', 'enterprise_production_connector_preflight_stack.cutover_observability.required_metrics', null, 'gte', 6],
-        ['production_connector_wait_blocker_enabled', 'b', 'enterprise_production_connector_preflight_stack.preflight_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['evaluation_suite_count', 'cp', 'evaluation_harness.suite_per_flow', null, 'ref', 'flows'],
-        ['benchmark_offline_dataset_count', 'cp', 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', null, 'ref', 'flows'],
-        ['benchmark_trace_rubric_count', 'cp', 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', null, 'ref', 'flows'],
-        ['benchmark_adversarial_case_count', 'cp', 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', null, 'ref', 'flows'],
-        ['benchmark_state_assertion_count', 'cp', 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', null, 'ref', 'flows'],
-        ['benchmark_replay_matrix_count', 'cp', 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', null, 'ref', 'flows'],
-        ['benchmark_observability_metric_count', 'cp', 'enterprise_flow_benchmark_replay_stack.benchmark_observability.required_metrics', null, 'gte', 5],
-        ['tooling_source_count', 'cp', 'enterprise_tooling_research_stack.source_catalog', null, 'gte', 9],
-        ['tooling_benchmark_count', 'cp', 'enterprise_tooling_research_stack.per_flow_tooling_benchmark', null, 'ref', 'flows'],
-        ['tooling_integration_backlog_count', 'cp', 'enterprise_tooling_research_stack.connector_integration_backlog', null, 'ref', 'connectors'],
-        ['domain_operating_value_chain_count', 'cp', 'enterprise_domain_operating_depth_stack.domain_value_chain', null, 'gte', 6],
-        ['domain_operating_data_product_count', 'cp', 'enterprise_domain_operating_depth_stack.domain_data_product_spine', null, 'gte', 5],
-        ['domain_operating_system_count', 'cp', 'enterprise_domain_operating_depth_stack.enterprise_system_map', null, 'gte', 5],
-        ['domain_operating_flow_depth_packet_count', 'cp', 'enterprise_domain_operating_depth_stack.flow_depth_packets', null, 'ref', 'flows'],
-        ['domain_operating_connector_backlog_count', 'cp', 'enterprise_domain_operating_depth_stack.mcp_api_connector_backlog', null, 'ref', 'connectors'],
-        ['domain_operating_delivery_offer_count', 'cp', 'enterprise_domain_operating_depth_stack.delivery_offer_model', null, 'gte', 5],
-        ['domain_operating_depth_metric_count', 'cp', 'enterprise_domain_operating_depth_stack.depth_observability.required_metrics', null, 'gte', 8],
-        ['domain_operating_wait_blocker_enabled', 'b', 'enterprise_domain_operating_depth_stack.depth_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['domain_operating_external_execution_enabled', 'b', 'enterprise_domain_operating_depth_stack.depth_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['domain_agent_workforce_managed_agent_count', 'cp', 'enterprise_domain_agent_workforce_stack.managed_agent_catalog', null, 'gte', 4],
-        ['domain_agent_workforce_crew_count', 'cp', 'enterprise_domain_agent_workforce_stack.flow_agent_crews', null, 'ref', 'flows'],
-        ['domain_agent_workforce_metric_count', 'cp', 'enterprise_domain_agent_workforce_stack.workforce_observability.required_metrics', null, 'gte', 10],
-        ['domain_agent_workforce_wait_blocker_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['domain_agent_workforce_external_execution_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['domain_agent_workforce_external_worker_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_control_plane.external_effect_worker_enabled', true, 'false', null],
-        ['domain_solution_source_count', 'cp', 'enterprise_domain_solution_stack.domain_source_catalog', null, 'gte', 5],
-        ['domain_solution_module_count', 'cp', 'enterprise_domain_solution_stack.solution_modules', null, 'ref', 'flows'],
-        ['domain_solution_agent_template_count', 'cp', 'enterprise_domain_solution_stack.managed_agent_templates', null, 'gte', 4],
-        ['domain_solution_data_product_count', 'cp', 'enterprise_domain_solution_stack.data_product_catalog', null, 'gte', 5],
-        ['domain_solution_playbook_count', 'cp', 'enterprise_domain_solution_stack.enterprise_solution_playbooks', null, 'ref', 'flows'],
-        ['domain_solution_data_plane_source_count', 'cp', 'enterprise_domain_solution_stack.domain_data_plane.source_refs', null, null, null],
-        ['domain_solution_review_mode_count', 'cp', 'enterprise_domain_solution_stack.domain_expert_review_board.review_modes', null, 'gte', 5],
-        ['vertical_solution_suite_count', 'cp', 'enterprise_vertical_solution_suite_stack.solution_suites', null, 'gte', 6],
-        ['vertical_solution_flow_kit_count', 'cp', 'enterprise_vertical_solution_suite_stack.flow_solution_kits', null, 'ref', 'flows'],
-        ['vertical_solution_connector_workbench_count', 'cp', 'enterprise_vertical_solution_suite_stack.connector_solution_workbenches', null, 'ref', 'connectors'],
-        ['vertical_solution_artifact_factory_count', 'cp', 'enterprise_vertical_solution_suite_stack.artifact_factory_catalog', null, 'gte', 5],
-        ['vertical_solution_evaluation_recipe_count', 'cp', 'enterprise_vertical_solution_suite_stack.suite_evaluation_recipes', null, 'ref', 'flows'],
-        ['vertical_solution_metric_count', 'cp', 'enterprise_vertical_solution_suite_stack.suite_observability.required_metrics', null, 'gte', 8],
-        ['vertical_solution_wait_blocker_enabled', 'b', 'enterprise_vertical_solution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['vertical_solution_external_execution_enabled', 'b', 'enterprise_vertical_solution_suite_stack.suite_policy.external_execution_allowed_by_suite', true, 'false', null],
-        ['business_execution_mode_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.execution_mode_catalog', null, 'gte', 4],
-        ['business_execution_cell_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', null, 'ref', 'flows'],
-        ['business_execution_kpi_binding_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', null, 'ref', 'flows'],
-        ['business_execution_service_lane_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', null, 'ref', 'flows'],
-        ['business_execution_artifact_contract_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.business_artifact_delivery_contracts', null, 'gte', 5],
-        ['business_execution_metric_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.execution_observability.required_metrics', null, 'gte', 8],
-        ['business_execution_wait_blocker_enabled', 'b', 'enterprise_domain_business_execution_mesh_stack.execution_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['business_execution_external_execution_enabled', 'b', 'enterprise_domain_business_execution_mesh_stack.execution_policy.autonomous_external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['domain_provider_contract_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_contracts', null, 'gte', 5],
-        ['domain_provider_connector_workbench_count', 'cp', 'enterprise_domain_provider_workbench_stack.connector_workbenches', null, 'ref', 'connectors'],
-        ['domain_provider_flow_route_count', 'cp', 'enterprise_domain_provider_workbench_stack.flow_provider_routes', null, 'ref', 'flows'],
-        ['domain_provider_eval_case_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', null, 'ref', 'flows'],
-        ['domain_provider_lineage_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_data_product_lineage', null, 'gte', 5],
-        ['domain_provider_metric_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_workbench_observability.required_metrics', null, 'gte', 8],
-        ['domain_provider_wait_blocker_enabled', 'b', 'enterprise_domain_provider_workbench_stack.workbench_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['industry_solution_provider_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.ecosystem_provider_catalog', null, 'gte', 5],
-        ['industry_solution_partner_track_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.implementation_partner_tracks', null, 'gte', 7],
-        ['industry_solution_workload_pack_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.flow_solution_workload_packs', null, 'ref', 'flows'],
-        ['industry_solution_metric_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.ecosystem_observability.required_metrics', null, 'gte', 8],
-        ['industry_solution_external_side_effects_enabled', 'b', 'enterprise_industry_solution_ecosystem_stack.ecosystem_policy.external_side_effects_enabled', true, 'false', null],
-        ['domain_execution_suite_source_count', 'cp', 'enterprise_domain_company_execution_suite_stack.source_catalog', null, 'gte', 7],
-        ['domain_execution_suite_role_count', 'cp', 'enterprise_domain_company_execution_suite_stack.domain_operating_model.operating_roles', null, 'gte', 6],
-        ['domain_execution_suite_connector_workbench_count', 'cp', 'enterprise_domain_company_execution_suite_stack.connector_execution_workbenches', null, 'ref', 'connectors'],
-        ['domain_execution_suite_flow_packet_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', null, 'ref', 'flows'],
-        ['domain_execution_suite_risk_control_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', null, 'ref', 'flows'],
-        ['domain_execution_suite_decision_room_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', null, 'ref', 'flows'],
-        ['domain_execution_suite_replay_eval_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', null, 'ref', 'flows'],
-        ['domain_execution_suite_metric_count', 'cp', 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', null, null, null],
-        ['domain_execution_suite_wait_blocker_enabled', 'b', 'enterprise_domain_company_execution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['domain_execution_suite_external_side_effects_enabled', 'b', 'enterprise_domain_company_execution_suite_stack.suite_policy.external_side_effects_enabled', true, 'false', null],
-        ['flow_work_product_catalog_count', 'cp', 'enterprise_flow_work_product_delivery_stack.work_product_catalog', null, 'ref', 'work_products'],
-        ['flow_work_product_delivery_blueprint_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', null, 'ref', 'flows'],
-        ['flow_work_product_acceptance_contract_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', null, 'ref', 'flows'],
-        ['flow_work_product_handoff_packet_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', null, 'ref', 'flows'],
-        ['flow_work_product_replay_check_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', null, 'ref', 'flows'],
-        ['flow_work_product_metric_count', 'cp', 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', null, null, null],
-        ['flow_work_product_wait_blocker_enabled', 'b', 'enterprise_flow_work_product_delivery_stack.delivery_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['flow_work_product_external_delivery_enabled', 'b', 'enterprise_flow_work_product_delivery_stack.delivery_policy.external_delivery_allowed', true, 'false', null],
-        ['domain_data_room_source_count', 'cp', 'enterprise_domain_data_connector_operating_stack.source_data_room_catalog', null, 'gte', 7],
-        ['domain_data_product_contract_count', 'cp', 'enterprise_domain_data_connector_operating_stack.domain_data_products', null, 'ref', 'work_products'],
-        ['domain_connector_permission_profile_count', 'cp', 'enterprise_domain_data_connector_operating_stack.connector_permission_profiles', null, 'ref', 'connectors'],
-        ['domain_flow_data_connector_contract_count', 'cp', 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', null, 'ref', 'flows'],
-        ['domain_connector_fixture_eval_suite_count', 'cp', 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', null, 'ref', 'flows'],
-        ['domain_data_room_required_control_count', 'cp', 'enterprise_domain_data_connector_operating_stack.domain_data_room_operating_model.required_controls', null, 'gte', 7],
-        ['domain_data_connector_metric_count', 'cp', 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', null, null, null],
-        ['domain_data_connector_wait_blocker_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['domain_data_connector_write_tools_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.write_tools_enabled', true, 'false', null],
-        ['domain_data_connector_external_mutation_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.external_data_mutation_allowed', true, 'false', null],
-        ['flow_live_read_connector_profile_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.connector_probe_profiles', null, 'ref', 'connectors'],
-        ['flow_live_read_probe_contract_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', null, 'ref', 'flows'],
-        ['flow_live_read_probe_evidence_matrix_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', null, 'ref', 'flows'],
-        ['flow_live_read_probe_metric_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', null, null, null],
-        ['flow_live_read_probe_wait_blocker_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['flow_live_read_probe_write_tools_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true, 'false', null],
-        ['flow_live_read_probe_external_mutation_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true, 'false', null],
-        ['domain_data_fabric_source_count', 'cp', 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', null, 'gte', 5],
-        ['domain_data_fabric_provider_count', 'cp', 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', null, 'ref', 'connectors'],
-        ['domain_data_fabric_product_count', 'cp', 'enterprise_domain_data_fabric_stack.domain_data_products', null, 'ref', 'work_products'],
-        ['domain_data_fabric_workbench_count', 'cp', 'enterprise_domain_data_fabric_stack.flow_data_workbenches', null, 'ref', 'flows'],
-        ['domain_data_fabric_decision_packet_factory_count', 'cp', 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', null, 'ref', 'flows'],
-        ['domain_data_fabric_enablement_track_count', 'cp', 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', null, 'gte', 8],
-        ['domain_data_fabric_metric_count', 'cp', 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', null, 'gte', 7],
-        ['domain_data_fabric_wait_blocker_enabled', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['domain_data_fabric_direct_source_link_required', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false, 'true', null],
-        ['domain_data_fabric_cross_source_verification_required', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false, 'true', null],
-        ['domain_data_fabric_external_write_enabled', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['revenue_delivery_operating_system_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', null, 'gte', 8],
-        ['revenue_delivery_flow_thread_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', null, 'ref', 'flows'],
-        ['revenue_delivery_connector_map_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', null, 'ref', 'connectors'],
-        ['revenue_delivery_scorecard_metric_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', null, 'gte', 8],
-        ['revenue_delivery_observability_metric_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', null, 'gte', 8],
-        ['revenue_delivery_wait_blocker_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['revenue_delivery_customer_commitment_without_operator_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true, 'false', null],
-        ['revenue_delivery_billing_without_operator_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true, 'false', null],
-        ['revenue_delivery_external_write_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
-        ['premium_reference_source_count', 'cp', 'premium_enterprise_agent_reference_model.reference_source_basis', null, 'gte', 5],
-        ['premium_agentic_runtime_pattern_count', 'cp', 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', null, 'gte', 6],
-        ['premium_required_runtime_property_count', 'cp', 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', null, 'gte', 9],
-        ['premium_managed_agent_template_count', 'cp', 'premium_enterprise_agent_reference_model.managed_agent_templates', null, 'gte', 10],
-        ['premium_template_runtime_contract_count', 'cp', 'premium_enterprise_agent_reference_model.template_runtime_contracts', null, 'refp', 'premium_enterprise_agent_reference_model.managed_agent_templates'],
-        ['premium_flow_template_map_count', 'cp', 'premium_enterprise_agent_reference_model.flow_template_map', null, 'ref', 'flows'],
-        ['premium_flow_managed_agent_workflow_count', 'cp', 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', null, 'ref', 'flows'],
-        ['premium_workbench_count', 'cp', 'premium_enterprise_agent_reference_model.data_and_tool_workbenches', null, 'ref', 'connectors'],
-        ['premium_connector_mcp_server_plan_count', 'cp', 'premium_enterprise_agent_reference_model.connector_mcp_server_plan', null, 'ref', 'connectors'],
-        ['premium_domain_source_alignment_count', 'cp', 'premium_enterprise_agent_reference_model.domain_source_alignment', null, 'gte', 5],
-        ['premium_replay_benchmark_count', 'cp', 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', null, 'ref', 'flows'],
-        ['premium_buildout_wait_days_required', 'i', 'premium_enterprise_agent_reference_model.accelerated_activation_contract.buildout_wait_days_required', 30, 'eq', 0],
-        ['enterprise_flow_operating_package_source_count', 'cp', 'enterprise_flow_operating_packages.source_basis', null, 'gte', 10],
-        ['enterprise_flow_operating_package_count', 'cp', 'enterprise_flow_operating_packages.flow_packages', null, 'ref', 'flows'],
-        ['enterprise_flow_operating_package_metric_count', 'cp', 'enterprise_flow_operating_packages.package_observability.required_metrics', null, 'gte', 6],
-        ['enterprise_flow_operating_package_wait_blocker_enabled', 'b', 'enterprise_flow_operating_packages.operating_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['activation_source_track_count', 'cp', 'enterprise_integration_activation_plan.source_activation_tracks', null, 'gte', 5],
-        ['activation_connector_track_count', 'cp', 'enterprise_integration_activation_plan.connector_activation_tracks', null, 'ref', 'connectors'],
-        ['activation_flow_matrix_count', 'cp', 'enterprise_integration_activation_plan.flow_activation_matrix', null, 'ref', 'flows'],
-        ['operational_dress_rehearsal_flow_runbook_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', null, 'ref', 'flows'],
-        ['operational_dress_rehearsal_live_probe_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', null, 'ref', 'connectors'],
-        ['operational_dress_rehearsal_acceptance_packet_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', null, 'ref', 'flows'],
-        ['operational_dress_rehearsal_rollback_drill_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', null, 'ref', 'flows'],
-        ['operational_dress_rehearsal_promotion_evidence_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', null, 'ref', 'flows'],
-        ['operational_dress_rehearsal_metric_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.dress_rehearsal_observability.required_metrics', null, 'gte', 7],
-        ['operational_dress_rehearsal_wait_blocker_enabled', 'b', 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        ['autonomy_promotion_stage_count', 'cf', 'autonomy_promotion_ladder', null, 'gte', 4],
-        ['connector_count', 'cf', 'connectors', null, 'gte', 3],
-        ['toolchain_count', 'cf', 'toolchain', null, 'ref', 'connectors'],
-        ['okr_count', 'cp', 'enterprise_operating_system.okr_scorecard', null, 'gte', 4],
-        ['risk_count', 'cp', 'enterprise_operating_system.risk_register', null, 'gte', 4],
-        ['runbook_count', 'cp', 'enterprise_operating_system.runbooks', null, 'ref', 'flows'],
-        ['work_product_count', 'cf', 'work_products', null, 'gte', 5],
-        ['metric_count', 'cf', 'metrics', null, 'gte', 4],
-        ['cadence_count', 'cf', 'cadences', null, 'gte', 3],
-        [null, 's', 'enterprise_company_operating_blueprint_stack.schema', null, 'eq', 'atlas.ai.company.enterprise_company_operating_blueprint_stack.v1'],
-        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_repository_adoption_matrix_required', false, 'true', null],
-        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_tool_permission_manifest_required', false, 'true', null],
-        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_eval_replay_recipe_required', false, 'true', null],
-        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.runtime_use_before_local_contract_tests_allowed', true, 'false', null],
-        [null, 'b', 'enterprise_productized_service_stack.product_policy.calendar_wait_blocker_enabled', true, 'false', null],
-        [null, 'b', 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.direct_source_link_required', false, 'true', null],
-        [null, 'b', 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.claim_without_source_link_allowed', true, 'false', null],
-        [null, 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.source_linked_financial_claim_required', false, 'true', null],
-        [null, 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.model_risk_review_required_for_investment_or_capital_recommendation', false, 'true', null],
-        [null, 'b', 'enterprise_production_connector_preflight_stack.preflight_policy.production_cutover_without_operator_signed_scope_allowed', true, 'false', null],
-        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.direct_source_hyperlinks_required', false, 'true', null],
-        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.cross_source_verification_required', false, 'true', null],
-        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.external_data_mutation_allowed', true, 'false', null],
-        [null, 'b', 'enterprise_domain_provider_workbench_stack.workbench_policy.provider_write_or_paid_action_default', true, 'false', null],
-        [null, 'b', 'enterprise_industry_solution_ecosystem_stack.enterprise_adoption_program.external_contracting_allowed_by_stack', true, 'false', null],
-        [null, 'b', 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.external_mutation_allowed_during_rehearsal', true, 'false', null],
-    ];
-
-    /**
-     * @param array<string,mixed> $company
-     * @return array<string,mixed>
-     */
-    private function readiness(array $company): array
-    {
-        $ok = true;
-        $readiness = ['ok' => false];
-
-        foreach (self::READINESS_RULES as [$key, $kind, $path, $default, $op, $ref]) {
-            $value = match ($kind) {
-                'cp' => count((array) data_get($company, $path, [])),
-                'cf' => count((array) $company[$path]),
-                'b' => (bool) data_get($company, $path, $default),
-                'i' => (int) data_get($company, $path, $default),
-                default => data_get($company, $path),
-            };
-            $ok = $ok && match ($op) {
-                'gte' => $value >= $ref,
-                'ref' => $value >= count((array) $company[$ref]),
-                'refp' => $value >= count((array) data_get($company, $ref, [])),
-                'false' => $value === false,
-                'true' => $value === true,
-                'eq' => $value === $ref,
-                default => true,
-            };
-            if ($key !== null) {
-                $readiness[$key] = $value;
-            }
-        }
-
-        // ponytail: composite arithmetic thresholds stay verbatim (no DSL); pure AND terms, order-free.
-        $readiness['ok'] = $ok
-            && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.node_catalog', [])) >= (
-                count((array) $company['functions'])
-                + count((array) $company['agent_roles'])
-                + count((array) $company['flows'])
-                + count((array) $company['connectors'])
-                + count((array) $company['metrics'])
-                )
-            && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
-            && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
-            && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7)
-            && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7);
-
-        return $readiness;
-    }
 }
