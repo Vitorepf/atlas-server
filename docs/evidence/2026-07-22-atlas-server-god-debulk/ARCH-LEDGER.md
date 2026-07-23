@@ -46,8 +46,14 @@ implementacao_fase_A: |
   [2/3] A1-SC-0056 (forja de dispatch receipt) — FECHADO 9f200457c. Guard fail-closed no writer (Section): hash_equals(dispatch_envelope_hash, stableHash(preflight.dispatch_envelope_draft)) + parseFutureSingleUseExpiry (futuro, TTL 3600s, persiste instante) + receipt_key server-derivado do envelope. RED→GREEN (AtlasAiSelfConstructionAgentDispatchReceiptWriteAuthorityTest 3/3). Verificado por 4 lentes adversariais (bypass/blast/hash/completude)=FIX_HOLDS; 0 regressão (22 dispatch verdes; 3 reds command test = pré-existentes acceptance-bridge). Signer-identity DEFERIDA (authZ, feature futura).
 blocos_classificados: 129   # de 129 — MAPA COMPLETO (fase 1 da lane ARQUITETURA fechada)
 blueprints_draft: [TODOS os 7 VERIFICADOS adversarialmente e emendados — SelfConstructionReadiness v2, RuntimeExecution v2 RE-VERIFICADO (fatais consertados), ProviderPipeUnification v2.1, KernelTriad v2, LearningConsolidation v2, QuarantineACDE v2, RootSinglesRehome v2]
-blueprints_approved: []
-needs_operator:
+blueprints_approved: [TODOS OS 7 — operador aprovou 2026-07-23 via 4 decisões broad (ver operator_decisions_resolved)]
+operator_decisions_resolved:  # 2026-07-23, AskUserQuestion, todas na recomendação
+  - "D1 golden-first godfiles SEM teste: SIM nos 2 (ExternalActionMandate 22.8k + AutonomousHolding 10k). Protocolo: escrever golden characterization das APIs públicas em inputs fixos → provar verde → split mecânico (corpos verbatim) mantendo golden verde → commit escopado."
+  - "D2 cluster Readiness (~90k, 9 files): SIM executar blueprint SelfConstructionReadiness.md como obra dedicada com verify adversarial por fatia."
+  - "D3 scanner-pin: SIM afrouxar CASO A CASO COM PROVA (provar que o token migra sem furar a proteção; reversível)."
+  - "D4 fusões dos 7 blueprints: SIM executar (git mv + shims temporários + sweep de imports)."
+  - "REGRA DE SEQUENCIAMENTO (anti-colisão, pétrea): fusão de namespace = operação mais colisível em árvore compartilhada. NÃO fundir MemoryGovernance→Memory nem tocar app/Services/Ai/Memory/* enquanto o codex estiver vivo lá (staged visto nesta sessão). NÃO tocar AtlasUniversalGatesEvaluator/Gates/ enquanto task_291dc1c0 (sessão do operador) roda. Executar fusões só em lanes SEM engine vivo; verificar `git diff --cached --name-only` vazio + esperar index.lock antes de cada mv."
+needs_operator:  # RESOLVIDO — todos os 16 itens abaixo cobertos por D1-D4 acima; mantidos como checklist de execução
   - "Aprovar blueprint SelfConstructionReadiness.md (draft→approved) — destrava splits Fase 1+ do EXECUTE"
   - "Aprovar 4 FUSE do cluster RUNTIME (ReleaseGate→Readiness · ToolRuntime→Runtime · VerifiedExecution→RealExecution · VCE→RuntimeEfficiency)"
   - "Aprovar ROTEAMENTO: FUSE Router→RouterRuntime · FUSE Provider→AiProviderManager (fecha registry paralela) · QUARANTINE CapabilityMarket; raiz do bypass = resolver-closure do Swarm + registry dupla (fix vai a blueprint)"
