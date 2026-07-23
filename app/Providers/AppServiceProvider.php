@@ -26,16 +26,8 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopInsightBackpropService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
-use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
@@ -258,8 +250,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
 
 
-        // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
         // Force-load the command file so the in-file port interface + default impl are visible to PSR-4.
         \class_exists(\App\Console\Commands\AtlasAaelExecutionRollbackCommand::class);
@@ -284,46 +274,6 @@ class AppServiceProvider extends ServiceProvider
             AtlasLoopBroaderRegressionGate::class,
         );
 
-        // ARBOR-GRAFT: the loop-back service is autowired (made, not bound), so its nullable tree deps
-        // (idea-tree accessor, insight-backprop, failure-supply tree-producer) would all resolve to null —
-        // leaving reflectTreeNode AND the failure-supply expansion DEAD in production regardless of flags
-        // (Laravel does not inject `?Type = null`). Bind it explicitly with the trio resolved. All three are
-        // read-only ADVISORY producers (firewall-walled from every gate); each path is flag-gated default-OFF
-        // and fail-open, so binding them is byte-identical until the operator arms idea_tree_enabled /
-        // insight_backprop_enabled / failure_supply_enabled.
-        $this->app->bind(
-            AtlasLoopBackService::class,
-            fn ($app) => new AtlasLoopBackService(
-                $app->make(AtlasLoopTargetRepository::class),
-                null, // AtlasLoopIdeaTreeAccessor deleted (cd018c6b3f); advisory dep, flag-gated OFF
-                rescue(fn () => $app->make(AtlasLoopInsightBackpropService::class), null, false),
-                null, // AtlasLoopHypothesisTreeProducer deleted (cd018c6b3f); advisory dep, flag-gated OFF
-            ),
-        );
-        // ITEM9 — MACHINE-VERIFIED completeness. Bind the resolver, and (BLOCKING) bind the certifier
-        // EXPLICITLY: it has no bind today (zero-config autowired) and Laravel does NOT inject
-        // `?Type $x = null`, so without this BOTH its signalAnalyzer AND completenessResolver resolve to
-        // null — an armed completeness gate would then refute EVERY real refactor (the god-class criterion
-        // can never measure without a LIVE analyzer). Pass all 4 required deps + a live signal analyzer +
-        // the resolver; rescue() preserves the fail-open contract.
-        $this->app->bind(
-            AtlasLoopCompletenessCriteriaResolver::class,
-            fn ($app) => new AtlasLoopCompletenessCriteriaResolver(
-                rescue(fn () => $app->make(AtlasLoopCrossFileConsumerGateService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
-            ),
-        );
-        $this->app->bind(
-            AtlasLoopSemanticImplementationCertifier::class,
-            fn ($app) => new AtlasLoopSemanticImplementationCertifier(
-                $app->make(AtlasEngineeringHonestyGate::class),
-                $app->make(AdversarialProofPanelService::class),
-                $app->make(AtlasLoopMutationAdequacyGateService::class),
-                $app->make(AtlasLoopCrossFileConsumerGateService::class),
-                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopCompletenessCriteriaResolver::class), null, false),
-            ),
-        );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`
         // session stays warm across the worker's jobs. maxServed bounds the long-lived
         // process before it is recycled.
@@ -478,10 +428,6 @@ class AppServiceProvider extends ServiceProvider
         // was deleted by cd018c6b3f; the interface has no live impl and only comment-refs remain
         // (GAP-17, ACDE-dead). Restore the impl if the trading/evolution loop is ever revived.
 
-        // W40-S5 — provider effort policy sits BELOW provider routing: the router chooses the provider/tier,
-        // this decorator only sets the Hermes reasoning_effort hint. Flag OFF preserves the configured
-        // default effort; flag ON lets task class lower/raise effort deterministically.
-        $this->app->singleton(AtlasLoopProviderEffortPolicy::class);
 
 
         // Vox V3 confirmation cache: pin the default cache repository so the
