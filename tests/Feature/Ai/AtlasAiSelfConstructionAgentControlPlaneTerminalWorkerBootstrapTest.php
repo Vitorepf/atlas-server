@@ -682,6 +682,46 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         }
     }
 
+    public function test_cli_non_preview_status_characterizes_read_only_wrapper_and_durable_claim_effects(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $queueCountBefore = (int) $queue->registry()['total_count'];
+        $activeLeaseCountBefore = count($leases->activeLeases());
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-terminal-worker-bootstrap-status' => true,
+            '--actor' => 'cli-non-preview-contract',
+            '--target-min-claimable-tasks' => 1,
+            '--max-new-tasks' => 1,
+            '--queue-tag' => ['cli_non_preview_contract_lane'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_terminal_worker_bootstrap_status.v1', $payload['schema_version']);
+        $this->assertSame('read_only_agent_control_plane_terminal_worker_bootstrap_status', $payload['mode']);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertFalse((bool) $payload['execution_allowed']);
+        $this->assertFalse((bool) $payload['dispatch_allowed']);
+        $this->assertFalse((bool) $payload['ledger_write_allowed']);
+        $this->assertFalse((bool) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.preview_only'));
+        $this->assertSame('ready_for_worker', data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.status'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.runtime_claim_persisted'));
+        $taskPacketId = (string) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.task_packet_id');
+        $leaseId = (string) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.lease_id');
+        $this->assertNotEmpty($taskPacketId);
+        $this->assertNotEmpty($leaseId);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['agent_control_plane_terminal_worker_bootstrap_status_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap.bootstrap_hash'));
+        $this->assertGreaterThan($queueCountBefore, (int) $queue->registry()['total_count']);
+        $this->assertGreaterThan($activeLeaseCountBefore, count($leases->activeLeases()));
+        $this->assertCount(1, $queue->list(['tag' => 'cli_non_preview_contract_lane']));
+        $this->assertSame('claimed', data_get($queue->get($taskPacketId), 'status'));
+        $this->assertSame($taskPacketId, data_get($leases->get($leaseId), 'task_packet_id'));
+        $this->assertSame('cli-non-preview-contract', data_get($leases->get($leaseId), 'agent_id'));
+    }
+
     public function test_cli_preview_status_is_read_only(): void
     {
         $queueCountBefore = (int) (new AgentControlPlaneTaskPacketQueueRepository)->registry()['total_count'];
