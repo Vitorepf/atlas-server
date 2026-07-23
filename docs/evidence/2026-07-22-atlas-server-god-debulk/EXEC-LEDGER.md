@@ -4,17 +4,17 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0166 post-start status scope closed
+phase: A1-SC-0168 post-start status snapshot closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: scope every Codex post-start gate status to the requested run identity
-finding_id: A1-SC-0166
-action_op: filter observed and provider-run status queries by workspace, target, actor, session, packet, and receipt hash
+focus: derive every Codex post-start gate status from one coherent Agent Run read
+finding_id: A1-SC-0168
+action_op: replace separate latest/count/provider SQL reads with one scoped snapshot and in-memory projections
 queue_index: 6
-last_commit: 9a68592a8
+last_commit: dbc78ec92
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --filter=test_post_start_statuses_scope_observed_and_provider_counts_to_the_requested_run_identity
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --filter=test_post_start_status_derives_latest_and_counts_from_one_agent_run_snapshot
   /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --compact
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --compact
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
@@ -23,22 +23,22 @@ commands: |
   vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
   git diff --check
 before_after: |
-  red: all eight public status projections accepted a requested run identity yet reported seven globally matching rows; their latest projection could consequently disclose a newer unrelated run.
-  green: all eight projections report one observed run, one provider-start run, and the matching packet after workspace, target, actor, session, packet, and receipt hash filters are applied.
+  red: an interleaved persisted provider-start run arriving after the first status query made the old multi-query projection report 2 records instead of the original snapshot's 1.
+  green: the same interleave occurs after the single Agent Run read; latest, observed count, and provider count continue to describe the original one-row snapshot.
 stdout: |
-  red_characterization: FAIL 1 test, 1 assertion (expected 1 observed run, received 7)
-  focused: PASS 1 test, 24 assertions
-  new_feature_file: PASS 1 test, 24 assertions
+  red_characterization: FAIL 1 test, 2 assertions (expected observed count 1, received 2 after an actual query-listener interleave)
+  focused: PASS 1 test, 4 assertions
+  new_feature_file: PASS 2 tests, 28 assertions
   existing_section_unit_file: PASS 2 tests, 5 assertions
   php_lint: PASS source plus changed Feature test
   feature_pint: PASS
   source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, fully_qualified_strict_types, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space, ordered_imports) were left untouched outside this focused change
-  loc_check: readiness_projection_post_start_gate_status_section=1526
+  loc_check: readiness_projection_post_start_gate_status_section=1477
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes each real public status method against persisted Agent Run rows; it does not use reflection or mocks.
-  A common private query scope applies only provided non-empty options. target is a persisted metadata target, receipt_hash is the Agent Run completion_evidence_hash, and all other scope fields map to their canonical Agent Run columns.
+  Characterization executes the real public executor-plan status against persisted Agent Run rows; a DB query listener persists the interloper only after its select begins. It does not use reflection or mocks.
+  Every status now gets a single scoped Agent Run snapshot, retains only rows that match its observed or provider metadata path, then derives latest/counts from that in-memory snapshot.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   The source remains below 2k; no new class or helper was introduced. The existing source formatting drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -2116,6 +2116,37 @@ boundary:
 write_back:
   status: recorded_for_human_review
   outcome_id: A1-SC-0166
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 67 — A1-SC-0168 snapshot post-start status runs, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: dbc78ec92
+subject: "refactor(core): GOD-DEBULK snapshot post-start status runs"
+red:
+  result: "FAIL 1 test, 2 assertions: an actual Agent Run insert between the old latest and count reads made the status report 2 records rather than the pre-interleave snapshot's 1."
+green:
+  behavior: "Each of the eight public statuses now executes one scoped Agent Run read and derives its observed count, provider-start count, and latest record from that immutable in-process collection."
+verification:
+  focused_feature: "PASS 1 test, 4 assertions"
+  new_feature_file: "PASS 2 tests, 28 assertions"
+  existing_section_unit_file: "PASS 2 tests, 5 assertions"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN only for existing full-file formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "readiness_projection_post_start_gate_status_section=1477 (<2000)"
+boundary:
+  - the focused regression persists its interloper only after the real Agent Run select begins; it exercises the public status method without reflection or mocks
+  - applies the one-read snapshot to all eight status methods while retaining each method's observed/provider metadata predicates
+  - status projections remain read-only: no provider call, dispatch, token spend, runtime activation, or durable write occurs outside test fixtures
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0168
   context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
