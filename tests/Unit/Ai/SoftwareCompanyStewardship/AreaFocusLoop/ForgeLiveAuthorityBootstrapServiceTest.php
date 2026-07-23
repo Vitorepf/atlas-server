@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeProviderTopologyPort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
+use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityBootstrapService;
 use Illuminate\Support\Facades\Artisan;

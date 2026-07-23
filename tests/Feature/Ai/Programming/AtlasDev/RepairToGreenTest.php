@@ -22,7 +22,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;

@@ -16,7 +16,7 @@ use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
 use App\Services\Ai\Programming\Forge\AtlasForgeProviderLifecycleAdapter;
 use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
 use App\Models\AiForgeWorkPacketExecutionCycle;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;

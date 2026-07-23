@@ -9,7 +9,7 @@ use App\Services\Ai\Programming\AtlasForgeGovernedPromotionService;
 use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Illuminate\Database\Schema\Blueprint;

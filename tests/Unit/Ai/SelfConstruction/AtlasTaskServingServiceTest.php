@@ -26,7 +26,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;

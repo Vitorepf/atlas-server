@@ -25,7 +25,7 @@ use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Closure;
 use Illuminate\Support\Facades\Artisan;

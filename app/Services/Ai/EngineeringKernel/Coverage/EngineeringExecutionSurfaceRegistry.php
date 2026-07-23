@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\Coverage;
 
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 
 final class EngineeringExecutionSurfaceRegistry

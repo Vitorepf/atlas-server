@@ -14,7 +14,7 @@ use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\OperationalDecision;

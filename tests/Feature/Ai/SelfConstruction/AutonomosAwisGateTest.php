@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use RuntimeException;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;

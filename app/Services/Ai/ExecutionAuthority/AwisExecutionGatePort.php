@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority;
+namespace App\Services\Ai\ExecutionAuthority;
 
 /**
  * AP-789 port for the REAL AWIS execution gate

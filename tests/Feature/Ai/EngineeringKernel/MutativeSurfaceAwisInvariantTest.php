@@ -3,7 +3,7 @@
 namespace Tests\Feature\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Tests\TestCase;
 

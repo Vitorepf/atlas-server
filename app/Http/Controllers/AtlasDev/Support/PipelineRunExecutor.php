@@ -90,7 +90,7 @@ use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\HermesWorkspaceDefaults;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Throwable;
 use Illuminate\Contracts\Container\Container;

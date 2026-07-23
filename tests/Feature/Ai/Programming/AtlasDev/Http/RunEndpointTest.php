@@ -16,7 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use Illuminate\Support\Carbon;
 use Tests\Concerns\BootsCompoundingSchema;
 

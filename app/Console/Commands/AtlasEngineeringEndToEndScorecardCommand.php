@@ -10,7 +10,7 @@ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegist
 use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use DateTimeImmutable;

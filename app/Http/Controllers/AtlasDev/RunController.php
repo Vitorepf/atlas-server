@@ -24,7 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;

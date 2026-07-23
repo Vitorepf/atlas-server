@@ -8,7 +8,7 @@ use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;

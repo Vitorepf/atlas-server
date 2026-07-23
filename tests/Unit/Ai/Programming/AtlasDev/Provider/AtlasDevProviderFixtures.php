@@ -33,8 +33,8 @@ trait AtlasDevProviderFixtures
     private function bindAllowedAwisGate(): void
     {
         app()->instance(
-            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort::class,
-            new class implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort
+            \App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort::class,
+            new class implements \App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort
             {
                 public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
                 {

@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
  * Produces the provider/subagent-safe projection that Dev, Forge and worker
  * handoffs should receive instead of raw workspace state or full conversations.
  */
-final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort
+final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort
 {
     public const SCHEMA_VERSION = 'atlas.workspace_handoff_pack.v1';
 

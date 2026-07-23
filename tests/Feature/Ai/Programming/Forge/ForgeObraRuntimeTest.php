@@ -17,7 +17,7 @@ use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
