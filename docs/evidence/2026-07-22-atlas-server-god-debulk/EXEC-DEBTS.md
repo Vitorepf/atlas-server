@@ -11,7 +11,7 @@ wave: A1
 bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
-current_focus: A1-SC-0001..0008 (queued; readiness facade split and ownership)
+current_focus: A1-SC-0001..0008 (TEST committed; BUGFIX_PLAN next for status/write authority and fail-closed defaults)
 claimed_paths:
   - tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
@@ -49,8 +49,12 @@ claimed_paths:
    from the returned surface (`7d7aa7c35e`, shared-index label collision
    recorded in EXEC-LEDGER).
 6. **A1-SC-0001..0008** — `AtlasSelfConstructionReadinessService.php`
-   - TEST status/write honesty + payload contracts
-   - BUGFIX read-only vs mutate + fail-closed defaults
+   - TEST status/write honesty + payload contracts — complete (`01d67824c`): a
+     public non-preview bootstrap status now has a focused characterization
+     fixture that freezes its outer schema/default flags, hashes, returned IDs,
+     and durable queue/lease effects.
+   - BUGFIX_PLAN next: read-only vs mutate authority and fail-closed defaults
+     before any structural split.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):

@@ -2202,3 +2202,28 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 70 — A1-SC characterize terminal bootstrap status mutation truth, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
+commit: 01d67824c
+subject: "test(core): GOD-DEBULK A1-SC characterize bootstrap mutation truth"
+verification:
+  focused_feature: "PASS 1 test, 19 assertions"
+  prescribed_three_feature_files: "NOT GREEN baseline 10 failed, 60 passed, 575 assertions: lease-terminal reopening, replenishment count/reference, and bootstrap multi-lane failures remain outside this TEST-only action."
+  prescribed_publisher_feature: "NOT GREEN baseline 1 failed, 6 passed, 76 assertions: missing publisher contract CLI option."
+  php_lint: "PASS changed Feature test"
+  guard: "PASS; observed 11 files above 5k and 43 above 2k, both existing broad debt"
+  diff_check: PASS
+  review: "PASS after binding returned task/lease IDs to persisted records and covering all wrapper defaults"
+boundary:
+  - exercises the public non-preview CLI status with a fake local store, not a private method or mock
+  - freezes the actual outer read-only labels beside the queue packet and active lease the same status call persists
+  - changes only a characterization test; no production behavior, dispatch, provider call, token spend, or real runtime artifact changes
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
