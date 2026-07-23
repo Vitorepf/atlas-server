@@ -1,0 +1,661 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\SelfConstruction\Readiness\CodexReviewMerge;
+
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
+
+/**
+ * CODEX REVIEW MERGE pipeline sub-section 11 of 11, sub-split from the
+ * god {@see \App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionCodexReviewMergeSection}
+ * (GOD-DEBULK). Method bodies are byte-identical to the parent Section; the only
+ * rewrite is that sibling/upstream calls route through the injected mother
+ * ($this->parent->codex*), which re-dispatches to whichever collaborator owns
+ * the target stage.
+ *
+ * Stage range: codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionTaskCandidateOutlineTemplate
+ *           .. codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionReadyCheckPreviewTemplate
+ */
+final class CodexReviewMergePart11SubSection
+{
+    public function __construct(
+        private readonly AtlasSelfConstructionReadinessService $parent,
+    ) {}
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionTaskCandidateOutlineTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketDraftPreviewTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketScopePreviewTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketStartContractPreviewTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionOperatorPromptPreviewTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionReadyCheckPreviewTemplate(array $options = []): array
+    {
+        return $this->laterCycleChainProjection(__FUNCTION__, $options);
+    }
+
+    /**
+     * R-15 (Obra #8): chain-walker generico da subfamilia LaterCycle. Reconstroi
+     * cada projecao a partir do descritor em LATER_CYCLE_CHAIN_SPECS preservando
+     * byte-identidade (ordem de chaves aninhadas intacta; hashes encadeados).
+     */
+    private function laterCycleChainProjection(string $method, array $options): array
+    {
+        $spec = self::LATER_CYCLE_CHAIN_SPECS[$method];
+        $env = ['options' => $options];
+        [$upVar, $upMethod] = $spec['u'];
+        $env[$upVar] = $this->parent->{$upMethod}($options);
+
+        foreach ($spec['x'] as [$var, $src, $key]) {
+            $env[$var] = (array) data_get($env[$src], $key, []);
+        }
+
+        $ready = data_get($env[$spec['r'][0]], $spec['r'][1]) === $spec['r'][2];
+
+        foreach ($spec['l'] as $name => $list) {
+            $env[$name] = ($list[0] ?? null) === '@tl' ? ($ready ? $list[1] : $list[2]) : $list;
+        }
+
+        $payload = $this->laterCycleChainResolve($spec['b'], $env, $ready, null);
+
+        return $this->laterCycleChainResolve($spec['e'], $env, $ready, $payload);
+    }
+
+    private function laterCycleChainResolve(mixed $node, array $env, bool $ready, ?array $payload): mixed
+    {
+        if (!is_array($node)) {
+            return $node;
+        }
+
+        switch ($node[0] ?? null) {
+            case '@t': return $ready ? $node[1] : $node[2];
+            case '@g': return data_get($env[$node[1]], $node[2]);
+            case '@ga': return (array) data_get($env[$node[1]], $node[2], []);
+            case '@gd': return data_get($env[$node[1]], $node[2], []);
+            case '@c': return count($env[$node[1]]);
+            case '@v': return $env[$node[1]];
+            case '@p': return $payload;
+            case '@h': return ReadinessHash::stable($payload);
+        }
+
+        $resolved = [];
+        foreach ($node as $key => $value) {
+            $resolved[$key] = $this->laterCycleChainResolve($value, $env, $ready, $payload);
+        }
+
+        return $resolved;
+    }
+
+    private const LATER_CYCLE_CHAIN_SPECS = [
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionTaskCandidateOutlineTemplate' => [
+            'u' => ['workIntakePayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionWorkIntakePreviewTemplate'],
+            'x' => [['workIntake', 'workIntakePayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview']],
+            'r' => ['workIntakePayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_template_ready'],
+            'l' => [
+                'outlineItems' => ['task_candidate_outline_requires_work_intake_preview_hash', 'task_candidate_outline_can_describe_candidate_tasks_only', 'task_candidate_outline_must_not_create_tasks', 'task_candidate_outline_must_not_assign_owners', 'task_candidate_outline_must_not_claim_or_complete_packets', 'task_candidate_outline_must_not_allow_file_edits', 'task_candidate_outline_must_not_dispatch_parallel_sessions', 'task_candidate_outline_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-TASK-CANDIDATE-OUTLINE-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash' => ['@g', 'workIntakePayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_hash' => ['@g', 'workIntake', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_hash'],
+                'activation_session_task_candidate_outline_items' => ['@v', 'outlineItems'],
+                'activation_session_task_candidate_outline_count' => ['@c', 'outlineItems'],
+                'task_candidate_outlines_preview_only' => [['candidate_id' => 'TASK-CANDIDATE-DOC-CONTRACT-REVIEW', 'category' => 'documentation_contract_review', 'scope' => 'review documentation contract consistency without editing project code or creating tasks', 'allowed_result' => 'read_only_findings_candidate', 'task_created' => false, 'work_assigned' => false], ['candidate_id' => 'TASK-CANDIDATE-SURFACE-MATRIX-OBSERVATION', 'category' => 'surface_matrix_observation', 'scope' => 'observe whether command surface matrix names the next template without dispatching work', 'allowed_result' => 'read_only_observation_candidate', 'task_created' => false, 'work_assigned' => false], ['candidate_id' => 'TASK-CANDIDATE-TEST-GAP-IDENTIFICATION', 'category' => 'test_gap_identification', 'scope' => 'identify future test assertions without opening an implementation packet', 'allowed_result' => 'read_only_gap_candidate', 'task_created' => false, 'work_assigned' => false]],
+                'required_activation_session_task_candidate_outline_evidence' => ['later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash', 'decision_record_activation_session_task_candidate_outline_persisted_false', 'decision_record_activation_session_work_intake_preview_persisted_false', 'task_created_false', 'work_assigned_false', 'file_edit_allowed_false', 'writer_file_creation_allowed_false', 'codex_start_packet_created_false', 'packet_claimed_false', 'packet_completed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_task_candidate_outline_policy' => ['decision_record_activation_session_task_candidate_outline_requires_work_intake_preview_hash', 'decision_record_activation_session_task_candidate_outline_requires_outline_persisted_flag_false', 'decision_record_activation_session_task_candidate_outline_does_not_persist_outline', 'decision_record_activation_session_task_candidate_outline_does_not_create_tasks', 'decision_record_activation_session_task_candidate_outline_does_not_assign_work', 'decision_record_activation_session_task_candidate_outline_does_not_allow_file_edits', 'decision_record_activation_session_task_candidate_outline_does_not_create_writer_files', 'decision_record_activation_session_task_candidate_outline_does_not_create_codex_start_packet', 'decision_record_activation_session_task_candidate_outline_does_not_claim_packets', 'decision_record_activation_session_task_candidate_outline_does_not_complete_packets', 'decision_record_activation_session_task_candidate_outline_does_not_dispatch_parallel_work', 'decision_record_activation_session_task_candidate_outline_does_not_notify_human', 'decision_record_activation_session_task_candidate_outline_does_not_activate_writer', 'decision_record_activation_session_task_candidate_outline_does_not_accept_writer_candidate', 'decision_record_activation_session_task_candidate_outline_does_not_allow_writer_implementation', 'decision_record_activation_session_task_candidate_outline_does_not_record_decision', 'decision_record_activation_session_task_candidate_outline_does_not_write_ledger', 'decision_record_activation_session_task_candidate_outline_does_not_grant_approval', 'decision_record_activation_session_task_candidate_outline_does_not_authorize_later_cycle', 'decision_record_activation_session_task_candidate_outline_does_not_merge_or_dispatch'],
+                'future_activation_session_task_candidate_outline_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_work_intake_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_task_candidate_outline_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_draft_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template' => ['activation_session_task_candidate_outline_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_work_intake_preview_persisted' => false,
+                'decision_record_activation_session_task_candidate_outline_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_work_intake_preview_persisted' => false,
+                'decision_record_activation_session_task_candidate_outline_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_create_tasks', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_assign_work', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_create_writer_files', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_persist_outline', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_merge', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session task candidate outline template is ready as a non-persisting read-only task candidate outline. It can describe candidate task shapes only; it still does not create tasks, assign work, allow file edits, create writer files, claim packets, complete packets, record a decision, grant approval, authorize a later cycle, write ledger, mutate writer state, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session task candidate outline template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session work intake preview template is ready.'],
+            ],
+        ],
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketDraftPreviewTemplate' => [
+            'u' => ['taskOutlinePayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionTaskCandidateOutlineTemplate'],
+            'x' => [['taskOutline', 'taskOutlinePayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline']],
+            'r' => ['taskOutlinePayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_ready'],
+            'l' => [
+                'previewItems' => ['packet_draft_preview_requires_task_candidate_outline_hash', 'packet_draft_preview_can_describe_packet_shape_only', 'packet_draft_preview_must_not_create_packets', 'packet_draft_preview_must_not_create_tasks', 'packet_draft_preview_must_not_claim_or_complete_packets', 'packet_draft_preview_must_not_allow_file_edits', 'packet_draft_preview_must_not_dispatch_parallel_sessions', 'packet_draft_preview_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-PACKET-DRAFT-PREVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash' => ['@g', 'taskOutlinePayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash' => ['@g', 'taskOutline', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash'],
+                'activation_session_packet_draft_preview_items' => ['@v', 'previewItems'],
+                'activation_session_packet_draft_preview_count' => ['@c', 'previewItems'],
+                'packet_drafts_preview_only' => [['draft_id' => 'PACKET-DRAFT-DOC-CONTRACT-REVIEW', 'source_candidate_id' => 'TASK-CANDIDATE-DOC-CONTRACT-REVIEW', 'packet_shape' => 'read_only_documentation_contract_review_packet', 'allowed_result' => 'packet_shape_preview_only', 'packet_created' => false, 'packet_claimable' => false, 'task_created' => false, 'work_assigned' => false], ['draft_id' => 'PACKET-DRAFT-SURFACE-MATRIX-OBSERVATION', 'source_candidate_id' => 'TASK-CANDIDATE-SURFACE-MATRIX-OBSERVATION', 'packet_shape' => 'read_only_surface_matrix_observation_packet', 'allowed_result' => 'packet_shape_preview_only', 'packet_created' => false, 'packet_claimable' => false, 'task_created' => false, 'work_assigned' => false]],
+                'required_activation_session_packet_draft_preview_evidence' => ['later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash', 'decision_record_activation_session_packet_draft_preview_persisted_false', 'decision_record_activation_session_task_candidate_outline_persisted_false', 'packet_created_false', 'packet_claimable_false', 'task_created_false', 'work_assigned_false', 'file_edit_allowed_false', 'writer_file_creation_allowed_false', 'codex_start_packet_created_false', 'packet_claimed_false', 'packet_completed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_packet_draft_preview_policy' => ['decision_record_activation_session_packet_draft_preview_requires_task_candidate_outline_hash', 'decision_record_activation_session_packet_draft_preview_requires_preview_persisted_flag_false', 'decision_record_activation_session_packet_draft_preview_does_not_persist_preview', 'decision_record_activation_session_packet_draft_preview_does_not_create_packets', 'decision_record_activation_session_packet_draft_preview_does_not_create_tasks', 'decision_record_activation_session_packet_draft_preview_does_not_assign_work', 'decision_record_activation_session_packet_draft_preview_does_not_allow_file_edits', 'decision_record_activation_session_packet_draft_preview_does_not_create_writer_files', 'decision_record_activation_session_packet_draft_preview_does_not_create_codex_start_packet', 'decision_record_activation_session_packet_draft_preview_does_not_claim_packets', 'decision_record_activation_session_packet_draft_preview_does_not_complete_packets', 'decision_record_activation_session_packet_draft_preview_does_not_dispatch_parallel_work', 'decision_record_activation_session_packet_draft_preview_does_not_notify_human', 'decision_record_activation_session_packet_draft_preview_does_not_activate_writer', 'decision_record_activation_session_packet_draft_preview_does_not_accept_writer_candidate', 'decision_record_activation_session_packet_draft_preview_does_not_allow_writer_implementation', 'decision_record_activation_session_packet_draft_preview_does_not_record_decision', 'decision_record_activation_session_packet_draft_preview_does_not_write_ledger', 'decision_record_activation_session_packet_draft_preview_does_not_grant_approval', 'decision_record_activation_session_packet_draft_preview_does_not_authorize_later_cycle', 'decision_record_activation_session_packet_draft_preview_does_not_merge_or_dispatch'],
+                'future_activation_session_packet_draft_preview_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_task_candidate_outline_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_draft_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_scope_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template' => ['activation_session_packet_draft_preview_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_task_candidate_outline_persisted' => false,
+                'decision_record_activation_session_packet_draft_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_task_candidate_outline_persisted' => false,
+                'decision_record_activation_session_packet_draft_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_create_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_create_tasks', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_assign_work', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_create_writer_files', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_persist_preview', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet draft preview template is ready as a non-persisting read-only packet draft preview. It can describe packet shapes only; it still does not create packets, create tasks, assign work, allow file edits, create writer files, claim packets, complete packets, record a decision, grant approval, authorize a later cycle, write ledger, mutate writer state, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet draft preview template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session task candidate outline template is ready.'],
+            ],
+        ],
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketScopePreviewTemplate' => [
+            'u' => ['packetDraftPayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketDraftPreviewTemplate'],
+            'x' => [['packetDraft', 'packetDraftPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview']],
+            'r' => ['packetDraftPayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_ready'],
+            'l' => [
+                'scopeRules' => ['packet_scope_preview_requires_packet_draft_preview_hash', 'packet_scope_preview_can_describe_allowed_paths_only', 'packet_scope_preview_can_describe_forbidden_paths_only', 'packet_scope_preview_must_not_allow_file_edits', 'packet_scope_preview_must_not_create_packets', 'packet_scope_preview_must_not_claim_or_complete_packets', 'packet_scope_preview_must_not_dispatch_parallel_sessions', 'packet_scope_preview_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-PACKET-SCOPE-PREVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash' => ['@g', 'packetDraftPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash' => ['@g', 'packetDraft', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash'],
+                'activation_session_packet_scope_preview_rules' => ['@v', 'scopeRules'],
+                'activation_session_packet_scope_preview_rule_count' => ['@c', 'scopeRules'],
+                'packet_scope_previews_read_only' => [['draft_id' => 'PACKET-DRAFT-DOC-CONTRACT-REVIEW', 'allowed_paths_preview_only' => ['docs/engineering-knowledge-base/self-construction/**'], 'forbidden_paths_preview_only' => ['app/**', 'database/**', 'routes/**', 'tests/**'], 'file_edit_allowed' => false, 'scope_persisted' => false, 'packet_created' => false, 'packet_claimable' => false], ['draft_id' => 'PACKET-DRAFT-SURFACE-MATRIX-OBSERVATION', 'allowed_paths_preview_only' => ['app/Console/Commands/AtlasAiSelfConstructionCommand.php', 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php', 'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php'], 'forbidden_paths_preview_only' => ['database/**', 'routes/**', 'resources/**'], 'file_edit_allowed' => false, 'scope_persisted' => false, 'packet_created' => false, 'packet_claimable' => false]],
+                'required_activation_session_packet_scope_preview_evidence' => ['later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash', 'decision_record_activation_session_packet_scope_preview_persisted_false', 'decision_record_activation_session_packet_draft_preview_persisted_false', 'packet_created_false', 'packet_claimable_false', 'scope_persisted_false', 'file_edit_allowed_false', 'task_created_false', 'work_assigned_false', 'writer_file_creation_allowed_false', 'codex_start_packet_created_false', 'packet_claimed_false', 'packet_completed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_packet_scope_preview_policy' => ['decision_record_activation_session_packet_scope_preview_requires_packet_draft_preview_hash', 'decision_record_activation_session_packet_scope_preview_requires_scope_persisted_flag_false', 'decision_record_activation_session_packet_scope_preview_does_not_persist_scope', 'decision_record_activation_session_packet_scope_preview_does_not_create_packets', 'decision_record_activation_session_packet_scope_preview_does_not_create_tasks', 'decision_record_activation_session_packet_scope_preview_does_not_assign_work', 'decision_record_activation_session_packet_scope_preview_does_not_allow_file_edits', 'decision_record_activation_session_packet_scope_preview_does_not_create_writer_files', 'decision_record_activation_session_packet_scope_preview_does_not_create_codex_start_packet', 'decision_record_activation_session_packet_scope_preview_does_not_claim_packets', 'decision_record_activation_session_packet_scope_preview_does_not_complete_packets', 'decision_record_activation_session_packet_scope_preview_does_not_dispatch_parallel_work', 'decision_record_activation_session_packet_scope_preview_does_not_notify_human', 'decision_record_activation_session_packet_scope_preview_does_not_activate_writer', 'decision_record_activation_session_packet_scope_preview_does_not_accept_writer_candidate', 'decision_record_activation_session_packet_scope_preview_does_not_allow_writer_implementation', 'decision_record_activation_session_packet_scope_preview_does_not_record_decision', 'decision_record_activation_session_packet_scope_preview_does_not_write_ledger', 'decision_record_activation_session_packet_scope_preview_does_not_grant_approval', 'decision_record_activation_session_packet_scope_preview_does_not_authorize_later_cycle', 'decision_record_activation_session_packet_scope_preview_does_not_merge_or_dispatch'],
+                'future_activation_session_packet_scope_preview_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_draft_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_scope_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_start_contract_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template' => ['activation_session_packet_scope_preview_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'scope_persisted' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_draft_preview_persisted' => false,
+                'decision_record_activation_session_packet_scope_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'scope_persisted' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_draft_preview_persisted' => false,
+                'decision_record_activation_session_packet_scope_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_create_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_create_tasks', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_assign_work', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_create_writer_files', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_persist_scope', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet scope preview template is ready as a non-persisting read-only packet scope preview. It can describe allowed and forbidden scope only; it still does not create packets, create tasks, assign work, allow file edits, create writer files, claim packets, complete packets, record a decision, grant approval, authorize a later cycle, write ledger, mutate writer state, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet scope preview template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet draft preview template is ready.'],
+            ],
+        ],
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketStartContractPreviewTemplate' => [
+            'u' => ['scopePreviewPayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketScopePreviewTemplate'],
+            'x' => [['scopePreview', 'scopePreviewPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview']],
+            'r' => ['scopePreviewPayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_ready'],
+            'l' => [
+                'previewItems' => ['packet_start_contract_preview_requires_packet_scope_preview_hash', 'packet_start_contract_preview_can_describe_start_contract_shape_only', 'packet_start_contract_preview_must_not_create_codex_start_packet', 'packet_start_contract_preview_must_not_persist_contract', 'packet_start_contract_preview_must_not_claim_or_complete_packets', 'packet_start_contract_preview_must_not_allow_file_edits', 'packet_start_contract_preview_must_not_dispatch_parallel_sessions', 'packet_start_contract_preview_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-PACKET-START-CONTRACT-PREVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash' => ['@g', 'scopePreviewPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash' => ['@g', 'scopePreview', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash'],
+                'activation_session_packet_start_contract_preview_items' => ['@v', 'previewItems'],
+                'activation_session_packet_start_contract_preview_item_count' => ['@c', 'previewItems'],
+                'start_contract_shapes_preview_only' => [['draft_id' => 'PACKET-DRAFT-DOC-CONTRACT-REVIEW', 'actor_placeholder' => '<codex-actor>', 'session_placeholder' => '<session-id>', 'one_line_user_prompt_preview' => 'continua a implementação da forma mais profissional e completa possível', 'bootstrap_command_preview_only' => 'php artisan atlas:ai:self-construction --ai-session-bootstrap --packet=<future-packet-id> --json', 'scope_validator_command_preview_only' => 'php artisan atlas:ai:self-construction --scope-validator --packet=<future-packet-id> --json', 'codex_start_packet_created' => false, 'contract_persisted' => false, 'packet_claimed' => false]],
+                'required_activation_session_packet_start_contract_preview_evidence' => ['later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash', 'decision_record_activation_session_packet_start_contract_preview_persisted_false', 'decision_record_activation_session_packet_scope_preview_persisted_false', 'start_contract_created_false', 'contract_persisted_false', 'codex_start_packet_created_false', 'packet_created_false', 'packet_claimable_false', 'packet_claimed_false', 'packet_completed_false', 'file_edit_allowed_false', 'task_created_false', 'work_assigned_false', 'writer_file_creation_allowed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_packet_start_contract_preview_policy' => ['decision_record_activation_session_packet_start_contract_preview_requires_packet_scope_preview_hash', 'decision_record_activation_session_packet_start_contract_preview_requires_persisted_flag_false', 'decision_record_activation_session_packet_start_contract_preview_does_not_create_start_contract', 'decision_record_activation_session_packet_start_contract_preview_does_not_persist_contract', 'decision_record_activation_session_packet_start_contract_preview_does_not_create_codex_start_packet', 'decision_record_activation_session_packet_start_contract_preview_does_not_create_packets', 'decision_record_activation_session_packet_start_contract_preview_does_not_create_tasks', 'decision_record_activation_session_packet_start_contract_preview_does_not_assign_work', 'decision_record_activation_session_packet_start_contract_preview_does_not_allow_file_edits', 'decision_record_activation_session_packet_start_contract_preview_does_not_create_writer_files', 'decision_record_activation_session_packet_start_contract_preview_does_not_claim_packets', 'decision_record_activation_session_packet_start_contract_preview_does_not_complete_packets', 'decision_record_activation_session_packet_start_contract_preview_does_not_dispatch_parallel_work', 'decision_record_activation_session_packet_start_contract_preview_does_not_notify_human', 'decision_record_activation_session_packet_start_contract_preview_does_not_activate_writer', 'decision_record_activation_session_packet_start_contract_preview_does_not_accept_writer_candidate', 'decision_record_activation_session_packet_start_contract_preview_does_not_allow_writer_implementation', 'decision_record_activation_session_packet_start_contract_preview_does_not_record_decision', 'decision_record_activation_session_packet_start_contract_preview_does_not_write_ledger', 'decision_record_activation_session_packet_start_contract_preview_does_not_grant_approval', 'decision_record_activation_session_packet_start_contract_preview_does_not_authorize_later_cycle', 'decision_record_activation_session_packet_start_contract_preview_does_not_merge_or_dispatch'],
+                'future_activation_session_packet_start_contract_preview_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_scope_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_start_contract_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_session_operator_prompt_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template' => ['activation_session_packet_start_contract_preview_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'start_contract_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_scope_preview_persisted' => false,
+                'decision_record_activation_session_packet_start_contract_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_scope_preview_persisted' => false,
+                'decision_record_activation_session_packet_start_contract_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_create_start_contract', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_create_codex_start_packet', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_create_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_persist_contract', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet start contract preview template is ready as a non-persisting read-only start contract preview. It can describe start contract shape only; it still does not create a start contract, create Codex start packet, claim packets, complete packets, allow file edits, record a decision, write ledger, authorize a later cycle, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet start contract preview template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet scope preview template is ready.'],
+            ],
+        ],
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionOperatorPromptPreviewTemplate' => [
+            'u' => ['startContractPayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionPacketStartContractPreviewTemplate'],
+            'x' => [['startContractPreview', 'startContractPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview']],
+            'r' => ['startContractPayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_ready'],
+            'l' => [
+                'previewItems' => ['session_operator_prompt_preview_requires_packet_start_contract_preview_hash', 'session_operator_prompt_preview_can_describe_operator_prompt_shape_only', 'session_operator_prompt_preview_must_not_persist_prompt', 'session_operator_prompt_preview_must_not_create_start_contract', 'session_operator_prompt_preview_must_not_create_codex_start_packet', 'session_operator_prompt_preview_must_not_claim_or_complete_packets', 'session_operator_prompt_preview_must_not_dispatch_parallel_sessions', 'session_operator_prompt_preview_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-SESSION-OPERATOR-PROMPT-PREVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash' => ['@g', 'startContractPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash' => ['@g', 'startContractPreview', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash'],
+                'activation_session_session_operator_prompt_preview_items' => ['@v', 'previewItems'],
+                'activation_session_session_operator_prompt_preview_item_count' => ['@c', 'previewItems'],
+                'operator_prompt_shapes_preview_only' => [['draft_id' => 'PACKET-DRAFT-DOC-CONTRACT-REVIEW', 'prompt_shape' => 'read_only_operator_prompt_preview', 'one_line_user_prompt_preview' => 'continua a implementação da forma mais profissional e completa possível', 'operator_prompt_preview' => 'Read the packet start contract preview, verify the declared scope and report evidence. Do not persist this prompt, start a session, create a Codex start packet, claim or complete packets, edit files, create tasks, assign work, dispatch sessions, record decisions, write ledger, authorize later cycle, merge or execute work.', 'prompt_persisted' => false, 'session_started' => false, 'codex_start_packet_created' => false, 'packet_claimed' => false]],
+                'required_activation_session_session_operator_prompt_preview_evidence' => ['later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash', 'decision_record_activation_session_session_operator_prompt_preview_persisted_false', 'decision_record_activation_session_packet_start_contract_preview_persisted_false', 'operator_prompt_persisted_false', 'session_started_false', 'start_contract_created_false', 'contract_persisted_false', 'codex_start_packet_created_false', 'packet_created_false', 'packet_claimable_false', 'packet_claimed_false', 'packet_completed_false', 'file_edit_allowed_false', 'task_created_false', 'work_assigned_false', 'writer_file_creation_allowed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_session_operator_prompt_preview_policy' => ['decision_record_activation_session_session_operator_prompt_preview_requires_packet_start_contract_preview_hash', 'decision_record_activation_session_session_operator_prompt_preview_requires_persisted_flag_false', 'decision_record_activation_session_session_operator_prompt_preview_does_not_persist_prompt', 'decision_record_activation_session_session_operator_prompt_preview_does_not_start_session', 'decision_record_activation_session_session_operator_prompt_preview_does_not_create_start_contract', 'decision_record_activation_session_session_operator_prompt_preview_does_not_persist_contract', 'decision_record_activation_session_session_operator_prompt_preview_does_not_create_codex_start_packet', 'decision_record_activation_session_session_operator_prompt_preview_does_not_create_packets', 'decision_record_activation_session_session_operator_prompt_preview_does_not_create_tasks', 'decision_record_activation_session_session_operator_prompt_preview_does_not_assign_work', 'decision_record_activation_session_session_operator_prompt_preview_does_not_allow_file_edits', 'decision_record_activation_session_session_operator_prompt_preview_does_not_create_writer_files', 'decision_record_activation_session_session_operator_prompt_preview_does_not_claim_packets', 'decision_record_activation_session_session_operator_prompt_preview_does_not_complete_packets', 'decision_record_activation_session_session_operator_prompt_preview_does_not_dispatch_parallel_work', 'decision_record_activation_session_session_operator_prompt_preview_does_not_notify_human', 'decision_record_activation_session_session_operator_prompt_preview_does_not_activate_writer', 'decision_record_activation_session_session_operator_prompt_preview_does_not_accept_writer_candidate', 'decision_record_activation_session_session_operator_prompt_preview_does_not_allow_writer_implementation', 'decision_record_activation_session_session_operator_prompt_preview_does_not_record_decision', 'decision_record_activation_session_session_operator_prompt_preview_does_not_write_ledger', 'decision_record_activation_session_session_operator_prompt_preview_does_not_grant_approval', 'decision_record_activation_session_session_operator_prompt_preview_does_not_authorize_later_cycle', 'decision_record_activation_session_session_operator_prompt_preview_does_not_merge_or_dispatch'],
+                'future_activation_session_session_operator_prompt_preview_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_packet_start_contract_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_session_operator_prompt_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_session_ready_check_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template' => ['activation_session_session_operator_prompt_preview_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'operator_prompt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'session_start_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'start_contract_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'contract_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'writer_file_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'human_notification_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'approval_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'operator_prompt_persisted' => false,
+                'session_started' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_start_contract_preview_persisted' => false,
+                'decision_record_activation_session_session_operator_prompt_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'operator_prompt_persisted' => false,
+                'session_started' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_packet_start_contract_preview_persisted' => false,
+                'decision_record_activation_session_session_operator_prompt_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_persist_prompt', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_start_session', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_create_start_contract', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_create_codex_start_packet', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_create_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session session operator prompt preview template is ready as a non-persisting read-only operator prompt preview. It can describe prompt shape only; it still does not persist a prompt, start a session, create a start contract, create Codex start packet, claim packets, complete packets, allow file edits, record a decision, write ledger, authorize a later cycle, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session session operator prompt preview template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session packet start contract preview template is ready.'],
+            ],
+        ],
+        'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionReadyCheckPreviewTemplate' => [
+            'u' => ['operatorPromptPayload', 'codexReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationDecisionRecordActivationSessionSessionOperatorPromptPreviewTemplate'],
+            'x' => [['operatorPromptPreview', 'operatorPromptPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview']],
+            'r' => ['operatorPromptPayload', 'status', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_ready'],
+            'l' => [
+                'previewItems' => ['session_ready_check_preview_requires_session_operator_prompt_preview_hash', 'session_ready_check_preview_can_evaluate_readiness_shape_only', 'session_ready_check_preview_must_not_mark_session_ready', 'session_ready_check_preview_must_not_start_session', 'session_ready_check_preview_must_not_create_codex_start_packet', 'session_ready_check_preview_must_not_claim_or_complete_packets', 'session_ready_check_preview_must_not_dispatch_parallel_sessions', 'session_ready_check_preview_next_output_template_only'],
+            ],
+            'b' => [
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-DECISION-RECORD-ACTIVATION-SESSION-SESSION-READY-CHECK-PREVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
+                'status' => ['@t', 'ready_as_future_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'blocked_before_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash' => ['@g', 'operatorPromptPayload', 'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash'],
+                'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash' => ['@g', 'operatorPromptPreview', 'source_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash'],
+                'activation_session_session_ready_check_preview_items' => ['@v', 'previewItems'],
+                'activation_session_session_ready_check_preview_item_count' => ['@c', 'previewItems'],
+                'ready_check_shapes_preview_only' => [['check_id' => 'SESSION-READY-CHECK-PREVIEW-DOC-CONTRACT-REVIEW', 'readiness_shape' => 'read_only_session_ready_check_preview', 'required_inputs_preview_only' => ['packet_start_contract_preview_hash', 'session_operator_prompt_preview_hash', 'scope_validator_command_preview', 'non_execution_flags_false'], 'ready_decision_preview' => 'blocked_until_signed_authorization_and_durable_packet_claim_exist', 'session_ready_marked' => false, 'ready_check_persisted' => false, 'session_started' => false, 'codex_start_packet_created' => false, 'packet_claimed' => false]],
+                'required_activation_session_session_ready_check_preview_evidence' => ['later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash', 'decision_record_activation_session_session_ready_check_preview_persisted_false', 'decision_record_activation_session_session_operator_prompt_preview_persisted_false', 'session_ready_marked_false', 'ready_check_persisted_false', 'operator_prompt_persisted_false', 'session_started_false', 'start_contract_created_false', 'contract_persisted_false', 'codex_start_packet_created_false', 'packet_created_false', 'packet_claimable_false', 'packet_claimed_false', 'packet_completed_false', 'file_edit_allowed_false', 'task_created_false', 'work_assigned_false', 'writer_file_creation_allowed_false', 'human_notified_false', 'human_task_created_false', 'decision_recorded_false', 'ledger_write_allowed_false', 'dispatch_allowed_false', 'execution_allowed_false', 'later_cycle_authorized_false'],
+                'activation_session_session_ready_check_preview_policy' => ['decision_record_activation_session_session_ready_check_preview_requires_session_operator_prompt_preview_hash', 'decision_record_activation_session_session_ready_check_preview_requires_persisted_flag_false', 'decision_record_activation_session_session_ready_check_preview_does_not_mark_session_ready', 'decision_record_activation_session_session_ready_check_preview_does_not_persist_ready_check', 'decision_record_activation_session_session_ready_check_preview_does_not_persist_prompt', 'decision_record_activation_session_session_ready_check_preview_does_not_start_session', 'decision_record_activation_session_session_ready_check_preview_does_not_create_start_contract', 'decision_record_activation_session_session_ready_check_preview_does_not_persist_contract', 'decision_record_activation_session_session_ready_check_preview_does_not_create_codex_start_packet', 'decision_record_activation_session_session_ready_check_preview_does_not_create_packets', 'decision_record_activation_session_session_ready_check_preview_does_not_create_tasks', 'decision_record_activation_session_session_ready_check_preview_does_not_assign_work', 'decision_record_activation_session_session_ready_check_preview_does_not_allow_file_edits', 'decision_record_activation_session_session_ready_check_preview_does_not_create_writer_files', 'decision_record_activation_session_session_ready_check_preview_does_not_claim_packets', 'decision_record_activation_session_session_ready_check_preview_does_not_complete_packets', 'decision_record_activation_session_session_ready_check_preview_does_not_dispatch_parallel_work', 'decision_record_activation_session_session_ready_check_preview_does_not_notify_human', 'decision_record_activation_session_session_ready_check_preview_does_not_activate_writer', 'decision_record_activation_session_session_ready_check_preview_does_not_record_decision', 'decision_record_activation_session_session_ready_check_preview_does_not_write_ledger', 'decision_record_activation_session_session_ready_check_preview_does_not_grant_approval', 'decision_record_activation_session_session_ready_check_preview_does_not_authorize_later_cycle', 'decision_record_activation_session_session_ready_check_preview_does_not_merge_or_dispatch'],
+                'future_activation_session_session_ready_check_preview_outputs' => ['writer_release_fresh_authorization_later_cycle_authorization_activation_session_session_operator_prompt_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_session_ready_check_preview_hash', 'writer_release_fresh_authorization_later_cycle_authorization_activation_session_dispatch_guard_preview_hash'],
+                'still_forbidden_by_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template' => ['session_ready_marking_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'ready_check_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'operator_prompt_persistence_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'session_start_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'start_contract_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'codex_start_packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'packet_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'task_creation_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'work_assignment_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'file_edit_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'packet_claim_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'packet_completion_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'parallel_dispatch_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'decision_recording_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'ledger_write_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'later_cycle_authorization_by_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'merge_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template', 'dispatch_from_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template'],
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'session_ready_marked' => false,
+                'ready_check_persisted' => false,
+                'operator_prompt_persisted' => false,
+                'session_started' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'ledger_write_allowed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_session_operator_prompt_preview_persisted' => false,
+                'decision_record_activation_session_session_ready_check_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+            ],
+            'e' => [
+                'schema_version' => 'atlas.self_construction_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template.v1',
+                'status' => ['@t', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_ready', 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_blocked'],
+                'mode' => 'read_only_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template',
+                'execution_allowed' => false,
+                'file_edit_allowed' => false,
+                'ledger_write_allowed' => false,
+                'writer_file_creation_allowed' => false,
+                'writer_implementation_allowed' => false,
+                'writer_candidate_accepted' => false,
+                'writer_activation_requested' => false,
+                'writer_activation_allowed' => false,
+                'writer_activated' => false,
+                'writer_activation_rejected' => false,
+                'post_activation_observation_recorded' => false,
+                'session_ready_marked' => false,
+                'ready_check_persisted' => false,
+                'operator_prompt_persisted' => false,
+                'session_started' => false,
+                'start_contract_created' => false,
+                'contract_persisted' => false,
+                'packet_created' => false,
+                'packet_claimable' => false,
+                'task_created' => false,
+                'work_assigned' => false,
+                'human_notified' => false,
+                'human_task_created' => false,
+                'codex_start_packet_created' => false,
+                'packet_claimed' => false,
+                'packet_completed' => false,
+                'receipt_persisted' => false,
+                'decision_recorded' => false,
+                'decision_record_activation_session_session_operator_prompt_preview_persisted' => false,
+                'decision_record_activation_session_session_ready_check_preview_persisted' => false,
+                'approval_granted' => false,
+                'merge_allowed' => false,
+                'dispatch_allowed' => false,
+                'prior_authorization_reuse_allowed' => false,
+                'later_cycle_authorized' => false,
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview' => ['@p'],
+                'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_hash' => ['@h'],
+                'non_execution_guarantees' => ['codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_mark_session_ready', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_persist_ready_check', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_start_session', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_create_codex_start_packet', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_create_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_allow_file_edits', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_claim_packets', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_record_decision', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_write_ledger', 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_dispatch_work'],
+                'human_summary' => ['@t', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session session ready check preview template is ready as a non-persisting read-only session readiness preview. It can evaluate readiness shape only; it still does not mark a session ready, persist ready check, start a session, create Codex start packet, claim packets, complete packets, allow file edits, record a decision, write ledger, authorize a later cycle, merge or dispatch.', 'Codex review merge post-execution action signed receipt persistence writer release fresh authorization new cycle disable execution later-cycle authorization decision record activation session session ready check preview template is blocked until fresh authorization new cycle disable execution later-cycle authorization decision record activation session session operator prompt preview template is ready.'],
+            ],
+        ],
+    ];
+}
