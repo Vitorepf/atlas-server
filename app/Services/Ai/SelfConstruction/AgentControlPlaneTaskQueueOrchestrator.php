@@ -6,6 +6,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
+use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroGiveBackPatternMiner;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -31,7 +32,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRunt
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\Maestro\Health\Maestro;
 
 final class AgentControlPlaneTaskQueueOrchestrator
 {
@@ -1483,7 +1483,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 // topGiveBackCauses() fragments into one bucket per unique phrase.
                 // An 'unknown' classification keeps the raw reason: losing the
                 // signal is worse than one extra bucket.
-                $family = (new Maestro\Adaptive\AtlasMaestroGiveBackPatternMiner)
+                $family = (new AtlasMaestroGiveBackPatternMiner)
                     ->classifyGiveBackReason(['give_back_reason' => $giveBackReason]);
                 $event['root_cause_family'] = $family === 'unknown' ? $giveBackReason : $family;
             }
