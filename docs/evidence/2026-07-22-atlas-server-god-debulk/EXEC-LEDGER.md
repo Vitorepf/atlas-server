@@ -2792,3 +2792,33 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 91 — restore durable give-back behavior recall, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_SEPARATE_FIXTURE_DEBT
+commit: 853546d2f
+subject: "refactor(core): GOD-DEBULK persist worker behavior recall"
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php --filter=test_give_back_writes_a_durable_worker_behavior_fact_a_fresh_process_can_recall --no-coverage
+  result: "FAIL 1 test, 1 assertion: the public reportGiveBack() path left a fresh AtlasMaestroWorkerBehaviorLedger with seen=false."
+green:
+  behavior: "recordWorkerBehavior now resolves AtlasMaestroGiveBackPatternMiner from its Adaptive owner, so the public give-back path records the classified durable behavior fact and a fresh ledger recalls it."
+verification:
+  characterization: "PASS 1 test, 3 assertions: real prepareAndEnqueue() → claimNext() → reportGiveBack() then a fresh durable ledger instance proves seen=true, give_back_rate=1.0, and the classified root cause."
+  package_suite: "PASS 105 tests, 506 assertions: Unit + Feature orchestrator suites plus the bounded anti-farm characterization."
+  bridge_file: "NOT GREEN: 7 passed, 1 failed. The remaining completed_dry_run test fixture omits the validator-required implementation_notes and capability_delta fields; it is a separate test-contract alignment, not this persistence repair."
+  php_lint: "PASS orchestrator source."
+  pint: "NOT GREEN for inherited full-file orchestrator formatting/import violations outside this two-line import/class-resolution hunk."
+  diff_check: PASS
+  density: "orchestrator=1,990 LOC (<2,000); existing focused bridge test=270 LOC (<800 hot limit)."
+commit_scope: "PASS: git commit --only recorded exactly the orchestrator source."
+boundary:
+  - "The red/green characterization enters public reportGiveBack() through real queue and lease repositories, then creates a fresh ledger reader; it does not call recordWorkerBehavior or the miner by reflection."
+  - "The repair only restores fail-open bridge persistence. It does not enable provider calls, dispatch, token spend, real completion, or a queue write beyond the normal give-back release path."
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
