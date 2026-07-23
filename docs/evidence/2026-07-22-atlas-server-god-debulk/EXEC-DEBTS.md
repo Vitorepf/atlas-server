@@ -81,6 +81,9 @@ claimed_paths:
    - Fase 2 CLI wiring complete (`68882daf5`): the chain-integrity contract
      alias, preflight, and implementation-packet now reach the extracted
      chain-quartet projector; the pre-existing status route remains separate.
+   - Fase 2 CLI wiring complete (`93514ddc8`): deterministic-chain-replay
+     contract, preflight, implementation-packet, and status now reach their
+     extracted quartet through the canonical mother-command surface.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):

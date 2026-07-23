@@ -2917,3 +2917,35 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 95 — restore deterministic replay CLI quartet, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0005
+commit: 93514ddc8
+subject: "refactor(core): GOD-DEBULK restore deterministic replay CLI quartet"
+scope:
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneDeterministicChainReplayTest.php --filter=test_cli_contract_json_works --no-coverage
+  result: "FAIL 1 test, 0 assertions: the public --agent-control-plane-deterministic-chain-replay-contract option was absent and Symfony raised InvalidOptionException."
+green:
+  behavior: "The canonical mother-command surface maps the existing deterministic replay contract, preflight, implementation-packet, and status methods."
+verification:
+  cli_quartet: "PASS 4 tests, 15 assertions through the public Artisan command."
+  package: "PASS 42 tests, 625 assertions: deterministic hashes, override degradation, read-only behavior, non-execution guarantees, and all four CLI routes."
+  direct_console: "PASS: contract and status routes execute their real Readiness projections; status returns available in the direct command environment."
+  php_lint: "PASS mother-command surface."
+  pint: "PASS mother-command surface."
+  diff_check: PASS
+  density: "mother-command surface=271 LOC (<800 hot limit); no godfile or test was edited."
+commit_scope: "PASS: git commit --only recorded exactly the command-surface mapping."
+boundary:
+  - "The acceptance test executes the public Artisan flags and their real projector methods; no reflection-only check is used."
+  - "All four routes remain read-only certification projections and grant no provider, token, dispatch, persistence, or execution authority."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
