@@ -23,9 +23,27 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
+use App\Services\Engineering\EngineeringHarness\HarnessRunnerSupport;
+use App\Services\Engineering\EngineeringHarness\HarnessControlsSection;
+use App\Services\Engineering\EngineeringHarness\HarnessProviderSection;
+use App\Services\Engineering\EngineeringHarness\HarnessEvidenceSection;
+use App\Services\Engineering\EngineeringHarness\HarnessSummarySection;
+use App\Services\Engineering\EngineeringHarness\HarnessOptionsSection;
 
 class EngineeringHarnessRunnerService
 {
+    private readonly HarnessRunnerSupport $support;
+
+    private readonly HarnessControlsSection $controls;
+
+    private readonly HarnessProviderSection $provider;
+
+    private readonly HarnessEvidenceSection $evidence;
+
+    private readonly HarnessSummarySection $summary;
+
+    private readonly HarnessOptionsSection $options;
+
     public function __construct(
         private readonly EngineeringTaskContractService $contracts,
         private readonly EngineeringBlueprintService $blueprints,
@@ -48,7 +66,14 @@ class EngineeringHarnessRunnerService
         private readonly ?AtlasWorkspacePathResolverService $workspacePaths = null,
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate = null,
         private readonly ?EngineeringHarnessRunnerInput $input = null,
-    ) {}
+    ) {
+        $this->support = new HarnessRunnerSupport();
+        $this->controls = new HarnessControlsSection($this->support, $this->controlRegistry, $this->toolGate, $this->ledger);
+        $this->provider = new HarnessProviderSection($this->support, $this->providerRuntimes);
+        $this->evidence = new HarnessEvidenceSection($this->artifacts, $this->controlRegistry, $this->workspaces, $this->reviewFindings, $this->workspacePaths, $this->workspaceGate);
+        $this->summary = new HarnessSummarySection();
+        $this->options = new HarnessOptionsSection();
+    }
 
     /**
      * @param  array<string,mixed>  $options
@@ -56,7 +81,7 @@ class EngineeringHarnessRunnerService
      */
     public function run(AtlasTask $task, array $options): array
     {
-        $workspace = $this->workspace($options['workspace'] ?? getcwd());
+        $workspace = $this->support->workspace($options['workspace'] ?? getcwd());
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $noProvider = (bool) ($options['no_provider'] ?? false);
         $requestedAutoTest = (bool) ($options['auto_test'] ?? false);
@@ -76,14 +101,14 @@ class EngineeringHarnessRunnerService
         $applyIsolatedPatch = (bool) ($options['apply_isolated_patch'] ?? true);
         $controlProfile = is_string($options['control_profile'] ?? null) ? $options['control_profile'] : null;
         $testCommand = is_string($options['test_command'] ?? null) ? $options['test_command'] : null;
-        $visualE2e = $this->visualE2eMode($options['visual_e2e'] ?? config('atlas.engineering.visual_e2e.mode', 'auto'));
-        $qualityScan = $this->qualityScanMode($options['quality_scan'] ?? config('atlas.engineering.quality_scan.mode', 'off'));
-        $qualityProfile = $this->qualityScanProfile($options['quality_profile'] ?? config('atlas.engineering.quality_scan.profile', 'auto'));
+        $visualE2e = $this->options->visualE2eMode($options['visual_e2e'] ?? config('atlas.engineering.visual_e2e.mode', 'auto'));
+        $qualityScan = $this->support->qualityScanMode($options['quality_scan'] ?? config('atlas.engineering.quality_scan.mode', 'off'));
+        $qualityProfile = $this->support->qualityScanProfile($options['quality_profile'] ?? config('atlas.engineering.quality_scan.profile', 'auto'));
         $qualityChangedOnly = array_key_exists('quality_changed_only', $options)
             ? (bool) $options['quality_changed_only']
             : (bool) config('atlas.engineering.quality_scan.changed_only', true);
-        $dockerOptions = $this->dockerOptions($options);
-        $providerRuntimeOptions = $this->providerRuntimeOptions($options);
+        $dockerOptions = $this->options->dockerOptions($options);
+        $providerRuntimeOptions = $this->options->providerRuntimeOptions($options);
         $replay = is_array($options['replay'] ?? null) ? $options['replay'] : null;
         $fairModeOptions = $this->fairModeOptions($options);
         [$requestedProvider, $requestedModel, $requestedModelPolicy] = $this->fairProviderRequest(
@@ -93,7 +118,7 @@ class EngineeringHarnessRunnerService
             $fairModeOptions,
         );
 
-        $awisBlock = $this->awisMutationBlock(
+        $awisBlock = $this->evidence->awisMutationBlock(
             workspace: $workspace,
             task: $task,
             dryRun: $dryRun,
@@ -221,7 +246,7 @@ class EngineeringHarnessRunnerService
                 'fair_mode' => $fairModeOptions,
             ],
         ]);
-        $this->recordHarnessLedgerEvent(LedgerEventType::ExecutionStarted, $run->refresh(), [
+        $this->controls->recordHarnessLedgerEvent(LedgerEventType::ExecutionStarted, $run->refresh(), [
             'task_id' => $task->id,
             'project_id' => $task->project_id,
             'provider' => $provider,
@@ -236,38 +261,38 @@ class EngineeringHarnessRunnerService
             'context_pack_hash' => null,
         ]);
 
-        $this->recordAutonomyPolicyControl($run->refresh(), $autonomyPolicy);
-        $this->recordModelSelectionControl($run->refresh(), $modelSelection);
-        $this->recordReplayControl($run->refresh(), $replay);
+        $this->controls->recordAutonomyPolicyControl($run->refresh(), $autonomyPolicy);
+        $this->controls->recordModelSelectionControl($run->refresh(), $modelSelection);
+        $this->controls->recordReplayControl($run->refresh(), $replay);
         $workspacePlan = $this->workspaces->prepare($workspace, $run, array_merge(['sandbox' => $effectiveSandbox], $dockerOptions));
         $executionWorkspace = (string) ($workspacePlan['execution_workspace'] ?? $workspace);
         $providerRuntimePlan = ($dryRun || $noProvider)
-            ? $this->skippedProviderRuntimePlan($providerRuntimeOptions)
+            ? $this->options->skippedProviderRuntimePlan($providerRuntimeOptions)
             : $this->providerRuntimes->plan($workspacePlan, $providerRuntimeOptions);
         $run->forceFill([
             'metadata' => array_merge($run->metadata ?? [], [
-                'workspace_plan' => $this->compactWorkspacePlan($workspacePlan),
-                'provider_runtime_plan' => $this->compactProviderRuntimePlan($providerRuntimePlan),
+                'workspace_plan' => $this->support->compactWorkspacePlan($workspacePlan),
+                'provider_runtime_plan' => $this->support->compactProviderRuntimePlan($providerRuntimePlan),
             ]),
         ])->save();
-        $this->recordWorkspacePlanControl($run->refresh(), $workspacePlan);
+        $this->controls->recordWorkspacePlanControl($run->refresh(), $workspacePlan);
         $dockerNetworkPolicy = $this->dockerHarness->networkPolicyStatus($workspacePlan);
         $run->forceFill([
             'metadata' => array_merge($run->metadata ?? [], [
-                'docker_network_policy' => $this->compactDockerNetworkPolicy($dockerNetworkPolicy),
+                'docker_network_policy' => $this->support->compactDockerNetworkPolicy($dockerNetworkPolicy),
             ]),
         ])->save();
-        $this->recordDockerNetworkControl($run->refresh(), $dockerNetworkPolicy, $workspacePlan);
-        $this->recordProviderRuntimeControl($run->refresh(), $providerRuntimePlan);
+        $this->controls->recordDockerNetworkControl($run->refresh(), $dockerNetworkPolicy, $workspacePlan);
+        $this->controls->recordProviderRuntimeControl($run->refresh(), $providerRuntimePlan);
 
         $contextPack = $this->contextPacks->build($task, $run, $executionWorkspace, $contract, $blueprint, $controls);
-        $this->recordHarnessLedgerEvent(LedgerEventType::ContextComposed, $run->refresh(), [
+        $this->controls->recordHarnessLedgerEvent(LedgerEventType::ContextComposed, $run->refresh(), [
             'context_pack_hash' => $contextPack['hash'] ?? null,
             'control_count' => count($controls),
             'blueprint_id' => $blueprint['blueprint_id'] ?? null,
             'blueprint_snapshot_id' => $snapshot['id'] ?? null,
         ]);
-        $this->recordPrepareControls($run, $controls, $contract, $blueprint);
+        $this->controls->recordPrepareControls($run, $controls, $contract, $blueprint);
 
         $promptHash = hash('sha256', json_encode([$contract, $blueprint, $contextPack], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $inputSummary = [
@@ -289,13 +314,13 @@ class EngineeringHarnessRunnerService
             'metadata' => [
                 'dry_run' => $dryRun,
                 'no_provider' => $noProvider,
-                'provider_runtime_plan' => $this->compactProviderRuntimePlan($providerRuntimePlan),
+                'provider_runtime_plan' => $this->support->compactProviderRuntimePlan($providerRuntimePlan),
             ],
         ]);
 
         $providerRun = null;
         if (! $dryRun && ! $noProvider) {
-            $providerRun = $this->runProvider($task, $executionWorkspace, [
+            $providerRun = $this->provider->runProvider($task, $executionWorkspace, [
                 'provider' => $provider,
                 'model' => $model,
                 'permission' => $permission,
@@ -307,7 +332,7 @@ class EngineeringHarnessRunnerService
             ], $workspacePlan, $providerRuntimePlan);
 
             $attempt = $this->syncProviderAttempts($run->refresh(), $attempt, $providerRun, $provider);
-            $this->recordHarnessLedgerEvent(LedgerEventType::ProviderReturned, $run->refresh(), [
+            $this->controls->recordHarnessLedgerEvent(LedgerEventType::ProviderReturned, $run->refresh(), [
                 'attempt_id' => $attempt->id,
                 'attempt_number' => $attempt->attempt_number,
                 'attempt_status' => $attempt->status,
@@ -334,17 +359,17 @@ class EngineeringHarnessRunnerService
             'workspace_mode' => $workspacePlan['mode'] ?? 'workspace',
             'isolated_workspace' => (bool) ($workspacePlan['isolated'] ?? false),
         ]);
-        $this->recordPostAttemptControls($run->refresh(), $attempt->refresh(), $controls, $patch);
-        $this->recordChangedFilesScopeControl($run->refresh(), $attempt->refresh(), $contract, $blueprint, $patch);
+        $this->controls->recordPostAttemptControls($run->refresh(), $attempt->refresh(), $controls, $patch);
+        $this->controls->recordChangedFilesScopeControl($run->refresh(), $attempt->refresh(), $contract, $blueprint, $patch);
         $dockerHealthchecks = $autoTest
             ? $this->dockerHarness->runHealthchecks($workspacePlan)
             : ['status' => 'skipped', 'reason' => 'auto_test_disabled'];
         $run->forceFill([
             'metadata' => array_merge($run->metadata ?? [], [
-                'docker_healthchecks' => $this->compactDockerHealthchecks($dockerHealthchecks),
+                'docker_healthchecks' => $this->support->compactDockerHealthchecks($dockerHealthchecks),
             ]),
         ])->save();
-        $this->recordDockerHealthcheckControl($run->refresh(), $dockerHealthchecks, $workspacePlan);
+        $this->controls->recordDockerHealthcheckControl($run->refresh(), $dockerHealthchecks, $workspacePlan);
 
         $cases = $this->testMatrix->ensureCases(
             task: $task,
@@ -366,18 +391,18 @@ class EngineeringHarnessRunnerService
                 'workspace_plan' => $workspacePlan,
             ])
             : collect();
-        $this->recordToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, [
+        $this->controls->recordToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, [
             'quality_scan' => $qualityScan,
             'quality_profile' => $qualityProfile,
         ]);
-        $this->recordVisualToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, $visualE2e, $testRuns);
-        $this->recordSkippedRequiredControls($run->refresh(), $attempt->refresh(), $controls);
+        $this->controls->recordVisualToolRuntimeGateControl($run->refresh(), $attempt->refresh(), $executionWorkspace, $visualE2e, $testRuns);
+        $this->controls->recordSkippedRequiredControls($run->refresh(), $attempt->refresh(), $controls);
         if ($providerRun !== null) {
-            $this->recordProviderReviewFindings($run->refresh(), $attempt->refresh(), $providerRun);
+            $this->evidence->recordProviderReviewFindings($run->refresh(), $attempt->refresh(), $providerRun);
         }
 
         $preliminaryScoring = $this->scoring->score($run->refresh(), $contract, $blueprint);
-        $patchApply = $this->applyIsolatedPatch(
+        $patchApply = $this->evidence->applyIsolatedPatch(
             run: $run->refresh(),
             attempt: $attempt->refresh(),
             workspacePlan: $workspacePlan,
@@ -388,7 +413,7 @@ class EngineeringHarnessRunnerService
 
         $scoring = $this->scoring->score($run->refresh(), $contract, $blueprint);
         $run->forceFill([
-            'status' => $this->statusForDecision((string) $scoring['decision']),
+            'status' => $this->support->statusForDecision((string) $scoring['decision']),
             'decision' => $scoring['decision'],
             'score' => $scoring['score'],
             'attempt_count' => $run->attempts()->count(),
@@ -397,7 +422,7 @@ class EngineeringHarnessRunnerService
             'metadata' => array_merge($run->metadata ?? [], [
                 'score_components' => $scoring['components'] ?? [],
                 'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
-                'provider_run' => $providerRun ? $this->compactProviderPayload($providerRun) : null,
+                'provider_run' => $providerRun ? $this->support->compactProviderPayload($providerRun) : null,
                 'fair_mode_result' => data_get($providerRun, 'decoded.fair_mode_result'),
                 'isolated_patch_apply' => $patchApply,
             ]),
@@ -406,7 +431,7 @@ class EngineeringHarnessRunnerService
             || in_array((string) $run->decision, ['resolved', 'partial'], true)
             ? LedgerEventType::OperationCompleted
             : LedgerEventType::OperationFailed;
-        $this->recordHarnessLedgerEvent($terminalEvent, $run->refresh(), [
+        $this->controls->recordHarnessLedgerEvent($terminalEvent, $run->refresh(), [
             'decision' => $run->decision,
             'status' => $run->status,
             'score' => $run->score,
@@ -417,8 +442,8 @@ class EngineeringHarnessRunnerService
             'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
         ]);
 
-        $this->recordEvidence($task->refresh(), $run->refresh(), $scoring, $patch);
-        $this->persistTaskSummary($task->refresh(), $run->refresh(), $scoring);
+        $this->evidence->recordEvidence($task->refresh(), $run->refresh(), $scoring, $patch);
+        $this->evidence->persistTaskSummary($task->refresh(), $run->refresh(), $scoring);
         $this->memoryRegistry->recordHarnessLearning($run->refresh(), [
             'test_run_count' => $testRuns->count(),
             'patch_artifact_id' => $patch?->id,
@@ -465,7 +490,7 @@ class EngineeringHarnessRunnerService
             ? (int) $options['max_attempts']
             : ($providerReplay ? (int) (data_get($strategy, 'requested_max_attempts') ?? data_get($strategy, 'effective_max_attempts') ?? 1) : 1);
         $replayMode = $providerReplay ? 'provider_replay' : 'sensor_replay';
-        $providerSelection = $this->replayProviderSelection($sourceRun, $options, $strategy);
+        $providerSelection = $this->summary->replayProviderSelection($sourceRun, $options, $strategy);
 
         return $this->run($task, [
             'workspace' => $options['workspace'] ?? null,
@@ -494,7 +519,7 @@ class EngineeringHarnessRunnerService
             'max_attempts' => $this->runnerInput()->maxAttempts($maxAttempts),
             'test_command' => is_string($options['test_command'] ?? null) && $options['test_command'] !== ''
                 ? $options['test_command']
-                : $this->sourceTestCommand($sourceRun),
+                : $this->support->sourceTestCommand($sourceRun),
             'visual_e2e' => $options['visual_e2e'] ?? data_get($strategy, 'visual_e2e', 'auto'),
             'quality_scan' => $options['quality_scan'] ?? data_get($strategy, 'quality_scan.mode', 'off'),
             'quality_profile' => $options['quality_profile'] ?? data_get($strategy, 'quality_scan.profile', 'auto'),
@@ -569,85 +594,6 @@ class EngineeringHarnessRunnerService
     }
 
     /**
-     * @param  array<string,mixed>  $options
-     * @param  array<string,mixed>  $strategy
-     * @return array{provider:?string,source:string,attempt_id:?string,attempt_number:?int,attempt_score:?int,model:?string}
-     */
-    private function replayProviderSelection(AtlasEngineeringRun $sourceRun, array $options, array $strategy): array
-    {
-        $modelOverride = is_string($options['model'] ?? null) && trim((string) $options['model']) !== ''
-            ? trim((string) $options['model'])
-            : null;
-        $useModelPolicy = $this->replayUsesModelPolicy($options);
-
-        if (is_string($options['provider'] ?? null) && trim((string) $options['provider']) !== '') {
-            return [
-                'provider' => trim((string) $options['provider']),
-                'source' => 'operator_override',
-                'attempt_id' => null,
-                'attempt_number' => null,
-                'attempt_score' => null,
-                'model' => $modelOverride,
-            ];
-        }
-
-        if (is_string($options['source_attempt_provider'] ?? null) && trim((string) $options['source_attempt_provider']) !== '') {
-            return [
-                'provider' => trim((string) $options['source_attempt_provider']),
-                'source' => 'source_attempt',
-                'attempt_id' => is_string($options['source_attempt_id'] ?? null) ? $options['source_attempt_id'] : null,
-                'attempt_number' => is_numeric($options['source_attempt_number'] ?? null) ? (int) $options['source_attempt_number'] : null,
-                'attempt_score' => null,
-                'model' => $modelOverride ?: ($useModelPolicy ? null : (is_string($options['source_attempt_model'] ?? null) ? $options['source_attempt_model'] : null)),
-            ];
-        }
-
-        $comparison = $this->attemptComparison($sourceRun);
-        $bestAttemptId = is_string($comparison['best_attempt_id'] ?? null) ? $comparison['best_attempt_id'] : null;
-        $bestAttempt = $bestAttemptId
-            ? $sourceRun->attempts->first(fn (AtlasEngineeringRunAttempt $attempt): bool => $attempt->id === $bestAttemptId)
-            : null;
-        $bestProvider = $bestAttempt instanceof AtlasEngineeringRunAttempt && is_string($bestAttempt->provider) && trim($bestAttempt->provider) !== ''
-            ? trim($bestAttempt->provider)
-            : null;
-
-        if ($bestProvider !== null) {
-            return [
-                'provider' => $bestProvider,
-                'source' => 'attempt_comparison',
-                'attempt_id' => $bestAttempt->id,
-                'attempt_number' => $bestAttempt->attempt_number,
-                'attempt_score' => is_numeric($comparison['best_score'] ?? null) ? (int) $comparison['best_score'] : null,
-                'model' => $modelOverride ?: ($useModelPolicy ? null : (is_string($bestAttempt->model) ? $bestAttempt->model : null)),
-            ];
-        }
-
-        $strategyProvider = data_get($strategy, 'provider');
-        $strategyModel = data_get($strategy, 'model');
-
-        return [
-            'provider' => is_string($strategyProvider) && trim($strategyProvider) !== '' ? trim($strategyProvider) : null,
-            'source' => 'source_strategy',
-            'attempt_id' => null,
-            'attempt_number' => null,
-            'attempt_score' => null,
-            'model' => $modelOverride ?: ($useModelPolicy ? null : (is_string($strategyModel) && trim($strategyModel) !== '' ? trim($strategyModel) : null)),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     */
-    private function replayUsesModelPolicy(array $options): bool
-    {
-        $policy = is_string($options['model_policy'] ?? null)
-            ? strtolower(str_replace('-', '_', trim((string) $options['model_policy'])))
-            : 'fixed';
-
-        return ! in_array($policy, ['', 'fixed', 'off'], true);
-    }
-
-    /**
      * @param  array<string,mixed>  $providerRun
      */
     public function syncProviderAttempts(
@@ -660,19 +606,19 @@ class EngineeringHarnessRunnerService
             ->filter(fn (mixed $entry): bool => is_array($entry))
             ->values();
         if ($decodedRuns->isEmpty()) {
-            $decodedRuns = $this->providerRunsFromTrace($providerRun);
+            $decodedRuns = $this->provider->providerRunsFromTrace($providerRun);
         }
 
         if ($decodedRuns->isEmpty()) {
             $seedAttempt->forceFill([
-                'trace_id' => $this->uuidOrNull($providerRun['trace_id'] ?? null),
+                'trace_id' => $this->support->uuidOrNull($providerRun['trace_id'] ?? null),
                 'status' => ((int) ($providerRun['exit_code'] ?? 1)) === 0 ? 'completed' : 'failed',
                 'failure_summary' => ((int) ($providerRun['exit_code'] ?? 1)) === 0
                     ? null
-                    : $this->failureSummary($providerRun),
+                    : $this->support->failureSummary($providerRun),
                 'finished_at' => now(),
                 'metadata' => array_merge($seedAttempt->metadata ?? [], [
-                    'provider_run' => $this->compactProviderPayload($providerRun),
+                    'provider_run' => $this->support->compactProviderPayload($providerRun),
                 ]),
             ])->save();
 
@@ -704,7 +650,7 @@ class EngineeringHarnessRunnerService
             $attempt->forceFill([
                 'engineering_run_id' => $run->id,
                 'attempt_number' => $attemptNumber,
-                'trace_id' => $this->uuidOrNull($rawRun['trace_id'] ?? null),
+                'trace_id' => $this->support->uuidOrNull($rawRun['trace_id'] ?? null),
                 'provider' => is_string($rawRun['provider'] ?? null) && trim((string) $rawRun['provider']) !== ''
                     ? trim((string) $rawRun['provider'])
                     : (is_string($selectedProvider) && $selectedProvider !== '' ? $selectedProvider : $provider),
@@ -713,11 +659,11 @@ class EngineeringHarnessRunnerService
                 'prompt_hash' => $attempt->prompt_hash ?: $seedAttempt->prompt_hash,
                 'input_summary_json' => $attempt->input_summary_json ?: $seedAttempt->input_summary_json,
                 'status' => $exitCode === 0 ? 'completed' : 'failed',
-                'failure_summary' => $exitCode === 0 ? null : $this->failureSummary($rawRun),
+                'failure_summary' => $exitCode === 0 ? null : $this->support->failureSummary($rawRun),
                 'started_at' => $attempt->started_at ?: now(),
                 'finished_at' => now(),
                 'metadata' => array_merge($attempt->metadata ?? [], [
-                    'provider_run' => $this->compactSingleProviderRun($rawRun),
+                    'provider_run' => $this->support->compactSingleProviderRun($rawRun),
                     'dev_plan_id' => data_get($providerRun, 'decoded.dev_execution_plan.plan_id'),
                     'completion_status' => data_get($providerRun, 'decoded.completion.status'),
                 ]),
@@ -727,1157 +673,6 @@ class EngineeringHarnessRunnerService
         }
 
         return $lastAttempt;
-    }
-
-    /**
-     * @param  array<string,mixed>  $policy
-     */
-    private function recordAutonomyPolicyControl(AtlasEngineeringRun $run, array $policy): void
-    {
-        $actions = (array) ($policy['actions'] ?? []);
-        $status = $actions === [] ? 'passed' : 'warning';
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'harnessability_autonomy_policy',
-                'name' => 'Harnessability autonomy policy',
-                'direction' => 'feedforward',
-                'execution_type' => 'mixed',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'prepare',
-                'required' => false,
-                'failure_policy' => 'advisory',
-            ],
-            status: $status,
-            summary: $actions === []
-                ? 'Autonomia mantida pelo score de harnessability.'
-                : 'Autonomia ajustada pelo score de harnessability: '.implode(', ', array_map('strval', $actions)),
-            metadata: [
-                'required' => false,
-                'policy' => $policy,
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $selection
-     */
-    private function recordModelSelectionControl(AtlasEngineeringRun $run, array $selection): void
-    {
-        $statusValue = (string) ($selection['status'] ?? 'skipped');
-        $selectedModel = is_string($selection['selected_model'] ?? null) && trim((string) $selection['selected_model']) !== ''
-            ? trim((string) $selection['selected_model'])
-            : null;
-        $summary = $selectedModel
-            ? 'Modelo selecionado pelo Harness: '.$selectedModel.' via '.(string) ($selection['source'] ?? 'unknown').'.'
-            : 'Selecao automatica de modelo nao aplicada: '.(string) ($selection['reason'] ?? 'fixed_default');
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'model_selection_policy',
-                'name' => 'Model selection policy',
-                'direction' => 'feedforward',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_quality',
-                'timing' => 'prepare',
-                'required' => false,
-                'failure_policy' => 'advisory',
-            ],
-            status: $statusValue === 'selected' ? 'passed' : 'skipped',
-            summary: $summary,
-            metadata: [
-                'required' => false,
-                'selection' => $selection,
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>|null  $replay
-     */
-    private function recordReplayControl(AtlasEngineeringRun $run, ?array $replay): void
-    {
-        if (! $replay) {
-            return;
-        }
-
-        $providerReplay = (bool) ($replay['provider_replay'] ?? false);
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'harness_replay_contract',
-                'name' => 'Harness replay contract',
-                'direction' => 'feedforward',
-                'execution_type' => 'mixed',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'prepare',
-                'required' => true,
-                'failure_policy' => 'blocks_resolved',
-            ],
-            status: 'passed',
-            summary: $providerReplay
-                ? 'Replay controlado vai reexecutar provider em sandbox auditavel.'
-                : 'Replay controlado em modo sensores, sem reexecutar provider.',
-            metadata: array_merge($replay, ['required' => true]),
-        );
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $controls
-     * @param  array<string,mixed>  $contract
-     * @param  array<string,mixed>  $blueprint
-     */
-    private function recordPrepareControls(AtlasEngineeringRun $run, array $controls, array $contract, array $blueprint): void
-    {
-        foreach ($controls as $control) {
-            if (($control['timing'] ?? null) !== 'prepare') {
-                continue;
-            }
-
-            $slug = (string) ($control['slug'] ?? '');
-            $passed = match ($slug) {
-                'engineering_task_contract' => trim((string) ($contract['goal'] ?? '')) !== '',
-                'engineering_blueprint_snapshot' => trim((string) ($blueprint['blueprint_id'] ?? '')) !== '',
-                default => true,
-            };
-
-            $this->controlRegistry->recordResult(
-                run: $run,
-                attempt: null,
-                control: $control,
-                status: $passed ? 'passed' : 'failed',
-                summary: $passed ? 'Guide preparado: '.$slug : 'Guide incompleto: '.$slug,
-                metadata: ['required' => (bool) ($control['required'] ?? false)],
-            );
-        }
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $controls
-     */
-    private function recordPostAttemptControls(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        array $controls,
-        mixed $patch,
-    ): void {
-        foreach ($controls as $control) {
-            $slug = (string) ($control['slug'] ?? '');
-            if (! in_array($slug, ['git_status_snapshot', 'patch_artifact'], true)) {
-                continue;
-            }
-
-            $dirtyCount = count((array) ($patch?->changed_files_json ?? []));
-            $summary = $slug === 'git_status_snapshot'
-                ? "Git status capturado com {$dirtyCount} arquivo(s) alterado(s)."
-                : ($patch?->diff_hash ? 'Patch artifact capturado.' : 'Patch artifact capturado sem diff rastreavel.');
-
-            $this->controlRegistry->recordResult(
-                run: $run,
-                attempt: $attempt,
-                control: $control,
-                status: 'passed',
-                summary: $summary,
-                outputExcerpt: $patch?->diff_excerpt,
-                metadata: [
-                    'required' => (bool) ($control['required'] ?? false),
-                    'dirty_count' => $dirtyCount,
-                    'diff_hash' => $patch?->diff_hash,
-                ],
-            );
-        }
-    }
-
-    /**
-     * @param  array<string,mixed>  $contract
-     * @param  array<string,mixed>  $blueprint
-     */
-    private function recordChangedFilesScopeControl(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        array $contract,
-        array $blueprint,
-        mixed $patch,
-    ): void {
-        $changedFiles = $this->normalizedFileList((array) ($patch?->changed_files_json ?? []));
-        $scope = $this->changedFilesScope($contract, $blueprint);
-        $declaredScope = $scope['entries'];
-        $strict = (bool) $scope['strict'];
-        $outsideScope = $declaredScope === []
-            ? []
-            : collect($changedFiles)
-                ->reject(fn (string $file): bool => $this->pathMatchesScope($file, $declaredScope))
-                ->values()
-                ->all();
-
-        $required = $strict && $declaredScope !== [];
-        $status = match (true) {
-            $changedFiles === [] => 'passed',
-            $declaredScope === [] => 'warning',
-            $outsideScope === [] => 'passed',
-            $strict => 'failed',
-            default => 'warning',
-        };
-        $summary = match ($status) {
-            'passed' => $changedFiles === []
-                ? 'Nenhum arquivo alterado para validar contra o escopo.'
-                : 'Arquivos alterados respeitam o escopo declarado.',
-            'failed' => 'Diff alterou arquivo(s) fora do escopo estrito declarado.',
-            default => $declaredScope === []
-                ? 'Diff possui arquivos alterados, mas o contrato nao declarou escopo de arquivos.'
-                : 'Diff alterou arquivo(s) fora da lista provavel; revisao de escopo recomendada.',
-        };
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: $attempt,
-            control: [
-                'slug' => 'changed_files_scope_policy',
-                'name' => 'Changed files scope policy',
-                'direction' => 'feedback',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'post_attempt',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $status,
-            summary: $summary,
-            metadata: [
-                'required' => $required,
-                'strict' => $strict,
-                'scope_source' => $scope['source'],
-                'declared_scope' => $declaredScope,
-                'changed_files' => $changedFiles,
-                'outside_scope' => $outsideScope,
-                'outside_scope_count' => count($outsideScope),
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $contract
-     * @param  array<string,mixed>  $blueprint
-     * @return array{entries:array<int,string>,strict:bool,source:string}
-     */
-    private function changedFilesScope(array $contract, array $blueprint): array
-    {
-        $fileScope = is_array($contract['file_scope'] ?? null) ? $contract['file_scope'] : [];
-        $scopePolicy = is_array($contract['scope_policy'] ?? null) ? $contract['scope_policy'] : [];
-        $blueprintScope = is_array($blueprint['file_scope'] ?? null) ? $blueprint['file_scope'] : [];
-        $explicitScope = $this->normalizedFileList(array_merge(
-            (array) ($contract['allowed_files'] ?? []),
-            (array) ($contract['allowed_paths'] ?? []),
-            (array) ($fileScope['allowed_files'] ?? []),
-            (array) ($fileScope['allowed_paths'] ?? []),
-            (array) ($scopePolicy['allowed_files'] ?? []),
-            (array) ($scopePolicy['allowed_paths'] ?? []),
-            (array) ($blueprintScope['allowed_files'] ?? []),
-            (array) ($blueprintScope['allowed_paths'] ?? []),
-        ));
-        $likelyScope = $this->normalizedFileList(array_merge(
-            (array) ($contract['likely_files'] ?? []),
-            (array) ($contract['files'] ?? []),
-            (array) ($contract['target_files'] ?? []),
-            (array) ($fileScope['likely_files'] ?? []),
-            (array) ($scopePolicy['likely_files'] ?? []),
-            (array) ($blueprintScope['likely_files'] ?? []),
-        ));
-        $strict = $explicitScope !== []
-            || (bool) ($contract['strict_file_scope'] ?? false)
-            || (bool) ($fileScope['strict'] ?? false)
-            || in_array((string) ($fileScope['mode'] ?? ''), ['strict', 'allowlist'], true)
-            || in_array((string) ($scopePolicy['mode'] ?? ''), ['strict', 'allowlist'], true)
-            || in_array((string) ($scopePolicy['changed_files'] ?? ''), ['strict', 'allowlist'], true);
-
-        if ($explicitScope !== []) {
-            return ['entries' => $explicitScope, 'strict' => true, 'source' => 'explicit_allowed_scope'];
-        }
-
-        if ($likelyScope !== []) {
-            return ['entries' => $likelyScope, 'strict' => $strict, 'source' => 'likely_files'];
-        }
-
-        return ['entries' => [], 'strict' => false, 'source' => 'none'];
-    }
-
-    /**
-     * @param  array<int,mixed>  $files
-     * @return array<int,string>
-     */
-    private function normalizedFileList(array $files): array
-    {
-        return collect($files)
-            ->filter(fn (mixed $file): bool => is_scalar($file) && trim((string) $file) !== '')
-            ->map(function (mixed $file): string {
-                $path = str_replace('\\', '/', trim((string) $file));
-                $path = preg_replace('#/+#', '/', $path) ?: $path;
-                $path = preg_replace('#^\./#', '', $path) ?: $path;
-
-                return ltrim(trim($path), '/');
-            })
-            ->filter(fn (string $file): bool => $file !== '')
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<int,string>  $scope
-     */
-    private function pathMatchesScope(string $file, array $scope): bool
-    {
-        $file = $this->normalizedFileList([$file])[0] ?? '';
-        if ($file === '') {
-            return false;
-        }
-
-        foreach ($scope as $entry) {
-            $entry = $this->normalizedFileList([$entry])[0] ?? '';
-            if ($entry === '') {
-                continue;
-            }
-
-            if ($entry === $file) {
-                return true;
-            }
-
-            if (str_ends_with($entry, '/*')) {
-                $entry = substr($entry, 0, -1);
-            }
-
-            if (str_ends_with($entry, '/') && str_starts_with($file, $entry)) {
-                return true;
-            }
-
-            if (str_contains($entry, '*') && fnmatch($entry, $file, FNM_PATHNAME)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $workspacePlan
-     */
-    private function recordWorkspacePlanControl(AtlasEngineeringRun $run, array $workspacePlan): void
-    {
-        $requested = (string) ($workspacePlan['requested_mode'] ?? $workspacePlan['mode'] ?? 'workspace');
-        if (! in_array($requested, ['worktree', 'docker'], true)) {
-            return;
-        }
-
-        $dockerRequested = $requested === 'docker';
-        $ready = $dockerRequested
-            ? (bool) ($workspacePlan['containerized_execution'] ?? false)
-            : (bool) ($workspacePlan['isolated'] ?? false);
-        $status = $ready ? 'passed' : ($dockerRequested ? 'failed' : 'warning');
-        $reason = (string) ($workspacePlan['fallback_reason'] ?? 'workspace_plan_not_ready');
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => $dockerRequested ? 'docker_harness_profile' : 'workspace_isolation',
-                'name' => $dockerRequested ? 'Docker harness profile' : 'Workspace isolation',
-                'direction' => 'feedforward',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'prepare',
-                'required' => $dockerRequested,
-                'failure_policy' => $dockerRequested ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $status,
-            summary: $ready
-                ? ($dockerRequested ? 'Docker harness pronto para testes containerizados.' : 'Workspace isolado preparado.')
-                : ($dockerRequested ? 'Docker harness indisponivel: '.$reason : 'Workspace isolado indisponivel: '.$reason),
-            metadata: [
-                'required' => $dockerRequested,
-                'requested_mode' => $requested,
-                'mode' => $workspacePlan['mode'] ?? null,
-                'status' => $workspacePlan['status'] ?? null,
-                'fallback_reason' => $workspacePlan['fallback_reason'] ?? null,
-                'isolation_type' => $workspacePlan['isolation_type'] ?? null,
-                'containerized_execution' => (bool) ($workspacePlan['containerized_execution'] ?? false),
-                'docker' => $this->compactDockerPlan((array) ($workspacePlan['docker'] ?? [])),
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRuntimePlan
-     */
-    private function recordProviderRuntimeControl(AtlasEngineeringRun $run, array $providerRuntimePlan): void
-    {
-        $requested = (string) ($providerRuntimePlan['requested_runtime'] ?? 'host');
-        $runtime = (string) ($providerRuntimePlan['runtime'] ?? 'host');
-        $statusValue = (string) ($providerRuntimePlan['status'] ?? 'ready');
-        if ($requested === 'host' && $runtime === 'host') {
-            return;
-        }
-        if ($statusValue === 'skipped') {
-            return;
-        }
-
-        $required = (bool) ($providerRuntimePlan['required'] ?? false);
-        $ready = $runtime === 'docker' && $statusValue === 'ready';
-        $status = $ready ? 'passed' : ($required ? 'failed' : 'warning');
-        $reason = (string) ($providerRuntimePlan['fallback_reason'] ?? 'provider_runtime_not_ready');
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'provider_runtime_isolation',
-                'name' => 'Provider runtime isolation',
-                'direction' => 'feedforward',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'prepare',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $status,
-            summary: $ready
-                ? 'Provider runtime Docker pronto para executar atlas:cli:dev.'
-                : 'Provider runtime Docker indisponivel: '.$reason,
-            metadata: array_merge($this->compactProviderRuntimePlan($providerRuntimePlan), [
-                'required' => $required,
-            ]),
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $networkPolicy
-     * @param  array<string,mixed>  $workspacePlan
-     */
-    private function recordDockerNetworkControl(AtlasEngineeringRun $run, array $networkPolicy, array $workspacePlan): void
-    {
-        $statusValue = (string) ($networkPolicy['status'] ?? 'not_applicable');
-        if ($statusValue === 'not_applicable') {
-            return;
-        }
-
-        $mode = (string) ($networkPolicy['mode'] ?? 'profile');
-        if ($mode === 'profile') {
-            return;
-        }
-
-        $required = ($workspacePlan['mode'] ?? null) === 'docker' && (bool) ($networkPolicy['required'] ?? false);
-        $passed = $statusValue === 'passed';
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'docker_network_policy',
-                'name' => 'Docker network policy',
-                'direction' => 'feedforward',
-                'execution_type' => 'computational',
-                'regulation_category' => 'security_privacy',
-                'timing' => 'prepare',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $passed ? 'passed' : ($required ? 'failed' : 'warning'),
-            summary: $passed
-                ? 'Politica de rede Docker aplicada: '.$mode
-                : 'Politica de rede Docker nao aplicavel: '.(string) ($networkPolicy['reason'] ?? 'network_policy_not_enforced'),
-            metadata: array_merge($this->compactDockerNetworkPolicy($networkPolicy), [
-                'required' => $required,
-            ]),
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $healthchecks
-     * @param  array<string,mixed>  $workspacePlan
-     */
-    private function recordDockerHealthcheckControl(AtlasEngineeringRun $run, array $healthchecks, array $workspacePlan): void
-    {
-        $statusValue = (string) ($healthchecks['status'] ?? 'skipped');
-        if (in_array($statusValue, ['not_applicable', 'skipped'], true)) {
-            return;
-        }
-
-        $required = ($workspacePlan['mode'] ?? null) === 'docker';
-        $passed = $statusValue === 'passed';
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: null,
-            control: [
-                'slug' => 'docker_service_healthchecks',
-                'name' => 'Docker service healthchecks',
-                'direction' => 'feedback',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_safety',
-                'timing' => 'pre_validation',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $passed ? 'passed' : ($required ? 'failed' : 'warning'),
-            summary: $passed
-                ? 'Servicos Docker dependentes estao prontos antes dos testes.'
-                : 'Servicos Docker dependentes nao ficaram prontos: '.(string) ($healthchecks['reason'] ?? 'healthcheck_failed'),
-            outputExcerpt: (string) ($healthchecks['stderr_excerpt'] ?? ''),
-            metadata: array_merge($this->compactDockerHealthchecks($healthchecks), [
-                'required' => $required,
-            ]),
-        );
-    }
-
-    /**
-     * @param  array{quality_scan?:string,quality_profile?:string}  $options
-     */
-    private function recordToolRuntimeGateControl(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        string $workspace,
-        array $options,
-    ): void {
-        $qualityScanMode = $this->qualityScanMode($options['quality_scan'] ?? 'off');
-        if ($qualityScanMode === 'off') {
-            return;
-        }
-
-        $qualityProfile = $this->qualityScanProfile($options['quality_profile'] ?? 'auto');
-        $required = $qualityScanMode === 'required' || in_array($qualityProfile, ['release', 'deep'], true);
-        $filters = [
-            'workspace' => $workspace,
-            'surface' => 'engineering_quality_scan',
-            'run_context_type' => 'engineering_run',
-            'run_context_id' => $run->id,
-            'limit' => 100,
-        ];
-        $gate = $this->toolGate->evaluate($filters, [
-            'require_evidence' => $required,
-        ]);
-        $gateStatus = (string) ($gate['status'] ?? 'warning');
-        $controlStatus = match ($gateStatus) {
-            'passed' => 'passed',
-            'warning' => 'passed',
-            'blocked' => $required ? 'failed' : 'warning',
-            default => $required ? 'failed' : 'warning',
-        };
-        $summary = match ($gateStatus) {
-            'passed' => 'Atlas Tool Runtime gate passou para evidencias do quality scan deste run.',
-            'blocked' => 'Atlas Tool Runtime gate bloqueou evidencias do quality scan deste run.',
-            default => 'Atlas Tool Runtime gate registrou avisos para evidencias do quality scan deste run.',
-        };
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: $attempt,
-            control: [
-                'slug' => 'atlas_tool_runtime_gate',
-                'name' => 'Atlas Tool Runtime gate',
-                'direction' => 'feedback',
-                'execution_type' => 'computational',
-                'regulation_category' => 'delivery_quality',
-                'timing' => 'post_attempt',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $controlStatus,
-            summary: $summary,
-            outputExcerpt: ($gate['blocking_failures'] ?? []) || ($gate['warnings'] ?? [])
-                ? json_encode([
-                    'blocking_failures' => $gate['blocking_failures'] ?? [],
-                    'warnings' => $gate['warnings'] ?? [],
-                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
-                : null,
-            metadata: [
-                'required' => $required,
-                'quality_scan_mode' => $qualityScanMode,
-                'quality_profile' => $qualityProfile,
-                'tool_runtime_gate' => true,
-                'gate' => $gate,
-            ],
-        );
-    }
-
-    private function recordVisualToolRuntimeGateControl(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        string $workspace,
-        string $visualE2eMode,
-        mixed $testRuns,
-    ): void {
-        $hasVisualRun = collect($testRuns)->contains(fn (mixed $testRun): bool => (bool) data_get($testRun, 'metadata.visual_e2e.managed_by_atlas', false));
-        $required = $hasVisualRun && (
-            $visualE2eMode === 'required'
-            || collect($testRuns)->contains(fn (mixed $testRun): bool => (bool) data_get($testRun, 'metadata.visual_e2e.required', false))
-        );
-
-        if (! $hasVisualRun && ! $required) {
-            return;
-        }
-
-        $filters = [
-            'workspace' => $workspace,
-            'surface' => 'engineering_visual_smoke',
-            'run_context_type' => 'engineering_run',
-            'run_context_id' => $run->id,
-            'limit' => 50,
-        ];
-        $gate = $this->toolGate->evaluate($filters, [
-            'require_evidence' => $required,
-        ]);
-        $gateStatus = (string) ($gate['status'] ?? 'warning');
-        $controlStatus = match ($gateStatus) {
-            'passed' => 'passed',
-            'warning' => 'passed',
-            'blocked' => $required ? 'failed' : 'warning',
-            default => $required ? 'failed' : 'warning',
-        };
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: $attempt,
-            control: [
-                'slug' => 'atlas_tool_runtime_visual_gate',
-                'name' => 'Atlas Tool Runtime visual gate',
-                'direction' => 'feedback',
-                'execution_type' => 'computational',
-                'regulation_category' => 'behaviour',
-                'timing' => 'post_attempt',
-                'required' => $required,
-                'failure_policy' => $required ? 'blocks_resolved' : 'advisory',
-            ],
-            status: $controlStatus,
-            summary: $gateStatus === 'blocked'
-                ? 'Atlas Tool Runtime visual gate bloqueou evidencias visuais deste run.'
-                : 'Atlas Tool Runtime visual gate validou evidencias visuais deste run.',
-            outputExcerpt: ($gate['blocking_failures'] ?? []) || ($gate['warnings'] ?? [])
-                ? json_encode([
-                    'blocking_failures' => $gate['blocking_failures'] ?? [],
-                    'warnings' => $gate['warnings'] ?? [],
-                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
-                : null,
-            metadata: [
-                'required' => $required,
-                'visual_e2e_mode' => $visualE2eMode,
-                'tool_runtime_gate' => true,
-                'gate' => $gate,
-            ],
-        );
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $controls
-     */
-    private function recordSkippedRequiredControls(AtlasEngineeringRun $run, AtlasEngineeringRunAttempt $attempt, array $controls): void
-    {
-        $recorded = AtlasEngineeringControlResult::query()
-            ->where('engineering_run_id', $run->id)
-            ->pluck('control_slug')
-            ->all();
-
-        foreach ($controls as $control) {
-            $slug = (string) ($control['slug'] ?? '');
-            if (! (bool) ($control['required'] ?? false) || in_array($slug, $recorded, true)) {
-                continue;
-            }
-
-            if (($control['direction'] ?? null) !== 'feedback') {
-                continue;
-            }
-
-            $this->controlRegistry->recordResult(
-                run: $run,
-                attempt: $attempt,
-                control: $control,
-                status: 'skipped',
-                summary: 'Controle requerido nao foi executado neste run: '.$slug,
-                metadata: ['required' => true],
-            );
-        }
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerOptions
-     * @param  array<string,mixed>  $workspacePlan
-     * @param  array<string,mixed>  $providerRuntimePlan
-     * @return array<string,mixed>
-     */
-    private function runProvider(AtlasTask $task, string $workspace, array $providerOptions, array $workspacePlan, array $providerRuntimePlan): array
-    {
-        if (($providerRuntimePlan['runtime'] ?? null) === 'docker' && ($providerRuntimePlan['status'] ?? null) !== 'ready') {
-            $reason = (string) ($providerRuntimePlan['fallback_reason'] ?? 'provider_runtime_unavailable');
-
-            return [
-                'exit_code' => 1,
-                'stdout' => '',
-                'stderr' => 'Provider Docker runtime unavailable: '.$reason,
-                'trace_id' => null,
-                'decoded' => null,
-                'runtime' => 'docker',
-                'provider_runtime' => $this->compactProviderRuntimePlan($providerRuntimePlan),
-            ];
-        }
-
-        $hostCommand = [
-            AtlasPhpBinary::path(),
-            base_path('artisan'),
-            'atlas:cli:dev',
-            '--task-id='.$task->id,
-            '--workspace='.$workspace,
-            '--json',
-            '--no-progress',
-            '--no-notify',
-        ];
-
-        if (is_string($providerOptions['provider'] ?? null) && $providerOptions['provider'] !== '') {
-            $hostCommand[] = '--provider='.$providerOptions['provider'];
-        }
-
-        if (is_string($providerOptions['model'] ?? null) && trim((string) $providerOptions['model']) !== '') {
-            $hostCommand[] = '--model='.trim((string) $providerOptions['model']);
-        }
-
-        $hostCommand[] = '--max-iterations='.(string) ($providerOptions['max_attempts'] ?? 1);
-
-        if ((bool) ($providerOptions['critical'] ?? false)) {
-            $hostCommand[] = '--critical';
-        }
-
-        $fairMode = is_array($providerOptions['fair_mode'] ?? null) ? $providerOptions['fair_mode'] : [];
-        if ((bool) ($fairMode['claude_only'] ?? false)) {
-            $hostCommand[] = '--claude-only';
-        }
-        if ((bool) ($fairMode['single_provider'] ?? false)) {
-            $hostCommand[] = '--single-provider';
-        }
-        if ((bool) ($fairMode['no_decide'] ?? false)) {
-            $hostCommand[] = '--no-decide';
-        }
-        if ((bool) ($fairMode['fallback_disabled'] ?? false)) {
-            $hostCommand[] = '--fallback-disabled';
-        }
-
-        $permission = (string) ($providerOptions['permission'] ?? 'auto');
-        $hostCommand[] = '--permission='.$permission;
-        if (in_array($permission, ['write', 'danger'], true)) {
-            $hostCommand[] = '--allow-write';
-        }
-        if ($permission === 'danger') {
-            $hostCommand[] = '--dangerously-allow-all';
-            $hostCommand[] = '--allow-unsandboxed';
-        }
-
-        $timeoutSeconds = max(60, (int) ($providerOptions['timeout_seconds'] ?? 1800));
-        $hostCommand[] = '--timeout='.$timeoutSeconds;
-
-        $runtimeCommand = $this->providerRuntimes->command($hostCommand, $workspacePlan, $providerRuntimePlan);
-        $stdout = '';
-        $stderr = '';
-        $exitCode = 1;
-        $timedOut = false;
-        $startedAt = microtime(true);
-
-        try {
-            $process = new Process($runtimeCommand['command'], $runtimeCommand['cwd'], AtlasSecurity::processEnv([
-                'PYTHONDONTWRITEBYTECODE' => '1',
-            ], 'provider_runner'));
-            $process->setTimeout($timeoutSeconds);
-            $process->run();
-
-            $exitCode = $process->getExitCode() ?? 1;
-            $stdout = AtlasSecurity::redactString($process->getOutput());
-            $stderr = AtlasSecurity::redactString($process->getErrorOutput());
-        } catch (ProcessTimedOutException $exception) {
-            $timedOut = true;
-            $stderr = AtlasSecurity::redactString($exception->getMessage());
-        } catch (\Throwable $exception) {
-            $stderr = AtlasSecurity::redactString($exception->getMessage());
-        }
-
-        $decoded = json_decode($stdout, true);
-        $traceId = is_array($decoded) ? $this->providerTraceId(['decoded' => $decoded]) : null;
-
-        return [
-            'exit_code' => $exitCode,
-            'stdout' => $stdout,
-            'stderr' => $stderr,
-            'duration_ms' => max(0, (int) round((microtime(true) - $startedAt) * 1000)),
-            'timed_out' => $timedOut,
-            'timeout_seconds' => $timeoutSeconds,
-            'trace_id' => is_string($traceId) && $traceId !== '' ? $traceId : null,
-            'decoded' => is_array($decoded) ? $decoded : null,
-            'runtime' => $runtimeCommand['runtime'],
-            'command' => AtlasSecurity::redactCommand($runtimeCommand['command']),
-            'command_display' => $runtimeCommand['command_display'],
-            'provider_runtime' => $this->compactProviderRuntimePlan($providerRuntimePlan),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRun
-     */
-    private function providerTraceId(array $providerRun): ?string
-    {
-        foreach ([
-            data_get($providerRun, 'decoded.trace_id'),
-            data_get($providerRun, 'decoded.provider_runs.0.trace_id'),
-            data_get($providerRun, 'trace_id'),
-            data_get($providerRun, 'decoded.programming_result.trace_id'),
-        ] as $candidate) {
-            if (is_string($candidate) && trim($candidate) !== '') {
-                return trim($candidate);
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRun
-     * @return Collection<int,array<string,mixed>>
-     */
-    private function providerRunsFromTrace(array $providerRun): Collection
-    {
-        $traceId = $this->uuidOrNull($this->providerTraceId($providerRun));
-        if ($traceId === null || ! DatabaseTableAvailability::all(['ai_traces', 'ai_jobs'])) {
-            return collect();
-        }
-
-        $trace = AiTrace::query()
-            ->with(['jobs' => fn ($query) => $query->orderBy('created_at')->orderBy('id')])
-            ->find($traceId);
-
-        if (! $trace) {
-            return collect();
-        }
-
-        $jobs = $trace->jobs;
-        if ($jobs->isEmpty()) {
-            return collect([[
-                'iteration' => 1,
-                'trace_id' => $trace->id,
-                'provider' => $trace->provider,
-                'model' => $trace->model,
-                'exit_code' => $trace->status === 'succeeded' ? 0 : 1,
-                'stdout' => $trace->response_text,
-                'stderr' => null,
-                'programming_repair' => data_get($trace->metadata, 'programming_repair'),
-            ]]);
-        }
-
-        $totalJobs = $jobs->count();
-
-        return $jobs->values()->map(function ($job, int $index) use ($trace, $totalJobs): array {
-            $iteration = (int) data_get($job->metadata, 'programming_repair_iteration', $index + 1);
-            $status = (string) $job->status;
-
-            return [
-                'iteration' => max(1, $iteration),
-                'trace_id' => $trace->id,
-                'provider' => $job->provider ?: $trace->provider,
-                'model' => $job->model ?: $trace->model,
-                'exit_code' => in_array($status, ['succeeded'], true) ? 0 : 1,
-                'stdout' => $job->result_text ?: ($index === $totalJobs - 1 ? $trace->response_text : null),
-                'stderr' => $job->error_message,
-                'programming_repair' => data_get($job->metadata, 'programming_repair') ?: data_get($trace->metadata, 'programming_repair'),
-            ];
-        });
-    }
-
-    private function recordEvidence(AtlasTask $task, AtlasEngineeringRun $run, array $scoring, mixed $patch): void
-    {
-        $decision = (string) ($scoring['decision'] ?? 'partial');
-        $status = match ($decision) {
-            'resolved' => 'passed',
-            'unsafe', 'unresolved' => 'failed',
-            default => 'needs_review',
-        };
-
-        $this->artifacts->recordEvidence($task, [
-            'evidence_type' => 'validation_evidence',
-            'target_id' => 'engineering_harness_run:'.$run->id,
-            'status' => $status,
-            'confidence' => $decision === 'resolved' ? 0.92 : 0.7,
-            'summary' => 'Engineering Harness Runner finalizou com decision='.$decision.' score='.(string) ($scoring['score'] ?? 0).'.',
-            'files' => array_values((array) ($patch?->changed_files_json ?? [])),
-            'metadata' => [
-                'engineering_run_id' => $run->id,
-                'decision' => $decision,
-                'score' => $scoring['score'] ?? null,
-                'components' => $scoring['components'] ?? [],
-                'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
-            ],
-        ], 'atlas:engineering:runner');
-    }
-
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function awisMutationBlock(
-        string $workspace,
-        AtlasTask $task,
-        bool $dryRun,
-        bool $noProvider,
-        string $requestedSandbox,
-        bool $applyIsolatedPatch,
-    ): ?array {
-        $mutative = ! $dryRun && (! $noProvider || ($applyIsolatedPatch && in_array($requestedSandbox, ['worktree', 'docker'], true)));
-        if (! $mutative) {
-            return null;
-        }
-
-        $resolver = $this->workspacePaths ?? app(AtlasWorkspacePathResolverService::class);
-        $gateService = $this->workspaceGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class);
-        $resolution = $resolver->resolveForExecution($workspace);
-
-        if (($resolution['status'] ?? null) !== 'ready') {
-            return $this->awisBlockedPayload($task, [
-                'schema_version' => 'atlas.engineering_runner.awis_gate.v1',
-                'status' => 'blocked',
-                'error' => 'awis_workspace_required_for_engineering_run',
-                'workspace_resolution' => $resolution,
-            ]);
-        }
-
-        $gate = $gateService->gate(
-            workspace: (string) $resolution['workspace_slug'],
-            mode: 'dev',
-            task: trim((string) ($task->title ?? $task->body ?? $task->id)),
-        );
-        if ((bool) ($gate['allowed'] ?? false)) {
-            return null;
-        }
-
-        return $this->awisBlockedPayload($task, [
-            'schema_version' => 'atlas.engineering_runner.awis_gate.v1',
-            'status' => 'blocked',
-            'error' => 'awis_execution_gate_blocked',
-            'workspace_resolution' => $resolution,
-            'awis_execution_gate' => $gate,
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $awis
-     * @return array<string,mixed>
-     */
-    private function awisBlockedPayload(AtlasTask $task, array $awis): array
-    {
-        return [
-            'run' => [
-                'id' => null,
-                'task_id' => $task->id,
-                'status' => 'blocked',
-                'decision' => 'blocked',
-                'score' => 0,
-                'blocking_reasons' => [$awis['error'] ?? 'awis_execution_gate_blocked'],
-                'awis_execution_gate' => $awis,
-            ],
-            'score' => [
-                'decision' => 'blocked',
-                'score' => 0,
-                'blocking_reasons' => [$awis['error'] ?? 'awis_execution_gate_blocked'],
-            ],
-            'awis_execution_gate' => $awis,
-            'harnessability' => ['status' => 'skipped', 'reason' => 'awis_blocked_before_harness'],
-            'test_run_count' => 0,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $workspacePlan
-     * @param  array<string,mixed>  $scoring
-     * @return array<string,mixed>
-     */
-    private function applyIsolatedPatch(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        array $workspacePlan,
-        mixed $patch,
-        array $scoring,
-        bool $enabled,
-    ): array {
-        $control = [
-            'slug' => 'isolated_patch_apply',
-            'name' => 'Apply isolated patch to original workspace',
-            'direction' => 'feedback',
-            'execution_type' => 'computational',
-            'regulation_category' => 'delivery_safety',
-            'timing' => 'post_validation',
-            'required' => false,
-            'failure_policy' => 'blocks_resolved',
-        ];
-
-        if (! (bool) ($workspacePlan['isolated'] ?? false)) {
-            return ['status' => 'not_applicable', 'reason' => 'workspace_not_isolated'];
-        }
-
-        if (! $enabled) {
-            $result = ['status' => 'skipped', 'reason' => 'apply_isolated_patch_disabled'];
-            $this->controlRegistry->recordResult(
-                run: $run,
-                attempt: $attempt,
-                control: $control,
-                status: 'skipped',
-                summary: 'Aplicacao do patch isolado desabilitada.',
-                metadata: ['required' => false],
-            );
-
-            return $result;
-        }
-
-        if (($scoring['decision'] ?? null) !== 'resolved') {
-            $result = ['status' => 'skipped', 'reason' => 'preliminary_decision_not_resolved', 'decision' => $scoring['decision'] ?? null];
-            $this->controlRegistry->recordResult(
-                run: $run,
-                attempt: $attempt,
-                control: $control,
-                status: 'skipped',
-                summary: 'Patch isolado nao aplicado porque o run ainda nao esta resolved.',
-                metadata: ['required' => false, 'decision' => $scoring['decision'] ?? null],
-            );
-
-            return $result;
-        }
-
-        $control['required'] = true;
-        $result = $this->workspaces->applyPatchToOriginal($workspacePlan, $patch);
-        $status = match ($result['status'] ?? null) {
-            'applied' => 'passed',
-            'blocked' => 'blocked',
-            'failed' => 'failed',
-            default => 'skipped',
-        };
-
-        $this->controlRegistry->recordResult(
-            run: $run,
-            attempt: $attempt,
-            control: $control,
-            status: $status,
-            summary: match ($status) {
-                'passed' => 'Patch isolado aplicado no workspace original.',
-                'blocked' => 'Aplicacao do patch isolado bloqueada: '.(string) ($result['reason'] ?? 'blocked'),
-                'failed' => 'Aplicacao do patch isolado falhou: '.(string) ($result['reason'] ?? 'failed'),
-                default => 'Aplicacao do patch isolado nao executada: '.(string) ($result['reason'] ?? 'skipped'),
-            },
-            outputExcerpt: (string) ($result['stderr_excerpt'] ?? ''),
-            metadata: array_merge($result, ['required' => true]),
-        );
-
-        return $result;
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRun
-     */
-    private function recordProviderReviewFindings(
-        AtlasEngineeringRun $run,
-        AtlasEngineeringRunAttempt $attempt,
-        array $providerRun,
-    ): void {
-        $completionStatus = (string) data_get($providerRun, 'decoded.completion.status', '');
-        $severity = $completionStatus === 'failed' ? 'p1' : 'p2';
-        $traceId = $attempt->trace_id ?: ($providerRun['trace_id'] ?? null);
-        $risks = collect((array) data_get($providerRun, 'decoded.completion.completion_packet.risks', []))
-            ->filter(fn (mixed $risk): bool => is_scalar($risk) && trim((string) $risk) !== '')
-            ->map(fn (mixed $risk): string => trim((string) $risk))
-            ->unique()
-            ->values();
-
-        foreach ($risks as $risk) {
-            $this->reviewFindings->record($run, [
-                'attempt_id' => $attempt->id,
-                'source' => 'provider_quality_gate',
-                'severity' => $severity,
-                'title' => Str::limit($risk, 120, ''),
-                'body' => $risk,
-                'evidence' => [
-                    'completion_status' => $completionStatus,
-                    'trace_id' => $traceId,
-                ],
-            ]);
-        }
-
-        $failedTests = collect((array) data_get($providerRun, 'decoded.completion.completion_packet.tests', []))
-            ->filter(fn (mixed $entry): bool => is_array($entry) && ! (bool) ($entry['ok'] ?? false))
-            ->values();
-        foreach ($failedTests as $entry) {
-            $command = trim((string) ($entry['command'] ?? 'unknown command'));
-            $this->reviewFindings->record($run, [
-                'attempt_id' => $attempt->id,
-                'source' => 'provider_quality_gate',
-                'severity' => 'p1',
-                'title' => 'Provider quality test failed: '.$command,
-                'body' => trim((string) (($entry['stderr'] ?? null) ?: ($entry['stdout'] ?? null) ?: 'Provider quality gate reported a failed test.')),
-                'evidence' => [
-                    'completion_status' => $completionStatus,
-                    'trace_id' => $traceId,
-                    'test' => $entry,
-                ],
-            ]);
-        }
-
-        if ($completionStatus === 'failed' && $risks->isEmpty() && $failedTests->isEmpty()) {
-            $this->reviewFindings->record($run, [
-                'attempt_id' => $attempt->id,
-                'source' => 'provider_quality_gate',
-                'severity' => 'p1',
-                'title' => 'Provider quality gate failed',
-                'body' => 'The provider workflow returned a failed completion status without a structured risk item.',
-                'evidence' => [
-                    'trace_id' => $traceId,
-                    'exit_code' => $providerRun['exit_code'] ?? null,
-                ],
-            ]);
-        }
-    }
-
-    private function persistTaskSummary(AtlasTask $task, AtlasEngineeringRun $run, array $scoring): void
-    {
-        $metadata = is_array($task->metadata) ? $task->metadata : [];
-        $history = is_array($metadata['engineering_harness_run_history'] ?? null)
-            ? $metadata['engineering_harness_run_history']
-            : [];
-        $summary = [
-            'run_id' => $run->id,
-            'status' => $run->status,
-            'decision' => $run->decision,
-            'score' => $run->score,
-            'attempt_count' => $run->attempt_count,
-            'context_pack_hash' => $run->context_pack_hash,
-            'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
-            'created_at' => $run->created_at?->toJSON(),
-            'finished_at' => $run->finished_at?->toJSON(),
-        ];
-
-        $metadata['latest_engineering_harness_run'] = $summary;
-        $metadata['engineering_harness_run_history'] = array_slice([$summary, ...$history], 0, 20);
-        $task->forceFill(['metadata' => $metadata])->save();
-    }
-
-    private function sourceTestCommand(AtlasEngineeringRun $sourceRun): ?string
-    {
-        $sourceRun->loadMissing('testRuns');
-        $command = $sourceRun->testRuns
-            ->map(fn ($testRun): ?string => is_string($testRun->command) ? trim($testRun->command) : null)
-            ->first(fn (?string $command): bool => is_string($command) && $command !== '');
-
-        return is_string($command) && $command !== '' ? $command : null;
-    }
-
-    private function statusForDecision(string $decision): string
-    {
-        return match ($decision) {
-            'resolved' => 'passed',
-            'blocked' => 'blocked',
-            'unsafe', 'unresolved' => 'failed',
-            default => 'reviewing',
-        };
     }
 
     /**
@@ -1982,7 +777,7 @@ class EngineeringHarnessRunnerService
                 'started_at' => $attempt->started_at?->toJSON(),
                 'finished_at' => $attempt->finished_at?->toJSON(),
             ])->values()->all(),
-            'attempt_comparison' => $this->attemptComparison($run),
+            'attempt_comparison' => $this->summary->attemptComparison($run),
             'patch_artifacts' => $run->patchArtifacts->map(fn ($patch): array => [
                 'id' => $patch->id,
                 'attempt_id' => $patch->attempt_id,
@@ -1991,7 +786,7 @@ class EngineeringHarnessRunnerService
                 'diff_hash' => $patch->diff_hash,
                 'diff_excerpt' => $patch->diff_excerpt,
                 'diff_path' => $patch->diff_path,
-                'integrity' => $this->patchArtifactIntegrity($patch),
+                'integrity' => $this->summary->patchArtifactIntegrity($patch),
                 'changed_files' => $patch->changed_files_json,
                 'created_files' => $patch->created_files_json,
                 'deleted_files' => $patch->deleted_files_json,
@@ -2079,326 +874,10 @@ class EngineeringHarnessRunnerService
                 ])
                 ->values()
                 ->all(),
-            'timeline' => $this->timeline($run),
+            'timeline' => $this->summary->timeline($run),
             'started_at' => $run->started_at?->toJSON(),
             'finished_at' => $run->finished_at?->toJSON(),
         ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function patchArtifactIntegrity(AtlasEngineeringPatchArtifact $patch): array
-    {
-        $path = is_string($patch->diff_path) ? trim($patch->diff_path) : '';
-        if ($path === '') {
-            return [
-                'checked' => true,
-                'exists' => false,
-                'hash_matches' => $patch->diff_hash === null,
-                'reason' => $patch->diff_hash === null ? 'empty_diff' : 'diff_path_missing',
-            ];
-        }
-
-        if (! File::exists($path)) {
-            return [
-                'checked' => true,
-                'exists' => false,
-                'hash_matches' => false,
-                'reason' => 'diff_path_not_found',
-            ];
-        }
-
-        $actualHash = hash('sha256', File::get($path));
-
-        return [
-            'checked' => true,
-            'exists' => true,
-            'hash_matches' => $patch->diff_hash === null || hash_equals((string) $patch->diff_hash, $actualHash),
-            'sha256' => $actualHash,
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function attemptComparison(AtlasEngineeringRun $run): array
-    {
-        $attemptCount = $run->attempts->count();
-        if ($attemptCount === 0) {
-            return [
-                'status' => 'empty',
-                'best_attempt_id' => null,
-                'best_attempt_number' => null,
-                'best_score' => null,
-                'best_recommendation' => null,
-                'attempts' => [],
-            ];
-        }
-
-        $ranked = $run->attempts
-            ->map(fn (AtlasEngineeringRunAttempt $attempt): array => $this->attemptComparisonRow($run, $attempt, $attemptCount))
-            ->sort(fn (array $left, array $right): int => ($right['score'] <=> $left['score']) ?: ($left['attempt_number'] <=> $right['attempt_number']))
-            ->values()
-            ->map(fn (array $row, int $index): array => array_merge($row, ['rank' => $index + 1]))
-            ->values();
-
-        $best = $ranked->first();
-
-        return [
-            'status' => $attemptCount === 1 ? 'single_attempt' : 'ranked',
-            'best_attempt_id' => $best['attempt_id'] ?? null,
-            'best_attempt_number' => $best['attempt_number'] ?? null,
-            'best_score' => $best['score'] ?? null,
-            'best_recommendation' => $best['recommendation'] ?? null,
-            'attempts' => $ranked->all(),
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function attemptComparisonRow(AtlasEngineeringRun $run, AtlasEngineeringRunAttempt $attempt, int $attemptCount): array
-    {
-        $patches = $this->recordsForAttempt($run->patchArtifacts, $attempt, $attemptCount);
-        $tests = $this->recordsForAttempt($run->testRuns, $attempt, $attemptCount);
-        $controls = $this->recordsForAttempt($run->controlResults, $attempt, $attemptCount);
-        $findings = $this->recordsForAttempt($run->reviewFindings, $attempt, $attemptCount);
-
-        $passedTests = $tests->where('status', 'passed')->count();
-        $failedTests = $tests->filter(fn ($test): bool => in_array((string) $test->status, ['failed', 'blocked', 'timed_out'], true))->count();
-        $failedControls = $controls->filter(fn ($control): bool => in_array((string) $control->status, ['failed', 'blocked'], true))->count();
-        $openFindings = $findings->where('status', 'open');
-        $blockingFindings = $openFindings->whereIn('severity', ['p0', 'p1'])->count();
-        $riskFlags = $patches
-            ->flatMap(fn ($patch): array => (array) ($patch->risk_flags_json ?? []))
-            ->filter()
-            ->unique()
-            ->values();
-        $changedFiles = collect((array) ($attempt->changed_files_json ?? []))
-            ->merge($patches->flatMap(fn ($patch): array => (array) ($patch->changed_files_json ?? [])))
-            ->filter()
-            ->unique()
-            ->values();
-
-        $score = 50;
-        $score += match ((string) $attempt->status) {
-            'completed', 'passed', 'resolved' => 20,
-            'failed' => -20,
-            'timed_out' => -25,
-            'cancelled' => -30,
-            default => 0,
-        };
-        $score += min(20, $passedTests * 8);
-        $score += $patches->isNotEmpty() ? 10 : 0;
-        $score += $changedFiles->isNotEmpty() ? 5 : 0;
-        $score -= min(30, $failedTests * 15);
-        $score -= min(20, $failedControls * 10);
-        $score -= min(30, $blockingFindings * 20);
-        $score -= min(20, $riskFlags->count() * 5);
-        $score -= is_string($attempt->failure_summary) && trim($attempt->failure_summary) !== '' ? 10 : 0;
-        $score = max(0, min(100, $score));
-
-        $recommendation = match (true) {
-            $score >= 85 && $failedTests === 0 && $failedControls === 0 && $blockingFindings === 0 => 'best_repair_base',
-            $score >= 70 => 'review_before_replay',
-            default => 'avoid_replay_base',
-        };
-
-        return [
-            'attempt_id' => $attempt->id,
-            'attempt_number' => $attempt->attempt_number,
-            'provider' => $attempt->provider,
-            'model' => $attempt->model,
-            'phase' => $attempt->phase,
-            'status' => $attempt->status,
-            'score' => $score,
-            'recommendation' => $recommendation,
-            'patch_hash' => $attempt->patch_hash,
-            'changed_files_count' => $changedFiles->count(),
-            'patch_count' => $patches->count(),
-            'passed_tests' => $passedTests,
-            'failed_tests' => $failedTests,
-            'failed_controls' => $failedControls,
-            'open_findings' => $openFindings->count(),
-            'blocking_findings' => $blockingFindings,
-            'risk_flags' => $riskFlags->all(),
-            'signals' => $this->attemptComparisonSignals(
-                $attempt,
-                $patches->count(),
-                $changedFiles->count(),
-                $passedTests,
-                $failedTests,
-                $failedControls,
-                $blockingFindings,
-                $riskFlags->count(),
-            ),
-        ];
-    }
-
-    private function recordsForAttempt($records, AtlasEngineeringRunAttempt $attempt, int $attemptCount)
-    {
-        return $records->filter(function ($record) use ($attempt, $attemptCount): bool {
-            $recordAttemptId = $record->attempt_id ?? null;
-
-            return (string) $recordAttemptId === (string) $attempt->id
-                || ($attemptCount === 1 && ($recordAttemptId === null || $recordAttemptId === ''));
-        })->values();
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function attemptComparisonSignals(
-        AtlasEngineeringRunAttempt $attempt,
-        int $patchCount,
-        int $changedFilesCount,
-        int $passedTests,
-        int $failedTests,
-        int $failedControls,
-        int $blockingFindings,
-        int $riskFlagCount,
-    ): array {
-        return collect([
-            in_array((string) $attempt->status, ['completed', 'passed', 'resolved'], true) ? 'attempt_completed' : 'attempt_not_completed',
-            $patchCount > 0 ? 'patch_captured' : 'no_patch_artifact',
-            $changedFilesCount > 0 ? 'changed_files_present' : 'no_changed_files',
-            $passedTests > 0 ? 'tests_passed' : null,
-            $failedTests > 0 ? 'tests_failed' : null,
-            $failedControls > 0 ? 'controls_failed' : null,
-            $blockingFindings > 0 ? 'blocking_findings_open' : null,
-            $riskFlagCount > 0 ? 'risk_flags_present' : null,
-            is_string($attempt->failure_summary) && trim($attempt->failure_summary) !== '' ? 'failure_summary_present' : null,
-        ])->filter()->values()->all();
-    }
-
-    /**
-     * @return array<int,array<string,mixed>>
-     */
-    private function timeline(AtlasEngineeringRun $run): array
-    {
-        $events = collect();
-
-        foreach ($run->attempts as $attempt) {
-            $events->push([
-                'type' => 'attempt',
-                'status' => $attempt->status,
-                'label' => 'Attempt #'.$attempt->attempt_number.' '.$attempt->phase,
-                'at' => $attempt->finished_at?->toJSON() ?: $attempt->created_at?->toJSON(),
-                'ref_id' => $attempt->id,
-            ]);
-        }
-
-        foreach ($run->testRuns as $testRun) {
-            $events->push([
-                'type' => 'test',
-                'status' => $testRun->status,
-                'label' => $testRun->command,
-                'at' => $testRun->created_at?->toJSON(),
-                'ref_id' => $testRun->id,
-            ]);
-        }
-
-        foreach ($run->controlResults as $result) {
-            $events->push([
-                'type' => 'control',
-                'status' => $result->status,
-                'label' => $result->control_slug,
-                'at' => $result->created_at?->toJSON(),
-                'ref_id' => $result->id,
-            ]);
-        }
-
-        foreach ($run->reviewFindings as $finding) {
-            $events->push([
-                'type' => 'review_finding',
-                'status' => $finding->status,
-                'label' => strtoupper((string) $finding->severity).': '.$finding->title,
-                'at' => $finding->created_at?->toJSON(),
-                'ref_id' => $finding->id,
-            ]);
-        }
-
-        foreach ($run->operatorActions as $action) {
-            $events->push([
-                'type' => 'operator_action',
-                'status' => $action->status_after,
-                'label' => 'Operator '.$action->action,
-                'at' => $action->acted_at?->toJSON() ?: $action->created_at?->toJSON(),
-                'ref_id' => $action->id,
-            ]);
-        }
-
-        return $events
-            ->sortBy('at')
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<string,mixed>  $plan
-     * @return array<string,mixed>
-     */
-    private function compactWorkspacePlan(array $plan): array
-    {
-        return [
-            'mode' => $plan['mode'] ?? null,
-            'requested_mode' => $plan['requested_mode'] ?? null,
-            'status' => $plan['status'] ?? null,
-            'original_workspace_hash' => isset($plan['original_workspace']) ? hash('sha256', (string) $plan['original_workspace']) : null,
-            'execution_workspace_hash' => isset($plan['execution_workspace']) ? hash('sha256', (string) $plan['execution_workspace']) : null,
-            'repo_root_hash' => isset($plan['repo_root']) ? hash('sha256', (string) $plan['repo_root']) : null,
-            'branch' => $plan['branch'] ?? null,
-            'head' => $plan['head'] ?? null,
-            'dirty_count' => count((array) ($plan['dirty_files'] ?? [])),
-            'isolated' => (bool) ($plan['isolated'] ?? false),
-            'isolation_type' => $plan['isolation_type'] ?? null,
-            'containerized_execution' => (bool) ($plan['containerized_execution'] ?? false),
-            'docker' => $this->compactDockerPlan((array) ($plan['docker'] ?? [])),
-            'dirty_files_included' => $plan['dirty_files_included'] ?? null,
-            'fallback_reason' => $plan['fallback_reason'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     * @return array<string,mixed>
-     */
-    private function dockerOptions(array $options): array
-    {
-        return array_filter([
-            'docker_service' => is_string($options['docker_service'] ?? null) ? $options['docker_service'] : null,
-            'docker_image' => is_string($options['docker_image'] ?? null) ? $options['docker_image'] : null,
-            'docker_workdir' => is_string($options['docker_workdir'] ?? null) ? $options['docker_workdir'] : null,
-            'docker_cache' => is_string($options['docker_cache'] ?? null) ? $options['docker_cache'] : null,
-            'docker_network' => is_string($options['docker_network'] ?? null) ? $options['docker_network'] : null,
-            'docker_healthcheck_services' => is_array($options['docker_healthcheck_services'] ?? null) ? $options['docker_healthcheck_services'] : null,
-            'docker_healthcheck_timeout' => is_numeric($options['docker_healthcheck_timeout'] ?? null) ? (int) $options['docker_healthcheck_timeout'] : null,
-            'docker_artifact_paths' => is_array($options['docker_artifact_paths'] ?? null) ? $options['docker_artifact_paths'] : null,
-            'docker_artifact_max_files' => is_numeric($options['docker_artifact_max_files'] ?? null) ? (int) $options['docker_artifact_max_files'] : null,
-            'docker_artifact_max_bytes' => is_numeric($options['docker_artifact_max_bytes'] ?? null) ? (int) $options['docker_artifact_max_bytes'] : null,
-        ], fn (mixed $value): bool => $value !== null && $value !== '' && (! is_array($value) || $value !== []));
-    }
-
-    private function visualE2eMode(mixed $value): string
-    {
-        $mode = is_scalar($value) ? trim((string) $value) : 'auto';
-
-        return in_array($mode, ['auto', 'off', 'required'], true) ? $mode : 'auto';
-    }
-
-    private function qualityScanMode(mixed $value): string
-    {
-        $mode = is_scalar($value) ? trim((string) $value) : 'off';
-
-        return in_array($mode, ['auto', 'off', 'required'], true) ? $mode : 'off';
-    }
-
-    private function qualityScanProfile(mixed $value): string
-    {
-        $profile = is_scalar($value) ? trim((string) $value) : 'auto';
-
-        return in_array($profile, ['auto', 'fast', 'standard', 'release', 'deep'], true) ? $profile : 'auto';
     }
 
     /**
@@ -2408,19 +887,19 @@ class EngineeringHarnessRunnerService
      */
     private function autonomyPolicy(array $harnessability, array $requested): array
     {
-        $mode = $this->harnessPolicyMode($requested['mode'] ?? 'auto');
+        $mode = $this->options->harnessPolicyMode($requested['mode'] ?? 'auto');
         $score = max(0, min(100, (int) ($harnessability['score'] ?? 0)));
         $level = (string) ($harnessability['level'] ?? 'low');
         $providerExecuted = ! (bool) ($requested['dry_run'] ?? false) && ! (bool) ($requested['no_provider'] ?? false);
         $forceSandboxWithoutProvider = (bool) ($requested['force_sandbox_without_provider'] ?? false);
-        $permission = $this->permissionMode($requested['permission'] ?? 'auto');
-        $sandbox = $this->sandboxMode($requested['sandbox'] ?? 'workspace');
+        $permission = $this->options->permissionMode($requested['permission'] ?? 'auto');
+        $sandbox = $this->options->sandboxMode($requested['sandbox'] ?? 'workspace');
         $maxAttempts = $this->runnerInput()->maxAttempts($requested['max_attempts'] ?? null);
         $autoTest = (bool) ($requested['auto_test'] ?? false);
         $actions = [];
         $reasons = [];
         $testCommands = array_values((array) ($harnessability['test_commands'] ?? []));
-        $thresholds = $this->harnessabilityThresholds($harnessability);
+        $thresholds = $this->options->harnessabilityThresholds($harnessability);
         $requireWorktreeBelow = (int) $thresholds['require_worktree_below_score'];
         $dangerPermissionMin = (int) $thresholds['danger_permission_min_score'];
         $writePermissionMin = (int) $thresholds['write_permission_min_score'];
@@ -2491,309 +970,6 @@ class EngineeringHarnessRunnerService
         ];
     }
 
-    private function harnessPolicyMode(mixed $value): string
-    {
-        $mode = is_scalar($value) ? trim((string) $value) : 'auto';
-
-        return in_array($mode, ['auto', 'off', 'strict'], true) ? $mode : 'auto';
-    }
-
-    private function permissionMode(mixed $value): string
-    {
-        $mode = is_scalar($value) ? trim((string) $value) : 'auto';
-
-        return in_array($mode, ['auto', 'read', 'write', 'danger'], true) ? $mode : 'auto';
-    }
-
-    private function sandboxMode(mixed $value): string
-    {
-        $mode = is_scalar($value) ? trim((string) $value) : 'workspace';
-
-        return in_array($mode, ['workspace', 'worktree', 'docker'], true) ? $mode : 'workspace';
-    }
-
-    /**
-     * @param  array<string,mixed>  $harnessability
-     * @return array<string,int|string>
-     */
-    private function harnessabilityThresholds(array $harnessability): array
-    {
-        $defaults = [
-            'medium_min_score' => 55,
-            'high_min_score' => 80,
-            'require_worktree_below_score' => 80,
-            'danger_permission_min_score' => 80,
-            'write_permission_min_score' => 55,
-            'cap_attempts_to_one_below_score' => 55,
-            'cap_attempts_to_two_below_score' => 80,
-            'require_auto_test_below_score' => 80,
-            'policy_source' => 'static_default',
-        ];
-        $recommended = (array) data_get($harnessability, 'calibration.recommended_thresholds', []);
-        $thresholds = array_merge($defaults, array_intersect_key($recommended, $defaults));
-
-        foreach ($thresholds as $key => $value) {
-            if ($key === 'policy_source') {
-                $thresholds[$key] = is_string($value) && $value !== '' ? $value : 'static_default';
-
-                continue;
-            }
-
-            $thresholds[$key] = max(0, min(100, (int) $value));
-        }
-
-        return $thresholds;
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     * @return array<string,mixed>
-     */
-    private function providerRuntimeOptions(array $options): array
-    {
-        return array_filter([
-            'provider_runtime' => is_string($options['provider_runtime'] ?? null) ? $options['provider_runtime'] : null,
-            'provider_docker_compose_file' => is_string($options['provider_docker_compose_file'] ?? null) ? $options['provider_docker_compose_file'] : null,
-            'provider_docker_service' => is_string($options['provider_docker_service'] ?? null) ? $options['provider_docker_service'] : null,
-            'provider_docker_app_dir' => is_string($options['provider_docker_app_dir'] ?? null) ? $options['provider_docker_app_dir'] : null,
-            'provider_docker_workspace_dir' => is_string($options['provider_docker_workspace_dir'] ?? null) ? $options['provider_docker_workspace_dir'] : null,
-        ], fn (mixed $value): bool => $value !== null && $value !== '');
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRuntimeOptions
-     * @return array<string,mixed>
-     */
-    private function skippedProviderRuntimePlan(array $providerRuntimeOptions): array
-    {
-        return [
-            'requested_runtime' => (string) ($providerRuntimeOptions['provider_runtime'] ?? config('atlas.engineering.provider_runtime.default', 'host')),
-            'runtime' => 'host',
-            'status' => 'skipped',
-            'required' => false,
-            'fallback_reason' => 'provider_not_executed',
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $docker
-     * @return array<string,mixed>|null
-     */
-    private function compactDockerPlan(array $docker): ?array
-    {
-        if ($docker === []) {
-            return null;
-        }
-
-        return [
-            'profile_found' => (bool) ($docker['profile_found'] ?? false),
-            'usable' => (bool) ($docker['usable'] ?? false),
-            'runtime' => $docker['runtime'] ?? null,
-            'docker_available' => (bool) ($docker['docker_available'] ?? false),
-            'compose_available' => (bool) ($docker['compose_available'] ?? false),
-            'compose_files' => array_values((array) ($docker['compose_files'] ?? [])),
-            'selected_compose_file' => $docker['selected_compose_file'] ?? null,
-            'dockerfile' => $docker['dockerfile'] ?? null,
-            'devcontainer' => $docker['devcontainer'] ?? null,
-            'service' => $docker['service'] ?? null,
-            'image' => $docker['image'] ?? null,
-            'container_workdir' => $docker['container_workdir'] ?? null,
-            'cache' => $this->compactDockerCachePlan((array) ($docker['cache'] ?? [])),
-            'healthchecks' => $this->compactDockerHealthcheckPlan((array) ($docker['healthchecks'] ?? [])),
-            'artifacts' => $this->compactDockerArtifactPlan((array) ($docker['artifacts'] ?? [])),
-            'network' => $this->compactDockerNetworkPlan((array) ($docker['network'] ?? [])),
-            'unusable_reason' => $docker['unusable_reason'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $cache
-     * @return array<string,mixed>|null
-     */
-    private function compactDockerCachePlan(array $cache): ?array
-    {
-        if ($cache === []) {
-            return null;
-        }
-
-        return [
-            'mode' => $cache['mode'] ?? null,
-            'enabled' => (bool) ($cache['enabled'] ?? false),
-            'root_hash' => isset($cache['root']) ? hash('sha256', (string) $cache['root']) : null,
-            'mounts' => collect((array) ($cache['mounts'] ?? []))
-                ->filter(fn (mixed $mount): bool => is_array($mount))
-                ->map(fn (array $mount): array => [
-                    'name' => $mount['name'] ?? null,
-                    'host_path_hash' => isset($mount['host_path']) ? hash('sha256', (string) $mount['host_path']) : null,
-                    'container_path' => $mount['container_path'] ?? null,
-                    'env_keys' => array_keys((array) ($mount['env'] ?? [])),
-                    'enabled' => (bool) ($mount['enabled'] ?? false),
-                ])
-                ->values()
-                ->all(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $healthchecks
-     * @return array<string,mixed>|null
-     */
-    private function compactDockerHealthcheckPlan(array $healthchecks): ?array
-    {
-        if ($healthchecks === []) {
-            return null;
-        }
-
-        return [
-            'services' => array_values((array) ($healthchecks['services'] ?? [])),
-            'timeout_seconds' => $healthchecks['timeout_seconds'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $artifacts
-     * @return array<string,mixed>|null
-     */
-    private function compactDockerArtifactPlan(array $artifacts): ?array
-    {
-        if ($artifacts === []) {
-            return null;
-        }
-
-        return [
-            'paths' => array_values((array) ($artifacts['paths'] ?? [])),
-            'max_files' => $artifacts['max_files'] ?? null,
-            'max_bytes' => $artifacts['max_bytes'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $network
-     * @return array<string,mixed>|null
-     */
-    private function compactDockerNetworkPlan(array $network): ?array
-    {
-        if ($network === []) {
-            return null;
-        }
-
-        return [
-            'mode' => $network['mode'] ?? null,
-            'runtime' => $network['runtime'] ?? null,
-            'enforced' => (bool) ($network['enforced'] ?? false),
-            'required' => (bool) ($network['required'] ?? false),
-            'unavailable_reason' => $network['unavailable_reason'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $healthchecks
-     * @return array<string,mixed>
-     */
-    private function compactDockerHealthchecks(array $healthchecks): array
-    {
-        return [
-            'status' => $healthchecks['status'] ?? null,
-            'reason' => $healthchecks['reason'] ?? null,
-            'service_count' => count((array) ($healthchecks['services'] ?? [])),
-            'services' => collect((array) ($healthchecks['services'] ?? []))
-                ->filter(fn (mixed $service): bool => is_array($service) || is_scalar($service))
-                ->map(fn (mixed $service): mixed => is_array($service) ? [
-                    'service' => $service['service'] ?? null,
-                    'ready' => (bool) ($service['ready'] ?? false),
-                    'state' => $service['state'] ?? null,
-                    'health' => $service['health'] ?? null,
-                    'exit_code' => $service['exit_code'] ?? null,
-                ] : (string) $service)
-                ->values()
-                ->all(),
-            'timeout_seconds' => $healthchecks['timeout_seconds'] ?? null,
-            'started' => (bool) ($healthchecks['started'] ?? false),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $plan
-     * @return array<string,mixed>
-     */
-    private function compactProviderRuntimePlan(array $plan): array
-    {
-        return [
-            'requested_runtime' => $plan['requested_runtime'] ?? null,
-            'runtime' => $plan['runtime'] ?? null,
-            'status' => $plan['status'] ?? null,
-            'required' => (bool) ($plan['required'] ?? false),
-            'fallback_reason' => $plan['fallback_reason'] ?? null,
-            'docker_available' => array_key_exists('docker_available', $plan) ? (bool) $plan['docker_available'] : null,
-            'compose_available' => array_key_exists('compose_available', $plan) ? (bool) $plan['compose_available'] : null,
-            'compose_file_hash' => isset($plan['compose_file']) ? hash('sha256', (string) $plan['compose_file']) : null,
-            'service' => $plan['service'] ?? null,
-            'service_found' => array_key_exists('service_found', $plan) ? (bool) $plan['service_found'] : null,
-            'app_dir' => $plan['app_dir'] ?? null,
-            'workspace_dir' => $plan['workspace_dir'] ?? null,
-            'execution_workspace_hash' => $plan['execution_workspace_hash'] ?? null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $networkPolicy
-     * @return array<string,mixed>
-     */
-    private function compactDockerNetworkPolicy(array $networkPolicy): array
-    {
-        return [
-            'status' => $networkPolicy['status'] ?? null,
-            'reason' => $networkPolicy['reason'] ?? null,
-            'mode' => $networkPolicy['mode'] ?? null,
-            'runtime' => $networkPolicy['runtime'] ?? null,
-            'enforced' => (bool) ($networkPolicy['enforced'] ?? false),
-            'required' => (bool) ($networkPolicy['required'] ?? false),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRun
-     * @return array<string,mixed>
-     */
-    private function compactProviderPayload(array $providerRun): array
-    {
-        return [
-            'exit_code' => $providerRun['exit_code'] ?? null,
-            'trace_id' => $providerRun['trace_id'] ?? null,
-            'runtime' => $providerRun['runtime'] ?? null,
-            'command_display' => $providerRun['command_display'] ?? null,
-            'provider_runtime' => $providerRun['provider_runtime'] ?? null,
-            'phase' => data_get($providerRun, 'decoded.phase'),
-            'ok' => data_get($providerRun, 'decoded.ok'),
-            'completion_status' => data_get($providerRun, 'decoded.completion.status'),
-            'fair_mode_result' => data_get($providerRun, 'decoded.fair_mode_result'),
-            'fair_mode' => data_get($providerRun, 'decoded.dev_execution_plan.fair_mode'),
-            'quality_gate_policy' => data_get($providerRun, 'decoded.dev_execution_plan.quality_gate_policy'),
-            'dev_plan_id' => data_get($providerRun, 'decoded.dev_execution_plan.plan_id'),
-            'provider_runs' => collect((array) data_get($providerRun, 'decoded.provider_runs', []))
-                ->filter(fn (mixed $entry): bool => is_array($entry))
-                ->map(fn (array $entry): array => $this->compactSingleProviderRun($entry))
-                ->values()
-                ->all(),
-            'stderr_excerpt' => isset($providerRun['stderr']) ? Str::limit((string) $providerRun['stderr'], 1200) : null,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $providerRun
-     * @return array<string,mixed>
-     */
-    private function compactSingleProviderRun(array $providerRun): array
-    {
-        return [
-            'iteration' => $providerRun['iteration'] ?? null,
-            'trace_id' => $providerRun['trace_id'] ?? null,
-            'exit_code' => $providerRun['exit_code'] ?? null,
-            'stdout_excerpt' => isset($providerRun['stdout']) ? Str::limit((string) $providerRun['stdout'], 1200) : null,
-            'stderr_excerpt' => isset($providerRun['stderr']) ? Str::limit((string) $providerRun['stderr'], 1200) : null,
-        ];
-    }
-
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,bool>
@@ -2851,63 +1027,6 @@ class EngineeringHarnessRunnerService
 
         return $model === FairClaudePolicy::MODEL_LOCK
             || ($configured !== '' && $model === $configured);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function failureSummary(array $payload): string
-    {
-        return Str::limit((string) ($payload['stderr'] ?? $payload['stdout'] ?? 'Provider execution failed.'), 2000);
-    }
-
-    private function uuidOrNull(mixed $value): ?string
-    {
-        return is_string($value) && Str::isUuid($value) ? $value : null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function recordHarnessLedgerEvent(LedgerEventType $type, AtlasEngineeringRun $run, array $payload = []): void
-    {
-        $envelopeId = 'engineering_run:'.$run->id;
-
-        try {
-            $this->ledger->record($type, array_merge([
-                'envelope_id' => $envelopeId,
-                'engineering_run_id' => $run->id,
-                'task_id' => $run->task_id,
-                'project_id' => $run->project_id,
-                'project_step_id' => $run->project_step_id,
-                'trace_id' => $run->trace_id,
-                'status' => $run->status,
-                'decision' => $run->decision,
-                'score' => $run->score,
-                'workspace_path_hash' => $run->workspace_path_hash,
-                'workspace_label_hash' => $run->workspace_label ? hash('sha256', $run->workspace_label) : null,
-                'provider' => data_get($run->provider_strategy_json, 'provider'),
-                'model' => data_get($run->provider_strategy_json, 'model'),
-            ], $payload), [
-                'tenant_id' => (string) data_get($run->metadata, 'tenant_id', 'default'),
-                'operator_id' => (string) data_get($run->metadata, 'operator_id', 'system'),
-                'envelope_id' => $envelopeId,
-                'trace_id' => $this->uuidOrNull($run->trace_id),
-                'correlation_id' => $envelopeId,
-                'emitter_stage' => 'engineering.harness',
-                'emitter_version' => 'engineering-harness-v1',
-            ]);
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
-    }
-
-    private function workspace(mixed $workspace): string
-    {
-        $workspace = is_string($workspace) && $workspace !== '' ? $workspace : (getcwd() ?: base_path());
-        $resolved = realpath($workspace);
-
-        return $resolved && is_dir($resolved) ? $resolved : $workspace;
     }
 
     private function runnerInput(): EngineeringHarnessRunnerInput
