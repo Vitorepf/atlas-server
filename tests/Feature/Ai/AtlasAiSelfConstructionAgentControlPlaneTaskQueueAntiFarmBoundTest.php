@@ -180,6 +180,30 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame(65, $receipt['claimable_count']);
     }
 
+    public function test_forbidden_target_repair_refuses_an_unbounded_blocked_inventory(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $id = 'forbidden-repair-bound-'.$index;
+            $packet = $this->input($id);
+            $packet['objective'] = 'independent bounded forbidden target repair scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove forbidden target repair constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+            $queue->updateStatus($id, 'blocked', ['reason' => 'fixture_blocked_for_bound_test']);
+        }
+
+        $repair = $this->orchestrator()->repairBlockedForbiddenSelfTargetTasks(dryRun: true);
+
+        $this->assertSame('blocked', $repair['status']);
+        $this->assertSame('forbidden_target_repair_scan_limit_exceeded', $repair['reason']);
+        $this->assertSame(65, $repair['blocked_count']);
+        $this->assertSame(64, $repair['scan_limit']);
+        $this->assertSame(0, $repair['inspected_blocked']);
+        $this->assertSame('blocked', data_get($queue->get('forbidden-repair-bound-64'), 'status'));
+    }
+
     /** @return array<string, mixed> */
     private function input(string $id): array
     {

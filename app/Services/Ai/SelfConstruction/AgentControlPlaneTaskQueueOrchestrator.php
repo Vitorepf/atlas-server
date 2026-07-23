@@ -751,29 +751,28 @@ final class AgentControlPlaneTaskQueueOrchestrator
         ];
     }
 
-    /**
-     * Repair blocked packets whose only known issue is an uncommittable forbidden self-target in allowed_files.
-     * The repair keeps the SAME task_packet_id, removes forbidden paths from the write scope, marks them as
-     * forbidden_files, rebuilds the packet hash via the canonical builder, and reopens the task as claimable.
-     * Dependencies keep pointing at the same id, so the task ladder does not fork.
-     *
-     * @return array<string, mixed>
-     */
+    /** Repair blocked packets whose sole issue is a forbidden self-target without forking their task id. */
     public function repairBlockedForbiddenSelfTargetTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
     {
         $guard = new AtlasLoopHarnessGuard;
         $inspector = new AtlasTaskPacketQualityInspector($guard);
-        $limit = max(0, $limit);
+        $limit = $limit > 0 ? min($limit, self::MAX_ANTI_FARM_CANDIDATES) : self::MAX_ANTI_FARM_CANDIDATES;
+        $blockedCount = (int) data_get($this->queue->registry(['status' => 'blocked'], true), 'entry_count', 0);
+        if ($blockedCount > $limit) {
+            return [
+                'schema' => 'atlas.task_serving.blocked_repair.v1', 'status' => 'blocked', 'reason' => 'forbidden_target_repair_scan_limit_exceeded',
+                'dry_run' => $dryRun, 'blocked_count' => $blockedCount, 'scan_limit' => $limit, 'inspected_blocked' => 0,
+                'repairable_count' => 0, 'repaired_count' => 0, 'retired_count' => 0, 'unrepairable_count' => 0,
+                'repairable' => [], 'repaired' => [], 'retired' => [], 'unrepairable' => [],
+            ];
+        }
         $inspected = 0;
         $repairable = [];
         $repaired = [];
         $retired = [];
         $unrepairable = [];
 
-        foreach ($this->queue->list(['status' => 'blocked']) as $record) {
-            if ($limit > 0 && count($repairable) + count($repaired) + count($retired) + count($unrepairable) >= $limit) {
-                break;
-            }
+        foreach ($this->queue->list(['status' => 'blocked', 'limit' => $limit]) as $record) {
             $inspected++;
             $taskPacketId = (string) ($record['task_packet_id'] ?? '');
             $packet = (array) data_get($record, 'task_packet', []);
