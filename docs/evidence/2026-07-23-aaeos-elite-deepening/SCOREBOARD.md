@@ -2,37 +2,36 @@
 
 **Program state:** `PLAN_ONLY` · `elite_deepening_done=false`  
 **Measured composite:** `null`  
-**Plan:** **v5 RSS** · MASTER §10 + §49 + §69–§76  
-**Phases in scope:** **P0–P4 only** (R47–R50 horizon, not gates)
+**capability_proof:** `none` (until internal_only after R33+R51+CRES+honesty)  
+**Plan:** **v6 RSS+CRES** · MASTER §49.4 + §71.2 + §78  
 
-## Hard-gate view (honest)
+## Hard gates (honest)
 
-| Dimension | State | Notes |
-|---|---|---|
-| Daily port single (R37) | FAIL | run≠cycle |
-| Receipt honesty | FAIL | rwp lie; dry recorder |
-| Score measurement | FAIL/UNKNOWN | constants + zero sample |
-| Certify honesty | FAIL | 9.2 inject |
-| R4 source wire | PASS_SOURCE | call exists |
-| R33 brain args | **FAIL** | blocks live |
-| R34 payload class | FAIL | exit-only |
-| R38 human-loop field | OPEN | RSS constitutive |
-| R40 admission typing | OPEN | technical≠sovereign |
-| Archive / imports / pure tree | PASS/HOLD | |
-| R47–R50 Foundry | N/A this MT | sister program |
+| Dimension | State |
+|---|---|
+| Port run/cycle R37 | FAIL |
+| Receipt honesty | FAIL |
+| Score constants / certify 9.2 | FAIL |
+| R33 brain args | **FAIL** |
+| R34 payload | FAIL |
+| R38 human_in_loop field | OPEN (doc fixed; code OPEN) |
+| R40 invalid_mode→sovereign | OPEN |
+| R51 CRES land observer | **FAIL** (regex path live) |
+| capability_proof | none |
+| Archive/pure/imports | PASS/HOLD |
+| R47–R50 | horizon N/A for P4 |
 
-## Priority (ordinal)
+## Priority
 
-1. P0 honesty + measured + R38/R40 labels  
-2. P1 R33–R35 + ModeExecutors  
-3. P2 Kernel + spine proof R44  
-4. P3 hygiene/observe  
-5. P4 live gauntlet  
-6. Horizon: R47–R50  
+1. EXECUTE P0 — honesty + red R51/R38  
+2. P1a — R33  
+3. P1b — CRES  
+4. P2–P4  
+5. Sister: comparative → capability_proof=comparative  
 
 ## Update log
 
-| Date | State | Proof |
-|---|---|---|
-| 2026-07-23 | v4 plan_only | R33 runtime proof |
-| 2026-07-23 | **v5 RSS plan_only** | Part IV lean; mega removed; no code |
+| Date | State |
+|---|---|
+| 2026-07-23 | v5.1 plan_only |
+| 2026-07-23 | **v6 RSS+CRES plan_only** |

@@ -1,72 +1,49 @@
 # AAEOS Elite Deepening — LEDGER
 
-**Plan (MT):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**v5 RSS** — Razor Sovereign Spine · §0–§76)
+**Plan (MT):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**v6 RSS+CRES** · §0–§78)
 **Opened:** 2026-07-23
-**Last plan audit:** 2026-07-23 (v5 RSS anti-duplicação)
+**Last plan audit:** 2026-07-23 (v6 — CRES + capability_proof + N×M + P1a/P1b)
 **Branch rule:** local `main` only · scoped commits
 **Program state:** `PLAN_ONLY` · `elite_deepening_done=false` · P0–P4 not started
 
-## Agenda / arquitetura
+## Versões
 
-- v4 = forense + R33–R37  
-- Rascunho mega (WorkGraph / P5–P6 / Foundry no MT) = **rejeitado** (duplicaria §9/§52 e inventaria órgãos)  
-- **v5 = RSS** integrado no **único** MASTER: lei + anti-mapa + R38–R46; **sem** segundo plano  
+| Ver | O que entrou | Status |
+|---|---|---|
+| v4 | R33–R37 forense | base |
+| v5/v5.1 RSS | lei + R51 regex≠authority | superseded |
+| **v6 RSS+CRES** | effect class no **land chokepoint**; declared advisory; capability_proof; P1a/P1b; N×M §78; elite-doc R38 | **current PLAN** |
 
 ## Cursor
 
 | Phase | Status | Notes |
 |---|---|---|
-| MT v4 adversarial | SUPERSEDED_BY_V5_RSS | §45–§68 retained as forensic base |
-| MT v5 RSS | **DONE_DOCS** | Part IV lean §69–§76; mega removed |
-| P0 Honesty + port + measured + R38/R40 labels | **NOT_STARTED** | Needs `EXECUTE P0` |
-| P1 ModeExecutors + R33–R35 + brain apps | not_started | |
-| P2 Kernel ports + spine R44 + axes | not_started | |
-| P3 Observe/alias + R42 demote | not_started | |
-| P4 Gauntlet + freeze | not_started | Blocked until R33/R34; **not** blocked by R47–R50 |
-| R47–R50 Foundry/topology sister | **HORIZON** | Outside P4 DONE |
+| MT v6 docs | **DONE_DOCS** | MASTER + elite executors + this LEDGER |
+| P0 honesty + R38/R40 + R51 red | **NOT_STARTED** | needs `EXECUTE P0` |
+| P1a fuse + R33/R34/R35 | not_started | no CRES in same commit |
+| P1b R51 CRES + R40 | not_started | observer at land; present-but-false goldens |
+| P2–P4 | not_started | R47–R50 still horizon |
 
-## Factual corrections (still true)
+## Pontos incorporados do juízo Opus (os certos)
 
-| Fact | Disk truth | Plan consequence |
-|---|---|---|
-| R33 brain args | broken positional scope | P1 fix |
-| R34 exit-only success | disabled/dry SUCCESS | P1 payload class |
-| R35 seed `--max` | does not exist | P1 honest flags |
-| Archive Quarantine | 306 PHP / 131k LOC | HOLD |
-| Certify hints 9.2 | inject | P0 remove |
-| Scorecard 9.52 | static + zero cycles | measured null until sample |
-| Mega Part IV | would re-spec P0–P6 | **deleted**; §52 remains phase authority |
+1. **CRES** — trust no efeito observado no chokepoint, não self-report do receipt  
+2. **capability_proof** — DONE ≠ SOTA machine-enforced  
+3. **P1a/P1b split** — fusão wire ≠ mudança de autorização  
+4. **Measure-first** — sem front-load de tiers sem reader  
+5. **R38 call-sites** nomeados (certify / CycleRuntime / DevAdapter)  
+6. **elite-doc** realinhado (sovereignty_channel, não “humano revisor”)  
+7. **N×M north-star** — M=Atlas multiplier; empresa 100% = destino, não DONE P4  
+8. **Não** Mission Runtime / WorkGraph / Foundry no DONE  
 
-## RSS integration (anti-duplication)
+## Open before EXECUTE P0
 
-- **Reuses** §47 proof taxonomy, §49 hard gates, §50 receipts, §52 phases, §59–§66 CLI/brain/P0 freeze.  
-- **Does not** create Mission Runtime, WorkGraph package, SovereigntyPort package, Evaluation Foundry under Aaeos.  
-- **R38–R46** constitutive only; **R47–R50** sister horizon.  
-- Elite doc `atlas-elite-executors-dev-forge-autonomos.md` still needs alignment slice for R38 (not done if only MASTER this commit).
-
-## Open honest gaps before `EXECUTE P0`
-
-1. R33–R46 open in **code** (spec only).  
-2. No live `brain_next` success receipt.  
-3. `measured_composite=null`.  
-4. Elite executors canon matrix still says “presença humana no loop de eng” until R38 docs slice.  
-
-## Debate
-
-Sol/Codex mega expansion duplicated P0–P4, invented WorkGraph/P5–P6. Six-critic RSS synthesis kept constitutive law, deleted product organs. Operator: integrate RSS without duplication.
+- Todo residual R33–R51 ainda **só no plano**  
+- Código P0–P4 zero  
+- capability_proof default `none` até samples  
 
 ## Changelog
 
-| Date | Change | Effect |
-|---|---|---|
-| 2026-07-23 | v4 R33–R37 | forensic absolute |
-| 2026-07-23 | mega v5 draft | rejected / replaced |
-| 2026-07-23 | **v5 RSS** §69–§76 | law + anti-map; PLAN_ONLY |
-
-## Commands (baseline)
-
-```bash
-php artisan atlas:aaeos:certify --json
-php artisan atlas:aaeos:scorecard --json
-php artisan atlas:aaeos:run "…" --json
-```
+| Date | Change |
+|---|---|
+| 2026-07-23 | v5.1 RSS + R51 |
+| 2026-07-23 | **v6 RSS+CRES** + elite-doc R38 + N×M |

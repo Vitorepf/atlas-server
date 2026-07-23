@@ -5,7 +5,7 @@ title: Atlas Elite Executors — Dev · Forge · Autônomos
 status: active
 category: programming
 priority: 100
-summary: "Contrato canônico dos três executores de engenharia elite do Atlas. Mesma barra mundial (L0–L5). Diferença = presença humana no loop de engenharia + escala/duração + origem do trabalho — nunca ranking de qualidade. NUNCA 'Dev = fast patch' · NUNCA 'Autônomos = qualidade pior'."
+summary: "Contrato canônico dos três executores de engenharia elite do Atlas. Mesma barra mundial (L0–L5). Diferença = horizonte/delegação/origem/sovereignty_channel — LOOP_ENGINEERING agentic nos três; humano na soberania (não revisor técnico). NUNCA 'Dev = fast patch' · NUNCA 'Autônomos = qualidade pior'. Alinha MASTER v6 RSS+CRES."
 tags:
   - atlas-ai
   - elite-executors
@@ -21,11 +21,11 @@ capabilities:
   - human_out_of_loop_default_autonomos
 decisions:
   - Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra mundial).
-  - Diferença canônica = presença humana no loop de engenharia + escala/duração + origem do trabalho — não ambição nem qualidade.
+  - Diferença canônica = horizonte/delegação/origem/sovereignty_channel — não ranking de qualidade; LOOP_ENGINEERING agentic nos três.
   - Os três cobrem a ladder L0–L5 (do tipográfico ao frontier); o modo não limita a dificuldade máxima.
-  - Atlas Dev = operador presente na intenção; cadência de sessão; superfície atlas dev/ask.
-  - Atlas Forge = operador só no planejamento/soberania; obra longa multi-packet; SDD/continuidade.
-  - Autônomos = zero humano no loop de engenharia (default 24/7); cérebro atlas:brain + músculo atlas:task; commit escopado na main.
+  - Atlas Dev = sovereignty_channel live_intent; cadência de sessão; superfície atlas dev/ask; eng judgment agentic.
+  - Atlas Forge = plan_seal + soberania de risco; obra longa multi-packet; SDD/continuidade; eng agentic.
+  - Autônomos = standing_mandate 24/7; cérebro atlas:brain + músculo atlas:task; commit escopado na main; eng agentic; H1–H7 se ultrapassar mandato.
   - Proibido chamar Dev de "fast path de qualidade inferior", "produto leve" ou "Forge mini".
   - Proibido chamar Autônomos de "lixo barato", "loop morto" ou qualidade abaixo de Dev/Forge.
   - ACDE/atlas:loop:* é MVP morto; operate path vivo = atlas:brain:* / atlas:task:*.
@@ -95,7 +95,8 @@ Contrato de identidade dos **três executores de engenharia elite** do Atlas.
 
 ```text
 Mesma barra mundial nos 3.
-Diferença = presença humana no loop de engenharia + escala/duração + origem do trabalho.
+Diferença = horizonte temporal + delegação + origem do trabalho + canal de soberania
+  (NÃO "humano revisor técnico" — LOOP_ENGINEERING é agentic nos três).
 NUNCA "Dev = patch fácil".
 NUNCA "Autônomos = qualidade pior".
 ```
@@ -111,23 +112,27 @@ Visão AAEOS era agentica: `docs/evidence/2026-07-22-atlas-server-god-debulk/AAE
 ## Lei pétrea (Defatoração Elite)
 
 1. **bar(Dev) = bar(Forge) = bar(Autônomos)** em excelência de engenharia.  
-2. O que muda é **quem está no loop**, **quanto tempo/escopo**, **de onde vem o trabalho**.  
-3. Os três sobem a **ladder L0–L5**; o modo **não** é teto de dificuldade.  
-4. **Done = evidence/certification**, não narrativa de agente.  
-5. ACDE / `atlas:loop:*` = morto; vivo = `atlas:brain:*` / `atlas:task:*`.  
+2. O que muda é **horizonte**, **delegação**, **origem do trabalho**, **canal de soberania** — não a qualidade.  
+3. **LOOP_ENGINEERING** = julgamento técnico **agentic** nos três (author≠judge≠governor). Humano não é revisor técnico de rotina.  
+4. **LOOP_SOVEREIGNTY** = humano (intenção, plano, H1–H7); **SURFACE_AUDIT** opcional (observa/escala, não vota eng).  
+5. Os três sobem a **ladder L0–L5**; o modo **não** é teto de dificuldade.  
+6. **Done = evidence/certification**, não narrativa de agente. DONE de honesty ≠ claim “deus/SOTA” sem prova comparativa.  
+7. ACDE / `atlas:loop:*` = morto; vivo = `atlas:brain:*` / `atlas:task:*`.  
+8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` v6 RSS+CRES.
 
 ## Matriz canônica
 
 | | **Dev** | **Forge** | **Autônomos** |
 |---|---|---|---|
-| **Humano no loop de eng** | Presente na **intenção** (dirige rumo vivo) | Só **plano / soberania** de risco | **Zero** (default 24/7 da era agentica) |
+| **`sovereignty_channel`** | `live_intent` (intenção viva) | `plan_seal` (+ soberania de risco) | `standing_mandate` (24/7 no teto; H1–H7 se ultrapassar) |
+| **Julgamento de eng** | Agentic only | Agentic only | Agentic only |
 | **Escala / duração** | Sessão (minutos–horas) | Obra longa multi-packet (horas–dias+) | Fila contínua 24/7 |
 | **Origem do trabalho** | “faz X” ao vivo / prompt / paste | Spec-mãe / Obra / packets | `atlas:brain:next` → `atlas:brain:seed` → `atlas:task next` |
 | **Superfície típica** | `atlas dev` / ask / conversation programming | Forge Continuum / obra CLI / Code Forge surface | brain + task serving + scoped commit |
 | **Dificuldade** | **L0–L5** | **L0–L5** | **L0–L5** |
 | **Unidade típica** | task / WorkOrder / session run | Obra / Work Packet | task packet de serving |
-| **Overhead de processo** | Proporcional (Operator Rebate: UX ágil, **não** barra menor) | Mais SDD, continuidade, multiagente | Seed-gate + leases + evidence; sem pair humano |
-| **Não é** | Forge mini · patch-only · qualidade low | Gerente do Dev · “só multiagente cosmético” | Loop ACDE morto · qualidade inferior |
+| **Overhead de processo** | Proporcional (**Intent Clarity Rebate**: UX ágil, **não** barra menor) | Mais SDD, continuidade; multiagente só com lift | Seed-gate + leases + evidence; Autonomy Assurance Tax (provas de failure surfaces, não burocracia extra de qualidade) |
+| **Não é** | Forge mini · patch-only · qualidade low · “humano code-reviewer obrigatório” | Gerente do Dev · “só multiagente cosmético” | Loop ACDE morto · qualidade inferior |
 
 ## Ladder de dificuldade (compartilhada)
 
@@ -167,16 +172,17 @@ Empates: Mission Control / AAEOS AdmissionPolicy (risk, L*, budget, SLA).
 Escalonamento Dev→Forge: packet auditável (ver Dual-Core).  
 Forge não “rebaixa” para Dev como identidade; pode despachar tática curta sem subordinar identidade.
 
-## Humano fora do loop (era agentica)
+## Soberania humana vs engenharia agentic (era agentica)
 
 | Papel humano | Quando |
 |---|---|
-| **Intenção viva (Dev)** | Pairing de rumo, não microgerenciar cada diff |
-| **Plano / soberania (Forge)** | Objetivos de obra e risco no planejamento |
-| **Zero no loop (Autônomos)** | Default 24/7 de evolução e fila |
-| **Halt-sovereign** | Só risco irreversível / legal / $ / wipe / objetivo de negócio ambíguo |
+| **live_intent (Dev)** | Intenção / rumo vivo — não micro-review de cada diff |
+| **plan_seal (Forge)** | Plano e soberania de risco da obra |
+| **standing_mandate (Autônomos)** | Mandato contínuo 24/7; zero operador no loop operacional |
+| **H1–H7 / halt soberano** | Constituição, valores ambíguos, efeito externo irreversível, promote canônico, expandir autonomia, tokens, domínio sensível |
+| **SURFACE_AUDIT** | Observa/escala/revoga (moat terminal-first) — **não** voto de eng default |
 
-Verificação soberana sob demanda (terminal-first moat) ≠ “humano no loop de engenharia a cada passo”.
+Julgamento técnico (spec/implement/verify/land) = **agentic** nos três modos.
 
 ## Vocabulário
 
@@ -186,7 +192,8 @@ Verificação soberana sob demanda (terminal-first moat) ≠ “humano no loop d
 | executor Forge / obra | Dev pesado (como identidade) |
 | Autônomos (brain+task) | Loop/ACDE como sistema vivo |
 | mesma barra / L0–L5 | Dev < Forge < Autônomos em qualidade |
-| Operator Rebate (UX Dev) | “barra de qualidade menor no Dev” |
+| Intent Clarity Rebate (UX Dev) | “barra de qualidade menor no Dev” / Operator Rebate como desconto de qualidade |
+| sovereignty_channel / LOOP_ENGINEERING agentic | “humano no loop de eng” como revisor técnico |
 | fast lane (legado = fluxo Dev) | “qualidade fast-path inferior” |
 
 Termo histórico **“fast path”** / **“fast lane”** = sinônimo legado do **fluxo Dev** (operador presente, overhead proporcional). **Não** significa qualidade inferior. Preferir “executor Dev”.

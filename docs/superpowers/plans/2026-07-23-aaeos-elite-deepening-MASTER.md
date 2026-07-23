@@ -5,7 +5,7 @@
 > **Programa:** Atlas Engineer OS / AAEOS — deepen Operate → muscle, fuse shallow blocks, measured scorecards
 > **Branch:** local `main` only · commits escopados · nunca `git add -A`
 > **Status do predecessor:** GOD/SOTA + OPERATE + HYGIENE = **DONE no escopo declarado** (archive físico concluído; certify estrutural ok; os composites ~9.5 ainda contêm constantes/hints e **não** certificam este Elite Deepening)
-> **Este programa:** **RSS (Razor Sovereign Spine)** — Operate→muscle honesty + lei soberania/engenharia; reusa `ExecutionOrder`/`EliteExecutorKernel`/Courts/Ledger; **zero** Mission OS, WorkGraph product, Foundry no DONE P4
+> **Este programa:** **RSS+CRES** — Operate→muscle honesty + lei soberania + effect class **observada no land** (não self-report); reusa Kernel/Courts/Ledger; **zero** Mission OS/WorkGraph/Foundry no DONE P4; destino M = multiplicador do provider (N×M), não o monólito “como está”
 > **Estado desta rodada:** **PLAN-ONLY** · P0–P4 não executados · P0 exige autorização literal do operador
 
 **Para workers agenticos:** REQUIRED SUB-SKILL: use `superpowers:executing-plans` fase-a-fase; só use `superpowers:subagent-driven-development` quando o operador autorizar paralelismo e os claims de arquivo forem disjuntos. Checkboxes `- [ ]`. Evidence em:
@@ -17,7 +17,7 @@ docs/evidence/2026-07-23-aaeos-elite-deepening/
   PHASE-*-RECEIPT.md
 ```
 
-**Versão:** v5 **RSS** (Razor Sovereign Spine) · anti-duplicação · v4 = base forense · Partes I–III (§0–§68) + IV (§69–§76) · **P0–P4 only**
+**Versão:** v6 **RSS+CRES** · anti-duplicação · Partes I–III (§0–§68) + IV (§69–§78) · **P0–P4 only** · R51=CRES · capability_proof · N×M north-star · PLAN-ONLY
 
 ### Índice rápido
 
@@ -33,7 +33,7 @@ docs/evidence/2026-07-23-aaeos-elite-deepening/
 | III | §49–§52 | Scorecard measured, receipt, CLI parity, **contratos de fase P0–P4** |
 | III | §53–§58 | Testes, dirty-main, evidence, archive, autocrítica, handoff |
 | III | §59–§68 | CLI disk-truth, brain R33, dimensions, CODEMAP, DI, schema, P0 freeze |
-| IV | §69–§76 | **RSS:** anti-mapa, lei, H1–H7, R38–R46, horizonte R47–R50, emendas, ordem |
+| IV | §69–§78 | **RSS+CRES:** anti-mapa, lei, H1–H7, R51 chokepoint, capability_proof, N×M north-star, P1a/P1b |
 
 ---
 
@@ -74,10 +74,13 @@ Este MT transforma essa auditoria em operação **dividida · computável · aut
 | L13 | LOOP_ENGINEERING = agentes only nos três modos; proibido humano como revisor técnico de rotina | RSS §70 |
 | L14 | LOOP_SOVEREIGNTY = humano only (H1–H7); SURFACE_AUDIT opcional nunca é voto de eng default | RSS §70–§71 |
 | L15 | Review técnico agentic: `author ≠ judge ≠ governor`; learning never auto-promote | §70 + government live |
-| L16 | Modos diferem por tempo/delegação/origem/canal soberano/**Autonomy Tax** — nunca quality bar | RSS §70 |
+| L16 | Modos diferem por tempo/delegação/origem/canal soberano/**Autonomy Assurance Tax** — mesmo piso técnico; somente provas operacionais adicionais para failure surfaces adicionais | RSS §70 |
 | L17 | n=1 default; `agent_count` nunca KPI; Foundry/ablações = programa **irmão** (R47–R50) | RSS §73 |
 | L18 | Seam = `ExecutionOrder`→Kernel/`EngineeringOutcome` + brain/task; **zero** Mission OS, WorkGraph product, segundo ledger | RSS §69–§70 |
 | L19 | Anti-duplicação: Part IV não reescreve §9/§47–§66; P0–P4 authority = §52 | RSS §69 |
+| L20 | Irreversibilidade/autoridade: regex/hint/texto **nunca autorizam**; só sobem suspeita. Classe de efeito **re-resolvida no chokepoint de land** (CRES §71) | R51 + §71 |
+| L21 | `capability_proof`: `none|internal_only|comparative` — DONE de honesty ≠ claim “deus/SOTA/Elite” (machine-enforced) | §49 + §74.1 |
+| L22 | Atlas = **N×M**: N=provider, M=Atlas (governo, prova, recusa, memória, mandato). Este MT maximiza M no domínio eng; empresa 100% Atlas é destino do M, não escopo P0–P4 | §78 |
 
 ---
 
@@ -134,6 +137,7 @@ Medido novamente em 2026-07-23T20:33:50Z no `main` local. Este snapshot é prova
 | R35 | `atlas:brain:seed` **não tem** `--max`; dispatcher tenta `--max` e faz retry bare — `max_seeds` é intent, não contrato real de batch size | Média | P1 documentar + honest effect; seed-gate real é do brain seed, não inventar flag |
 | R36 | P4 live tem pré-condições ops: memory (OOM observado em comprehension 128MB), brain master switch, scope default `autonomous`, fleet Autônomos opcional | Ops | §60 + P4 preflight; `blocked_ops` ≠ DONE |
 | R37 | `run` e `cycle` divergem em **exit codes** (`dispatch_failed` só no run), defaults de intent, e flags (`--mode/--execute-provider/--run-worker-once/--scope` só no run) | Alta | P0 shared application; matrix §51+§59 |
+| R51 | `AaeosIntentCompiler` infere `irreversible` por hint/regex; isso não vincula a ação real ao tool/effect/authority contract | **CRÍTICA** | P0 characterize; P1 mechanical classification §71 |
 | R6 | DualCore record best-effort | Média | P1 (honest status) |
 | R7 | Ledger `skipped_*` fail-open | Média | P1 (surface status) |
 | R8 | World snapshot fail-open | Baixa/média | P1 (world_source metrics) |
@@ -196,7 +200,7 @@ Operador (soberania H1–H7 + intenção)
               effect/proof taxonomy (§47/§50) · scorecard · cockpit audit
 ```
 
-**Owners existentes — reusar, não renomear para OS novo:** Kernel `execute`/`EngineeringOutcome`; VerificationCourt; MergeGovernor; `AtlasEvidenceLedger`; brain/task.  
+**Owners existentes — reusar, não renomear para OS novo:** Kernel `execute`/`EngineeringOutcome`; VerificationCourt; MergeGovernor; `AtlasEvidenceLedger`; brain/task.
 **Proibido neste MT:** `EngineeringMission*`, WorkGraph package, SovereigntyPort package, Evaluation Foundry sob Aaeos, segundo ledger.
 
 ---
@@ -223,10 +227,11 @@ Operador (soberania H1–H7 + intenção)
 12. **Nenhum crescimento** de foreign paths sob `Aaeos/` fora Control/Spine.
 13. **Zero waiver semântico:** item bloqueante falso/unknown mantém `PARTIAL` ou `BLOCKED`; DEBT aceito não converte programa em DONE.
 14. **RSS lei:** LOOP_ENGINEERING agentic nos três; LOOP_SOVEREIGNTY = H1–H7; SURFACE_AUDIT ≠ eng gate (§70–§71).
-15. **Regimes de modo** no receipt/order correlation (§70.1); **sem** quality tier por modo; Autonomy Tax em Autônomos.
-16. **R38–R46** fechados ou DEBT nomeado; **R47–R50 não bloqueiam** DONE P4 (§72–§74).
-17. **R33/R34** green antes de gauntlet P4; spine R44 prova efeito, não class-name.
-18. **Zero** WorkGraph OS / Mission Runtime / Foundry campaign como critério de DONE deste MT.
+15. **Regimes de modo** no receipt/order correlation (§70.1); **sem** quality tier por modo; Autonomy Assurance Tax só adiciona prova das failure surfaces.
+16. **R38–R46 + R51(CRES)** fechados ou DEBT; **R47–R50 não bloqueiam** DONE P4; **capability_proof** impede DONE≠SOTA.
+17. **R33/R34** green antes de gauntlet P4; spine R44 + land chokepoint provam efeito, não class-name/self-report.
+18. **Zero** WorkGraph OS / Mission Runtime / Foundry no DONE; P1 **split** P1a (fusão+R33) / P1b (R51 CRES).
+19. **Measure-first:** nenhum campo de regime/tier entra no receipt sem reader vivo + ≥0 ciclos medidos honestos ou `unknown`.
 
 ---
 
@@ -318,7 +323,7 @@ Views:
 
 ## 9. Fases de implementação (checkbox)
 
-> **v5 RSS:** sequência executável = **P0–P4 abaixo + §52**. Part IV (§69–§76) emenda **lei/ownership**; **não** substitui esta seção por P5/P6/Foundry.
+> **v6 RSS+CRES:** sequência executável = **P0–P4 abaixo + §52** (P1a/P1b). Part IV emenda **lei/ownership/CRES**; **não** substitui por P5/P6/Foundry.
 
 ### P0 — Honesty + porta única + scorecard medido (fundação)
 
@@ -802,7 +807,8 @@ git commit -m "feat(core): AAEOS-MT P0 honest receipts measured evidence and run
 | 2026-07-23 | MT v3 absolute audit — §45–§58; R4 source-wired corrigido; archive DONE/HOLD; certify 9.2/9.2/9.0 e demais constantes classificados; ledger único; proof taxonomy; hard gates sem waiver-DONE; C1–C4/R1–R32 ligados a fase+prova+receipt; S6/S7 resolvidos em símbolos reais; média arbitrária de planning removida; P0 não executado |
 | 2026-07-23 | **MT v4 adversarial absolute** — R33 brain:next args quebrados (posicional vs `--scope`); R34 false SUCCESS disabled/dry; R35 seed `--max` inexistente; R36 P4 preflight; R37 exit/flag matrix disk-truth; §42 “counter store” contradizia §34 (corrigido); §59–§68; baseline revalidado; v3 não é teto; P0 ainda não executado |
 | 2026-07-23 | (superseded) rascunho mega Part IV com WorkGraph/P5–P6 — **rejeitado por duplicação** |
-| 2026-07-23 | **MT v5 RSS** — Razor Sovereign Spine §69–§76; anti-mapa reusa §47–§66; H1–H7; R38–R46; R47–R50 horizonte irmão; P0–P4 only; P0 não executado |
+| 2026-07-23 | **MT v5.1 RSS** — Razor Sovereign Spine §69–§76; H1–H7; R38–R46 + R51 regex≠authority; R47–R50 horizonte |
+| 2026-07-23 | **MT v6 RSS+CRES** — R51 afiado: effect class no land chokepoint; declared advisory-monotone; capability_proof; measure-first; P1a/P1b; elite-doc R38; N×M north-star §78; P0 não executado |
 
 ---
 
@@ -1232,6 +1238,7 @@ For each of S1–S8:
 | R35 | P1 | seed effect honesty | `PHASE-1-RECEIPT.md` | `max_seeds` não inventa `--max`; effect registra o que o seed realmente aceitou |
 | R36 | P4 | preflight checklist §60 | `PHASE-4-COMPLETE.md` | Preflight documentado; OOM/master-off = blocked_ops, não DONE |
 | R37 | P0 | `AtlasAaeosRunCommandTest` + Cycle parity | `PHASE-0-RECEIPT.md` | Matrix §59 verde: flags, defaults, exit codes idênticos no path shared |
+| R51 | P0 red / **P1b** CRES | `AaeosIrreversibilityAdmissionTest` + land-path goldens | `PHASE-1b-RECEIPT.md` | regex/hint só sobem suspeita; **effect_class re-resolvido no land**; present-but-false + sem-keyword bloqueiam; `execution_order` não é fonte confiável |
 
 ---
 
@@ -1459,7 +1466,7 @@ Programa DONE iff **todos** os itens forem true e todos os hard gates §49 estiv
 
 ## 44. Índice de cobertura do v2 (não é prova de completeza)
 
-Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo”. Eles **não** significam que o fato está correto, o contrato está executável ou a prova existe. A auditoria real é §45–§85 (v5).
+Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo”. Eles **não** significam que o fato está correto, o contrato está executável ou a prova existe. A auditoria real é §45–§78 (v6 RSS+CRES).
 
 - [x] Conceituais C1–C4
 - [x] Residuals R1–R15
@@ -1503,7 +1510,8 @@ Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo
 - [x] Commit message list
 - [x] Final binary DONE table
 - [x] v4: R33–R37 + §59–§68 (CLI matrix, brain contract, dimensions live, CODEMAP, DI, dry writes, schema, P0 freeze, predecessor census, anti-already-done)
-- [x] v5 RSS: §69–§76 anti-duplicação; R38–R46; horizonte R47–R50; mega Part IV removida
+- [x] v5.1 RSS: §69–§76 + R51 regex
+- [x] v6 RSS+CRES: §71 CRES · capability_proof · P1a/P1b · §78 N×M · measure-first
 
 Se aparecer residual novo: R## em §46 ou §72; nunca plano paralelo.
 
@@ -1686,6 +1694,16 @@ Allowed `status`: `measured|unknown|not_applicable|assessment_only|failed`. `unk
 - `elite_deepening_done`: conjunction of every §5/§43 hard gate; never `composite >= x`.
 - `sustained_operate_certified`: separate future status; requires per-mode N≥5/7d plus heartbeat/SLA evidence.
 
+### 49.4 capability_proof (v6 — DONE ≠ SOTA)
+
+| Value | Meaning | May claim |
+|---|---|---|
+| `none` | no runtime sample / honesty incomplete | never “Elite/SOTA/god” |
+| `internal_only` | R33+R51(+CRES) + measured honesty gates green; no external comparative | **Elite Deepening DONE** ok; **not** “50× / #1 / god SOTA” |
+| `comparative` | sister Foundry/Rivals campaign under budget symmetry | marketing SOTA only if campaign green + not expired |
+
+Certify/scorecard presenters: if text/UI claims god/SOTA/Elite-world while `capability_proof ≠ comparative`, **fail** hard gate (or strip claim). Default pre-P4: `none` or `internal_only` when samples exist.
+
 Hard vetoes regardless of any score: Quarantine import >0, foreign live path, `elite_same_bar=false`, provider call without cap, auto-promote learning, parallel evidence truth, dry-run write, missing failure_reason on failure, live effect claimed from pack/intake, or required proof unknown.
 
 ## 50. Receipt truth contract e caps matrix
@@ -1757,7 +1775,7 @@ Router help lists `run|scorecard|certify|cockpit`; `cycle` appears only under de
 
 ## 52. Contratos exatos de fase (override de ambiguidades anteriores)
 
-**v5 RSS:** §52.1–§52.5 **permanecem** a autoridade de paths/tests por fase. P0 também remove/neutraliza `human_in_engineering_loop` como identidade (R38) e tipa admission (R40) **sem** expandir file freeze além do necessário. P1 inclui R33–R35 + brain application services. **Sem** P5/P6.
+**v6:** §52.1–§52.5 autoridade de paths. P0: honesty + R38/R40 labels + R51 red. **P1a** R33 fuse; **P1b** CRES. Sem P5/P6.
 
 ### 52.1 P0 — honesty + measurement + alias
 
@@ -1783,12 +1801,23 @@ app/Services/Ai/Aaeos/Control/Measurement/AaeosMeasurementSnapshot.php
 **Green exit:** §50 matrix green; certify emits both scopes; measured composite null with zero sample; no counter file/table/migration.
 **Commit:** `feat(core): AAEOS-MT P0 honest receipts measured evidence and run alias`.
 
-### 52.2 P1 — ModeExecutor parity
+### 52.2 P1 — **split obrigatório P1a / P1b** (não misturar)
 
-**Allowed production paths:** `app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php`, `app/Services/Ai/Aaeos/Control/Dispatch/AaeosLiveDispatchGateway.php`, the three new executor paths in §24, the four files in `Control/Adapters/` and four interface/implementation files in `Control/Dispatch/` listed in P1.1 only for same-slice deletion, and `app/Console/Commands/AtlasCliCockpitCommand.php`.
-**Red first:** characterization snapshots for Dev pack, Forge stamped intake; Autônomos tests that **fail** on current `brainNextArgs` (R33) and on exit-only success (R34).
-**Green exit:** one executor per mode; eight old adapter/dispatcher/interface files removed; R4 path + **R33/R34/R35 closed**; Dev/Forge prepared; no provider burn.
-**Commit:** `refactor(core): AAEOS-MT P1 fuse mode executors with effect parity`.
+#### 52.2a P1a — ModeExecutor fuse + R33/R34/R35 (behavior-preserving + wire fix)
+
+**Allowed production paths:** `AaeosCycleRuntime.php`, `AaeosLiveDispatchGateway.php`, three ModeExecutors (§24), Adapters/* + Dispatch/* only for same-slice deletion, `AtlasCliCockpitCommand.php`, optional `AaeosRunApplication.php` se só unifica run/cycle sem R51.
+**Red first:** brainNextArgs fails without positional scope; exit-only success wrong for disabled/dry.
+**Green exit:** one executor/mode; 8 old files gone; **R33/R34/R35 closed**; Dev/Forge prepared; **zero** mudança de admission/irreversibility semantics.
+**Commit:** `refactor(core): AAEOS-MT P1a fuse executors fix brain args R33`.
+**Proibido no mesmo commit:** `AaeosActionEffectClassifier`, admission verdict redesign, CRES land binding.
+
+#### 52.2b P1b — R51 CRES (authorization / effect class)
+
+**Allowed production paths:** `AaeosIntentCompiler.php`, `AaeosAdmissionPolicy.php`, `AaeosAdmissionVerdict.php` (se expandir enums), **NEW** `AaeosActionEffectClassifier.php` (pure, Aaeos/Control only), land-path binding points already on disk (e.g. scoped committer / canary settlement callers **only** if needed for observer re-resolve — list exact paths in PHASE-1b-RECEIPT), tests `AaeosIrreversibilityAdmissionTest.php` + present-but-false goldens.
+**Red first:** regex/hint authorizes; declared `read_only` still lands mutation; keyword-less irreversible phrases pass.
+**Green exit:** CRES §71 green; declared fields advisory-monotone; `invalid_mode` ≠ `halt_sovereign` (R40); unknown mutative fail-closed.
+**Commit:** `feat(core): AAEOS-MT P1b CRES effect class at land chokepoint`.
+**Proibido:** SovereigntyPort package; new Mission Runtime; mixing P1a file deletes.
 
 ### 52.3 P2 — existing ports + qualified axes
 
@@ -1906,7 +1935,7 @@ Aceite: directory existe; census permanece explicável; import produtivo 0; diff
 
 Checklist **reexecutável a cada rodada** (v5 inclui a correção semântica e arquitetural que v4 ainda omitia):
 
-- [x] **Spec coverage:** C1–C4 / R1–R50 apontam phase + test + receipt (§30 + §46 + §74 + §82).
+- [x] **Spec coverage:** C1–C4 / R1–R46 + R51 core e R47–R50 horizonte apontam phase/proof/owner (§30 + §46 + §72–§75).
 - [x] **Placeholder scan:** zero `TBD`/`TODO`/“if cheap” em passos executáveis (re-scan §57).
 - [x] **Type consistency:** effect levels / proof levels / score statuses uniformes.
 - [x] **Fact regression:** R4 = SOURCE_WIRED; **R33 OPEN** (args); archive DONE/HOLD; certify hints 9.2/9.2/9.0 e standalone defaults 9.0/9.0/9.0 + control 9.2 classificados.
@@ -1931,15 +1960,15 @@ git diff --check -- docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MAST
 
 ## 58. Handoff e autorização
 
-Estado ao fechar **esta** rodada documental (**v5 RSS**):
+Estado ao fechar **esta** rodada documental (**v6 RSS+CRES**):
 
-- MASTER = v4 forense + **RSS §69–§76** (anti-duplicação; mega Part IV removida).
-- R33–R37 + R38–R46 no plano; R47–R50 = horizonte irmão, **não** P5/P6.
-- P0–P4 `not_started`; **zero código de produção**.
-- Structural certify ~9.5 **não** certifica Elite Deepening.
-- Próxima mutação de código **só** com **`EXECUTE P0`**.
+- MASTER = v4 forense + RSS + **CRES §71.2** + **capability_proof** + **N×M §78**.
+- P1 **split** P1a/P1b; R51 done-condition = observer no land.
+- Elite doc R38 realinhado (mesma obra docs se commitado junto).
+- P0–P4 `not_started`; **zero código de produção** nesta rodada de plano.
+- Composite ~9.5 **não** é SOTA; `capability_proof` machine-enforced.
 
-Ao receber `EXECUTE P0`: **somente** §52.1 + §53–§55 + §59 + §66 + R38/R40 labels se couberem no freeze; **não** antecipar P1/R33 fix salvo red characterization. Sem essa frase: docs only.
+Ao receber `EXECUTE P0`: **somente** §52.1 + honesty + R38/R40/R51 **red**; **não** P1a/P1b. Sem a frase: docs only.
 
 ---
 
@@ -2084,7 +2113,7 @@ Revalidado via `atlas:aaeos:scorecard --json` e `atlas:aaeos:certify --json` nes
 
 ## 66. P0 allowed paths freeze (production + tests)
 
-**v5 RSS:** freeze = §52.1 production + tests abaixo. R38/R40 em P0 **somente** se couberem nestes paths (Admission/Runtime/Certify/Adapters já listáveis em §52.1 ou adição mínima documentada no PHASE-0-RECEIPT). **Proibido** antecipar P1+ paths. Canon elite executors = docs slice separado se necessário.
+**v6:** freeze = §52.1 + tests abaixo. R38/R40 + R51 **characterization only** em P0 se paths no receipt. **Proibido** P1b CRES fix em P0. Elite doc R38 alinhado em v6.
 
 **Production (exact):** §52.1 list (+ no máximo Admission/Runtime/Certify/Adapter writers se R38 exigir no mesmo slice — listar no receipt).
 
@@ -2099,6 +2128,7 @@ tests/Feature/Ai/Aaeos/AaeosLedgerMeasurementReaderTest.php
 tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php   # update asserts: no 9.2 inject
 tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php      # only if receipt shape forces
 tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php    # only if honesty fields force
+tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilityAdmissionTest.php  # P0 red characterization only; P1 fixes R51
 ```
 
 **Docs/evidence allowed:** `docs/evidence/2026-07-23-aaeos-elite-deepening/**`, this MASTER, vocabulary only if scorecard semantics require one paragraph.
@@ -2126,9 +2156,9 @@ tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php    # only if honesty fi
 
 # PARTE IV — RSS v5 (Razor Sovereign Spine)
 
-> **Nome:** Razor Sovereign Spine (RSS)  
-> **Status:** PLAN-ONLY · lei + ownership + residuals constitutivos  
-> **Anti-duplicação (pétreo):** esta Parte **não** reescreve P0–P4, matrices de teste, CLI disk-truth, scorecard measured, proof taxonomy nem file freezes. Em conflito de *execução de fase*, **§9 + §52 + §53 + §59–§66 vencem**. Em conflito de *lei de executores / soberania / anti-órgão-novo*, **esta Parte IV vence** e emenda Partes I–III.  
+> **Nome:** Razor Sovereign Spine (RSS)
+> **Status:** PLAN-ONLY · lei + ownership + residuals constitutivos
+> **Anti-duplicação (pétreo):** esta Parte **não** reescreve P0–P4, matrices de teste, CLI disk-truth, scorecard measured, proof taxonomy nem file freezes. Em conflito de *execução de fase*, **§9 + §52 + §53 + §59–§66 vencem**. Em conflito de *lei de executores / soberania / anti-órgão-novo*, **esta Parte IV vence** e emenda Partes I–III.
 > **Proibido:** segundo plano-mestre · Mission Runtime / MissionReceipt novos · WorkGraph-as-OS · Evaluation Foundry dentro do DONE P4 · reanimar Quarantine/ACDE · copiar catálogos de fase de novo.
 
 ## 69. Anti-mapa: o que RSS **não** inventa (aponta o que já existe)
@@ -2160,17 +2190,17 @@ tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php    # only if honesty fi
 
 ## 70. Lei RSS (constitutiva — 12 linhas)
 
-1. **LOOP_ENGINEERING** = somente agentes (spec, implement, verify, land, evidence, learn-propose).  
-2. **LOOP_SOVEREIGNTY** = somente humano (propósito, identidade, autoridade, irreversibilidade, trade-off estratégico, expandir autonomia, H1–H7 §71).  
-3. **SURFACE_AUDIT** = humano opcional (cockpit/terminal review) **observa/amostra/escala**; **nunca** voto de engenharia default; moat terminal-first vive aqui.  
-4. **Mesma barra L0–L5** nos três modos; proibido Dev=leve / Autônomos=pior.  
-5. Diferença de modo = `duration_regime` + `delegation_regime` + `work_origin` + `sovereignty_channel` + **`autonomy_tax_tier`** — **não** qualidade.  
-6. **Autonomy Tax:** `sovereignty_channel → none` ⇒ **mais** prova (witness/independence), não a mesma.  
-7. **Intent Clarity Rebate:** reduz só cerimônia **não-prova**; nunca mutation floor, false-green, ledger ou courts.  
-8. Seam de engenharia = **`EliteExecutorKernel::execute(ExecutionOrder): EngineeringOutcome`** (ou Autônomos brain→task sob o **mesmo** efeito/proof taxonomy §47/§50). Zero Mission Runtime paralelo.  
-9. AAEOS = Crown **opcional** fino (`Control`+`Spine`); Dev/Forge/Autônomos e `aaeos:run` são entradas; AAEOS **não** é pedágio diário obrigatório de todo keystroke.  
-10. Provider = músculo não-confiável: nunca `verified`, promote learning, authorize release.  
-11. `author ≠ judge ≠ governor` com prova (principal / capability / mechanical); booleano auto-declarado **não** basta.  
+1. **LOOP_ENGINEERING** = somente agentes (spec, implement, verify, land, evidence, learn-propose).
+2. **LOOP_SOVEREIGNTY** = somente humano (propósito, identidade, autoridade, irreversibilidade, trade-off estratégico, expandir autonomia, H1–H7 §71).
+3. **SURFACE_AUDIT** = humano opcional (cockpit/terminal review) **observa/amostra/escala**; **nunca** voto de engenharia default; moat terminal-first vive aqui.
+4. **Mesma barra L0–L5** nos três modos; proibido Dev=leve / Autônomos=pior.
+5. Diferença de modo = `duration_regime` + `delegation_regime` + `work_origin` + `sovereignty_channel` + **`autonomy_assurance_tier`** — **não** qualidade.
+6. **Autonomy Assurance Tax:** o piso técnico L0–L5 é idêntico; horizonte/autoridade maiores adicionam somente provas das failure surfaces novas (mandate continuity, unattended recovery, lease/fencing, origination authority, independent witness). Dev não recebe desconto técnico e Autônomos não ganha burocracia por contagem.
+7. **Intent Clarity Rebate:** reduz só cerimônia **não-prova**; nunca mutation floor, false-green, ledger ou courts.
+8. Seam de engenharia = **`EliteExecutorKernel::execute(ExecutionOrder): EngineeringOutcome`** (ou Autônomos brain→task sob o **mesmo** efeito/proof taxonomy §47/§50). Zero Mission Runtime paralelo.
+9. AAEOS = Crown **opcional** fino (`Control`+`Spine`); Dev/Forge/Autônomos e `aaeos:run` são entradas; AAEOS **não** é pedágio diário obrigatório de todo keystroke.
+10. Provider = músculo não-confiável: nunca `verified`, promote learning, authorize release.
+11. `author ≠ judge ≠ governor` com prova (principal / capability / mechanical); booleano auto-declarado **não** basta.
 12. n=1 default; `agent_count` **nunca** KPI; fan-out só com largura real + lift esperado (§73 horizonte).
 
 ### 70.1 Campos de envelope/receipt (aditivos; não segundo schema de missão)
@@ -2182,8 +2212,8 @@ engineering_judgment: agentic_only          # sempre
 duration_regime: session|obra|continuous
 delegation_regime: interactive|planned|queued
 work_origin: live_prompt|obra_spec|brain_seed
-sovereignty_channel: live_intent|plan_seal|none|halt_exception
-autonomy_tax_tier: dev_proportional|forge_elevated|autonomos_maximum
+sovereignty_channel: live_intent|plan_seal|standing_mandate|halt_exception
+autonomy_assurance_tier: AT0_session|AT1_obra|AT2_continuous
 audit_surface: optional_human_observe
 admission: admitted|repair_required|policy_blocked|sovereign_judgment_required|…
 intent_clarity_rebate_applied: bool
@@ -2191,9 +2221,9 @@ intent_clarity_rebate_applied: bool
 # human_in_engineering_loop  (legado — ver R38)
 ```
 
-**Dev:** `sovereignty_channel=live_intent` (intenção viva no canal de soberania) — **não** “humano revisor técnico”.  
-**Forge:** `plan_seal` + soberania de risco.  
-**Autônomos:** `none` + tax máxima + H1–H7.
+**Dev:** `sovereignty_channel=live_intent` (intenção viva no canal de soberania) — **não** “humano revisor técnico”.
+**Forge:** `plan_seal` + soberania de risco.
+**Autônomos:** `standing_mandate` sem operador ao vivo + AT2 + H1–H7 somente quando a ação ultrapassa o mandato ou pertence à reserva humana absoluta.
 
 ### 70.2 Arquitetura-alvo RSS (substitui o diagrama inchado de §4 em significado)
 
@@ -2216,7 +2246,9 @@ Operador (soberania H1–H7 + intenção)
 
 Spine N9/N11: **passagem com refs/hashes reais** (R44); proibido `assertShared([])` auto-ok.
 
-## 71. Soberania mínima (H1–H7) — sem SovereigntyPort package
+## 71. Soberania mínima (H1–H7) + **CRES** (v6)
+
+### 71.1 H1–H7 (reserva estreita)
 
 | ID | Classe | Humano obrigatório | Agente ok se |
 |---|---|---|---|
@@ -2228,99 +2260,153 @@ Spine N9/N11: **passagem com refs/hashes reais** (R44); proibido `assertShared([
 | H6 | Mint tokens / disable independence gates / sovereignty_exception | sim | — |
 | H7 | Domínio sensível (ex.: trading/cyber ofensivo) | sim | — |
 
-**Admissão tipada (emenda AAEOS; alinha MergeGovernor):**  
-`repair_required` | `policy_blocked` | `sovereign_judgment_required` | `admitted` | `admitted_notify` | `emergency_halt`.  
-**Proibido:** `invalid_mode` ou incidente técnico → `halt_sovereign` (R40).
+H1–H7 não são desculpa para perguntar. Release reversível com courts/canary/rollback continua agentic. `standing_mandate` = 24/7 no teto; não autoaltera H1/H4/H5/H6. `SURFACE_AUDIT` observa/pausa/revoga — não aprova cada entrega.
 
-Classificador de soberania: **pure, sem LLM no port**; sinais mecânicos (path/effect class); unknown ⇒ não `admitted`. Implementação: estender `AaeosAdmissionPolicy` + owners Decide **existentes** — **não** criar árvore `SovereigntyPort/` sem residual de disco pós-P1.
+**Admissão tipada:** `repair_required` | `policy_blocked` | `sovereign_judgment_required` | `admitted` | `admitted_notify` | `emergency_halt`.  
+**Proibido:** `invalid_mode` / incidente técnico → `halt_sovereign` (R40). Disco: `AaeosAdmissionPolicy` hoje faz isso — P1b corrige.
 
-## 72. Residuals constitutivos RSS (R38–R46) — sem reabrir R16–R37
+### 71.2 CRES — Chokepoint-Resolved Effect Spine (norma de confiança)
 
-| ID | Gap | Já coberto por? | Fase | Done quando |
-|---|---|---|---|---|
-| R38 | `human_in_engineering_loop` como identidade de modo / Dev=true no receipt | parcial §24 | P0–P1 | campo removido ou não-autoritativo; regimes §70.1 no receipt; elite doc alinhado |
-| R39 | difficulty/autonomy/risk/soberania colados (human_review por nível) | §7 ladder | P1–P2 | eixos separados; review técnico agentic; soberania só H\* |
-| R40 | falha técnica rotulada soberana | admission live | P0–P1 | taxonomia §71; golden cases |
-| R41 | falta regimes tempo/delegação/origem/tax no contrato de modo | — | P1–P2 | campos §70.1 emitidos e testados |
-| R42 | 17-phase/depts como operate path | §15 out-of-scope | P3 docs | demote documentado; daily = run/cycle/scorecard/certify/cockpit |
-| R43 | entradas não compartilham application services; CLI→CLI | R33 + §48 | P1 | brain/seed apps; R33–R35 green; parity path |
-| R44 | spine declara classes sem efeito/ledger | R1–R2 §26 | P2 | evidence refs + readback; metadata-only fail |
-| R45 | atenção/fila tratada como autoridade | — | P1 | queue = read model; só DecisionReceipt soberano altera boundary |
-| R46 | author/judge/governor sem prova de independência | seed-gate parcial | P2–P3 | principals distintos **ou** mechanical-only gate; same-engine refuse em tax máxima |
+**Problema:** campos declarados pelo caller/agente (`action_kind`, `reversibility`, `effect_class_source: execution_order`) são **spoofáveis** (`ExecutionOrder::fromArray` é caller-authored). Certificar a *forma* do receipt não certifica o *efeito*.
 
-**R47–R50 = HORIZONTE (fora do DONE P4 deste MT):**
+**Regra (subtrativa — reusa land path, não cria OS):**
 
-| ID | Tema | Onde |
-|---|---|---|
-| R47 | SM durável / recon authorize→land→canary em escala | pós-P4 / Kernel hardening — **não** P4 gauntlet substitute |
-| R48 | ablação topologia (estrutura T0–T5, não n cru) | **irmã** Rivals/Quality Foundry |
-| R49 | minutos humanos / economia de atenção | irmã + instrumentação receipt |
-| R50 | prova comparativa externa sustentada | irmã; claim #1 só com campanhas |
+1. **`effect_class` autoritativo** = re-resolvido **server-side no chokepoint de land** (ex.: write-set / tool realmente invocado em scoped committer / canary settlement — owners já no disco).  
+2. Campos **declarados** (`action_kind`, `reversibility`, regex/hint, intent text) são **advisory monótonos**: só **sobem** suspeita / bloqueio; **nunca baixam** admissão abaixo da classe resolvida.  
+3. **`effect_class_source: execution_order` não é fonte confiável** — remover do path de autorização. Fontes honestas: `action_registry` | `tool_contract` | **`land_observer`** (novo nome para chokepoint).  
+4. H3 / `sovereign_judgment_required` chaveiam na **classe resolvida**, não em `$objective['irreversible']` do regex.  
+5. Cada campo sensível de receipt carrega `minter: agent|caller|observer`; só `observer` conta como identidade de efeito.  
+6. **Goldens obrigatórios P1b:**  
+   - *present-but-false:* declara `read_only` / `reversible` mas chokepoint observa mutação irreversível → **block**.  
+   - *sem-keyword:* “rotate API keys”, “publish release”, “settle invoice”, “revoke certificate” → classificados por efeito, **não** por regex de “payment/wipe”.  
+7. `admit()` exige contrato de ação tipado ou `unknown` → fail-closed (não `admitted` por default).  
+8. Para `canonical_release|external_effect|credential_mint|policy_mutation`: court **mecânico** obrigatório; judge LLM de outra família é aditivo, não substituto.  
+9. Certify recusa `AT2_continuous` / claims sustentados sem ≥1 ciclo vivo com effect_class **observer-minted**.
 
-Mint de residual **>R50** só com falha de disco ou emenda canônica — nunca por diagrama.
-
-## 73. Horizonte multiagente / Foundry (irmã — zero fase P5/P6 neste MT)
-
-- Default **n=1**.  
-- Fan-out exige: write-set disjunto, largura real, ROI esperado, **braço pareado n=1**.  
-- `agent_count` telemetria only.  
-- Evaluation: reusar **Rivals / Quality Foundry** — proibido terceiro framework sob Aaeos.  
-- Elite Deepening emite no máximo **campos de receipt** consumíveis pela irmã; **não** roda campanhas R48–R50 como gate de P4.  
-- P4 deste MT = gauntlet one-shot + hard gates §49 + R33/R34 + archive hold (§52.5) — **inalterado em espírito**.
-
-## 74. Emendas obrigatórias a Partes I–III (ponteiros, não cópia)
-
-| Onde | Emenda RSS |
-|---|---|
-| §1 L13–L18 | manter espírito; L13 lê-se com §70 (SURFACE_AUDIT + H1–H7; não “zero humano em tudo”) |
-| §4 diagrama | significado = §70.2 (sem WorkGraph product box) |
-| §5 DONE 14–19 | ver §74.1 abaixo — **não** exigir Foundry/SM global para DONE |
-| §6 tabela | regimes §70.1; não “presença humana eng” como qualidade |
-| §9 / §52 | **autoridade de implementação** P0–P4; Part IV **não** substitui file freeze |
-| §24 receipt | campos legados `human_in_engineering_loop` → migrar per R38 |
-| elite doc | `atlas-elite-executors-dev-forge-autonomos.md` deve ser atualizado **na mesma obra de docs** que fechar R38 (owner identidade) |
-
-### 74.1 DONE do programa (emenda §5 — conjunção)
-
-DONE Elite Deepening = itens **1–13 de §5** (honesty, muscle, scorecard, gauntlet, quarantine, …)  
-**mais** R38–R46 fechados **ou** DEBT nomeado com owner  
-**menos** qualquer exigência de R47–R50 / P5 / P6 / WorkGraph OS / Mission Runtime.
-
-Itens §5.14–19 da expansão mega anterior ficam **reinterpretados**:
-
-| Item mega | RSS |
-|---|---|
-| “humano impossível no loop técnico” | **sim** como LOOP_ENGINEERING; SURFACE_AUDIT e H1–H7 permanecem |
-| ExecutionOrder v3 completo | **strangler**: campos §70.1 aditivos; bump v3 só se breaking for inevitável |
-| courts independentes | prova R46; reusar courts disco |
-| topologia provada | **horizonte** R48; P4 não exige |
-| governo durável completo | **horizonte** R47; P4 usa chokepoints Kernel/lease **já** no land path |
-| claim #1 externo | **horizonte** R50 |
-
-## 75. Ordem de execução (sem P5/P6 neste MASTER)
+**Advisory declaration (não autoritativo):**
 
 ```text
-PLAN_ONLY (agora)
-  └─ v5 RSS docs + elite doc (R38 canon) quando autorizado em docs slice
-EXECUTE P0  →  §52.1 honesty + run/cycle + measured + admission labels R40 (caracterizar R38)
-P1          →  ModeExecutors + R33–R35 + brain app services + R38 writers + R45 attention read-only
-P2          →  Kernel ports + spine R44 + axes + R41 fields + R46 floor
-P3          →  observe/alias (existente) + R42 demote docs; topology só se residual disco
-P4          →  live gauntlet + freeze; R47–R50 explicitamente NÃO bloqueiam one-shot
+action_kind: read_only|workspace_mutation|canonical_release|external_effect|policy_mutation|credential_mint
+reversibility: reversible|compensatable|irreversible|unknown
+authority_relation: within_mandate|outside_mandate|unknown
+# effect_class_source: NÃO usar execution_order para authorize
 ```
 
-**Autorização:** `EXECUTE P0` **não** autoriza WorkGraph, Foundry, nem package SovereigntyPort.
+**Implementação R51:** P0 = red characterization (regex/hint path). P1b = `AaeosActionEffectClassifier` pure + admission + **observer re-resolve no land** (paths exatos no PHASE-1b-RECEIPT). Zero `SovereigntyPort/` package.
 
-## 76. Autocrítica RSS (esta rodada docs)
+Texto livre/regex/hint: só elevam suspeita. Disco atual: `AaeosIntentCompiler` L47–49 + `AaeosAdmissionPolicy` lê booleano — **R51 OPEN**.
 
-- [x] Part IV **substitui** expansão mega (WorkGraph/P5/P6/file map duplicado) — anti-Sol duplication.  
-- [x] R16–R37 **não** renumerados; R38–R46 constitutivos; R47–R50 horizonte.  
-- [x] P0–P4 **continuam** §9/§52.  
-- [x] Zero segundo MASTER.  
-- [x] Zero código produção nesta integração.  
-- [ ] Elite executors doc ainda precisa de slice de alinhamento (R38) — **não** feito se só MASTER nesta rodada; LEDGER registra.
+### 71.3 mandate_epoch (único campo de durabilidade constitutivo — não R47 completo)
+
+Opcional em P1b/P2: epoch monotônico cunhado por DecisionReceipt / revoke; dispatcher fail-closed se resume com epoch menor. **Não** construir SM de mandato completo (Mission Runtime disfarçado).
+
+## 72. Residuals constitutivos (R38–R46 + R51 CRES) — sem reabrir R16–R37
+
+| ID | Gap | Fase | Done quando |
+|---|---|---|---|
+| R38 | `human_in_engineering_loop` identidade; certify:34 / CycleRuntime:107 / DevAdapter | P0–P1 | zero leitura autoritativa; elite doc alinhado **mesma obra docs**; certify via `sovereignty_channel` |
+| R39 | eixos colados human_review×nível | P1–P2 | eixos separados; review agentic |
+| R40 | invalid_mode/incident → halt_sovereign | P1b | taxonomia §71.1 |
+| R41 | regimes no contrato | P1–P2 | §70.1 com **measure-first** (emit only with reader) |
+| R42 | 17-phase como operate | P3 docs | demote |
+| R43 | CLI→CLI / brain apps | **P1a** args; apps **P1a se path no freeze** senão DEBT→P2 | R33 green mínimo; apps listados em allowed_paths |
+| R44 | spine metadata-only | P2 | refs + readback |
+| R45 | fila como autoridade | P1 | read model only |
+| R46 | independência author/judge/governor | P2–P3 | principals; AT2 family **ou** mechanical court |
+| R51 | regex/hint + self-declared effect | P0 red / **P1b CRES** | §71.2 goldens green |
+
+**R47–R50 horizonte (não bloqueiam P4):**
+
+| ID | Tema |
+|---|---|
+| R47 | recon/SM durável em escala (exceto mandate_epoch pontual) |
+| R48 | ablação topologia (irmã Foundry) |
+| R49 | atenção/economia (instrumentação receipt pode começar P1 — view economy) |
+| R50 | prova comparativa externa (`capability_proof=comparative`) |
+
+## 73. Horizonte multiagente / Foundry (irmã)
+
+- n=1 default; `agent_count` nunca KPI.  
+- Foundry/Rivals = irmã; **proibido** no DONE P4.  
+- P4 = one-shot live + hard gates + R33/R34 + CRES liveness mínima — não campanha R50.
+
+## 74. Emendas I–III + DONE
+
+| Onde | Emenda v6 |
+|---|---|
+| §49 | capability_proof §49.4 |
+| §52.2 | P1a / P1b split |
+| §24 | remover human_in_engineering_loop autoritativo (R38) |
+| elite doc | eixos = sovereignty_channel / duration / origin — **não** “presença no loop de eng” |
+| §71 | CRES norma de confiança |
+
+### 74.1 DONE Elite Deepening
+
+```text
+DONE = §5 itens 1–13
+    + R38–R46 + R51(CRES) fechados ou DEBT nomeado
+    + capability_proof ≥ internal_only
+    − R47–R50 / Foundry / WorkGraph / Mission OS
+```
+
+**DONE ≠ SOTA mundial.** SOTA/50×/#1 exige `capability_proof=comparative` (irmã) + operação sustentada.
+
+## 75. Ordem de execução
+
+```text
+PLAN_ONLY / v6 docs (esta rodada)
+  └─ elite-doc R38 na mesma sessão se possível
+EXECUTE P0
+  → honesty §52.1 + R38/R40 labels + R51 red characterization
+  → measure-first: sem emitir AT2/tier sem reader
+P1a → fuse ModeExecutors + R33/R34/R35 (sem CRES)
+P1b → R51 CRES + R40 admission + land observer goldens
+P2  → Kernel ports + R44 + R41/R46
+P3  → observe/alias + R42 demote
+P4  → gauntlet live; capability_proof internal_only possível; comparative = irmã
+```
+
+`EXECUTE P0` **não** autoriza P1b completo, WorkGraph, Foundry, SovereigntyPort.
+
+## 76. Autocrítica v6
+
+- [x] CRES no R51 (trust no chokepoint, não no self-report).  
+- [x] capability_proof machine-enforced DONE≠SOTA.  
+- [x] P1a/P1b split.  
+- [x] Measure-first / anti front-load de tiers.  
+- [x] N×M north-star §78 sem segundo OS.  
+- [x] Zero código produção nesta rodada.  
+- [x] Elite doc R38 alinhado na mesma obra v6.
+
+## 77. Call-sites R38 (disco — P0/P1)
+
+| Path | Fato |
+|---|---|
+| `AtlasAaeosCertifyCommand.php` ~L34 | gate em `human_in_engineering_loop === false` |
+| `AaeosCycleRuntime.php` ~L107 | set tautológico mode==DEV |
+| `Control/Adapters/DevModeAdapter.php` | hardcode true |
+| elite doc matrix | “presença humana no loop de eng” |
+
+Done R38: `rg -w human_in_engineering_loop` sem leitura autoritativa em Aaeos+Certify; elite doc reescrito no eixo sovereignty.
+
+## 78. North-star N×M (destino absurdo — não escopo P0–P4)
+
+```text
+resultado_útil ≈ N × M
+N = poder do provider
+M = Atlas: governo, recusa, prova, memória, mandato, recovery, poucos agentes
+```
+
+**Teto absurdo de M:** qualidade extraordinária, atenção humana → 0 no loop operacional, empresa 100% Atlas (estratégia, produto, marketing, mercado, operação) com **mínimo de agentes**.
+
+**Este MT (P0–P4)** maximiza M no **domínio engenharia**: honesty, wire real Autônomos, CRES, mesma barra, proof taxonomy.  
+**Não** declara “empresa pronta” no DONE.  
+**Não** encolhe o teto: arcos seguintes (Foundry comparative, multi-domínio, mandate continuity) **compõem** M — sem reiniciar governo.
+
+Ordem de honestidade (não de ambição):  
+eng M real → M medido (atenção/tokens/lift) → M multi-domínio → M empresa-fechada.
 
 ---
 
-**Fim do MASTER Implementation Plan (MT) v5 — Razor Sovereign Spine (anti-duplicação), sem over-claim.**  
-Próxima decisão humana: **EXECUTE P0** (honesty sob lei RSS) **ou** docs-slice elite executors (R38) **ou** mais absolute só se residual de disco novo.
+**Fim do MASTER Implementation Plan (MT) v6 — RSS + CRES + N×M north-star, sem over-claim.**  
+Próxima: **elite-doc R38** (se ainda OPEN) → **`EXECUTE P0`**.
