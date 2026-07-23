@@ -4,35 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0177 downstream one-shot release envelopes fail-closed closed
+phase: A1-SC-0178 persistence writer schema evidence fail-closed closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: downstream one-shot release envelope source-preflight boundary
-finding_id: A1-SC-0177
-action_op: propagate source-preflight readiness and blockers through three downstream envelopes
+focus: one-shot release receipt persistence writer atomicity evidence boundary
+finding_id: A1-SC-0178
+action_op: replace self-declared atomicity booleans with live database schema evidence
 queue_index: 6
-last_commit: fa31cafa7
+last_commit: 7b929ca85
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_downstream_release_envelopes_block_when_their_source_preflight_is_blocked
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_persistence_writer_preflight_uses_live_schema_evidence_for_atomicity_requirements
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: the real public release template reported ready even though its writer preflight was blocked.
-  green: template, unsigned draft, and persistence contract carry their source status and blockers, so every envelope reports blocked with a repair slice until its source preflight is ready.
+  red: the persistence contract asserted a four-field idempotency key that has no matching unique database index or writer behavior.
+  green: receipt_hash names the actual writer idempotency key, while the public preflight reads the live connection driver, receipt unique indexes, and wakeup row-lock prerequisites before it can attest them.
 stdout: |
   red_characterization: FAIL 1 test, 1 assertion
-  focused_and_package: PASS 4 tests, 13 assertions
+  focused_and_package: PASS 5 tests, 18 assertions
   php_lint: PASS source plus changed Unit test
   unit_pint: PASS
-  loc_check: release_writer_section=1413
+  loc_check: release_writer_section=1461
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes three public readiness-facade paths; it does not use reflection or a fabricated preflight payload.
+  Characterization executes public readiness-facade paths and compares their returned schema evidence to live database metadata; it does not use reflection or a fabricated preflight payload.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1719,6 +1719,31 @@ verification:
 boundary:
   - direct readiness-facade invocation across all three downstream envelope paths; no reflection, provider, dispatch, token, persistence, or runtime mutation
   - mutating-writer contract was already source-gated; this wave closes the remaining three false-ready envelopes named by A1-SC-0177
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 57 — A1-SC-0178 verify persistence-writer schema evidence, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 7b929ca85
+subject: "refactor(core): GOD-DEBULK verify writer schema evidence"
+red:
+  result: "FAIL 1 test, 1 assertion: the contract declared a four-field idempotency key even though the persistence writer replays by receipt_hash and the migration has no matching composite unique index."
+green:
+  behavior: "The contract now declares receipt_hash, the writer's replay key. The public preflight reads the live connection driver, unique receipt_hash and receipt_key indexes, and wakeup primary-key/driver lock capability; missing or unreadable evidence fails closed."
+verification:
+  focused_unit: "PASS 1 test, 5 assertions"
+  writer_section_unit: "PASS 5 tests, 18 assertions"
+  php_lint: "PASS source and changed Unit test"
+  unit_pint: PASS
+  diff_check: PASS
+  loc: "release_writer_section=1461 (<2000)"
+boundary:
+  - public readiness facade and live Schema metadata only; no reflection, migration, receipt persistence, transaction, row lock, provider, dispatch, token, or runtime mutation
+  - the preflight remains non-executing and blocks whenever the active database cannot prove its declared atomicity prerequisites
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
