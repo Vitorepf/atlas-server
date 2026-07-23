@@ -159,6 +159,7 @@ use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection06;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection07;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection08;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection09;
+use App\Services\Ai\AgenticEngineeringOs\Gates\DomainScorerGateSection;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -233,6 +234,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly GateObserveSection07 $observeSection07 = new GateObserveSection07,
         private readonly GateObserveSection08 $observeSection08 = new GateObserveSection08,
         private readonly GateObserveSection09 $observeSection09 = new GateObserveSection09,
+        private readonly DomainScorerGateSection $domainScorerSection = new DomainScorerGateSection,
     ) {}
 
     /**
@@ -411,17 +413,7 @@ final class AtlasUniversalGatesEvaluator
         return ($scorer ?? $this->deliveryPackCompleteness)->passesMin($composition, $minRatio);
     }
 
-    /**
-     * Observe-only full delivery-pack completeness score projection.
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $composition
-     * @return array<string,mixed>
-     */
-    public function deliveryPackCompletenessScoreObserve(array $composition): array
-    {
-        return $this->deliveryPackCompleteness->score($composition);
-    }
+    public function deliveryPackCompletenessScoreObserve(array $composition): array { return $this->domainScorerSection->deliveryPackCompletenessScoreObserve($composition); }
 
     /**
      * Derive a boolean signal from a compiled-spec shape via
@@ -438,17 +430,7 @@ final class AtlasUniversalGatesEvaluator
         return ($scorer ?? $this->specCompleteness)->passesMin($spec, $minScore);
     }
 
-    /**
-     * Observe-only full SpecCompletenessScorer projection.
-     * Does not add a universal-gate id.
-     *
-     * @param  array<string,mixed>  $spec
-     * @return array<string,mixed>
-     */
-    public function specCompletenessScoreObserve(array $spec): array
-    {
-        return $this->specCompleteness->score($spec);
-    }
+    public function specCompletenessScoreObserve(array $spec): array { return $this->domainScorerSection->specCompletenessScoreObserve($spec); }
 
     public function qualityBarTelemetryObserve(array $input): array { return $this->observeSection01->qualityBarTelemetryObserve($input); }
 
@@ -472,160 +454,23 @@ final class AtlasUniversalGatesEvaluator
 
     public function reactiveSaturationObserve(array $input): array { return $this->observeSection01->reactiveSaturationObserve($input); }
 
-    /**
-     * Observe-only AAEOS blocker-severity gate assessment.
-     * Accepts a list of blockers or `{blockers:[...]}`. Catalogue stays 15.
-     *
-     * @param  array<mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function blockerSeverityObserve(array $input): array
-    {
-        $blockers = array_is_list($input)
-            ? $input
-            : AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null);
+    public function blockerSeverityObserve(array $input): array { return $this->domainScorerSection->blockerSeverityObserve($input); }
 
-        return $this->blockerSeverity->assess($blockers);
-    }
+    public function phaseAdvanceVerdictObserve(array $envelope): array { return $this->domainScorerSection->phaseAdvanceVerdictObserve($envelope); }
 
-    /**
-     * Observe-only phase-advance verdict over an atlas.aaeos.phase.v1 envelope.
-     * Does not add a universal-gate id.
-     *
-     * @param  array<string,mixed>  $envelope
-     * @return array<string,mixed>
-     */
-    public function phaseAdvanceVerdictObserve(array $envelope): array
-    {
-        return $this->phaseAdvance->classify($envelope);
-    }
+    public function requiredGateCoverageObserve(array $input): array { return $this->domainScorerSection->requiredGateCoverageObserve($input); }
 
-    /**
-     * Observe-only required-vs-passed gate coverage projection.
-     * Accepts `{required:[...], passed:[...]}`. Catalogue stays 15.
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function requiredGateCoverageObserve(array $input): array
-    {
-        return $this->requiredGateCoverage->check(
-            AiValueNormalizer::arrayOrEmpty($input['required'] ?? null),
-            AiValueNormalizer::arrayOrEmpty($input['passed'] ?? null),
-        );
-    }
+    public function outcomeCausalityObserve(array $envelope): array { return $this->domainScorerSection->outcomeCausalityObserve($envelope); }
 
-    /**
-     * Observe-only outcome causality ranking over an OutcomeEnvelope map.
-     * Does not add a universal-gate id.
-     *
-     * @param  array<string,mixed>  $envelope
-     * @return array<string,mixed>
-     */
-    public function outcomeCausalityObserve(array $envelope): array
-    {
-        return $this->outcomeCausality->rankOutcomeEnvelope($envelope);
-    }
+    public function summaryFidelityCoverageObserve(array $input): array { return $this->domainScorerSection->summaryFidelityCoverageObserve($input); }
 
-    /**
-     * Observe-only summary fidelity / context-retention coverage.
-     * Accepts `{required_items|required:[...], summary_text|summary:string}`.
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function summaryFidelityCoverageObserve(array $input): array
-    {
-        $required = AiValueNormalizer::arrayOrEmpty(
-            $input['required_items'] ?? $input['required'] ?? null,
-        );
-        $summary = AiValueNormalizer::trimmedStringOrNull(
-            $input['summary_text'] ?? $input['summary'] ?? null,
-        ) ?? '';
+    public function memoryInjectionBudgetObserve(array $input): array { return $this->domainScorerSection->memoryInjectionBudgetObserve($input); }
 
-        /** @var list<array{id?: mixed, kind?: mixed, digest?: mixed}> $required */
-        return $this->summaryFidelity->score($required, $summary);
-    }
+    public function memoryFeedbackDecayObserve(array $signals): array { return $this->domainScorerSection->memoryFeedbackDecayObserve($signals); }
 
-    /**
-     * Observe-only memory injection budget allocation.
-     * Accepts `{ranked_items|items:[...], total_budget_chars, per_item_cap_chars, min_excerpt_chars?}`.
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function memoryInjectionBudgetObserve(array $input): array
-    {
-        $items = AiValueNormalizer::arrayOrEmpty(
-            $input['ranked_items'] ?? $input['items'] ?? null,
-        );
+    public function segmentImportanceObserve(array $input): array { return $this->domainScorerSection->segmentImportanceObserve($input); }
 
-        /** @var list<array{ref:string,priority:int|float,estimated_chars:int}> $items */
-        return $this->memoryInjectionBudget->allocate(
-            $items,
-            (int) ($input['total_budget_chars'] ?? $input['total_budget'] ?? 0),
-            (int) ($input['per_item_cap_chars'] ?? $input['per_item_cap'] ?? 0),
-            array_key_exists('min_excerpt_chars', $input)
-                ? (int) (AiValueNormalizer::finiteFloatOrNull($input['min_excerpt_chars'] ?? null) ?? 0)
-                : (array_key_exists('min_excerpt', $input) ? (int) (AiValueNormalizer::finiteFloatOrNull($input['min_excerpt'] ?? null) ?? 0) : null),
-        );
-    }
-
-    /**
-     * Observe-only memory feedback decay / lifecycle health score.
-     * Accepts a signals map (`positive_count`, `negative_count`, ages, …).
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $signals
-     * @return array<string,mixed>
-     */
-    public function memoryFeedbackDecayObserve(array $signals): array
-    {
-        return $this->memoryFeedbackDecay->score($signals);
-    }
-
-    /**
-     * Observe-only segment importance ranking / token-budget selection.
-     * Accepts `{segments|maybe_discard:[...], token_budget|budget:int}`.
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function segmentImportanceObserve(array $input): array
-    {
-        $segments = AiValueNormalizer::arrayOrEmpty(
-            $input['segments'] ?? $input['maybe_discard'] ?? null,
-        );
-        $budget = (int) ($input['token_budget'] ?? $input['budget'] ?? 0);
-
-        /** @var list<array<string,mixed>> $segments */
-        return $this->segmentImportance->select($segments, $budget);
-    }
-
-    /**
-     * Observe-only multi-objective Pareto dominance frontier.
-     * Accepts `{variants:[...], objective_direction|objectives:{...}, hard_constraints?:{...}}`.
-     * Does not add a universal-gate id (catalogue stays 15).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    public function contextParetoDominanceObserve(array $input): array
-    {
-        $variants = AiValueNormalizer::arrayOrEmpty($input['variants'] ?? null);
-        $direction = AiValueNormalizer::arrayOrEmpty(
-            $input['objective_direction'] ?? $input['objectives'] ?? null,
-        );
-        $constraints = AiValueNormalizer::arrayOrEmpty($input['hard_constraints'] ?? null);
-
-        /** @var list<array<string,mixed>> $variants */
-        /** @var array<string,string> $direction */
-        /** @var array<string,array<string,mixed>> $constraints */
-        return $this->contextPareto->filter($variants, $direction, $constraints);
-    }
+    public function contextParetoDominanceObserve(array $input): array { return $this->domainScorerSection->contextParetoDominanceObserve($input); }
 
     /**
      * Observe-only memory recall relevance ranking.
