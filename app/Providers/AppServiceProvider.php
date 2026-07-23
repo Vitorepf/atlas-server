@@ -26,25 +26,15 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseHarness;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopModelFloorReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
-use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
-use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServedQueueInspectorSweepSentinel;
-use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServingQueueDiskConformanceSentinel;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopInsightBackpropService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
-use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Caching\AiCallCostGuard;
@@ -266,45 +256,14 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(SkillBundleStore::class);
-        $this->app->singleton(AtlasLoopReceiptReplayer::class);
 
 
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailIntegrityVerifier::class);
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
         // Force-load the command file so the in-file port interface + default impl are visible to PSR-4.
         \class_exists(\App\Console\Commands\AtlasAaelExecutionRollbackCommand::class);
-        $this->app->singleton(
-            \App\Console\Commands\AtlasAaelExecutionRollbackOperatorPort::class,
-            \App\Console\Commands\AtlasAaelExecutionRollbackDefaultOperatorPort::class,
-        );
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger::class,
-            function ($app) {
-                $configured = config('atlas.loop.fact_confidence.ledger_path');
-                $path = is_string($configured) && $configured !== ''
-                    ? $configured
-                    : storage_path('app/atlas/loop/fact-confidence-receipts.jsonl');
-                $enabled = (bool) config('atlas.loop.fact_confidence.ledger_enabled', false);
-
-                return new \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger($path, $enabled);
-            },
-        );
-        $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool::class);
-        $this->app->singleton(AtlasLoopHardCaseHarness::class);
-        // Floor-receipt audit substrate: one append-only, sha256-chained ledger proving the §0 floor
-        // invariants held across cross-model triangulation events. Nullable-default ctor autowires to the
-        // canonical storage path; pure I/O + hashing, so constructing it is free.
-        $this->app->singleton(AtlasLoopModelFloorReceiptLedger::class);
-        $this->app->singleton(AtlasLoopTaskDecompositionAmplifier::class);
-        $this->app->singleton(
-            AtlasLoopScenarioProviderPortfolio::class,
-            fn ($app) => new AtlasLoopScenarioProviderPortfolio(
-                rescue(fn () => $app->make(AtlasLoopTaskDecompositionAmplifier::class), null, false),
-            ),
-        );
 
         // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue
         // (isolated from the Agent Control Plane certification-probe pollution). See AtlasTaskServingStack.
@@ -1069,8 +1028,6 @@ class AppServiceProvider extends ServiceProvider
         if (! (bool) config('atlas.loop.sentinels.wave19_enabled', false)) {
             return; // OFF ⇒ zero bindings, byte-identical no-op
         }
-        $this->app->singleton(AtlasLoopServedQueueInspectorSweepSentinel::class);
-        $this->app->singleton(AtlasLoopServingQueueDiskConformanceSentinel::class);
 
     }
 
