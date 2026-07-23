@@ -33,8 +33,11 @@ class OpenBrainAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $navToolsPath = app_path('Services/Ai/OpenBrainMcp/NavigationTools.php');
+
         $input = File::exists($inputPath) ? File::get($inputPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $navTools = File::exists($navToolsPath) ? File::get($navToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -64,10 +67,21 @@ class OpenBrainAudit
             }
         }
 
+        // Façade keeps the shared input dependency + the code/docs consumers; the
+        // navigation consumers were relocated under GOD-DEBULK D3 to
+        // OpenBrainMcp/NavigationTools (invariant unchanged).
         foreach ([
             'private readonly OpenBrainMcpInput $mcpInput',
             '$this->mcpInput->codeLimit(',
             '$this->mcpInput->docsLimit(',
+        ] as $token) {
+            if (! str_contains($service, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP tools must use shared input contract [{$token}]";
+            }
+        }
+
+        foreach ([
+            'private readonly OpenBrainMcpInput $mcpInput',
             '$this->mcpInput->recentChangesLimit(',
             '$this->mcpInput->decisionLimit(',
             '$this->mcpInput->symbolsLimit(',
@@ -75,8 +89,8 @@ class OpenBrainAudit
             '$this->mcpInput->contextCodeLimit(',
             '$this->mcpInput->contextDocsLimit(',
         ] as $token) {
-            if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP tools must use shared input contract [{$token}]";
+            if (! str_contains($navTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/NavigationTools.php: MCP tools must use shared input contract [{$token}]";
             }
         }
 

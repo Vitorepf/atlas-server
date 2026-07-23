@@ -251,6 +251,8 @@ class DecisionReceiptAudit
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $routes = File::exists($routesPath) ? File::get($routesPath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -291,15 +293,24 @@ class DecisionReceiptAudit
             }
         }
 
+        // Façade keeps the tools() schema + dispatch; the handler was relocated under
+        // GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_decision_receipt_report'",
             "'required' => ['envelope']",
-            "'atlas_decision_receipt_report' => \$this->toolResponse(\$id, \$this->decisionReceiptReport(\$arguments))",
-            'private function decisionReceiptReport(array $arguments): array',
-            "'decision_receipt_replay' => \$this->ledgerReplay->decisionReceiptReportForEnvelope(\$envelopeId)",
+            "'atlas_decision_receipt_report' => \$this->toolResponse(\$id, \$this->reportTools->decisionReceiptReport(\$arguments))",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-137 MCP tool must expose DecisionReceipt replay [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function decisionReceiptReport(array $arguments): array',
+            "'decision_receipt_replay' => \$this->ledgerReplay->decisionReceiptReportForEnvelope(\$envelopeId)",
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-137 MCP tool must expose DecisionReceipt replay [{$token}]";
             }
         }
 

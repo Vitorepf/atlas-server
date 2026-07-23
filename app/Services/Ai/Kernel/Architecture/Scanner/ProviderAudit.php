@@ -208,6 +208,7 @@ class ProviderAudit
         $replayService = $this->primitives->fileContents($replayServicePath);
         $command = $this->primitives->fileContents($commandPath);
         $mcp = $this->primitives->fileContents($mcpPath);
+        $reportTools = $this->primitives->fileContents(app_path('Services/Ai/OpenBrainMcp/ReportTools.php'));
         $api = $this->primitives->fileContents($apiPath);
         $observability = $this->primitives->fileContents($observabilityPath);
         $routes = $this->primitives->fileContents($routesPath);
@@ -405,17 +406,22 @@ class ProviderAudit
             'AtlasAiDynamicComputeMarketCommand::class',
         ], "bootstrap/app.php: AP-99 provider performance CLI command must be registered"));
 
+        // Façade keeps the tools() schema + dispatch; the report handlers were relocated
+        // under GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($mcp, [
-            'ProviderPerformanceProjection $providerPerformance',
             "'name' => 'atlas_provider_performance_report'",
-            "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->providerPerformanceReport(\$arguments))",
+            "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->reportTools->providerPerformanceReport(\$arguments))",
+            "'name' => 'atlas_dynamic_compute_market_report'",
+            "'atlas_dynamic_compute_market_report' => \$this->toolResponse(\$id, \$this->reportTools->dynamicComputeMarketReport(\$arguments))",
+        ], "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report"));
+
+        $violations = array_merge($violations, $this->primitives->missingTokenViolations($reportTools, [
+            'ProviderPerformanceProjection $providerPerformance',
             'providerPerformanceReport(array $arguments)',
             '$this->providerPerformance->reportForWindow(',
-            "'name' => 'atlas_dynamic_compute_market_report'",
-            "'atlas_dynamic_compute_market_report' => \$this->toolResponse(\$id, \$this->dynamicComputeMarketReport(\$arguments))",
             'dynamicComputeMarketReport(array $arguments)',
             'DynamicComputeMarketReportService $dynamicComputeMarketReports',
-        ], "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report"));
+        ], "app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-99 provider performance must be available as a read-only MCP report"));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($api, [
             'class AtlasAiProviderPerformanceController',

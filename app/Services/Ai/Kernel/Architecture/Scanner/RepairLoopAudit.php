@@ -479,21 +479,33 @@ class RepairLoopAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
+        // Façade keeps the tools() schema + dispatch; the handler was relocated under
+        // GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_repair_loop_report'",
-            "'atlas_repair_loop_report' => \$this->toolResponse(\$id, \$this->repairLoopReport(\$arguments))",
-            'private function repairLoopReport(array $arguments): array',
-            '$this->ledgerReplay->repairReportForWindow(now()->subHours($hours), null, $filters)',
-            "'kernel_repair' => \$report",
+            "'atlas_repair_loop_report' => \$this->toolResponse(\$id, \$this->reportTools->repairLoopReport(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP must expose read-only atlas_repair_loop_report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function repairLoopReport(array $arguments): array',
+            '$this->ledgerReplay->repairReportForWindow(now()->subHours($hours), null, $filters)',
+            "'kernel_repair' => \$report",
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP must expose read-only atlas_repair_loop_report [{$token}]";
             }
         }
 

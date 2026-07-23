@@ -265,21 +265,33 @@ class SloAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
+        // Façade keeps the tools() schema + dispatch; the handler + slo filters were
+        // relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_kernel_slo_report'",
-            "'atlas_kernel_slo_report' => \$this->toolResponse(\$id, \$this->kernelSloReport(\$arguments))",
-            'private function kernelSloReport(array $arguments): array',
-            '$this->ledgerReplay->sloReportForWindow(now()->subHours($hours), null, $filters)',
-            'private function kernelSloFilters(array $arguments): array',
+            "'atlas_kernel_slo_report' => \$this->toolResponse(\$id, \$this->reportTools->kernelSloReport(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP must expose read-only atlas_kernel_slo_report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function kernelSloReport(array $arguments): array',
+            '$this->ledgerReplay->sloReportForWindow(now()->subHours($hours), null, $filters)',
+            'private function kernelSloFilters(array $arguments): array',
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP must expose read-only atlas_kernel_slo_report [{$token}]";
             }
         }
 

@@ -503,21 +503,33 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-156-agent-behavior-mcp-report.md');
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $violations = [];
 
+        // Façade keeps the tools() schema + dispatch; the handler was relocated under
+        // GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_agent_behavior_report'",
-            "'atlas_agent_behavior_report' => \$this->toolResponse(\$id, \$this->agentBehaviorReport(\$arguments))",
-            'private function agentBehaviorReport(array $arguments): array',
-            'agentBehaviorReportForWindow',
-            "'agent_behavior' => \$report",
+            "'atlas_agent_behavior_report' => \$this->toolResponse(\$id, \$this->reportTools->agentBehaviorReport(\$arguments))",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-156 must expose agent behavior MCP report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function agentBehaviorReport(array $arguments): array',
+            'agentBehaviorReportForWindow',
+            "'agent_behavior' => \$report",
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-156 must expose agent behavior MCP report [{$token}]";
             }
         }
 

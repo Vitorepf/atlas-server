@@ -46,8 +46,11 @@ class ReplayObservabilityAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -66,13 +69,18 @@ class ReplayObservabilityAudit
             }
         }
 
+        // Façade still declares the KernelReplayReportInput dependency; the replay tool
+        // consumers were relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools.
+        if (! str_contains($mcp, 'private readonly KernelReplayReportInput $replayInput')) {
+            $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay tools must consume KernelReplayReportInput [private readonly KernelReplayReportInput \$replayInput]";
+        }
+
         foreach ([
-            'private readonly KernelReplayReportInput $replayInput',
             '$this->replayInput->hours',
             '$this->replayInput->scalarFilters',
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay tools must consume KernelReplayReportInput [{$token}]";
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP replay tools must consume KernelReplayReportInput [{$token}]";
             }
         }
 

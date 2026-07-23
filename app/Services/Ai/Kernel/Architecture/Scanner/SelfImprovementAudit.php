@@ -545,21 +545,33 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
 
+        // Façade keeps the tools() schema + dispatch; the handler + its schedule service
+        // dependency were relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools.
         foreach ([
-            'AtlasSelfImprovementScheduleService',
             "'name' => 'atlas_self_improvement_schedule'",
-            "'atlas_self_improvement_schedule' => \$this->toolResponse(\$id, \$this->selfImprovementSchedule(\$arguments))",
-            'private function selfImprovementSchedule(array $arguments): array',
-            "'allowed_detail' => ['health', 'plan', 'commands']",
+            "'atlas_self_improvement_schedule' => \$this->toolResponse(\$id, \$this->reportTools->selfImprovementSchedule(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: Open Brain must expose Self-Improvement schedule as read-only MCP tool [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasSelfImprovementScheduleService',
+            'public function selfImprovementSchedule(array $arguments): array',
+            "'allowed_detail' => ['health', 'plan', 'commands']",
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: Open Brain must expose Self-Improvement schedule as read-only MCP tool [{$token}]";
             }
         }
 
@@ -863,21 +875,33 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
 
+        // Façade keeps the tools() schema + dispatch; the handler + its ledger-replay
+        // dependency were relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools.
         foreach ([
-            'AtlasLedgerReplayService $ledgerReplay',
             "'name' => 'atlas_self_improvement_schedule_report'",
-            "'atlas_self_improvement_schedule_report' => \$this->toolResponse(\$id, \$this->selfImprovementScheduleReport(\$arguments))",
-            'private function selfImprovementScheduleReport(array $arguments): array',
-            '$this->ledgerReplay->selfImprovementScheduleReportForWindow(now()->subHours($hours))',
+            "'atlas_self_improvement_schedule_report' => \$this->toolResponse(\$id, \$this->reportTools->selfImprovementScheduleReport(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP must expose schedule replay read model through atlas_self_improvement_schedule_report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'AtlasLedgerReplayService $ledgerReplay',
+            'public function selfImprovementScheduleReport(array $arguments): array',
+            '$this->ledgerReplay->selfImprovementScheduleReportForWindow(now()->subHours($hours))',
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP must expose schedule replay read model through atlas_self_improvement_schedule_report [{$token}]";
             }
         }
 

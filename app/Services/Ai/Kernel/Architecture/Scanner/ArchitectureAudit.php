@@ -249,23 +249,35 @@ class ArchitectureAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
+        $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
+        // Façade keeps the tools() schema + dispatch + the shared-service dependency; the
+        // handler was relocated under GOD-DEBULK D3 to OpenBrainMcp/ArchitectureTools.
         foreach ([
             'AtlasAiArchitectureValidationService',
             'private readonly AtlasAiArchitectureValidationService $architectureValidation',
             "'name' => 'atlas_architecture_validate'",
             "'title' => 'Atlas Architecture Validate'",
-            "'atlas_architecture_validate' => \$this->toolResponse(\$id, \$this->architectureValidate(\$arguments))",
-            'private function architectureValidate(array $arguments): array',
-            '$payload = $this->architectureValidation->payload();',
+            "'atlas_architecture_validate' => \$this->toolResponse(\$id, \$this->architectureTools->architectureValidate(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP must expose architecture validation via shared service [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function architectureValidate(array $arguments): array',
+            '$payload = $this->architectureValidation->payload();',
+        ] as $token) {
+            if (! str_contains($architectureTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ArchitectureTools.php: MCP must expose architecture validation via shared service [{$token}]";
             }
         }
 
@@ -506,13 +518,18 @@ class ArchitectureAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-177-architecture-readiness-mcp-tool.md');
 
+        $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
         $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
+        // Façade keeps the tools() schema + dispatch + the readiness-service dependency;
+        // the handler was relocated under GOD-DEBULK D3 to OpenBrainMcp/ArchitectureTools.
         foreach ([
             'AtlasArchitectureReadinessService',
             'private readonly AtlasArchitectureReadinessService $architectureReadiness',
@@ -520,14 +537,21 @@ class ArchitectureAudit
             "'title' => 'Atlas Architecture Readiness'",
             "'workspace' => ['type' => 'string'",
             "'owner' => ['type' => 'string'",
-            "'atlas_architecture_readiness' => \$this->toolResponse(\$id, \$this->architectureReadiness(\$arguments))",
-            'private function architectureReadiness(array $arguments): array',
-            "'tool' => 'atlas_architecture_readiness'",
-            "'architecture_readiness' => \$payload",
+            "'atlas_architecture_readiness' => \$this->toolResponse(\$id, \$this->architectureTools->architectureReadiness(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-177 MCP must expose architecture readiness as read-only tool [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function architectureReadiness(array $arguments): array',
+            "'tool' => 'atlas_architecture_readiness'",
+            "'architecture_readiness' => \$payload",
+        ] as $token) {
+            if (! str_contains($architectureTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ArchitectureTools.php: AP-177 MCP must expose architecture readiness as read-only tool [{$token}]";
             }
         }
 

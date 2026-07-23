@@ -45,6 +45,7 @@ class ArchitectureOperationsAudit
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $architectureTools = File::exists(app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php')) ? File::get(app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php')) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -96,18 +97,23 @@ class ArchitectureOperationsAudit
             }
         }
 
+        // Façade keeps the tools() schema + dispatch; the handler was relocated under
+        // GOD-DEBULK D3 to OpenBrainMcp/ArchitectureTools (invariant unchanged).
         foreach ([
             "'id' => ['type' => 'string'",
             "'kind' => ['type' => 'string'",
             "'section' => ['type' => 'string'",
             "'surface' => ['type' => 'string'",
             "'owner_layer' => ['type' => 'string'",
-            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
-            "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))",
+            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureTools->architectureOperations(\$arguments))",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-133 MCP must expose id/kind/section/surface filters [{$token}]";
             }
+        }
+
+        if (! str_contains($architectureTools, "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))")) {
+            $violations[] = "app/Services/Ai/OpenBrainMcp/ArchitectureTools.php: AP-133 MCP must expose id/kind/section/surface filters [\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))]";
         }
 
         foreach ([
@@ -398,43 +404,56 @@ class ArchitectureOperationsAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-129-architecture-operations-mcp-tool.md');
 
+        $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
         $gate = File::exists($gatePath) ? File::get($gatePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
+
+        // Façade keeps the tools() schema + dispatch + the strict governance gate; the
+        // handlers + their service dependencies were relocated under GOD-DEBULK D3 to
+        // OpenBrainMcp/ArchitectureTools (invariant unchanged).
+        foreach ([
+            "'name' => 'atlas_architecture_operations'",
+            "'name' => 'atlas_session_bootstrap'",
+            "'name' => 'atlas_feature_placement'",
+            "'name' => 'atlas_docs_split_plan'",
+            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureTools->architectureOperations(\$arguments))",
+            "'atlas_session_bootstrap' => \$this->toolResponse(\$id, \$this->architectureTools->sessionBootstrap(\$arguments))",
+            "'atlas_feature_placement' => \$this->toolResponse(\$id, \$this->architectureTools->featurePlacement(\$arguments))",
+            "'atlas_docs_split_plan' => \$this->toolResponse(\$id, \$this->architectureTools->docsSplitPlan(\$arguments))",
+            "'owner' => ['type' => 'string'",
+            "'severity' => ['type' => 'string'",
+            "'status' => ['type' => 'string'",
+            "'strict' => ['type' => 'boolean'",
+            'AtlasGovernanceGateService $governanceGate',
+            "'writes' => false",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-129 architecture operations must be exposed as read-only MCP tool [{$token}]";
+            }
+        }
 
         foreach ([
             'AtlasArchitectureOperationsCatalog $architectureOperations',
             'AtlasSessionBootstrapService $sessionBootstrap',
             'AtlasFeaturePlacementService $featurePlacement',
             'AtlasDocumentationSplitPlanService $documentationSplitPlan',
-            "'name' => 'atlas_architecture_operations'",
-            "'name' => 'atlas_session_bootstrap'",
-            "'name' => 'atlas_feature_placement'",
-            "'name' => 'atlas_docs_split_plan'",
-            "'atlas_architecture_operations' => \$this->toolResponse(\$id, \$this->architectureOperations(\$arguments))",
-            "'atlas_session_bootstrap' => \$this->toolResponse(\$id, \$this->sessionBootstrap(\$arguments))",
-            "'atlas_feature_placement' => \$this->toolResponse(\$id, \$this->featurePlacement(\$arguments))",
-            "'atlas_docs_split_plan' => \$this->toolResponse(\$id, \$this->docsSplitPlan(\$arguments))",
-            'private function architectureOperations(array $arguments): array',
-            'private function sessionBootstrap(array $arguments): array',
-            'private function featurePlacement(array $arguments): array',
-            'private function docsSplitPlan(array $arguments): array',
+            'public function architectureOperations(array $arguments): array',
+            'public function sessionBootstrap(array $arguments): array',
+            'public function featurePlacement(array $arguments): array',
+            'public function docsSplitPlan(array $arguments): array',
             "\$this->architectureOperations->summary(\$this->onlyScalarFilters(\$arguments, ['id', 'kind', 'section', 'surface', 'owner_layer']))",
             "\$this->documentationSplitPlan->plan(\$this->onlyScalarFilters(\$arguments, ['owner', 'severity', 'status']))",
-            "'owner' => ['type' => 'string'",
-            "'severity' => ['type' => 'string'",
-            "'status' => ['type' => 'string'",
-            "'strict' => ['type' => 'boolean'",
             '$strictBlocked',
-            'AtlasGovernanceGateService $governanceGate',
             '$this->governanceGate->strictBlocked',
             '$this->governanceGate->mcpError',
-            "'writes' => false",
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-129 architecture operations must be exposed as read-only MCP tool [{$token}]";
+            if (! str_contains($architectureTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ArchitectureTools.php: AP-129 architecture operations must be exposed as read-only MCP tool [{$token}]";
             }
         }
 

@@ -704,21 +704,33 @@ class KernelAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
 
+        // Façade keeps the tools() schema + dispatch; the handler was relocated under
+        // GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_kernel_pipeline_report'",
-            "'atlas_kernel_pipeline_report' => \$this->toolResponse(\$id, \$this->kernelPipelineReport(\$arguments))",
-            'private function kernelPipelineReport(array $arguments): array',
-            '$this->ledgerReplay->kernelPipelineReportForWindow(now()->subHours($hours), null, $filters)',
-            "'kernel_pipeline' => \$report",
+            "'atlas_kernel_pipeline_report' => \$this->toolResponse(\$id, \$this->reportTools->kernelPipelineReport(\$arguments))",
             "'writes' => false",
         ] as $token) {
             if (! str_contains($mcp, $token)) {
                 $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP must expose read-only atlas_kernel_pipeline_report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function kernelPipelineReport(array $arguments): array',
+            '$this->ledgerReplay->kernelPipelineReportForWindow(now()->subHours($hours), null, $filters)',
+            "'kernel_pipeline' => \$report",
+        ] as $token) {
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP must expose read-only atlas_kernel_pipeline_report [{$token}]";
             }
         }
 

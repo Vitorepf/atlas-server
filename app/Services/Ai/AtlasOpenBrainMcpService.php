@@ -2,38 +2,16 @@
 
 namespace App\Services\Ai;
 
-use App\Models\AiRagFeedbackEvent;
 use App\Models\AiTelemetryEvent;
 use App\Models\AtlasMemoryEntry;
-use App\Models\AtlasMemoryEntryRelation;
-use App\Models\AtlasOpenBrainAccessLog;
-use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
-use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
-use App\Services\Ai\Kernel\Architecture\AtlasDocumentationSplitPlanService;
-use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
-use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseIntelligenceService;
-use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
-use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
-use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
-use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
-use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
-use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
-use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
-use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
-use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
-use App\Services\Ai\Memory\AtlasRecallUncertaintyMap;
-use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
-use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\OpenBrainMcp\CodeGraphTools;
 use App\Services\Ai\OpenBrainMcp\TaskTools;
 use App\Services\Ai\OpenBrainMcp\MemoryEntryTools;
@@ -42,20 +20,18 @@ use App\Services\Ai\OpenBrainMcp\WorkspaceTools;
 use App\Services\Ai\OpenBrainMcp\ContextTools;
 use App\Services\Ai\OpenBrainMcp\HealthMetricsTools;
 use App\Services\Ai\OpenBrainMcp\ProviderReleaseTools;
-use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
-use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
+use App\Services\Ai\OpenBrainMcp\ReportTools;
+use App\Services\Ai\OpenBrainMcp\ArchitectureTools;
+use App\Services\Ai\OpenBrainMcp\NavigationTools;
+use App\Services\Ai\OpenBrainMcp\RuntimeSurfaceTools;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 class AtlasOpenBrainMcpService
@@ -138,35 +114,16 @@ class AtlasOpenBrainMcpService
     private string $processStartedAt;
 
     public function __construct(
-        private readonly AtlasHybridMemoryRetrievalService $recall,
         private readonly AtlasOpenBrainContextPackService $contextPack,
-        private readonly AtlasOpenBrainContextExpansionService $contextExpansion,
-        private readonly AtlasRetrievalFeedbackLoopService $retrievalFeedback,
-        private readonly AtlasOpenBrainService $openBrain,
         private readonly AtlasProviderProjectionService $projection,
-        private readonly AtlasMemoryPrivacyService $privacy,
         private readonly AtlasMemoryQualityService $quality,
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly EngineeringCodeIntelligenceService $code,
-        private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
         private readonly AtlasArchitectureReadinessService $architectureReadiness,
-        private readonly AtlasArchitectureOperationsCatalog $architectureOperations,
-        private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
-        private readonly AtlasSessionBootstrapService $sessionBootstrap,
-        private readonly AtlasFeaturePlacementService $featurePlacement,
         private readonly AtlasGovernanceGateService $governanceGate,
-        private readonly AtlasDocumentationSplitPlanService $documentationSplitPlan,
-        private readonly AtlasProviderReleaseIntelligenceService $providerReleaseIntelligence,
-        private readonly AtlasProviderReleaseSourceRegistry $providerReleaseSources,
-        private readonly AtlasSelfImprovementScheduleService $selfImprovementSchedule,
-        private readonly AtlasLedgerReplayService $ledgerReplay,
-        private readonly ProviderPerformanceProjection $providerPerformance,
-        private readonly DynamicComputeMarketReportService $dynamicComputeMarketReports,
-        private readonly LedgerProjectionRegistry $ledgerProjectionRegistry,
         private readonly KernelReplayReportInput $replayInput,
         private readonly OpenBrainMcpInput $mcpInput,
-        private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasMemoryRegistryService $registry,
         private readonly CodeGraphTools $codeGraph,
         private readonly TaskTools $taskTools,
@@ -176,6 +133,10 @@ class AtlasOpenBrainMcpService
         private readonly ContextTools $contextTools,
         private readonly HealthMetricsTools $healthMetrics,
         private readonly ProviderReleaseTools $providerReleaseTools,
+        private readonly ReportTools $reportTools,
+        private readonly ArchitectureTools $architectureTools,
+        private readonly NavigationTools $navTools,
+        private readonly RuntimeSurfaceTools $runtimeSurfaceTools,
     ) {
         $this->processStartedAt = Carbon::now()->toIso8601String();
     }
@@ -1430,32 +1391,32 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
                 'atlas_docs_lookup' => $this->toolResponse($id, $this->docsLookup($arguments)),
-                'atlas_capabilities' => $this->toolResponse($id, $this->capabilities()),
-                'atlas_mcp_self_check' => $this->toolResponse($id, $this->mcpSelfCheck($arguments)),
-                'atlas_domain_catalog' => $this->toolResponse($id, $this->domainCatalog($arguments)),
-                'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureValidate($arguments)),
-                'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureOperations($arguments)),
-                'atlas_architecture_readiness' => $this->toolResponse($id, $this->architectureReadiness($arguments)),
-                'atlas_runtime_boundary' => $this->toolResponse($id, $this->runtimeBoundary()),
-                'atlas_session_bootstrap' => $this->toolResponse($id, $this->sessionBootstrap($arguments)),
-                'atlas_feature_placement' => $this->toolResponse($id, $this->featurePlacement($arguments)),
-                'atlas_docs_split_plan' => $this->toolResponse($id, $this->docsSplitPlan($arguments)),
-                'atlas_self_improvement_schedule' => $this->toolResponse($id, $this->selfImprovementSchedule($arguments)),
-                'atlas_self_improvement_schedule_report' => $this->toolResponse($id, $this->selfImprovementScheduleReport($arguments)),
-                'atlas_kernel_slo_report' => $this->toolResponse($id, $this->kernelSloReport($arguments)),
-                'atlas_kernel_pipeline_report' => $this->toolResponse($id, $this->kernelPipelineReport($arguments)),
-                'atlas_repair_loop_report' => $this->toolResponse($id, $this->repairLoopReport($arguments)),
-                'atlas_inbox_action_report' => $this->toolResponse($id, $this->inboxActionReport($arguments)),
-                'atlas_agent_behavior_report' => $this->toolResponse($id, $this->agentBehaviorReport($arguments)),
-                'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
-                'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
+                'atlas_capabilities' => $this->toolResponse($id, $this->runtimeSurfaceTools->capabilities($this)),
+                'atlas_mcp_self_check' => $this->toolResponse($id, $this->runtimeSurfaceTools->mcpSelfCheck($arguments, $this)),
+                'atlas_domain_catalog' => $this->toolResponse($id, $this->architectureTools->domainCatalog($arguments)),
+                'atlas_architecture_validate' => $this->toolResponse($id, $this->architectureTools->architectureValidate($arguments)),
+                'atlas_architecture_operations' => $this->toolResponse($id, $this->architectureTools->architectureOperations($arguments)),
+                'atlas_architecture_readiness' => $this->toolResponse($id, $this->architectureTools->architectureReadiness($arguments)),
+                'atlas_runtime_boundary' => $this->toolResponse($id, $this->architectureTools->runtimeBoundary()),
+                'atlas_session_bootstrap' => $this->toolResponse($id, $this->architectureTools->sessionBootstrap($arguments)),
+                'atlas_feature_placement' => $this->toolResponse($id, $this->architectureTools->featurePlacement($arguments)),
+                'atlas_docs_split_plan' => $this->toolResponse($id, $this->architectureTools->docsSplitPlan($arguments)),
+                'atlas_self_improvement_schedule' => $this->toolResponse($id, $this->reportTools->selfImprovementSchedule($arguments)),
+                'atlas_self_improvement_schedule_report' => $this->toolResponse($id, $this->reportTools->selfImprovementScheduleReport($arguments)),
+                'atlas_kernel_slo_report' => $this->toolResponse($id, $this->reportTools->kernelSloReport($arguments)),
+                'atlas_kernel_pipeline_report' => $this->toolResponse($id, $this->reportTools->kernelPipelineReport($arguments)),
+                'atlas_repair_loop_report' => $this->toolResponse($id, $this->reportTools->repairLoopReport($arguments)),
+                'atlas_inbox_action_report' => $this->toolResponse($id, $this->reportTools->inboxActionReport($arguments)),
+                'atlas_agent_behavior_report' => $this->toolResponse($id, $this->reportTools->agentBehaviorReport($arguments)),
+                'atlas_provider_performance_report' => $this->toolResponse($id, $this->reportTools->providerPerformanceReport($arguments)),
+                'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->reportTools->dynamicComputeMarketReport($arguments)),
                 'atlas_provider_release_review' => $this->toolResponse($id, $this->providerReleaseTools->providerReleaseReview($arguments)),
                 'atlas_provider_release_sources' => $this->toolResponse($id, $this->providerReleaseTools->providerReleaseSources($arguments)),
-                'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
-                'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
-                'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
-                'atlas_recent_changes' => $this->toolResponse($id, $this->recentChanges($arguments)),
-                'atlas_decision_query' => $this->toolResponse($id, $this->decisionQuery($arguments)),
+                'atlas_ledger_projection_health' => $this->toolResponse($id, $this->reportTools->ledgerProjectionHealth($arguments)),
+                'atlas_decision_receipt_report' => $this->toolResponse($id, $this->reportTools->decisionReceiptReport($arguments)),
+                'atlas_workspace_info' => $this->toolResponse($id, $this->navTools->workspaceInfo($arguments)),
+                'atlas_recent_changes' => $this->toolResponse($id, $this->navTools->recentChanges($arguments)),
+                'atlas_decision_query' => $this->toolResponse($id, $this->navTools->decisionQuery($arguments)),
                 'atlas_task_start' => $this->toolResponse($id, $this->taskTools->taskStart($arguments)),
                 'atlas_task_progress' => $this->toolResponse($id, $this->taskTools->taskProgress($arguments)),
                 'atlas_task_complete' => $this->toolResponse($id, $this->taskTools->taskComplete($arguments)),
@@ -1463,10 +1424,10 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_link' => $this->toolResponse($id, $this->memoryEntry->memoryLink($arguments)),
                 'atlas_memory_supersede' => $this->toolResponse($id, $this->memoryEntry->memorySupersede($arguments)),
                 'atlas_memory_get' => $this->toolResponse($id, $this->memoryEntry->memoryGet($arguments)),
-                'atlas_module_info' => $this->toolResponse($id, $this->moduleInfo($arguments)),
-                'atlas_route_info' => $this->toolResponse($id, $this->routeInfo($arguments)),
-                'atlas_test_for' => $this->toolResponse($id, $this->testFor($arguments)),
-                'atlas_context_for' => $this->toolResponse($id, $this->contextFor($arguments)),
+                'atlas_module_info' => $this->toolResponse($id, $this->navTools->moduleInfo($arguments)),
+                'atlas_route_info' => $this->toolResponse($id, $this->navTools->routeInfo($arguments)),
+                'atlas_test_for' => $this->toolResponse($id, $this->navTools->testFor($arguments)),
+                'atlas_context_for' => $this->toolResponse($id, $this->navTools->contextFor($arguments)),
                 'atlas_code_neighbors' => $this->toolResponse($id, $this->codeGraph->codeNeighbors($arguments)),
                 'atlas_code_path' => $this->toolResponse($id, $this->codeGraph->codePath($arguments)),
                 'atlas_code_explain' => $this->toolResponse($id, $this->codeGraph->codeExplain($arguments)),
@@ -1484,7 +1445,7 @@ class AtlasOpenBrainMcpService
                 'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceTools->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->workspaceTools->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->workspaceTools->blackboardStatus($arguments)),
-                'atlas_tool_search' => $this->toolResponse($id, $this->toolSearch($arguments)),
+                'atlas_tool_search' => $this->toolResponse($id, $this->runtimeSurfaceTools->toolSearch($arguments, $this)),
                 // PART 2 · A7 — the task-serving contract over MCP (same service as `atlas:task`, platform-free).
                 'atlas_next_task' => $this->toolResponse($id, $this->taskTools->nextTask($arguments)),
                 'atlas_task_report' => $this->toolResponse($id, $this->taskTools->taskReport($arguments)),
@@ -1628,7 +1589,6 @@ class AtlasOpenBrainMcpService
         return $response;
     }
 
-
     /**
      * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
@@ -1649,7 +1609,7 @@ class AtlasOpenBrainMcpService
         ]);
         $promptMetrics = $this->healthMetrics->openBrainPromptMetrics();
         $contextFeedbackMetrics = $this->healthMetrics->contextFeedbackMetrics();
-        $runtimeSourceProbe = $this->runtimeSourceProbe();
+        $runtimeSourceProbe = $this->runtimeSurfaceTools->runtimeSourceProbe();
         $includeDriftAudit = (bool) ($arguments['include_drift_audit'] ?? false);
         $codeAudit = $includeDriftAudit
             ? $this->code->audit([
@@ -1814,710 +1774,11 @@ class AtlasOpenBrainMcpService
         ];
     }
 
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function domainCatalog(array $arguments): array
-    {
-        $maturity = $this->string($arguments['maturity'] ?? null);
-        if ($maturity !== null && ! in_array($maturity, ['implemented', 'scaffold', 'planned'], true)) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_domain_catalog',
-                'error' => 'invalid_maturity',
-                'allowed_maturity' => ['implemented', 'scaffold', 'planned'],
-            ];
-        }
 
-        $onboardingStatus = $this->string($arguments['onboarding_status'] ?? null);
-        if ($onboardingStatus !== null && ! in_array($onboardingStatus, ['ready', 'executable_incomplete', 'scaffold'], true)) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_domain_catalog',
-                'error' => 'invalid_onboarding_status',
-                'allowed_onboarding_status' => ['ready', 'executable_incomplete', 'scaffold'],
-            ];
-        }
 
-        $catalog = $this->domainCatalog->inspect([
-            'domain' => $this->string($arguments['domain'] ?? null),
-            'flow' => $this->string($arguments['flow'] ?? null),
-            'maturity' => $maturity,
-            'onboarding_status' => $onboardingStatus,
-        ]);
 
-        return [
-            'ok' => ($catalog['status'] ?? null) === 'ok',
-            'tool' => 'atlas_domain_catalog',
-            ...$catalog,
-        ];
-    }
 
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function architectureValidate(array $arguments): array
-    {
-        $detail = $this->string($arguments['detail'] ?? null) ?: 'summary';
-        if (! in_array($detail, ['summary', 'full'], true)) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_architecture_validate',
-                'error' => 'invalid_detail',
-                'allowed_detail' => ['summary', 'full'],
-            ];
-        }
 
-        $payload = $this->architectureValidation->payload();
-        $summary = [
-            'status' => $payload['status'],
-            'schema_version' => $payload['schema_version'],
-            'validated_at' => $payload['validated_at'],
-            'kernel' => [
-                'valid' => data_get($payload, 'kernel.valid'),
-                'static_scan' => [
-                    'valid' => data_get($payload, 'kernel.static_scan.valid'),
-                    'summary' => data_get($payload, 'kernel.static_scan.summary', []),
-                ],
-            ],
-            'capabilities' => [
-                'valid' => data_get($payload, 'capabilities.valid'),
-                'count' => data_get($payload, 'capabilities.count'),
-                'surface_count' => data_get($payload, 'capabilities.surface_count'),
-            ],
-            'domains' => [
-                'valid' => data_get($payload, 'domains.valid'),
-                'domain_count' => data_get($payload, 'domains.domain_count'),
-                'flow_count' => data_get($payload, 'domains.flow_count'),
-            ],
-            'orchestrators' => [
-                'valid' => data_get($payload, 'orchestrators.valid'),
-                'count' => data_get($payload, 'orchestrators.count'),
-            ],
-            'onboarding' => $payload['onboarding'],
-        ];
-
-        return [
-            'ok' => $payload['status'] === 'ok',
-            'tool' => 'atlas_architecture_validate',
-            'detail' => $detail,
-            'architecture_validation' => $detail === 'full' ? $payload : $summary,
-            'writes' => false,
-        ];
-
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function architectureOperations(array $arguments): array
-    {
-        return [
-            'ok' => true,
-            'tool' => 'atlas_architecture_operations',
-            'architecture_operations' => $this->architectureOperations->summary($this->onlyScalarFilters($arguments, ['id', 'kind', 'section', 'surface', 'owner_layer'])),
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function architectureReadiness(array $arguments): array
-    {
-        $payload = $this->architectureReadiness->snapshot($this->onlyScalarFilters($arguments, ['workspace', 'owner']));
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ready',
-            'tool' => 'atlas_architecture_readiness',
-            'architecture_readiness' => $payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function runtimeBoundary(): array
-    {
-        $payload = $this->runtimeBoundary->report();
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok',
-            'tool' => 'atlas_runtime_boundary',
-            'runtime_boundary' => $payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function sessionBootstrap(array $arguments): array
-    {
-        $payload = $this->sessionBootstrap->bootstrap(
-            $this->string($arguments['task'] ?? null) ?? '',
-            ['workspace' => $this->string($arguments['workspace'] ?? null) ?? base_path()],
-        );
-        $strictBlocked = $this->governanceGate->strictBlocked($payload, ($arguments['strict'] ?? false) === true);
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok' && ! $strictBlocked,
-            'tool' => 'atlas_session_bootstrap',
-            'error' => $strictBlocked ? $this->governanceGate->mcpError('atlas_session_bootstrap') : null,
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function featurePlacement(array $arguments): array
-    {
-        $feature = $this->string($arguments['feature'] ?? null);
-        if ($feature === null) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_feature_placement',
-                'error' => 'feature_required',
-                'writes' => false,
-            ];
-        }
-
-        $payload = $this->featurePlacement->place($feature, $this->onlyScalarFilters((array) ($arguments['hints'] ?? []), ['domain', 'surface', 'runtime', 'flow']));
-        $strictBlocked = $this->governanceGate->strictBlocked($payload, ($arguments['strict'] ?? false) === true);
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok' && ! $strictBlocked,
-            'tool' => 'atlas_feature_placement',
-            'error' => $strictBlocked ? $this->governanceGate->mcpError('atlas_feature_placement') : null,
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function docsSplitPlan(array $arguments): array
-    {
-        $payload = $this->documentationSplitPlan->plan($this->onlyScalarFilters($arguments, ['owner', 'severity', 'status']));
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok',
-            'tool' => 'atlas_docs_split_plan',
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function selfImprovementSchedule(array $arguments): array
-    {
-        $detail = $this->string($arguments['detail'] ?? null) ?: 'health';
-        if (! in_array($detail, ['health', 'plan', 'commands'], true)) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_self_improvement_schedule',
-                'error' => 'invalid_detail',
-                'allowed_detail' => ['health', 'plan', 'commands'],
-            ];
-        }
-
-        $plan = $this->selfImprovementSchedule->schedulePlan();
-        $health = $this->selfImprovementSchedule->scheduleHealth();
-        $scheduledCommands = $this->selfImprovementSchedule->scheduledCommands();
-
-        return [
-            'ok' => $health['health']['status'] !== 'warning',
-            'tool' => 'atlas_self_improvement_schedule',
-            'detail' => $detail,
-            'schedule' => match ($detail) {
-                'plan' => $plan,
-                'commands' => [
-                    'schema_version' => $plan['schema_version'],
-                    'status' => $plan['status'],
-                    'enabled' => $plan['enabled'],
-                    'schedulable' => $plan['schedulable'],
-                    'scheduler_registration' => $plan['scheduler_registration'],
-                    'timezone' => $plan['timezone'],
-                    'plan_hash' => $plan['plan_hash'],
-                    'plan_hash_algorithm' => $plan['plan_hash_algorithm'],
-                    'commands' => $scheduledCommands,
-                    'count' => count($scheduledCommands),
-                    'cadence_counts' => $plan['cadence_counts'],
-                ],
-                default => $health,
-            },
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function selfImprovementScheduleReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $report = $this->ledgerReplay->selfImprovementScheduleReportForWindow(now()->subHours($hours));
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_self_improvement_schedule_report',
-            'hours' => $hours,
-            'self_improvement_schedule_replay' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function kernelSloReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->kernelSloFilters($arguments);
-        $report = $this->ledgerReplay->sloReportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_kernel_slo_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'kernel_slo' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function kernelPipelineReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->onlyScalarFilters($arguments, [
-            'status',
-            'surface_id',
-            'flow',
-            'input_mode',
-            'surface_contract_source',
-            'emitter_stage',
-        ]);
-        $report = $this->ledgerReplay->kernelPipelineReportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_kernel_pipeline_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'kernel_pipeline' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function repairLoopReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->onlyScalarFilters($arguments, [
-            'status',
-            'strategy',
-            'failure_domain',
-            'emitter_stage',
-        ]);
-        $report = $this->ledgerReplay->repairReportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_repair_loop_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'kernel_repair' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function inboxActionReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->onlyScalarFilters($arguments, [
-            'action',
-            'actor_type',
-            'inbox_item_category',
-            'inbox_item_severity',
-            'recommended_action',
-            'source_type',
-        ]);
-        $report = $this->ledgerReplay->inboxActionReportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_inbox_action_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'inbox_actions' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function agentBehaviorReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->onlyScalarFilters($arguments, [
-            'status',
-            'provider',
-            'model',
-            'agent_slug',
-            'finding_code',
-            'contract_id',
-        ]);
-        $report = $this->ledgerReplay->agentBehaviorReportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_agent_behavior_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'agent_behavior' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function ledgerProjectionHealth(array $arguments): array
-    {
-        $maxLagSeconds = $this->positiveInt($arguments['max_lag_seconds'] ?? null);
-        $report = $this->ledgerProjectionRegistry->healthReport($maxLagSeconds);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false) && ($report['status'] ?? null) !== 'critical',
-            'tool' => 'atlas_ledger_projection_health',
-            'max_lag_seconds' => $report['max_lag_seconds'] ?? $maxLagSeconds,
-            'ledger_projection_health' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function providerPerformanceReport(array $arguments): array
-    {
-        $hours = $this->reportWindowHours($arguments);
-        $filters = $this->onlyScalarFilters($arguments, [
-            'provider_cli',
-            'provider',
-            'domain',
-            'flow',
-            'task_type',
-            'specialist_profile',
-            'risk',
-            'selection_mode',
-        ]);
-        if (isset($filters['provider']) && ! isset($filters['provider_cli'])) {
-            $filters['provider_cli'] = $filters['provider'];
-        }
-        unset($filters['provider']);
-
-        $report = $this->providerPerformance->reportForWindow(now()->subHours($hours), null, $filters);
-
-        return [
-            'ok' => (bool) ($report['available'] ?? false),
-            'tool' => 'atlas_provider_performance_report',
-            'hours' => $hours,
-            'filters' => $filters,
-            'provider_performance' => $report,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function dynamicComputeMarketReport(array $arguments): array
-    {
-        $payload = $this->dynamicComputeMarketReports->report($this->onlyScalarFilters($arguments, [
-            'provider',
-            'model',
-            'domain',
-            'flow',
-            'task_type',
-            'specialist_profile',
-        ]));
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok',
-            'tool' => 'atlas_dynamic_compute_market_report',
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function decisionReceiptReport(array $arguments): array
-    {
-        $envelopeId = $this->string($arguments['envelope'] ?? ($arguments['envelope_id'] ?? null));
-        if ($envelopeId === null || $envelopeId === '') {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_decision_receipt_report',
-                'error' => 'envelope_required',
-                'writes' => false,
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_decision_receipt_report',
-            'decision_receipt_replay' => $this->ledgerReplay->decisionReceiptReportForEnvelope($envelopeId),
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     */
-    private function reportWindowHours(array $arguments): int
-    {
-        return $this->replayInput->hours($arguments['hours'] ?? null);
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,string>
-     */
-    private function kernelSloFilters(array $arguments): array
-    {
-        return $this->onlyScalarFilters($arguments, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id']);
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @param  array<int,string>  $allowed
-     * @return array<string,string>
-     */
-    private function onlyScalarFilters(array $arguments, array $allowed): array
-    {
-        return $this->replayInput->scalarFilters($arguments, $allowed);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function capabilities(): array
-    {
-        return [
-            'ok' => true,
-            'tool' => 'atlas_capabilities',
-            'protocol_version' => self::PROTOCOL_VERSION,
-            'server' => [
-                'name' => 'atlas-open-brain',
-                'version' => self::SERVER_VERSION,
-            ],
-            'runtime' => $this->runtimeProfile(),
-            'surface_contract' => $this->surfaceContract(),
-            'transport_contract' => $this->transportContract(),
-            'progressive_disclosure' => $this->progressiveDisclosureCapabilities(),
-            'tools' => $this->tools(),
-            'transport' => 'stdio',
-            'remote_capable' => false,
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function toolSearch(array $arguments): array
-    {
-        $query = trim((string) ($arguments['query'] ?? ''));
-        if ($query === '') {
-            return ['ok' => false, 'tool' => 'atlas_tool_search', 'error' => 'query_required'];
-        }
-
-        $limit = min(25, max(1, (int) ($arguments['limit'] ?? 10)));
-        $tokens = array_values(array_filter(
-            preg_split('/[^a-z0-9_]+/i', mb_strtolower($query)) ?: [],
-            static fn (string $token): bool => $token !== '',
-        ));
-
-        $ranked = [];
-        foreach ($this->tools() as $tool) {
-            $name = mb_strtolower((string) ($tool['name'] ?? ''));
-            $title = mb_strtolower((string) ($tool['title'] ?? ''));
-            $description = mb_strtolower((string) ($tool['description'] ?? ''));
-            $score = str_contains($name, mb_strtolower($query)) ? 20 : 0;
-            $score += str_contains($title, mb_strtolower($query)) ? 10 : 0;
-            $score += str_contains($description, mb_strtolower($query)) ? 5 : 0;
-
-            foreach ($tokens as $token) {
-                if (str_contains($name, $token)) {
-                    $score += 6;
-                } elseif (str_contains($title, $token)) {
-                    $score += 3;
-                } elseif (str_contains($description, $token)) {
-                    $score += 1;
-                }
-            }
-
-            if ($score > 0) {
-                $ranked[] = ['score' => $score, 'name' => (string) ($tool['name'] ?? ''), 'tool' => $tool];
-            }
-        }
-
-        usort($ranked, static fn (array $a, array $b): int => ($b['score'] <=> $a['score']) ?: strcmp($a['name'], $b['name']));
-        $tools = array_map(static fn (array $row): array => $row['tool'], array_slice($ranked, 0, $limit));
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_tool_search',
-            'query' => $query,
-            'count' => count($tools),
-            'tools' => $tools,
-            'compatibility' => [
-                'all_legacy_tools_remain_callable_by_name' => true,
-                'full_inventory_tool' => 'atlas_capabilities',
-            ],
-        ];
-    }
-
-    /**
-     * Small stable interface advertised to new clients. The complete tool list
-     * remains available as compatibility adapters and can only be removed after
-     * an observed deprecation window.
-     *
-     * @return array<string,mixed>
-     */
-    private function surfaceContract(): array
-    {
-        $allNames = $this->toolNames();
-        $primary = array_values(array_filter(
-            self::PRIMARY_TOOLS,
-            static fn (string $tool): bool => in_array($tool, $allNames, true),
-        ));
-
-        return [
-            'schema_version' => 'atlas.open_brain.surface_contract.v1.1',
-            'status' => 'stable',
-            'primary_tool_count' => count($primary),
-            'primary_tools' => $primary,
-            'compatibility_tool_count' => max(0, count($allNames) - count($primary)),
-            'compatibility_aliases' => self::COMPATIBILITY_ALIASES,
-            'tool_contracts' => collect($this->tools())
-                ->mapWithKeys(static fn (array $tool): array => [
-                    (string) ($tool['name'] ?? '') => data_get($tool, 'annotations.atlasContract', []),
-                ])
-                ->all(),
-            'deprecation_policy' => [
-                'minimum_observation_days' => 90,
-                'usage_evidence_required' => true,
-                'breaking_removal_requires_major_version' => true,
-                'current_action' => 'prefer_primary_keep_compatibility',
-            ],
-        ];
-    }
-
-    /**
-     * Honest transport limits. PHP stdio dispatch is sequential, therefore an
-     * in-flight tool cannot consume a later cancellation notification; clients
-     * cancel by terminating/restarting the process. Claiming otherwise would be
-     * a false capability.
-     *
-     * @return array<string,mixed>
-     */
-    private function transportContract(): array
-    {
-        return [
-            'schema_version' => 'atlas.open_brain.transport_contract.v1',
-            'schema_compatibility' => 'additive_minor_breaking_major',
-            'quotas' => [
-                'write_request_chars' => (int) config('atlas.aobg.write_back.max_request_chars', 2000),
-                'write_files' => (int) config('atlas.aobg.write_back.max_files', 50),
-                'write_memory_refs' => (int) config('atlas.aobg.write_back.max_memory_refs', 25),
-                'context_budget_chars' => (int) config('atlas.aobg.budget_chars', 6000),
-                'calls_per_window' => (int) config('atlas.aobg.mcp_quota.calls_per_window', 120),
-                'window_seconds' => (int) config('atlas.aobg.mcp_quota.window_seconds', 60),
-                'rate_limit_mode' => 'soft_fail_open',
-            ],
-            'timeouts' => [
-                'file_context_soft_ms' => (int) config('atlas.aobg.file_context.soft_budget_ms', 1500),
-                'client_hard_timeout_required' => true,
-            ],
-            'cancellation' => [
-                'supported' => false,
-                'reason' => 'sequential_stdio',
-                'client_action' => 'terminate_and_restart_process',
-            ],
-            'diagnostics_tool' => 'atlas_mcp_self_check',
-            'provider_safe' => true,
-        ];
-    }
-
-    /**
-     * Obra 7 / OB-03: Absorcao 4 phase-1 progressive disclosure manifest for MCP capabilities.
-     *
-     * @return array<string,mixed>
-     */
-    private function progressiveDisclosureCapabilities(): array
-    {
-        if (! (bool) config('atlas.aobg.progressive_disclosure_enabled', true)) {
-            return [
-                'enabled' => false,
-                'phase' => 1,
-            ];
-        }
-
-        try {
-            $tier = app(AtlasMcpTierService::class);
-
-            return [
-                'enabled' => true,
-                'phase' => 1,
-                'schema_version' => 'atlas.mcp.tier.v1',
-                'workflow' => 'search_brief → timeline → get_full',
-                'manifest' => $tier->tierManifest(),
-                'savings_estimate' => $tier->estimateSavings(5),
-            ];
-        } catch (Throwable) {
-            return [
-                'enabled' => true,
-                'phase' => 1,
-                'status' => 'unavailable',
-            ];
-        }
-    }
 
     /**
      * Provider-safe runtime identity for stale-session detection.
@@ -2526,445 +1787,9 @@ class AtlasOpenBrainMcpService
      */
     public function runtimeProfile(): array
     {
-        $toolNames = $this->toolNames();
-        $features = self::RUNTIME_FEATURE_FLAGS;
-        $sourceProbe = $this->runtimeSourceProbe();
-
-        return [
-            'schema_version' => self::RUNTIME_SCHEMA,
-            'server_name' => 'atlas-open-brain',
-            'server_version' => self::SERVER_VERSION,
-            'protocol_version' => self::PROTOCOL_VERSION,
-            'transport' => 'stdio',
-            'process_started_at' => $this->processStartedAt,
-            'feature_flags' => $features,
-            'tool_count' => count($toolNames),
-            'tool_names_hash' => $this->sha256($toolNames),
-            'runtime_fingerprint' => $this->runtimeFingerprint($features, $toolNames),
-            'source_probe' => $sourceProbe,
-            'fresh_cli_probe' => [
-                'command' => '/opt/homebrew/bin/php',
-                'args' => [
-                    'artisan',
-                    'atlas:open-brain:mcp',
-                    '--once={"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"atlas_mcp_self_check","arguments":{}}}',
-                ],
-            ],
-            'restart_policy' => [
-                'restart_required_when_feature_missing' => true,
-                'restart_required_when_fingerprint_differs_from_fresh_cli' => true,
-                'fallback_when_native_tool_unavailable' => 'run /opt/homebrew/bin/php artisan atlas:open-brain:mcp --once from atlas-server',
-                'describe_command' => 'bin/atlas open-brain mcp --describe --json',
-                'cli_context_fallback' => 'php artisan atlas:context-pack "<task>" --workspace="<path>" --json',
-            ],
-            'provider_safe' => true,
-            'raw_prompt_exposed' => false,
-            'raw_conversation_exposed' => false,
-        ];
+        return $this->runtimeSurfaceTools->runtimeProfile($this);
     }
 
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function mcpSelfCheck(array $arguments): array
-    {
-        $runtime = $this->runtimeProfile();
-        $sourceProbe = (array) ($runtime['source_probe'] ?? []);
-        $toolNames = $this->toolNames();
-        $featureFlags = (array) ($runtime['feature_flags'] ?? []);
-        $expectedFingerprint = $this->string($arguments['expected_fingerprint'] ?? null);
-        $expectedFeatures = $this->stringList($arguments['expected_feature_flags'] ?? []);
-        $expectedTools = $this->stringList($arguments['expected_tool_names'] ?? []);
-
-        $missingFeatures = array_values(array_diff($expectedFeatures, $featureFlags));
-        $missingTools = array_values(array_diff($expectedTools, $toolNames));
-        $fingerprintMatches = $expectedFingerprint === null
-            || hash_equals((string) ($runtime['runtime_fingerprint'] ?? ''), $expectedFingerprint);
-        $sourceMatches = ($sourceProbe['status'] ?? null) !== 'stale_source_mismatch';
-
-        $status = ($missingFeatures === [] && $missingTools === [] && $fingerprintMatches && $sourceMatches)
-            ? 'ready'
-            : 'stale_or_incomplete';
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_mcp_self_check',
-            'status' => $status,
-            'runtime' => $runtime,
-            'checks' => [
-                'expected_fingerprint_provided' => $expectedFingerprint !== null,
-                'fingerprint_matches' => $fingerprintMatches,
-                'expected_feature_count' => count($expectedFeatures),
-                'missing_feature_flags' => $missingFeatures,
-                'expected_tool_count' => count($expectedTools),
-                'missing_tool_names' => $missingTools,
-                'source_probe_status' => $sourceProbe['status'] ?? 'unknown',
-                'source_matches_loaded_runtime' => $sourceMatches,
-            ],
-            'next_actions' => $status === 'ready'
-                ? []
-                : [
-                    'Restart the provider MCP client/session so tools and payload schemas are re-registered.',
-                    'Use the CLI fresh probe while the native MCP session is stale.',
-                ],
-            'writes' => false,
-            'provider_safe' => true,
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * Compare the runtime constants loaded in this PHP process with the current
-     * source file on disk. This catches long-lived MCP clients that keep serving
-     * old schemas after the repo has already moved.
-     *
-     * @return array<string,mixed>
-     */
-    private function runtimeSourceProbe(): array
-    {
-        $components = [
-            'mcp' => $this->runtimeSourceProbeFor(self::class, [
-                'version_key' => 'server_version',
-                'version_constant' => 'SERVER_VERSION',
-                'loaded_version' => self::SERVER_VERSION,
-                'loaded_feature_flags' => self::RUNTIME_FEATURE_FLAGS,
-            ]),
-            'context_pack' => $this->runtimeSourceProbeFor(AtlasOpenBrainContextPackService::class, [
-                'version_key' => 'runtime_version',
-                'version_constant' => 'RUNTIME_VERSION',
-                'loaded_version' => AtlasOpenBrainContextPackService::RUNTIME_VERSION,
-                'loaded_feature_flags' => AtlasOpenBrainContextPackService::RUNTIME_FEATURE_FLAGS,
-            ]),
-        ];
-
-        $stale = collect($components)
-            ->contains(fn (array $component): bool => ($component['status'] ?? null) === 'stale_source_mismatch');
-        $missing = collect($components)
-            ->flatMap(fn (array $component): array => (array) ($component['missing_loaded_feature_flags'] ?? []))
-            ->values()
-            ->all();
-
-        return [
-            'status' => $stale ? 'stale_source_mismatch' : 'current',
-            'loaded_server_version' => self::SERVER_VERSION,
-            'source_server_version' => data_get($components, 'mcp.source_server_version'),
-            'missing_loaded_feature_flags' => $missing,
-            'components' => $components,
-            'action' => $stale ? 'restart_provider_mcp_client_or_use_cli_fallback' : null,
-            'provider_safe' => true,
-        ];
-    }
-
-    /**
-     * @param  class-string  $class
-     * @param  array{version_key:string,version_constant:string,loaded_version:string,loaded_feature_flags:array<int,string>}  $loaded
-     * @return array<string,mixed>
-     */
-    private function runtimeSourceProbeFor(string $class, array $loaded): array
-    {
-        $versionKey = $loaded['version_key'];
-
-        $file = (new \ReflectionClass($class))->getFileName();
-        if (! is_string($file) || ! is_file($file) || ! is_readable($file)) {
-            return [
-                'status' => 'source_unavailable',
-                'component' => $class,
-                'loaded_'.$versionKey => $loaded['loaded_version'],
-                'source_file_hash' => null,
-                'provider_safe' => true,
-            ];
-        }
-
-        $source = file_get_contents($file);
-        if (! is_string($source) || $source === '') {
-            return [
-                'status' => 'source_unavailable',
-                'component' => $class,
-                'loaded_'.$versionKey => $loaded['loaded_version'],
-                'source_file_hash' => null,
-                'provider_safe' => true,
-            ];
-        }
-
-        $sourceVersion = null;
-        $constant = preg_quote($loaded['version_constant'], '/');
-        if (preg_match("/public const {$constant} = '([^']+)'/", $source, $match)) {
-            $sourceVersion = $match[1];
-        }
-
-        $missingLoadedFeatures = [];
-        if (preg_match('/public const RUNTIME_FEATURE_FLAGS = \\[(.*?)\\];/s', $source, $match)) {
-            preg_match_all("/'([^']+)'/", $match[1], $featureMatches);
-            $sourceFeatures = array_values(array_unique($featureMatches[1] ?? []));
-            $missingLoadedFeatures = array_values(array_diff($sourceFeatures, $loaded['loaded_feature_flags']));
-        }
-
-        $versionMatches = $sourceVersion === null || $sourceVersion === $loaded['loaded_version'];
-        $status = ($versionMatches && $missingLoadedFeatures === [])
-            ? 'current'
-            : 'stale_source_mismatch';
-
-        return [
-            'status' => $status,
-            'component' => $class,
-            'loaded_'.$versionKey => $loaded['loaded_version'],
-            'source_'.$versionKey => $sourceVersion,
-            'missing_loaded_feature_flags' => $missingLoadedFeatures,
-            'source_file_hash' => hash('sha256', $source),
-            'action' => $status === 'current' ? null : 'restart_provider_mcp_client_or_use_cli_fallback',
-            'provider_safe' => true,
-        ];
-    }
-
-    /**
-     * @return array{available:bool,window_started_at:?string,tools_by_name:array<string,array<string,mixed>>}
-     */
-    private function surfaceReviewTelemetry(): array
-    {
-        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
-            return [
-                'available' => false,
-                'window_started_at' => null,
-                'tools_by_name' => [],
-            ];
-        }
-
-        $tools = [];
-        $windowStartedAt = null;
-        AiTelemetryEvent::query()
-            ->where('event_name', self::MCP_TOOL_USAGE_EVENT_NAME)
-            ->orderBy('received_at')
-            ->get()
-            ->each(function (AiTelemetryEvent $event) use (&$tools, &$windowStartedAt): void {
-                $metadata = is_array($event->metadata) ? $event->metadata : [];
-                $toolName = trim((string) ($metadata['tool_name'] ?? ''));
-                if ($toolName === '') {
-                    return;
-                }
-
-                $seenAt = $event->received_at?->toIso8601String()
-                    ?? $event->created_at?->toIso8601String()
-                    ?? Carbon::now()->toIso8601String();
-                $windowStartedAt ??= $seenAt;
-
-                if (! isset($tools[$toolName])) {
-                    $tools[$toolName] = [
-                        'tool_name' => $toolName,
-                        'usage_count' => 0,
-                        'first_seen_at' => $seenAt,
-                        'last_seen_at' => $seenAt,
-                    ];
-                }
-
-                $tools[$toolName]['usage_count']++;
-                $tools[$toolName]['last_seen_at'] = $seenAt;
-            });
-
-        ksort($tools);
-
-        return [
-            'available' => true,
-            'window_started_at' => $windowStartedAt,
-            'tools_by_name' => $tools,
-        ];
-    }
-
-    private function surfaceReviewObservationDays(mixed $windowStartedAt): ?int
-    {
-        if (! is_string($windowStartedAt) || trim($windowStartedAt) === '') {
-            return null;
-        }
-
-        try {
-            return max(0, (int) floor(Carbon::parse($windowStartedAt)->diffInDays(Carbon::now())));
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function toolNames(): array
-    {
-        return array_values(array_map(
-            static fn (array $tool): string => (string) ($tool['name'] ?? ''),
-            $this->tools(),
-        ));
-    }
-
-    /**
-     * @param  array<int,string>  $features
-     * @param  array<int,string>  $toolNames
-     */
-    private function runtimeFingerprint(array $features, array $toolNames): string
-    {
-        sort($features);
-        sort($toolNames);
-
-        return $this->sha256([
-            'schema_version' => self::RUNTIME_SCHEMA,
-            'server_version' => self::SERVER_VERSION,
-            'protocol_version' => self::PROTOCOL_VERSION,
-            'feature_flags' => $features,
-            'tool_names' => $toolNames,
-        ]);
-    }
-
-    private function sha256(mixed $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function workspaceInfo(array $arguments): array
-    {
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-
-        // Derive project slug from basename of workspace path
-        $slug = $workspace ? basename($workspace) : null;
-
-        $memoryCount = 0;
-        if ($slug && Schema::hasTable('atlas_memory_entries')) {
-            $memoryCount = AtlasMemoryEntry::query()
-                ->where('status', 'active')
-                ->where(function ($q) use ($slug) {
-                    $q->where(function ($inner) use ($slug) {
-                        $inner->where('scope_type', 'project')->where('scope_id', $slug);
-                    })->orWhere('scope_type', 'global');
-                })
-                ->count();
-        }
-
-        $codeSummary = $this->code->summary();
-        $knowledgeSummary = $this->knowledge->summary();
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_workspace_info',
-            'workspace' => $workspace,
-            'inferred_slug' => $slug,
-            'atlas_tracked' => $memoryCount > 0,
-            'memory_entry_count' => $memoryCount,
-            'code_intelligence' => [
-                'indexed' => ($codeSummary['module_count'] ?? 0) > 0,
-                'last_indexed_at' => $codeSummary['last_indexed_at'] ?? null,
-                'module_count' => $codeSummary['module_count'] ?? 0,
-                'symbol_count' => $codeSummary['symbol_count'] ?? 0,
-            ],
-            'knowledge_base' => [
-                'indexed' => ($knowledgeSummary['active'] ?? 0) > 0,
-                'last_indexed_at' => $knowledgeSummary['last_indexed_at'] ?? null,
-                'doc_count' => $knowledgeSummary['active'] ?? 0,
-            ],
-            'recommended_action' => $memoryCount > 0
-                ? 'consult_atlas_first'
-                : 'fallback_to_local_exploration',
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function recentChanges(array $arguments): array
-    {
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-        if ($workspace === null || ! is_dir($workspace.'/.git')) {
-            return ['ok' => false, 'tool' => 'atlas_recent_changes', 'error' => 'workspace_not_git_repo'];
-        }
-
-        $since = $this->string($arguments['since'] ?? null) ?: '7 days ago';
-        $limit = $this->mcpInput->recentChangesLimit($arguments['limit'] ?? null);
-
-        $process = new Process(
-            ['git', 'log', '--name-only', '--pretty=format:', '--since='.$since],
-            $workspace
-        );
-        $process->setTimeout(10);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            return ['ok' => false, 'tool' => 'atlas_recent_changes', 'error' => 'git_command_failed'];
-        }
-
-        $files = array_values(array_unique(array_filter(explode("\n", $process->getOutput()))));
-        $files = array_slice($files, 0, $limit);
-
-        $codeSummary = $this->code->summary();
-        $lastIndexAt = $codeSummary['last_indexed_at'] ?? null;
-        $indexFresh = false;
-        if ($lastIndexAt !== null) {
-            try {
-                $indexFresh = Carbon::parse($lastIndexAt)->greaterThan(now()->subDay());
-            } catch (Throwable $e) {
-                $indexFresh = false;
-            }
-        }
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_recent_changes',
-            'workspace' => $workspace,
-            'since' => $since,
-            'changed_files' => $files,
-            'count' => count($files),
-            'index_fresh' => $indexFresh,
-            'last_indexed_at' => $lastIndexAt,
-            'recommended_action' => $indexFresh ? null : 'reindex_recommended',
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function decisionQuery(array $arguments): array
-    {
-        $query = $this->string($arguments['query'] ?? null);
-        if ($query === null) {
-            return ['ok' => false, 'tool' => 'atlas_decision_query', 'error' => 'query_required'];
-        }
-
-        $context = [];
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-        if ($workspace !== null) {
-            $context['workspace'] = $workspace;
-        }
-
-        $filters = ['memory_type' => ['decision']];
-        $scope = $this->string($arguments['scope'] ?? null);
-        if ($scope !== null) {
-            $filters['scope_type'] = $scope;
-        }
-
-        $options = ['limit' => $this->mcpInput->decisionLimit($arguments['limit'] ?? null)];
-
-        $recall = $this->recall->recall($query, $context, $filters, $options);
-
-        // Post-filter: ensure only decision-type items leak through
-        // (registry items use 'type' key; verbatim/semantic items are not decision-typed)
-        $decisions = array_values(array_filter(
-            $recall['recall'] ?? [],
-            fn (array $item): bool => ($item['type'] ?? null) === 'decision',
-        ));
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_decision_query',
-            'query' => $query,
-            'decisions' => $decisions,
-            'count' => count($decisions),
-            'summary' => $recall['summary'] ?? [],
-            'generated_at' => now()->toJSON(),
-        ];
-    }
 
     /**
      * AOBG N1.F1 — the unified context-pack front door. The ONE provider-bound
@@ -3005,157 +1830,6 @@ class AtlasOpenBrainMcpService
         ];
     }
 
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function moduleInfo(array $arguments): array
-    {
-        $slug = $this->string($arguments['slug'] ?? null);
-        if ($slug === null) {
-            return ['ok' => false, 'tool' => 'atlas_module_info', 'error' => 'slug_required'];
-        }
-
-        $data = $this->code->module($slug);
-        if ($data === null) {
-            return ['ok' => false, 'tool' => 'atlas_module_info', 'error' => 'module_not_found'];
-        }
-
-        // code->module() already returns ['module' => ..., 'symbols' => ..., 'doc_links' => ...]
-        // Respect include_symbols and symbols_limit parameters
-        $includeSymbols = (bool) ($arguments['include_symbols'] ?? true);
-        $symbolsLimit = $this->mcpInput->symbolsLimit($arguments['symbols_limit'] ?? null);
-
-        $payload = [
-            'ok' => true,
-            'tool' => 'atlas_module_info',
-            'module' => $data['module'],
-        ];
-
-        if ($includeSymbols) {
-            $payload['symbols'] = array_slice($data['symbols'] ?? [], 0, $symbolsLimit);
-            $payload['doc_links'] = $data['doc_links'] ?? [];
-        }
-
-        $payload['generated_at'] = now()->toJSON();
-
-        return $payload;
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function routeInfo(array $arguments): array
-    {
-        $path = $this->string($arguments['path'] ?? null);
-        if ($path === null) {
-            return ['ok' => false, 'tool' => 'atlas_route_info', 'error' => 'path_required'];
-        }
-
-        $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
-        // AP-815 W-3 — same default-safe scoping as codeFindRelevant(): resolve the workspace
-        // to its stable id and thread it into symbols(); the filter only applies when the
-        // W-1 workspace_id column exists, so a pre-W-1 read-model keeps global behaviour.
-        $workspacePath = $this->workspace($arguments['workspace'] ?? null);
-        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspacePath);
-        $result = $this->code->symbols(['q' => $path, 'symbol_type' => 'route', 'workspace_id' => $workspaceId], $limit);
-        $routes = $result['symbols'] ?? [];
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_route_info',
-            'path' => $path,
-            'workspace' => $workspacePath,
-            'workspace_id' => $workspaceId,
-            'routes' => $routes,
-            'count' => count($routes),
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function testFor(array $arguments): array
-    {
-        $target = $this->string($arguments['target'] ?? null);
-        if ($target === null) {
-            return ['ok' => false, 'tool' => 'atlas_test_for', 'error' => 'target_required'];
-        }
-
-        $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
-        // AP-815 W-3 — same default-safe scoping as codeFindRelevant() (see routeInfo()).
-        $workspacePath = $this->workspace($arguments['workspace'] ?? null);
-        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspacePath);
-        $result = $this->code->symbols(['q' => $target, 'symbol_type' => 'test_method', 'workspace_id' => $workspaceId], $limit);
-        $tests = $result['symbols'] ?? [];
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_test_for',
-            'target' => $target,
-            'workspace' => $workspacePath,
-            'workspace_id' => $workspaceId,
-            'tests' => $tests,
-            'count' => count($tests),
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function contextFor(array $arguments): array
-    {
-        $task = $this->string($arguments['task_description'] ?? null);
-        if ($task === null) {
-            return ['ok' => false, 'tool' => 'atlas_context_for', 'error' => 'task_description_required'];
-        }
-
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-        $context = $workspace !== null ? ['workspace' => $workspace] : [];
-        // AP-815 W-3 — same default-safe scoping as codeFindRelevant() for the code leg
-        // (memory recall is already workspace-scoped via $context above).
-        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
-
-        $memoryLimit = $this->mcpInput->contextMemoryLimit($arguments['memory_limit'] ?? null);
-        $codeLimit = $this->mcpInput->contextCodeLimit($arguments['code_limit'] ?? null);
-        $docsLimit = $this->mcpInput->contextDocsLimit($arguments['docs_limit'] ?? null);
-
-        $memory = $this->recall->recall($task, $context, [], ['limit' => $memoryLimit]);
-        $code = $this->code->symbols(['q' => $task, 'workspace_id' => $workspaceId], $codeLimit);
-        $docs = $this->knowledge->catalog(['q' => $task, 'status' => 'active'], $docsLimit);
-
-        $memoryEntries = $memory['recall'] ?? [];
-        $codeSymbols = $code['symbols'] ?? [];
-        $docsItems = $docs['items'] ?? [];
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_context_for',
-            'task_description' => $task,
-            'workspace' => $workspace,
-            'workspace_id' => $workspaceId,
-            'memory' => [
-                'entries' => $memoryEntries,
-                'count' => count($memoryEntries),
-            ],
-            'code' => [
-                'symbols' => $codeSymbols,
-                'count' => count($codeSymbols),
-            ],
-            'docs' => [
-                'items' => $docsItems,
-                'count' => count($docsItems),
-            ],
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
     /**
      * OPE-07 — read-only surface review. It never removes tools; it emits the
      * evidence-backed verdict a future deprecation slice may consume.
@@ -3164,78 +1838,8 @@ class AtlasOpenBrainMcpService
      */
     public function surfaceReview(): array
     {
-        $toolNames = $this->toolNames();
-        $contract = $this->surfaceContract();
-        $policy = (array) ($contract['deprecation_policy'] ?? []);
-        $minimumDays = max(1, (int) ($policy['minimum_observation_days'] ?? 90));
-        $telemetry = $this->surfaceReviewTelemetry();
-        $usageByTool = (array) ($telemetry['tools_by_name'] ?? []);
-        $primarySet = array_fill_keys(self::PRIMARY_TOOLS, true);
-        $tools = [];
-        $toolsByName = [];
-
-        foreach ($toolNames as $toolName) {
-            $usage = (array) ($usageByTool[$toolName] ?? []);
-            $usageCount = (int) ($usage['usage_count'] ?? 0);
-            $windowStartedAt = $usage['first_seen_at'] ?? $telemetry['window_started_at'] ?? null;
-            $observationDays = $this->surfaceReviewObservationDays($windowStartedAt);
-            $isPrimary = isset($primarySet[$toolName]);
-            $verdict = match (true) {
-                $isPrimary => 'keep_primary',
-                $usageCount > 0 => 'keep_used',
-                $observationDays === null || $observationDays < $minimumDays => 'insufficient_window',
-                default => 'deprecation_candidate',
-            };
-
-            $row = [
-                'tool_name' => $toolName,
-                'primary' => $isPrimary,
-                'usage_count' => $usageCount,
-                'window_started_at' => $windowStartedAt,
-                'observation_days' => $observationDays,
-                'verdict' => $verdict,
-                'removal_planned' => false,
-            ];
-            $tools[] = $row;
-            $toolsByName[$toolName] = $row;
-        }
-
-        return [
-            'schema_version' => self::SURFACE_REVIEW_SCHEMA,
-            'generated_at' => Carbon::now()->toIso8601String(),
-            'surface_contract' => $contract,
-            'primary_tools' => self::PRIMARY_TOOLS,
-            'tool_count' => count($tools),
-            'telemetry' => [
-                'available' => (bool) ($telemetry['available'] ?? false),
-                'event_name' => self::MCP_TOOL_USAGE_EVENT_NAME,
-                'window_started_at' => $telemetry['window_started_at'] ?? null,
-            ],
-            'policy' => array_merge($policy, [
-                'minimum_observation_days' => $minimumDays,
-                'current_action' => 'zero_removals',
-                'zero_removals' => true,
-            ]),
-            'tools' => $tools,
-            'tools_by_name' => $toolsByName,
-            'claims' => [
-                'read_only' => true,
-                'removed_tools' => 0,
-                'coverage_total_tools' => count($toolNames),
-                'coverage_reviewed_tools' => count($tools),
-            ],
-        ];
+        return $this->runtimeSurfaceTools->surfaceReview($this);
     }
-
-    private function averageMetric(Collection $rows, string $key, int $precision = 2): float
-    {
-        if ($rows->isEmpty()) {
-            return 0.0;
-        }
-
-        return round(AiValueNormalizer::finiteFloatOrNull($rows->avg($key)) ?? 0.0, $precision);
-    }
-
 
     private function toolResponse(mixed $id, array $structured): array
     {

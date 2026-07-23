@@ -32,22 +32,34 @@ class McpAudit
         $testPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md');
 
+        $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
 
         $violations = [];
 
+        // Façade keeps the tools() schema; the handler was relocated under GOD-DEBULK D3
+        // to OpenBrainMcp/ArchitectureTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_domain_catalog'",
             "'onboarding_status' => ['type' => 'string'",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: atlas_domain_catalog MCP tool must preserve Domain Catalog onboarding parity [{$token}]";
+            }
+        }
+
+        foreach ([
             "\$onboardingStatus = \$this->string(\$arguments['onboarding_status'] ?? null)",
             "'invalid_onboarding_status'",
             "'allowed_onboarding_status' => ['ready', 'executable_incomplete', 'scaffold']",
             "'onboarding_status' => \$onboardingStatus",
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: atlas_domain_catalog MCP tool must preserve Domain Catalog onboarding parity [{$token}]";
+            if (! str_contains($architectureTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ArchitectureTools.php: atlas_domain_catalog MCP tool must preserve Domain Catalog onboarding parity [{$token}]";
             }
         }
 
@@ -120,17 +132,22 @@ class McpAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
+        // Canonical hours normalizer + its callers relocated under GOD-DEBULK D3 to
+        // OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             'private function reportWindowHours(array $arguments): int',
             "return \$this->replayInput->hours(\$arguments['hours'] ?? null)",
             '$hours = $this->reportWindowHours($arguments)',
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay tools must use one canonical hours normalizer [{$token}]";
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP replay tools must use one canonical hours normalizer [{$token}]";
             }
         }
 
@@ -168,17 +185,22 @@ class McpAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
+        // Canonical scalar filter normalizer + its callers relocated under GOD-DEBULK D3
+        // to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "return \$this->onlyScalarFilters(\$arguments, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id'])",
             'private function onlyScalarFilters(array $arguments, array $allowed): array',
             'return $this->replayInput->scalarFilters($arguments, $allowed)',
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay filters must share canonical scalar filter normalizer [{$token}]";
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: MCP replay filters must share canonical scalar filter normalizer [{$token}]";
             }
         }
 

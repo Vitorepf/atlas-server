@@ -133,15 +133,27 @@ class InboxActionAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-122-inbox-action-mcp-report.md');
 
+        $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
+
         $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
 
+        // Façade keeps the tools() schema + dispatch; the handler + its filter contract
+        // were relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
         foreach ([
             "'name' => 'atlas_inbox_action_report'",
-            "'atlas_inbox_action_report' => \$this->toolResponse(\$id, \$this->inboxActionReport(\$arguments))",
-            'private function inboxActionReport(array $arguments): array',
+            "'atlas_inbox_action_report' => \$this->toolResponse(\$id, \$this->reportTools->inboxActionReport(\$arguments))",
+        ] as $token) {
+            if (! str_contains($mcp, $token)) {
+                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-122 Inbox action replay must be exposed as read-only MCP report [{$token}]";
+            }
+        }
+
+        foreach ([
+            'public function inboxActionReport(array $arguments): array',
             '$this->ledgerReplay->inboxActionReportForWindow(',
             "'inbox_actions' => \$report",
             "'action'",
@@ -149,8 +161,8 @@ class InboxActionAudit
             "'inbox_item_category'",
             "'recommended_action'",
         ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-122 Inbox action replay must be exposed as read-only MCP report [{$token}]";
+            if (! str_contains($reportTools, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-122 Inbox action replay must be exposed as read-only MCP report [{$token}]";
             }
         }
 
