@@ -811,10 +811,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             'queue' => ['priority' => 5, 'tags' => ['terminal_fleet_resume_rollup_probe', $queueTag]],
         ]);
 
-        $claim = $this->orchestrator->claimNext('terminal_fleet_resume_rollup_probe_'.$runId, [
-            'tag' => $queueTag,
-            'ttl_seconds' => 600,
-        ]);
+        $claim = $this->claimSyntheticFleetProbePacket(
+            $taskPacketId,
+            'terminal_fleet_resume_rollup_probe_'.$runId,
+            $queueTag,
+            600,
+        );
         $leaseId = (string) ($claim['lease_id'] ?? '');
         if ($leaseId !== '') {
             Storage::disk('local')->delete(AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$leaseId.'.json');
@@ -1020,6 +1022,58 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             'final_queue_status' => (string) data_get($record, 'status'),
             'receipt_written' => in_array(AgentControlPlaneTaskLeaseRecoveryService::RECEIPT_RELEASED_TASK_REQUEUED, $receiptKinds, true),
             'released_task_requeue_verified' => $requeueVerified,
+        ];
+    }
+
+    /**
+     * Fleet certification owns this synthetic claim path. It intentionally
+     * leaves the ordinary worker claimNext() probe guard unchanged.
+     *
+     * @return array<string, mixed>
+     */
+    private function claimSyntheticFleetProbePacket(string $taskPacketId, string $agentId, string $queueTag, int $ttlSeconds): array
+    {
+        $record = $taskPacketId === '' ? null : $this->queue->get($taskPacketId);
+        if ($record === null
+            || (string) ($record['status'] ?? '') !== 'claimable'
+            || ! in_array($queueTag, (array) ($record['tags'] ?? []), true)) {
+            return ['event' => 'no_claimable_task', 'reason' => 'terminal_fleet_probe_packet_not_claimable'];
+        }
+
+        $scopeLock = [
+            'write_set' => (array) data_get($record, 'task_packet.normalized_scope.allowed_files', []),
+            'read_set' => (array) data_get($record, 'task_packet.normalized_scope.scope_in', []),
+            'scope_lock_plan_hash' => (string) data_get($record, 'metadata.scope_lock_hash', ''),
+        ];
+        $claim = $this->leases->claim($taskPacketId, $agentId, $scopeLock, ['ttl_seconds' => $ttlSeconds]);
+        if ((string) ($claim['status'] ?? '') !== 'ok') {
+            return ['event' => 'no_claimable_task', 'reason' => (string) ($claim['reason'] ?? 'terminal_fleet_probe_lease_unavailable')];
+        }
+
+        $leaseId = (string) ($claim['lease_id'] ?? '');
+        $swap = $this->queue->compareAndSwapStatus($taskPacketId, 'claimable', 'claimed', [
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+        ]);
+        if (($swap['swapped'] ?? false) !== true) {
+            $this->leases->release($leaseId, $agentId, ['reason' => 'terminal_fleet_probe_queue_status_moved']);
+
+            return ['event' => 'no_claimable_task', 'reason' => 'terminal_fleet_probe_queue_status_moved'];
+        }
+
+        $this->queue->appendReceipt($taskPacketId, [
+            'receipt_kind' => 'claim_acquired_by_terminal_fleet_probe',
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+        ]);
+
+        return [
+            'event' => 'claimed',
+            'queue_entry' => $record,
+            'lease' => $claim['lease'] ?? null,
+            'lease_id' => $leaseId,
+            'task_packet_id' => $taskPacketId,
+            'agent_id' => $agentId,
         ];
     }
 
