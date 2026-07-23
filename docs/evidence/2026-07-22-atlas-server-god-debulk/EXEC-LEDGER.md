@@ -4,40 +4,41 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0127 transition blocker classification closed
+phase: A1-SC-0154 digest handoff priority closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: partition self-programming transition blockers from the actual gate result
-finding_id: A1-SC-0127
-action_op: classify actual transition blockers into human, provider, and technical partitions
+bucket: app/Services/Ai/SelfConstruction/ControlPlane
+focus: make terminal operator handoff choose the same evidence-first action as the cycle supervisor
+finding_id: A1-SC-0154
+action_op: prioritize completed evidence review before replenishment or a still-available terminal launch
 queue_index: 6
-last_commit: d6cacf73b
+last_commit: 1afa36f93
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php --filter=test_self_programming_transition_keeps_technical_only_gate_blockers_technical
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php
-  vendor/bin/pint --test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php --filter=test_fleet_evidence_rollup_summarizes_completed_dry_run_evidence
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php --compact
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
   git diff --check
 before_after: |
-  red: a real public readiness transition driven by the technical_gate_drift audit reported two injected human blockers and no technical blockers.
-  green: the status reports only actual gate blockers; technical_gate_drift stays technical and human/provider partitions remain empty.
+  red: a real fleet snapshot with completed evidence and an independently launch-ready packet emitted fleet_operator_handoff_launch_workers while its cycle supervisor emitted fleet_operator_handoff_review_evidence.
+  green: the same public digest emits fleet_operator_handoff_review_evidence and review_completed_dry_run_evidence first, while proving the launch plan remains fleet_launch_plan_ready.
 stdout: |
-  red_characterization: FAIL 1 test, 2 assertions (expected human_blocker_count=0, received 2)
-  focused: PASS 1 test, 8 assertions
-  completion_readiness_feature_file: NOT GREEN proof; the aggregate file command did not terminate in the shared runner and the executor-local retry was stopped with exit 143
+  red_characterization: FAIL 1 test, 15 assertions (expected fleet_operator_handoff_review_evidence, received fleet_operator_handoff_launch_workers)
+  focused: PASS 1 test, 18 assertions
+  terminal_digest_feature_file: NOT GREEN proof; 6 failed, 9 passed, 254 assertions in sequence. An unchanged no-evidence launch control also fails alone with expected ready, received action_required.
+  terminal_digest_unit_file: NOT GREEN proof; 2 failed, 17 passed, 62 assertions. Its failures report a claimable count of 2 instead of 1 and a missing cleanup storage directory.
   php_lint: PASS source plus changed Feature test
-  feature_pint: PASS
-  source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, single_quote, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space) were left untouched outside this focused change
-  loc_check: readiness_projection_os_evidence_section=1795
+  pint: NOT GREEN; existing full-file formatter violations in the source and test were left untouched outside this focused change
+  loc_check: agent_control_plane_terminal_loop_health_digest_service=1647
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the real public readiness service and transition status path with a concrete incomplete completion audit; it does not use reflection or mocks.
-  Human and real-provider lists are now intersections with the transition's actual blocker list. The technical list is the remaining actual blockers, so the three partitions neither inject nor overlap blockers.
+  Characterization executes the real public terminal digest, supervisor and fleet handoff path with completed evidence plus an independently launch-ready packet; it does not use reflection or mocks.
+  The public handoff now uses the supervisor's evidence-first order: recover, evidence, replenish, rerun digest, launch. The green contract proves that this is priority alignment rather than suppressing launch capability.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
+  The source remains below 2k; no new class or helper was introduced. The non-green aggregate suites are not used as proof; their queue/fixture-isolation contradiction is recorded in EXEC-DEBTS.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
@@ -2055,4 +2056,34 @@ outcome_id: god-debulk-rootsingles-policy-2026-07-22
 outcome_status: recorded
 auto_promoted: false
 merged_to_main_by_aobg: false
+```
+
+## Task 65 — A1-SC-0154 align digest handoff priority, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 1afa36f93
+subject: "refactor(core): GOD-DEBULK align digest handoff priority"
+red:
+  result: "FAIL 1 test, 15 assertions: with both completed evidence and a launch-ready plan, the public fleet handoff chose fleet_operator_handoff_launch_workers instead of fleet_operator_handoff_review_evidence."
+green:
+  behavior: "The public fleet handoff now agrees with the cycle supervisor: it reviews completed evidence before replenishing or launching terminal workers."
+verification:
+  focused_feature: "PASS 1 test, 18 assertions"
+  terminal_digest_feature_file: "NOT GREEN proof: 6 failed, 9 passed, 254 assertions in sequence. The unrelated no-evidence launch-ready control also fails alone with expected ready, received action_required."
+  terminal_digest_unit_file: "NOT GREEN proof: 2 failed, 17 passed, 62 assertions; failures report claimable count 2 instead of 1 and a missing cleanup storage directory."
+  php_lint: "PASS source and changed Feature test"
+  pint: "NOT GREEN only for existing full-file formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "agent_control_plane_terminal_loop_health_digest_service=1647 (<2000)"
+boundary:
+  - exercises the public terminal digest, cycle supervisor and fleet handoff with concrete completed evidence and an independently launch-ready packet; no reflection or mocks
+  - preserves the launch capability and proves it remains fleet_launch_plan_ready in the green scenario
+  - changes only command priority; no dispatch, provider call, token spend, runtime activation, or durable write occurs
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0154
+  context_feedback: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
 ```
