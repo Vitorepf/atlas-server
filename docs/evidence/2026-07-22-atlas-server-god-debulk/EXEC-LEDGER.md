@@ -4,37 +4,44 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0181 work splitter canonical readiness path closed
+phase: A1-SC-0124 status persistence rejection closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: work splitter readiness-service canonical scope authorization
-finding_id: A1-SC-0181
-action_op: point the executable packet at the canonical Readiness service owner
+focus: completion-evidence status surface remains read-only under persistence flags
+finding_id: A1-SC-0124
+action_op: reject persistence requests while preserving canonical submission reads
 queue_index: 6
-last_commit: 46f383e1a
+last_commit: e6114bbcc
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_work_splitter_authorizes_the_canonical_readiness_service_path
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
-  vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_command_does_not_persist_human_receipt_before_runtime_promotion
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_does_not_persist_real_provider_smoke_before_human_receipt_command
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_loads_canonical_submissions_only_when_explicit_persist_flag_is_supplied
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
+  vendor/bin/pint --test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
   git diff --check
 before_after: |
-  red: the real public work splitter emitted app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php, which no longer exists.
-  green: the readiness-service packet emits the canonical Readiness/ owner and the returned allowed file exists on disk.
+  red: the real public completion-evidence status command accepted --persist-completion-evidence and returned real_provider_smoke.persisted=true.
+  green: status calls verification only, returns persisted=false, rejects the request explicitly, and never invokes the receipt writer.
 stdout: |
-  red_characterization: FAIL 1 test, 1 assertion
-  focused_and_package: PASS focused 1 test, 2 assertions; writer section Unit 6 tests, 20 assertions
-  php_lint: PASS source plus changed Unit test
-  unit_pint: PASS
-  loc_check: release_writer_section=1484
+  red_characterization: FAIL 1 test, 4 assertions (expected real_provider_smoke.persisted=false, received true)
+  focused: PASS 1 test, 9 assertions
+  smoke_persistence_regression: PASS 1 test, 4 assertions
+  canonical_submission_regression: PASS 1 test, 14 assertions
+  completion_evidence_feature_file: completed without a reported test failure
+  php_lint: PASS source plus changed Feature test
+  feature_pint: PASS
+  source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, single_quote, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space) were left untouched outside this focused change
+  loc_check: readiness_projection_os_evidence_section=1792
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the public readiness facade and checks its emitted path against the filesystem; it does not use reflection or fabricated packets.
+  Characterization executes the real public Artisan status command with valid smoke and receipt payloads; it does not use reflection or mock the writer.
+  Runtime-promotion persistence is hard-disabled in this status surface. The live matrix currently has no pending runtime gaps, so its writer rejects every candidate before storage; no artificial green test was retained for that unreachable write path.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
+  Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
@@ -1796,6 +1803,37 @@ boundary:
   - corrects the packet authorization target without changing its lane, objective, boundaries, or validation policy
 write_back:
   status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 61 — A1-SC-0124 reject status-surface persistence, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: e6114bbcc
+subject: "refactor(core): GOD-DEBULK reject status persistence"
+red:
+  result: "FAIL 1 test, 4 assertions: the public completion-evidence status command persisted supplied real-provider smoke when --persist-completion-evidence was present."
+green:
+  behavior: "The status surface always verifies runtime, smoke, and human receipt inputs without durable writes. It reports persisted=false, retains requested flags for input-source disclosure, and marks persistence_request_rejected_by_status_surface=true."
+verification:
+  focused_feature: "PASS 1 test, 9 assertions"
+  smoke_persistence_regression: "PASS 1 test, 4 assertions"
+  canonical_submission_regression: "PASS 1 test, 14 assertions"
+  completion_evidence_feature_file: "completed without a reported test failure"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN only for pre-existing formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "readiness_projection_os_evidence_section=1792 (<2000)"
+boundary:
+  - executes the public Artisan status command and its real verification services; no reflection, mock writer, provider call, dispatch, token spend, runtime activation, or durable evidence write
+  - runtime-promotion matrix receives persist_runtime_promotion_receipt=false even if that request flag is present
+  - canonical submission reads remain available only when their explicit request flag is supplied; those reads never authorize persistence from the status surface
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0124
+  context_feedback: recorded
   auto_promoted: false
 ```
 
