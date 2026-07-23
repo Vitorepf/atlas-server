@@ -3,15 +3,11 @@
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
 use App\Models\AtlasSelfConstructionAgentCostEvent;
-use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentHeartbeat;
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Models\AtlasSelfConstructionAgentSandboxBinding;
 use App\Models\AtlasSelfConstructionAgentWakeupItem;
 use App\Models\AtlasSelfConstructionAgentWorkProduct;
-use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
@@ -30,14 +26,11 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedule
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker;
@@ -51,15 +44,12 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedule
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker;
@@ -68,8 +58,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedule
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker;
@@ -79,11 +67,8 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedule
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticCostImportRuntimeCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticWorkProductCollectionCertificationService;
@@ -106,7 +91,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedge
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspaceCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernanceApprovalCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMacroSprintPromotionGate;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentParallelismPlanner;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiSnapshotComparisonService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneOneShotWorkerPacketService;
@@ -123,8 +107,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseReco
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskQueueLeaseCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopOperationalProofService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestPlanner;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkerTaskEligibilityCertificationService;
@@ -134,7 +116,7 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorReceiptUs
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterExecutionGuard;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceCertificationService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryAvailabilityPlanner;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCapabilityCatalog;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCertificationService;
@@ -149,21 +131,15 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionC
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashComposerService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionFinalizationGateService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionOperatorActionPacketService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionDossierExporterService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionHumanGateService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionReadinessGateService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceBundleService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOsCompletionAuditService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixAuditService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixService;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessInvocationAuthorizationGate;
@@ -176,13 +152,11 @@ use App\Services\Ai\SelfConstruction\Support\AgentCodexProviderExecutionDriver;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerActualProcessStartRehearsalExecutor;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorEnablementGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorFreshReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorPlan;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerFinalProcessStartAuthorizationGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerGuardedProcessStartExecutor;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerImplementationBoundary;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerManualStartExecutorReceiptWriter;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerOperatorStartHandoffBuilder;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartAdapterExecutionGuardGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartDispatchExecutorHandoff;
@@ -196,15 +170,12 @@ use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExecu
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExternalProcessInvokerDryRunGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExternalProcessRuntimeGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartImplementationBoundaryGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartLivenessMonitor;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartOperatorStartHandoffBuilder;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessInvocationAuthorizationGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessSpawnEnablementGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStartEnvelopeGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStartReleaseGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStarterReadinessGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProviderExecutionContractGate;
@@ -214,7 +185,6 @@ use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartRecei
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartStartExecutionGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSupervisedStartActivationGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSupervisedStartExecutorGate;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerProcessStartEnvelopeBuilder;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerProcessStarterReadinessGate;
@@ -20606,13 +20576,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationBaselineContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_baseline',
-            label: 'Certification Baseline',
-            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationBaselineService::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_baseline', 'contract');
     }
 
     /**
@@ -20621,13 +20585,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationBaselinePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_baseline',
-            label: 'Certification Baseline',
-            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationBaselineService::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_baseline', 'preflight');
     }
 
     /**
@@ -20636,13 +20594,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationBaselineImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_baseline',
-            label: 'Certification Baseline',
-            schemaVersion: AgentControlPlaneCertificationBaselineService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationBaselineService::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_baseline', 'implementation_packet');
     }
 
     /**
@@ -20691,13 +20643,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioSimulatorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_scenario_simulator',
-            label: 'Certification Scenario Simulator',
-            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_simulator', 'contract');
     }
 
     /**
@@ -20706,13 +20652,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioSimulatorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_scenario_simulator',
-            label: 'Certification Scenario Simulator',
-            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_simulator', 'preflight');
     }
 
     /**
@@ -20721,13 +20661,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioSimulatorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_scenario_simulator',
-            label: 'Certification Scenario Simulator',
-            schemaVersion: AgentControlPlaneCertificationScenarioSimulator::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationScenarioSimulator::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_simulator', 'implementation_packet');
     }
 
     /**
@@ -20774,13 +20708,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'release_dossier',
-            label: 'Release Dossier',
-            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneReleaseDossierService::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('release_dossier', 'contract');
     }
 
     /**
@@ -20789,13 +20717,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'release_dossier',
-            label: 'Release Dossier',
-            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneReleaseDossierService::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('release_dossier', 'preflight');
     }
 
     /**
@@ -20804,13 +20726,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'release_dossier',
-            label: 'Release Dossier',
-            schemaVersion: AgentControlPlaneReleaseDossierService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneReleaseDossierService::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('release_dossier', 'implementation_packet');
     }
 
     /**
@@ -20885,13 +20801,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationMutationGuardContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_mutation_guard',
-            label: 'Certification Mutation Guard',
-            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_mutation_guard', 'contract');
     }
 
     /**
@@ -20900,13 +20810,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationMutationGuardPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_mutation_guard',
-            label: 'Certification Mutation Guard',
-            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_mutation_guard', 'preflight');
     }
 
     /**
@@ -20915,13 +20819,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationMutationGuardImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'certification_mutation_guard',
-            label: 'Certification Mutation Guard',
-            schemaVersion: AgentControlPlaneCertificationMutationGuard::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneCertificationMutationGuard::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('certification_mutation_guard', 'implementation_packet');
     }
 
     /**
@@ -20962,7 +20860,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationEvidenceQueryContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('certification_evidence_query', 'contract');
     }
 
     /**
@@ -20971,7 +20869,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationEvidenceQueryPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('certification_evidence_query', 'preflight');
     }
 
     /**
@@ -20980,7 +20878,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationEvidenceQueryImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_evidence_query', 'Certification Evidence Query', AgentControlPlaneCertificationEvidenceQueryService::SCHEMA_VERSION, AgentControlPlaneCertificationEvidenceQueryService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('certification_evidence_query', 'implementation_packet');
     }
 
     /**
@@ -21019,7 +20917,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioCorpusContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_corpus', 'contract');
     }
 
     /**
@@ -21028,7 +20926,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioCorpusPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_corpus', 'preflight');
     }
 
     /**
@@ -21037,7 +20935,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationScenarioCorpusImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_scenario_corpus', 'Certification Scenario Corpus', AgentControlPlaneCertificationScenarioCorpusService::SCHEMA_VERSION, AgentControlPlaneCertificationScenarioCorpusService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('certification_scenario_corpus', 'implementation_packet');
     }
 
     /**
@@ -21075,7 +20973,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationFuzzHarnessContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('certification_fuzz_harness', 'contract');
     }
 
     /**
@@ -21084,7 +20982,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationFuzzHarnessPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('certification_fuzz_harness', 'preflight');
     }
 
     /**
@@ -21093,7 +20991,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationFuzzHarnessImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_fuzz_harness', 'Certification Fuzz Harness', AgentControlPlaneCertificationFuzzHarness::SCHEMA_VERSION, AgentControlPlaneCertificationFuzzHarness::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('certification_fuzz_harness', 'implementation_packet');
     }
 
     /**
@@ -21135,7 +21033,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiSnapshotComparisonContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('multi_snapshot_comparison', 'contract');
     }
 
     /**
@@ -21144,7 +21042,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiSnapshotComparisonPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('multi_snapshot_comparison', 'preflight');
     }
 
     /**
@@ -21153,7 +21051,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiSnapshotComparisonImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_snapshot_comparison', 'Multi-Snapshot Comparison', AgentControlPlaneMultiSnapshotComparisonService::SCHEMA_VERSION, AgentControlPlaneMultiSnapshotComparisonService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('multi_snapshot_comparison', 'implementation_packet');
     }
 
     /**
@@ -21190,7 +21088,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierExporterContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('release_dossier_exporter', 'contract');
     }
 
     /**
@@ -21199,7 +21097,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierExporterPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('release_dossier_exporter', 'preflight');
     }
 
     /**
@@ -21208,7 +21106,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneReleaseDossierExporterImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('release_dossier_exporter', 'Release Dossier Exporter', AgentControlPlaneReleaseDossierExporter::SCHEMA_VERSION, AgentControlPlaneReleaseDossierExporter::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('release_dossier_exporter', 'implementation_packet');
     }
 
     /**
@@ -21253,7 +21151,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationCoverageReportContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('certification_coverage_report', 'contract');
     }
 
     /**
@@ -21262,7 +21160,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationCoverageReportPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('certification_coverage_report', 'preflight');
     }
 
     /**
@@ -21271,7 +21169,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationCoverageReportImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_coverage_report', 'Certification Coverage Report', AgentControlPlaneCertificationCoverageReportService::SCHEMA_VERSION, AgentControlPlaneCertificationCoverageReportService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('certification_coverage_report', 'implementation_packet');
     }
 
     /**
@@ -21312,7 +21210,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationStatusBatchContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('certification_status_batch', 'contract');
     }
 
     /**
@@ -21321,7 +21219,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationStatusBatchPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('certification_status_batch', 'preflight');
     }
 
     /**
@@ -21330,7 +21228,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCertificationStatusBatchImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('certification_status_batch', 'Certification Status Batch', AgentControlPlaneCertificationStatusBatchService::SCHEMA_VERSION, AgentControlPlaneCertificationStatusBatchService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('certification_status_batch', 'implementation_packet');
     }
 
     /**
@@ -21403,7 +21301,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionAuditContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_audit', 'contract');
     }
 
     /**
@@ -21412,7 +21310,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionAuditPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_audit', 'preflight');
     }
 
     /**
@@ -21421,7 +21319,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionAuditImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_audit', 'implementation_packet');
     }
 
     /**
@@ -21542,7 +21440,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionOperatorActionPacketContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_operator_action_packet', 'contract');
     }
 
     /**
@@ -21551,7 +21449,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionOperatorActionPacketPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_operator_action_packet', 'preflight');
     }
 
     /**
@@ -21560,7 +21458,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsCompletionOperatorActionPacketImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_operator_action_packet', 'Atlas Self-Construction OS Completion Operator Action Packet', AtlasSelfConstructionCompletionOperatorActionPacketService::SCHEMA_VERSION, AtlasSelfConstructionCompletionOperatorActionPacketService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_completion_operator_action_packet', 'implementation_packet');
     }
 
     /**
@@ -21647,7 +21545,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalEvidenceBundleContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_evidence_bundle', 'contract');
     }
 
     /**
@@ -21656,7 +21554,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalEvidenceBundlePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_evidence_bundle', 'preflight');
     }
 
     /**
@@ -21665,7 +21563,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalEvidenceBundleImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_evidence_bundle', 'Atlas Self-Construction Final Evidence Bundle', AtlasSelfConstructionFinalEvidenceBundleService::SCHEMA_VERSION, AtlasSelfConstructionFinalEvidenceBundleService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_evidence_bundle', 'implementation_packet');
     }
 
     /**
@@ -21791,7 +21689,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionAuditBlockerExplainerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_audit_blocker_explainer', 'contract');
     }
 
     /**
@@ -21800,7 +21698,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionAuditBlockerExplainerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_audit_blocker_explainer', 'preflight');
     }
 
     /**
@@ -21809,7 +21707,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionAuditBlockerExplainerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_audit_blocker_explainer', 'Atlas Self-Construction Completion Audit Blocker Explainer', AtlasSelfConstructionCompletionAuditBlockerExplainerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionAuditBlockerExplainerService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_audit_blocker_explainer', 'implementation_packet');
     }
 
     /**
@@ -21901,7 +21799,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceSubmissionPreflightContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_submission_preflight', 'Atlas Self-Construction Completion Evidence Submission Preflight', AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_submission_preflight', 'contract');
     }
 
     /**
@@ -21910,7 +21808,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceSubmissionPreflightPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_submission_preflight', 'Atlas Self-Construction Completion Evidence Submission Preflight', AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_submission_preflight', 'preflight');
     }
 
     /**
@@ -21919,7 +21817,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceSubmissionPreflightImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_submission_preflight', 'Atlas Self-Construction Completion Evidence Submission Preflight', AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_submission_preflight', 'implementation_packet');
     }
 
     /**
@@ -22038,7 +21936,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsHandoffContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_handoff', 'Atlas Self-Construction OS Handoff', 'atlas.self_construction.os_handoff.v1', self::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_handoff', 'contract');
     }
 
     /**
@@ -22047,7 +21945,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsHandoffPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_handoff', 'Atlas Self-Construction OS Handoff', 'atlas.self_construction.os_handoff.v1', self::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_handoff', 'preflight');
     }
 
     /**
@@ -22056,7 +21954,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsHandoffImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_handoff', 'Atlas Self-Construction OS Handoff', 'atlas.self_construction.os_handoff.v1', self::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_os_handoff', 'implementation_packet');
     }
 
     /**
@@ -22074,7 +21972,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceHashComposerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_hash_composer', 'Atlas Self-Construction Completion Evidence Hash Composer', AtlasSelfConstructionCompletionEvidenceHashComposerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceHashComposerService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_hash_composer', 'contract');
     }
 
     /**
@@ -22083,7 +21981,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceHashComposerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_hash_composer', 'Atlas Self-Construction Completion Evidence Hash Composer', AtlasSelfConstructionCompletionEvidenceHashComposerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceHashComposerService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_hash_composer', 'preflight');
     }
 
     /**
@@ -22092,7 +21990,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionEvidenceHashComposerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_evidence_hash_composer', 'Atlas Self-Construction Completion Evidence Hash Composer', AtlasSelfConstructionCompletionEvidenceHashComposerService::SCHEMA_VERSION, AtlasSelfConstructionCompletionEvidenceHashComposerService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_evidence_hash_composer', 'implementation_packet');
     }
 
     /**
@@ -22200,7 +22098,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftHashFinalizerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'Atlas Self-Construction Operator Evidence Draft Hash Finalizer', AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'contract');
     }
 
     /**
@@ -22209,7 +22107,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftHashFinalizerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'Atlas Self-Construction Operator Evidence Draft Hash Finalizer', AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'preflight');
     }
 
     /**
@@ -22218,7 +22116,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftHashFinalizerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'Atlas Self-Construction Operator Evidence Draft Hash Finalizer', AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_hash_finalizer', 'implementation_packet');
     }
 
     /**
@@ -22255,7 +22153,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'Atlas Self-Construction Operator Evidence Draft Workspace Publisher', AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'contract');
     }
 
     /**
@@ -22264,7 +22162,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'Atlas Self-Construction Operator Evidence Draft Workspace Publisher', AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'preflight');
     }
 
     /**
@@ -22273,7 +22171,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'Atlas Self-Construction Operator Evidence Draft Workspace Publisher', AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_publisher', 'implementation_packet');
     }
 
     /**
@@ -22346,7 +22244,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalOperatorEvidenceClosureCorridorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_operator_evidence_closure_corridor', 'Atlas Self-Construction Final Operator Evidence Closure Corridor', AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::SCHEMA_VERSION, AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_operator_evidence_closure_corridor', 'contract');
     }
 
     /**
@@ -22355,7 +22253,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalOperatorEvidenceClosureCorridorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_operator_evidence_closure_corridor', 'Atlas Self-Construction Final Operator Evidence Closure Corridor', AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::SCHEMA_VERSION, AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_operator_evidence_closure_corridor', 'preflight');
     }
 
     /**
@@ -22364,7 +22262,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalOperatorEvidenceClosureCorridorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_operator_evidence_closure_corridor', 'Atlas Self-Construction Final Operator Evidence Closure Corridor', AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::SCHEMA_VERSION, AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_operator_evidence_closure_corridor', 'implementation_packet');
     }
 
     /**
@@ -22382,7 +22280,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceArtifactTemplatePackContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_artifact_template_pack', 'Atlas Self-Construction Operator Evidence Artifact Template Pack', AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_artifact_template_pack', 'contract');
     }
 
     /**
@@ -22391,7 +22289,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceArtifactTemplatePackPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_artifact_template_pack', 'Atlas Self-Construction Operator Evidence Artifact Template Pack', AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_artifact_template_pack', 'preflight');
     }
 
     /**
@@ -22400,7 +22298,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceArtifactTemplatePackImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_artifact_template_pack', 'Atlas Self-Construction Operator Evidence Artifact Template Pack', AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_artifact_template_pack', 'implementation_packet');
     }
 
     /**
@@ -22445,7 +22343,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'contract');
     }
 
     /**
@@ -22454,7 +22352,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'preflight');
     }
 
     /**
@@ -22463,7 +22361,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'Atlas Self-Construction Operator Evidence Draft Workspace Inspector', AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_draft_workspace_inspector', 'implementation_packet');
     }
 
     /**
@@ -22500,7 +22398,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceSubmissionReadinessContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_submission_readiness', 'Atlas Self-Construction Operator Evidence Submission Readiness', AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_submission_readiness', 'contract');
     }
 
     /**
@@ -22509,7 +22407,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceSubmissionReadinessPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_submission_readiness', 'Atlas Self-Construction Operator Evidence Submission Readiness', AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_submission_readiness', 'preflight');
     }
 
     /**
@@ -22518,7 +22416,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOperatorEvidenceSubmissionReadinessImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_operator_evidence_submission_readiness', 'Atlas Self-Construction Operator Evidence Submission Readiness', AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::SCHEMA_VERSION, AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_operator_evidence_submission_readiness', 'implementation_packet');
     }
 
     /**
@@ -23220,7 +23118,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionHumanGateContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_human_gate', 'contract');
     }
 
     /**
@@ -23229,7 +23127,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionHumanGatePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_human_gate', 'preflight');
     }
 
     /**
@@ -23238,7 +23136,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionHumanGateImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_human_gate', 'Atlas Self-Construction Final Completion Human Gate', AtlasSelfConstructionFinalCompletionHumanGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionHumanGateService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_human_gate', 'implementation_packet');
     }
 
     /**
@@ -23328,7 +23226,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionDossierExporterContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_dossier_exporter', 'contract');
     }
 
     /**
@@ -23337,7 +23235,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionDossierExporterPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_dossier_exporter', 'preflight');
     }
 
     /**
@@ -23346,7 +23244,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionDossierExporterImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_dossier_exporter', 'Atlas Self-Construction Final Completion Dossier Exporter', AtlasSelfConstructionFinalCompletionDossierExporterService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionDossierExporterService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_dossier_exporter', 'implementation_packet');
     }
 
     /**
@@ -23442,7 +23340,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionReadinessGateContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_readiness_gate', 'contract');
     }
 
     /**
@@ -23451,7 +23349,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionReadinessGatePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_readiness_gate', 'preflight');
     }
 
     /**
@@ -23460,7 +23358,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionFinalCompletionReadinessGateImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_final_completion_readiness_gate', 'Atlas Self-Construction Final Completion Readiness Gate', AtlasSelfConstructionFinalCompletionReadinessGateService::SCHEMA_VERSION, AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_final_completion_readiness_gate', 'implementation_packet');
     }
 
     /**
@@ -23585,7 +23483,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingOsTransitionReadinessContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_os_transition_readiness', 'contract');
     }
 
     /**
@@ -23594,7 +23492,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingOsTransitionReadinessPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_os_transition_readiness', 'preflight');
     }
 
     /**
@@ -23603,7 +23501,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingOsTransitionReadinessImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_os_transition_readiness', 'Atlas Self-Programming OS Transition Readiness', 'atlas.self_programming.transition_readiness.v1', AtlasSelfConstructionFinalCompletionReadinessGateService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_os_transition_readiness', 'implementation_packet');
     }
 
     /**
@@ -23621,7 +23519,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingSafetyContractCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_safety_contract_certification', 'contract');
     }
 
     /**
@@ -23630,7 +23528,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingSafetyContractCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_safety_contract_certification', 'preflight');
     }
 
     /**
@@ -23639,7 +23537,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfProgrammingSafetyContractCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_programming_safety_contract_certification', 'implementation_packet');
     }
 
     /**
@@ -23769,7 +23667,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionFinalizationGateContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_finalization_gate', 'contract');
     }
 
     /**
@@ -23778,7 +23676,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionFinalizationGatePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_finalization_gate', 'preflight');
     }
 
     /**
@@ -23787,7 +23685,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionCompletionFinalizationGateImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_completion_finalization_gate', 'Atlas Self-Construction Completion Finalization Gate', AtlasSelfConstructionCompletionFinalizationGateService::SCHEMA_VERSION, AtlasSelfConstructionCompletionFinalizationGateService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('atlas_self_construction_completion_finalization_gate', 'implementation_packet');
     }
 
     /**
@@ -23916,7 +23814,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimeEvidenceJournalContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('runtime_evidence_journal', 'contract');
     }
 
     /**
@@ -23925,7 +23823,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimeEvidenceJournalPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('runtime_evidence_journal', 'preflight');
     }
 
     /**
@@ -23934,7 +23832,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimeEvidenceJournalImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_evidence_journal', 'Runtime Evidence Journal', AgentRuntimeEvidenceCertificationService::SCHEMA_VERSION, AgentRuntimeEvidenceCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('runtime_evidence_journal', 'implementation_packet');
     }
 
     /**
@@ -23968,7 +23866,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneExecutionWorkspaceRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('execution_workspace_runtime', 'contract');
     }
 
     /**
@@ -23977,7 +23875,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneExecutionWorkspaceRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('execution_workspace_runtime', 'preflight');
     }
 
     /**
@@ -23986,7 +23884,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneExecutionWorkspaceRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('execution_workspace_runtime', 'Execution Workspace Runtime', AgentControlPlaneExecutionWorkspaceCertificationService::SCHEMA_VERSION, AgentControlPlaneExecutionWorkspaceCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('execution_workspace_runtime', 'implementation_packet');
     }
 
     /**
@@ -24020,7 +23918,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneGovernanceApprovalRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('governance_approval_runtime', 'contract');
     }
 
     /**
@@ -24029,7 +23927,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneGovernanceApprovalRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('governance_approval_runtime', 'preflight');
     }
 
     /**
@@ -24038,7 +23936,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneGovernanceApprovalRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('governance_approval_runtime', 'Governance Approval Runtime', AgentControlPlaneGovernanceApprovalCertificationService::SCHEMA_VERSION, AgentControlPlaneGovernanceApprovalCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('governance_approval_runtime', 'implementation_packet');
     }
 
     /**
@@ -24072,7 +23970,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticCostImportRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('automatic_cost_import_runtime', 'contract');
     }
 
     /**
@@ -24081,7 +23979,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticCostImportRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('automatic_cost_import_runtime', 'preflight');
     }
 
     /**
@@ -24090,7 +23988,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticCostImportRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_cost_import_runtime', 'Automatic Cost Import Runtime', AgentControlPlaneAutomaticCostImportRuntimeCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('automatic_cost_import_runtime', 'implementation_packet');
     }
 
     /**
@@ -24124,7 +24022,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticWorkProductCollectionRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('automatic_work_product_collection_runtime', 'contract');
     }
 
     /**
@@ -24133,7 +24031,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticWorkProductCollectionRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('automatic_work_product_collection_runtime', 'preflight');
     }
 
     /**
@@ -24142,7 +24040,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAutomaticWorkProductCollectionRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('automatic_work_product_collection_runtime', 'Automatic Work Product Collection Runtime', AgentControlPlaneAutomaticWorkProductCollectionCertificationService::SCHEMA_VERSION, AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('automatic_work_product_collection_runtime', 'implementation_packet');
     }
 
     /**
@@ -24176,7 +24074,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAdapterExecutionRuntimeBoundaryContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('adapter_execution_runtime_boundary', 'contract');
     }
 
     /**
@@ -24185,7 +24083,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAdapterExecutionRuntimeBoundaryPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('adapter_execution_runtime_boundary', 'preflight');
     }
 
     /**
@@ -24194,7 +24092,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAdapterExecutionRuntimeBoundaryImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('adapter_execution_runtime_boundary', 'Adapter Execution Runtime Boundary', AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::SCHEMA_VERSION, AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('adapter_execution_runtime_boundary', 'implementation_packet');
     }
 
     /**
@@ -24228,7 +24126,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneDispatchPlannerRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('dispatch_planner_runtime', 'contract');
     }
 
     /**
@@ -24237,7 +24135,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneDispatchPlannerRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('dispatch_planner_runtime', 'preflight');
     }
 
     /**
@@ -24246,7 +24144,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneDispatchPlannerRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('dispatch_planner_runtime', 'Dispatch Planner Runtime', AgentDispatchPlannerCertificationService::SCHEMA_VERSION, AgentDispatchPlannerCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('dispatch_planner_runtime', 'implementation_packet');
     }
 
     /**
@@ -24280,7 +24178,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneValidationGateRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('validation_gate_runtime', 'contract');
     }
 
     /**
@@ -24289,7 +24187,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneValidationGateRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('validation_gate_runtime', 'preflight');
     }
 
     /**
@@ -24298,7 +24196,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneValidationGateRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('validation_gate_runtime', 'Validation Gate Runtime', AgentValidationGateCertificationService::SCHEMA_VERSION, AgentValidationGateCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('validation_gate_runtime', 'implementation_packet');
     }
 
     /**
@@ -24356,7 +24254,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMergeReviewRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('merge_review_runtime', 'contract');
     }
 
     /**
@@ -24365,7 +24263,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMergeReviewRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('merge_review_runtime', 'preflight');
     }
 
     /**
@@ -24374,7 +24272,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMergeReviewRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('merge_review_runtime', 'Merge Review Runtime', AgentMergeReviewCertificationService::SCHEMA_VERSION, AgentMergeReviewCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('merge_review_runtime', 'implementation_packet');
     }
 
     /**
@@ -24434,7 +24332,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketBuilderContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_packet_builder', 'contract');
     }
 
     /**
@@ -24443,7 +24341,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketBuilderPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_packet_builder', 'preflight');
     }
 
     /**
@@ -24452,7 +24350,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketBuilderImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_builder', 'Task Packet Builder', AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION, AgentControlPlaneTaskPacketBuilder::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_packet_builder', 'implementation_packet');
     }
 
     /**
@@ -24487,7 +24385,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseSimulatorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_simulator', 'contract');
     }
 
     /**
@@ -24496,7 +24394,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseSimulatorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_simulator', 'preflight');
     }
 
     /**
@@ -24505,7 +24403,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseSimulatorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_simulator', 'Claim/Lease Simulator', AgentControlPlaneClaimLeaseSimulator::SCHEMA_VERSION, AgentControlPlaneClaimLeaseSimulator::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_simulator', 'implementation_packet');
     }
 
     /**
@@ -24543,7 +24441,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockPlannerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_planner', 'contract');
     }
 
     /**
@@ -24552,7 +24450,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockPlannerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_planner', 'preflight');
     }
 
     /**
@@ -24561,7 +24459,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockPlannerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_planner', 'Scope Lock Planner', AgentControlPlaneScopeLockPlanner::SCHEMA_VERSION, AgentControlPlaneScopeLockPlanner::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_planner', 'implementation_packet');
     }
 
     /**
@@ -24598,7 +24496,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneEvidenceLedgerDryRunContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('evidence_ledger_dry_run', 'contract');
     }
 
     /**
@@ -24607,7 +24505,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneEvidenceLedgerDryRunPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('evidence_ledger_dry_run', 'preflight');
     }
 
     /**
@@ -24616,7 +24514,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneEvidenceLedgerDryRunImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('evidence_ledger_dry_run', 'Evidence Ledger Dry-Run', AgentControlPlaneEvidenceLedgerDryRun::SCHEMA_VERSION, AgentControlPlaneEvidenceLedgerDryRun::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('evidence_ledger_dry_run', 'implementation_packet');
     }
 
     /**
@@ -24653,7 +24551,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneContinuationSummaryBuilderContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('continuation_summary_builder', 'contract');
     }
 
     /**
@@ -24662,7 +24560,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneContinuationSummaryBuilderPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('continuation_summary_builder', 'preflight');
     }
 
     /**
@@ -24671,7 +24569,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneContinuationSummaryBuilderImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('continuation_summary_builder', 'Continuation Summary Builder', AgentControlPlaneContinuationSummaryBuilder::SCHEMA_VERSION, AgentControlPlaneContinuationSummaryBuilder::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('continuation_summary_builder', 'implementation_packet');
     }
 
     /**
@@ -24708,7 +24606,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkProductManifestPlannerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('work_product_manifest_planner', 'contract');
     }
 
     /**
@@ -24717,7 +24615,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkProductManifestPlannerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('work_product_manifest_planner', 'preflight');
     }
 
     /**
@@ -24726,7 +24624,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkProductManifestPlannerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('work_product_manifest_planner', 'Work Product Manifest Planner', AgentControlPlaneWorkProductManifestPlanner::SCHEMA_VERSION, AgentControlPlaneWorkProductManifestPlanner::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('work_product_manifest_planner', 'implementation_packet');
     }
 
     /**
@@ -24761,7 +24659,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCostImportDryRunContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('cost_import_dry_run', 'contract');
     }
 
     /**
@@ -24770,7 +24668,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCostImportDryRunPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('cost_import_dry_run', 'preflight');
     }
 
     /**
@@ -24779,7 +24677,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneCostImportDryRunImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('cost_import_dry_run', 'Cost Import Dry-Run', AgentControlPlaneCostImportDryRun::SCHEMA_VERSION, AgentControlPlaneCostImportDryRun::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('cost_import_dry_run', 'implementation_packet');
     }
 
     /**
@@ -24813,7 +24711,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentParallelismPlannerContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('multi_agent_parallelism_planner', 'contract');
     }
 
     /**
@@ -24822,7 +24720,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentParallelismPlannerPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('multi_agent_parallelism_planner', 'preflight');
     }
 
     /**
@@ -24831,7 +24729,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentParallelismPlannerImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('multi_agent_parallelism_planner', 'Multi-Agent Parallelism Planner', AgentControlPlaneMultiAgentParallelismPlanner::SCHEMA_VERSION, AgentControlPlaneMultiAgentParallelismPlanner::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('multi_agent_parallelism_planner', 'implementation_packet');
     }
 
     /**
@@ -24870,7 +24768,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotOrchestratorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_orchestrator', 'contract');
     }
 
     /**
@@ -24879,7 +24777,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotOrchestratorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_orchestrator', 'preflight');
     }
 
     /**
@@ -24888,7 +24786,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotOrchestratorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_orchestrator', 'Runtime Pilot Orchestrator', AgentControlPlaneRuntimePilotOrchestrator::SCHEMA_VERSION, AgentControlPlaneRuntimePilotOrchestrator::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_orchestrator', 'implementation_packet');
     }
 
     /**
@@ -24926,7 +24824,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_certification', 'contract');
     }
 
     /**
@@ -24935,7 +24833,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_certification', 'preflight');
     }
 
     /**
@@ -24944,7 +24842,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneRuntimePilotCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('runtime_pilot_certification', 'Runtime Pilot Certification', AgentControlPlaneRuntimePilotCertificationService::SCHEMA_VERSION, AgentControlPlaneRuntimePilotCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('runtime_pilot_certification', 'implementation_packet');
     }
 
     /**
@@ -24980,7 +24878,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketQueueContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_packet_queue', 'contract');
     }
 
     /**
@@ -24989,7 +24887,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketQueuePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_packet_queue', 'preflight');
     }
 
     /**
@@ -24998,7 +24896,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskPacketQueueImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_packet_queue', 'Task Packet Queue', AgentControlPlaneTaskPacketQueueRepository::SCHEMA_VERSION, AgentControlPlaneTaskPacketQueueRepository::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_packet_queue', 'implementation_packet');
     }
 
     /**
@@ -25036,7 +24934,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseRuntimeContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_runtime', 'contract');
     }
 
     /**
@@ -25045,7 +24943,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseRuntimePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_runtime', 'preflight');
     }
 
     /**
@@ -25054,7 +24952,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneClaimLeaseRuntimeImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('claim_lease_runtime', 'Claim/Lease Runtime', AgentControlPlaneClaimLeaseRepository::SCHEMA_VERSION, AgentControlPlaneClaimLeaseRepository::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('claim_lease_runtime', 'implementation_packet');
     }
 
     /**
@@ -25063,7 +24961,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskLeaseRecoveryContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_lease_recovery', 'contract');
     }
 
     /**
@@ -25072,7 +24970,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskLeaseRecoveryPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_lease_recovery', 'preflight');
     }
 
     /**
@@ -25081,7 +24979,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskLeaseRecoveryImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_lease_recovery', 'Task Lease Recovery', AgentControlPlaneTaskLeaseRecoveryService::SCHEMA_VERSION, AgentControlPlaneTaskLeaseRecoveryService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_lease_recovery', 'implementation_packet');
     }
 
     /**
@@ -25219,7 +25117,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockRuntimeValidatorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_runtime_validator', 'contract');
     }
 
     /**
@@ -25228,7 +25126,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockRuntimeValidatorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_runtime_validator', 'preflight');
     }
 
     /**
@@ -25237,7 +25135,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneScopeLockRuntimeValidatorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('scope_lock_runtime_validator', 'Scope Lock Runtime Validator', AgentControlPlaneScopeLockRuntimeValidator::SCHEMA_VERSION, AgentControlPlaneScopeLockRuntimeValidator::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('scope_lock_runtime_validator', 'implementation_packet');
     }
 
     /**
@@ -25273,7 +25171,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueOrchestratorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_queue_orchestrator', 'contract');
     }
 
     /**
@@ -25282,7 +25180,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueOrchestratorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_queue_orchestrator', 'preflight');
     }
 
     /**
@@ -25291,7 +25189,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueOrchestratorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_orchestrator', 'Task Queue Orchestrator', AgentControlPlaneTaskQueueOrchestrator::SCHEMA_VERSION, AgentControlPlaneTaskQueueOrchestrator::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_queue_orchestrator', 'implementation_packet');
     }
 
     /**
@@ -25415,7 +25313,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskAutoReplenishmentContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_auto_replenishment', 'contract');
     }
 
     /**
@@ -25424,7 +25322,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskAutoReplenishmentPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_auto_replenishment', 'preflight');
     }
 
     /**
@@ -25433,7 +25331,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskAutoReplenishmentImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_auto_replenishment', 'Task Auto-Replenishment', AgentControlPlaneTaskAutoReplenishmentService::SCHEMA_VERSION, AgentControlPlaneTaskAutoReplenishmentService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_auto_replenishment', 'implementation_packet');
     }
 
     /**
@@ -25496,7 +25394,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkerTaskEligibilityCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('worker_task_eligibility_certification', 'contract');
     }
 
     /**
@@ -25505,7 +25403,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkerTaskEligibilityCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('worker_task_eligibility_certification', 'preflight');
     }
 
     /**
@@ -25514,7 +25412,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneWorkerTaskEligibilityCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('worker_task_eligibility_certification', 'implementation_packet');
     }
 
     /**
@@ -25556,7 +25454,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopHealthDigestContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_health_digest', 'Terminal Loop Health Digest', AgentControlPlaneTerminalLoopHealthDigestService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopHealthDigestService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_health_digest', 'contract');
     }
 
     /**
@@ -25565,7 +25463,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopHealthDigestPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_health_digest', 'Terminal Loop Health Digest', AgentControlPlaneTerminalLoopHealthDigestService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopHealthDigestService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_health_digest', 'preflight');
     }
 
     /**
@@ -25574,7 +25472,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopHealthDigestImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_health_digest', 'Terminal Loop Health Digest', AgentControlPlaneTerminalLoopHealthDigestService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopHealthDigestService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_health_digest', 'implementation_packet');
     }
 
     /**
@@ -25592,7 +25490,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopOperationalProofContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_operational_proof', 'Terminal Loop Operational Proof', AgentControlPlaneTerminalLoopOperationalProofService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopOperationalProofService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_operational_proof', 'contract');
     }
 
     /**
@@ -25601,7 +25499,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopOperationalProofPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_operational_proof', 'Terminal Loop Operational Proof', AgentControlPlaneTerminalLoopOperationalProofService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopOperationalProofService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_operational_proof', 'preflight');
     }
 
     /**
@@ -25610,7 +25508,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalLoopOperationalProofImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_loop_operational_proof', 'Terminal Loop Operational Proof', AgentControlPlaneTerminalLoopOperationalProofService::SCHEMA_VERSION, AgentControlPlaneTerminalLoopOperationalProofService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('terminal_loop_operational_proof', 'implementation_packet');
     }
 
     /**
@@ -25665,7 +25563,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalWorkerBootstrapContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('terminal_worker_bootstrap', 'contract');
     }
 
     /**
@@ -25674,7 +25572,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalWorkerBootstrapPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('terminal_worker_bootstrap', 'preflight');
     }
 
     /**
@@ -25683,7 +25581,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTerminalWorkerBootstrapImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('terminal_worker_bootstrap', 'Terminal Worker Bootstrap', AgentControlPlaneTerminalWorkerBootstrapService::SCHEMA_VERSION, AgentControlPlaneTerminalWorkerBootstrapService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('terminal_worker_bootstrap', 'implementation_packet');
     }
 
     /**
@@ -25790,13 +25688,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsRuntimeGapMatrixAuditContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            'runtime_gap_matrix_audit',
-            'Runtime Gap Matrix Audit',
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
-            'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('runtime_gap_matrix_audit', 'contract');
     }
 
     /**
@@ -25805,13 +25697,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsRuntimeGapMatrixAuditPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            'runtime_gap_matrix_audit',
-            'Runtime Gap Matrix Audit',
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
-            'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('runtime_gap_matrix_audit', 'preflight');
     }
 
     /**
@@ -25820,13 +25706,7 @@ public function releasePacket(array $options = []): array
      */
     public function atlasSelfConstructionOsRuntimeGapMatrixAuditImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            'runtime_gap_matrix_audit',
-            'Runtime Gap Matrix Audit',
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
-            AtlasSelfConstructionRuntimeGapMatrixAuditService::class,
-            'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('runtime_gap_matrix_audit', 'implementation_packet');
     }
 
     /**
@@ -25896,7 +25776,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueLeaseCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('task_queue_lease_certification', 'contract');
     }
 
     /**
@@ -25905,7 +25785,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueLeaseCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('task_queue_lease_certification', 'preflight');
     }
 
     /**
@@ -25914,7 +25794,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneTaskQueueLeaseCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('task_queue_lease_certification', 'Task Queue + Lease Certification', AgentControlPlaneTaskQueueLeaseCertificationService::SCHEMA_VERSION, AgentControlPlaneTaskQueueLeaseCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('task_queue_lease_certification', 'implementation_packet');
     }
 
     /**
@@ -25953,13 +25833,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentLoopCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'multi_agent_loop_certification',
-            label: 'Multi-Agent Loop Certification',
-            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('multi_agent_loop_certification', 'contract');
     }
 
     /**
@@ -25968,13 +25842,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentLoopCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'multi_agent_loop_certification',
-            label: 'Multi-Agent Loop Certification',
-            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('multi_agent_loop_certification', 'preflight');
     }
 
     /**
@@ -25983,13 +25851,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneMultiAgentLoopCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'multi_agent_loop_certification',
-            label: 'Multi-Agent Loop Certification',
-            schemaVersion: AgentControlPlaneMultiAgentLoopCertificationService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneMultiAgentLoopCertificationService::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('multi_agent_loop_certification', 'implementation_packet');
     }
 
     /**
@@ -26127,7 +25989,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry', 'contract');
     }
 
     /**
@@ -26136,7 +25998,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry', 'preflight');
     }
 
     /**
@@ -26145,7 +26007,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry', 'Agent Runtime Registry', AgentRuntimeRegistryRepository::SCHEMA_VERSION, AgentRuntimeRegistryRepository::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry', 'implementation_packet');
     }
 
     /**
@@ -26179,7 +26041,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHeartbeatContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_heartbeat', 'contract');
     }
 
     /**
@@ -26188,7 +26050,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHeartbeatPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_heartbeat', 'preflight');
     }
 
     /**
@@ -26197,7 +26059,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHeartbeatImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_heartbeat', 'Agent Runtime Registry Heartbeat', AgentRuntimeRegistryHeartbeatRepository::SCHEMA_VERSION, AgentRuntimeRegistryHeartbeatRepository::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_heartbeat', 'implementation_packet');
     }
 
     /**
@@ -26251,7 +26113,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_capability_catalog', 'contract');
     }
 
     /**
@@ -26260,7 +26122,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_capability_catalog', 'preflight');
     }
 
     /**
@@ -26269,7 +26131,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCapabilityCatalogImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_capability_catalog', 'Agent Runtime Registry Capability Catalog', AgentRuntimeRegistryCapabilityCatalog::SCHEMA_VERSION, AgentRuntimeRegistryCapabilityCatalog::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_capability_catalog', 'implementation_packet');
     }
 
     /**
@@ -26299,7 +26161,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryAvailabilityContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_availability', 'contract');
     }
 
     /**
@@ -26308,7 +26170,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryAvailabilityPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_availability', 'preflight');
     }
 
     /**
@@ -26317,7 +26179,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryAvailabilityImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_availability', 'Agent Runtime Registry Availability Planner', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION, AgentRuntimeRegistryAvailabilityPlanner::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_availability', 'implementation_packet');
     }
 
     /**
@@ -26349,7 +26211,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryTaskMatcherContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_task_matcher', 'contract');
     }
 
     /**
@@ -26358,7 +26220,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryTaskMatcherPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_task_matcher', 'preflight');
     }
 
     /**
@@ -26367,7 +26229,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryTaskMatcherImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_task_matcher', 'Agent Runtime Registry Task Matcher', AgentRuntimeRegistryTaskMatcher::SCHEMA_VERSION, AgentRuntimeRegistryTaskMatcher::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_task_matcher', 'implementation_packet');
     }
 
     /**
@@ -26397,7 +26259,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryLoadBalancingContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_load_balancing', 'contract');
     }
 
     /**
@@ -26406,7 +26268,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryLoadBalancingPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_load_balancing', 'preflight');
     }
 
     /**
@@ -26415,7 +26277,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryLoadBalancingImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_load_balancing', 'Agent Runtime Registry Load Balancing Policy', AgentRuntimeRegistryLoadBalancingPolicy::SCHEMA_VERSION, AgentRuntimeRegistryLoadBalancingPolicy::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_load_balancing', 'implementation_packet');
     }
 
     /**
@@ -26445,7 +26307,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryQuarantineContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_quarantine', 'contract');
     }
 
     /**
@@ -26454,7 +26316,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryQuarantinePreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_quarantine', 'preflight');
     }
 
     /**
@@ -26463,7 +26325,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryQuarantineImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_quarantine', 'Agent Runtime Registry Quarantine', AgentRuntimeRegistryQuarantineRepository::SCHEMA_VERSION, AgentRuntimeRegistryQuarantineRepository::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_quarantine', 'implementation_packet');
     }
 
     /**
@@ -26505,7 +26367,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHandoffContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_handoff', 'contract');
     }
 
     /**
@@ -26514,7 +26376,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHandoffPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_handoff', 'preflight');
     }
 
     /**
@@ -26523,7 +26385,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryHandoffImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_handoff', 'Agent Runtime Registry Handoff Protocol', AgentRuntimeRegistryHandoffProtocolBuilder::SCHEMA_VERSION, AgentRuntimeRegistryHandoffProtocolBuilder::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_handoff', 'implementation_packet');
     }
 
     /**
@@ -26553,7 +26415,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryOrchestratorContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_orchestrator', 'contract');
     }
 
     /**
@@ -26562,7 +26424,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryOrchestratorPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_orchestrator', 'preflight');
     }
 
     /**
@@ -26571,7 +26433,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryOrchestratorImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_orchestrator', 'Agent Runtime Registry Orchestrator', AgentRuntimeRegistryOrchestrator::SCHEMA_VERSION, AgentRuntimeRegistryOrchestrator::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_orchestrator', 'implementation_packet');
     }
 
     /**
@@ -26603,7 +26465,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCertificationContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'contract');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_certification', 'contract');
     }
 
     /**
@@ -26612,7 +26474,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCertificationPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'preflight');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_certification', 'preflight');
     }
 
     /**
@@ -26621,7 +26483,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneAgentRuntimeRegistryCertificationImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('agent_runtime_registry_certification', 'Agent Runtime Registry Certification', AgentRuntimeRegistryCertificationService::SCHEMA_VERSION, AgentRuntimeRegistryCertificationService::class, 'implementation_packet');
+        return CertificationWorkbenchEvaluator::certify('agent_runtime_registry_certification', 'implementation_packet');
     }
 
     /**
@@ -29509,13 +29371,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneOneShotWorkerPacketContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'one_shot_worker_packet',
-            label: 'One-Shot Worker Packet',
-            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
-            stage: 'contract',
-        );
+        return CertificationWorkbenchEvaluator::certify('one_shot_worker_packet', 'contract');
     }
 
     /**
@@ -29524,13 +29380,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneOneShotWorkerPacketPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'one_shot_worker_packet',
-            label: 'One-Shot Worker Packet',
-            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
-            stage: 'preflight',
-        );
+        return CertificationWorkbenchEvaluator::certify('one_shot_worker_packet', 'preflight');
     }
 
     /**
@@ -29539,13 +29389,7 @@ public function releasePacket(array $options = []): array
      */
     public function agentControlPlaneOneShotWorkerPacketImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet(
-            keyPrefix: 'one_shot_worker_packet',
-            label: 'One-Shot Worker Packet',
-            schemaVersion: AgentControlPlaneOneShotWorkerPacketService::SCHEMA_VERSION,
-            serviceClass: AgentControlPlaneOneShotWorkerPacketService::class,
-            stage: 'implementation_packet',
-        );
+        return CertificationWorkbenchEvaluator::certify('one_shot_worker_packet', 'implementation_packet');
     }
 
     /**
