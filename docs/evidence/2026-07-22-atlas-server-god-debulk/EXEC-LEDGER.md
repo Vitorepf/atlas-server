@@ -4,37 +4,37 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0153 recoverable supply explanation closed
+phase: A1-SC-0117 persisted evidence snapshot closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: make the reap_recoverable terminal state actionable and explainable
-finding_id: A1-SC-0153
-action_op: publish a recovery wait reason, recovery command, and supply explanation
+bucket: app/Services/Ai/SelfConstruction/NativeImplementation
+focus: derive all operator-evidence persistence projections from one read
+finding_id: A1-SC-0117
+action_op: materialize the persisted evidence state once per public build
 queue_index: 6
-last_commit: 4a441fde7
+last_commit: 4a6921638
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_muscle_supply_state_recommends_reap_recoverable_when_lease_recoverable
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
-  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --filter=test_readiness_build_uses_one_persisted_evidence_snapshot_for_all_projections
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php
   git diff --check
 before_after: |
-  red: the public digest returned reap_recoverable but omitted wait_reason, an executable recovery command, and a plain-language explanation.
-  green: reap_recoverable is now a recoverable wait state with a fail-closed reason, the lease recovery inspection command, and a count-specific explanation.
+  red: the public build reloaded the real-provider and human-receipt registries three times, yielding eight scoped registry reads with the audit baseline included.
+  green: one persisted state is passed into the plan, sequence-integrity, and proof-bundle projections; the same public build makes four reads (two audit baseline reads plus one two-registry snapshot).
 stdout: |
-  red_characterization: FAIL 1 test, 2 assertions (Undefined array key wait_reason)
-  focused: PASS 1 test, 5 assertions
-  terminal_digest_unit_file: NOT GREEN; 1 failed, 18 passed, 69 assertions. The first pull-now control receives reap_recoverable only in full-file sequence; recorded as fixture-isolation debt.
-  php_lint: PASS source plus changed Unit test
-  pint: NOT GREEN; existing source and test formatter violations were left untouched outside this focused hunk
-  loc_check: agent_control_plane_terminal_loop_health_digest_service=1652
+  red_characterization: FAIL 1 test, 1 assertion (expected the bounded snapshot read count; received 8 registry reads)
+  focused: PASS 1 test, 2 assertions
+  full_feature_file: NOT GREEN/HANG; process ran 10 minutes, became idle, emitted no aggregate result, and was interrupted with SIGINT exit 130
+  php_lint: PASS source plus changed Feature test
+  pint: NOT GREEN; existing source formatter violations (unary_operator_spaces, braces_position, no_unused_imports, not_operator_with_successor_space, single_line_empty_body, blank_line_after_namespace, no_extra_blank_lines, ordered_imports) and existing test ordered_imports were left untouched outside this focused hunk
+  loc_check: operator_evidence_submission_readiness_service=1858; feature_test=1541
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the real public terminal-loop digest against a concrete recoverable lease and performs no reflection or mocking.
-  The only behavior change makes an already-selected recovery action explain itself; it neither reaps leases nor dispatches work.
+  Characterization executes the public build with a fake local disk and a typed partial disk wrapper that delegates every real filesystem operation while observing only the two persisted-evidence registry reads; it uses no reflection.
+  The only behavior change reuses the same immutable in-process state for the three persistence-derived projections. It does not persist evidence, call a provider, spend tokens, dispatch work, or enable runtime.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   The source remains below 2k; no new class or helper was introduced. Existing formatter drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -2226,4 +2226,33 @@ write_back:
   context_feedback: recorded
   auto_promoted: false
 merged_to_main_by_aobg: false
+```
+
+## Task 71 — A1-SC-0117 snapshot persisted operator evidence, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_FULL_FILE_HANG
+commit: 4a6921638
+subject: "refactor(core): GOD-DEBULK snapshot persisted operator evidence"
+red:
+  result: "FAIL 1 test, 1 assertion: the public build caused 8 reads of the real-provider/human-receipt registries rather than the bounded one-snapshot count."
+green:
+  behavior: "The build captures persisted evidence once and shares it with canonical persistence-plan, sequence-integrity, and completion-proof projections; the observed registry reads fall from 8 to 4, including the two independent audit-baseline reads."
+verification:
+  focused_feature: "PASS 1 test, 2 assertions"
+  full_feature_file: "NOT GREEN/HANG proof: ran for 10 minutes with no aggregate output; after CPU became idle it was interrupted with SIGINT, exit 130."
+  php_lint: "PASS source and changed Feature test"
+  pint: "NOT GREEN only for existing source and test formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "operator_evidence_submission_readiness_service=1858; feature_test=1541 (both <2000)"
+boundary:
+  - executes the public build and real evidence verifier path through a fake local disk; no reflection
+  - a typed partial disk wrapper delegates real reads and observes only the two persisted-evidence registries
+  - changes no verifier, payload field, persistence authorization, provider call, dispatch, token spend, or runtime activation
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0117
+  context_feedback: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
 ```
