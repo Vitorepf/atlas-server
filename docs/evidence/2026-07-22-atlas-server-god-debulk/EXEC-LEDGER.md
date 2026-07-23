@@ -2949,3 +2949,34 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 96 — restore macro sprint CLI quartet, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0005
+commit: ffd89e059
+subject: "refactor(core): GOD-DEBULK restore macro sprint CLI quartet"
+scope:
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMacroSprintPromotionGateTest.php --filter=test_cli_contract_returns_v1 --no-coverage
+  result: "FAIL 1 test, 0 assertions: the public contract option was absent and Symfony raised InvalidOptionException."
+green:
+  behavior: "The canonical mother command maps contract, preflight, and implementation-packet to the existing Macro Sprint Gate methods; the status route was already registered."
+verification:
+  cli_quartet: "PASS 4 tests, 12 assertions through public Artisan routes."
+  package: "PASS 43 tests, 148 assertions: gate regression blocking, non-execution guarantees, and all CLI payloads."
+  direct_console: "PASS: status is read_only with execution_allowed=false and dispatch_allowed=false."
+  php_lint: "PASS mother-command surface."
+  pint: "PASS mother-command surface."
+  diff_check: PASS
+  density: "mother-command surface=274 LOC (<800 hot limit); no godfile or test was edited."
+boundary:
+  - "The judge executes real Artisan routes and the production gate, not reflection."
+  - "The restored routes retain read-only certification semantics and no execution authority."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```

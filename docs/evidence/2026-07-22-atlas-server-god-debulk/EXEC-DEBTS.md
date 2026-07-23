@@ -84,6 +84,9 @@ claimed_paths:
    - Fase 2 CLI wiring complete (`93514ddc8`): deterministic-chain-replay
      contract, preflight, implementation-packet, and status now reach their
      extracted quartet through the canonical mother-command surface.
+   - Fase 2 CLI wiring complete (`ffd89e059`): macro-sprint-promotion-gate
+     contract, preflight, and implementation-packet now complement its
+     existing read-only status route on the canonical mother command.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
