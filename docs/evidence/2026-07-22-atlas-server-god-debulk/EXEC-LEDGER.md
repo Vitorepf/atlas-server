@@ -3230,3 +3230,41 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 105 — restore parallel terminal bootstrap supply, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_PROBE_RESIDUAL
+finding: A1-SC-0187-adjacent-terminal-bootstrap
+commit: 5175cf008
+subject: "refactor(core): GOD-DEBULK restore parallel terminal bootstrap supply"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskAutoReplenishmentService.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalWorkerBootstrapService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php --filter='test_multiple_bootstraps_can_claim_distinct_parallel_lanes|test_bootstrap_can_be_isolated_by_queue_tag' --no-coverage
+  result: "FAIL 2 tests, 4 assertions: the second bootstrap returned blocked instead of ready_for_worker. The real queue first admitted only one packet because runtime-gap scopes were bare directories; its broad read scopes then made lease conflict detection reject every remaining worker packet."
+green:
+  behavior: "Runtime-gap seeds now name concrete NativeImplementation and test files, carry gap-specific focused-test acceptance, and read only their own files. When replenishment is permitted but an already-active seed prevents a top-up, bootstrap serves a real claimable packet; the strict below-target stop remains when max_new_tasks=0."
+verification:
+  bootstrap_feature: "PASS 14 tests, 252 assertions. Both parallel and queue-tagged second bootstraps claim distinct, disjoint write sets."
+  runtime_gap_contract: "PASS 1 test, 13 assertions: every runtime-gap packet has concrete allowed files and those exact files in scope_in."
+  replenishment_file: "NOT GREEN: 30 passed, 2 failed, 236 assertions. The tag-isolation test is independently blocked by the anti-farm gate even with the pre-change broad scope; the completion-audit wrapper retains inherited runtime gaps under its empty array override."
+  certification_file: "NOT GREEN: 12 passed, 5 failed, 132 assertions. All residuals are the separately governed terminal-bootstrap probe path."
+  php_lint: "PASS all four changed PHP files."
+  pint: "NOT GREEN only for inherited whole-file formatting drift in both production files and both legacy Feature files; no broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "auto_replenishment=1212 LOC (<2000); terminal_bootstrap=875 LOC (<2000); no new class or helper."
+boundary:
+  - "The characterization invokes public bootstrap() and real replenishment, queue, lease, and one-shot packet code; it does not reflect into a producer or mock the claim path."
+  - "No global certification/probe exception was added to claimNext(). The max_new_tasks=0 partial-supply contract remains blocked before a lease is persisted."
+residual:
+  - "The certification terminal probe still creates packets that normal claimNext() correctly excludes as synthetic. Its probe-owned claim route is separate from the real-worker bootstrap repaired here."
+next_cursor: "Characterize and implement the probe-owned terminal-bootstrap synthetic claim path without weakening the normal worker probe guard."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
