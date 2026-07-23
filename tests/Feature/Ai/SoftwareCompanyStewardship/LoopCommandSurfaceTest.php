@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\SoftwareCompanyStewardship;
 
 use App\Jobs\SoftwareCompanyLoopCycleRevertJob;
-use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Models\AiInboxItem;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
@@ -156,7 +155,6 @@ final class LoopCommandSurfaceTest extends TestCase
         $this->getJson(self::BASE.'/done')->assertStatus(401);
         $this->getJson(self::BASE.'/transfer/unknown')->assertStatus(401);
         // POSTs: 401 without the header (the body is irrelevant — auth runs first).
-        $this->postJson(self::BASE.'/start-run', [])->assertStatus(401);
         $this->postJson(self::BASE.'/operator-decision', [])->assertStatus(401);
         $this->postJson(self::BASE.'/run-control', [])->assertStatus(401);
         $this->postJson(self::BASE.'/transfer', [])->assertStatus(401);
@@ -288,92 +286,6 @@ final class LoopCommandSurfaceTest extends TestCase
         $this->assertTrue($byId[self::AREA]['registered']);
         $this->assertTrue($byId[self::LOOP_FACTORY_AREA]['registered']);
         $this->assertTrue($byId[self::ATLAS_NATIVE_AREA]['registered']);
-    }
-
-    // ----------------------------------------------------------------- (new) start-run
-    public function test_start_run_enqueues_the_real_job_and_never_claims_running_over_http(): void
-    {
-        Bus::fake();
-
-        $this->postJson(self::BASE.'/start-run', ['operator_actor' => 'vitor'], $this->headers)
-            ->assertStatus(202)
-            ->assertJsonPath('status', 'enqueued')
-            ->assertJsonPath('launch', 'queued_job')
-            ->assertJsonPath('queue', 'software_company_loop')
-            ->assertJsonPath('mode', 'dry_run')
-            ->assertJsonPath('execute', false)
-            ->assertJsonPath('started', false)
-            ->assertJsonPath('provider_invoked', false)
-            ->assertJsonPath('requires_worker', true);
-
-        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class);
-    }
-
-    public function test_start_run_missing_actor_is_blocked_422_and_enqueues_nothing_over_http(): void
-    {
-        Bus::fake();
-
-        $this->postJson(self::BASE.'/start-run', [], $this->headers)
-            ->assertStatus(422)
-            ->assertJsonPath('reason', 'operator_actor_required');
-
-        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
-    }
-
-    public function test_execute_start_run_requires_and_records_an_auditable_reason_over_http(): void
-    {
-        Bus::fake();
-
-        $this->postJson(self::BASE.'/start-run', [
-            'operator_actor' => 'vitor',
-            'mode' => 'execute',
-        ], $this->headers)
-            ->assertStatus(422)
-            ->assertJsonPath('reason', 'operator_reason_required');
-
-        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
-
-        $this->postJson(self::BASE.'/start-run', [
-            'operator_actor' => 'vitor',
-            'operator_reason' => 'janela noturna aprovada',
-            'mode' => 'execute',
-        ], $this->headers)
-            ->assertStatus(202)
-            ->assertJsonPath('execute', true)
-            ->assertJsonPath('operator_reason_recorded', true)
-            ->assertJsonPath('started', false);
-
-        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
-            return $job->input['operator_reason'] === 'janela noturna aprovada';
-        });
-    }
-
-    public function test_start_run_is_blocked_409_when_a_live_lock_holds_over_http(): void
-    {
-        Bus::fake();
-        // Real, non-expired, non-orphaned lock (this test process' own PID/host).
-        $path = $this->runner()->lockPath(self::AREA, 'dev_forge');
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, (string) json_encode([
-            'run_id' => 'ap790run_live',
-            'host' => gethostname() ?: 'unknown',
-            'pid' => getmypid() ?: 0,
-            'acquired_at_epoch' => microtime(true),
-            'lease_ttl_seconds' => 3600,
-        ], JSON_UNESCAPED_SLASHES));
-
-        $this->postJson(self::BASE.'/start-run', [
-            'operator_actor' => 'vitor',
-            'operator_reason' => 'verificar bloqueio do lease ativo',
-            'mode' => 'execute',
-        ], $this->headers)
-            ->assertStatus(409)
-            ->assertJsonPath('status', 'blocked')
-            ->assertJsonPath('reason', 'loop_already_running')
-            ->assertJsonPath('holder.run_id', 'ap790run_live');
-
-        // No double-launch while a run is live.
-        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
     }
 
     public function test_transfer_records_a_durable_request_for_the_actual_lock_holder_over_http(): void

@@ -986,8 +986,9 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     // NOTE: register the static `/loop/areas` before `/loop/{area}/...` so the picker route is never
     // captured as an area id. DEPLOY: after editing this file run `docker exec atlas-backend php
     // artisan route:clear` — route:cache is baked into the bootstrap/cache volume at boot, so new
-    // routes 404 over HTTP until cleared. start-run's PREFERRED launch needs a worker consuming the
-    // `software_company_loop` queue (the existing atlas-queue only does transcription/default).
+    // routes 404 over HTTP until cleared.
+    // NOTE (god-debulk step 5): the POST /loop/{area}/start-run write-surface (which enqueued the
+    // second-engine SoftwareCompanyLoopRunJob) was RETIRED. The runner read-model still backs the GETs.
     Route::get('/loop/areas', [AreaFocusLoopCommandController::class, 'areas']);
     Route::get('/loop/{area}/live', [AreaFocusLoopCommandController::class, 'live']);
     Route::get('/loop/{area}/cycles', [AreaFocusLoopCommandController::class, 'cycles']);
@@ -996,7 +997,6 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     Route::get('/loop/{area}/transfer/{handoffId}', [AreaFocusLoopCommandController::class, 'transferStatus']);
     Route::get('/autonomos/digest', AutonomosDigestController::class);
     Route::post('/autonomos/{area}/cycles/{cycle}/revert', [AreaFocusLoopCommandController::class, 'revertCycle']);
-    Route::post('/loop/{area}/start-run', [AreaFocusLoopCommandController::class, 'startRun']);
     Route::post('/loop/{area}/transfer', [AreaFocusLoopCommandController::class, 'transfer']);
     Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);
     Route::post('/loop/{area}/run-control', [AreaFocusLoopCommandController::class, 'runControl']);

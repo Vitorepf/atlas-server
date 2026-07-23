@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Ai\SoftwareCompanyStewardship;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
@@ -76,22 +75,7 @@ final class AreaFocusLoopCommandController extends Controller
 
     public const DONE_SCHEMA = 'atlas.software_company_stewardship.loop_command_done.v1';
 
-    public const START_RUN_SCHEMA = 'atlas.software_company_stewardship.loop_command_start_run.v1';
-
     public const TRANSFER_SCHEMA = 'atlas.software_company_stewardship.loop_command_transfer.v1';
-
-    /** Default scope profile the runner selects with (matches the CLI default). */
-    private const DEFAULT_SCOPE_PROFILE = 'factory_max';
-
-    /** Start-run launch modes — `execute` is the DESTRUCTIVE real path and must be explicit. */
-    private const START_RUN_MODES = ['dry_run', 'execute'];
-
-    /** Duration model for a run: bounded by cycles, bounded by hours, or run-until-first-block. */
-    private const RUN_MODES = ['cycles', 'hours', 'until_blocked'];
-
-    /** In cycles/hours modes a blocked cycle repairs-and-continues; this lifts the blocked-in-row
-     *  stop. The real cascade-halt (a recurring SAME failure) still guards against infinite loops. */
-    private const REPAIR_AND_CONTINUE_BLOCKED_CEILING = 9999;
 
     /** Operator-facing done cap (delivered = merged cycles with provider-proof). */
     private const DONE_LIMIT_DEFAULT = 20;
@@ -421,198 +405,6 @@ final class AreaFocusLoopCommandController extends Controller
             ->enqueue($area, $cycle, $this->body($request));
 
         return response()->json($body, $status);
-    }
-
-    /**
-     * POST start-run — launch the REAL AP-790 reliable 24h loop for a chosen area, governed + honest.
-     *
-     * This endpoint NEVER fakes a running run. It cannot honestly start a durable process from inside
-     * a request (a request-tied child dies with the request), so it ENQUEUES the real runner on the
-     * dedicated `software_company_loop` queue and returns status=enqueued. The loop is only ever
-     * reported "started" by run_state.lock.held in /live, which flips true when a worker picks the job
-     * up. Pre-flight composes the runner's own lockStatus(): if a live run already holds the lock it
-     * returns 409 loop_already_running (the runner's exclusive lock is the real guard — a second run
-     * no-ops). `mode=execute` is the DESTRUCTIVE real path and must be explicit; default is dry_run.
-     */
-    public function startRun(Request $request, string $area): JsonResponse
-    {
-        $input = $this->body($request);
-        $actor = trim((string) ($input['operator_actor'] ?? ''));
-        $focus = $this->focusFrom($input['focus'] ?? null);
-        $mode = strtolower(trim((string) ($input['mode'] ?? 'dry_run')));
-        $operatorReason = trim((string) ($input['operator_reason'] ?? ''));
-
-        if ($actor === '') {
-            return $this->blocked('operator_actor_required', 'operator_actor is required (a run must be operator-owned).');
-        }
-        if (! in_array($mode, self::START_RUN_MODES, true)) {
-            return $this->blocked('invalid_mode', 'mode must be one of '.implode(', ', self::START_RUN_MODES).' (execute is the destructive real path and must be explicit).');
-        }
-        if ($mode === 'execute' && $operatorReason === '') {
-            return $this->blocked('operator_reason_required', 'operator_reason is required when mode=execute so the governed launch is auditable.');
-        }
-        if (mb_strlen($operatorReason) > 1000) {
-            return $this->blocked('operator_reason_too_long', 'operator_reason may not exceed 1000 characters.');
-        }
-
-        // Area must be registered (the registry is the authority on what may run). Mirror the
-        // stable unknown-area shape so the surface stays keyed identically to /live.
-        if (! $this->areaRegistry->isRegistered($area)) {
-            return response()->json([
-                'error' => [
-                    'code' => 'unknown_area',
-                    'message' => "Area '{$area}' is not registered for the loop.",
-                    'supported_areas' => array_values($this->areaRegistry->registeredAreas()),
-                ],
-            ], 404);
-        }
-
-        // Pre-flight: a held, non-reclaimable lock means a real run is already live. Block (never
-        // double-launch). The holder is surfaced for audit. This composes the runner's truth; it
-        // does not write the lock (acquireLock inside run() owns that on the worker).
-        $lock = $this->loopRunner->lockStatus($area, $focus);
-        if (($lock['held'] ?? false) === true && ($lock['available'] ?? false) === false) {
-            $holder = is_array($lock['holder'] ?? null) ? $lock['holder'] : [];
-
-            return response()->json([
-                'schema_version' => self::START_RUN_SCHEMA,
-                'status' => 'blocked',
-                'reason' => 'loop_already_running',
-                'area_id' => $area,
-                'focus' => $focus,
-                'holder' => [
-                    'run_id' => (string) ($holder['run_id'] ?? ''),
-                    'pid' => (int) ($holder['pid'] ?? 0),
-                    'acquired_at' => (string) ($holder['acquired_at'] ?? ''),
-                ],
-                'detail' => 'A run already holds the exclusive lock for this area/focus. Wait for its lease to expire or stop it via run-control.',
-                'generated_at' => $this->nowAtom(),
-            ], 409);
-        }
-
-        $execute = ($mode === 'execute');
-
-        // Build the SAME input map AtlasSoftwareCompanyReliable24hLoopCommand builds, so the queued
-        // runner path is byte-identical to the CLI path. Provider/model default to the configured
-        // engine when omitted (never hardcode an exhausted provider). dry_run = !execute.
-        $provider = trim((string) ($input['provider'] ?? ''));
-        if ($provider === '') {
-            $provider = (string) config('atlas_dev.provider.default_provider', 'claude_cli') ?: 'claude_cli';
-        }
-        $model = trim((string) ($input['model'] ?? ''));
-        if ($model === '') {
-            $model = (string) config('atlas.ai.providers.'.$provider.'.model', '');
-        }
-        $scopeProfile = trim((string) ($input['scope_profile'] ?? '')) ?: self::DEFAULT_SCOPE_PROFILE;
-        $autoMerge = (bool) ($input['auto_merge'] ?? false);
-
-        $maxRuntimeMinutes = $this->optInt($input['max_runtime_minutes'] ?? null);
-        $maxCycles = $this->optInt($input['max_cycles'] ?? null);
-        $maxMerges = $this->optInt($input['max_merges'] ?? null);
-        $sleepSeconds = $this->optInt($input['sleep_seconds'] ?? null);
-
-        // Duration model (operator-chosen). 'cycles' (run N cycles) and 'hours' (run N hours) both
-        // REPAIR-AND-CONTINUE on a blocked cycle: continue_on_blocked=true and the blocked-in-row stop
-        // is lifted, so only the chosen budget and the real cascade-halt (the SAME failure recurring —
-        // a genuine anti-infinite-loop guard inside run()) end the run. 'until_blocked' stops at the
-        // first blocked cycle (continue_on_blocked=false). Absent run_mode keeps the raw input budgets.
-        $runMode = strtolower(trim((string) ($input['run_mode'] ?? '')));
-        if ($runMode !== '' && ! in_array($runMode, self::RUN_MODES, true)) {
-            return $this->blocked('invalid_run_mode', 'run_mode must be one of '.implode(', ', self::RUN_MODES).'.');
-        }
-        $continueOnBlocked = null;
-        $maxBlockedInRow = null;
-        if ($runMode === 'cycles') {
-            $maxCycles = max(1, (int) ($input['cycles'] ?? $maxCycles ?? 1));
-            $maxRuntimeMinutes = null;
-            $continueOnBlocked = true;
-            $maxBlockedInRow = self::REPAIR_AND_CONTINUE_BLOCKED_CEILING;
-        } elseif ($runMode === 'hours') {
-            $maxRuntimeMinutes = max(1, (int) ($input['hours'] ?? 1)) * 60;
-            $maxCycles = null;
-            $continueOnBlocked = true;
-            $maxBlockedInRow = self::REPAIR_AND_CONTINUE_BLOCKED_CEILING;
-        } elseif ($runMode === 'until_blocked') {
-            $continueOnBlocked = false;
-        }
-
-        $runnerInput = [
-            'area_id' => $area,
-            'focus' => $focus,
-            'scope_profile' => $scopeProfile,
-            'provider' => $provider,
-            'model' => $model,
-            'repo_root' => trim((string) ($input['repo_root'] ?? '')),
-            'actor' => $actor,
-            'operator_reason' => $operatorReason !== '' ? $operatorReason : null,
-            'execute' => $execute,
-            'auto_merge' => $autoMerge,
-            'dry_run' => ! $execute,
-            // Operator opt-in for single-writer override (CanonicalWorktreeWriteGuard).
-            // Default false — mutating runs still refuse the human checkout unless set.
-            'allow_canonical_worktree_write' => (bool) ($input['allow_canonical_worktree_write'] ?? false),
-        ];
-        // Pin a provider-safe finding through the existing injected_finding seam
-        // (used by V3 self-construction e2e / operator-directed slices).
-        if (is_array($input['injected_finding'] ?? null) && $input['injected_finding'] !== []) {
-            $runnerInput['injected_finding'] = $input['injected_finding'];
-        }
-        if ($maxRuntimeMinutes !== null) {
-            $runnerInput['max_runtime_minutes'] = $maxRuntimeMinutes;
-        }
-        if ($maxCycles !== null) {
-            $runnerInput['max_cycles'] = $maxCycles;
-        }
-        if ($maxMerges !== null) {
-            $runnerInput['max_merges'] = $maxMerges;
-        }
-        if ($sleepSeconds !== null) {
-            $runnerInput['sleep_seconds'] = $sleepSeconds;
-        }
-        if ($continueOnBlocked !== null) {
-            $runnerInput['continue_on_blocked'] = $continueOnBlocked;
-        }
-        if ($maxBlockedInRow !== null) {
-            $runnerInput['max_blocked_in_row'] = $maxBlockedInRow;
-        }
-
-        // Enqueue the REAL runner. The dispatch returns immediately; the lock flips only when a
-        // worker consumes the job. We NEVER set status=running here — /live's lock.held is the only
-        // truth that it started.
-        SoftwareCompanyLoopRunJob::dispatch($runnerInput, $area, $focus);
-
-        return response()->json([
-            'schema_version' => self::START_RUN_SCHEMA,
-            'status' => 'enqueued',
-            'launch' => 'queued_job',
-            'queue' => SoftwareCompanyLoopRunJob::QUEUE,
-            'area_id' => $area,
-            'focus' => $focus,
-            'mode' => $mode,
-            'execute' => $execute,
-            'requires_worker' => true,
-            'operator_actor' => $actor,
-            'operator_reason_recorded' => $operatorReason !== '',
-            'input_echo' => [
-                'run_mode' => $runMode !== '' ? $runMode : null,
-                'continue_on_blocked' => $continueOnBlocked,
-                'max_runtime_minutes' => $maxRuntimeMinutes,
-                'max_cycles' => $maxCycles,
-                'max_merges' => $maxMerges,
-                'auto_merge' => $autoMerge,
-                'scope_profile' => $scopeProfile,
-                'provider' => $provider,
-                'model' => $model,
-            ],
-            // HONEST: the run is QUEUED, not started. Nothing is fabricated.
-            'started' => false,
-            'merge_performed' => false,
-            'provider_invoked' => false,
-            'note' => 'Run is QUEUED, not started. A worker consuming '.SoftwareCompanyLoopRunJob::QUEUE
-                .' must be running. This endpoint never blocks and never fabricates a running run. '
-                .'Poll /live; run_state.lock.held flips true only when the worker picks it up.',
-            'generated_at' => $this->nowAtom(),
-        ], 202);
     }
 
     /**
@@ -1133,20 +925,6 @@ final class AreaFocusLoopCommandController extends Controller
         }
 
         return max(1, min((int) $raw, $max));
-    }
-
-    /**
-     * Coerce an optional positive int body field (start-run budgets). Empty/absent => null so the
-     * runner falls back to its own documented default; never forces 0 over an unset budget.
-     */
-    private function optInt(mixed $value): ?int
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        $int = (int) $value;
-
-        return $int > 0 ? $int : null;
     }
 
     /**
