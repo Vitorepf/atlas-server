@@ -1846,3 +1846,43 @@ outcome_status: recorded
 auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 60 — RootSinglesRehome Instrumentation, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Instrumentation
+commit: fb9c128b5
+subject: "refactor(core): GOD-DEBULK RootSingles Instrumentation rehome"
+scope:
+  - app/Services/Ai/Instrumentation/AiTraceArtifactsProjection.php, AiTraceEngineeringReviewProjection.php, AiWorkerLogger.php, AtlasProviderProjectionService.php, AtlasProviderProjectionAuditService.php, and AtlasProviderProjectionAuditPurgePolicy.php
+  - canonical direct consumers, architecture scanner paths, one-cycle aliases, compatibility coverage, AI CODEMAP, and canonical engineering/droid navigation paths
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_instrumentation_services_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Instrumentation\\AiTraceArtifactsProjection was not resolvable before the re-home."
+green:
+  behavior: "The six trace, worker-event, provider-projection, audit, and purge owners now have one canonical Instrumentation namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "Compatibility verifies every canonical and retired class relationship; focused coverage exercises trace artifact allowlisting, trace-bound review, worker lifecycle use, provider-safe projection, audit, and operator-gated purge behavior."
+verification:
+  provider_projection_suite: "PASS 8 tests, 181 assertions (generation, safety, governance, apply, audit summary, CLI, and purge policy)."
+  trace_worker_suite: "PASS 20 tests, 174 assertions (trace engineering review, API actions, worker job control, and redaction drift)."
+  artifacts_suite: "PASS 8 tests, 43 assertions (trace-scoped manifest/content and path allowlist)."
+  parallel_root_compatibility: "PASS 11 tests, 62 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports unrelated existing PSR-4 warnings)."
+  root_sweep: "PASS: old root FQCN hits in PHP remain only in explicit compatibility imports and the intentionally escaped alias map. Canonical docs and droid paths name Instrumentation; archived and recovery material intentionally retains history."
+  php_lint: "PASS all 29 touched PHP files"
+  phpstan: "NOT GREEN: 15 Eloquent/model typing diagnostics in moved review/audit owners; no type-suppression or unrelated model work was added, so this gate is not used as proof."
+  pint: "PASS moved owners, aliases, root compatibility, and touched focused tests. Strict selected-file Pint is NOT GREEN for the large ProviderAudit scanner host; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=27)"
+  density_guard: "PASS current audit: >5k=12, >2k=46; Instrumentation owners=392/223/41/1082/287/40 LOC. Root first-level currently has 71 PHP files / 50,518 LOC; concurrent work confounds repository-wide deltas."
+  broader_suite: "NOT GREEN: 89 passed, 6 failed. Failures are an unset `/opt/homebrew/bin/php` prompt expectation and absent MCP inventory entries (`atlas_memory_recall`, `atlas_workspace_fleet_map`, `atlas_workspace_status`, `atlas_workspace_map`) while concurrent OpenBrainMcp extraction WIP is present; not used as proof."
+  architecture_gate: "NOT GREEN: 3 failed, 3 passed. Live diagnostic reports unrelated Surface `context_pack` scanner violation and documentation-health failures; not used as proof."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; artifact path allowlists, trace/run identity, review fail-closed behavior, worker event persistence, provider-safe projection, audit retention authorization, and scanner policy are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - concurrent `AtlasOpenBrainMcpService.php` extraction WIP (and its untracked OpenBrainMcp directory) was preserved and excluded from this commit; its historical root consumer remains valid through the alias until its owner lands the canonical import
+write_back:
+  status: pending_human_review
+  auto_promoted: false
+```
