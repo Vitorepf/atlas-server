@@ -33,6 +33,16 @@ class AtlasSelfImprovementRuntime
      */
     private ?array $architectureValidationPayload = null;
 
+    private readonly Runtime\FilterNormalizationSection $filterNormalization;
+
+    private readonly Runtime\RunLifecycleSection $runLifecycle;
+
+    private readonly Runtime\CycleHealthFindingsSection $cycleHealth;
+
+    private readonly Runtime\ReviewFindingsSection $reviewFindings;
+
+    private readonly Runtime\ProviderCostRateReplaySection $providerCostRateReplay;
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasLedgerReplayService $replay,
@@ -46,7 +56,18 @@ class AtlasSelfImprovementRuntime
         private readonly DynamicComputeMarketAdvisor $dynamicComputeMarket,
         private readonly LocalRagBenchmarkService $localRagBenchmark,
         private readonly ProductiveFailureSessionRepository $productiveFailureSessions,
-    ) {}
+    ) {
+        $this->filterNormalization = new Runtime\FilterNormalizationSection;
+        $this->runLifecycle = new Runtime\RunLifecycleSection($this->ledger);
+        $this->cycleHealth = new Runtime\CycleHealthFindingsSection;
+        $this->reviewFindings = new Runtime\ReviewFindingsSection(
+            $this->replay,
+            $this->productiveFailureSessions,
+            $this->architectureOperations,
+            $this->filterNormalization,
+        );
+        $this->providerCostRateReplay = new Runtime\ProviderCostRateReplaySection;
+    }
 
     /**
      * @param  array<string,string|null>  $filters
@@ -238,19 +259,9 @@ class AtlasSelfImprovementRuntime
         };
     }
 
-    /**
-     * @return Collection<int,AtlasLedgerEvent>
-     */
     private function ledgerEvents(int $hours): Collection
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
-            return new Collection;
-        }
-
-        return AtlasLedgerEvent::query()
-            ->where('occurred_at', '>=', now()->subHours($hours))
-            ->orderBy('occurred_at')
-            ->get();
+        return $this->runLifecycle->ledgerEvents($hours);
     }
 
     /**
@@ -356,157 +367,9 @@ class AtlasSelfImprovementRuntime
         ]];
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<int,array<string,mixed>>
-     */
     private function openBrainPromptMetricFindings(int $hours, array $filters = []): array
     {
-        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
-            return [];
-        }
-
-        $query = AtlasOpenBrainAccessLog::query()
-            ->where('accessed_at', '>=', now()->subHours($hours))
-            ->where('action', 'context_pack_export');
-
-        if (($filters['surface'] ?? null) !== null) {
-            $query->where('surface', $filters['surface']);
-        }
-
-        $logs = $query
-            ->orderByDesc('accessed_at')
-            ->limit(100)
-            ->get();
-
-        $rows = $logs
-            ->map(function (AtlasOpenBrainAccessLog $log): ?array {
-                $summary = (array) ($log->result_summary_json ?? []);
-                $prompt = data_get($summary, 'prompt');
-                if (! is_array($prompt)) {
-                    return null;
-                }
-
-                return [
-                    'id' => $log->id,
-                    'surface' => $log->surface,
-                    'requester' => $log->requester,
-                    'context_pack_hash' => $log->context_pack_hash,
-                    'mode' => (string) ($prompt['mode'] ?? 'unknown'),
-                    'chars' => (int) ($prompt['chars'] ?? 0),
-                    'estimated_tokens' => (int) ($prompt['estimated_tokens'] ?? 0),
-                    'saved_chars' => (int) ($prompt['saved_chars'] ?? 0),
-                    'estimated_tokens_saved' => (int) ($prompt['estimated_tokens_saved'] ?? 0),
-                    'savings_ratio' => (float) ($prompt['savings_ratio'] ?? 0),
-                    'raw_prompt_persisted' => (bool) ($prompt['raw_prompt_persisted'] ?? false)
-                        || (bool) data_get($summary, 'safety.prompt_raw_prompt_persisted', false)
-                        || array_key_exists('prompt_section', $summary),
-                    'accessed_at' => $log->accessed_at?->toJSON(),
-                ];
-            })
-            ->filter()
-            ->values();
-
-        if ($rows->isEmpty()) {
-            return [];
-        }
-
-        $compactRows = $rows->where('mode', 'compact')->values();
-        $fullRows = $rows->where('mode', 'full')->values();
-        $unknownRows = $rows
-            ->reject(fn (array $row): bool => in_array($row['mode'], ['compact', 'full'], true))
-            ->values();
-        $rawPromptViolations = $rows
-            ->filter(fn (array $row): bool => (bool) ($row['raw_prompt_persisted'] ?? false))
-            ->values();
-        $lowSavingsRows = $compactRows
-            ->filter(fn (array $row): bool => (float) ($row['savings_ratio'] ?? 0) < 0.25)
-            ->values();
-
-        $observedCount = $rows->count();
-        $fullModeRatio = $observedCount > 0 ? round($fullRows->count() / $observedCount, 4) : 0.0;
-        $fullModeDominant = $observedCount >= 3 && $fullModeRatio > 0.5;
-        $reasons = [];
-        if ($rawPromptViolations->isNotEmpty()) {
-            $reasons[] = 'raw_prompt_persistence_detected';
-        }
-        if ($lowSavingsRows->isNotEmpty()) {
-            $reasons[] = 'compact_prompt_savings_below_threshold';
-        }
-        if ($fullModeDominant) {
-            $reasons[] = 'full_prompt_mode_dominant';
-        }
-        if ($unknownRows->isNotEmpty()) {
-            $reasons[] = 'unknown_prompt_mode_observed';
-        }
-
-        if ($reasons === []) {
-            return [];
-        }
-
-        $modeCounts = $rows
-            ->map(fn (array $row): string => (string) ($row['mode'] ?? 'unknown'))
-            ->countBy()
-            ->all();
-        $status = $rawPromptViolations->isNotEmpty() ? 'blocking' : 'review';
-        $severity = $rawPromptViolations->isNotEmpty() ? 'high' : 'medium';
-        $recommendedAction = $rawPromptViolations->isNotEmpty()
-            ? 'remove_raw_prompt_persistence_before_next_open_brain_policy_change'
-            : 'review_open_brain_prompt_metric_regression_before_changing_prompt_delivery_policy';
-
-        return [[
-            'title' => 'Corrigir regressao de economia de contexto no Open Brain',
-            'category' => 'self_improvement',
-            'finding' => 'Open Brain registrou '.$observedCount.' export(s) com metricas de prompt e sinalizou regressao: '.implode(', ', $reasons).'.',
-            'problem' => 'Quando exports de contexto voltam a usar prompt full, economizam pouco ou persistem prompt bruto, providers externos recebem contexto maior, menos navegavel ou menos seguro.',
-            'solution' => 'Abrir proposta revisavel para ajustar a politica compact-first, preservar expansao sob demanda e corrigir qualquer persistencia indevida antes de promover mudancas em AOBG/MCP.',
-            'worth_it' => 'Vale porque transforma token bloat e vazamento de prompt em feedback operacional auditavel, fechando o ciclo metricas -> Self-Improvement -> politica de contexto.',
-            'best_solution_rationale' => 'Consumir atlas_open_brain_access_logs reaproveita a evidencia operacional do AOBG sem criar memoria paralela nem guardar prompt bruto.',
-            'alternatives' => ['Manter apenas alerta manual no maintenance status.', 'Rebaixar full mode dominante para observacao quando for auditoria explicitamente aprovada.'],
-            'source_refs' => $rows
-                ->take(5)
-                ->map(fn (array $row): array => [
-                    'type' => 'open_brain_prompt_metric',
-                    'id' => $row['id'],
-                    'surface' => $row['surface'],
-                    'requester' => $row['requester'],
-                    'context_pack_hash' => $row['context_pack_hash'],
-                    'mode' => $row['mode'],
-                    'chars' => $row['chars'],
-                    'estimated_tokens' => $row['estimated_tokens'],
-                    'saved_chars' => $row['saved_chars'],
-                    'estimated_tokens_saved' => $row['estimated_tokens_saved'],
-                    'savings_ratio' => $row['savings_ratio'],
-                    'raw_prompt_persisted' => $row['raw_prompt_persisted'],
-                    'accessed_at' => $row['accessed_at'],
-                ])
-                ->values()
-                ->all(),
-            'confidence' => $rawPromptViolations->isNotEmpty() ? 0.92 : 0.84,
-            'dedupe_key' => 'self-improvement:open-brain-prompt-metrics:'.sha1(implode('|', $reasons).':'.implode('|', array_keys($modeCounts))),
-            'metadata' => [
-                'schema_version' => 'atlas.self_improvement.open_brain_prompt_metrics.v1',
-                'review_signal' => [
-                    'status' => $status,
-                    'severity' => $severity,
-                    'reasons' => $reasons,
-                    'recommended_action' => $recommendedAction,
-                ],
-                'observed_count' => $observedCount,
-                'compact_count' => $compactRows->count(),
-                'full_count' => $fullRows->count(),
-                'unknown_mode_count' => $unknownRows->count(),
-                'mode_counts' => $modeCounts,
-                'full_mode_ratio' => $fullModeRatio,
-                'raw_prompt_persistence_violation_count' => $rawPromptViolations->count(),
-                'low_savings_count' => $lowSavingsRows->count(),
-                'avg_chars' => round((float) $rows->avg('chars'), 2),
-                'avg_saved_chars' => round((float) $rows->avg('saved_chars'), 2),
-                'avg_estimated_tokens_saved' => round((float) $rows->avg('estimated_tokens_saved'), 2),
-                'avg_savings_ratio' => round((float) $rows->avg('savings_ratio'), 4),
-                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
-            ],
-        ]];
+        return $this->reviewFindings->openBrainPromptMetricFindings($hours, $filters);
     }
 
     /**
@@ -829,115 +692,14 @@ class AtlasSelfImprovementRuntime
         ]];
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<int,array<string,mixed>>
-     */
     private function productiveFailureTransferTestFindings(array $filters = []): array
     {
-        $domain = $filters['domain'] ?? null;
-        $proposals = $this->productiveFailureSessions->transferTestProposals($domain, 90, dueOnly: true);
-
-        if ($proposals === []) {
-            return [];
-        }
-
-        $proposalIds = collect($proposals)->pluck('transfer_test_id')->filter()->values()->all();
-
-        return [[
-            'title' => 'Revisar transfer_tests vencidos de Productive Failure',
-            'category' => 'self_improvement',
-            'finding' => 'Existem testes de transferencia do AP-168 ja vencidos; eles precisam de review humano para provar se o erro preditivo virou transferencia real.',
-            'problem' => 'Sem uma proposta dedicada, o Atlas pode gerar erro produtivo, mas esquecer a prova futura que transforma insight em maestria transferivel.',
-            'solution' => 'Abrir revisao proposal-only dos transfer_tests vencidos, mantendo auto_apply=false e exigindo aceite humano antes de qualquer mudanca de curriculo, mastery ou schedule.',
-            'worth_it' => 'Vale porque fecha o ciclo C14/C16/C20: gerar erro, extrair principio e provar transferencia em outro caso sem criar estudo automatico.',
-            'best_solution_rationale' => 'O Curator le o read-model do proprio AP-168 e emite uma proposta revisavel; Learning continua dono do flow e Self-Improvement nao auto-matricula nada.',
-            'alternatives' => ['Revisar manualmente via CLI.', 'Aguardar mais dados antes de promover UX App/Mobile.', 'Arquivar propostas antigas caso o contexto tenha expirado.'],
-            'available_actions' => [
-                ['id' => 'review_due_productive_failure_transfer_tests', 'label' => 'Revisar transfer_tests', 'style' => 'primary'],
-                ['id' => 'reschedule_transfer_tests', 'label' => 'Reagendar com review', 'style' => 'secondary'],
-                ['id' => 'archive_stale_transfer_tests', 'label' => 'Arquivar obsoletos', 'style' => 'secondary'],
-            ],
-            'source_refs' => [
-                ['type' => 'ap', 'id' => 'docs/ap/AP-168-cognitive-productive-failure-flow.md'],
-                ['type' => 'command', 'id' => 'php artisan atlas:productive-failure transfer-tests --due-only --json'],
-                ['type' => 'domain_flow', 'id' => 'learning.productive_failure'],
-            ],
-            'confidence' => min(0.96, 0.78 + (count($proposals) * 0.03)),
-            'dedupe_key' => 'self-improvement:productive-failure-transfer-tests:'.sha1(implode('|', $proposalIds)),
-            'metadata' => [
-                'schema_version' => 'atlas.self_improvement.productive_failure_transfer_review.v1',
-                'proposal_count' => count($proposals),
-                'proposal_ids' => $proposalIds,
-                'review_signal' => [
-                    'status' => 'warning',
-                    'severity' => count($proposals) >= 3 ? 'medium' : 'low',
-                    'review_required' => true,
-                    'reasons' => ['productive_failure_transfer_tests_due_for_human_review'],
-                    'recommended_action' => 'review_due_productive_failure_transfer_tests',
-                ],
-                'policy_contract' => [
-                    'status' => 'proposal_only',
-                    'auto_apply' => false,
-                    'human_review_required' => true,
-                    'forbidden_mutations' => ['curriculum_auto_enroll', 'mastery_auto_promote', 'schedule_auto_write'],
-                ],
-                'proposals' => array_slice($proposals, 0, 10),
-                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
-            ],
-        ]];
+        return $this->reviewFindings->productiveFailureTransferTestFindings($filters);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<int,array<string,mixed>>
-     */
     private function providerReleaseGovernanceFindings(array $filters = []): array
     {
-        $summary = $this->architectureOperations->summary(['kind' => 'provider_evolution']);
-        $operationIds = (array) ($summary['operation_ids'] ?? []);
-        $missing = [];
-
-        if (! in_array('provider_release_review', $operationIds, true)) {
-            $missing[] = 'provider_release_review_operation_missing';
-        }
-        if (! is_file(base_path('docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md'))) {
-            $missing[] = 'provider_evolution_doc_missing';
-        }
-
-        if ($missing === []) {
-            return [];
-        }
-
-        return [[
-            'title' => 'Restaurar governanca de Provider Evolution',
-            'category' => 'self_improvement',
-            'finding' => 'O fluxo de Provider Evolution perdeu parte do contrato executavel que impede lancamentos externos de virarem hardcode ou canal direto.',
-            'problem' => 'Sem review governado, Atlas pode reagir a novidades de Claude/OpenAI/Gemini como wrapper fragil em vez de absorver via Decide, Rivals, skill packs e APs.',
-            'solution' => 'Restaurar o comando provider-release-review, doc canonico e catalogo de arquitetura antes de qualquer policy ou maturidade de domain baseada em release externo.',
-            'worth_it' => 'Vale porque protege a tese central: providers melhoram, Atlas multiplica sem perder o canal unico.',
-            'best_solution_rationale' => 'Auditar a superficie executavel no Curator e mais seguro do que depender de memoria humana ou prompt solto.',
-            'alternatives' => ['Arquivar o release ate a governanca voltar.', 'Rodar apenas benchmark manual sem promocao para policy.'],
-            'source_refs' => [
-                ['type' => 'architecture_operations', 'id' => 'provider_evolution'],
-                ['type' => 'doc', 'id' => 'docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md'],
-            ],
-            'dedupe_key' => 'self-improvement:provider-release-governance:'.sha1(implode('|', $missing)),
-            'confidence' => 0.96,
-            'metadata' => [
-                'schema_version' => 'atlas.self_improvement.provider_release_governance.v1',
-                'missing' => $missing,
-                'filters' => $this->normalizedProviderReleaseFilters($filters),
-                'recommended_action' => 'restore_provider_release_governance_contract',
-                'review_signal' => [
-                    'status' => 'breach',
-                    'severity' => 'high',
-                    'review_required' => true,
-                    'reasons' => $missing,
-                    'recommended_action' => 'restore_provider_release_governance_contract',
-                ],
-            ],
-        ]];
+        return $this->reviewFindings->providerReleaseGovernanceFindings($filters);
     }
 
     /**
@@ -1269,72 +1031,9 @@ class AtlasSelfImprovementRuntime
             ->all();
     }
 
-    /**
-     * @param  Collection<int,AtlasLedgerEvent>  $events
-     * @return array<int,array<string,mixed>>
-     */
     private function sloDriftFindings(Collection $events, array $filters = []): array
     {
-        $sloEvents = $events->where('event_type', LedgerEventType::SloObserved->value);
-        if ($sloEvents->isEmpty()) {
-            return [];
-        }
-
-        $oldest = CarbonImmutable::parse($sloEvents->min('occurred_at') ?? now()->subDay());
-        $newest = CarbonImmutable::parse($sloEvents->max('occurred_at') ?? now())->addSecond();
-        $filters = $this->normalizedDimensionFilters($filters);
-        $report = $this->replay->sloReportForWindow($oldest, $newest, $filters);
-        if (($report['observation_count'] ?? 0) === 0) {
-            return [];
-        }
-
-        return collect((array) ($report['stages'] ?? []))
-            ->filter(fn (array $stage): bool => in_array($stage['worst_status'] ?? null, ['warning', 'breach'], true) || (int) ($stage['failure_count'] ?? 0) > 0)
-            ->map(function (array $stage, string $stageName) use ($report, $filters): array {
-                $status = (string) ($stage['worst_status'] ?? 'unknown');
-                $severity = (string) ($stage['worst_severity'] ?? 'unknown');
-                $violationText = implode(', ', (array) ($stage['violations'] ?? []));
-
-                return [
-                    'title' => "Investigar SLO drift em {$stageName}",
-                    'category' => 'self_improvement',
-                    'finding' => "Stage {$stageName} apresentou status {$status} com severidade {$severity} na janela analisada.",
-                    'problem' => 'Drift de SLO indica regressao de latencia, falha de runtime, gate instavel ou custo operacional acima do contrato kernel.',
-                    'solution' => 'Abrir proposta de investigacao com replay dos envelopes recentes, comparar p50/p95/max, separar causa por provider/surface/domain e adicionar teste ou guardrail antes de alterar runtime.',
-                    'worth_it' => 'Vale porque transforma degradacao operacional em backlog mensuravel antes que vire falha percebida pelo usuario.',
-                    'best_solution_rationale' => 'Usar o read model do Evidence Ledger preserva causalidade e evita dashboards ou Curator com queries duplicadas.',
-                    'alternatives' => ['Observar por mais uma janela antes de agir.', 'Ajustar SLO target somente depois de benchmark e justificativa documentada.'],
-                    'source_refs' => collect((array) ($report['recent_breaches'] ?? []))
-                        ->where('stage', $stageName)
-                        ->take(5)
-                        ->map(fn (array $observation): array => [
-                            'type' => 'ledger_event',
-                            'id' => $observation['event_id'] ?? null,
-                            'envelope_id' => $observation['envelope_id'] ?? null,
-                            'dimensions' => $observation['dimensions'] ?? [],
-                        ])
-                        ->values()
-                        ->all(),
-                    'confidence' => $status === 'breach' ? 0.9 : 0.82,
-                    'dedupe_key' => 'self-improvement:slo-drift:'.sha1($stageName.':'.$status.':'.$violationText),
-                    'metadata' => [
-                        'stage' => $stageName,
-                        'status' => $status,
-                        'severity' => $severity,
-                        'count' => $stage['count'] ?? 0,
-                        'failure_count' => $stage['failure_count'] ?? 0,
-                        'p50_ms' => $stage['p50_ms'] ?? 0,
-                        'p95_ms' => $stage['p95_ms'] ?? 0,
-                        'max_ms' => $stage['max_ms'] ?? 0,
-                        'violations' => $stage['violations'] ?? [],
-                        'dimensions' => $stage['dimensions'] ?? [],
-                        'review_signal' => $report['review_signal'] ?? [],
-                        'filters' => $filters,
-                    ],
-                ];
-            })
-            ->values()
-            ->all();
+        return $this->reviewFindings->sloDriftFindings($events, $filters);
     }
 
     /**
@@ -2589,54 +2288,14 @@ class AtlasSelfImprovementRuntime
         ]];
     }
 
-    /**
-     * @param  array<string,mixed>  $event
-     * @return array<string,mixed>
-     */
     private function providerCostRateReplaySourceRef(array $event): array
     {
-        return [
-            'type' => 'ledger_event',
-            'id' => $event['event_id'] ?? null,
-            'event_id' => $event['event_id'] ?? null,
-            'envelope_id' => $event['envelope_id'] ?? null,
-            'inbox_item_id' => $event['inbox_item_id'] ?? null,
-            'action' => $event['action'] ?? null,
-            'provider' => $event['provider_cost_rate_provider'] ?? null,
-            'model' => $event['provider_cost_rate_model'] ?? null,
-            'applied' => (bool) ($event['provider_cost_rate_applied'] ?? false),
-            'input_microusd' => $event['provider_cost_rate_input_microusd'] ?? null,
-            'output_microusd' => $event['provider_cost_rate_output_microusd'] ?? null,
-            'input_microusd_per_1k' => $event['provider_cost_rate_input_microusd'] ?? null,
-            'output_microusd_per_1k' => $event['provider_cost_rate_output_microusd'] ?? null,
-            'currency' => $event['provider_cost_rate_currency'] ?? null,
-            'effective_from' => $event['provider_cost_rate_effective_from'] ?? null,
-            'effective_until' => $event['provider_cost_rate_effective_until'] ?? null,
-            'rate_id' => $event['provider_cost_rate_id'] ?? null,
-            'occurred_at' => $event['occurred_at'] ?? null,
-        ];
+        return $this->providerCostRateReplay->providerCostRateReplaySourceRef($event);
     }
 
-    /**
-     * @param  array<string,mixed>  $event
-     * @return array<string,mixed>
-     */
     private function providerCostRateReplayPayloadEvent(array $event): array
     {
-        return [
-            'event_id' => $event['event_id'] ?? null,
-            'inbox_item_id' => $event['inbox_item_id'] ?? null,
-            'provider' => $event['provider_cost_rate_provider'] ?? null,
-            'model' => $event['provider_cost_rate_model'] ?? null,
-            'applied' => (bool) ($event['provider_cost_rate_applied'] ?? false),
-            'input_microusd_per_1k' => $event['provider_cost_rate_input_microusd'] ?? null,
-            'output_microusd_per_1k' => $event['provider_cost_rate_output_microusd'] ?? null,
-            'currency' => $event['provider_cost_rate_currency'] ?? null,
-            'effective_from' => $event['provider_cost_rate_effective_from'] ?? null,
-            'effective_until' => $event['provider_cost_rate_effective_until'] ?? null,
-            'rate_id' => $event['provider_cost_rate_id'] ?? null,
-            'occurred_at' => $event['occurred_at'] ?? null,
-        ];
+        return $this->providerCostRateReplay->providerCostRateReplayPayloadEvent($event);
     }
 
     /**
@@ -2739,52 +2398,24 @@ class AtlasSelfImprovementRuntime
         ]];
     }
 
-    /**
-     * Keep only whitelisted scalar filters, trimmed. Int keys map to themselves;
-     * string keys rename source => target (last write wins, preserving order).
-     *
-     * @param  array<string,string|null>  $filters
-     * @param  array<int|string,string>  $keys
-     * @return array<string,string>
-     */
     private function normalizedWhitelistFilters(array $filters, array $keys): array
     {
-        $normalized = [];
-        foreach ($keys as $source => $target) {
-            $value = $filters[is_int($source) ? $target : $source] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$target] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->filterNormalization->normalizedWhitelistFilters($filters, $keys);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedDimensionFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id']);
+        return $this->filterNormalization->normalizedDimensionFilters($filters);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedRepairFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['status', 'strategy', 'failure_domain', 'emitter_stage']);
+        return $this->filterNormalization->normalizedRepairFilters($filters);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedKernelPipelineFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['status', 'surface_id', 'flow', 'input_mode', 'emitter_stage']);
+        return $this->filterNormalization->normalizedKernelPipelineFilters($filters);
     }
 
     /**
@@ -2800,51 +2431,29 @@ class AtlasSelfImprovementRuntime
         ]);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedArchitectureValidationFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['status', 'domain', 'surface_id', 'provider', 'flow']);
+        return $this->filterNormalization->normalizedArchitectureValidationFilters($filters);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedProviderPerformanceFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['provider' => 'provider_cli', 'provider_cli', 'domain', 'flow', 'task_type', 'specialist_profile', 'risk', 'selection_mode']);
+        return $this->filterNormalization->normalizedProviderPerformanceFilters($filters);
     }
 
     private function knownProviderDimension(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' || $value === 'unknown' ? null : $value;
+        return $this->filterNormalization->knownProviderDimension($value);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedInboxActionFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['action', 'actor_type', 'inbox_item_category', 'inbox_item_severity', 'recommended_action', 'source_type']);
+        return $this->filterNormalization->normalizedInboxActionFilters($filters);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedDecisionReceiptFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'provider', 'model', 'risk']);
+        return $this->filterNormalization->normalizedDecisionReceiptFilters($filters);
     }
 
     /**
@@ -2856,24 +2465,9 @@ class AtlasSelfImprovementRuntime
         return $this->normalizedWhitelistFilters($filters, ['status', 'provider', 'model', 'agent_slug', 'finding_code', 'contract_id']);
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     */
     private function matchesDecisionReceiptFilters(AtlasLedgerEvent $event, array $filters): bool
     {
-        foreach ($this->normalizedDecisionReceiptFilters($filters) as $key => $value) {
-            $actual = match ($key) {
-                'provider' => data_get($event->payload, 'provider_selection.primary', data_get($event->payload, 'provider_selection.provider')),
-                'model' => data_get($event->payload, 'provider_selection.model'),
-                default => data_get($event->payload, $key),
-            };
-
-            if (! is_scalar($actual) || trim((string) $actual) !== $value) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->filterNormalization->matchesDecisionReceiptFilters($event, $filters);
     }
 
     /**
@@ -2894,208 +2488,44 @@ class AtlasSelfImprovementRuntime
         ];
     }
 
-    /**
-     * @param  array<string,string|null>  $filters
-     * @return array<string,string>
-     */
     private function normalizedProviderReleaseFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['provider', 'release_type', 'domain', 'recommended_action']);
+        return $this->filterNormalization->normalizedProviderReleaseFilters($filters);
     }
 
-    /**
-     * @param  Collection<int,AtlasLedgerEvent>  $events
-     * @return array<int,array<string,mixed>>
-     */
     private function missingTerminalFindings(Collection $events, ?string $currentEnvelopeId = null): array
     {
-        $terminal = [
-            LedgerEventType::OperationCompleted->value,
-            LedgerEventType::OperationFailed->value,
-            LedgerEventType::OperationBlocked->value,
-            LedgerEventType::OperationNeedsReview->value,
-        ];
-
-        return $events
-            ->where('event_type', LedgerEventType::ExecutionStarted->value)
-            ->groupBy('envelope_id')
-            ->reject(fn (Collection $started, string $envelopeId): bool => $currentEnvelopeId !== null && $envelopeId === $currentEnvelopeId)
-            ->filter(fn (Collection $started, string $envelopeId): bool => $events
-                ->where('envelope_id', $envelopeId)
-                ->whereIn('event_type', $terminal)
-                ->isEmpty())
-            ->map(fn (Collection $started, string $envelopeId): array => [
-                'title' => 'Fechar envelopes sem evento terminal',
-                'category' => 'self_improvement',
-                'finding' => "Envelope {$envelopeId} iniciou execucao, mas nao registrou evento terminal no Evidence Ledger.",
-                'problem' => 'Sem evento terminal, replay, metricas de sucesso/falha e aprendizado ficam incompletos.',
-                'solution' => 'Instrumentar o emissor responsavel para publicar OPERATION_COMPLETED, OPERATION_FAILED, OPERATION_BLOCKED ou OPERATION_NEEDS_REVIEW.',
-                'worth_it' => 'Vale porque completa a linha do tempo auditavel e evita que o Atlas aprenda com runs inacabados.',
-                'best_solution_rationale' => 'Corrigir a instrumentacao do emissor preserva o contrato do kernel sem inventar regra especial por surface.',
-                'alternatives' => ['Manter como warning ate confirmar se o processo ainda estava em andamento.', 'Adicionar TTL antes de considerar o envelope incompleto.'],
-                'source_refs' => [['type' => 'ledger_envelope', 'id' => $envelopeId]],
-                'confidence' => 0.86,
-                'dedupe_key' => 'self-improvement:missing-terminal:'.sha1($envelopeId),
-            ])
-            ->values()
-            ->all();
+        return $this->cycleHealth->missingTerminalFindings($events, $currentEnvelopeId);
     }
 
-    /**
-     * @param  Collection<int,AtlasLedgerEvent>  $events
-     * @return array<int,array<string,mixed>>
-     */
     private function operationFailureFindings(Collection $events): array
     {
-        return $events
-            ->where('event_type', LedgerEventType::OperationFailed->value)
-            ->groupBy('emitter_stage')
-            ->filter(fn (Collection $group): bool => $group->count() >= 1)
-            ->map(fn (Collection $group, string $stage): array => [
-                'title' => "Reduzir falhas em {$stage}",
-                'category' => 'self_improvement',
-                'finding' => "{$group->count()} operacao(oes) falharam em {$stage} na janela analisada.",
-                'problem' => 'Falhas repetidas por stage indicam lacuna de policy, provider, gate, repair ou contexto.',
-                'solution' => 'Agrupar por envelope, comparar payload_hash e criar teste/regra de repair para a causa mais comum antes de alterar comportamento.',
-                'worth_it' => 'Vale porque transforma falha operacional em backlog priorizado por evidencia real.',
-                'best_solution_rationale' => 'Atacar a causa mais frequente reduz risco sem autoaplicar mudanca critica.',
-                'alternatives' => ['Apenas observar por mais uma janela.', 'Abrir investigacao manual sem patch.'],
-                'source_refs' => $group->take(5)->map(fn (AtlasLedgerEvent $event): array => [
-                    'type' => 'ledger_event',
-                    'id' => $event->event_id,
-                    'envelope_id' => $event->envelope_id,
-                ])->values()->all(),
-                'confidence' => 0.82,
-                'dedupe_key' => 'self-improvement:operation-failed:'.sha1($stage),
-            ])
-            ->values()
-            ->all();
+        return $this->cycleHealth->operationFailureFindings($events);
     }
 
-    /**
-     * @param  Collection<int,AtlasLedgerEvent>  $events
-     * @return array<int,array<string,mixed>>
-     */
     private function gateBlockedFindings(Collection $events): array
     {
-        return $events
-            ->where('event_type', LedgerEventType::GateBlocked->value)
-            ->groupBy(fn (AtlasLedgerEvent $event): string => (string) data_get($event->payload, 'gate_type', $event->emitter_stage))
-            ->map(fn (Collection $group, string $gate): array => [
-                'title' => "Analisar gate bloqueando {$gate}",
-                'category' => 'self_improvement',
-                'finding' => "{$group->count()} bloqueio(s) de gate detectados para {$gate}.",
-                'problem' => 'Gate bloqueando pode ser exatamente o comportamento correto, mas tambem pode indicar falta de evidencia, normalizer fraco ou threshold mal calibrado.',
-                'solution' => 'Criar review de calibracao do gate com exemplos dos envelopes bloqueados, sem relaxar politica automaticamente.',
-                'worth_it' => 'Vale porque melhora confianca sem reduzir rigor.',
-                'best_solution_rationale' => 'Revisao por evidencias evita transformar bloqueio legitimo em bypass.',
-                'alternatives' => ['Manter threshold atual.', 'Adicionar waiver especifico para finding conhecido.'],
-                'source_refs' => $group->take(5)->map(fn (AtlasLedgerEvent $event): array => [
-                    'type' => 'ledger_event',
-                    'id' => $event->event_id,
-                    'envelope_id' => $event->envelope_id,
-                ])->values()->all(),
-                'confidence' => 0.78,
-                'dedupe_key' => 'self-improvement:gate-blocked:'.sha1($gate),
-            ])
-            ->values()
-            ->all();
+        return $this->cycleHealth->gateBlockedFindings($events);
     }
 
-    /**
-     * @param  Collection<int,AtlasLedgerEvent>  $events
-     * @return array<int,array<string,mixed>>
-     */
     private function toolCoverageFindings(Collection $events): array
     {
-        $harnessRuns = $events->filter(fn (AtlasLedgerEvent $event): bool => str_starts_with($event->envelope_id, 'engineering_run:'));
-        if ($harnessRuns->isEmpty()) {
-            return [];
-        }
-
-        $toolEvents = $harnessRuns->where('event_type', LedgerEventType::ToolEvidenceRecorded->value);
-        if ($toolEvents->isNotEmpty()) {
-            return [];
-        }
-
-        return [[
-            'title' => 'Aumentar cobertura de tool evidence no Harness',
-            'category' => 'self_improvement',
-            'finding' => 'Runs do Engineering Harness foram observados sem TOOL_EVIDENCE_RECORDED na mesma janela.',
-            'problem' => 'Sem tool evidence, gates e self-improvement dependem mais de scoring agregado do que de sensores normalizados.',
-            'solution' => 'Garantir que quality scan, visual smoke ou tool gate relevante rode em pelo menos um perfil do Harness e publique evidencia no ledger.',
-            'worth_it' => 'Vale porque fortalece o caminho Atlas Forge com provas verificaveis.',
-            'best_solution_rationale' => 'Adicionar evidencia normalizada e melhor que aumentar confianca em resposta de provider.',
-            'alternatives' => ['Manter tools apenas em perfis release.', 'Exigir tool evidence somente para tarefas critical.'],
-            'source_refs' => $harnessRuns->take(5)->map(fn (AtlasLedgerEvent $event): array => [
-                'type' => 'ledger_event',
-                'id' => $event->event_id,
-                'envelope_id' => $event->envelope_id,
-            ])->values()->all(),
-            'confidence' => 0.74,
-            'dedupe_key' => 'self-improvement:harness-tool-coverage:v1',
-        ]];
+        return $this->cycleHealth->toolCoverageFindings($events);
     }
 
     private function startRun(string $flow, bool $emit, int $hours, int $limit): ?AtlasInitiativeRun
     {
-        if (! Schema::hasTable('atlas_initiative_runs')) {
-            return null;
-        }
-
-        return AtlasInitiativeRun::query()->create([
-            'kind' => str_replace('.', '_', $flow),
-            'status' => 'running',
-            'started_at' => now(),
-            'scope' => [
-                'hours' => $hours,
-                'emit' => $emit,
-                'limit' => $limit,
-                'flow' => $flow,
-                'source' => 'atlas_ledger_events',
-            ],
-            'findings' => [],
-            'emitted_inbox_item_ids' => [],
-            'metadata' => ['runtime' => 'atlas_self_improvement_runtime_v1'],
-        ]);
+        return $this->runLifecycle->startRun($flow, $emit, $hours, $limit);
     }
 
-    /**
-     * @param  array<int,array<string,mixed>>  $findings
-     * @param  array<int,string>  $emitted
-     */
     private function finishRun(?AtlasInitiativeRun $run, string $status, array $findings, array $emitted, ?string $error = null): void
     {
-        if (! $run) {
-            return;
-        }
-
-        $run->update([
-            'status' => $status,
-            'finished_at' => now(),
-            'findings' => $findings,
-            'emitted_inbox_item_ids' => $emitted,
-            'error_message' => $error,
-        ]);
+        $this->runLifecycle->finishRun($run, $status, $findings, $emitted, $error);
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
     private function recordCycleEvent(LedgerEventType $type, string $envelopeId, ?AtlasInitiativeRun $run, array $payload = []): void
     {
-        $this->ledger->record($type, array_merge([
-            'envelope_id' => $envelopeId,
-            'self_improvement_run_id' => $run?->id,
-            'flow' => (string) ($payload['flow'] ?? 'self_improvement.nightly_review'),
-        ], $payload), [
-            'tenant_id' => 'default',
-            'operator_id' => 'atlas_self_improvement',
-            'envelope_id' => $envelopeId,
-            'correlation_id' => $envelopeId,
-            'emitter_stage' => 'atlas.self_improvement',
-            'emitter_version' => 'self-improvement-runtime-v1',
-        ]);
+        $this->runLifecycle->recordCycleEvent($type, $envelopeId, $run, $payload);
     }
 
     /**
@@ -3152,15 +2582,6 @@ class AtlasSelfImprovementRuntime
 
     private function normalizeFlow(string $flow): string
     {
-        $flow = trim($flow);
-        if ($flow === '') {
-            return 'self_improvement.nightly_review';
-        }
-
-        if (! str_starts_with($flow, 'self_improvement.')) {
-            return 'self_improvement.'.$flow;
-        }
-
-        return $flow;
+        return $this->filterNormalization->normalizeFlow($flow);
     }
 }
