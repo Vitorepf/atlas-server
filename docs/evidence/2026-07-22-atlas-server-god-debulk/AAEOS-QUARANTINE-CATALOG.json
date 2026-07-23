@@ -1,0 +1,1842 @@
+{
+  "count": 306,
+  "total_loc": 131970,
+  "items": [
+    {
+      "class": "AtlasAdvancedCapabilitiesBacklogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAdvancedCapabilitiesBacklogService.php",
+      "summary": "Advanced Capabilities Backlog \u2014 runtime.",
+      "loc": 349
+    },
+    {
+      "class": "AtlasAgentControlPlaneCertificationOutputMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgentControlPlaneCertificationOutputMapService.php",
+      "summary": "Runtime for the Agent Control Plane Certification Output Map v1 doc.",
+      "loc": 440
+    },
+    {
+      "class": "AtlasAgentControlPlaneRuntimeReadinessGapMatrixService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgentControlPlaneRuntimeReadinessGapMatrixService.php",
+      "summary": "Runtime for the Agent Control Plane Runtime Readiness Gap Matrix v1 doc.",
+      "loc": 291
+    },
+    {
+      "class": "AtlasAgentControlPlaneSafetyInvariantsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgentControlPlaneSafetyInvariantsService.php",
+      "summary": "Runtime for the Agent Control Plane Safety Invariants v1 doc.",
+      "loc": 292
+    },
+    {
+      "class": "verdict",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgenticEngineeringDocumentationInventoryService.php",
+      "summary": "Atlas Agentic Engineering Documentation Inventory decider.",
+      "loc": 544
+    },
+    {
+      "class": "AtlasAgenticEngineeringOsContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgenticEngineeringOsContractsService.php",
+      "summary": "Atlas Agentic Engineering OS Contracts decider.",
+      "loc": 425
+    },
+    {
+      "class": "AtlasAgenticEngineeringOsImplementationRealityService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgenticEngineeringOsImplementationRealityService.php",
+      "summary": "Atlas Agentic Engineering OS Implementation Reality \u2014 policy-guard decider.",
+      "loc": 552
+    },
+    {
+      "class": "AtlasAgenticEngineeringOsRuntimeGapMatrixService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgenticEngineeringOsRuntimeGapMatrixService.php",
+      "summary": "Runtime for the Atlas Agentic Engineering OS Runtime Gap Matrix doc.",
+      "loc": 373
+    },
+    {
+      "class": "AtlasAgenticSoftwareEngineeringAuthorityMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgenticSoftwareEngineeringAuthorityMapService.php",
+      "summary": "Atlas Agentic Software Engineering Authority Map decider.",
+      "loc": 459
+    },
+    {
+      "class": "AtlasAgentsAndMcpContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAgentsAndMcpContractService.php",
+      "summary": "Atlas SDD Agents-and-MCP contract decider.",
+      "loc": 306
+    },
+    {
+      "class": "AtlasAiArchitectureAuditService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiArchitectureAuditService.php",
+      "summary": "Atlas AI Architecture Audit \u2014 index decider.",
+      "loc": 447
+    },
+    {
+      "class": "AtlasAiAutonomyPowerBacklogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiAutonomyPowerBacklogService.php",
+      "summary": "Atlas AI Autonomy And Power Backlog \u2014 runtime.",
+      "loc": 431
+    },
+    {
+      "class": "AtlasAiCartographyRootService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiCartographyRootService.php",
+      "summary": "Atlas AI cartography-root parent-resolution / orphan validator.",
+      "loc": 269
+    },
+    {
+      "class": "AtlasAiCliMultimodalService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiCliMultimodalService.php",
+      "summary": "Atlas AI CLI Multimodal \u2014 runtime decider for the canonical multimodal input",
+      "loc": 527
+    },
+    {
+      "class": "AtlasAiCognitiveRuntimeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiCognitiveRuntimeService.php",
+      "summary": "Runtime for the Atlas AI Cognitive Runtime canonical LAW doc.",
+      "loc": 485
+    },
+    {
+      "class": "AtlasAiContinuitySessionStateService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiContinuitySessionStateService.php",
+      "summary": "Atlas AI Continuity And Session State decider.",
+      "loc": 486
+    },
+    {
+      "class": "AtlasAiCoreVsDomainService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiCoreVsDomainService.php",
+      "summary": "Atlas AI Core Vs Domain \u2014 founding placement decider runtime.",
+      "loc": 532
+    },
+    {
+      "class": "AtlasAiEvolutionLineageAndTargetStateService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiEvolutionLineageAndTargetStateService.php",
+      "summary": "Atlas AI Evolution Lineage And Target State decider.",
+      "loc": 551
+    },
+    {
+      "class": "AtlasAiEvolutionRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiEvolutionRoadmapService.php",
+      "summary": "Atlas AI Evolution Roadmap \u2014 runtime.",
+      "loc": 378
+    },
+    {
+      "class": "AtlasAiEvolutionaryMaturityModelService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiEvolutionaryMaturityModelService.php",
+      "summary": "Atlas AI Evolutionary Maturity Model decider.",
+      "loc": 452
+    },
+    {
+      "class": "AtlasAiEvolutionaryTargetAndImplementationGoalService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiEvolutionaryTargetAndImplementationGoalService.php",
+      "summary": "Runtime for the Atlas AI Evolutionary Target And Implementation Goal briefing.",
+      "loc": 442
+    },
+    {
+      "class": "AtlasAiFlowVisualMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiFlowVisualMapService.php",
+      "summary": "Atlas AI Flow Visual Map governance validator.",
+      "loc": 326
+    },
+    {
+      "class": "triggers",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiGovernedBacklogService.php",
+      "summary": "Atlas AI Governed Backlog \u2014 runtime.",
+      "loc": 514
+    },
+    {
+      "class": "AtlasAiHarnessGovernanceAndQualityService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiHarnessGovernanceAndQualityService.php",
+      "summary": "AI Harness governance admission decider for one Obra AI action.",
+      "loc": 347
+    },
+    {
+      "class": "AtlasAiImplementationPacketContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiImplementationPacketContractService.php",
+      "summary": "Atlas Self-Construction \u00b7 AI Implementation Packet Contract \u2014 pure,",
+      "loc": 525
+    },
+    {
+      "class": "AtlasAiLayer0GlossaryService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiLayer0GlossaryService.php",
+      "summary": "Deterministic runtime for the Atlas AI Layer 0 Constitution and Glossary.",
+      "loc": 439
+    },
+    {
+      "class": "AtlasAiLocalPerformanceMemoryStrategyService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiLocalPerformanceMemoryStrategyService.php",
+      "summary": "Atlas AI Local Performance Memory Strategy \u2014 pure, deterministic enforcement",
+      "loc": 455
+    },
+    {
+      "class": "AtlasAiMasterArchitectureService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiMasterArchitectureService.php",
+      "summary": "Atlas AI Master Architecture \u2014 canonical-flow + plane-authority gate.",
+      "loc": 478
+    },
+    {
+      "class": "AtlasAiMultiDomainImplementationSequenceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiMultiDomainImplementationSequenceService.php",
+      "summary": "Atlas AI Multi-Domain Implementation Sequence decider.",
+      "loc": 536
+    },
+    {
+      "class": "AtlasAiObrasOperatingSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiObrasOperatingSystemService.php",
+      "summary": "Runtime for the Atlas AI Obras Operating System parent specification.",
+      "loc": 472
+    },
+    {
+      "class": "AtlasAiPipelineRuntimeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiPipelineRuntimeService.php",
+      "summary": "Atlas AI Pipeline \u2014 canonical macro-pipeline runtime.",
+      "loc": 455
+    },
+    {
+      "class": "AtlasAiResolverCorpusAuditService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiResolverCorpusAuditService.php",
+      "summary": "Runtime for the Resolver Corpus Audit governance contract.",
+      "loc": 197
+    },
+    {
+      "class": "AtlasAiRuntimeLanguageBoundariesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiRuntimeLanguageBoundariesService.php",
+      "summary": "Atlas AI Runtime Language Boundaries decider.",
+      "loc": 505
+    },
+    {
+      "class": "AtlasAiRuntimePacketsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiRuntimePacketsService.php",
+      "summary": "Atlas AI Runtime Packets contract guard.",
+      "loc": 277
+    },
+    {
+      "class": "AtlasAiScenarioSimulationHarnessService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiScenarioSimulationHarnessService.php",
+      "summary": "Atlas AI Scenario Simulation Harness \u2014 runtime.",
+      "loc": 594
+    },
+    {
+      "class": "AtlasAiSessionBootstrapContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiSessionBootstrapContractService.php",
+      "summary": "Runtime for the Atlas Self-Construction AI Session Bootstrap Contract doc.",
+      "loc": 501
+    },
+    {
+      "class": "AtlasAiSkillSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiSkillSystemService.php",
+      "summary": "Executable runtime for the Atlas AI Skill System governance doc.",
+      "loc": 467
+    },
+    {
+      "class": "AtlasAiSpecOperatingSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiSpecOperatingSystemService.php",
+      "summary": "Atlas AI Spec Operating System gate.",
+      "loc": 352
+    },
+    {
+      "class": "AtlasAiTelemetryEvidencePerformanceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiTelemetryEvidencePerformanceService.php",
+      "summary": "Pure, deterministic decider for the consolidated telemetry / evidence /",
+      "loc": 440
+    },
+    {
+      "class": "AtlasAiVisionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiVisionService.php",
+      "summary": "Atlas AI Vision runtime.",
+      "loc": 450
+    },
+    {
+      "class": "AtlasAiVoiceRealtimeCanonDeFalaService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAiVoiceRealtimeCanonDeFalaService.php",
+      "summary": "Atlas Voice Realtime \"Canon de Fala\" \u2014 pure, deterministic speech-persona judge.",
+      "loc": 486
+    },
+    {
+      "class": "AtlasAntigravityCliGovernedTerminalExecutorService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAntigravityCliGovernedTerminalExecutorService.php",
+      "summary": "Atlas Antigravity CLI (`agy`) governed-terminal policy classifier.",
+      "loc": 402
+    },
+    {
+      "class": "AtlasArchImplementedVsScaffoldMatrixService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasArchImplementedVsScaffoldMatrixService.php",
+      "summary": "Atlas AI Implemented vs Scaffold Matrix decider.",
+      "loc": 350
+    },
+    {
+      "class": "AtlasAssignmentAndClaimContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAssignmentAndClaimContractService.php",
+      "summary": "Self-Construction Assignment And Claim \u2014 pure, deterministic packet selector",
+      "loc": 478
+    },
+    {
+      "class": "AtlasAucriContinuousOptimizationProtocolService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAucriContinuousOptimizationProtocolService.php",
+      "summary": "Atlas AUCRI Continuous Optimization Protocol (ACOPRO) \u2014 runtime decider.",
+      "loc": 440
+    },
+    {
+      "class": "AtlasAutonomousImplementationLoopService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAutonomousImplementationLoopService.php",
+      "summary": "Self-Construction Autonomous Implementation Loop \u2014 pure, deterministic loop",
+      "loc": 488
+    },
+    {
+      "class": "AtlasAutonomousIntelligenceOperatingSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAutonomousIntelligenceOperatingSystemService.php",
+      "summary": "Atlas Autonomous Intelligence Operating System decider.",
+      "loc": 600
+    },
+    {
+      "class": "AtlasAutonomyAndClarificationPolicyService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasAutonomyAndClarificationPolicyService.php",
+      "summary": "Runtime for the Atlas SDD Autonomy And Clarification Policy doc.",
+      "loc": 304
+    },
+    {
+      "class": "AtlasBlueprintMaturityPhasesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasBlueprintMaturityPhasesService.php",
+      "summary": "Atlas Engineering Blueprint Maturity Phases decider.",
+      "loc": 564
+    },
+    {
+      "class": "and",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasBlueprintSurfacesRunbookService.php",
+      "summary": "Atlas Engineering Blueprint Surfaces Runbook \u2014 pure, deterministic surface",
+      "loc": 325
+    },
+    {
+      "class": "AtlasBuildGraphService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasBuildGraphService.php",
+      "summary": "Runtime for the Atlas Self-Construction Build Graph doc.",
+      "loc": 438
+    },
+    {
+      "class": "AtlasBuilderPersonaAndHandoffService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasBuilderPersonaAndHandoffService.php",
+      "summary": "Self-Construction Builder Persona And Handoff \u2014 pure, deterministic certifier.",
+      "loc": 466
+    },
+    {
+      "class": "AtlasCanonicalFindingsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCanonicalFindingsService.php",
+      "summary": "Architecture-audit canonical-findings decider.",
+      "loc": 379
+    },
+    {
+      "class": "AtlasCanonicalIndexAuthorityMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCanonicalIndexAuthorityMapService.php",
+      "summary": "Atlas AI Canonical Authority Map decider.",
+      "loc": 480
+    },
+    {
+      "class": "AtlasCapabilitiesCoreService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCapabilitiesCoreService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Capabilities Core runtime.",
+      "loc": 568
+    },
+    {
+      "class": "AtlasCapabilityMaturityLadderService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCapabilityMaturityLadderService.php",
+      "summary": "Atlas Self-Construction Capability Maturity Ladder decider.",
+      "loc": 207
+    },
+    {
+      "class": "AtlasCapabilityOwnershipMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCapabilityOwnershipMapService.php",
+      "summary": "Atlas AI Architecture Audit Capability Ownership Map decider.",
+      "loc": 310
+    },
+    {
+      "class": "AtlasCartographyNomenclatureContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCartographyNomenclatureContractService.php",
+      "summary": "Atlas Cartography Nomenclature Contract \u2014 pure, deterministic nomenclature decider.",
+      "loc": 560
+    },
+    {
+      "class": "AtlasCatalogRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCatalogRoadmapService.php",
+      "summary": "Pure, deterministic decider for the Atlas Tool Runtime Catalog Roadmap.",
+      "loc": 407
+    },
+    {
+      "class": "AtlasCodeCategoryEvolutionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodeCategoryEvolutionService.php",
+      "summary": "Atlas Code Category Evolution decider.",
+      "loc": 333
+    },
+    {
+      "class": "AtlasCodeCodexSlatePremiumService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodeCodexSlatePremiumService.php",
+      "summary": "Atlas Code Codex Slate Premium v1 \u2014 pure, deterministic CSS/TSX canon guard",
+      "loc": 423
+    },
+    {
+      "class": "AtlasCodeMultiProjectClaudeGoalPromptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodeMultiProjectClaudeGoalPromptService.php",
+      "summary": "Deterministic acceptance gate for the Atlas Code Multi-Project `/goal` closing prompt.",
+      "loc": 233
+    },
+    {
+      "class": "AtlasCodeMultiProjectClaudeOneShotPromptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodeMultiProjectClaudeOneShotPromptService.php",
+      "summary": "Deterministic admission gate for the Atlas Code Multi-Project Claude ONE-SHOT",
+      "loc": 304
+    },
+    {
+      "class": "AtlasCodeMultiProjectWorkspaceOsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodeMultiProjectWorkspaceOsService.php",
+      "summary": "Deterministic work-router for the Atlas Code Multi-Project Workspace OS.",
+      "loc": 365
+    },
+    {
+      "class": "AtlasCodexMergeAuthorizationContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeAuthorizationContractService.php",
+      "summary": "Codex Merge Authorization Contract \u2014 pure, deterministic, non-authorizing",
+      "loc": 568
+    },
+    {
+      "class": "AtlasCodexMergeAuthorizingActionContractRtService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeAuthorizingActionContractRtService.php",
+      "summary": "Codex Merge Authorizing Action Contract \u2014 pure, deterministic, READ-ONLY",
+      "loc": 746
+    },
+    {
+      "class": "AtlasCodexMergeExecutorContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeExecutorContractService.php",
+      "summary": "Codex Merge Executor Contract \u2014 pure, deterministic read-only gate logic.",
+      "loc": 535
+    },
+    {
+      "class": "AtlasCodexMergePEAPPayloadService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPPayloadService.php",
+      "summary": "Codex Merge Post-Execution Action PERSISTENCE PAYLOAD \u2014 pure, deterministic,",
+      "loc": 410
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterImplementationPreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterImplementationPreflightService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence (PEAP) Writer IMPLEMENTATION",
+      "loc": 395
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleaseAuthReceiptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleaseAuthReceiptService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release AUTHORIZATION",
+      "loc": 467
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleaseAuthSignatureReqService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleaseAuthSignatureReqService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release AUTHORIZATION",
+      "loc": 367
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleaseAuthSignedReceiptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleaseAuthSignedReceiptService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release AUTHORIZATION",
+      "loc": 462
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleaseAuthorizationService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleaseAuthorizationService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release AUTHORIZATION",
+      "loc": 476
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleasePreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleasePreflightService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer RELEASE Preflight \u2014 pure,",
+      "loc": 403
+    },
+    {
+      "class": "AtlasCodexMergePEAPWriterReleaseReceiptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePEAPWriterReleaseReceiptService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release RECEIPT \u2014 pure,",
+      "loc": 430
+    },
+    {
+      "class": "AtlasCodexMergePersistenceWriterContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePersistenceWriterContractService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Contract \u2014 pure,",
+      "loc": 344
+    },
+    {
+      "class": "AtlasCodexMergePostExecutionActionPersistenceReceiptsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePostExecutionActionPersistenceReceiptsService.php",
+      "summary": "Codex Merge Post-Execution Action PERSISTENCE RECEIPTS \u2014 pure, deterministic,",
+      "loc": 495
+    },
+    {
+      "class": "AtlasCodexMergePostExecutionActionReceiptsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePostExecutionActionReceiptsService.php",
+      "summary": "Codex Merge Post-Execution Action Receipts \u2014 pure, deterministic, READ-ONLY",
+      "loc": 462
+    },
+    {
+      "class": "AtlasCodexMergePostExecutionActionSignedReceiptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePostExecutionActionSignedReceiptService.php",
+      "summary": "Codex Merge Post-Execution Action Signed Receipt \u2014 pure, deterministic,",
+      "loc": 562
+    },
+    {
+      "class": "AtlasCodexMergePostExecutionContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergePostExecutionContractService.php",
+      "summary": "Codex Merge Post-Execution Contract \u2014 pure, deterministic, READ-ONLY surfaces",
+      "loc": 432
+    },
+    {
+      "class": "AtlasCodexMergeReleaseAuthPostSignatureRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeReleaseAuthPostSignatureRunbookService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release Authorization",
+      "loc": 345
+    },
+    {
+      "class": "AtlasCodexMergeReleaseAuthPreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeReleaseAuthPreflightService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release Authorization",
+      "loc": 351
+    },
+    {
+      "class": "AtlasCodexMergeReleaseExecContractPreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeReleaseExecContractPreflightService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release EXECUTION CONTRACT",
+      "loc": 390
+    },
+    {
+      "class": "AtlasCodexMergeReleaseSignatureRequestService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeReleaseSignatureRequestService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Release Signature",
+      "loc": 281
+    },
+    {
+      "class": "AtlasCodexMergeReleaseSignedReceiptService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeReleaseSignedReceiptService.php",
+      "summary": "Codex Merge Writer Release Signed Receipt \u2014 pure, deterministic read-only",
+      "loc": 354
+    },
+    {
+      "class": "AtlasCodexMergeWriterPreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCodexMergeWriterPreflightService.php",
+      "summary": "Codex Merge Post-Execution Action Persistence Writer Preflight \u2014 pure,",
+      "loc": 351
+    },
+    {
+      "class": "AtlasCognitiveAntifragilityEquationService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveAntifragilityEquationService.php",
+      "summary": "Pure, deterministic decider for the Atlas Cognitive Antifragility Equation.",
+      "loc": 319
+    },
+    {
+      "class": "AtlasCognitiveImplementationBriefingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveImplementationBriefingService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Implementation Briefing runtime.",
+      "loc": 501
+    },
+    {
+      "class": "AtlasCognitiveMultiplierEdgeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveMultiplierEdgeService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Multiplier Edge runtime.",
+      "loc": 494
+    },
+    {
+      "class": "AtlasCognitiveOverviewService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveOverviewService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Overview decider.",
+      "loc": 382
+    },
+    {
+      "class": "AtlasCognitivePipelineOverlayService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitivePipelineOverlayService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Pipeline Overlay runtime.",
+      "loc": 546
+    },
+    {
+      "class": "AtlasCognitivePrinciplesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitivePrinciplesService.php",
+      "summary": "Atlas AI Cognitive Plane principles decider.",
+      "loc": 395
+    },
+    {
+      "class": "capabilities",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveRoadmapService.php",
+      "summary": "Atlas AI Cognitive Plane \u2014 Roadmap runtime.",
+      "loc": 403
+    },
+    {
+      "class": "AtlasCognitiveRuntimeEnterpriseExcellenceChecklistService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveRuntimeEnterpriseExcellenceChecklistService.php",
+      "summary": "Deterministic runtime for the Atlas AI Cognitive Runtime Enterprise Excellence",
+      "loc": 329
+    },
+    {
+      "class": "AtlasCognitiveRuntimeFailureModesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveRuntimeFailureModesService.php",
+      "summary": "Atlas AI Cognitive Runtime Failure Modes \u2014 pure, deterministic failure decider.",
+      "loc": 438
+    },
+    {
+      "class": "AtlasCognitiveRuntimeRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveRuntimeRunbookService.php",
+      "summary": "Atlas AI Cognitive Runtime Runbook \u2014 pure, deterministic operational decider.",
+      "loc": 507
+    },
+    {
+      "class": "AtlasCognitiveRuntimeSchemasAndPacketsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveRuntimeSchemasAndPacketsService.php",
+      "summary": "Atlas AI Cognitive Runtime Schemas And Packets \u2014 pure, deterministic schema",
+      "loc": 557
+    },
+    {
+      "class": "AtlasCognitiveVisualMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCognitiveVisualMapService.php",
+      "summary": "Atlas AI Cognitive Plane Visual Map governance validator.",
+      "loc": 305
+    },
+    {
+      "class": "AtlasCollisionMatrixContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCollisionMatrixContractService.php",
+      "summary": "Atlas Self-Construction Collision Matrix \u2014 pure, deterministic, read-only",
+      "loc": 370
+    },
+    {
+      "class": "AtlasConstitutionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasConstitutionService.php",
+      "summary": "Atlas Self-Construction Constitution decider.",
+      "loc": 425
+    },
+    {
+      "class": "AtlasContextBuilderRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContextBuilderRoadmapService.php",
+      "summary": "Context Builder Evolution Roadmap \u2014 runtime.",
+      "loc": 459
+    },
+    {
+      "class": "AtlasContextDiscoveryAndBusinessContextService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContextDiscoveryAndBusinessContextService.php",
+      "summary": "Runtime for the Atlas SDD Context Discovery And Business Context doc.",
+      "loc": 361
+    },
+    {
+      "class": "AtlasContextPackContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContextPackContractService.php",
+      "summary": "Atlas Context Pack Contract \u2014 pure, deterministic enforcement of the contract",
+      "loc": 376
+    },
+    {
+      "class": "AtlasContextPackagesAndProjectionsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContextPackagesAndProjectionsService.php",
+      "summary": "Atlas Context Packages And Projections \u2014 pure, deterministic runtime for the",
+      "loc": 388
+    },
+    {
+      "class": "AtlasContinuousSelfImprovementLoopService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContinuousSelfImprovementLoopService.php",
+      "summary": "Deterministic runtime for the Atlas AI Continuous Self-Improvement Loop.",
+      "loc": 327
+    },
+    {
+      "class": "AtlasContractSchemaRegistryService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasContractSchemaRegistryService.php",
+      "summary": "Atlas Contract Schema Registry decider.",
+      "loc": 348
+    },
+    {
+      "class": "AtlasCurrentProviderStackService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCurrentProviderStackService.php",
+      "summary": "Pure, deterministic decider for the Atlas Current Provider Stack policy.",
+      "loc": 496
+    },
+    {
+      "class": "AtlasCyberComplianceMappingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberComplianceMappingService.php",
+      "summary": "Atlas AI Cyber Compliance Mapping \u2014 pure, deterministic compliance-profile decider.",
+      "loc": 333
+    },
+    {
+      "class": "AtlasCyberFlowProfilesProposalService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberFlowProfilesProposalService.php",
+      "summary": "Atlas AI Cyber Flow Profiles Proposal \u2014 runtime.",
+      "loc": 517
+    },
+    {
+      "class": "AtlasCyberPlaybooksTechniquesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberPlaybooksTechniquesService.php",
+      "summary": "Atlas AI Cyber Playbooks and Techniques \u2014 pure, deterministic technique router.",
+      "loc": 519
+    },
+    {
+      "class": "AtlasCyberRecipesCatalogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberRecipesCatalogService.php",
+      "summary": "Atlas AI Cyber Recipes Catalog \u2014 pure, deterministic recipe admission decider.",
+      "loc": 324
+    },
+    {
+      "class": "AtlasCyberSecurityExtensionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberSecurityExtensionService.php",
+      "summary": "Atlas AI Cyber Security Extension \u2014 pure, deterministic governance decider.",
+      "loc": 378
+    },
+    {
+      "class": "AtlasCyberSecurityRemediationPatternsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasCyberSecurityRemediationPatternsService.php",
+      "summary": "Atlas AI Cyber Remediation Patterns \u2014 pure, deterministic remediation router.",
+      "loc": 673
+    },
+    {
+      "class": "AtlasDataModelAndProductionGraphService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDataModelAndProductionGraphService.php",
+      "summary": "Atlas Obras \u2014 Data Model And Production Graph: pure, deterministic validator",
+      "loc": 702
+    },
+    {
+      "class": "AtlasDataModelAndServicesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDataModelAndServicesService.php",
+      "summary": "Atlas SDD Data Model & Services integrity service.",
+      "loc": 391
+    },
+    {
+      "class": "AtlasDecisionReceiptGuardService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDecisionReceiptGuardService.php",
+      "summary": "Decision Receipt execution-boundary guard.",
+      "loc": 382
+    },
+    {
+      "class": "AtlasDependencyUnlockPlanContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDependencyUnlockPlanContractService.php",
+      "summary": "Self-Construction Dependency Unlock Plan \u2014 pure, deterministic, read-only planner.",
+      "loc": 355
+    },
+    {
+      "class": "AtlasDesktopService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDesktopService.php",
+      "summary": "Atlas Desktop surface-root guard: macOS install guardrail + desktop",
+      "loc": 430
+    },
+    {
+      "class": "AtlasDetectionEngineeringService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDetectionEngineeringService.php",
+      "summary": "Atlas AI Cyber Detection Engineering \u2014 runtime.",
+      "loc": 479
+    },
+    {
+      "class": "AtlasDevEffProgFlowContractsV1Part05Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEffProgFlowContractsV1Part05Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Contracts v1 \u00b7 Parte 5 \u2014 executable",
+      "loc": 716
+    },
+    {
+      "class": "AtlasDevEffProgFlowRunbookV1Part01Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEffProgFlowRunbookV1Part01Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 1 \u2014 pure, deterministic",
+      "loc": 402
+    },
+    {
+      "class": "AtlasDevEffProgFlowRunbookV1Part07Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEffProgFlowRunbookV1Part07Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 7 \u2014 pure, deterministic",
+      "loc": 591
+    },
+    {
+      "class": "AtlasDevEffProgFlowRunbookV1Part08Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEffProgFlowRunbookV1Part08Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 8 \u2014 pure, deterministic",
+      "loc": 552
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowContractsPart02Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowContractsPart02Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Contracts v1 \u00b7 Parte 2 \u2014 invariant decider.",
+      "loc": 409
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowContractsV1Part03Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowContractsV1Part03Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Contracts v1 \u00b7 Parte 3 \u2014 invariant decider.",
+      "loc": 415
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowContractsV1Part04Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowContractsV1Part04Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Contracts v1 \u00b7 Parte 4 \u2014 executable",
+      "loc": 439
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowRunbookPart09Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowRunbookPart09Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 9 \u2014 operator decider.",
+      "loc": 420
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowRunbookV1Part02Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowRunbookV1Part02Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 2 \u2014 pure, deterministic",
+      "loc": 352
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowRunbookV1Part04Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowRunbookV1Part04Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 4 \u2014 pure, deterministic",
+      "loc": 426
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowRunbookV1Part05Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowRunbookV1Part05Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow Runbook v1 \u00b7 Parte 5 \u2014 pure, deterministic",
+      "loc": 613
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowV1Part01Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowV1Part01Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow v1 \u00b7 Parte 1 \u2014 pure, deterministic",
+      "loc": 541
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowV1Part02Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowV1Part02Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow v1 \u00b7 Parte 2 \u2014 pure, deterministic",
+      "loc": 541
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowV1Part03Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowV1Part03Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow v1 \u00b7 Parte 3 \u2014 pure, deterministic",
+      "loc": 523
+    },
+    {
+      "class": "AtlasDevEfficientProgrammingFlowV1Part04Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevEfficientProgrammingFlowV1Part04Service.php",
+      "summary": "Atlas Dev Efficient Programming Flow v1 \u00b7 Parte 4 \u2014 pure, deterministic",
+      "loc": 552
+    },
+    {
+      "class": "AtlasDevFlowMapEnterpriseReadingPackService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapEnterpriseReadingPackService.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 2 \u2014 pure, deterministic",
+      "loc": 415
+    },
+    {
+      "class": "AtlasDevFlowMapProductOptionsV1Part01Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapProductOptionsV1Part01Service.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 1 \u2014 pure, deterministic",
+      "loc": 333
+    },
+    {
+      "class": "AtlasDevFlowMapProductOptionsV1Part03Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapProductOptionsV1Part03Service.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 3 \u2014 pure, deterministic",
+      "loc": 316
+    },
+    {
+      "class": "AtlasDevFlowMapProductOptionsV1Part04Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapProductOptionsV1Part04Service.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 4 \u2014 executable read-model",
+      "loc": 278
+    },
+    {
+      "class": "is",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapProductOptionsV1Part05Service.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 5 \u2014 pure, deterministic",
+      "loc": 446
+    },
+    {
+      "class": "AtlasDevFlowMapProductOptionsV1Part07Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevFlowMapProductOptionsV1Part07Service.php",
+      "summary": "Atlas Dev Flow Map And Product Options v1 \u00b7 Parte 7 \u2014 two deciders for the",
+      "loc": 385
+    },
+    {
+      "class": "AtlasDevPatamaresRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevPatamaresRunbookService.php",
+      "summary": "Runtime for the \"Atlas Dev Patamares Runbook\" specification.",
+      "loc": 314
+    },
+    {
+      "class": "AtlasDevPatamaresService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevPatamaresService.php",
+      "summary": "Runtime for the \"Atlas Dev Patamares\" maturity-ladder specification.",
+      "loc": 371
+    },
+    {
+      "class": "AtlasDevPolicyService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDevPolicyService.php",
+      "summary": "Atlas Dev Policy \u2014 pure, deterministic invariant compliance decider.",
+      "loc": 634
+    },
+    {
+      "class": "AtlasDocumentationRealityBlockUpgradeMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDocumentationRealityBlockUpgradeMapService.php",
+      "summary": "Atlas Documentation Reality Block Upgrade Map (ADR-BUM) decider.",
+      "loc": 361
+    },
+    {
+      "class": "AtlasDomainExpansionSpecService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainExpansionSpecService.php",
+      "summary": "Atlas Domain Expansion Spec decider.",
+      "loc": 493
+    },
+    {
+      "class": "AtlasDomainOnboardingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainOnboardingService.php",
+      "summary": "Atlas Domain Onboarding \"Domain Test\" decider.",
+      "loc": 379
+    },
+    {
+      "class": "AtlasDomainPipelinesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainPipelinesService.php",
+      "summary": "Atlas AI OS - Domain Pipelines runtime.",
+      "loc": 419
+    },
+    {
+      "class": "AtlasDomainPlaneService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainPlaneService.php",
+      "summary": "Atlas Domain Plane decider.",
+      "loc": 280
+    },
+    {
+      "class": "AtlasDomainRoutingGovernanceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainRoutingGovernanceService.php",
+      "summary": "Atlas AI Domain Routing Governance decider.",
+      "loc": 521
+    },
+    {
+      "class": "AtlasDomainsProgrammingSurfacesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDomainsProgrammingSurfacesService.php",
+      "summary": "Atlas AI Programming Surfaces \u2014 surface-to-flow contract resolver.",
+      "loc": 395
+    },
+    {
+      "class": "AtlasDualCoreEngineeringSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDualCoreEngineeringSystemService.php",
+      "summary": "Atlas Dual-Core Engineering System \u00b7 routing matrix decider.",
+      "loc": 331
+    },
+    {
+      "class": "constant",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationApCandidateService.php",
+      "summary": "Atlas Self-Construction Durable Reservation AP Candidate \u2014 pure, deterministic,",
+      "loc": 316
+    },
+    {
+      "class": "AtlasDurableReservationApprovalDecisionTemplateService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationApprovalDecisionTemplateService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Approval DECISION TEMPLATE \u2014",
+      "loc": 497
+    },
+    {
+      "class": "constant",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationApprovalRequestService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Approval Request \u2014 pure,",
+      "loc": 331
+    },
+    {
+      "class": "AtlasDurableReservationCollisionGuardBlueprintContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationCollisionGuardBlueprintContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Collision Guard BLUEPRINT Contract",
+      "loc": 527
+    },
+    {
+      "class": "AtlasDurableReservationCollisionGuardContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationCollisionGuardContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Collision Guard Contract \u2014 pure,",
+      "loc": 350
+    },
+    {
+      "class": "AtlasDurableReservationImplementationPacketService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationImplementationPacketService.php",
+      "summary": "Atlas Self-Construction Durable Reservation IMPLEMENTATION PACKET \u2014 pure,",
+      "loc": 559
+    },
+    {
+      "class": "AtlasDurableReservationImplementationPreflightContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationImplementationPreflightContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Implementation Preflight Contract \u2014",
+      "loc": 394
+    },
+    {
+      "class": "AtlasDurableReservationLeaseLifecycleBlueprintContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationLeaseLifecycleBlueprintContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Lease Lifecycle Blueprint Contract",
+      "loc": 529
+    },
+    {
+      "class": "AtlasDurableReservationLeaseLifecycleContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationLeaseLifecycleContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Lease Lifecycle CONTRACT",
+      "loc": 590
+    },
+    {
+      "class": "AtlasDurableReservationLedgerImplementationPlanService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationLedgerImplementationPlanService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Ledger Implementation Plan \u2014 pure,",
+      "loc": 695
+    },
+    {
+      "class": "AtlasDurableReservationMigrationBlueprintContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationMigrationBlueprintContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Migration Blueprint Contract",
+      "loc": 533
+    },
+    {
+      "class": "AtlasDurableReservationPostApprovalPreflightService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationPostApprovalPreflightService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Post-Approval Preflight \u2014 pure,",
+      "loc": 414
+    },
+    {
+      "class": "AtlasDurableReservationReadinessProjectionContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationReadinessProjectionContractService.php",
+      "summary": "Runtime for the Atlas Self-Construction Durable Reservation Readiness",
+      "loc": 487
+    },
+    {
+      "class": "names",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationRepositoryBlueprintContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Repository Blueprint Contract \u2014",
+      "loc": 456
+    },
+    {
+      "class": "names",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationRepositoryContractService.php",
+      "summary": "Atlas Self-Construction Durable Reservation Repository Contract \u2014",
+      "loc": 571
+    },
+    {
+      "class": "AtlasDurableReservationStorageSchemaService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasDurableReservationStorageSchemaService.php",
+      "summary": "Atlas Self-Construction Durable Reservation STORAGE SCHEMA \u2014 pure,",
+      "loc": 792
+    },
+    {
+      "class": "AtlasEngineeringBlueprintMaturityDodService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEngineeringBlueprintMaturityDodService.php",
+      "summary": "Atlas Engineering Blueprint Maturity And DoD decider.",
+      "loc": 379
+    },
+    {
+      "class": "AtlasEnterpriseExcellenceChecklistService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEnterpriseExcellenceChecklistService.php",
+      "summary": "Deterministic runtime for the Atlas AI Research Self-Improvement Enterprise",
+      "loc": 398
+    },
+    {
+      "class": "AtlasEvidenceLakeAndCitationHealthService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEvidenceLakeAndCitationHealthService.php",
+      "summary": "Evidence Lake & Citation Health decider.",
+      "loc": 381
+    },
+    {
+      "class": "AtlasEvidenceLedgerContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEvidenceLedgerContractService.php",
+      "summary": "Evidence Ledger admission + append-only + retention contract.",
+      "loc": 392
+    },
+    {
+      "class": "AtlasEvidenceLoopService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEvidenceLoopService.php",
+      "summary": "Evidence Loop signal-governance decider.",
+      "loc": 286
+    },
+    {
+      "class": "AtlasEvolutionImplementationHandoffService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasEvolutionImplementationHandoffService.php",
+      "summary": "Evolution Implementation Handoff \u2014 runtime.",
+      "loc": 386
+    },
+    {
+      "class": "AtlasExecutedPromotionsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasExecutedPromotionsService.php",
+      "summary": "Deterministic runtime for the Legacy Cleanup Executed Promotions policy.",
+      "loc": 295
+    },
+    {
+      "class": "AtlasExperimentationEngineService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasExperimentationEngineService.php",
+      "summary": "Deterministic runtime for the Atlas Experimentation Engine.",
+      "loc": 339
+    },
+    {
+      "class": "AtlasForgeObraEnterpriseLoopUpgradeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasForgeObraEnterpriseLoopUpgradeService.php",
+      "summary": "Atlas Forge Obra Enterprise Loop Upgrade \u2014 pure, deterministic gate engine for",
+      "loc": 380
+    },
+    {
+      "class": "AtlasForgeOperatingSystemRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasForgeOperatingSystemRunbookService.php",
+      "summary": "Atlas Forge Operating System Runbook \u2014 pure, deterministic operational decider.",
+      "loc": 534
+    },
+    {
+      "class": "DoD",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasGovernanceAndDodService.php",
+      "summary": "Atlas AI OS - Governance And DoD decider.",
+      "loc": 433
+    },
+    {
+      "class": "AtlasHandoffChecklistService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasHandoffChecklistService.php",
+      "summary": "Legacy Cleanup Handoff Checklist decider.",
+      "loc": 390
+    },
+    {
+      "class": "AtlasHumanKnowledgeSurfaceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasHumanKnowledgeSurfaceService.php",
+      "summary": "Human Knowledge Surface (HKS) \u2014 pure, deterministic authority gate.",
+      "loc": 312
+    },
+    {
+      "class": "AtlasImplementationPlanningAndRolloutService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasImplementationPlanningAndRolloutService.php",
+      "summary": "Implementation Planning And Rollout decider.",
+      "loc": 462
+    },
+    {
+      "class": "AtlasImplementationPriorityEngineService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasImplementationPriorityEngineService.php",
+      "summary": "Atlas Self-Construction Implementation Priority Engine decider.",
+      "loc": 554
+    },
+    {
+      "class": "AtlasIntentRoutingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasIntentRoutingService.php",
+      "summary": "Runtime for the Intent Routing kernel step.",
+      "loc": 314
+    },
+    {
+      "class": "for",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasInventorySummaryService.php",
+      "summary": "Legacy Cleanup Inventory Summary decider.",
+      "loc": 281
+    },
+    {
+      "class": "AtlasKernelContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasKernelContractsService.php",
+      "summary": "Atlas AI Kernel Contracts decider.",
+      "loc": 391
+    },
+    {
+      "class": "AtlasKernelStaticScansService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasKernelStaticScansService.php",
+      "summary": "Atlas Kernel Static Scans \u2014 pure, deterministic read model that turns the",
+      "loc": 498
+    },
+    {
+      "class": "AtlasLayerStatusService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLayerStatusService.php",
+      "summary": "Atlas AI Canonical Layer Status \u2014 runtime.",
+      "loc": 395
+    },
+    {
+      "class": "AtlasLegacyDocumentationCleanupPlanService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLegacyDocumentationCleanupPlanService.php",
+      "summary": "Legacy Documentation Cleanup Plan decider.",
+      "loc": 339
+    },
+    {
+      "class": "is",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLegacyDocumentationCleanupReportService.php",
+      "summary": "Legacy Documentation Cleanup Report decider.",
+      "loc": 340
+    },
+    {
+      "class": "AtlasLifecycleRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLifecycleRunbookService.php",
+      "summary": "Atlas Engineering Blueprint Lifecycle Runbook decider.",
+      "loc": 408
+    },
+    {
+      "class": "AtlasLivingArchitectureGraphContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLivingArchitectureGraphContractService.php",
+      "summary": "Atlas Living Architecture Graph (L1) \u2014 pure, deterministic validator for the",
+      "loc": 546
+    },
+    {
+      "class": "AtlasLocalAgentSurfaceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasLocalAgentSurfaceService.php",
+      "summary": "Atlas Local Agent Surface \u2014 pure, deterministic background-job claim gate.",
+      "loc": 281
+    },
+    {
+      "class": "AtlasMasterCompetitiveStrategyService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMasterCompetitiveStrategyService.php",
+      "summary": "Pure, deterministic decider for the Atlas Master Architecture Competitive",
+      "loc": 329
+    },
+    {
+      "class": "AtlasMemoryContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMemoryContractsService.php",
+      "summary": "Atlas AI Memory Contracts decider.",
+      "loc": 483
+    },
+    {
+      "class": "AtlasMemoryOpenBrainMcpService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMemoryOpenBrainMcpService.php",
+      "summary": "Atlas Memory \u00b7 Open Brain MCP & API contract decider.",
+      "loc": 430
+    },
+    {
+      "class": "AtlasMetaSddContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMetaSddContractService.php",
+      "summary": "Atlas Self-Construction Meta-SDD Contract \u2014 pure, deterministic governor.",
+      "loc": 613
+    },
+    {
+      "class": "AtlasMetricsAndEvalsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMetricsAndEvalsService.php",
+      "summary": "Research Self-Improvement Metrics & Evals decider.",
+      "loc": 558
+    },
+    {
+      "class": "AtlasMinimaxFirst24hFlowService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMinimaxFirst24hFlowService.php",
+      "summary": "MiniMax-First 24h Agentic Engineering Flow \u2014 policy decider.",
+      "loc": 593
+    },
+    {
+      "class": "AtlasMissionControlCockpitSurfaceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMissionControlCockpitSurfaceService.php",
+      "summary": "Atlas Mission Control Cockpit \u2014 operator gesture + decision-receipt gate.",
+      "loc": 572
+    },
+    {
+      "class": "AtlasMultiAgentResearchRolesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMultiAgentResearchRolesService.php",
+      "summary": "Atlas AI Multi-Agent Research Roles \u2014 runtime.",
+      "loc": 470
+    },
+    {
+      "class": "AtlasMultiProviderAgentOrchestrationContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMultiProviderAgentOrchestrationContractService.php",
+      "summary": "Atlas Self-Construction \u00b7 Multi-Provider Agent Orchestration Contract \u2014 pure,",
+      "loc": 558
+    },
+    {
+      "class": "AtlasMultiSessionReadinessGateContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasMultiSessionReadinessGateContractService.php",
+      "summary": "Runtime for the Atlas Self-Construction Multi-Session Readiness Gate Contract.",
+      "loc": 347
+    },
+    {
+      "class": "AtlasNodeCatalogAndBuildContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasNodeCatalogAndBuildContractService.php",
+      "summary": "Atlas System Graph \u2014 Node Catalog And Build Contract (build packet).",
+      "loc": 599
+    },
+    {
+      "class": "AtlasObjectiveIntelligenceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasObjectiveIntelligenceService.php",
+      "summary": "Runtime for the \"Atlas Objective Intelligence\" specification.",
+      "loc": 552
+    },
+    {
+      "class": "AtlasObrasContractsAndInvariantsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasObrasContractsAndInvariantsService.php",
+      "summary": "Atlas Obras \u2014 Contracts And Invariants: pure, deterministic conformance",
+      "loc": 489
+    },
+    {
+      "class": "AtlasObrasImplementationRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasObrasImplementationRoadmapService.php",
+      "summary": "Atlas Obras - Implementation Roadmap \u2014 runtime.",
+      "loc": 531
+    },
+    {
+      "class": "AtlasObrasMetricsRisksAndExcellenceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasObrasMetricsRisksAndExcellenceService.php",
+      "summary": "Runtime for the Obras \"Metrics, Risks and Excellence\" specification.",
+      "loc": 421
+    },
+    {
+      "class": "AtlasObrasProductUxAndUseCasesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasObrasProductUxAndUseCasesService.php",
+      "summary": "Atlas Obras \u2014 Product UX And Use Cases: pure, deterministic guards for the",
+      "loc": 427
+    },
+    {
+      "class": "AtlasOperationEnvelopeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasOperationEnvelopeService.php",
+      "summary": "Operation Envelope admission decider.",
+      "loc": 342
+    },
+    {
+      "class": "AtlasOutputRendererService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasOutputRendererService.php",
+      "summary": "Atlas Output Renderer \u2014 pure, deterministic presentation of a Kernel result",
+      "loc": 452
+    },
+    {
+      "class": "AtlasP0PromotionsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasP0PromotionsService.php",
+      "summary": "Runtime for the Resolver Corpus P0 Promotions governance contract.",
+      "loc": 253
+    },
+    {
+      "class": "AtlasPacketCompletionGateContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPacketCompletionGateContractService.php",
+      "summary": "Self-Construction Packet Completion Gate \u2014 pure, deterministic completion decider.",
+      "loc": 313
+    },
+    {
+      "class": "AtlasPacketConsumptionRunbookContractRtService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPacketConsumptionRunbookContractRtService.php",
+      "summary": "Atlas Self-Construction \u00b7 Packet Consumption Runbook Contract \u2014 runtime.",
+      "loc": 437
+    },
+    {
+      "class": "AtlasPacketEvidenceReportContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPacketEvidenceReportContractService.php",
+      "summary": "Self-Construction Packet Evidence Report \u2014 pure, deterministic completion decider.",
+      "loc": 393
+    },
+    {
+      "class": "AtlasPacketQueueContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPacketQueueContractService.php",
+      "summary": "Atlas Self-Construction Packet Queue \u2014 pure, deterministic queue decider.",
+      "loc": 575
+    },
+    {
+      "class": "AtlasParallelMultiAgentExecutionSpecService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasParallelMultiAgentExecutionSpecService.php",
+      "summary": "Atlas Parallel Multi-Agent Execution Spec \u2014 pure, deterministic gate that",
+      "loc": 653
+    },
+    {
+      "class": "AtlasPatamaresL0L5Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPatamaresL0L5Service.php",
+      "summary": "Runtime for the Obras \"Patamares L0 to L5\" maturity-ladder specification.",
+      "loc": 421
+    },
+    {
+      "class": "is",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPersonalLongitudinalRoadmapService.php",
+      "summary": "Atlas Personal Longitudinal Intelligence Roadmap \u2014 runtime.",
+      "loc": 439
+    },
+    {
+      "class": "AtlasPlanesAndAuthorityService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPlanesAndAuthorityService.php",
+      "summary": "Pure, deterministic decider for the Atlas AI master \"Planes and Authority\"",
+      "loc": 415
+    },
+    {
+      "class": "AtlasPolicyProfileModelService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPolicyProfileModelService.php",
+      "summary": "Atlas AI Resolver Corpus Policy Profile Model \u2014 runtime.",
+      "loc": 253
+    },
+    {
+      "class": "AtlasPolicyProfileService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPolicyProfileService.php",
+      "summary": "Policy Profile (kernel pipeline step) \u2014 runtime.",
+      "loc": 347
+    },
+    {
+      "class": "AtlasPrivateConnectorsSecurityAndStackService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasPrivateConnectorsSecurityAndStackService.php",
+      "summary": "Runtime for the \"Atlas AI Research Private Connectors Security And Stack\" doc.",
+      "loc": 432
+    },
+    {
+      "class": "AtlasProgrammingFrontendCoverageAuditService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendCoverageAuditService.php",
+      "summary": "Runtime for the Impeccable Teardown Coverage Audit doc.",
+      "loc": 254
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableBuildTestReleaseService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableBuildTestReleaseService.php",
+      "summary": "Programming Frontend \u2014 Impeccable Build / Test / Release Teardown runtime.",
+      "loc": 371
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableCodeInventoryService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableCodeInventoryService.php",
+      "summary": "Runtime for the \"Impeccable Code Inventory For Atlas Frontend\" doc.",
+      "loc": 342
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableDetectorExtensionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableDetectorExtensionService.php",
+      "summary": "Runtime for the \"Impeccable Detector And Browser Extension\" doc \u2014 the",
+      "loc": 448
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableLiveModeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableLiveModeService.php",
+      "summary": "Runtime for the Impeccable Live Mode Teardown doc.",
+      "loc": 326
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableProductSiteAssetsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableProductSiteAssetsService.php",
+      "summary": "Runtime for the \"Impeccable Product Site Assets And Distribution\" doc \u2014 the",
+      "loc": 434
+    },
+    {
+      "class": "AtlasProgrammingFrontendImpeccableSkillCommandFlowService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendImpeccableSkillCommandFlowService.php",
+      "summary": "Runtime for the Impeccable Skill And Command Flow doc.",
+      "loc": 403
+    },
+    {
+      "class": "AtlasProgrammingFrontendProductProofDesignSystemMigrationService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendProductProofDesignSystemMigrationService.php",
+      "summary": "Design-system-migration product-proof gate evaluator.",
+      "loc": 311
+    },
+    {
+      "class": "AtlasProgrammingFrontendProductProofEcommerceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendProductProofEcommerceService.php",
+      "summary": "Ecommerce product-page product-proof gate evaluator.",
+      "loc": 276
+    },
+    {
+      "class": "AtlasProgrammingFrontendProductProofLiveModeRepairLoopService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendProductProofLiveModeRepairLoopService.php",
+      "summary": "Live-mode repair-loop product-proof gate evaluator.",
+      "loc": 284
+    },
+    {
+      "class": "AtlasProgrammingFrontendProductProofMobileAppOnboardingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingFrontendProductProofMobileAppOnboardingService.php",
+      "summary": "Mobile app-onboarding product-proof gate evaluator.",
+      "loc": 282
+    },
+    {
+      "class": "AtlasProgrammingGovernanceSystemContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingGovernanceSystemContractsService.php",
+      "summary": "Atlas Programming Governance System Contracts \u2014 pure, deterministic",
+      "loc": 454
+    },
+    {
+      "class": "AtlasProgrammingGovernanceSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingGovernanceSystemService.php",
+      "summary": "Atlas Programming Governance System \u2014 pure, deterministic index decider.",
+      "loc": 414
+    },
+    {
+      "class": "AtlasProgrammingPipelineTargetService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingPipelineTargetService.php",
+      "summary": "Atlas Programming Pipeline Target decider.",
+      "loc": 415
+    },
+    {
+      "class": "AtlasProgrammingRepairContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingRepairContractService.php",
+      "summary": "Atlas AI Programming Repair Contract \u2014 pre-attempt admissibility gate.",
+      "loc": 333
+    },
+    {
+      "class": "AtlasProgrammingSelfConstructionForgeMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingSelfConstructionForgeMapService.php",
+      "summary": "Atlas Programming Self-Construction Forge Map decider.",
+      "loc": 481
+    },
+    {
+      "class": "AtlasProgrammingToolBacklogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingToolBacklogService.php",
+      "summary": "Atlas Programming Tool Backlog \u2014 pure, deterministic backlog decider.",
+      "loc": 373
+    },
+    {
+      "class": "AtlasProgrammingToolFamiliesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProgrammingToolFamiliesService.php",
+      "summary": "Atlas Programming Tool Families \u2014 pure, deterministic family decider.",
+      "loc": 576
+    },
+    {
+      "class": "AtlasProviderAntifragilityService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProviderAntifragilityService.php",
+      "summary": "Pure, deterministic decider for the Atlas Provider Antifragility thesis.",
+      "loc": 351
+    },
+    {
+      "class": "AtlasProviderPerformanceRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasProviderPerformanceRoadmapService.php",
+      "summary": "Pure, deterministic decider for the Provider Performance Evolution Roadmap.",
+      "loc": 326
+    },
+    {
+      "class": "AtlasQualitativeLevelsImplementationService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasQualitativeLevelsImplementationService.php",
+      "summary": "Atlas AI Qualitative Levels Implementation Queue decider.",
+      "loc": 282
+    },
+    {
+      "class": "AtlasQualityBarAndMetricsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasQualityBarAndMetricsService.php",
+      "summary": "Runtime for the Atlas Self-Construction \"Quality Bar And Metrics\" specification.",
+      "loc": 244
+    },
+    {
+      "class": "AtlasQualityGatesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasQualityGatesService.php",
+      "summary": "Quality Gates kernel decider.",
+      "loc": 559
+    },
+    {
+      "class": "AtlasRecipesExistingToolsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRecipesExistingToolsService.php",
+      "summary": "Atlas AI Cyber Existing Tools \u2014 pure, deterministic reuse-before-propose gate.",
+      "loc": 347
+    },
+    {
+      "class": "AtlasRecipesExternalMcpService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRecipesExternalMcpService.php",
+      "summary": "Atlas AI Cyber External MCP Tooling \u2014 pure, deterministic admission decider.",
+      "loc": 381
+    },
+    {
+      "class": "AtlasRecipesOffensiveFamiliesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRecipesOffensiveFamiliesService.php",
+      "summary": "Atlas AI Cyber Offensive Recipe Families \u2014 pure, deterministic family decider.",
+      "loc": 361
+    },
+    {
+      "class": "AtlasRecipesPromotionRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRecipesPromotionRunbookService.php",
+      "summary": "Atlas AI Cyber Recipes Promotion Runbook \u2014 pure, deterministic promotion gate.",
+      "loc": 341
+    },
+    {
+      "class": "AtlasRefusalMatrixService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRefusalMatrixService.php",
+      "summary": "Atlas AI Cyber Refusal Matrix \u2014 pure, deterministic refusal decider.",
+      "loc": 724
+    },
+    {
+      "class": "AtlasRepairEscalationService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRepairEscalationService.php",
+      "summary": "Repair Escalation kernel decider.",
+      "loc": 295
+    },
+    {
+      "class": "AtlasReportingAndPublicationContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasReportingAndPublicationContractService.php",
+      "summary": "Research reporting-and-publication contract decider.",
+      "loc": 412
+    },
+    {
+      "class": "AtlasResearchAutomationRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasResearchAutomationRunbookService.php",
+      "summary": "Research Self-Improvement Automation Runbook decider.",
+      "loc": 309
+    },
+    {
+      "class": "AtlasResearchFailureModesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasResearchFailureModesService.php",
+      "summary": "Atlas AI Research Self-Improvement Failure Modes \u2014 pure, deterministic decider.",
+      "loc": 471
+    },
+    {
+      "class": "AtlasResearchIntelligencePipelineService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasResearchIntelligencePipelineService.php",
+      "summary": "Atlas AI Research Intelligence Pipeline decider.",
+      "loc": 475
+    },
+    {
+      "class": "AtlasResearchOperatingSystemService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasResearchOperatingSystemService.php",
+      "summary": "Deterministic runtime for the Atlas AI Research Operating System.",
+      "loc": 368
+    },
+    {
+      "class": "AtlasResearchToDocsPromotionService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasResearchToDocsPromotionService.php",
+      "summary": "Deterministic runtime for the Atlas AI Research To Documentation Promotion",
+      "loc": 382
+    },
+    {
+      "class": "AtlasReservationLedgerContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasReservationLedgerContractService.php",
+      "summary": "Atlas Self-Construction Reservation Ledger Contract \u2014 pure, deterministic,",
+      "loc": 472
+    },
+    {
+      "class": "AtlasRoadmapApIndexService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRoadmapApIndexService.php",
+      "summary": "Atlas AI Kernel Roadmap AP Index \u2014 runtime.",
+      "loc": 361
+    },
+    {
+      "class": "AtlasRuntimeEvidenceLearningService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRuntimeEvidenceLearningService.php",
+      "summary": "Pure, deterministic decider for the Runtime / Evidence / Learning plane",
+      "loc": 388
+    },
+    {
+      "class": "AtlasRuntimeExecutorService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRuntimeExecutorService.php",
+      "summary": "Runtime Executor kernel gear.",
+      "loc": 426
+    },
+    {
+      "class": "AtlasRuntimeImplementationRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasRuntimeImplementationRoadmapService.php",
+      "summary": "Atlas Self-Construction Runtime Implementation Roadmap \u2014 runtime.",
+      "loc": 489
+    },
+    {
+      "class": "AtlasSchemaContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSchemaContractsService.php",
+      "summary": "Atlas Engineering Blueprint Schema Contracts decider.",
+      "loc": 426
+    },
+    {
+      "class": "AtlasSchemasAndPacketsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSchemasAndPacketsService.php",
+      "summary": "Research Self-Improvement Schemas And Packets decider.",
+      "loc": 476
+    },
+    {
+      "class": "AtlasScopeValidatorContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasScopeValidatorContractService.php",
+      "summary": "Self-Construction Scope Validator \u2014 pure, deterministic file-scope classifier.",
+      "loc": 430
+    },
+    {
+      "class": "AtlasSddImplementationRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSddImplementationRoadmapService.php",
+      "summary": "Atlas SDD Implementation Roadmap \u2014 runtime.",
+      "loc": 509
+    },
+    {
+      "class": "turns",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSddTemplatesAndSchemasService.php",
+      "summary": "Runtime for the Atlas SDD Templates And Schemas doc.",
+      "loc": 337
+    },
+    {
+      "class": "AtlasSelfConstructionCommandEvidenceIndexService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionCommandEvidenceIndexService.php",
+      "summary": "Runtime for the Self-Construction Command Evidence Index v1 doc.",
+      "loc": 632
+    },
+    {
+      "class": "AtlasSelfConstructionFailureModesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionFailureModesService.php",
+      "summary": "Atlas Self-Construction Failure Modes \u2014 pure, deterministic failure governor.",
+      "loc": 537
+    },
+    {
+      "class": "AtlasSelfConstructionOsCompletionRoadmapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionOsCompletionRoadmapService.php",
+      "summary": "Atlas Self-Construction OS - Completion Roadmap \u2014 runtime.",
+      "loc": 401
+    },
+    {
+      "class": "AtlasSelfConstructionOsGapAuditService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionOsGapAuditService.php",
+      "summary": "Runtime for the Atlas Self-Construction OS Gap Audit v1 doc.",
+      "loc": 437
+    },
+    {
+      "class": "AtlasSelfConstructionOsOpenQuestionsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionOsOpenQuestionsService.php",
+      "summary": "Runtime for the Atlas Self-Construction OS Open Questions v1 doc.",
+      "loc": 317
+    },
+    {
+      "class": "AtlasSelfConstructionOsOperatorRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionOsOperatorRunbookService.php",
+      "summary": "Atlas Self-Construction OS - Operator Runbook v1 \u2014 runtime.",
+      "loc": 514
+    },
+    {
+      "class": "AtlasSelfConstructionOsRiskRegisterService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionOsRiskRegisterService.php",
+      "summary": "Runtime for the Atlas Self-Construction OS Risk Register v1 doc.",
+      "loc": 566
+    },
+    {
+      "class": "AtlasSelfConstructionVerificationCommandCatalogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfConstructionVerificationCommandCatalogService.php",
+      "summary": "Runtime for the Self-Construction Verification Command Catalog v1 doc.",
+      "loc": 421
+    },
+    {
+      "class": "AtlasSelfProgrammingSafetyContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSelfProgrammingSafetyContractService.php",
+      "summary": "Self-Programming Safety Contract \u2014 pure, deterministic safety deciders.",
+      "loc": 543
+    },
+    {
+      "class": "AtlasSharedWorkspaceAndForgeService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSharedWorkspaceAndForgeService.php",
+      "summary": "Atlas Obras \u2014 Shared Workspace And Forge: pure, deterministic conformance",
+      "loc": 468
+    },
+    {
+      "class": "AtlasSingleSessionInstructionPacketContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSingleSessionInstructionPacketContractService.php",
+      "summary": "Runtime for the Single Session Instruction Packet Contract doc.",
+      "loc": 351
+    },
+    {
+      "class": "NOT",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSkillPackCanonicalService.php",
+      "summary": "Atlas Skill Pack Canonical decider.",
+      "loc": 336
+    },
+    {
+      "class": "AtlasSourceQualityAndTrustLadderService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSourceQualityAndTrustLadderService.php",
+      "summary": "Source Quality And Trust Ladder decider.",
+      "loc": 456
+    },
+    {
+      "class": "AtlasSpecCompilerAndCriticService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSpecCompilerAndCriticService.php",
+      "summary": "Atlas SDD Spec Compiler And Critic.",
+      "loc": 459
+    },
+    {
+      "class": "AtlasSpecGraphAndTraceabilityService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSpecGraphAndTraceabilityService.php",
+      "summary": "Atlas SDD Spec Graph & Traceability \u2014 pure, deterministic enforcement of the",
+      "loc": 480
+    },
+    {
+      "class": "AtlasStateOfArtResearchMapService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasStateOfArtResearchMapService.php",
+      "summary": "Atlas AI Cognitive Runtime State Of Art Research Map \u2014 pure, deterministic",
+      "loc": 335
+    },
+    {
+      "class": "AtlasStrategicDecisionRoutingService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasStrategicDecisionRoutingService.php",
+      "summary": "Atlas Strategic Decision Domain \u00b7 route decider.",
+      "loc": 333
+    },
+    {
+      "class": "AtlasStructuralContractGateService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasStructuralContractGateService.php",
+      "summary": "Atlas Self-Construction Structural Contract Gate \u2014 pure, deterministic",
+      "loc": 571
+    },
+    {
+      "class": "AtlasSurfaceAdapterService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSurfaceAdapterService.php",
+      "summary": "Atlas Surface Adapter \u2014 pure, deterministic input/output normalization step.",
+      "loc": 498
+    },
+    {
+      "class": "AtlasSurfacePlaneService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSurfacePlaneService.php",
+      "summary": "Atlas Surface Plane \u2014 pure, deterministic entry-plane admission + normalization.",
+      "loc": 427
+    },
+    {
+      "class": "material",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphBusinessContextService.php",
+      "summary": "Runtime for the Business Context kernel step.",
+      "loc": 386
+    },
+    {
+      "class": "AtlasSystemGraphCapabilitiesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphCapabilitiesService.php",
+      "summary": "System-Graph `capabilities` module gear.",
+      "loc": 385
+    },
+    {
+      "class": "AtlasSystemGraphContextBuilderService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphContextBuilderService.php",
+      "summary": "Context Builder (kernel pipeline step / system-graph node) \u2014 runtime.",
+      "loc": 331
+    },
+    {
+      "class": "AtlasSystemGraphDocOsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphDocOsService.php",
+      "summary": "Documentation Operating System (system-graph node `doc-os`) \u2014 pure,",
+      "loc": 330
+    },
+    {
+      "class": "AtlasSystemGraphDomainProfileFlowService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphDomainProfileFlowService.php",
+      "summary": "Atlas System Graph \u00b7 Domain Profile Flow decider.",
+      "loc": 338
+    },
+    {
+      "class": "AtlasSystemGraphInputService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphInputService.php",
+      "summary": "Atlas Input \u2014 pure, deterministic canonical-input formation step.",
+      "loc": 549
+    },
+    {
+      "class": "AtlasSystemGraphService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasSystemGraphService.php",
+      "summary": "Atlas System Graph (L0) \u2014 pure, deterministic validator for the *taxonomy*",
+      "loc": 549
+    },
+    {
+      "class": "may",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasTeosExistingCodeMapPart01Service.php",
+      "summary": "Atlas TEOS Existing Code Map \u00b7 Parte 1 anti-duplication decider.",
+      "loc": 524
+    },
+    {
+      "class": "AtlasTeosExistingCodeMapPart02Service",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasTeosExistingCodeMapPart02Service.php",
+      "summary": "Runtime for the \"Atlas TEOS Existing Code Map \u00b7 Parte 2\" doc.",
+      "loc": 516
+    },
+    {
+      "class": "AtlasThesisMultiplierChannelService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasThesisMultiplierChannelService.php",
+      "summary": "Pure, deterministic decider for the Atlas Multiplier & Sovereign Channel thesis.",
+      "loc": 393
+    },
+    {
+      "class": "AtlasTrustLedgerCanonicalService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasTrustLedgerCanonicalService.php",
+      "summary": "Atlas Trust Ledger Canonical \u2014 append-only autonomy-gating score.",
+      "loc": 374
+    },
+    {
+      "class": "AtlasUniversalFailureModeCatalogService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasUniversalFailureModeCatalogService.php",
+      "summary": "Atlas Universal Failure Mode Catalog (AUFC) \u2014 pure, deterministic recovery router.",
+      "loc": 539
+    },
+    {
+      "class": "AtlasVaultCartographySchemaContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasVaultCartographySchemaContractsService.php",
+      "summary": "Atlas Vault Cartography Schema Contracts \u2014 pure, deterministic frontmatter decider.",
+      "loc": 501
+    },
+    {
+      "class": "AtlasVaultCartographySchemaRunbookService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasVaultCartographySchemaRunbookService.php",
+      "summary": "Atlas Vault Cartography Schema Runbook \u2014 pure, deterministic cartography decider.",
+      "loc": 432
+    },
+    {
+      "class": "to",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasVaultCartographySchemaService.php",
+      "summary": "Atlas Vault Cartography Schema \u2014 pure, deterministic INDEX-level cartography",
+      "loc": 392
+    },
+    {
+      "class": "AtlasVoxOperationalThinkingInterfaceService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasVoxOperationalThinkingInterfaceService.php",
+      "summary": "Runtime contract for the Atlas Vox Operational Thinking Interface doc.",
+      "loc": 382
+    },
+    {
+      "class": "AtlasWavesAndGatesService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasWavesAndGatesService.php",
+      "summary": "Legacy Cleanup Waves And Gates sequencer.",
+      "loc": 401
+    },
+    {
+      "class": "AtlasWorkSplitterContractService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/AtlasWorkSplitterContractService.php",
+      "summary": "Atlas Self-Construction Work Splitter \u2014 pure, deterministic packet splitter.",
+      "loc": 606
+    },
+    {
+      "class": "ForgeOperatingSystemContractsService",
+      "file": "app/Services/Ai/Aaeos/Quarantine/ForgeOperatingSystemContractsService.php",
+      "summary": "Forge Operating System Contracts \u2014 pure, deterministic conformance checker for",
+      "loc": 520
+    }
+  ]
+}

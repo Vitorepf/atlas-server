@@ -5,7 +5,7 @@ title: Atlas Agentic Engineering OS
 status: active
 category: atlas-ai
 priority: 103
-summary: Camada-mae que define Atlas como sistema operacional de uma organizacao de engenharia agentica: um gestor humano expressa intencao ambigua e o Atlas conduz produto, arquitetura, spec, codigo, infra, qualidade, seguranca, release, incidentes, documentacao, evidencia e aprendizado como uma area tech completa operada por IA.
+summary: Camada-mae do OS de engenharia agentica. Default era agentica = humano fora do loop de engenharia; Dev·Forge·Autonomos = tres executores elite (L0–L5). Control plane fino em app/Services/Ai/Aaeos/Control; Quarantine ~132k FROZEN. Spine N9+N11 compartilhada.
 tags:
   - atlas-ai
   - agentic-engineering
@@ -31,6 +31,8 @@ decisions:
   - Atlas Agentic Engineering OS governa a substituicao operacional de uma area tech por um gestor humano e uma organizacao de IA com departamentos, contratos, evidencias e certificacao.
   - Autonomous Software Company Runtime e runtime/departamento executivo dentro deste OS, nao o nome da area inteira.
   - Atlas Programming Governance System governa como software e alterado; Forge OS executa trabalho pesado; Agentic Engineering OS governa a organizacao completa de engenharia.
+  - Dev · Forge · Autônomos sao tres executores elite (mesma barra L0–L5); diferenca = humano no loop + escala; owner em atlas-elite-executors-dev-forge-autonomos.md.
+  - Na era agentica o default e humano fora do loop de engenharia; soberania humana = direcao e risco irreversivel, nao co-programacao continua.
   - Nenhum provider, chat, IDE, terminal, cockpit ou agente isolado pode ser chamado de Agentic Engineering OS.
   - Todo claim de pronto precisa de evidence, receipts, testes ou blockers explicitos; narrativa de agente nao e evidencia.
   - O Atlas so pode assumir trabalho enterprise quando conseguir operar produto, arquitetura, implementacao, qualidade, seguranca, delivery, observabilidade, incidentes, documentacao e aprendizado no mesmo ciclo governado.
@@ -48,6 +50,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-implementation-reality.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
+  - docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md
+  - docs/engineering-knowledge-base/atlas-autonomos-live-system.md
   - docs/engineering-knowledge-base/atlas-aaeos-l7-convergence-roadmap.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
@@ -252,9 +256,18 @@ Ele substitui operacionalmente a coordenacao cotidiana de uma area tech:
 - Data/Observability Analyst;
 - Knowledge Manager.
 
-O humano continua como operador soberano: define direcao, aprova risco,
-prioriza, corrige intencao e decide tradeoffs importantes. O Atlas faz a
-engenharia.
+**Humano e soberania (era agentica):** o humano **nao** e co-programador no
+loop de engenharia. O default e **humano fora do loop**: Dev · Forge · Autonomos
+executam com a **mesma barra elite (L0–L5)**; a diferenca e presenca humana +
+escala (ver `atlas-elite-executors-dev-forge-autonomos.md`).
+
+- **Dev:** humano presente na **intencao** (rumo vivo), nao microgerenciando cada diff.
+- **Forge:** humano so no **plano / soberania** de obra.
+- **Autonomos:** **zero** humano no loop (default 24/7; brain+task).
+
+O humano permanece soberano de **direcao** e de **risco irreversivel**
+(legal, $, wipe, objetivo de negocio ambiguo) via admission halt-sovereign —
+nao revisa engenharia por habito. O Atlas faz a engenharia; done = evidence.
 
 ## O Que Nao E
 
@@ -270,9 +283,25 @@ Atlas Agentic Engineering OS nao e:
 - tela bonita de SDD;
 - colecao de prompts;
 - Forge OS isolado;
-- Atlas Code isolado.
+- Atlas Code isolado;
+- a pasta `app/Services/Ai/Aaeos/Quarantine` (~132k) — isso e **cemiterio FROZEN**, nao o OS.
 
 Essas pecas podem existir dentro do sistema, mas nao sao o sistema.
+
+## Implementacao de disco (GOD/SOTA 2026-07-23)
+
+| Path | Papel |
+|---|---|
+| `app/Services/Ai/Aaeos/Control/*` | Control plane: intent, difficulty, mode, admission (world-aware), cycle runtime, adapters, scorecard, learning candidates |
+| `app/Services/Ai/Aaeos/Control/Adapters/*` | Dev / Forge / Autonomos mode adapters |
+| `app/Services/Ai/Aaeos/Spine/*` | N9+N11 shared spine + SpineGate stamp on intakes |
+| `app/Services/Ai/Aaeos/Support/AtlasSourceConnectorsAndCaptureService.php` | Brain frontier connectors (re-homed) |
+| `archive/app/Services/Ai/Aaeos/Quarantine/` | Cemetery archived (not operate path) |
+| `atlas:aaeos:cycle` | CLI cycle surface |
+| `atlas:aaeos:scorecard` / `atlas:aaeos:certify` | Scorecard + GOD/SOTA certification |
+
+**Certification:** `php artisan atlas:aaeos:certify --json` → composite ≥ 9.0.  
+Plan: `docs/superpowers/plans/2026-07-23-aaeos-god-sota-complete.md`.
 
 ## Onde Se Encaixa
 
@@ -482,8 +511,9 @@ Para uma implementacao de AAEOS ser aceita:
 - Canonical Architecture Index linka este OS na hierarquia.
 - Company Runtime opera departamentos com contratos.
 - Programming Governance bloqueia mudancas estruturais sem spec/evidence.
-- Atlas Dev entrega fast lane eficiente.
-- Forge entrega Obras pesadas com provider topology e evidence.
+- Atlas Dev · Forge · Autonomos entregam engenharia elite (mesma barra L0–L5); diferenca = humano no loop + escala (owner: `atlas-elite-executors-dev-forge-autonomos.md`).
+- AAEOS Control Plane fino (`App\Services\Ai\Aaeos\Control\*`) seleciona modo, admite e emite cycle receipt; Quarantine FROZEN.
+- Spine compartilhada N9 Delivery + N11 Evidence (`AaeosEngineeringSpine`).
 - Atlas Code mostra estado, plan, verify, evidence, terminal e cartografia.
 - Evidence Certification bloqueia claims fracos.
 - Knowledge Governance sincroniza docs, KB e Code Intelligence.

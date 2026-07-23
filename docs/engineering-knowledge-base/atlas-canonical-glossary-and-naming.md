@@ -198,21 +198,37 @@ exemplos ✓/✗ · aliases ok/proibidos.
 - Goal: 10/10 exige codigo ready + dados reais alimentando AEMOR, L7, trust outcomes e ACOP.
 - Aliases: ok={ACOS, Cognition OS, Atlas Cognition Operating System}; proibido={"sistema de memoria do Atlas" como sinonimo isolado, "wrapper de IA", "ferramenta de produtividade"}.
 
+### Elite executors (Dev · Forge · Autônomos)
+
+- `active`. Tres executores de engenharia elite; **mesma barra mundial (L0–L5)**.
+- Diferenca = presenca humana no loop de eng + escala/duracao + origem do trabalho.
+- Owner: `atlas-elite-executors-dev-forge-autonomos.md`.
+- Proibido: "Dev = fast patch", "Dev = produto leve", "Autonomos = qualidade pior", "Loop = Autonomos vivo".
+
 ### Atlas Dev
 
-- `active`. Nucleo de programacao leve/medio: patch, repair, refactor lite, code-gen, mini-spec, review pequeno, debug.
-- Use: minutos a poucas horas, escopo definido, sem SDD nem multiagente. Nao use: para Obra (use Atlas Forge).
-- Relacao: irmao paralelo do Atlas Forge. NUNCA pai/filho. Ver Dev vs Forge.
-- ✓ "Atlas Dev corrigiu typo em /healthz". ✗ "Atlas Dev refatorou toda a auth" (era pra promover).
-- Aliases: ok={Atlas Dev}; proibido={Mini Forge, Forge leve, Dev Atlas, Atlas Dev = subsystem do Forge}.
+- `active`. Executor elite com **operador presente na intencao**; cadencia de **sessao**; dificuldade **L0–L5** (mesma barra que Forge/Autonomos).
+- Use: programacao com rumo humano vivo (prompt/sessao), do tipografico ao frontier em horizonte de sessao. Escale para Forge quando virar Obra.
+- Nao use: como "produto leve" ou qualidade inferior; nao use "fast path" para significar barra menor.
+- Relacao: irmao paralelo do Atlas Forge; terceiro irmao = Autonomos. NUNCA pai/filho. Owner: `atlas-elite-executors-dev-forge-autonomos.md`. Ver Dev vs Forge.
+- ✓ "Atlas Dev fechou L3 com receipt em sessao". ✓ "Atlas Dev corrigiu typo (L0)". ✗ "Dev so faz patch facil". ✗ "Atlas Dev rodou Obra de 3 semanas sem escalation".
+- Aliases: ok={Atlas Dev, executor Dev}; proibido={Mini Forge, Forge leve, fast patch, produto leve, Dev Atlas, Atlas Dev = subsystem do Forge}.
 
 ### Atlas Forge
 
-- `active`. Nucleo de programacao pesado, multiagente, multi-provider, com Obras persistentes, SDD obrigatoria, packets, evidence normalization, integration queue, release gate.
-- Use: scope grande, multi-ciclo, multi-arquivo, SDD, enterprise. Nao use: para passo dentro do Dev.
+- `active`. Executor elite de **obra longa** multi-packet; operador so no **plano/soberania**; dificuldade **L0–L5** (mesma barra).
+- Use: scope grande, multi-ciclo, multi-arquivo, SDD, enterprise, continuidade. Nao use: como "unico executor elite" nem como gerente do Dev.
 - Relacao: irmao paralelo do Atlas Dev. Tem Obras. Pode ser chamado direto pelo Router OU por handoff vindo do Dev.
-- ✓ "Forge orquestra refatoracao de 14 arquivos". ✗ "Forge executa patch do Dev".
-- Aliases: ok={Atlas Forge, Forge OS}; proibido={Dev pesado, Atlas Code Forge = Atlas Forge}.
+- ✓ "Forge orquestra refatoracao multi-packet com SDD". ✗ "Forge = Dev pesado como identidade". ✗ "Forge executa patch do Dev como subordinacao".
+- Aliases: ok={Atlas Forge, Forge OS, executor Forge}; proibido={Dev pesado como nome de produto, Atlas Code Forge = Atlas Forge}.
+
+### Autônomos (Autonomos)
+
+- `active`. Executor elite **zero humano no loop de engenharia**; cérebro `atlas:brain:*` + músculo `atlas:task:*`; commit escopado na main; **L0–L5**; default 24/7.
+- Use: fila, night, self-evolve, originacao de valor sem operador. Nao use: chamar Loop/ACDE morto de Autonomos vivo; nao use como "qualidade pior" nem "so trivial".
+- Relacao: terceiro executor elite ao lado de Dev e Forge. Runtime: `atlas-autonomos-live-system.md`. Identidade: `atlas-elite-executors-dev-forge-autonomos.md`.
+- ✓ "Autonomos landou task L3 com seed-gate e scoped commit". ✗ "Autonomos = atlas:loop". ✗ "Autonomos so faz L0".
+- Aliases: ok={Autonomos, Autônomos, brain+task}; proibido={Loop vivo, ACDE, qualidade low-tier}.
 
 ### Rivals
 
@@ -449,20 +465,24 @@ exemplos ✓/✗ · aliases ok/proibidos.
 ## Termos TEOS / Long-Horizon
 Os termos TEOS/Long-Horizon vivem em `docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming-teos-long-horizon.md`: long_horizon, temporal_truth, event_sourced_timeline, continuation_pack, compaction_receipt, replay_manifest e continuity_certification.
 
-## Dev vs Forge
+## Dev vs Forge (e Autônomos)
 
-| Dimensao | Atlas Dev | Atlas Forge |
-| --- | --- | --- |
-| Peso | leve/medio | pesado |
-| Tempo | minutos a poucas horas | horas a dias, multi-ciclo |
-| Escopo | patch/repair/refactor lite/code-gen/mini-spec | refactor de subsistema, migracao, novo produto, SDD obrigatoria |
-| Provider | single-provider | multi-provider (Claude/Codex/Gemini) |
-| Spec | mini-spec quando risco>baixo | SDD obrigatoria sempre |
-| Unidade | task/WorkOrder | Obra/Work Packet |
-| Persistencia | run_id + verification_receipt | Obra persistente + delivery pack |
-| Quem decide | Router escolhe Dev quando score baixo | Router escolhe Forge quando score>=7 OR risk>=R4 OR sdd_required |
+**Owner da identidade dos tres:** `atlas-elite-executors-dev-forge-autonomos.md`  
+(mesma barra L0–L5; diferenca = humano no loop + escala + origem).
 
-**Invariantes:** (1) Dev NAO e mini Forge — nao desce a WorkPackets, nao decompoe Obra, nao roda multi-agente. (2) Forge NAO e subflow do Dev — tem identidade propria, pode ser chamado direto pelo Router. (3) Dev pode promover para Forge via `atlas.dev_to_forge.escalation_packet.v1` (handoff honesto). Operador aprova via Atencao. (4) Forge NAO promove para Dev — patch leve interno nao vira Dev. (5) Router decide; nunca Dev->Forge sem packet.
+| Dimensao | Atlas Dev | Atlas Forge | Autonomos |
+| --- | --- | --- | --- |
+| Humano no loop de eng | Presente na **intencao** | So plano / soberania | **Zero** (default 24/7) |
+| Tempo / escala | sessao (min–horas) | horas–dias, multi-ciclo | fila continua |
+| Origem | "faz X" ao vivo | Spec / Obra | brain:next → task |
+| Dificuldade | L0–L5 | L0–L5 | L0–L5 |
+| Unidade tipica | task/WorkOrder / session run | Obra/Work Packet | task packet serving |
+| Spec | proporcional ao risco (mini-spec→maior) | SDD quando obra exige | seed-gate + task contract |
+| Provider | tipicamente single; governado | multi-provider / topology | provider do task serving |
+| Persistencia | run_id + verification_receipt | Obra + delivery pack | lease/queue + scoped commit |
+| Quem escolhe | Router: intencao interativa / sessao | Router: obra longa / SDD / multi-packet | Router/AAEOS: fila / night / self-evolve |
+
+**Invariantes:** (1) Dev NAO e mini Forge e NAO e "fast patch" de qualidade inferior. (2) Forge NAO e subflow do Dev — identidade propria. (3) Autonomos NAO e qualidade inferior e NAO e Loop/ACDE morto. (4) Dev pode promover para Forge via `atlas.dev_to_forge.escalation_packet.v1`. (5) Forge NAO rebaixa identidade para "virar Dev". (6) Router/AAEOS decide modo; Dev→Forge sem packet e proibido. (7) bar(Dev)=bar(Forge)=bar(Autonomos).
 
 ## Domain vs Flow vs Runtime vs Harness
 

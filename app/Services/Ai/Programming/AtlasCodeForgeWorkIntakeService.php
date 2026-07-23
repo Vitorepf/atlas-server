@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
+use App\Services\Ai\Aaeos\Spine\AaeosSpineGate;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -28,6 +30,7 @@ class AtlasCodeForgeWorkIntakeService
     public function __construct(
         private readonly AtlasExecutionDoctrineRuntimeService $aedpds = new AtlasExecutionDoctrineRuntimeService,
         private readonly AtlasExecutionDoctrineGateService $aedpdsGate = new AtlasExecutionDoctrineGateService,
+        private readonly AaeosSpineGate $aaeosSpine = new AaeosSpineGate,
     ) {}
 
     /**
@@ -90,6 +93,7 @@ class AtlasCodeForgeWorkIntakeService
         $intake['aedpds'] = $this->aedpdsEnvelope($intake);
 
         $intake = $this->withReadiness($intake);
+        $intake = $this->aaeosSpine->stamp($intake, AaeosExecutorMode::FORGE);
 
         $this->remember($project, $intake);
 

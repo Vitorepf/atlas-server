@@ -270,7 +270,7 @@ class AtlasEliteCompactionCommand extends Command
             'detail' => trim((string) $scheduleHits).' hits',
         ];
         $genCount = count(glob(base_path('app/Services/Ai/Aaeos/Generated/*.php')) ?: []);
-        $qCount = count(glob(base_path('app/Services/Ai/Aaeos/Quarantine/*.php')) ?: []);
+        $qCount = count(glob(base_path('archive/app/Services/Ai/Aaeos/Quarantine/*.php')) ?: []);
         $checks['generated_hot_path_off'] = [
             'ok' => ! (bool) config('atlas_elite_compaction.generated.hot_path_enabled', false),
             'detail' => "generated={$genCount} quarantine={$qCount}",

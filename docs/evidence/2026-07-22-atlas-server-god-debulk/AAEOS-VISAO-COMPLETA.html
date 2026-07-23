@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AAEOS — Visão Completa · Era Agentica · Plano de Transformação</title>
+  <style>
+    :root {
+      --bg: #070b10;
+      --bg2: #0d141c;
+      --panel: #121a24;
+      --panel2: #182230;
+      --ink: #e8eef6;
+      --muted: #8b9aab;
+      --core: #3dd6c6;
+      --core-dim: rgba(61, 214, 198, 0.12);
+      --crown: #7aa2ff;
+      --crown-dim: rgba(122, 162, 255, 0.12);
+      --quar: #ff7a7a;
+      --quar-dim: rgba(255, 122, 122, 0.1);
+      --gold: #f0c14b;
+      --gold-dim: rgba(240, 193, 75, 0.1);
+      --ok: #6bcf7f;
+      --line: #243040;
+      --dev: #7aa2ff;
+      --forge: #c9a0ff;
+      --auto: #3dd6c6;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(900px 420px at 15% -5%, #152033 0%, transparent 55%),
+        radial-gradient(700px 380px at 90% 10%, #1a1430 0%, transparent 45%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 15.5px;
+    }
+    a { color: var(--crown); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 20px 100px; }
+    header.hero {
+      padding: 28px 0 36px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 36px;
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .badge {
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .badge.core { color: var(--core); border-color: rgba(61,214,198,.35); background: var(--core-dim); }
+    .badge.gold { color: var(--gold); border-color: rgba(240,193,75,.35); background: var(--gold-dim); }
+    .badge.quar { color: var(--quar); border-color: rgba(255,122,122,.35); background: var(--quar-dim); }
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.45rem);
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin: 0 0 14px;
+    }
+    .lead {
+      font-size: 1.08rem;
+      color: var(--muted);
+      max-width: 68ch;
+      margin: 0 0 20px;
+    }
+    .thesis {
+      border-left: 3px solid var(--gold);
+      background: var(--gold-dim);
+      padding: 16px 18px;
+      border-radius: 0 12px 12px 0;
+      font-size: 1.02rem;
+    }
+    .thesis strong { color: var(--gold); }
+    nav.toc {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(7, 11, 16, 0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 36px;
+    }
+    nav.toc h2 {
+      margin: 0 0 10px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    nav.toc ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      columns: 2;
+      gap: 24px;
+      font-size: 0.88rem;
+    }
+    @media (max-width: 700px) { nav.toc ol { columns: 1; } }
+    nav.toc li { margin: 4px 0; color: var(--muted); }
+    nav.toc a { color: var(--ink); }
+    section {
+      margin-bottom: 42px;
+      scroll-margin-top: 24px;
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      margin: 0 0 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    h2 .num {
+      color: var(--core);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.85em;
+      margin-right: 8px;
+    }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 22px 0 10px;
+      color: var(--ink);
+    }
+    p { margin: 0 0 12px; color: var(--muted); }
+    p.ink { color: var(--ink); }
+    ul, ol { color: var(--muted); margin: 0 0 14px; padding-left: 1.25rem; }
+    li { margin: 5px 0; }
+    li strong { color: var(--ink); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 18px 16px;
+      margin: 14px 0;
+    }
+    .panel.core { border-color: rgba(61,214,198,.25); }
+    .panel.quar { border-color: rgba(255,122,122,.25); }
+    .panel.gold { border-color: rgba(240,193,75,.25); }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 14px 12px;
+    }
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    .card.dev h4 { color: var(--dev); }
+    .card.forge h4 { color: var(--forge); }
+    .card.auto h4 { color: var(--auto); }
+    .card p, .card li { font-size: 0.88rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin: 12px 0 16px;
+    }
+    th, td {
+      text-align: left;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    td { color: var(--muted); }
+    td strong, th strong { color: var(--ink); }
+    .mono {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.8rem;
+      background: rgba(0,0,0,.28);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      color: var(--muted);
+      white-space: pre;
+      line-height: 1.45;
+    }
+    .mono b { color: var(--core); font-weight: 600; }
+    .mono .c { color: var(--crown); }
+    .mono .g { color: var(--gold); }
+    .mono .q { color: var(--quar); }
+    .pipe {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      white-space: nowrap;
+      margin: 12px 0;
+    }
+    .pipe b { color: var(--core); }
+    .status-done { color: var(--ok); }
+    .status-partial { color: var(--gold); }
+    .status-todo { color: var(--crown); }
+    .status-no { color: var(--quar); }
+    .callout {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--core-dim);
+      border: 1px solid rgba(61,214,198,.25);
+      margin: 14px 0;
+    }
+    .callout.warn {
+      background: var(--gold-dim);
+      border-color: rgba(240,193,75,.3);
+    }
+    .callout.danger {
+      background: var(--quar-dim);
+      border-color: rgba(255,122,122,.3);
+    }
+    .callout .mark {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--core);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .callout.warn .mark { color: var(--gold); }
+    .callout.danger .mark { color: var(--quar); }
+    .callout p { margin: 0; font-size: 0.92rem; }
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .organs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .org {
+      background: var(--core-dim);
+      border: 1px solid rgba(61,214,198,.2);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 78px;
+    }
+    .org strong {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--core);
+      margin-bottom: 4px;
+    }
+    .org span { font-size: 0.75rem; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      font-size: 0.75rem;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(122,162,255,.06);
+    }
+    .chip.q { color: #ffb3b3; background: var(--quar-dim); }
+    .chip.ok { color: var(--ok); background: rgba(107,207,127,.1); }
+    .chip.gold { color: var(--gold); background: var(--gold-dim); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge-row">
+        <span class="badge core">AAEOS</span>
+        <span class="badge gold">Era agentica</span>
+        <span class="badge">Nucleus GOD/SOTA</span>
+        <span class="badge quar">Quarantine FROZEN</span>
+        <span class="badge">2026-07-23</span>
+      </div>
+      <h1>AAEOS — Visão completa, destino e plano de transformação</h1>
+      <p class="lead">
+        Documento de produto + arquitetura + roadmap. O que o AAEOS é, como deve funcionar
+        na era em que o humano sai do loop de engenharia, se isso é antifragilidade,
+        se é o futuro das empresas, e <strong style="color:var(--ink)">tudo o que vamos mexer</strong>
+        no disco e no desenho do Atlas.
+      </p>
+      <div class="thesis">
+        <strong>Tese:</strong> AAEOS não é um executor nem 132k de classes na Quarantine.
+        É o <em>sistema operacional da organização de engenharia agentica</em> —
+        governo fino que faz Dev · Forge · Autônomos (mesma barra L0–L5) transformarem
+        intenção em software verificado, 24/7, com prova, sem humano no loop de engenharia.
+      </div>
+    </header>
+
+    <nav class="toc">
+      <h2>Índice</h2>
+      <ol>
+        <li><a href="#s1">O que é (e o que não é) AAEOS</a></li>
+        <li><a href="#s2">Como eu vejo o AAEOS</a></li>
+        <li><a href="#s3">Como deveria ser estruturado</a></li>
+        <li><a href="#s4">Como deveria funcionar (ciclo)</a></li>
+        <li><a href="#s5">Dev · Forge · Autônomos</a></li>
+        <li><a href="#s6">Nucleus: os 12 órgãos</a></li>
+        <li><a href="#s7">Papel da IA vs papel do humano</a></li>
+        <li><a href="#s8">Antifragilidade</a></li>
+        <li><a href="#s9">Era agentica e o futuro das empresas</a></li>
+        <li><a href="#s10">Seremos os primeiros?</a></li>
+        <li><a href="#s11">Estado atual do disco</a></li>
+        <li><a href="#s12">Tudo o que vamos mexer (backlog)</a></li>
+        <li><a href="#s13">Sprints e done criteria</a></li>
+        <li><a href="#s14">Riscos e anti-padrões</a></li>
+        <li><a href="#s15">Referências no repo</a></li>
+      </ol>
+    </nav>
+
+    <!-- 1 -->
+    <section id="s1">
+      <h2><span class="num">01</span>O que é (e o que não é) AAEOS</h2>
+      <div class="grid2">
+        <div class="panel core">
+          <h3 style="margin-top:0;color:var(--core)">É</h3>
+          <ul>
+            <li><strong>Governo</strong> da engenharia: o que pode mutar, sob quais gates, com que evidência</li>
+            <li><strong>Organização virtual</strong>: papéis (PM, Arch, Impl, QA, Sec, SRE, Release, Docs) — não 300 pastas</li>
+            <li><strong>Orquestração</strong>: escolhe modo Dev / Forge / Autônomos e intensidade L0–L5</li>
+            <li><strong>Admissão</strong>: auto · auto+notify · halt-sovereign</li>
+            <li><strong>Prova</strong>: done = evidence pack + certification, nunca narrativa de agente</li>
+            <li><strong>Memória da org</strong>: o que a engenharia aprendeu (via Learning N12)</li>
+          </ul>
+        </div>
+        <div class="panel quar">
+          <h3 style="margin-top:0;color:var(--quar)">Não é</h3>
+          <ul>
+            <li>Um quarto executor (“mais um Claude”)</li>
+            <li>A pasta monstro <code>Aaeos/Quarantine</code> (~132k LOC)</li>
+            <li>Chatbot, IDE agentica, wrapper de provider</li>
+            <li>Forge isolado, Dev “leve”, Loop/ACDE morto</li>
+            <li>Dashboard de tickets ou coleção de prompts</li>
+            <li>Substituição de Nucleus (context, decide, ledger…)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="mark">LENTE</div>
+        <p>
+          Engano clássico: “AAEOS = a fábrica de código”.<br />
+          Correto: “AAEOS = o <strong>governo + orquestração</strong> da fábrica;
+          Dev/Forge/Autônomos = os <strong>braços</strong>;
+          Nucleus = o <strong>sistema nervoso</strong>.”
+        </p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <h2><span class="num">02</span>Como eu vejo o AAEOS</h2>
+      <p class="ink">
+        Vejo o AAEOS como a peça que falta entre “ter IAs boas” e “ter uma área tech que
+        opera sozinha com prova”. O mercado está cheio de copilots (humano no loop o tempo todo).
+        O salto é um <strong>OS organizacional</strong> que assume o loop de engenharia.
+      </p>
+      <div class="mono"><b>Intenção</b> (mínima ou zero)
+  → <b>AAEOS</b> (classifica · admite · despacha · certifica)
+    → <span class="c">Executor elite</span> Dev | Forge | Autônomos   ← mesma barra L0–L5
+      → <span class="g">Nucleus</span> N1…N12 (context · policy · decide · delivery · evidence · learn)
+        → software + evidência + memória
+  ← só se admission = halt_sovereign: <span class="q">humano soberano</span></div>
+      <h3>Três verdades de produto</h3>
+      <ol>
+        <li><strong>Poder máximo = superfície mínima de verdade.</strong> Poucos órgãos, contratos honestos, zero floresta de OS gêmeas.</li>
+        <li><strong>Mesma barra mundial nos 3 executores.</strong> Diferença = presença humana + escala + origem — nunca “Dev = patch fácil” ou “Autônomos = lixo”.</li>
+        <li><strong>Humano fora do loop de engenharia.</strong> Dentro só de direção e risco irreversível. Verificação sob demanda (moat), não pair-programming contínuo.</li>
+      </ol>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <h2><span class="num">03</span>Como deveria ser estruturado</h2>
+      <div class="mono">┌─────────────────────────────────────────────────┐
+│  AAEOS CONTROL PLANE  (fino · governo)            │
+│  Intent · Difficulty · Mode · Admission · Cert    │
+└───────────────────────┬─────────────────────────┘
+            ┌───────────┼───────────┐
+            ▼           ▼           ▼
+         <span class="c">DEV</span>         <span class="g">FORGE</span>      <b>AUTÔNOMOS</b>
+      (intenção)    (obra)      (24/7 default)
+            └───────────┬───────────┘
+                        ▼
+         SHARED ENGINEERING SPINE
+         = Nucleus N2…N12 (um pipeline)
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+     <span class="c">COROA C</span>                      <span class="q">QUARENTENA Q</span>
+  CLI · HTTP · MCP · Voice         archive · peels · ACDE
+  zero domínio                     zero import no operate path</div>
+
+      <h3>Pastas-alvo no disco</h3>
+      <div class="mono">app/Services/Ai/Aaeos/
+  <b>Control/</b>     # governo (JÁ EXISTE — aprofundar)
+  <b>Spine/</b>       # contrato N9+N11 (JÁ EXISTE — wiring)
+  <b>Support/</b>     # util vivos (connectors re-homed)
+  (legacy maturity/*)  # migrar devagar → Control ou Domain
+  <span class="q">Quarantine/</span>  # FROZEN → idealmente archive/
+
+# NÃO criar: Aaeos/Quarantine/*Service novo
+# NÃO criar: 5ª OS paralela a Programming/SelfConstruction</div>
+
+      <h3>Lei de dependência (Nucleus)</h3>
+      <div class="pipe">
+        Command/Controller → <b>Façade</b> → Policy | Projector | Evaluator → <b>Runtime (único write)</b> → Gateway/DB/Provider
+      </div>
+      <p>Proibido: setMother, __call cross-camada, project* que muta, policy com I/O, bypass do pipeline no hot path.</p>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <h2><span class="num">04</span>Como deveria funcionar (ciclo AAEOS)</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Fase</th><th>Pergunta</th><th>Saída</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>1</strong></td><td>SENSE</td><td>O que o mundo/fila/incidentes pedem?</td><td>World snapshot</td></tr>
+          <tr><td><strong>2</strong></td><td>INTEND</td><td>Qual o Objective canônico?</td><td>objective.v1</td></tr>
+          <tr><td><strong>3</strong></td><td>CLASSIFY</td><td>L0–L5? Risco? Domínio engineering.*?</td><td>difficulty.v1</td></tr>
+          <tr><td><strong>4</strong></td><td>ADMIT</td><td>Auto, notify ou halt-sovereign?</td><td>admission.v1</td></tr>
+          <tr><td><strong>5</strong></td><td>SELECT</td><td>Dev, Forge ou Autônomos?</td><td>mode_selection.v1</td></tr>
+          <tr><td><strong>6</strong></td><td>PLAN</td><td>Quais papéis mínimos?</td><td>RoleGraph (dados)</td></tr>
+          <tr><td><strong>7</strong></td><td>DISPATCH</td><td>Quem executa na spine?</td><td>CycleReceipt + operate_path</td></tr>
+          <tr><td><strong>8</strong></td><td>PROVE</td><td>Evidence pack ok?</td><td>CertVerdict (N11)</td></tr>
+          <tr><td><strong>9</strong></td><td>LEARN</td><td>O que vira proposal?</td><td>N12 (gated)</td></tr>
+          <tr><td><strong>10</strong></td><td>LOOP</td><td>Próximo sense</td><td>sem humano no caminho feliz</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Admission (coração do out-of-loop)</h3>
+      <table>
+        <thead>
+          <tr><th>Classe de risco</th><th>Comportamento</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Reversível, testado, scoped (L0–L3 típico)</td><td><span class="status-done">AUTO</span></td></tr>
+          <tr><td>Alto blast / L5 frontier com gates</td><td><span class="status-partial">AUTO + NOTIFY</span></td></tr>
+          <tr><td>Irreversível · legal · $ · wipe · prod</td><td><span class="status-no">HALT-SOVEREIGN</span></td></tr>
+          <tr><td>Objetivo de negócio ambíguo (sem Dev interativo)</td><td><span class="status-no">HALT-SOVEREIGN</span> no objetivo</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <div class="mark">API HOJE</div>
+        <p>
+          Já existe em disco: <code>AaeosCycleRuntime::runCycle()</code> e
+          <code>runAutonomosCycle()</code> → receipt com mode, admission, dispatch
+          (brain+task). Falta: CLI, gravação no Evidence Ledger, adapters de modo, world snapshot real.
+        </p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <h2><span class="num">05</span>Dev · Forge · Autônomos</h2>
+      <p>Lei pétrea (Defatoração Elite + owner canônico):</p>
+      <div class="panel gold">
+        <p class="ink" style="margin:0">
+          <strong>Mesma barra mundial nos 3 (L0–L5).</strong><br />
+          Diferença = presença humana no loop de eng + escala/duração + origem do trabalho.<br />
+          NUNCA “Dev = fast patch”. NUNCA “Autônomos = qualidade pior”.
+        </p>
+      </div>
+      <div class="grid3" style="margin-top:14px">
+        <div class="card dev">
+          <h4>Dev</h4>
+          <p>Humano na <strong>intenção</strong> (rumo vivo).</p>
+          <ul>
+            <li>Escala: sessão</li>
+            <li>Origem: “faz X” ao vivo</li>
+            <li>Superfície: atlas dev / ask</li>
+            <li>L0–L5</li>
+            <li>Operator Rebate = UX ágil, <em>não</em> barra menor</li>
+          </ul>
+        </div>
+        <div class="card forge">
+          <h4>Forge</h4>
+          <p>Humano só no <strong>plano / soberania</strong>.</p>
+          <ul>
+            <li>Escala: obra multi-packet</li>
+            <li>Origem: spec / obra</li>
+            <li>SDD, continuidade, multiagente</li>
+            <li>L0–L5</li>
+            <li>Não é gerente do Dev</li>
+          </ul>
+        </div>
+        <div class="card auto">
+          <h4>Autônomos</h4>
+          <p><strong>Zero</strong> humano no loop (default 24/7).</p>
+          <ul>
+            <li>Origem: brain:next → seed → task</li>
+            <li>Commit escopado na main</li>
+            <li>L0–L5 (inclui frontier)</li>
+            <li>Não é Loop/ACDE morto</li>
+            <li>Default da era agentica</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Ladder L0–L5 (compartilhada)</h3>
+      <table>
+        <thead><tr><th>L</th><th>Exemplos</th><th>Quem pode</th></tr></thead>
+        <tbody>
+          <tr><td><strong>L0</strong></td><td>typo, rename honesty</td><td>Dev · Forge · Autônomos</td></tr>
+          <tr><td><strong>L1</strong></td><td>bug local + teste</td><td>todos</td></tr>
+          <tr><td><strong>L2</strong></td><td>feature 1 módulo</td><td>todos</td></tr>
+          <tr><td><strong>L3</strong></td><td>cross-module + migration</td><td>todos</td></tr>
+          <tr><td><strong>L4</strong></td><td>obra multi-dia multi-agent</td><td>todos (Dev escala→Forge)</td></tr>
+          <tr><td><strong>L5</strong></td><td>frontier (kernel, security hard, distributed)</td><td>todos se admission + evidence</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Proibido:</strong> política informal “Autônomos só L0–L2”.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <h2><span class="num">06</span>Nucleus: os 12 órgãos (onde AAEOS se pluga)</h2>
+      <div class="organs">
+        <div class="org"><strong>N1 Continuity</strong><span>sessão · thread · workspace</span></div>
+        <div class="org"><strong>N2 IntentDomain</strong><span>intent · domain · flow — AAEOS classifica aqui</span></div>
+        <div class="org"><strong>N3 ContextFabric</strong><span>pack · rank · AOBG</span></div>
+        <div class="org"><strong>N4 MemoryCore</strong><span>record · recall · promote</span></div>
+        <div class="org"><strong>N5 PolicyPlane</strong><span>authorize · budget — AAEOS admission</span></div>
+        <div class="org"><strong>N6 Decide</strong><span>receipt · provider · fallback</span></div>
+        <div class="org"><strong>N7 ProviderPipe</strong><span>um catálogo · run</span></div>
+        <div class="org"><strong>N8 ToolExecution</strong><span>file/shell/git · receipt</span></div>
+        <div class="org"><strong>N9 Delivery</strong><span>obra · patch · certify — spine</span></div>
+        <div class="org"><strong>N10 Muscle</strong><span>brain · task · readiness</span></div>
+        <div class="org"><strong>N11 Evidence</strong><span>ledger · chain — spine</span></div>
+        <div class="org"><strong>N12 Learning</strong><span>propose · compound</span></div>
+      </div>
+      <p style="margin-top:14px">
+        AAEOS <strong>compõe</strong> N2+N5 para governo, despacha N9/N10, certifica em N11, aprende em N12.
+        Não reimplementa ProviderPipe nem Memory.
+      </p>
+      <div class="pipe">
+        Input → Intent → Domain → Profile → <b>Context</b> → <b>Policy</b> → <b>Decide</b> → Executor → Gate → Repair → <b>Evidence</b> → <b>Learning</b> → Output
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <h2><span class="num">07</span>Papel da IA vs papel do ser humano</h2>
+      <div class="grid2">
+        <div class="panel core">
+          <h3 style="margin-top:0;color:var(--core)">Papel da IA (Atlas / AAEOS)</h3>
+          <ul>
+            <li>Origin ar trabalho de valor (Brain) e filtrar lixo (seed-gate)</li>
+            <li>Planejar, implementar, testar, certificar</li>
+            <li>Escolher modo e intensidade (L*)</li>
+            <li>Manter evidence ledger e learning proposals</li>
+            <li>Operar 24/7 no modo Autônomos</li>
+            <li>Fail-closed em risco; escalate soberano quando policy exige</li>
+            <li>Compounding: não reaprender a mesma falha</li>
+            <li>Providers = motores substituíveis, não o produto</li>
+          </ul>
+        </div>
+        <div class="panel gold">
+          <h3 style="margin-top:0;color:var(--gold)">Papel do ser humano</h3>
+          <ul>
+            <li><strong>Direção rara:</strong> o que maximizar, o que não fazer</li>
+            <li><strong>Soberania de risco:</strong> legal, $, wipe, compliance, prod destrutivo</li>
+            <li><strong>Intenção viva (Dev):</strong> rumo em sessão — não microgerir diff</li>
+            <li><strong>Plano de obra (Forge):</strong> charter / tradeoffs no planning</li>
+            <li><strong>Verificação sob demanda:</strong> moat terminal-first (review quando policy puxa)</li>
+            <li><strong>Não é:</strong> co-programador no loop a cada PR, “human-in-the-loop” por hábito</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="mark">ERA</div>
+        <p>
+          LEGADO: humano no loop de engenharia (review, prioriza, corrige a cada passo).<br />
+          NOVO: humano <strong>fora</strong> do loop de engenharia; dentro só de soberania e direção.
+        </p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <h2><span class="num">08</span>Antifragilidade — sim, e como</h2>
+      <p class="ink">
+        Antifrágil ≠ “nunca quebra”. Antifrágil = <strong>ganha com estresse</strong> se o sistema
+        tem proof loop + learning + admission honesta.
+      </p>
+      <table>
+        <thead><tr><th>Mecanismo</th><th>Como o AAEOS/Nucleus fica antifrágil</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Evidence</strong></td><td>Falha vira receipt, não opinião</td></tr>
+          <tr><td><strong>Seed-gate ~50%</strong></td><td>Recusa trabalho de baixo valor (anti-Goodhart)</td></tr>
+          <tr><td><strong>Fail-closed</strong></td><td>Campo/autoridade ausente → blocked, não “ready” mentiroso</td></tr>
+          <tr><td><strong>Learning N12</strong></td><td>Proposal → review → promote gated; erro vira memória</td></tr>
+          <tr><td><strong>Same bar L0–L5</strong></td><td>Estresse frontier não “rebaixa” Autônomos a lixo</td></tr>
+          <tr><td><strong>Quarantine</strong></td><td>Cemitério isolado não contamina operate path</td></tr>
+          <tr><td><strong>Providers como motores</strong></td><td>Troca de motor não destrói o OS</td></tr>
+          <tr><td><strong>Halt-sovereign</strong></td><td>Risco irreversível não é “auto esperançoso”</td></tr>
+        </tbody>
+      </table>
+      <p>
+        O AAEOS é antifrágil se <strong>cada ciclo ruim deixa o sistema mais seletivo e mais provado</strong>.
+        Se só acumular peels e vanity metrics, fica frágil com maquiagem.
+      </p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <h2><span class="num">09</span>Era agentica e o futuro das empresas</h2>
+      <h3>O que o mercado está fazendo (2025–2026)</h3>
+      <ul>
+        <li>Copilots e IDEs agenticas: <strong>humano no centro</strong>, IA acelera digitação/review</li>
+        <li>Agentes de coding: fortes em sessão, fracos em org, evidence e 24/7 com prova</li>
+        <li>Automações de ticket/CI: executam passos, não substituem área tech com governança</li>
+      </ul>
+      <h3>O que as empresas vão precisar</h3>
+      <ul>
+        <li><strong>Throughput de engenharia</strong> sem linearidade de headcount sênior</li>
+        <li><strong>Prova auditável</strong> (compliance, segurança, board) — não “a IA disse que passou”</li>
+        <li><strong>Continuidade 24/7</strong> com admission de risco</li>
+        <li><strong>Memória organizacional</strong> que não some ao trocar de chat</li>
+        <li><strong>Mesma qualidade</strong> em patch e em obra frontier</li>
+      </ul>
+      <div class="panel core">
+        <p class="ink" style="margin:0">
+          AAEOS é a aposta de que o produto não é “melhor autocomplete”, e sim
+          <strong>uma área tech operável por software</strong>, com OS, executores elite e spine de prova.
+          Isso é o que empresas vão comprar quando o custo de coordenação humana virar o gargalo —
+          não a digitação de código.
+        </p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <h2><span class="num">10</span>Seremos os primeiros nessa tendência?</h2>
+      <div class="callout warn">
+        <div class="mark">HONESTO</div>
+        <p>
+          Ninguém é “o único” a falar de agentic engineering. Devin, factories, multi-agent research,
+          Claude Code, Codex — todos empurram o envelope. <strong>A tese de ser os primeiros</strong>
+          não é “ninguém mais tem IA”. É ser dos primeiros a ter um
+          <strong>OS organizacional + três executores same-bar + evidence soberana + humano fora do loop por default</strong>,
+          como produto integrado — não demo.
+        </p>
+      </div>
+      <table>
+        <thead><tr><th>Tendência</th><th>Comum no mercado</th><th>Onde o Atlas pode liderar</th></tr></thead>
+        <tbody>
+          <tr><td>Agent coding</td><td>Sessão + PR</td><td>Org 24/7 + Autônomos + scoped commit na main</td></tr>
+          <tr><td>Multi-agent</td><td>Swarm sem prova</td><td>Same bar + N11 ledger + certification</td></tr>
+          <tr><td>HITL forever</td><td>Review humano em tudo</td><td>Admission: auto vs halt-sovereign</td></tr>
+          <tr><td>Provider lock-in</td><td>Um vendor</td><td>Providers = motores; AAEOS/Nucleus é o produto</td></tr>
+          <tr><td>Docs vs runtime</td><td>Spec morta</td><td>Docs canônicos + evidence + anti-overclaim</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>Conclusão:</strong> a tendência é real e inevitável. Liderança = <em>execução com prova</em>,
+        não slide. O Atlas está no caminho certo se fechar spine + Autônomos + AAEOS fino e matar cemitério/gêmeos.
+      </p>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <h2><span class="num">11</span>Estado atual do disco (já feito × residual)</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Status</th><th>Onde</th></tr></thead>
+        <tbody>
+          <tr><td>Quarantine FROZEN + README</td><td class="status-done">DONE</td><td><code>Aaeos/Quarantine/README.md</code></td></tr>
+          <tr><td>Catálogo 306 classes</td><td class="status-done">DONE</td><td><code>AAEOS-QUARANTINE-CATALOG.md</code></td></tr>
+          <tr><td>Control Plane fino</td><td class="status-done">DONE</td><td><code>Aaeos/Control/*</code></td></tr>
+          <tr><td>runAutonomosCycle</td><td class="status-done">DONE</td><td><code>AaeosCycleRuntime</code></td></tr>
+          <tr><td>Spine N9+N11 seam</td><td class="status-partial">SEAM</td><td><code>AaeosEngineeringSpine</code></td></tr>
+          <tr><td>Connectors re-homed (Brain)</td><td class="status-done">DONE</td><td><code>Aaeos/Support</code></td></tr>
+          <tr><td>DualCore ROUTE_AUTONOMOS</td><td class="status-partial">CANON</td><td><code>DualCoreRouteDecisionCanon</code></td></tr>
+          <tr><td>Docs elite executors + AAEOS mãe</td><td class="status-done">DONE</td><td>ekb + evidence</td></tr>
+          <tr><td>Testes Control Plane</td><td class="status-done">DONE</td><td>7 passed</td></tr>
+          <tr><td>CLI atlas:aaeos:cycle</td><td class="status-todo">TODO</td><td>—</td></tr>
+          <tr><td>Cycle → EvidenceLedger</td><td class="status-todo">TODO</td><td>N11</td></tr>
+          <tr><td>Archive físico Quarantine</td><td class="status-todo">TODO</td><td>após rg=0</td></tr>
+          <tr><td>Strangler Dev/Forge → spine</td><td class="status-todo">TODO</td><td>call-sites</td></tr>
+          <tr><td>World-aware admission</td><td class="status-todo">TODO</td><td>budget/incidents</td></tr>
+          <tr><td>Mode adapters</td><td class="status-todo">TODO</td><td>Dev/Forge/Autonomos</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 12 -->
+    <section id="s12">
+      <h2><span class="num">12</span>Tudo o que vamos mexer e alterar</h2>
+
+      <h3>A. AAEOS (prioridade máxima de fechamento)</h3>
+      <table>
+        <thead><tr><th>Mudança</th><th>Tipo</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td>CLI <code>atlas:aaeos:cycle</code> (+ <code>--autonomos</code>, <code>--json</code>)</td><td>surface</td><td>Operar o control plane</td></tr>
+          <tr><td>Gravar cycle receipt no <code>AtlasEvidenceLedger</code></td><td>N11</td><td>Prova, não orquestração no ar</td></tr>
+          <tr><td>Adapters Dev/Forge/Autonomos</td><td>Control</td><td>Sem if-spaghetti; despacho limpo</td></tr>
+          <tr><td>Admission + world snapshot (budget, fila, incidents)</td><td>Policy</td><td>Antifrágil de verdade</td></tr>
+          <tr><td>Scorecard AAEOS (cycles, halts, mode mix, quarantine imports=0)</td><td>obs</td><td>Governança mensurável</td></tr>
+          <tr><td>Proibir novos files fora Control/Spine/Support</td><td>guard</td><td>Não regredir para cemitério</td></tr>
+          <tr><td>Migrar maturity legacy → Control/Domain</td><td>debulk</td><td>Raiz Aaeos limpa</td></tr>
+          <tr><td><code>git mv</code> Quarantine → archive/ (se refs=0)</td><td>Q</td><td>Fora do tree mental</td></tr>
+        </tbody>
+      </table>
+
+      <h3>B. Spine compartilhada (N9 + N11)</h3>
+      <ul>
+        <li>Hook <code>AaeosEngineeringSpine::assertShared</code> no intake Dev e Forge (strangler)</li>
+        <li>Um lineage de delivery (RealExecution; AVER como modo, não gêmeo)</li>
+        <li>Zero write no ledger fora da API tipada</li>
+        <li>Characterization: “ledger paralelo = fail”</li>
+      </ul>
+
+      <h3>C. Autônomos (N10)</h3>
+      <ul>
+        <li>Cycle AAEOS → enqueue/observe brain+task (não reimplementar muscle)</li>
+        <li>Readiness: projector RO + runtime writers (blueprint) — <em>sem colidir com claims alheios</em></li>
+        <li>Manter keep-list AtlasLoop*; nunca “deletar por prefixo”</li>
+        <li>Anti-Goodhart no Brain (valor real, não proxy)</li>
+      </ul>
+
+      <h3>D. DualCore / Router</h3>
+      <ul>
+        <li>ROUTE_AUTONOMOS de ponta a ponta (já no canon)</li>
+        <li>Mode select AAEOS alimenta decisão de rota</li>
+        <li>Escalation Dev→Forge continua packet auditável</li>
+      </ul>
+
+      <h3>E. Nucleus (resto, por ondas)</h3>
+      <div class="chips">
+        <span class="chip ok">P0 N9 Delivery</span>
+        <span class="chip ok">P0 N10 Muscle</span>
+        <span class="chip ok">P0 N11 Evidence</span>
+        <span class="chip gold">P1 N7 ProviderPipe</span>
+        <span class="chip gold">P1 N3+N4 Context/Memory</span>
+        <span class="chip">P2 N6 Decide</span>
+        <span class="chip">P2 N12 Learning</span>
+        <span class="chip">P3 N1 N2 N5 N8</span>
+      </div>
+      <p style="margin-top:10px">Cada órgão: 1 façade pública, CODEMAP, characterization, teto densidade.</p>
+
+      <h3>F. Coroa</h3>
+      <ul>
+        <li>≤12 famílias CLI documentadas</li>
+        <li>Commands thin → façade</li>
+        <li>HTTP zero domínio</li>
+        <li>Moat = verificação/review (terminal-first), não casca própria</li>
+      </ul>
+
+      <h3>G. Docs</h3>
+      <ul>
+        <li>Manter owner elite executors como lei</li>
+        <li>implementation-reality AAEOS = Control/* + Spine + FROZEN Q</li>
+        <li>Não reescrever 400k de ekb; apontar e corrigir drift pontual</li>
+      </ul>
+
+      <h3>H. O que NÃO vamos fazer</h3>
+      <div class="chips">
+        <span class="chip q">Reanimar Quarantine</span>
+        <span class="chip q">PHP→Swift big-bang</span>
+        <span class="chip q">5ª OS layer</span>
+        <span class="chip q">Dev = fast patch</span>
+        <span class="chip q">Autônomos só L0</span>
+        <span class="chip q">Vanity LOC/file-count</span>
+        <span class="chip q">Feature de produto no debulk</span>
+        <span class="chip q">Humano no loop por hábito</span>
+        <span class="chip q">Casca/IDE própria como plataforma</span>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section id="s13">
+      <h2><span class="num">13</span>Sprints e done criteria</h2>
+      <div class="grid2">
+        <div class="panel">
+          <h3 style="margin-top:0">Sprint 1 — Fechar AAEOS começado</h3>
+          <ul>
+            <li>CLI cycle + Feature test</li>
+            <li>Router/DualCore autonomos wired</li>
+            <li>assertShared em 1 intake Dev + 1 Forge</li>
+            <li>Grep Quarantine imports = 0 (exceto archive)</li>
+            <li>Reality doc atualizado</li>
+          </ul>
+          <p><span class="status-todo">Done:</span> cycle end-to-end com receipt JSON + teste verde</p>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Sprint 2 — Q de verdade</h3>
+          <ul>
+            <li>rg refs=0</li>
+            <li>archive/ Quarantine (commit isolado)</li>
+            <li>autoload + smoke Brain/AAEOS</li>
+          </ul>
+          <p><span class="status-todo">Done:</span> operate path sem pasta Quarantine no tree vivo</p>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Sprint 3 — N9/N10/N11</h3>
+          <ul>
+            <li>Delivery lineage único</li>
+            <li>Muscle readiness (sem claim alheio)</li>
+            <li>Cycle → ledger</li>
+          </ul>
+          <p><span class="status-todo">Done:</span> zero ledger paralelo em hot path eng</p>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Sprint 4+ — Pipe + Context + elevação</h3>
+          <ul>
+            <li>ProviderPipe unificado</li>
+            <li>FUSEs MEM-CTX</li>
+            <li>Defator peels pós-split contínuo</li>
+          </ul>
+          <p><span class="status-todo">Done:</span> scoreboard A–G sobe no perímetro N</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section id="s14">
+      <h2><span class="num">14</span>Riscos e anti-padrões</h2>
+      <table>
+        <thead><tr><th>Risco</th><th>Mitigação</th></tr></thead>
+        <tbody>
+          <tr><td>Colisão multi-engine na main</td><td>Claims, pathspec, não tocar Readiness claimed</td></tr>
+          <tr><td>Control Plane vira godfile</td><td>Teto fino; Policy pura; adapters externos</td></tr>
+          <tr><td>Quarantine volta por “utilidade”</td><td>FROZEN + guard + só catalog</td></tr>
+          <tr><td>Same-bar quebrada na prática</td><td>L0–L5 nos 3; testes de identity; docs owner</td></tr>
+          <tr><td>Auto em risco irreversível</td><td>halt_sovereign fail-closed</td></tr>
+          <tr><td>Orquestração sem prova</td><td>Cycle → N11 obrigatório</td></tr>
+          <tr><td>Vanity metrics</td><td>Anti-Goodhart; valor real no Brain</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 15 -->
+    <section id="s15">
+      <h2><span class="num">15</span>Referências no repo</h2>
+      <ul>
+        <li><a href="./AAEOS-NUCLEUS-AGENTIC-ERA.md">AAEOS-NUCLEUS-AGENTIC-ERA.md</a> — design operacional</li>
+        <li><a href="./ATLAS-NUCLEUS-GOD-SOTA.md">ATLAS-NUCLEUS-GOD-SOTA.md</a> — 12 órgãos, 100% corpus</li>
+        <li><a href="./ATLAS-NUCLEUS-MAP.html">ATLAS-NUCLEUS-MAP.html</a> — mapa visual Nucleus</li>
+        <li><a href="./AAEOS-DISK-EXECUTION-RECEIPT.md">AAEOS-DISK-EXECUTION-RECEIPT.md</a> — o que já foi feito no disco</li>
+        <li><a href="./AAEOS-QUARANTINE-CATALOG.md">AAEOS-QUARANTINE-CATALOG.md</a> — cemitério catalogado</li>
+        <li><a href="../../engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md">atlas-elite-executors-dev-forge-autonomos.md</a> — owner dos 3 executores</li>
+        <li><a href="../../engineering-knowledge-base/atlas-agentic-engineering-os.md">atlas-agentic-engineering-os.md</a> — doc-mãe AAEOS</li>
+        <li><a href="../../engineering-knowledge-base/atlas-autonomos-live-system.md">atlas-autonomos-live-system.md</a> — brain+task vivo</li>
+        <li><code>app/Services/Ai/Aaeos/Control/*</code> — control plane fino</li>
+        <li><code>app/Services/Ai/Aaeos/Spine/AaeosEngineeringSpine.php</code> — N9+N11</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>
+        AAEOS Visão Completa · 2026-07-23 · Atlas Server · lane Nucleus / GOD-DEBULK<br />
+        Abrir este arquivo no browser. Atualizar quando Sprint 1–2 fecharem.
+      </p>
+      <p style="margin-top:8px;color:var(--core)">
+        Frase final: o futuro não é mais chat — é um OS de engenharia antifrágil,
+        com prova, same-bar nos executores, e humano soberano só onde o risco exige.
+      </p>
+    </footer>
+  </div>
+</body>
+</html>

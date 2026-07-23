@@ -5,7 +5,7 @@ title: Atlas Dual-Core Engineering System
 status: active
 category: programming
 priority: 100
-summary: Contrato canonico que separa Atlas Dev e Atlas Forge como dois runtimes user-space completos de engenharia de software dentro do Atlas Autonomous Engineering Government, conectados por fronteira, roteamento, evidencia compartilhada e escalonamento Dev -> Forge sem fusao de identidade.
+summary: Contrato canonico da convivencia Dev↔Forge (e do terceiro executor Autônomos) como runtimes user-space elite sob o mesmo bar mundial. Fronteira, roteamento, evidence compartilhada e escalonamento Dev→Forge sem fusao de identidade. Identidade dos tres executores owner em atlas-elite-executors-dev-forge-autonomos.md.
 tags:
   - atlas
   - atlas-dev
@@ -21,10 +21,11 @@ capabilities:
   - dev_to_forge_escalation
   - shared_evidence_contract
 decisions:
-  - Dev · Forge · Autônomos são os três executores de engenharia de elite (mesmo bar mundial). Diferença = necessidade de operador + escala/duração — não ranking de ambição.
-  - Atlas Dev é fábrica elite com operador presente — não é "fast patch" nem produto leve.
-  - Atlas Forge é fábrica elite para obras enormes/longas — operador só no planejamento.
-  - Autônomos é executor elite zero-operador (cérebro atlas:brain + músculo atlas:task).
+  - Dev · Forge · Autônomos são os três executores de engenharia de elite (mesmo bar mundial L0–L5). Diferença = presença humana no loop de engenharia + escala/duração + origem do trabalho — não ranking de ambição nem de qualidade.
+  - Atlas Dev é fábrica elite com operador presente na intenção — não é "fast patch", "produto leve" nem qualidade inferior.
+  - Atlas Forge é fábrica elite para obras enormes/longas — operador só no planejamento/soberania.
+  - Autônomos é executor elite zero-operador no loop de engenharia (cérebro atlas:brain + músculo atlas:task); mesma barra L0–L5; default 24/7.
+  - Owner da identidade dos tres: atlas-elite-executors-dev-forge-autonomos.md.
   - Atlas Dev e Forge são runtimes user-space completos sob Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court e Governor.
   - Atlas Dev nao e Forge mini, Forge nao e gerente do Dev, e nenhum dos dois deve ser fundido em um sistema unico.
   - Na arquitetura v3, Dev e Forge sao runtimes user-space sob Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court e Governor.
@@ -42,6 +43,8 @@ maintenance:
   - Atualize este doc quando surgir novo artefato de escalonamento, roteamento, evidence ou intake.
   - Nao use este doc para substituir os docs-mae de Atlas Dev ou Atlas Forge; ele governa apenas a relacao entre os dois.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md
+  - docs/engineering-knowledge-base/atlas-autonomos-live-system.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
@@ -86,6 +89,7 @@ forbidden_changes:
   - Permitir escalonamento silencioso sem packet, receipt e motivo auditavel.
   - Permitir que Dev execute Obra longa sem promover para Forge.
 depends_on:
+  - atlas-elite-executors-dev-forge-autonomos
   - atlas-hyperflow-operation
   - atlas-dev-efficient-programming-flow-v1
   - atlas-forge-continuum-os
@@ -100,9 +104,10 @@ flows_to:
 unlocks:
   - clear_dev_forge_identity
   - no_product_confusion
-  - route_light_work_to_dev
-  - route_heavy_work_to_forge
+  - route_session_intent_to_dev
+  - route_long_obra_to_forge
   - governed_interoperability
+  - elite_same_bar_dev_forge_autonomos
 governs:
   - atlas.dual_core_engineering
   - atlas_dev_to_forge.boundary
@@ -131,13 +136,16 @@ quality_gates:
   - escalation-reason-recorded
   - evidence-contract-compatible
   - forge-heavy-work-authority-preserved
-  - dev-fast-flow-authority-preserved
+  - dev-executor-identity-preserved
+  - elite-same-bar-preserved
 failure_modes:
   - IA funde Dev e Forge e cria arquitetura confusa.
   - IA transforma Forge em gerente do Dev e perde a ideia de Obra enterprise.
   - IA transforma Dev em Forge mini e deixa o executor Dev com overhead de Obra.
-  - IA manda tarefa pesada para Dev e gera patch incompleto sem SDD.
-  - IA manda tarefa pequena para Forge e gera overhead desnecessario.
+  - IA trata Dev como "fast patch" de qualidade inferior (viola elite same-bar).
+  - IA trata Autônomos como qualidade pior que Dev/Forge (viola elite same-bar).
+  - IA manda tarefa pesada para Dev e gera patch incompleto sem SDD/escalation.
+  - IA manda tarefa de sessão trivial para Forge e gera overhead desnecessario.
 observability_signals:
   - route_decision
   - route_reason
@@ -162,46 +170,60 @@ line_limit: 900
 
 ## Resumo
 
-Atlas Dual-Core Engineering System e o contrato que define a convivencia entre
-dois runtimes user-space completos de engenharia de software:
+Atlas Dual-Core Engineering System e o contrato da **convivencia Dev↔Forge**
+(boundary, escalation, evidence) dentro do conjunto dos **tres executores elite**:
 
 ```text
-Atlas Dev   = executor elite com operador presente, governado e auditavel para programacao diaria.
-Atlas Forge = nucleo pesado, enterprise, continuo e automatizado para Obras.
+Atlas Dev      = executor elite; humano presente na INTENCAO; cadencia de sessao; L0–L5.
+Atlas Forge    = executor elite; humano so no plano/soberania; obra longa multi-packet; L0–L5.
+Autonomos      = executor elite; ZERO humano no loop de eng; brain+task 24/7; L0–L5.
 ```
 
-Eles nao sao o mesmo produto. Eles nao devem ser fundidos. Eles compartilham
-contratos, evidence e roteamento, mas preservam identidade, runtime, UX,
-criterios de sucesso e autoridade operacional.
+**Identidade completa dos tres (matriz, ladder, anti-padroes):**  
+`docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md`  
+(este Dual-Core **nao** rebaixa Dev a "leve" nem Autonomos a "pior").
 
-Na arquitetura v3, o Dual-Core nao e o governo inteiro. Dev e Forge vivem sob o
-Atlas Autonomous Engineering Government:
+Dev e Forge nao sao o mesmo produto e nao devem ser fundidos. Compartilham
+contratos, evidence e roteamento; preservam identidade, runtime, UX e criterios
+de sucesso. Autonomos e o terceiro runtime user-space (nao e "filho" do Dual-Core
+e nao e o Loop/ACDE morto).
+
+Na arquitetura v3, o Dual-Core nao e o governo inteiro:
 
 ```text
-Constitution / Mission Control / Policy Plane
+Constitution / Mission Control / Policy Plane / AAEOS
 -> Engineering Kernel / Courts / Governor
--> User-space runtimes
+-> User-space runtimes (elite same-bar)
    -> Atlas Dev
    -> Atlas Forge
-   -> Autonomos / Self-Construction
+   -> Autonomos / Self-Construction (brain + task)
 ```
 
-Autonomos e o runtime 24/7 sem operador para Atlas construindo Atlas. O antigo
-Loop / ACDE e piloto legado desse runtime, nao um quarto OS concorrente.
+## Tres executores elite (ponte)
+
+| | Dev | Forge | Autonomos |
+|---|---|---|---|
+| Humano no loop de eng | Presente na **intencao** | So plano / soberania | **Zero** (default 24/7) |
+| Escala | Sessao | Obra longa multi-packet | Fila continua |
+| Origem | "faz X" ao vivo | Spec / obra | brain:next → seed → task |
+| Dificuldade | L0–L5 | L0–L5 | L0–L5 |
+
+Mesma barra mundial. NUNCA "Dev = fast patch". NUNCA "Autonomos = qualidade pior".  
+Detalhe: `atlas-elite-executors-dev-forge-autonomos.md`.
 
 ## Papel no Atlas
 
 Atlas Dev e completo por si so. Atlas Forge tambem e completo por si so.
+Autonomos tambem e completo no operate path 24/7 (brain+task).
 
-O patamar correto nao e juntar os dois. O patamar correto e fazer os dois
-conversarem por contrato e pelo roteamento de Mission Control:
+O patamar correto nao e juntar Dev e Forge. O patamar correto e:
 
 ```text
-Mission Control / Atlas AI Router
--> decide Dev, Forge ou Dev -> Forge
+Mission Control / AAEOS / Atlas AI Router
+-> decide Dev, Forge, Autonomos, ou Dev -> Forge
 -> registra motivo
--> entrega ao nucleo correto
--> preserva evidence compativel
+-> entrega ao modo correto
+-> preserva evidence compativel (same-bar)
 -> recebe Court/Governor receipts quando houver codigo/release
 ```
 
@@ -209,47 +231,54 @@ Mission Control / Atlas AI Router
 
 | Nucleo | Identidade | Nao e |
 | --- | --- | --- |
-| Atlas Dev | Executor elite de programacao (operador presente) superior a provider direto | Forge mini |
-| Atlas Forge | Sistema completo de engenharia pesada por Obras | Gerente do Dev |
-| Autonomos / Self-Construction | Runtime 24/7 de Atlas construindo Atlas | Loop piloto nem Dev/Forge escondido |
+| Atlas Dev | Executor elite (operador na intencao); L0–L5; superior a provider direto | Forge mini · fast patch · produto leve |
+| Atlas Forge | Executor elite de engenharia por Obras; L0–L5 | Gerente do Dev · "so multiagente cosmestico" |
+| Autonomos / Self-Construction | Executor elite zero-operador no loop; brain+task; L0–L5 | Loop/ACDE morto · qualidade inferior · so trivial |
 
 Dev, Forge e Autonomos nao chamam provider direto nem fazem merge por conta
 propria no estado governado. Eles pedem mecanismo ao Engineering Kernel,
 aceitam politica da Policy Plane, passam pelos tribunais e recebem landing do
-Governor.
+Governor. Autonomos no caminho vivo committa **escopado na main** via TaskServing
+(nao merge de obra no path comum).
 
 ## Atlas Dev
 
-Atlas Dev e o sistema para desenvolvimento rapido, workspace-bound e auditavel.
-Ele deve ser usado quando o operador quer transformar uma demanda de programacao
-em patch, plano, debug, teste, review ou resposta tecnica com baixo overhead.
+Atlas Dev e o executor elite de programacao com **operador presente na intencao**,
+workspace-bound e auditavel. Cobre do L0 (tipografia) ao L5 (frontier) em
+**cadencia de sessao** — nao e "so patch facil".
+
+Use quando o operador quer transformar demanda de programacao em plano, patch,
+debug, teste, review ou resposta tecnica **com rumo humano vivo**.
 
 Responsabilidades canonicas:
 
-- interpretar prompt claro ou ambiguo de escopo limitado;
-- montar plano curto ou compacto;
+- interpretar prompt claro ou ambiguo (sessao; escalar se virar Obra);
+- montar plano proporcional ao risco e a L*;
 - gerar task contract proporcional ao risco;
 - editar codigo com scope guard;
-- executar testes ou verificacoes proporcionais;
+- executar testes ou verificacoes proporcionais **sem relaxar leis de governance**;
 - registrar verification receipt;
 - registrar `senior_engineer_loop_execution` quando usar Senior Engineer Loop;
 - registrar error ledger e failure capsule quando falhar;
-- escalar para Forge quando virar Obra.
+- escalar para Forge quando virar Obra (packet auditavel).
 
-Atlas Dev deve parecer leve para o usuario, mesmo quando por baixo faz trabalho
-senior. Ele deve ser mais confiavel que Claude Code/Codex direto porque adiciona
-contrato, verificacao, evidence, scope guard e learning handoff.
+**Operator Rebate (UX, nao barra):** Dev deve manter **overhead de processo**
+agil o bastante para o operador nao fugir para Claude/Codex cru — receipts
+proporcionais, nao leis de governance mais fracas. Parecer fluido na superficie
+≠ qualidade inferior por baixo.
 
-O Operator Rebate se aplica aqui: como Dev tem operador presente e escopo
-menor, ele deve manter overhead baixo sem perder receipts proporcionais. Se
-ficar pesado demais, sera bypassado por ferramentas externas; isso gera drift.
+"Fast path" / "fast lane" em docs legados = **sinonimo historico do fluxo Dev**,
+nao "qualidade barata". Preferir "executor Dev".
 
 ## Atlas Forge
 
-Atlas Forge e o sistema para engenharia pesada, enterprise, longa e
-automatizada. Ele deve ser usado quando a demanda exige SDD completo,
-arquitetura, decomposicao, work packets, multi-provider, revisao, repair,
-governanca e continuidade por dias, semanas ou meses.
+Atlas Forge e o executor elite para engenharia **longa**, enterprise e
+automatizada (L0–L5 em horizonte de Obra). Mesma barra que Dev/Autonomos;
+diferenca = escala multi-packet + operador so no plano/soberania.
+
+Use quando a demanda exige SDD completo, arquitetura, decomposicao, work
+packets, multi-provider, revisao, repair, governanca e continuidade por dias,
+semanas ou meses — nao porque "so Forge e elite".
 
 Responsabilidades canonicas:
 

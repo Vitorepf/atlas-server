@@ -7,6 +7,18 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 
 | Change concern | Concrete navigation target |
 | --- | --- |
+| Run AAEOS control cycle (intent→mode→admission→dispatch) | `App\Services\Ai\Aaeos\Control\AaeosCycleRuntime::runCycle` |
+| Run zero-operator Autonomos AAEOS cycle | `App\Services\Ai\Aaeos\Control\AaeosCycleRuntime::runAutonomosCycle` |
+| CLI AAEOS cycle | `atlas:aaeos:cycle` → `AtlasAaeosCycleCommand` |
+| AAEOS scorecard / certify | `atlas:aaeos:scorecard` / `atlas:aaeos:certify` |
+| Select executor mode Dev\|Forge\|Autonomos | `App\Services\Ai\Aaeos\Control\AaeosModeSelector::select` |
+| Admit cycle (auto/notify/halt_sovereign) | `App\Services\Ai\Aaeos\Control\AaeosAdmissionPolicy::admit` |
+| Enforce shared N9+N11 spine on intake | `App\Services\Ai\Aaeos\Spine\AaeosSpineGate::stamp` |
+| Shared engineering spine contract | `App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine::assertShared` |
+| Project AAEOS org state (read-only) | `App\Services\Ai\Aaeos\Control\AaeosOrgStateProjector::project` |
+| Record AAEOS learning candidate (no auto-promote) | `App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder::record` |
+| Map AAEOS mode → DualCore route | `App\Services\Ai\Aaeos\Control\AaeosModeToDualCoreRoute::map` |
+| Source connector governance (Brain frontier) | `App\Services\Ai\Aaeos\Support\AtlasSourceConnectorsAndCaptureService` |
 | Classify incoming AI intent before routing | `App\Services\Ai\Router\AtlasAiIntentKernelService::classify` |
 | Route legacy keyword intents | `App\Services\Ai\Router\AiIntentRouter::route` |
 | Persist a sequenced stream event | `App\Services\Ai\Streaming\AiStreamRecorder::record` |

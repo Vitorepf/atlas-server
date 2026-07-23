@@ -2,8 +2,15 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
+use App\Services\Ai\Aaeos\Spine\AaeosSpineGate;
+
 final class ProgrammingSurfaceContractFactory
 {
+    public function __construct(
+        private readonly AaeosSpineGate $aaeosSpine = new AaeosSpineGate,
+    ) {}
+
     /**
      * @param  array<string,mixed>  $operatorOptions
      * @param  array<int,string>  $command
@@ -78,7 +85,7 @@ final class ProgrammingSurfaceContractFactory
      */
     public function chatDev(?array $devPlan, array $programmingMessagePlan, ?array $dispatch): array
     {
-        return [
+        $contract = [
             'schema_version' => 'atlas.ai_chat.programming_contract.v1',
             'surface' => 'atlas_ai_chat',
             'mode' => 'dev',
@@ -97,6 +104,8 @@ final class ProgrammingSurfaceContractFactory
             'kernel_pipeline_provider_execution_allowed' => (bool) data_get($devPlan, 'kernel_pipeline.provider_execution_allowed', false),
             'kernel_pipeline_contract_required' => (bool) data_get($devPlan, 'kernel_pipeline_contract.required', false),
         ];
+
+        return $this->aaeosSpine->stamp($contract, AaeosExecutorMode::DEV);
     }
 
     /**
@@ -106,7 +115,7 @@ final class ProgrammingSurfaceContractFactory
      */
     public function forge(array $devPlan, array $result): array
     {
-        return [
+        $contract = [
             'schema_version' => 'atlas.cli_forge.contract.v1',
             'surface' => 'atlas_cli_forge',
             'profile' => 'forge',
@@ -123,5 +132,8 @@ final class ProgrammingSurfaceContractFactory
             'harness_result_status' => data_get($result, 'status'),
             'harness_run_id' => data_get($result, 'harness_payload.run.id'),
         ];
+
+        return $this->aaeosSpine->stamp($contract, AaeosExecutorMode::FORGE);
     }
 }
+

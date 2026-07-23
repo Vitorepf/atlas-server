@@ -17,11 +17,15 @@ final class DualCoreRouteDecisionCanon
 
     public const ROUTE_DEV_TO_FORGE = 'dev_to_forge';
 
+    /** Third elite executor (zero human in eng loop). Same bar L0–L5. */
+    public const ROUTE_AUTONOMOS = 'autonomos';
+
     /** @var array<int,string> */
     public const ROUTES = [
         self::ROUTE_DEV,
         self::ROUTE_FORGE,
         self::ROUTE_DEV_TO_FORGE,
+        self::ROUTE_AUTONOMOS,
     ];
 
     public const AMBIGUITY_LOW = 'low';
@@ -87,12 +91,14 @@ final class DualCoreRouteDecisionCanon
             self::ROUTE_DEV => ['plan', 'receipt', 'verification'],
             self::ROUTE_FORGE => ['sdd', 'plan', 'work_packets', 'receipt', 'verification', 'evidence_pack'],
             self::ROUTE_DEV_TO_FORGE => ['plan', 'receipt', 'escalation_packet'],
+            self::ROUTE_AUTONOMOS => ['task_contract', 'receipt', 'verification', 'scoped_commit'],
             default => ['plan', 'receipt', 'verification'],
         };
     }
 
     public static function defaultSddRequired(string $route): bool
     {
-        return $route !== self::ROUTE_DEV;
+        return ! in_array($route, [self::ROUTE_DEV, self::ROUTE_AUTONOMOS], true);
     }
 }
+

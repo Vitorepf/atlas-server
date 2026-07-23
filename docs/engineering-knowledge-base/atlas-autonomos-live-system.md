@@ -167,8 +167,18 @@ Schedules de task-serving (`sweep-malformed`, `repair-blocked`, `servable-heartb
 Originar trabalho de evolução de alto valor (cérebro) e implementá-lo com prova (músculo), commitando na
 main local de forma escopada, sem depender do operador no caminho normal.
 
-**Bar elite:** Autônomos opera no **mesmo patamar** que Dev e Forge — engenharia de elite. A diferença é
-**zero operador** + escala 24/7, não qualidade inferior.
+**Bar elite (owner: `atlas-elite-executors-dev-forge-autonomos.md`):**
+
+| | Dev | Forge | **Autônomos** |
+|---|---|---|---|
+| Humano no loop de eng | Presente na intenção | Só plano / soberania | **Zero** (default 24/7) |
+| Escala | Sessão | Obra longa multi-packet | **Fila contínua** |
+| Origem | "faz X" ao vivo | Spec / obra | **brain:next → seed → task** |
+| Dificuldade | L0–L5 | L0–L5 | **L0–L5** (não só trivial) |
+
+Mesma barra mundial nos 3. Diferença = presença humana + escala/duração + origem — **nunca**
+"Autônomos = qualidade pior" e **nunca** "Dev = fast patch". Autônomos **pode e deve** fazer
+trabalho frontier (L5) quando admission + evidence permitem.
 
 ## Arquitetura viva (as duas metades)
 

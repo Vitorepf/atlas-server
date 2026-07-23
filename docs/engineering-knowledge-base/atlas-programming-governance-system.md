@@ -284,9 +284,16 @@ Invariantes:
   review antes de completion;
 - learning volta para docs, specs, prompts, gates ou cartografia.
 
-### Atlas Dev Fast Lane
+### Atlas Dev (executor elite — projecao proporcional, nao "fast patch")
 
-Atlas Dev aplica uma versao compacta e proporcional destes invariantes para trabalho diario. Ele nao substitui Programming Governance e nao possui gates concorrentes. Alguns gates sao projecoes diretas; outros sao Dev-only para operacionalizar o executor Dev (operador presente), mas nao podem contradizer Governance.
+Atlas Dev e um dos **tres executores elite** (Dev · Forge · Autonomos; mesma barra
+L0–L5 — ver `atlas-elite-executors-dev-forge-autonomos.md`). Aplica uma versao
+**proporcional** destes invariantes na cadencia de sessao (operador na intencao).
+"Fast lane" em texto legado = sinonimo do fluxo Dev, **nao** qualidade inferior.
+
+Ele nao substitui Programming Governance e nao possui gates concorrentes. Alguns
+gates sao projecoes diretas; outros sao Dev-only para operacionalizar o executor
+Dev, mas nao podem contradizer Governance nem baixar a barra frente a Forge/Autonomos.
 
 Mapeamento canonico:
 

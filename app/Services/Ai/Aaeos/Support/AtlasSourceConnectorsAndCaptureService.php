@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\Aaeos\Quarantine;
+namespace App\Services\Ai\Aaeos\Support;
 
 /**
  * Source Connectors And Capture decider.
  *
+ * Re-homed from Aaeos/Quarantine (GOD-DEBULK AAEOS plan: live Brain dependency).
  * Pure, deterministic implementation of the research source-connector contract:
  * it turns a raw source reference into (a) an authority class + capture tier,
  * (b) the exact set of fields a connector MUST capture, (c) the artifact the

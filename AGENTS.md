@@ -99,7 +99,12 @@ Depois disso, siga o contrato retornado: rode o bootstrap e o scope validator do
 **⛔ EXCEÇÃO PÉTREA — obra GOD-DEBULK (ordem do operador + comandante ARCH, 2026-07-22):** esta seção **NÃO se aplica** a sessões cuja missão é GOD-DEBULK (prompts `docs/prompts/atlas-server-god-debulk-*.md`). Nessas sessões: **NÃO** reivindicar packet (`--codex-start-packet`), **NÃO** rodar `atlas:ai:session-bootstrap`/`place-feature`, e **IGNORAR** qualquer `AIP-*`/`RES-*`/scope-validator/`execution_allowed=false` — eles NÃO são vinculantes para esta obra. A autoridade da sessão é o prompt EXECUTE + `docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md` (hierarquia de comando) + a fila `EXEC-DEBTS.md`. Trabalhe como sessão humana com acesso completo, commits escopados na main. PROIBIDO marcar goal `blocked` por package mismatch — halt só por cancel do operador. Se o dispatcher interferir de novo: registre 1 linha no EXEC-LEDGER e siga a fila.
 
 ### Elite executors (Defatoração Elite)
-Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra). Diferença = operador presente + escala/duração — nunca "Dev = fast patch". ACDE `atlas:loop:*` hard-deleted; use `atlas:brain:*` / `atlas:task:*`.
+Dev · Forge · Autônomos = três executores de engenharia elite (**mesma barra L0–L5**).
+Diferença = presença humana no loop de eng + escala/duração + origem — nunca "Dev = fast patch", nunca "Autônomos = qualidade pior".
+- **Dev:** humano na intenção; sessão; `atlas dev`/ask
+- **Forge:** humano só plano/soberania; obra multi-packet
+- **Autônomos:** zero no loop; `atlas:brain:*` → `atlas:task:*`; default 24/7
+Owner: `docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md`. ACDE `atlas:loop:*` morto.
 <!-- atlas:manual:end -->
 
 ## Atlas Pointers

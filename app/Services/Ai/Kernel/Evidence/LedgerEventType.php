@@ -134,4 +134,6 @@ enum LedgerEventType: string
     case OperationNeedsReview = 'OPERATION_NEEDS_REVIEW';
     case CodeProvenanceRecorded = 'CODE_PROVENANCE_RECORDED';
     case CodeProvenanceCorrected = 'CODE_PROVENANCE_CORRECTED';
+    case AaeosCycleRecorded = 'AAEOS_CYCLE_RECORDED';
+    case AaeosLearningCandidateRecorded = 'AAEOS_LEARNING_CANDIDATE_RECORDED';
 }

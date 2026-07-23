@@ -21,7 +21,7 @@ capabilities:
   - canal_unico_enforcement
 decisions:
   - Superioridade vem de SISTEMA (RAG+contexto+evidence+certificação+compounding+dual-core), não de prompt melhor.
-  - Atlas Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra); diferença = operador + escala/duração.
+  - Atlas Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra L0–L5); diferença = presença humana no loop + escala/duração + origem — owner atlas-elite-executors-dev-forge-autonomos.md.
   - "10x/30x/100x" só pode ser declarado COM definição de métrica auditada.
   - Runtime hoje ≠ estado-alvo; este doc separa o que está vivo do que é design.
   - Claim externo contra Claude Code/Codex permanece bloqueado por policy; este doc governa arquitetura interna e backlog.

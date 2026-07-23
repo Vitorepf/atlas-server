@@ -287,7 +287,7 @@ PHP;
     {
         $inventory = app(EliteCompactionInventoryService::class)->inventoryGenerated();
         $root = base_path('app/Services/Ai/Aaeos/Generated');
-        $quarantine = base_path('app/Services/Ai/Aaeos/Quarantine');
+        $quarantine = base_path('archive/app/Services/Ai/Aaeos/Quarantine');
         $moved = [];
         $commandsDeleted = [];
         $failed = [];
