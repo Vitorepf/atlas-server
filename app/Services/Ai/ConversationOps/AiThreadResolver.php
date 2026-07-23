@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\ConversationOps;
 
 use App\Models\AiSession;
 use App\Models\AiThread;

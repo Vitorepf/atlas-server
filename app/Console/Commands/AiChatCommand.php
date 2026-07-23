@@ -9,7 +9,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
-use App\Services\Ai\AiSessionStateService;
+use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;

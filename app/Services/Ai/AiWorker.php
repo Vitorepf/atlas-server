@@ -14,6 +14,7 @@ use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
 use App\Services\Ai\Evidence\MissionEvidenceAdapter;

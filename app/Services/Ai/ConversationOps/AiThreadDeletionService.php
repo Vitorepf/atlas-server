@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\ConversationOps;
 
 use App\Models\AiThread;
 use App\Services\Ai\Support\DatabaseTableAvailability;

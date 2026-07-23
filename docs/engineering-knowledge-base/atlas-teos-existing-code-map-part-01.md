@@ -166,7 +166,7 @@ TEOS reescrever fillables.
 **Alteração:** `LongHorizonContinuationPackBuilder::fromSessionState($state)`
 projeta `AiSessionState` em `continuation_pack.v1`. Zero mudança na model.
 
-**`app/Services/Ai/AiSessionStateService.php`** · 362 lines. Persistência +
+**`app/Services/Ai/ConversationOps/AiSessionStateService.php`** · 362 lines. Persistência +
 diff merge + pending_steer. **TEOS:** fonte de dados Dev session-level.
 **Classificação:** `reuse`. **Gap:** sem callback para emitir
 continuation_pack ao final. **Risco:** se TEOS escrever em `AiSessionState`

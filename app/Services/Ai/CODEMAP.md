@@ -19,6 +19,10 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Sanitize a final human-facing response | `App\Services\Ai\Surface\AtlasFinalResponseSanitizer::sanitize` |
 | Record a surface handoff | `App\Services\Ai\Surface\AiSurfaceHandoffService::record` |
 | Project human execution state | `App\Services\Ai\HumanSurface\AiExecutionPresentationState::providerChoice` |
+| Resolve or create an AI thread | `App\Services\Ai\ConversationOps\AiThreadResolver::resolve` |
+| Ensure an active AI session | `App\Services\Ai\ConversationOps\AiSessionManager::ensureActive` |
+| Update structured AI session state | `App\Services\Ai\ConversationOps\AiSessionStateService::updateForUserInput` |
+| Purge a user-visible thread | `App\Services\Ai\ConversationOps\AiThreadDeletionService::delete` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |

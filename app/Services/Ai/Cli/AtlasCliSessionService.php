@@ -10,7 +10,7 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiProviderHandoffService;
-use App\Services\Ai\AiSessionStateService;
+use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasCliSessionService

@@ -6,16 +6,16 @@ An interaction is not a one-shot call. It belongs to a thread (the conversation)
 
 | Path | Role |
 |---|---|
-| `app/Services/Ai/AiThreadResolver.php` | Resolves or creates the `AiThread` for an input; derives mode/focus/workspace |
-| `app/Services/Ai/AiSessionManager.php` | `ensureActive()`: pick/refresh/create the active `AiSession`; idle-timeout pause + resume |
-| `app/Services/Ai/AiSessionStateService.php` | Maintains structured session state (objective, phase, decisions, open loops, next steps) |
+| `app/Services/Ai/ConversationOps/AiThreadResolver.php` | Resolves or creates the `AiThread` for an input; derives mode/focus/workspace |
+| `app/Services/Ai/ConversationOps/AiSessionManager.php` | `ensureActive()`: pick/refresh/create the active `AiSession`; idle-timeout pause + resume |
+| `app/Services/Ai/ConversationOps/AiSessionStateService.php` | Maintains structured session state (objective, phase, decisions, open loops, next steps) |
 | `app/Services/Ai/AiCompactionService.php` | Auto-compaction and resume compaction for long conversations |
 | `app/Services/Ai/AiProviderHandoffService.php` | Builds an `AiProviderHandoff` brief when the provider switches |
 | `app/Services/Ai/AiContextSnapshotRecorder.php` | Records a per-trace context snapshot |
 | `app/Services/Ai/AiConversationRecorder.php` | Records user/assistant `ai_messages` |
 | `app/Services/Ai/AiConversationContextBuilder.php` | Builds conversation context for the prompt |
 | `app/Services/Ai/Streaming/AiStreamRecorder.php` | Persists sequenced `ai_stream_events` |
-| `app/Services/Ai/AiThreadDeletionService.php` | Cascading thread deletion |
+| `app/Services/Ai/ConversationOps/AiThreadDeletionService.php` | Cascading thread deletion |
 | `app/Http/Controllers/AiInteractionController.php` | `stream()` (SSE) and `flowStatus()` |
 | `app/Http/Controllers/AiThreadController.php` | Thread CRUD, state, messages, compact, switch-provider, snapshots |
 | `app/Models/AiThread.php`, `AiSession.php`, `AiMessage.php`, `AiSessionState.php`, `AiCompaction.php`, `AiProviderHandoff.php`, `AiContextSnapshot.php`, `AiStreamEvent.php` | The persistence entities |
@@ -123,9 +123,9 @@ sequenceDiagram
 
 | File | What to read |
 |---|---|
-| `app/Services/Ai/AiThreadResolver.php` | `resolve()` — the resolution precedence |
-| `app/Services/Ai/AiSessionManager.php` | `ensureActive()`, `close()`, `isIdleExpired()` |
-| `app/Services/Ai/AiSessionStateService.php` | `updateForUserInput()` and the state fields |
+| `app/Services/Ai/ConversationOps/AiThreadResolver.php` | `resolve()` — the resolution precedence |
+| `app/Services/Ai/ConversationOps/AiSessionManager.php` | `ensureActive()`, `close()`, `isIdleExpired()` |
+| `app/Services/Ai/ConversationOps/AiSessionStateService.php` | `updateForUserInput()` and the state fields |
 | `app/Services/Ai/AiCompactionService.php` | `maybeAutoCompact()`, the resume path |
 | `app/Services/Ai/AiProviderHandoffService.php` | `createIfSwitching()`, `create()`, `briefText()` |
 | `app/Services/Ai/AiContextSnapshotRecorder.php` | `record()` |

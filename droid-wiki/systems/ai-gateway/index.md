@@ -43,8 +43,11 @@ app/Services/Ai/
   AiProviderHandoffService.php  context brief on provider switch
   AiProviderHealthService.php   health snapshots + pain score
   AiProviderChoiceResolver.php  awaiting_user_choice pause/resolve
-  AiThreadResolver.php          thread resolution / continuation
-  AiSessionManager.php          session lifecycle (idle / resume)
+  ConversationOps/
+    AiThreadResolver.php        thread resolution / continuation
+    AiSessionManager.php        session lifecycle (idle / resume)
+    AiSessionStateService.php   structured session state / pending steer
+    AiThreadDeletionService.php cascading thread deletion
   Streaming/AiStreamRecorder.php sequenced streaming event persistence
   Arena/
     AiCouncilCoordinator.php    multi-provider council aggregation

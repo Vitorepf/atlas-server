@@ -77,7 +77,7 @@ governs:
   - atlas_teos_existing_code_reuse
 evidence:
   - app/Services/Ai/AiCompactionService.php
-  - app/Services/Ai/AiSessionStateService.php
+  - app/Services/Ai/ConversationOps/AiSessionStateService.php
   - app/Services/Ai/Programming/ProgrammingResumeService.php
   - app/Services/Ai/Programming/Forge/ForgeLongHorizonStateService.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php

@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\AiSession;
 use App\Models\AiThread;
-use App\Services\Ai\AiSessionStateService;
+use App\Services\Ai\ConversationOps\AiSessionStateService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAiThreadsTable;

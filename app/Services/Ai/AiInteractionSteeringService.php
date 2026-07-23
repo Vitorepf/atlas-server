@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiTrace;
+use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\Streaming\AiStreamRecorder;
 
 class AiInteractionSteeringService

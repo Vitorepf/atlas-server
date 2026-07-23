@@ -10,16 +10,24 @@ use App\Services\Ai\AiPermissionEngine as LegacyAiPermissionEngine;
 use App\Services\Ai\AiPermissionEngineSupport as LegacyAiPermissionEngineSupport;
 use App\Services\Ai\AiQualityActionService as LegacyAiQualityActionService;
 use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
+use App\Services\Ai\AiSessionManager as LegacyAiSessionManager;
+use App\Services\Ai\AiSessionStateService as LegacyAiSessionStateService;
 use App\Services\Ai\AiSkill as LegacyAiSkill;
 use App\Services\Ai\AiSkillStore as LegacyAiSkillStore;
 use App\Services\Ai\AiStreamRecorder as LegacyAiStreamRecorder;
 use App\Services\Ai\AiSurfaceHandoffService as LegacyAiSurfaceHandoffService;
+use App\Services\Ai\AiThreadDeletionService as LegacyAiThreadDeletionService;
+use App\Services\Ai\AiThreadResolver as LegacyAiThreadResolver;
 use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
 use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
 use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
+use App\Services\Ai\ConversationOps\AiSessionManager as CanonicalAiSessionManager;
+use App\Services\Ai\ConversationOps\AiSessionStateService as CanonicalAiSessionStateService;
+use App\Services\Ai\ConversationOps\AiThreadDeletionService as CanonicalAiThreadDeletionService;
+use App\Services\Ai\ConversationOps\AiThreadResolver as CanonicalAiThreadResolver;
 use App\Services\Ai\Governance\AiPermissionDecision as CanonicalAiPermissionDecision;
 use App\Services\Ai\Governance\AiPermissionEngine as CanonicalAiPermissionEngine;
 use App\Services\Ai\Governance\AiPermissionEngineSupport as CanonicalAiPermissionEngineSupport;
@@ -118,5 +126,21 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiExecutionPresentationState::class));
         self::assertTrue(class_exists(LegacyAiExecutionPresentationState::class));
         self::assertTrue(is_a(CanonicalAiExecutionPresentationState::class, LegacyAiExecutionPresentationState::class, true));
+    }
+
+    public function test_conversation_ops_services_resolve_from_their_canonical_namespace_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAiSessionManager::class));
+        self::assertTrue(class_exists(LegacyAiSessionManager::class));
+        self::assertTrue(is_a(CanonicalAiSessionManager::class, LegacyAiSessionManager::class, true));
+        self::assertTrue(class_exists(CanonicalAiSessionStateService::class));
+        self::assertTrue(class_exists(LegacyAiSessionStateService::class));
+        self::assertTrue(is_a(CanonicalAiSessionStateService::class, LegacyAiSessionStateService::class, true));
+        self::assertTrue(class_exists(CanonicalAiThreadDeletionService::class));
+        self::assertTrue(class_exists(LegacyAiThreadDeletionService::class));
+        self::assertTrue(is_a(CanonicalAiThreadDeletionService::class, LegacyAiThreadDeletionService::class, true));
+        self::assertTrue(class_exists(CanonicalAiThreadResolver::class));
+        self::assertTrue(class_exists(LegacyAiThreadResolver::class));
+        self::assertTrue(is_a(CanonicalAiThreadResolver::class, LegacyAiThreadResolver::class, true));
     }
 }
