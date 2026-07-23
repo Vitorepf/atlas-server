@@ -3670,3 +3670,42 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 117 — bound cooldown recovery inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0108
+commit: 6ac27cd29
+subject: "refactor(core): GOD-DEBULK bound cooldown recovery"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskLeaseRecoveryService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_serving_refuses_an_unbounded_cooldown_recovery_before_requeueing_it --no-coverage
+  result: "FAIL after 8 assertions: public next() requeued 65 real released cooldown records, then emitted queue_scan_limit_exceeded; the last record had become claimable."
+green:
+  behavior: "The released-recovery pre-sweep reads only the registry count above 64, leaves the oversized inventory released, and propagates the existing queue_scan_limit_exceeded envelope through the actual public serving entrypoint. A packet-scoped recovery remains exact."
+verification:
+  characterization: "PASS 1 test, 10 assertions through public next(), a ready documented AWIS port, and 65 real released queue records stamped as the same worker's cooldown give-backs."
+  package_suite: "PASS 135 tests, 630 assertions: bounded anti-farm Feature, recovery unit, scope repair, repair self-heal, AWIS, and Feature/Unit orchestrator suites."
+  exact_recovery: "PASS 1 test, 9 assertions: a single released packet still requeues through the real recovery service."
+  php_lint: "PASS all three touched PHP files."
+  pint: "PASS recovery service and focused Feature test; NOT GREEN only for inherited whole-file formatting drift in AgentControlPlaneTaskQueueOrchestrator.php. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1988 LOC; recovery_service=1057 LOC; focused Feature test=379 LOC; all <2000 and test <800."
+boundary:
+  - "The acceptance executes the public worker-serving next() path and normal pre-sweep; it does not call the private cooldown predicate or recovery loop directly."
+  - "The oversized branch reads the read-only released registry count before payload materialization and writes no status or receipt; it preserves all 65 released cooldown records."
+  - "The serving response retains queue_scan_limit_exceeded with candidate count, minimum count, scan limit, retry, and inspection escalation rather than inventing an empty queue."
+residual:
+  - "The cooldown/released recovery scan is bounded. Other recovery families and their ownership are outside this A1-SC-0108 characterization."
+  - "AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest terminal controls currently fail before recovery because terminal setup remains claimed/ready; recorded in EXEC-DEBTS for the completion-evidence/lease owner."
+next_cursor: "Pick the highest-LOC s0 YAML from META-FINDINGS/A1--SelfConstruction.md; require its approved/executable path before the next RED characterization."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-117-cooldown-recovery-6ac27cd29
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
