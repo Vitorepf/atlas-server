@@ -224,6 +224,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             humanContext: $humanContext,
             nextRequired: $nextRequired,
         );
+        $persistedEvidenceState = $this->persistedEvidenceState($runtimeGapMatrix);
         $canonicalSubmissionPersistencePlan = $this->canonicalSubmissionPersistencePlan(
             canonicalSubmissionInput: $canonicalSubmissionInput,
             diagnostics: $diagnostics,
@@ -231,7 +232,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 || (array) ($options['real_provider_smoke'] ?? []) !== []
                 || (array) ($options['completion_receipt'] ?? []) !== [],
             workspacePayloadSupplied: (string) data_get($workspaceInput, 'status', '') === 'loaded_for_read_only_submission_readiness',
-            persistedEvidenceState: $this->persistedEvidenceState($runtimeGapMatrix),
+            persistedEvidenceState: $persistedEvidenceState,
         );
         $operatorNextAction = $this->operatorNextAction(
             nextRequired: $nextRequired,
@@ -242,14 +243,14 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $operatorEvidenceSequenceIntegrity = $this->operatorEvidenceSequenceIntegrity(
             diagnostics: $diagnostics,
             canonicalSubmissionPersistencePlan: $canonicalSubmissionPersistencePlan,
-            persistedEvidenceState: $this->persistedEvidenceState($runtimeGapMatrix),
+            persistedEvidenceState: $persistedEvidenceState,
             nextRequired: $nextRequired,
         );
         $operatorCompletionProofBundle = $this->operatorCompletionProofBundle(
             diagnostics: $diagnostics,
             operatorSubmissionEnvelopes: $operatorSubmissionEnvelopes,
             canonicalSubmissionPersistencePlan: $canonicalSubmissionPersistencePlan,
-            persistedEvidenceState: $this->persistedEvidenceState($runtimeGapMatrix),
+            persistedEvidenceState: $persistedEvidenceState,
             completionAudit: $completionAudit,
             operatorNextAction: $operatorNextAction,
         );
@@ -1639,7 +1640,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'passed' => $humanPassed,
                 'expected_receipt_schema' => 'atlas.self_construction.human_signed_completion_receipt.v1',
                 'draft_command' => $this->nextRequiredCommand('human_completion_receipt'),
-                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/human-completion-receipt.json --persist-completion-evidence --json',
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
                 'evidence_source' => 'human_completion_receipt',
                 'requires_operator_signature' => true,
                 'requires_provider_call' => false,

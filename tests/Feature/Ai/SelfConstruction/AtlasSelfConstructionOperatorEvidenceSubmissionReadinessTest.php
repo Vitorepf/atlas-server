@@ -232,6 +232,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get(collect((array) data_get($payload, 'closure_artifact_sequence'))->keyBy('requirement')->all(), 'runtime_gap_matrix_all_runtime_y.artifact'),
         );
         $this->assertSame(
+            'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
+            data_get(collect((array) data_get($payload, 'closure_artifact_sequence'))->keyBy('artifact')->all(), 'human_completion_receipt.persist_command'),
+        );
+        $this->assertSame(
             'real_provider_smoke',
             data_get(collect((array) data_get($payload, 'prompt_to_artifact_checklist'))->keyBy('requirement')->all(), 'end_to_end_real_provider_smoke_green.artifact'),
         );
@@ -1407,6 +1411,36 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             $this->assertIsArray($decoded);
             $this->assertFalse($decoded['dispatch_allowed']);
         }
+    }
+
+    public function test_readiness_build_uses_one_persisted_evidence_snapshot_for_all_projections(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+        $persistedRegistryPaths = [
+            'atlas/self-construction/os-completion/real-provider-smokes/registry.json',
+            'atlas/self-construction/os-completion/human-signed-receipts/registry.json',
+        ];
+        foreach ($persistedRegistryPaths as $path) {
+            $disk->put($path, '[]');
+        }
+
+        $persistedRegistryReads = 0;
+        $proxy = \Mockery::mock($disk)->makePartial();
+        $proxy->shouldReceive('exists')->andReturnUsing(static fn (string $path): bool => $disk->exists($path));
+        $proxy->shouldReceive('get')->andReturnUsing(function (string $path) use ($disk, &$persistedRegistryReads, $persistedRegistryPaths): string {
+            if (in_array($path, $persistedRegistryPaths, true)) {
+                $persistedRegistryReads++;
+            }
+
+            return $disk->get($path);
+        });
+        Storage::shouldReceive('disk')->andReturn($proxy);
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build();
+
+        $this->assertSame(4, $persistedRegistryReads, 'one public build must take one persisted-evidence snapshot after the audit baseline');
+        $this->assertSame('blocked_missing_real_provider_smoke', data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.real_provider_smoke.status'));
     }
 
     public function test_agent_control_plane_lists_submission_readiness_capabilities(): void
