@@ -2884,3 +2884,36 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 94 — restore chain-integrity CLI quartet routes, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_SEPARATE_STATUS_DEBT
+finding: A1-SC-0005
+commit: 68882daf5
+subject: "refactor(core): GOD-DEBULK restore chain quartet CLI routes"
+scope:
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php --filter=test_cli_contract_json_works --no-coverage
+  result: "FAIL 1 test, 0 assertions: the public --agent-control-plane-chain-integrity-certification contract alias was absent and Symfony raised InvalidOptionException."
+green:
+  behavior: "The canonical mother-command surface maps the historical contract alias plus preflight and implementation-packet flags to the extracted ReadinessCertificationChainQuartetProjector entrypoints."
+verification:
+  contract: "PASS 1 test, 6 assertions."
+  preflight: "PASS 1 test, 5 assertions."
+  implementation_packet: "PASS 1 test, 6 assertions."
+  status_debt: "NOT GREEN, separate pre-existing status expectation: the already-mapped status command returns critical_gap while its test allows only available/degraded/blocked/missing_artifacts. The status mapping predates this commit."
+  php_lint: "PASS mother-command surface."
+  pint: "PASS mother-command surface."
+  diff_check: PASS
+  density: "mother-command surface=267 LOC (<800 hot limit); the 2,460-LOC historical test file was not edited."
+commit_scope: "PASS: git commit --only recorded exactly the command-surface mapping."
+boundary:
+  - "Each green assertion runs the public Artisan command and the real extracted projector; no reflection or source-shape assertion serves as the judge."
+  - "This restores only read-only certification routes and does not grant runtime, provider, dispatch, token, or persistence authority."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```

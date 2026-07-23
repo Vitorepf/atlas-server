@@ -78,6 +78,9 @@ claimed_paths:
      contract/preflight/implementation-packet/status quartet is again
      registered by the canonical mother-command surface; no route now dies at
      option parsing before its real Readiness projection runs.
+   - Fase 2 CLI wiring complete (`68882daf5`): the chain-integrity contract
+     alias, preflight, and implementation-packet now reach the extracted
+     chain-quartet projector; the pre-existing status route remains separate.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
@@ -110,3 +113,4 @@ claimed_paths:
 - 2026-07-23 executor replay: A1-SC-0126's old wrong-NativeImplementation helper fatal is refuted on current `main`; the real public submission-readiness build returns the expected fail-closed no-input envelope (Feature: 1/129; Unit: 1/9), so it is not an executable repair candidate.
 - 2026-07-23 executor observed: the `CodexReviewMerge` golden `ced5b7…` predates the `cd018c6b3` section split and fails against every current real alias (`a61e9885…`); no pre-split semantic-equivalence receipt survives, so the current snapshot is explicitly re-characterized under A1-SC-0026/0032 rather than claimed as historical equivalence.
 - 2026-07-23 executor: A1-SC-0108's anti-farm admission and claim scans are bounded and fail-closed at 64 claimable packets (`49b3c879c`, `b5c1e9ab6`); do not claim servability, repair, or cooldown list scans resolved without separate real characterizations and a bounded-index owner.
+- 2026-07-23 executor observed: `AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest::test_cli_status_json_works` expects an obsolete status set and rejects the current real `critical_gap` result; the status flag existed before `68882daf5`, so its status semantics/test-contract repair is separate from the restored CLI quartet routes.
