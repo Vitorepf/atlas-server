@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiCouncilCoordinator as LegacyAiCouncilCoordinator;
+use App\Services\Ai\AiExecutionPresentationState as LegacyAiExecutionPresentationState;
 use App\Services\Ai\AiIntentRouter as LegacyAiIntentRouter;
 use App\Services\Ai\AiPermissionDecision as LegacyAiPermissionDecision;
 use App\Services\Ai\AiPermissionEngine as LegacyAiPermissionEngine;
@@ -12,20 +13,25 @@ use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
 use App\Services\Ai\AiSkill as LegacyAiSkill;
 use App\Services\Ai\AiSkillStore as LegacyAiSkillStore;
 use App\Services\Ai\AiStreamRecorder as LegacyAiStreamRecorder;
+use App\Services\Ai\AiSurfaceHandoffService as LegacyAiSurfaceHandoffService;
 use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
 use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
+use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
 use App\Services\Ai\Governance\AiPermissionDecision as CanonicalAiPermissionDecision;
 use App\Services\Ai\Governance\AiPermissionEngine as CanonicalAiPermissionEngine;
 use App\Services\Ai\Governance\AiPermissionEngineSupport as CanonicalAiPermissionEngineSupport;
+use App\Services\Ai\HumanSurface\AiExecutionPresentationState as CanonicalAiExecutionPresentationState;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
 use App\Services\Ai\Router\AiIntentRouter as CanonicalAiIntentRouter;
 use App\Services\Ai\Skills\AiSkill as CanonicalAiSkill;
 use App\Services\Ai\Skills\AiSkillStore as CanonicalAiSkillStore;
 use App\Services\Ai\Streaming\AiStreamRecorder as CanonicalAiStreamRecorder;
+use App\Services\Ai\Surface\AiSurfaceHandoffService as CanonicalAiSurfaceHandoffService;
+use App\Services\Ai\Surface\AtlasFinalResponseSanitizer as CanonicalAtlasFinalResponseSanitizer;
 use App\Services\Ai\YoutubeCanonicalProjection as LegacyYoutubeCanonicalProjection;
 use App\Services\Ai\YouTubeKnowledgeIngestionService as LegacyYouTubeKnowledgeIngestionService;
 use Tests\TestCase;
@@ -99,5 +105,18 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiPermissionEngineSupport::class));
         self::assertTrue(class_exists(LegacyAiPermissionEngineSupport::class));
         self::assertTrue(is_a(CanonicalAiPermissionEngineSupport::class, LegacyAiPermissionEngineSupport::class, true));
+    }
+
+    public function test_surface_services_resolve_from_their_canonical_namespaces_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAtlasFinalResponseSanitizer::class));
+        self::assertTrue(class_exists(LegacyAtlasFinalResponseSanitizer::class));
+        self::assertTrue(is_a(CanonicalAtlasFinalResponseSanitizer::class, LegacyAtlasFinalResponseSanitizer::class, true));
+        self::assertTrue(class_exists(CanonicalAiSurfaceHandoffService::class));
+        self::assertTrue(class_exists(LegacyAiSurfaceHandoffService::class));
+        self::assertTrue(is_a(CanonicalAiSurfaceHandoffService::class, LegacyAiSurfaceHandoffService::class, true));
+        self::assertTrue(class_exists(CanonicalAiExecutionPresentationState::class));
+        self::assertTrue(class_exists(LegacyAiExecutionPresentationState::class));
+        self::assertTrue(is_a(CanonicalAiExecutionPresentationState::class, LegacyAiExecutionPresentationState::class, true));
     }
 }

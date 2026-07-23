@@ -16,6 +16,9 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Authorize a job's permission runtime | `App\Services\Ai\Governance\AiPermissionEngine::authorizeJob` |
 | Resolve permission policy inputs | `App\Services\Ai\Governance\AiPermissionEngineSupport::resolve` |
 | Serialize a permission decision | `App\Services\Ai\Governance\AiPermissionDecision::runtimePayload` |
+| Sanitize a final human-facing response | `App\Services\Ai\Surface\AtlasFinalResponseSanitizer::sanitize` |
+| Record a surface handoff | `App\Services\Ai\Surface\AiSurfaceHandoffService::record` |
+| Project human execution state | `App\Services\Ai\HumanSurface\AiExecutionPresentationState::providerChoice` |
 | Build a provider-safe context-feedback proposal | `App\Services\Ai\AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::advise` |
 | Project safe trace artifacts for a trace | `App\Services\Ai\AiTraceArtifactsProjection::forTrace` |
 | Ingest canonical YouTube knowledge | `App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService::ingestFromInput` |

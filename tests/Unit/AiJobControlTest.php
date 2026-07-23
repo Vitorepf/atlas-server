@@ -9,7 +9,7 @@ use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasLedgerEvent;
-use App\Services\Ai\AiExecutionPresentationState;
+use App\Services\Ai\HumanSurface\AiExecutionPresentationState;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AiWorkerLogger;

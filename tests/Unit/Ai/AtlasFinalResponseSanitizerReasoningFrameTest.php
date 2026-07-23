@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AtlasFinalResponseSanitizer;
+use App\Services\Ai\Surface\AtlasFinalResponseSanitizer;
 use PHPUnit\Framework\TestCase;
 
 /**

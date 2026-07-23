@@ -21,6 +21,7 @@ use App\Services\Ai\Gateway\ChatWeakResponseProbe;
 use App\Services\Ai\Governance\AiPermissionDecision;
 use App\Services\Ai\Governance\AiPermissionEngine;
 use App\Services\Ai\Hermes\Mesh\HermesMeshJobRunner;
+use App\Services\Ai\HumanSurface\AiExecutionPresentationState;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -46,6 +47,7 @@ use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCano
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use App\Services\Ai\Router\AtlasSemanticFlowArbiterService;
 use App\Services\Ai\Streaming\AiStreamRecorder;
+use App\Services\Ai\Surface\AtlasFinalResponseSanitizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;

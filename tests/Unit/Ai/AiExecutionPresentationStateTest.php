@@ -3,7 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Models\AiTrace;
-use App\Services\Ai\AiExecutionPresentationState;
+use App\Services\Ai\HumanSurface\AiExecutionPresentationState;
 use Carbon\CarbonImmutable;
 use Tests\TestCase;
 

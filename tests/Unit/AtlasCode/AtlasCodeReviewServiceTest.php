@@ -88,7 +88,7 @@ final class AtlasCodeReviewServiceTest extends TestCase
         // vocabulário de máquina como veredito de commit.
         $trace = new AiTrace();
         $trace->status = 'succeeded';
-        $trace->response_text = \App\Services\Ai\AtlasFinalResponseSanitizer::BLOCKED_NOTICE;
+        $trace->response_text = \App\Services\Ai\Surface\AtlasFinalResponseSanitizer::BLOCKED_NOTICE;
 
         self::assertSame('failed', $this->review->stateOf($trace));
     }

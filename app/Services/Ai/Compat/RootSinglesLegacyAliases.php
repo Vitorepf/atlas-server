@@ -14,6 +14,7 @@ final class RootSinglesLegacyAliases
     /** @var array<class-string, class-string> */
     private const CLASS_MAP = [
         'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
+        'App\\Services\\Ai\\AiExecutionPresentationState' => 'App\\Services\\Ai\\HumanSurface\\AiExecutionPresentationState',
         'App\\Services\\Ai\\AiIntentRouter' => 'App\\Services\\Ai\\Router\\AiIntentRouter',
         'App\\Services\\Ai\\AiPermissionDecision' => 'App\\Services\\Ai\\Governance\\AiPermissionDecision',
         'App\\Services\\Ai\\AiPermissionEngine' => 'App\\Services\\Ai\\Governance\\AiPermissionEngine',
@@ -23,6 +24,8 @@ final class RootSinglesLegacyAliases
         'App\\Services\\Ai\\AiSkill' => 'App\\Services\\Ai\\Skills\\AiSkill',
         'App\\Services\\Ai\\AiSkillStore' => 'App\\Services\\Ai\\Skills\\AiSkillStore',
         'App\\Services\\Ai\\AiStreamRecorder' => 'App\\Services\\Ai\\Streaming\\AiStreamRecorder',
+        'App\\Services\\Ai\\AiSurfaceHandoffService' => 'App\\Services\\Ai\\Surface\\AiSurfaceHandoffService',
+        'App\\Services\\Ai\\AtlasFinalResponseSanitizer' => 'App\\Services\\Ai\\Surface\\AtlasFinalResponseSanitizer',
         'App\\Services\\Ai\\CompactionLossPolicy' => 'App\\Services\\Ai\\Compaction\\CompactionLossPolicy',
         'App\\Services\\Ai\\YouTubeKnowledgeIngestionService' => 'App\\Services\\Ai\\Knowledge\\YouTubeKnowledgeIngestionService',
         'App\\Services\\Ai\\YoutubeCanonicalProjection' => 'App\\Services\\Ai\\Knowledge\\YoutubeCanonicalProjection',

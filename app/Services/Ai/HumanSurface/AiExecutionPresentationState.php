@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\HumanSurface;
 
 use App\Models\AiTrace;
 use Carbon\CarbonImmutable;

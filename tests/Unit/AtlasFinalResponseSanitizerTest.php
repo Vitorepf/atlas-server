@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\Ai\AtlasFinalResponseSanitizer;
+use App\Services\Ai\Surface\AtlasFinalResponseSanitizer;
 use Tests\TestCase;
 
 class AtlasFinalResponseSanitizerTest extends TestCase

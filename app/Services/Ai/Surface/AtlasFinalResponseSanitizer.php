@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Surface;
 
 use Illuminate\Support\Str;
 
