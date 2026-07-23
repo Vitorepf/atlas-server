@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
-**Current plan:** v7 — zero-duplicate authority protocol
+**Current plan:** v8 — zero-duplicate authority protocol (cycle-2 survivors R64–R74)
 **State:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Code authorization:** absent; requires literal EXECUTE P0
@@ -86,7 +86,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | Cycle | Plan in | Evidence panel | Root result | Plan out |
 |---|---|---|---|---|
 | 1 | v6 | specialized runtime, authority, modes, evidence, plan logic, minimalism, economics and adversarial reviews; plus user-provided six-critic and Claude panels | accepted native-owner reuse and pre/post authority; rejected duplicate/bloat and technical OneShot | v7 |
-| 2 | v7 | pending | pending | pending |
+| 2 | v7 | 15-lens reuse/delete panel: admission totality, effect×proof seal, economy, model-family collusion, land-observer, measure-first teeth, AEOS duplication, spine fusion, delete-dormant, adversary | accepted 11 reuse/delete/fuse survivors R64–R74; rejected capability_proof/axis/cockpit as already-in-v7 and 6-state-enum/new-service/new-fields as duplication | v8 |
 | 3 | current | pending | pending | pending |
 | 4 | current | pending | pending | pending |
 | 5 | current | pending | pending | pending |
@@ -104,6 +104,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | 2026-07-23 | v5 RSS constitutional/anti-bloat direction |
 | 2026-07-23 | v6 CRES draft and P1 split |
 | 2026-07-23 | v7 replaces land-only authority; removes duplicate planned owners; adds R52–R63 and OneShot Experience Law |
+| 2026-07-23 | v8 cycle-2 reuse/delete survivors R64–R74; zero new organs; two dead self-grading projectors deleted; spine↔settlement proof fusion; economy view with observer denominator |
 
 ## Honest next state
 

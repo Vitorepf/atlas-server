@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** v7
+**Plan:** v8
 **Program:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Measured composite:** null
@@ -33,6 +33,21 @@ No average, 9.x value or checkbox certifies this program.
 | Ledger integrity/window/dedupe | NOT_PROVEN | R54 |
 | Quarantine/ACDE hold | PASS_CURRENT_DISK | path absent; do not recreate |
 | per-mode REAL_OPERATION journey | MISSING | no P4 artifacts |
+
+## Cycle-2 (v8) added hard sub-gates R64–R74
+
+| Gate | State | Existing owner reused / deleted |
+|---|---|---|
+| invalid_mode → repair_required, never halt_sovereign | NOT_PROVEN | AtlasMergeGovernorAdmissionPolicy::DECISION_REPAIR (R64) |
+| proof_level derived; illegal (effect,proof) unrepresentable | NOT_PROVEN | AaeosCycleRuntime assembler (R65) |
+| spine N11 ref = settlement observer receipt only | NOT_PROVEN | AaeosEngineeringSpine + AtlasEvidenceLedger (R66) |
+| standing measure-first reader-census red test | MISSING | AaeosControlPlaneTest harness (R67) |
+| model-family independence; same-family → mechanical court | NOT_PROVEN | provider-lock modelFamily + VerificationCourt (R68) |
+| economy view; denominator = observer-minted landings | MISSING | AtlasMaestroCostAggregator + EngineeringOutcome (R69) |
+| both land chokepoints observer-minted | NOT_PROVEN | AtlasTaskMergeActuator::changedFiles + CanarySettlementRequest (R70) |
+| dead self-grading projectors removed | NOT_DONE | delete AaeosOperateScorecardProjector + AaeosTriHygieneScorecardProjector (R71/R72) |
+| AEOS dormant-ritual code partition guard | NOT_PROVEN | AaeosHygieneLegacyAliases + guard test (R73) |
+| single mode-derivation owner, fail-closed | NOT_PROVEN | AaeosModeToDualCoreRoute (R74) |
 
 ## OneShot operator experience
 

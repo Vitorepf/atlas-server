@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v7 — zero-duplicate authority protocol
+> Version: v8 — zero-duplicate authority protocol (+ cycle-2 reuse/delete survivors R64–R74)
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -169,7 +169,8 @@ AAEOS does not call EliteExecutorKernel directly. The native Dev and Forge owner
 - Delete the four Control/Adapters files after parity characterization.
 - Do not create AaeosModeExecutor or a second mode interface.
 - Do not create AaeosActionEffectClassifier as an authority.
-- Delete AaeosOperateScorecardProjector if the live-consumer census remains zero.
+- Delete AaeosOperateScorecardProjector unconditionally (R71): the live-consumer census is zero at HEAD; its project() is a hardcoded self-score composite, a self-report forbidden by section 4.
+- Delete AaeosTriHygieneScorecardProjector and AtlasTriHygieneScorecardCommand (R72): their lineCount()/is_file() dimensions score AEOS by file size and existence — a refactor-progress proxy forbidden by anti-Goodhart; honest structural signal already belongs to SovereignHonestyFloor + AtlasUniversalGatesEvaluator.
 - Replace hardcoded score truth inside AaeosScorecardProjector; preserve only the presenter API if consumers need it.
 - One AaeosRunApplication may be created because it removes duplicated run/cycle behavior.
 - Brain/Seed application seams are extractions from CLI owners, not wrappers that call Artisan.
@@ -348,7 +349,7 @@ No default numeric value substitutes for unknown. No composite certifies DONE.
 | R7 | skipped evidence can fail open | P0/P2 fail explicit |
 | R8 | world snapshot can default silently | P0 measured provenance |
 | R9 | legacy aliases deferred | P3 evidence-led retirement |
-| R10 | dual Aaeos/AgenticEngineeringOs mental maps | P3 canonical docs |
+| R10 | dual Aaeos/AgenticEngineeringOs mental maps; AEOS 43k-LOC lattice unwired from the live Kernel land path yet coupled via a LOC-proxy scorecard | P1 code partition + guard test (R73); P3 canonical docs |
 | R11 | generated docs-as-PHP reduction is intentional | ACCEPTED; no LOC restoration |
 | R12 | Quarantine absent | CLOSED/HOLD; zero recreation/import |
 | R13 | HTTP/desktop is not daily operate | HORIZON; no P4 gate |
@@ -414,6 +415,26 @@ No default numeric value substitutes for unknown. No composite certifies DONE.
 | R63 | reversibility gate is orphan and DecisionReceipt signing is not global-strength | integrate existing gate only for reserved effects; reuse/promote Ed25519 verification at Decide owner |
 
 R43, R44, R46, R51–R63 cannot be waived into DONE. A follow-up debt may exist, but the MT remains PARTIAL.
+
+### 7.4 v8 cycle-2 survivors R64–R74
+
+Root judged the cycle-2 adversarial panel (15 lenses) against v7 and disk. Only reuse/delete/fuse survived; every duplicate of an existing owner was rejected — capability_proof is already killed by §5.4/R58, the 5-axis envelope is already collapsed by §5.1, the cockpit proof/economy render is already committed in P3, and a 6-state Aaeos admission enum duplicates AtlasMergeGovernorAdmissionPolicy. Each survivor names the existing owner it reuses or deletes; none creates a new organ.
+
+| ID | Gap surpassing v7 | Existing owner reused / deleted | Hard done condition |
+|---|---|---|---|
+| R64 | R40 fix under-specified: an implementer could de-conflate technical vs sovereign by growing the verdict enum | reuse AtlasMergeGovernorAdmissionPolicy::DECISION_REPAIR ('repair_required') | AaeosAdmissionPolicy invalid_mode/unknown-mode returns repair_required, never HALT_SOVEREIGN; AaeosAdmissionVerdict stays 3 consts; golden: invalid_mode is repair-classed and only irreversible/business_ambiguous reach HALT_SOVEREIGN |
+| R65 | proof_level is a settable field checked only at DONE, so illegal (effect,proof) cells are constructible pre-P4 | reuse AaeosCycleRuntime receipt assembler + section 6 ladder | proof_level is a pure derivation of observed effect class + canonical event integrity + fresh-readback presence; caller-supplied proof_level=LIVE_EFFECT with effect_level=blocked derives ≤ AUTOMATED_CHARACTERIZED; proof_level not independently settable |
+| R66 | Spine N11 self-greens from empty/declared refs and is a second disjoint proof | fuse into AaeosEngineeringSpine::assertShared + AaeosSpineGate + AtlasEvidenceLedger | an applicable critical N11 site is satisfied only by an evidence ref resolving to a settlement-emitted effect receipt (observer identity + changed-files hash + landed SHA) via ledger readback; caller-declared/empty refs fail closed; closes R44 by construction |
+| R67 | measure-first is enforced only by a one-time human census; a future receipt field can ship with zero readers | reuse tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest harness | one standing red test reads the field-set from the single receipt builder and fails when a field ships with no non-test reader (nullable-correlation fields exempt by name); no new registry/service |
+| R68 | independence proves principal/capability but is blind to model-weights; under verboo-only, author and judge always share weights and the same in-artifact injection | reuse provider-lock modelFamily / adapter MODEL_FAMILY + SelfConstruction/VerificationCourt | the independence receipt carries model_family_id from trusted issuance (not caller); a same-family author+judge cannot reach landed/certify without a mechanical VerificationCourt verdict; the LLM judge is recorded advisory only |
+| R69 | R49 economy is hand-waved; the operator unit (tokens/effort per accepted landing) is never projected, and a false 'released' could inflate the denominator | reuse AtlasMaestroCostAggregator (aggregateByCycle) + EngineeringOutcome.operatorEffort/tokens + AaeosScorecardProjector | scorecard --view=economy emits tokens+operator_effort per released landing sourced only from the cost ledger + outcome store; the denominator counts only observer-minted released cycles (present-but-false status='released' with empty write-set excluded); no new receipt field; read-only, so it never raises the OneShot/Autonomy burden |
+| R70 | §P1b land-observer names the two chokepoint files but not the exact primitive, and only one chokepoint is observer-minted (autonomos committer records declared evidence) | reuse AtlasTaskMergeActuator::changedFiles (diff-tree at landed SHA) + CanarySettlementRequest.observerIdentity | post-commit the observed write-set is derived by the same diff-tree primitive as the merge actuator; the autonomos committer's landed event carries observer_identity minted by the settler, not the caller; present-but-false read_only and declared-not-edited goldens pass on both chokepoints |
+| R71 | AaeosOperateScorecardProjector is a verified-zero-consumer hardcoded self-grader gated behind an already-satisfied census | delete app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php | class removed; scorecard/certify truth sources only measured/observed dimensions |
+| R72 | AaeosTriHygieneScorecardProjector scores AEOS by file size/existence — a refactor-progress proxy and the sole Aaeos→AEOS coupling | delete AaeosTriHygieneScorecardProjector + AtlasTriHygieneScorecardCommand | no AAEOS quality number derives from lineCount()/is_file(); honest structural signal reuses SovereignHonestyFloor + AtlasUniversalGatesEvaluator |
+| R73 | AEOS 43k-LOC lattice is unwired from the live Kernel land path yet coupled to Aaeos only via the LOC-proxy scorecard; R10 buried it under P3 doc relabels | reuse AaeosHygieneLegacyAliases seam + SovereignHonestyFloor as sole authority; keep Scoring/* live cores | R10 re-scoped to a P1 code partition: a guard test proves the dormant-ritual AEOS group is unreferenced from EliteExecutorKernel::execute and Aaeos/Control/Dispatch; live Scoring cores (recall relevance, pareto filter, spec-completeness) stay; RunbookOrchestrator 17-phase and DepartmentContractRuntime demoted from operate authority |
+| R74 | §5.1 permits mode→(route/sovereignty/delegation) derivation in read models with no single owner, and the router silently defaults an invalid mode to Dev | reuse AaeosModeToDualCoreRoute as the single named derivation owner | §5.1 names one derivation owner; AaeosModeToDualCoreRoute fails closed on invalid/unknown mode instead of defaulting to ROUTE_DEV |
+
+R64–R74 reuse or delete existing owners only; none creates a new organ and none may be waived into DONE.
 
 ## 8. Single implementation plan
 
@@ -720,8 +741,8 @@ No phase auto-authorizes the next.
 The MT is DONE only if every item below is proven:
 
 1. P0, P1a, P1b, P2, P3 and P4 receipts exist and are green.
-2. R1–R63 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
-3. R43, R44, R46 and R51–R63 are closed; none may be waived as debt.
+2. R1–R74 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
+3. R43, R44, R46 and R51–R74 are closed; none may be waived as debt.
 4. Dev, Forge and Autônomos each have a completed REAL_OPERATION journey through their native owner chain; internal retries, reviews and repairs are preserved in evidence.
 5. runtime_write_performed, effect and proof claims match canonical events and fresh readback.
 6. every adverse terminal state has a precise failure_reason.
@@ -768,7 +789,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | Cycle | Input version | Lenses/evidence | Root judgment | Result |
 |---|---|---|---|---|
 | 1 | v6 RSS+CRES | runtime ownership; enterprise authority; SOTA claims; plan logic; Dev; Forge; Autônomos; evidence/durability; security; minimalism; economics; adversarial falsifier; user-provided six-critic panel; user-provided Claude 11-agent panel | accepted reuse/authority split; rejected land-only CRES, ModeExecutor, new classifier, duplicate axes/metrics and debt-laundered DONE | v7 |
-| 2 | v7 | pending | pending | pending |
+| 2 | v7 zero-duplicate authority | 15 lenses: admission totality; effect×proof seal; axis collapse; economy; model-family collusion; verification cockpit; AEOS duplication; land-observer disk; measure-first teeth; capability_proof dedup; delete-dormant; efficiency/hops; new-tier observer; spine-effect fusion; adversary | accepted 11 reuse/delete/fuse survivors (R64–R74); rejected capability_proof-dedup, axis-collapse and cockpit-render as already-in-v7, and the 6-state admission enum / new observer service / new economy fields as duplication | v8 |
 | 3 | current | pending | pending | pending |
 | 4 | current | pending | pending | pending |
 | 5 | current | pending | pending | pending |
@@ -786,6 +807,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | v5 | RSS: same bar, sovereignty/engineering separation, anti-bloat |
 | v6 | CRES land observer, claim scope vocabulary, P1 split |
 | v7 | replaced land-only with pre-authorize/act/post-attest/settle; reused native owners; removed planned ModeExecutor/classifier/duplicate axes/metrics; added R52–R63; single phase contract, single residual ledger and single DONE |
+| v8 | cycle-2 reuse/delete survivors R64–R74: repair_required admission (no enum growth); proof_level derived not settable; spine↔settlement proof fusion; standing measure-first reader-census test; model-family independence + mechanical court; economy view with observer-minted denominator; land-observer two-chokepoint fix; unconditional deletion of two dead self-grading projectors; AEOS code-partition guard; single mode-derivation owner. Zero new organs |
 
 ## 14. Handoff
 
