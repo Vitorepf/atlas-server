@@ -376,6 +376,18 @@ final class AutonomousEvolutionSessionService
         return $this->factorySeedCatalog ??= new FactorySeedCatalogSection($this);
     }
 
+    /**
+     * GOD-DEBULK split forwarder: the factory-seed finding factory lives in
+     * {@see FactorySeedCatalogSection}; this thin forwarder preserves the historical
+     * method surface the catalog + factory-max selection sections bind to.
+     *
+     * @return array<string,mixed>
+     */
+    public function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind, string $severity = 'medium'): array
+    {
+        return $this->factorySeedCatalog()->factorySeed($id, $title, $detail, $sourceFile, $testBasename, $owner, $kind, $severity);
+    }
+
     /** Owner-flow contract section (GOD-DEBULK split; lazily constructed). */
     private function flowContract(): FlowContractSection
     {
@@ -1140,47 +1152,22 @@ final class AutonomousEvolutionSessionService
             $status = count($cycles) > 0 ? self::STATUS_PARTIAL : self::STATUS_BLOCKED;
         }
 
-        $payload = [
-            'schema_version' => self::REPORT_SCHEMA,
-            'ap_contract' => 'AP-786',
+        $payload = $this->executionSummary()->buildSessionReport([
             'status' => $status,
-            'session_id' => $sessionId,
-            'area_id' => $areaId,
+            'sessionId' => $sessionId,
+            'areaId' => $areaId,
             'focus' => $focus,
-            'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-747', 'AP-748', 'AP-749', 'AP-750', 'AP-756', 'AP-757', 'AP-758', 'AP-759', 'AP-765', 'AP-769', 'AP-774', 'AP-785', 'AP-786'],
             'provider' => $provider,
             'model' => $model,
-            'scope_profile' => $scopeProfile,
-            'execute_requested' => $execute,
-            'record_requested' => $record,
-            'cycles_requested' => $cyclesRequested,
-            'cycles_completed' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed')),
-            'cycles_waiting_review' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed_waiting_review_or_merge')),
-            'cycles_attempted' => count($cycles),
+            'scopeProfile' => $scopeProfile,
+            'execute' => $execute,
+            'record' => $record,
+            'cyclesRequested' => $cyclesRequested,
             'cycles' => $cycles,
-            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
-            'next_actions' => $this->nextActions($status, $blockers),
-            'claim_policy' => [
-                'atlas_owned_flow' => true,
-                'uses_cursor_cli_account_driver' => $provider === 'cursor_cli',
-                'requires_full_atlas_forge_owner_flow' => true,
-                'requires_robust_obra_forge_quality_flow' => true,
-                'direct_provider_driver_allowed' => (bool) ($input['allow_direct_provider_driver'] ?? false),
-                'required_robust_flow_capabilities' => self::REQUIRED_ROBUST_FLOW_CAPABILITIES,
-                'provider_called' => $this->anyCycleFlag($cycles, 'provider_called'),
-                'branch_created' => $this->anyCycleFlag($cycles, 'branch_created'),
-                'worktree_created' => $this->anyCycleFlag($cycles, 'worktree_created'),
-                'inbox_emitted_before_merge_attempt' => true,
-                'merge_performed' => $this->anyCycleFlag($cycles, 'merge_performed'),
-                'merge_policy' => 'AP-769/AP-774 ff-only only',
-                'blocked_cycle_policy' => $continueOnBlocked ? 'record_inbox_keep_branch_isolated_and_continue' : 'stop_session_on_first_blocker',
-                'selection_scope' => $this->selectionScopeClaim($scopeProfile),
-                'deploy_performed' => false,
-                'external_push_performed' => false,
-                'secret_access' => false,
-            ],
-        ];
+            'blockers' => $blockers,
+            'continueOnBlocked' => $continueOnBlocked,
+            'input' => $input,
+        ]);
         $payload['session_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
         $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
@@ -1837,70 +1824,6 @@ final class AutonomousEvolutionSessionService
             || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
     }
 
-    /** @return array<string,mixed> */
-    public function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind, string $severity = 'medium'): array
-    {
-        $hash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $id, $sourceFile, $testBasename]);
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.area_focus_deep_finding.v1',
-            'finding_id' => 'factory_max_'.$id,
-            'finding_hash' => $hash,
-            'area_id' => self::DEFAULT_AREA_ID,
-            'focus' => self::DEFAULT_FOCUS,
-            'title' => $title,
-            'detail' => $detail,
-            'kind' => $kind,
-            'severity' => $severity,
-            'confidence' => 'high',
-            'confidence_score' => 0.9,
-            'owner_candidate' => $owner,
-            'evidence_refs' => [
-                'factory_max_seed:'.$id,
-                'impl:'.$sourceFile,
-                'expected_test:'.$testBasename,
-            ],
-            'affected_files' => [$sourceFile],
-            'affected_docs' => [],
-            'why_it_matters' => $detail,
-            'proposed_spec_title' => 'Factory Max: '.$title,
-            'proposed_next_action' => sprintf(
-                'Implement "%s" by changing the targeted runtime and/or focused test. Target runtime: %s. Required focused test: %s. This cycle is invalid if it only changes docs or returns no_patch_needed without concrete proof.',
-                $title,
-                $sourceFile,
-                $this->expectedTestPath($testBasename, [$sourceFile]),
-            ),
-            'in_focus' => true,
-            'priority_score' => 950,
-            'origin' => 'factory_max_seed',
-            'origin_type' => $id,
-            'auto_execution_allowed' => true,
-            'operator_review_required' => false,
-            'spec_seed' => [
-                'schema_version' => 'atlas.software_company_stewardship.factory_max_spec_seed.v1',
-                'candidate_id' => 'factory_max_'.$id,
-                'candidate_hash' => $hash,
-                'source_owner' => $owner,
-                'gap_kind' => 'software_factory_runtime_improvement',
-                'title' => 'Factory Max: '.$title,
-                'rationale' => $detail,
-                'capability' => self::DEFAULT_FOCUS,
-                'risk_level' => $severity,
-                'evidence_refs' => ['factory_max_seed:'.$id, 'impl:'.$sourceFile, 'expected_test:'.$testBasename],
-                'owner_doc_refs' => [],
-                'route_hint_owner' => $owner,
-                'acceptance' => [
-                    'The implementation changes the targeted runtime or its focused tests, not only documentation.',
-                    'The focused test path proves the behavior or guard that makes autonomous cycles more robust.',
-                    'The AP-786 robust flow contract remains ready before owner execution.',
-                ],
-                'tests_required' => [$this->expectedTestPath($testBasename, [$sourceFile])],
-                'proposal_only' => false,
-                'operator_review_required' => false,
-            ],
-        ];
-    }
-
     /**
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
@@ -2188,7 +2111,7 @@ final class AutonomousEvolutionSessionService
         return $this->rejection()->allowedFiles($finding);
     }
 
-    private function expectedTestPath(string $basename, array $affectedFiles): string
+    public function expectedTestPath(string $basename, array $affectedFiles): string
     {
         return $this->rejection()->expectedTestPath($basename, $affectedFiles);
     }
@@ -3646,12 +3569,12 @@ final class AutonomousEvolutionSessionService
         return $this->cyclePostProcessing()->blockedCycle($cycleId, $cycleIndex, $blockers, $extra);
     }
 
-    private function anyCycleFlag(array $cycles, string $key): bool
+    public function anyCycleFlag(array $cycles, string $key): bool
     {
         return $this->cyclePostProcessing()->anyCycleFlag($cycles, $key);
     }
 
-    private function nextActions(string $status, array $blockers): array
+    public function nextActions(string $status, array $blockers): array
     {
         return $this->cyclePostProcessing()->nextActions($status, $blockers);
     }

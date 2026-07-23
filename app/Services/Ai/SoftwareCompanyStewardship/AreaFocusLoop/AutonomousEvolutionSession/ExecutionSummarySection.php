@@ -302,4 +302,74 @@ final class ExecutionSummarySection
             ],
         ];
     }
+
+    /**
+     * AP-786 session report projection: the deterministic base payload (status,
+     * cycle rollup, claim policy) assembled from the run loop's locals. Pure — the
+     * session_hash / generated_at stamping and the AP-795/AP-801 workcell attach
+     * stay on the parent's run(). Threaded through a context array so the moved
+     * body stays byte-behaviour-identical to the inline original.
+     *
+     * @param  array<string,mixed>  $ctx
+     * @return array<string,mixed>
+     */
+    public function buildSessionReport(array $ctx): array
+    {
+        $status = $ctx['status'];
+        $sessionId = $ctx['sessionId'];
+        $areaId = $ctx['areaId'];
+        $focus = $ctx['focus'];
+        $provider = $ctx['provider'];
+        $model = $ctx['model'];
+        $scopeProfile = $ctx['scopeProfile'];
+        $execute = $ctx['execute'];
+        $record = $ctx['record'];
+        $cyclesRequested = $ctx['cyclesRequested'];
+        $cycles = $ctx['cycles'];
+        $blockers = $ctx['blockers'];
+        $continueOnBlocked = $ctx['continueOnBlocked'];
+        $input = $ctx['input'];
+
+        return [
+            'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+            'ap_contract' => 'AP-786',
+            'status' => $status,
+            'session_id' => $sessionId,
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'stack' => 'Atlas Software Company Stewardship Stack',
+            'source_ap_contracts' => ['AP-747', 'AP-748', 'AP-749', 'AP-750', 'AP-756', 'AP-757', 'AP-758', 'AP-759', 'AP-765', 'AP-769', 'AP-774', 'AP-785', 'AP-786'],
+            'provider' => $provider,
+            'model' => $model,
+            'scope_profile' => $scopeProfile,
+            'execute_requested' => $execute,
+            'record_requested' => $record,
+            'cycles_requested' => $cyclesRequested,
+            'cycles_completed' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed')),
+            'cycles_waiting_review' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed_waiting_review_or_merge')),
+            'cycles_attempted' => count($cycles),
+            'cycles' => $cycles,
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'next_actions' => $this->parent->nextActions($status, $blockers),
+            'claim_policy' => [
+                'atlas_owned_flow' => true,
+                'uses_cursor_cli_account_driver' => $provider === 'cursor_cli',
+                'requires_full_atlas_forge_owner_flow' => true,
+                'requires_robust_obra_forge_quality_flow' => true,
+                'direct_provider_driver_allowed' => (bool) ($input['allow_direct_provider_driver'] ?? false),
+                'required_robust_flow_capabilities' => AutonomousEvolutionSessionService::REQUIRED_ROBUST_FLOW_CAPABILITIES,
+                'provider_called' => $this->parent->anyCycleFlag($cycles, 'provider_called'),
+                'branch_created' => $this->parent->anyCycleFlag($cycles, 'branch_created'),
+                'worktree_created' => $this->parent->anyCycleFlag($cycles, 'worktree_created'),
+                'inbox_emitted_before_merge_attempt' => true,
+                'merge_performed' => $this->parent->anyCycleFlag($cycles, 'merge_performed'),
+                'merge_policy' => 'AP-769/AP-774 ff-only only',
+                'blocked_cycle_policy' => $continueOnBlocked ? 'record_inbox_keep_branch_isolated_and_continue' : 'stop_session_on_first_blocker',
+                'selection_scope' => $this->selectionScopeClaim($scopeProfile),
+                'deploy_performed' => false,
+                'external_push_performed' => false,
+                'secret_access' => false,
+            ],
+        ];
+    }
 }
