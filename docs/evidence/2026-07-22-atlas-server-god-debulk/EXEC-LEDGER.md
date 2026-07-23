@@ -4,43 +4,39 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0168 post-start status snapshot closed
+phase: A1-SC-0153 recoverable supply explanation closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: derive every Codex post-start gate status from one coherent Agent Run read
-finding_id: A1-SC-0168
-action_op: replace separate latest/count/provider SQL reads with one scoped snapshot and in-memory projections
+bucket: app/Services/Ai/SelfConstruction/ControlPlane
+focus: make the reap_recoverable terminal state actionable and explainable
+finding_id: A1-SC-0153
+action_op: publish a recovery wait reason, recovery command, and supply explanation
 queue_index: 6
-last_commit: dbc78ec92
+last_commit: 4a441fde7
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --filter=test_post_start_status_derives_latest_and_counts_from_one_agent_run_snapshot
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --compact
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
-  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --filter=test_muscle_supply_state_recommends_reap_recoverable_when_lease_recoverable
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php
   git diff --check
 before_after: |
-  red: an interleaved persisted provider-start run arriving after the first status query made the old multi-query projection report 2 records instead of the original snapshot's 1.
-  green: the same interleave occurs after the single Agent Run read; latest, observed count, and provider count continue to describe the original one-row snapshot.
+  red: the public digest returned reap_recoverable but omitted wait_reason, an executable recovery command, and a plain-language explanation.
+  green: reap_recoverable is now a recoverable wait state with a fail-closed reason, the lease recovery inspection command, and a count-specific explanation.
 stdout: |
-  red_characterization: FAIL 1 test, 2 assertions (expected observed count 1, received 2 after an actual query-listener interleave)
-  focused: PASS 1 test, 4 assertions
-  new_feature_file: PASS 2 tests, 28 assertions
-  existing_section_unit_file: PASS 2 tests, 5 assertions
-  php_lint: PASS source plus changed Feature test
-  feature_pint: PASS
-  source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, fully_qualified_strict_types, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space, ordered_imports) were left untouched outside this focused change
-  loc_check: readiness_projection_post_start_gate_status_section=1477
+  red_characterization: FAIL 1 test, 2 assertions (Undefined array key wait_reason)
+  focused: PASS 1 test, 5 assertions
+  terminal_digest_unit_file: NOT GREEN; 1 failed, 18 passed, 69 assertions. The first pull-now control receives reap_recoverable only in full-file sequence; recorded as fixture-isolation debt.
+  php_lint: PASS source plus changed Unit test
+  pint: NOT GREEN; existing source and test formatter violations were left untouched outside this focused hunk
+  loc_check: agent_control_plane_terminal_loop_health_digest_service=1652
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the real public executor-plan status against persisted Agent Run rows; a DB query listener persists the interloper only after its select begins. It does not use reflection or mocks.
-  Every status now gets a single scoped Agent Run snapshot, retains only rows that match its observed or provider metadata path, then derives latest/counts from that in-memory snapshot.
+  Characterization executes the real public terminal-loop digest against a concrete recoverable lease and performs no reflection or mocking.
+  The only behavior change makes an already-selected recovery action explain itself; it neither reaps leases nor dispatches work.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  The source remains below 2k; no new class or helper was introduced. The existing source formatting drift is not used as proof and was not broadened into a reformat.
+  The source remains below 2k; no new class or helper was introduced. Existing formatter drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
@@ -1981,6 +1977,41 @@ write_back:
   merged_to_main_by_aobg: false
 ```
 
+## Task 68 — RootSinglesRehome Memory and MemoryGovernance canonical namespaces, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
+commit: pending
+subject: "refactor(core): GOD-DEBULK RootSingles Memory canonical rehome"
+red:
+  result: "FAIL 1 test, 1 assertion before the namespace change: canonical MemoryGovernance\\AtlasMemoryPrivacyService provider-summary redaction contract was already red; the moved service diff is namespace-only."
+green:
+  behavior: "12 Memory and 5 MemoryGovernance root singles resolve from canonical namespaces, with lazy root aliases retained for legacy callers. All app/test imports, FQCN/path pins, CODEMAP rows, and architecture scanner paths now point to canonical locations."
+verification:
+  autoload: "PASS composer dump-autoload --no-interaction (generated 20046 classes; unrelated PSR-4 warnings emitted)"
+  compatibility_serial: "PASS 14 tests, 155 assertions"
+  compatibility_parallel: "PASS 14 tests, 155 assertions"
+  architecture_audit_feature: "PASS 6 tests, 128 assertions"
+  php_lint: "PASS all PHP files under Memory and MemoryGovernance"
+  codemap_and_guard: "PASS CODEMAP targets=58; GOD_DEBULK_GUARD_OK"
+  residual_sweep: "PASS: no old imports, FQCNs, or physical root paths in app/tests outside explicit compatibility aliases"
+  architecture_validate: "NOT GREEN baseline: 167/169 static APs; remaining AP2 Surface context_pack and AP15 OpenBrain evidence-ledger checks are outside this rehome; documentation health also red"
+  phpstan: "NOT GREEN baseline: 224 diagnostics across the existing Memory and MemoryGovernance trees; no suppressions added"
+  pint: "NOT GREEN only for existing full-file formatter drift in large hosts/scanner; no broad reformatting applied"
+  full_suite_parallel: "NOT GREEN / intentionally stopped at 20 percent (10797 of 52608) after broad pre-existing failures and errors; no namespace/autoload failure signature observed"
+  diff_check: PASS
+  loc: "godfiles_gt_5k=11; godfiles_gt_2k=43"
+boundary:
+  - pure namespace and path rehome: no class names or runtime behavior changed
+  - static scanner paths were updated only to preserve existing contracts after physical moves
+  - legacy root resolution remains lazy and backward compatible through the shared alias map
+write_back:
+  status: pending_human_review
+  context_pack_hash: "78b338497973e747d89dcdf3eb72f2e84e7fbec897261d1280fffaacb6d28a1c"
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
 ## Task 63 — A1-SC-0127 classify actual transition blockers, 2026-07-22
 
 ```yaml
@@ -2147,6 +2178,35 @@ boundary:
 write_back:
   status: recorded_for_human_review
   outcome_id: A1-SC-0168
+  context_feedback: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
+```
+
+## Task 68 — A1-SC-0153 explain recoverable terminal supply, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 4a441fde7
+subject: "refactor(core): GOD-DEBULK explain recoverable supply"
+red:
+  result: "FAIL 1 test, 2 assertions: the real recoverable-lease digest selected reap_recoverable but had no wait_reason key."
+green:
+  behavior: "reap_recoverable is a recoverable wait state that exposes recoverable_leases_require_reaping, the concrete lease recovery inspection command, and a count-specific supply explanation."
+verification:
+  focused_unit: "PASS 1 test, 5 assertions"
+  terminal_digest_unit_file: "NOT GREEN proof: 1 failed, 18 passed, 69 assertions. Only full-file sequence changes the first pull-now control into reap_recoverable; this fixture-isolation debt is recorded in EXEC-DEBTS."
+  php_lint: "PASS source and changed Unit test"
+  pint: "NOT GREEN only for existing full-file formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "agent_control_plane_terminal_loop_health_digest_service=1652 (<2000)"
+boundary:
+  - exercises the public terminal-loop digest with a concrete recoverable lease; no reflection or mocks
+  - changes only the explanatory surface for the already-selected recovery action
+  - no reaping, dispatch, provider call, token spend, runtime activation, or durable write occurs outside test fixtures
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0153
   context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
