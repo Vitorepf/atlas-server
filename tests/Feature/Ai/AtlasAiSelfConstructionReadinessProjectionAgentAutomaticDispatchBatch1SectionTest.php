@@ -31,4 +31,23 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentAutomaticDispatchBatc
             $this->assertFileExists(base_path($path), "Implementation packet declares missing allowed file: {$path}");
         }
     }
+
+    public function test_scheduler_policy_resolves_dispatch_capabilities_through_the_public_readiness_facade(): void
+    {
+        $policy = app(AtlasSelfConstructionReadinessService::class)
+            ->agentAutomaticDispatchSchedulerPolicy();
+
+        $this->assertSame([
+            'dispatch_preflight_contract' => true,
+            'dispatch_receipt_writer' => true,
+            'dispatch_executor_preflight_contract' => true,
+        ], array_intersect_key(
+            $policy['agent_automatic_dispatch_scheduler_policy']['component_readiness'],
+            array_flip([
+                'dispatch_preflight_contract',
+                'dispatch_receipt_writer',
+                'dispatch_executor_preflight_contract',
+            ])
+        ));
+    }
 }

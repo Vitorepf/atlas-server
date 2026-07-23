@@ -640,9 +640,9 @@ final class DispatchBatch1Part02SubSection
             'agent_runs_table' => $runtimeTables['atlas_self_construction_agent_runs'],
             'wakeup_items_table' => $runtimeTables['atlas_self_construction_agent_wakeup_items'],
             'dispatch_receipts_table' => $runtimeTables['atlas_self_construction_agent_dispatch_receipts'],
-            'dispatch_preflight_contract' => method_exists($this, 'agentDispatchPreflight'),
-            'dispatch_receipt_writer' => method_exists($this, 'agentDispatchReceiptWrite'),
-            'dispatch_executor_preflight_contract' => method_exists($this, 'agentDispatchExecutorPreflight'),
+            'dispatch_preflight_contract' => $this->section->motherHasMethod('agentDispatchPreflight'),
+            'dispatch_receipt_writer' => $this->section->motherHasMethod('agentDispatchReceiptWrite'),
+            'dispatch_executor_preflight_contract' => $this->section->motherHasMethod('agentDispatchExecutorPreflight'),
         ];
         $blockingReasons = array_values(array_map(
             static fn (string $component): string => $component.'_not_ready',

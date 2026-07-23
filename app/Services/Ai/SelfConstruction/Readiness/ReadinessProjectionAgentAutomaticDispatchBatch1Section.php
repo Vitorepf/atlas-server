@@ -36,6 +36,11 @@ final class ReadinessProjectionAgentAutomaticDispatchBatch1Section
         return $method->invokeArgs($this->mother, $arguments);
     }
 
+    public function motherHasMethod(string $method): bool
+    {
+        return $this->mother !== null && method_exists($this->mother, $method);
+    }
+
     private function part01(): AutomaticDispatchBatch1\DispatchBatch1Part01SubSection
     {
         return $this->part01 ??= new AutomaticDispatchBatch1\DispatchBatch1Part01SubSection($this);
