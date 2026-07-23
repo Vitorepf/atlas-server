@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
-use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\AtlasImmuneHybridInputClassifier;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
@@ -47,7 +47,7 @@ final class Maxi04HybridClassifierTest extends TestCase
     public function test_switch_off_is_byte_identical_to_base_classifier_on_the_red_team_corpus(): void
     {
         Config::set('atlas.aaeos.immune_classifier.semantic_arm_enabled', false);
-        $base = new AtlasAaeosCognitiveImmuneInputClassifier;
+        $base = new AtlasCognitiveImmuneInputClassifier;
         $hybrid = new AtlasImmuneHybridInputClassifier(
             base: $base,
             port: new BigramJaccardImmuneSemanticSimilarityPort,

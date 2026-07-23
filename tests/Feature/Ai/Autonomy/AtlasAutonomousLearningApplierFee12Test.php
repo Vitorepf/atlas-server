@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Autonomy;
 
 use App\Models\AiMemoryDelta;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
@@ -53,7 +53,7 @@ class AtlasAutonomousLearningApplierFee12Test extends TestCase
         $admission->setTicketsLogPathForTesting($this->tmp('tickets'));
 
         return new AtlasAutonomousLearningApplier(
-            new AtlasLearningProposalsService(),
+            new AtlasLearningProposalDecisionService(),
             $admission,
             new AtlasLearningProposalService(),
             new AtlasLearningProposalApplier(new AtlasConductorRoutingMemory()),

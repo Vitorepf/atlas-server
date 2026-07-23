@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition;
 
 use App\Models\Capture;
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\CaptureService;
 use Illuminate\Database\Schema\Blueprint;

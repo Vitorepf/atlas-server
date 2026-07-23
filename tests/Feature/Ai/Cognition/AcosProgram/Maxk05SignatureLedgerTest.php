@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasAemorMemoryCandidate;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
@@ -158,7 +158,7 @@ final class Maxk05SignatureLedgerTest extends TestCase
         $admission->setTicketsLogPathForTesting($ticketsLog);
 
         return new AtlasAutonomousLearningApplier(
-            new AtlasLearningProposalsService,
+            new AtlasLearningProposalDecisionService,
             $admission,
             new AtlasLearningProposalService,
             new AtlasLearningProposalApplier(new AtlasConductorRoutingMemory),

@@ -8,7 +8,7 @@ use App\Models\AiLearningProposal;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
@@ -59,7 +59,7 @@ final class AtlasAutonomousLearningApplier
     private const MIN_TRUSTED_CONFIDENCE = 0.86;
 
     public function __construct(
-        private readonly AtlasLearningProposalsService $classifier,
+        private readonly AtlasLearningProposalDecisionService $classifier,
         private readonly AtlasAutonomyAdmissionService $admission,
         private readonly AtlasLearningProposalService $proposals,
         private readonly AtlasLearningProposalApplier $applier,

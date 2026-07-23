@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\Autonomy;
 
 use App\Models\AiLearningProposal;
 use App\Models\AiMemoryDelta;
-use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
@@ -57,7 +57,7 @@ class AtlasAutonomousLearningApplierTest extends TestCase
         $admission->setTicketsLogPathForTesting($this->tmp('tickets'));
 
         return new AtlasAutonomousLearningApplier(
-            new AtlasLearningProposalsService(),
+            new AtlasLearningProposalDecisionService(),
             $admission,
             new AtlasLearningProposalService(),
             new AtlasLearningProposalApplier(new AtlasConductorRoutingMemory()),
@@ -139,7 +139,7 @@ class AtlasAutonomousLearningApplierTest extends TestCase
         // the applier's auto-applyable set must be disjoint from BOTH critical tables.
         $applier = new AtlasLearningProposalApplier(new AtlasConductorRoutingMemory());
         $critical = array_unique(array_merge(
-            \App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService::CRITICAL_KINDS,
+            \App\Services\Ai\Compounding\AtlasLearningProposalDecisionService::CRITICAL_KINDS,
             AtlasLearningProposalService::CRITICAL_KINDS,
         ));
 
