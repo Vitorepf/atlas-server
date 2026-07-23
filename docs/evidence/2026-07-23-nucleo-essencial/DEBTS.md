@@ -35,3 +35,13 @@ Scan `dangling_refs.py` sobre `app/`: **23 classes** importadas via `use App\…
 
 ## D5. Resolvido: hard-keep RefillerSupplyLaneCoordinator un-broken
 Restaurados os 2 deps self-contained (`AtlasLoopOrphanWiringSupplyLane`, `AtlasLoopWorkShapeRouter`, zero cascade) que cd018 deletou. Config `simulation-twin` executor_organ pendente (era SimulableTwinOrchestrator, quebrado — repoint quando o cluster D4 for decidido).
+
+## D6. Ferramenta connected-component dead-code (deadcode_cc) — lições
+Deleção em massa de código denso exige análise de componente-conexo com detecção de referência CORRETA. Gaps que causaram near-misses (todos consertados):
+1. **string-paths/config-keys**: class-name dentro de `'string'` NÃO é code-ref (fooled a closure ingênua → 31 falso-dead). Fix: strip string literals antes do match.
+2. **contract→impl indirection**: impl bound a um Contract consumido por classe kept (que pode morar no MESMO dir-alvo, ex. hard-keep ObraAutoMerge) → pinar impl se o Contract é code-ref de qualquer kept/root (near-miss BroaderRegressionGate, 2×).
+3. **constructor property promotion**: `private readonly ?Type $x` / `private readonly Type $x` — padrão `[(,]\s*\??Type\s+\$` NÃO pega (modificadores no meio). Fix: `\bType\s+\$` agnóstico a modificadores. Este gap quebrou o kept WeeklyAgendaProposalService (dep required) na Wave 2-CC — consertado por restore-fixpoint.
+Regra: sempre rodar **restore-fixpoint** pós-deleção (restaura toda classe deletada que um sobrevivente referencia via qualquer padrão, até sweep=0) como rede independente do tool.
+
+## D7. Wave 2c ExternalBrain — 202 organs unwired deletados (commit 1379020ae)
+54% do ExternalBrain (advisory sem caller) deletado. Os organs eram capacidade-projetada-mas-não-ligada. **Totalmente reversível via git** se algum for capacidade futura desejada. GAP-09/10 (bridges "LIGAR destrava" do review H5) caíram aqui — se o operador quiser ligá-los, restaurar do commit anterior.
