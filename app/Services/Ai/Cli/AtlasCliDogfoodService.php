@@ -6,7 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasPhpBinary;

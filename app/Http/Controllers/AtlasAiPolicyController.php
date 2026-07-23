@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Ai\AtlasAiPolicyService;
-use App\Services\Ai\AtlasDomainProfilePolicyService;
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasDomainProfilePolicyService;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

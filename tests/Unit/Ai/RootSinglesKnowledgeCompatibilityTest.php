@@ -17,6 +17,7 @@ use App\Services\Ai\AiPermissionEngineSupport as LegacyAiPermissionEngineSupport
 use App\Services\Ai\AiPrompt as LegacyAiPrompt;
 use App\Services\Ai\AiQualityActionService as LegacyAiQualityActionService;
 use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
+use App\Services\Ai\AiRuntimeBudgetService as LegacyAiRuntimeBudgetService;
 use App\Services\Ai\AiSessionManager as LegacyAiSessionManager;
 use App\Services\Ai\AiSessionStateService as LegacyAiSessionStateService;
 use App\Services\Ai\AiSkill as LegacyAiSkill;
@@ -31,8 +32,13 @@ use App\Services\Ai\AiWorkerLogger as LegacyAiWorkerLogger;
 use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
 use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
+use App\Services\Ai\AtlasAiPolicyService as LegacyAtlasAiPolicyService;
+use App\Services\Ai\AtlasAiRuntimeSettings as LegacyAtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService as CanonicalAiDecisionReceiptRefreshService;
 use App\Services\Ai\AtlasDialecticTensionService as LegacyAtlasDialecticTensionService;
+use App\Services\Ai\AtlasDomainProfilePolicyService as LegacyAtlasDomainProfilePolicyService;
+use App\Services\Ai\AtlasDomainProfileRegistry as LegacyAtlasDomainProfileRegistry;
+use App\Services\Ai\AtlasEffectivePolicyComposer as LegacyAtlasEffectivePolicyComposer;
 use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
 use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy as LegacyAtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasProviderProjectionAuditService as LegacyAtlasProviderProjectionAuditService;
@@ -61,6 +67,12 @@ use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService as Canon
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService as CanonicalAtlasProviderProjectionService;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
+use App\Services\Ai\Policy\AiRuntimeBudgetService as CanonicalAiRuntimeBudgetService;
+use App\Services\Ai\Policy\AtlasAiPolicyService as CanonicalAtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings as CanonicalAtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasDomainProfilePolicyService as CanonicalAtlasDomainProfilePolicyService;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry as CanonicalAtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasEffectivePolicyComposer as CanonicalAtlasEffectivePolicyComposer;
 use App\Services\Ai\Router\AiIntentRouter as CanonicalAiIntentRouter;
 use App\Services\Ai\Skills\AiSkill as CanonicalAiSkill;
 use App\Services\Ai\Skills\AiSkillStore as CanonicalAiSkillStore;
@@ -123,6 +135,28 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiDecisionReceiptRefreshService::class));
         self::assertTrue(class_exists(LegacyAiDecisionReceiptRefreshService::class));
         self::assertTrue(is_a(CanonicalAiDecisionReceiptRefreshService::class, LegacyAiDecisionReceiptRefreshService::class, true));
+    }
+
+    public function test_policy_services_resolve_from_their_canonical_namespace_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAtlasAiPolicyService::class));
+        self::assertTrue(class_exists(LegacyAtlasAiPolicyService::class));
+        self::assertTrue(is_a(CanonicalAtlasAiPolicyService::class, LegacyAtlasAiPolicyService::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasEffectivePolicyComposer::class));
+        self::assertTrue(class_exists(LegacyAtlasEffectivePolicyComposer::class));
+        self::assertTrue(is_a(CanonicalAtlasEffectivePolicyComposer::class, LegacyAtlasEffectivePolicyComposer::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasDomainProfilePolicyService::class));
+        self::assertTrue(class_exists(LegacyAtlasDomainProfilePolicyService::class));
+        self::assertTrue(is_a(CanonicalAtlasDomainProfilePolicyService::class, LegacyAtlasDomainProfilePolicyService::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasDomainProfileRegistry::class));
+        self::assertTrue(class_exists(LegacyAtlasDomainProfileRegistry::class));
+        self::assertTrue(is_a(CanonicalAtlasDomainProfileRegistry::class, LegacyAtlasDomainProfileRegistry::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasAiRuntimeSettings::class));
+        self::assertTrue(class_exists(LegacyAtlasAiRuntimeSettings::class));
+        self::assertTrue(is_a(CanonicalAtlasAiRuntimeSettings::class, LegacyAtlasAiRuntimeSettings::class, true));
+        self::assertTrue(class_exists(CanonicalAiRuntimeBudgetService::class));
+        self::assertTrue(class_exists(LegacyAiRuntimeBudgetService::class));
+        self::assertTrue(is_a(CanonicalAiRuntimeBudgetService::class, LegacyAiRuntimeBudgetService::class, true));
     }
 
     public function test_intent_router_resolves_from_its_canonical_namespace_with_a_legacy_alias(): void

@@ -404,7 +404,7 @@ class CliAudit
     {
         $devPath = app_path('Console/Commands/AtlasCliDevCommand.php');
         $adapterPath = app_path('Services/Ai/Surface/Adapters/AtlasCliForgeSurfaceAdapter.php');
-        $registryPath = app_path('Services/Ai/AtlasDomainProfileRegistry.php');
+        $registryPath = app_path('Services/Ai/Policy/AtlasDomainProfileRegistry.php');
         $orchestratorPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
         $testPath = base_path('tests/Feature/EngineeringHarnessRunnerTest.php');
 
@@ -448,7 +448,7 @@ class CliAudit
             "'required_bundles' => ['engineering-blueprint', 'dev-quality-gate', 'code-reviewer']",
         ] as $token) {
             if (! str_contains($registry, $token)) {
-                $violations[] = "app/Services/Ai/AtlasDomainProfileRegistry.php: programming.forge domain profile must require Engineering Harness and enterprise skill bundles [{$token}]";
+                $violations[] = "app/Services/Ai/Policy/AtlasDomainProfileRegistry.php: programming.forge domain profile must require Engineering Harness and enterprise skill bundles [{$token}]";
             }
         }
 

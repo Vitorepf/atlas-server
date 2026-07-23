@@ -23,6 +23,7 @@ use App\Services\Ai\Hermes\HermesResultPacketFactory;
 use App\Services\Ai\Hermes\HermesScheduleAdapter;
 use App\Services\Ai\Hermes\HermesSkillProvisioner;
 use App\Services\Ai\Hermes\ManagedHermesHome;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;

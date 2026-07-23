@@ -9,6 +9,7 @@ use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
 use App\Services\Ai\Compression\CompressionAiProvider;
 use App\Services\Ai\Compression\CompressionPipeline;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Telemetry\AiCostEstimator;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use Closure;

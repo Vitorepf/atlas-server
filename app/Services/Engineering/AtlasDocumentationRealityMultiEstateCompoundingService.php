@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 
 /**

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AiProviderModelResolver;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use Illuminate\Console\Command;

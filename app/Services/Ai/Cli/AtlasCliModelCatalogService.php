@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Cli;
 
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 
 class AtlasCliModelCatalogService
 {

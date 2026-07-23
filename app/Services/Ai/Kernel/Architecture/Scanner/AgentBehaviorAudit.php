@@ -747,7 +747,7 @@ class AgentBehaviorAudit
     {
         $orchestratorPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementOrchestrator.php');
         $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
-        $profileRegistryPath = app_path('Services/Ai/AtlasDomainProfileRegistry.php');
+        $profileRegistryPath = app_path('Services/Ai/Policy/AtlasDomainProfileRegistry.php');
         $configPath = config_path('atlas_ai.php');
         $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
         $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
@@ -797,7 +797,7 @@ class AgentBehaviorAudit
 
         foreach (["'self_improvement.agent_behavior_review'", "'Agent Behavior Review'", "'agent_behavior_review_runtime'"] as $token) {
             if (! str_contains($profileRegistry, $token)) {
-                $violations[] = "app/Services/Ai/AtlasDomainProfileRegistry.php: AP-159 domain profile must declare agent behavior review [{$token}]";
+                $violations[] = "app/Services/Ai/Policy/AtlasDomainProfileRegistry.php: AP-159 domain profile must declare agent behavior review [{$token}]";
             }
         }
 

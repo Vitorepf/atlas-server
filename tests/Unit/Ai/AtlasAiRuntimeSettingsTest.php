@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AiRuntimeBudgetService;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AiRuntimeBudgetService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

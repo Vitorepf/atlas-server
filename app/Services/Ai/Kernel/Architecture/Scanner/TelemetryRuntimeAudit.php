@@ -186,9 +186,9 @@ class TelemetryRuntimeAudit
      */
     private function scanRuntimeBudgetWindowContract(): array
     {
-        $settingsPath = app_path('Services/Ai/AtlasAiRuntimeSettings.php');
-        $budgetServicePath = app_path('Services/Ai/AiRuntimeBudgetService.php');
-        $policyServicePath = app_path('Services/Ai/AtlasAiPolicyService.php');
+        $settingsPath = app_path('Services/Ai/Policy/AtlasAiRuntimeSettings.php');
+        $budgetServicePath = app_path('Services/Ai/Policy/AiRuntimeBudgetService.php');
+        $policyServicePath = app_path('Services/Ai/Policy/AtlasAiPolicyService.php');
         $testPath = base_path('tests/Unit/Ai/AtlasAiRuntimeSettingsTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
@@ -206,12 +206,12 @@ class TelemetryRuntimeAudit
             'return max(1, min(self::MAX_BUDGET_WINDOW_HOURS, (int) $value))',
         ] as $token) {
             if (! str_contains($settings, $token)) {
-                $violations[] = "app/Services/Ai/AtlasAiRuntimeSettings.php: runtime budget window contract is incomplete [{$token}]";
+                $violations[] = "app/Services/Ai/Policy/AtlasAiRuntimeSettings.php: runtime budget window contract is incomplete [{$token}]";
             }
         }
 
         if (str_contains($settings, 'min(168') || str_contains($settings, '?? 24)')) {
-            $violations[] = 'app/Services/Ai/AtlasAiRuntimeSettings.php: runtime budget window must not duplicate numeric window limits';
+            $violations[] = 'app/Services/Ai/Policy/AtlasAiRuntimeSettings.php: runtime budget window must not duplicate numeric window limits';
         }
 
         foreach ([
@@ -224,11 +224,11 @@ class TelemetryRuntimeAudit
             'bypass_budget_block',
         ] as $token) {
             if (! str_contains($budgetService, $token)) {
-                $violations[] = "app/Services/Ai/AiRuntimeBudgetService.php: runtime budget payload must use shared budget window default [{$token}]";
+                $violations[] = "app/Services/Ai/Policy/AiRuntimeBudgetService.php: runtime budget payload must use shared budget window default [{$token}]";
             }
 
             if (! str_contains($policyService, $token)) {
-                $violations[] = "app/Services/Ai/AtlasAiPolicyService.php: effective policy must use shared budget window default [{$token}]";
+                $violations[] = "app/Services/Ai/Policy/AtlasAiPolicyService.php: effective policy must use shared budget window default [{$token}]";
             }
         }
 

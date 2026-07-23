@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Policy;
 
 use App\Models\AtlasAiRuntimeSetting;
 use App\Services\Ai\Support\DatabaseTableAvailability;

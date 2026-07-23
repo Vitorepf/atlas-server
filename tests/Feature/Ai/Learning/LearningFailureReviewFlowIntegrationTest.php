@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\Learning;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Domain\AtlasLearningOrchestrator;
 use Tests\TestCase;
 

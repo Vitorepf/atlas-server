@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\Analysis\AnalysisJudgePanelService;
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use Illuminate\Console\Command;
 use Throwable;
 

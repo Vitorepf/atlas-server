@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
-use App\Services\Ai\AtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;

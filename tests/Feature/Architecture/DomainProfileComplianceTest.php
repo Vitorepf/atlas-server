@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Architecture;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Kernel\Domain\AtlasDomainManifestValidator;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestratorRegistry;

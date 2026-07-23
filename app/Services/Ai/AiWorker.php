@@ -44,6 +44,8 @@ use App\Services\Ai\Mission\MissionCertificationService;
 use App\Services\Ai\Mission\MissionEvidenceService;
 use App\Services\Ai\Mission\MissionLifecycleService;
 use App\Services\Ai\Mobile\JobResultInboxEmitter;
+use App\Services\Ai\Policy\AiRuntimeBudgetService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Policy\PermissionGateService;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;

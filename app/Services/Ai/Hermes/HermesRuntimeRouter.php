@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Hermes;
 
-use App\Services\Ai\AtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\CapturePrivacyService;
 

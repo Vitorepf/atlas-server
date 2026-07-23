@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\PersonalDevelopment;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use Illuminate\Support\Str;
 

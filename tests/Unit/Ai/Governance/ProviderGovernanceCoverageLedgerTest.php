@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Governance;
 
 use App\Services\Ai\AiProviderManager;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;

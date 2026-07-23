@@ -9,7 +9,7 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;

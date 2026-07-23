@@ -3,7 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiProviderModelResolver;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use Tests\TestCase;
 
 class AiProviderModelResolverTest extends TestCase

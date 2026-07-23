@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\FairClaudePolicy;
 use Tests\TestCase;

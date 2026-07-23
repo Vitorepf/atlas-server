@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Domain;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 
 class AtlasAiDomainCatalogService
 {

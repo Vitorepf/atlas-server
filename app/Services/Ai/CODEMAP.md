@@ -42,3 +42,9 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Carry the provider prompt contract | `App\Services\Ai\ValueObjects\AiPrompt::__construct` |
 | Steer an active AI interaction safely | `App\Services\Ai\ControlPlane\AiInteractionSteeringService::steer` |
 | Refresh an expired decision receipt before a provider call | `App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService::refreshExpiredBeforeProviderCall` |
+| Resolve the effective AI execution policy | `App\Services\Ai\Policy\AtlasAiPolicyService::effectiveProfile` |
+| Compose an effective policy from runtime inputs | `App\Services\Ai\Policy\AtlasEffectivePolicyComposer::compose` |
+| Update a domain-level policy override | `App\Services\Ai\Policy\AtlasDomainProfilePolicyService::updateDomain` |
+| Resolve a declared domain profile | `App\Services\Ai\Policy\AtlasDomainProfileRegistry::resolve` |
+| Read effective AI runtime settings | `App\Services\Ai\Policy\AtlasAiRuntimeSettings::effective` |
+| Enforce the configured runtime budget | `App\Services\Ai\Policy\AiRuntimeBudgetService::assertAllows` |

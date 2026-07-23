@@ -11,6 +11,7 @@ use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;

@@ -75,8 +75,8 @@ repo_paths:
   - app/Services/Ai/Provider/Drivers/ProviderDriverRegistry.php
   - app/Services/Ai/AiProviderManager.php
   - app/Services/Ai/AtlasDecideService.php
-  - app/Services/Ai/AtlasAiPolicyService.php
-  - app/Services/Ai/AtlasEffectivePolicyComposer.php
+  - app/Services/Ai/Policy/AtlasAiPolicyService.php
+  - app/Services/Ai/Policy/AtlasEffectivePolicyComposer.php
   - app/Services/Ai/Cli/AtlasCliModelCatalogService.php
   - app/Services/Ai/Cli/AtlasCliProviderStrategyService.php
   - config/atlas.php

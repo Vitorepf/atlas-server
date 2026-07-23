@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiProviderHealthSnapshot;
-use App\Services\Ai\AiRuntimeBudgetService;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AiRuntimeBudgetService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 

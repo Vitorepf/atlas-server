@@ -11,7 +11,7 @@ use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
 use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\AiWorker;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliPanel;
 use App\Services\Ai\Cli\AtlasCliQualityService;

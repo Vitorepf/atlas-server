@@ -99,7 +99,7 @@ class ProgrammingAudit
         $orchestratorPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
         $surfaceFactoryPath = app_path('Services/Ai/Programming/ProgrammingSurfaceContractFactory.php');
         $surfaceBuilderPath = app_path('Services/Ai/Programming/AtlasProgrammingSurfaceCommandBuilder.php');
-        $policyServicePath = app_path('Services/Ai/AtlasAiPolicyService.php');
+        $policyServicePath = app_path('Services/Ai/Policy/AtlasAiPolicyService.php');
         $workerPath = app_path('Services/Ai/AiWorker.php');
         $executionRequestPath = app_path('Services/Ai/Programming/ProgrammingExecutionRequest.php');
         $chatCommandPath = app_path('Console/Commands/AiChatCommand.php');

@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\HasAttachmentPath;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Streaming\CodexJsonlEventParser;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;

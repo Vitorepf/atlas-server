@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiJob;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use Illuminate\Support\Str;
 
 class GeminiModelCatalog

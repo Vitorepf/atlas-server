@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\AiDecisionResource;
 use App\Models\AiDecision;
 use App\Services\Ai\AiProviderModelResolver;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecideService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

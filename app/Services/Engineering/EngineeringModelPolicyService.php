@@ -4,7 +4,7 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasTask;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use Illuminate\Support\Collection;
 

@@ -7,7 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasProject;
-use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;

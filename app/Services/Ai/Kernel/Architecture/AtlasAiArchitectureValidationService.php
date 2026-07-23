@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\AtlasDomainProfileRegistry;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Kernel\Capability\AtlasCapabilityRegistry;
 use App\Services\Ai\Kernel\Capability\SurfaceCapabilityParityService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;

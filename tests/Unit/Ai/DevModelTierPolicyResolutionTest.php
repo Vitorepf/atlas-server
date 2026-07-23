@@ -21,7 +21,7 @@ final class DevModelTierPolicyResolutionTest extends TestCase
     private function resolverWithPolicy(array $policyConfig): AiProviderModelResolver
     {
         return new AiProviderModelResolver(
-            app(\App\Services\Ai\AtlasAiRuntimeSettings::class),
+            app(\App\Services\Ai\Policy\AtlasAiRuntimeSettings::class),
             app(\App\Services\Ai\GeminiModelCatalog::class),
             new AtlasTaskGovernancePolicyPlane($policyConfig),
         );
@@ -153,7 +153,7 @@ final class DevModelTierPolicyResolutionTest extends TestCase
         $this->configureClaudeCli();
 
         $resolver = new AiProviderModelResolver(
-            app(\App\Services\Ai\AtlasAiRuntimeSettings::class),
+            app(\App\Services\Ai\Policy\AtlasAiRuntimeSettings::class),
             app(\App\Services\Ai\GeminiModelCatalog::class),
         );
 
@@ -170,7 +170,7 @@ final class DevModelTierPolicyResolutionTest extends TestCase
         $this->configureClaudeCli();
 
         $resolver = new AiProviderModelResolver(
-            app(\App\Services\Ai\AtlasAiRuntimeSettings::class),
+            app(\App\Services\Ai\Policy\AtlasAiRuntimeSettings::class),
             app(\App\Services\Ai\GeminiModelCatalog::class),
         );
 
