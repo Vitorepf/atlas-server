@@ -1685,13 +1685,32 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('resolve_blocked', ['reason' => 'queue_agent_id_mismatch', 'task_packet_id' => $taskPacketId, 'queue_agent_id' => $queueAgentId]);
         }
 
-        $this->leases->release($leaseId, $agentId, ['reason' => 'resolved_committed']);
         $transition = $this->queue->updateStatus($taskPacketId, 'completed_dry_run', [
             'lease_id' => $leaseId,
             'agent_id' => $agentId,
             'resolution' => 'committed_to_main',
             'commit_sha' => $commitSha,
         ]);
+        if ((string) ($transition['status'] ?? '') !== 'ok') {
+            return $this->envelope('resolve_blocked', [
+                'reason' => 'queue_completion_transition_failed',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'queue_transition_status' => (string) ($transition['status'] ?? 'unknown'),
+            ]);
+        }
+
+        $release = $this->leases->release($leaseId, $agentId, ['reason' => 'resolved_committed']);
+        if ((string) ($release['status'] ?? '') !== 'ok') {
+            return $this->envelope('resolve_blocked', [
+                'reason' => 'lease_release_failed_after_queue_completion',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'queue_transition' => 'completed_dry_run',
+                'lease_release_status' => (string) ($release['status'] ?? 'unknown'),
+            ]);
+        }
+
         $this->queue->appendReceipt($taskPacketId, [
             'receipt_kind' => 'task_resolved_committed',
             'lease_id' => $leaseId,
@@ -1728,6 +1747,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'lease_id' => $leaseId,
             'commit_sha' => $commitSha,
             'queue_transition' => (string) ($transition['status'] ?? ''),
+            'lease_release' => $release,
             'learning_bridge' => $this->bridgeOutcomeToLearning($taskPacketId, 'resolved', ['agent_id' => $agentId]),
         ]);
     }

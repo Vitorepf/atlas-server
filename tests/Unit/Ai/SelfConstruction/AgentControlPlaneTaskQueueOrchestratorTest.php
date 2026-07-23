@@ -702,6 +702,48 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         }
     }
 
+    public function test_mark_resolved_transitions_the_queue_before_releasing_the_lease(): void
+    {
+        $input = $this->input('resolve-transition-before-release');
+        $proof = $this->committedTaskProof('resolve-transition-before-release', $input['allowed_files']);
+        $svc = $this->orchestrator($proof['repository']);
+        $svc->prepareAndEnqueue(['task_packet' => $input]);
+        $claim = $svc->claimNext('agent-transition-order');
+        $leaseId = (string) $claim['lease_id'];
+
+        $writes = [];
+        $disk = Storage::disk('local');
+        $observedDisk = Mockery::mock($disk)->makePartial();
+        $observedDisk->shouldReceive('put')->andReturnUsing(function (...$arguments) use (&$writes, $disk): bool {
+            $writes[] = (string) $arguments[0];
+
+            return $disk->put(...$arguments);
+        });
+        Storage::shouldReceive('disk')->with('local')->andReturn($observedDisk);
+
+        $result = $svc->markResolved(
+            'resolve-transition-before-release',
+            $leaseId,
+            'agent-transition-order',
+            $proof['commit_sha'],
+        );
+
+        $taskPath = AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX
+            .'/task_resolve-transition-before-release.json';
+        $leasePath = AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.strtolower($leaseId).'.json';
+        $transitionWrites = array_values(array_filter(
+            $writes,
+            static fn (string $path): bool => in_array($path, [$taskPath, $leasePath], true),
+        ));
+
+        $this->assertSame('task_resolved', $result['event']);
+        $this->assertSame(
+            $taskPath,
+            $transitionWrites[0] ?? null,
+            'A terminal queue transition must be durable before the lease authority is released.',
+        );
+    }
+
     public function test_mark_resolved_duplicate_replays_after_first_resolve(): void
     {
         $input = $this->input('resolve-dup');
