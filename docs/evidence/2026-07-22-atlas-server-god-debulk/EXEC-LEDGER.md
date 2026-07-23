@@ -2761,3 +2761,34 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 90 — A1-SC-0108 bound claim queue scan, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_PARTIAL_FINDING
+commit: b5c1e9ab6
+subject: "refactor(core): GOD-DEBULK bound claim queue scan"
+preflight_retry:
+  result: "The first focused invocation stopped while an external WIP syntax error in AiChatCommand.php was loading; that file was untouched. After the owner corrected it, the exact focused contract ran red."
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_claim_blocks_when_only_unscanned_packets_may_be_servable --no-coverage
+  result: "FAIL 1 test, 1 assertion: with 64 dependency-blocked claimable packets before one eligible packet, public claimNext() returned claimed after unbounded listing."
+green:
+  behavior: "claimNext() reads at most 65 records as a 64-record window plus one look-ahead. It can claim a verified candidate in-window; if none qualifies while the look-ahead proves more claimable records exist, it returns claim_blocked/queue_scan_limit_exceeded and leaves later work claimable."
+verification:
+  characterization: "PASS 3 tests, 14 assertions: real persisted packets prove admission cap/no write, idempotent admission replay over the cap, and the claim fail-closed look-ahead contract."
+  package_suite: "PASS 105 tests, 506 assertions: Unit + Feature orchestrator suites plus the focused Feature contract."
+  php_lint: "PASS source and focused Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited whole-file orchestrator formatting/import violations outside these bounded scan hunks."
+  diff_check: PASS
+  density: "orchestrator=1,990 LOC (<2,000); focused Feature test=101 LOC (<800 hot limit)."
+boundary:
+  - "The negative fixture reaches public claimNext() through the real queue and lease repositories; it does not call a private candidate predicate or use reflection."
+  - "The first 64 packets have missing real dependencies, the later eligible packet remains claimable, and no lease/provider/dispatch/token/completion/ledger side effect is created when the bounded scan blocks."
+  - "A1-SC-0108 remains partially open: servability, malformed-repair, forbidden-target repair, scope repair, and cooldown list scans still require their own characterization and bounded-index owner."
+commit_scope: "PASS: git commit --only recorded exactly the orchestrator and the focused Feature test."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
