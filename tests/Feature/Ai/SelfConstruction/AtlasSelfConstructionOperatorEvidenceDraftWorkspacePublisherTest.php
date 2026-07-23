@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntime;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService;
@@ -95,6 +96,55 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         $this->assertFalse($payload['runtime_write_allowed']);
         $this->assertFalse($payload['can_persist_from_publisher']);
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');
+    }
+
+    public function test_runtime_publisher_proves_durable_artifacts_and_replays_without_copying_again(): void
+    {
+        [$workspace] = $this->writeWorkspace($this->readyDrafts());
+        (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => $workspace,
+            'write_computed_operator_draft_hashes' => true,
+        ]);
+        $options = [
+            'operator_draft_workspace_path' => $workspace,
+            'publish_operator_draft_workspace' => true,
+        ];
+
+        $payload = (new AgentControlPlaneRuntime)->runOperatorEvidenceDraftWorkspacePublisher($options);
+
+        $this->assertTrue((bool) $payload['runtime_write_performed']);
+        $this->assertSame([
+            'atlas/self-construction/operator-submissions/runtime-promotion.json',
+            'atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            'atlas/self-construction/operator-submissions/completion-receipt.json',
+        ], $payload['persisted_artifact_ids']['artifact_paths']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['idempotency_key']);
+        foreach ($payload['persisted_artifact_ids']['artifact_paths'] as $path) {
+            Storage::disk('local')->assertExists($path);
+        }
+        $receiptPaths = Storage::disk('local')->allFiles('atlas/self-construction/agent-control-plane/runtime-receipts');
+        $this->assertCount(1, $receiptPaths);
+        $beforeReplay = array_merge(
+            array_map(
+                static fn (string $path): string => (string) Storage::disk('local')->get($path),
+                $payload['persisted_artifact_ids']['artifact_paths'],
+            ),
+            [(string) Storage::disk('local')->get($receiptPaths[0])],
+        );
+
+        $replay = (new AgentControlPlaneRuntime)->runOperatorEvidenceDraftWorkspacePublisher($options);
+
+        $this->assertSame('replayed_persisted_runtime_artifacts', $replay['status']);
+        $this->assertFalse((bool) $replay['runtime_write_performed']);
+        $this->assertSame($payload['idempotency_key'], $replay['idempotency_key']);
+        $this->assertSame($payload['persisted_artifact_ids'], $replay['persisted_artifact_ids']);
+        $this->assertSame($beforeReplay, array_merge(
+            array_map(
+                static fn (string $path): string => (string) Storage::disk('local')->get($path),
+                $payload['persisted_artifact_ids']['artifact_paths'],
+            ),
+            [(string) Storage::disk('local')->get($receiptPaths[0])],
+        ));
     }
 
     public function test_publisher_accepts_private_storage_prefixed_workspace_path(): void

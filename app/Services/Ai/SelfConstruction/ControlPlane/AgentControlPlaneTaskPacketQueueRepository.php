@@ -176,9 +176,9 @@ final class AgentControlPlaneTaskPacketQueueRepository
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
      */
-    public function list(array $filters = []): array
+    public function list(array $filters = [], bool $readOnly = false): array
     {
-        $registry = $this->loadRegistry();
+        $registry = $this->loadRegistry(! $readOnly);
         $entries = (array) ($registry['entries'] ?? []);
         $status = isset($filters['status']) ? (string) $filters['status'] : '';
         $tag = isset($filters['tag']) ? (string) $filters['tag'] : '';
@@ -562,9 +562,9 @@ final class AgentControlPlaneTaskPacketQueueRepository
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
-    public function registry(array $filters = []): array
+    public function registry(array $filters = [], bool $readOnly = false): array
     {
-        $registry = $this->loadRegistry();
+        $registry = $this->loadRegistry(! $readOnly);
         $entries = (array) ($registry['entries'] ?? []);
         $status = isset($filters['status']) ? (string) $filters['status'] : '';
         $cap = isset($filters['cap']) ? (int) $filters['cap'] : self::DEFAULT_REGISTRY_CAP;
@@ -968,9 +968,9 @@ final class AgentControlPlaneTaskPacketQueueRepository
     /**
      * @return array{entries: array<int, array<string, mixed>>, corrupt?: bool}
      */
-    private function loadRegistry(): array
+    private function loadRegistry(bool $allowSelfHeal = true): array
     {
-        return $this->registryIndexStore()->loadRegistry();
+        return $this->registryIndexStore()->loadRegistry($allowSelfHeal);
     }
 
     /**

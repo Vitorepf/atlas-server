@@ -55,6 +55,34 @@ final class AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest exten
         $this->assertFalse((bool) $payload['provider_call_allowed']);
         $this->assertFalse((bool) $payload['token_spend_allowed']);
         $this->assertFalse((bool) $payload['ledger_write_allowed']);
+        $this->assertSame('read_only_snapshot', $payload['lease_registry_status']);
+        $this->assertSame(1, $payload['active_lease_count']);
+        $this->assertSame([(string) $claim['lease_id']], $payload['active_lease_ids']);
+        $this->assertSame($before, $this->durableSnapshot());
+    }
+
+    public function test_projection_does_not_self_heal_an_oversized_queue_registry(): void
+    {
+        $entries = [];
+        for ($index = 0; $index < 520; $index++) {
+            $entries[] = [
+                'task_packet_id' => 'oversized-registry-'.$index,
+                'task_packet_hash' => str_repeat('a', 64),
+                'status' => 'claimable',
+                'tags' => ['truthfulness_oversized_registry'],
+                'padding' => str_repeat('x', 900),
+            ];
+        }
+        Storage::disk('local')->put(
+            AgentControlPlaneTaskPacketQueueRepository::REGISTRY_PATH,
+            json_encode(['entries' => $entries], JSON_THROW_ON_ERROR),
+        );
+        $before = $this->durableSnapshot();
+
+        $payload = $this->projector()->projectTaskQueueOrchestrator();
+
+        $this->assertFalse((bool) $payload['runtime_write_performed']);
+        $this->assertSame('projected_read_only', $payload['status']);
         $this->assertSame($before, $this->durableSnapshot());
     }
 
@@ -100,6 +128,86 @@ final class AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest exten
         $this->assertSame($taskPacketId, data_get($replay, 'persisted_artifact_ids.task_packet_id'));
         $this->assertSame($leaseId, data_get($replay, 'persisted_artifact_ids.lease_id'));
         $this->assertSame($stateAfterFirstRun, $this->durableSnapshot());
+
+        $freshRuntimeReplay = (new AgentControlPlaneRuntime)->runTerminalWorkerBootstrap(
+            $this->context(),
+            (array) $payload['replay_options'],
+        );
+
+        $this->assertSame('replayed_persisted_runtime_artifacts', $freshRuntimeReplay['status']);
+        $this->assertFalse((bool) $freshRuntimeReplay['runtime_write_performed']);
+        $this->assertSame($payload['idempotency_key'], $freshRuntimeReplay['idempotency_key']);
+        $this->assertSame($taskPacketId, data_get($freshRuntimeReplay, 'persisted_artifact_ids.task_packet_id'));
+        $this->assertSame($leaseId, data_get($freshRuntimeReplay, 'persisted_artifact_ids.lease_id'));
+        $this->assertSame($stateAfterFirstRun, $this->durableSnapshot());
+    }
+
+    public function test_named_runtimes_do_not_claim_writes_without_persisted_artifacts(): void
+    {
+        $runtime = new AgentControlPlaneRuntime;
+        $payloads = [
+            $runtime->runTaskLeaseRecovery(),
+            $runtime->runTaskQueueOrchestrator(),
+            $runtime->runTaskQueueClaimNext(['actor' => 'truthfulness-no-op-worker']),
+            $runtime->runTaskAutoReplenishment([], [
+                'actor' => 'truthfulness-no-op-replenishment',
+                'target_min_claimable_tasks' => 1,
+                'max_new_tasks' => 0,
+                'queue_tags' => ['truthfulness_no_op_lane'],
+            ]),
+            $runtime->runOperatorEvidenceDraftWorkspacePublisher(),
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->assertFalse((bool) $payload['runtime_write_performed']);
+            $this->assertSame([
+                'task_packet_ids' => [],
+                'lease_ids' => [],
+                'artifact_paths' => [],
+            ], $payload['persisted_artifact_ids']);
+            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['idempotency_key']);
+        }
+    }
+
+    public function test_named_queue_runtimes_persist_artifact_ids_and_replay_without_writing(): void
+    {
+        $enqueueInput = [
+            'task_packet' => $this->taskInput('truthfulness-runtime-enqueue'),
+            'queue' => ['tags' => ['truthfulness_runtime_enqueue_lane']],
+        ];
+        $runtime = new AgentControlPlaneRuntime;
+
+        $enqueue = $runtime->runTaskQueueOrchestrator($enqueueInput);
+        $taskPacketId = (string) data_get($enqueue, 'persisted_artifact_ids.task_packet_ids.0');
+        $this->assertTrue((bool) $enqueue['runtime_write_performed']);
+        $this->assertSame('truthfulness-runtime-enqueue', $taskPacketId);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $enqueue['idempotency_key']);
+        $stateAfterEnqueue = $this->durableSnapshot();
+
+        $enqueueReplay = (new AgentControlPlaneRuntime)->runTaskQueueOrchestrator($enqueueInput);
+        $this->assertFalse((bool) $enqueueReplay['runtime_write_performed']);
+        $this->assertSame($enqueue['idempotency_key'], $enqueueReplay['idempotency_key']);
+        $this->assertSame($enqueue['persisted_artifact_ids'], $enqueueReplay['persisted_artifact_ids']);
+        $this->assertSame($stateAfterEnqueue, $this->durableSnapshot());
+
+        $claimInput = [
+            'actor' => 'truthfulness-runtime-claim-worker',
+            'ttl_seconds' => 300,
+            'tags' => ['truthfulness_runtime_enqueue_lane'],
+        ];
+        $claim = $runtime->runTaskQueueClaimNext($claimInput);
+        $leaseId = (string) data_get($claim, 'persisted_artifact_ids.lease_ids.0');
+        $this->assertTrue((bool) $claim['runtime_write_performed']);
+        $this->assertSame($taskPacketId, data_get($claim, 'persisted_artifact_ids.task_packet_ids.0'));
+        $this->assertNotEmpty($leaseId);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $claim['idempotency_key']);
+        $stateAfterClaim = $this->durableSnapshot();
+
+        $claimReplay = (new AgentControlPlaneRuntime)->runTaskQueueClaimNext($claimInput);
+        $this->assertFalse((bool) $claimReplay['runtime_write_performed']);
+        $this->assertSame($claim['idempotency_key'], $claimReplay['idempotency_key']);
+        $this->assertSame($claim['persisted_artifact_ids'], $claimReplay['persisted_artifact_ids']);
+        $this->assertSame($stateAfterClaim, $this->durableSnapshot());
     }
 
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator

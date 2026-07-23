@@ -362,6 +362,43 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * Read the persisted lease registry without expiring, rebuilding, or
+     * otherwise correcting it. Status projections use this snapshot so asking
+     * for the current control-plane state cannot itself advance lease state.
+     *
+     * @return array<string, mixed>
+     */
+    public function registry(): array
+    {
+        $registry = $this->loadRegistry(false);
+        $entries = array_values((array) ($registry['entries'] ?? []));
+        $statusCounts = [];
+        foreach ($entries as $entry) {
+            $status = (string) ($entry['lease_status'] ?? 'unknown');
+            $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+        }
+        ksort($statusCounts);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'storage_prefix' => self::STORAGE_PREFIX,
+            'registry_path' => self::REGISTRY_PATH,
+            'entry_count' => count($entries),
+            'corrupt' => (bool) ($registry['corrupt'] ?? false),
+            'status_counts' => $statusCounts,
+            'entries' => $entries,
+            'read_only_snapshot' => true,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'token_spend_allowed' => false,
+            'provider_call_allowed' => false,
+            'self_programming_allowed' => false,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
      */
@@ -815,7 +852,7 @@ final class AgentControlPlaneClaimLeaseRepository
     /**
      * @return array{entries: array<int, array<string, mixed>>, corrupt?: bool}
      */
-    private function loadRegistry(): array
+    private function loadRegistry(bool $allowSelfHeal = true): array
     {
         $disk = $this->disk();
         if (! $disk->exists(self::REGISTRY_PATH)) {
@@ -830,7 +867,9 @@ final class AgentControlPlaneClaimLeaseRepository
         if (strlen($raw) > self::MAX_REGISTRY_BYTES) {
             $entries = $this->extractLastEntriesRaw($raw, self::MAX_REGISTRY_ENTRIES);
             $trimmed = ['entries' => $entries];
-            $this->saveRegistry($trimmed);
+            if ($allowSelfHeal) {
+                $this->saveRegistry($trimmed);
+            }
 
             return $trimmed;
         }

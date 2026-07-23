@@ -125,7 +125,7 @@ final class TaskQueueRegistryIndexStore
     /**
      * @return array{entries: array<int, array<string, mixed>>, corrupt?: bool}
      */
-    public function loadRegistry(): array
+    public function loadRegistry(bool $allowSelfHeal = true): array
     {
         if (! $this->disk->exists(self::REGISTRY_PATH)) {
             return ['entries' => []];
@@ -138,7 +138,9 @@ final class TaskQueueRegistryIndexStore
         if (strlen($raw) > self::MAX_REGISTRY_BYTES) {
             $entries = $this->extractLiveEntriesAndTerminalHistoryRaw($raw, self::HARD_CAP);
             $trimmed = ['entries' => $entries];
-            $this->saveRegistry($trimmed);
+            if ($allowSelfHeal) {
+                $this->saveRegistry($trimmed);
+            }
 
             return $trimmed;
         }

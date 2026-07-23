@@ -7,9 +7,9 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 /**
  * Read-only status owner for the persistent Agent Control Plane.
  *
- * Every projection reads the durable queue registry directly. Lease expiry is
- * itself a mutation, so this owner reports that boundary as intentionally
- * uninspected instead of manufacturing a status request that changes it.
+ * Every projection reads durable queue and lease registry snapshots directly.
+ * Lease expiry is itself a mutation, so this owner never asks the repository
+ * to refresh expiry before reporting the stored state.
  */
 final class ControlPlaneStatusProjector
 {
@@ -66,21 +66,32 @@ final class ControlPlaneStatusProjector
         $queue = $this->queue();
         $queueTags = $this->stringList((array) ($context['queue_tags'] ?? []));
         $records = $this->records($queueTags, $statuses);
+        $leaseRegistry = $this->leases()->registry();
+        $activeLeaseIds = array_values(array_filter(array_map(
+            static fn (array $entry): string => (string) ($entry['lease_status'] ?? '')
+                === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE
+                ? (string) ($entry['lease_id'] ?? '')
+                : '',
+            (array) ($leaseRegistry['entries'] ?? []),
+        )));
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'operation' => $operation,
             'status' => 'projected_read_only',
             'queue_tags' => $queueTags,
-            'queue_registry' => $queue->registry(),
+            'queue_registry' => $queue->registry(readOnly: true),
             'matching_task_packet_ids' => array_values(array_map(
                 static fn (array $record): string => (string) ($record['task_packet_id'] ?? ''),
                 $records,
             )),
             'matching_task_count' => count($records),
-            'lease_registry_status' => 'not_read_to_preserve_projection_purity',
-            'active_lease_count' => null,
-            'active_lease_ids' => [],
+            'lease_registry_status' => (bool) ($leaseRegistry['corrupt'] ?? false)
+                ? 'corrupt_read_only_snapshot'
+                : 'read_only_snapshot',
+            'lease_registry' => $leaseRegistry,
+            'active_lease_count' => count($activeLeaseIds),
+            'active_lease_ids' => $activeLeaseIds,
             'runtime_write_performed' => false,
             'runtime_execution_allowed' => false,
             'runtime_write_allowed' => false,
@@ -105,7 +116,7 @@ final class ControlPlaneStatusProjector
             if ($status !== '') {
                 $filters['status'] = $status;
             }
-            foreach ($this->queue->list($filters) as $record) {
+            foreach ($this->queue()->list($filters, readOnly: true) as $record) {
                 $records[(string) ($record['task_packet_id'] ?? '')] = $record;
             }
         }
@@ -127,5 +138,10 @@ final class ControlPlaneStatusProjector
     private function queue(): AgentControlPlaneTaskPacketQueueRepository
     {
         return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+    }
+
+    private function leases(): AgentControlPlaneClaimLeaseRepository
+    {
+        return $this->leases ?? new AgentControlPlaneClaimLeaseRepository;
     }
 }
