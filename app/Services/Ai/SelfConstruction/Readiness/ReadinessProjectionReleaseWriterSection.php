@@ -1198,6 +1198,16 @@ final class ReadinessProjectionReleaseWriterSection
         $queuePayload = $this->packetQueue($options);
         $statusPayload = $this->codexExecutionStatus($options);
         $reservationPayload = $this->reservationStatus($options);
+        $sourceQueueHash = (string) data_get($queuePayload, 'queue_hash');
+        $executionStatusQueueHash = (string) data_get($statusPayload, 'monitor.source_queue_hash');
+        $sourceReservationHash = (string) data_get($reservationPayload, 'ledger_hash');
+        $executionStatusReservationHash = (string) data_get($statusPayload, 'monitor.source_reservation_hash');
+        $queueSnapshotMatchesExecutionStatus = $sourceQueueHash !== ''
+            && hash_equals($sourceQueueHash, $executionStatusQueueHash);
+        $reservationSnapshotMatchesExecutionStatus = $sourceReservationHash !== ''
+            && hash_equals($sourceReservationHash, $executionStatusReservationHash);
+        $sourceSnapshotConsistent = $queueSnapshotMatchesExecutionStatus
+            && $reservationSnapshotMatchesExecutionStatus;
         $entries = (array) data_get($queuePayload, 'queue.entries', []);
 
         $completed = array_values(array_filter($entries, fn (array $entry): bool => data_get($entry, 'queue_state') === 'completed'));
@@ -1273,12 +1283,22 @@ final class ReadinessProjectionReleaseWriterSection
             $completed !== [] => 'ready_for_human_integration_review',
             default => 'nothing_completed_yet',
         };
+        if (! $sourceSnapshotConsistent) {
+            $integrationStatus = 'source_snapshot_changed';
+            $readyToReview = [];
+        }
 
         $report = [
             'report_id' => 'CODEX-INTEGRATION-REPORT-SELF-CONSTRUCTION-0001',
-            'source_queue_hash' => data_get($queuePayload, 'queue_hash'),
+            'source_queue_hash' => $sourceQueueHash,
             'source_execution_status_hash' => data_get($statusPayload, 'monitor_hash'),
-            'source_reservation_hash' => data_get($reservationPayload, 'ledger_hash'),
+            'source_reservation_hash' => $sourceReservationHash,
+            'snapshot_consistency' => [
+                'status' => $sourceSnapshotConsistent ? 'consistent' : 'source_snapshot_changed',
+                'actionable' => $sourceSnapshotConsistent,
+                'queue_hash_matches_execution_status' => $queueSnapshotMatchesExecutionStatus,
+                'reservation_hash_matches_execution_status' => $reservationSnapshotMatchesExecutionStatus,
+            ],
             'integration_status' => $integrationStatus,
             'counts' => [
                 'ready_to_review' => count($readyToReview),
@@ -1330,7 +1350,9 @@ final class ReadinessProjectionReleaseWriterSection
 
         return [
             'schema_version' => 'atlas.self_construction_codex_integration_report.v1',
-            'status' => 'codex_integration_report_ready',
+            'status' => $sourceSnapshotConsistent
+                ? 'codex_integration_report_ready'
+                : 'codex_integration_report_snapshot_changed',
             'mode' => 'read_only_codex_integration_report',
             'execution_allowed' => false,
             'completion_allowed' => false,
@@ -1348,7 +1370,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'codex_integration_report_does_not_auto_merge',
                 'codex_integration_report_does_not_dispatch_work',
             ],
-            'human_summary' => 'Codex integration report is ready: completed packet evidence is consolidated for human review without approving code, merging or dispatching work.',
+            'human_summary' => $sourceSnapshotConsistent
+                ? 'Codex integration report is ready: completed packet evidence is consolidated for human review without approving code, merging or dispatching work.'
+                : 'Codex integration report is not actionable because its queue or reservation source changed while the report was being composed; refresh the report before review.',
         ];
     }
 
