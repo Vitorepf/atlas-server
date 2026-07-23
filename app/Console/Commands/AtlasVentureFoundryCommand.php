@@ -5,18 +5,18 @@ namespace App\Console\Commands;
 use App\Models\AiVenture;
 use App\Models\AiVentureIdea;
 use App\Models\AiVentureStrategyReview;
-use App\Services\Ai\VentureFoundry\VentureBusinessRuleService;
-use App\Services\Ai\VentureFoundry\VentureExecutionBridgeService;
-use App\Services\Ai\VentureFoundry\Health\VentureHealthGate;
-use App\Services\Ai\VentureFoundry\Reward\ReconciledCashEventStore;
-use App\Services\Ai\VentureFoundry\Success\VentureReconciledSuccessEvaluator;
-use App\Services\Ai\VentureFoundry\VentureFoundryException;
-use App\Services\Ai\VentureFoundry\VentureGrowthLadderService;
-use App\Services\Ai\VentureFoundry\VentureIdeaGenerationService;
-use App\Services\Ai\VentureFoundry\VentureIdeationService;
-use App\Services\Ai\VentureFoundry\VentureRegistryService;
-use App\Services\Ai\VentureFoundry\VentureResearchHandoffService;
-use App\Services\Ai\VentureFoundry\VentureStrategistService;
+use App\Services\Ai\Company\Ventures\VentureBusinessRuleService;
+use App\Services\Ai\Company\Ventures\VentureExecutionBridgeService;
+use App\Services\Ai\Company\Ventures\Health\VentureHealthGate;
+use App\Services\Ai\Company\Ventures\Reward\ReconciledCashEventStore;
+use App\Services\Ai\Company\Ventures\Success\VentureReconciledSuccessEvaluator;
+use App\Services\Ai\Company\Ventures\VentureFoundryException;
+use App\Services\Ai\Company\Ventures\VentureGrowthLadderService;
+use App\Services\Ai\Company\Ventures\VentureIdeaGenerationService;
+use App\Services\Ai\Company\Ventures\VentureIdeationService;
+use App\Services\Ai\Company\Ventures\VentureRegistryService;
+use App\Services\Ai\Company\Ventures\VentureResearchHandoffService;
+use App\Services\Ai\Company\Ventures\VentureStrategistService;
 use Illuminate\Console\Command;
 
 class AtlasVentureFoundryCommand extends Command
@@ -76,8 +76,8 @@ class AtlasVentureFoundryCommand extends Command
         VentureIdeaGenerationService $generation,
         VentureResearchHandoffService $research,
         VentureExecutionBridgeService $bridge,
-        \App\Services\Ai\VentureFoundry\Comprehension\VentureComprehensionService $comprehension,
-        \App\Services\Ai\VentureFoundry\Assessment\VentureAssessmentService $assessment,
+        \App\Services\Ai\Company\Ventures\Comprehension\VentureComprehensionService $comprehension,
+        \App\Services\Ai\Company\Ventures\Assessment\VentureAssessmentService $assessment,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -153,7 +153,7 @@ class AtlasVentureFoundryCommand extends Command
         ]);
     }
 
-    private function comprehend(VentureRegistryService $registry, \App\Services\Ai\VentureFoundry\Comprehension\VentureComprehensionService $comprehension): int
+    private function comprehend(VentureRegistryService $registry, \App\Services\Ai\Company\Ventures\Comprehension\VentureComprehensionService $comprehension): int
     {
         $venture = $registry->resolve($this->requireVentureOption());
 
@@ -230,7 +230,7 @@ class AtlasVentureFoundryCommand extends Command
         ]);
     }
 
-    private function assess(VentureRegistryService $registry, \App\Services\Ai\VentureFoundry\Assessment\VentureAssessmentService $assessment): int
+    private function assess(VentureRegistryService $registry, \App\Services\Ai\Company\Ventures\Assessment\VentureAssessmentService $assessment): int
     {
         $venture = $registry->resolve($this->requireVentureOption());
 
@@ -334,14 +334,14 @@ class AtlasVentureFoundryCommand extends Command
 
     private function questionCatalog(): int
     {
-        $catalog = new \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog;
+        $catalog = new \App\Services\Ai\Company\Ventures\Assessment\VentureQuestionCatalog;
         $all = $catalog->all();
 
         return $this->output_([
             'schema_version' => 'atlas.ai.venture.question_catalog.v1',
             'total_questions' => count($all),
-            'dimensions' => \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog::DIMENSION_LABELS,
-            'external_sources' => \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog::EXTERNAL_SOURCES,
+            'dimensions' => \App\Services\Ai\Company\Ventures\Assessment\VentureQuestionCatalog::DIMENSION_LABELS,
+            'external_sources' => \App\Services\Ai\Company\Ventures\Assessment\VentureQuestionCatalog::EXTERNAL_SOURCES,
             'questions' => array_map(fn ($q) => [
                 'id' => $q['id'],
                 'dimension' => $q['dimension'],

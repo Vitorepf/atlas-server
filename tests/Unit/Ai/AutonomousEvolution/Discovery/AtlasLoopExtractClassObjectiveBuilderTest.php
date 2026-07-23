@@ -68,16 +68,16 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
     {
         $b = new AtlasLoopExtractClassObjectiveBuilder();
         // PSR-4 App\ => app/ : the exact namespace removes the #1 extract-class failure (autoload fatal).
-        $this->assertSame('App\\Services\\Ai\\VentureFoundry\\Comprehension', $b->namespaceFromPath('app/Services/Ai/VentureFoundry/Comprehension/WorkspaceReaderSupport.php'));
+        $this->assertSame('App\\Services\\Ai\\Company\\Ventures\\Comprehension', $b->namespaceFromPath('app/Services/Ai/Company/Ventures/Comprehension/WorkspaceReaderSupport.php'));
         $this->assertSame('App', $b->namespaceFromPath('FooSupport.php'));
 
         $spec = $b->build(
-            'app/Services/Ai/VentureFoundry/Comprehension/WorkspaceReader.php',
-            'tests/Feature/Ai/VentureFoundry/Comprehension/WorkspaceReaderTest.php',
+            'app/Services/Ai/Company/Ventures/Comprehension/WorkspaceReader.php',
+            'tests/Feature/Ai/Company/Ventures/Comprehension/WorkspaceReaderTest.php',
             'WorkspaceReader::files', 13,
         );
         // The objective must state the EXACT namespace so the new class autoloads.
-        $this->assertStringContainsString('namespace App\\Services\\Ai\\VentureFoundry\\Comprehension', $spec['objective']);
+        $this->assertStringContainsString('namespace App\\Services\\Ai\\Company\\Ventures\\Comprehension', $spec['objective']);
         $this->assertStringContainsString('final class WorkspaceReaderSupport', $spec['objective']);
     }
 

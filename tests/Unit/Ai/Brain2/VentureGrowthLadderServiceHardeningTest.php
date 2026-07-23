@@ -13,7 +13,7 @@ final class VentureGrowthLadderServiceHardeningTest extends TestCase
      */
     public function test_source_has_try_catch_for_parse(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/VentureFoundry/VentureGrowthLadderService.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Company/Ventures/VentureGrowthLadderService.php');
 
         $this->assertStringContainsString('Carbon::parse', $source, 'must parse dates');
         $this->assertStringContainsString('catch', $source, 'must have try/catch guard');
@@ -24,7 +24,7 @@ final class VentureGrowthLadderServiceHardeningTest extends TestCase
      */
     public function test_parse_is_guarded(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/VentureFoundry/VentureGrowthLadderService.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/Company/Ventures/VentureGrowthLadderService.php');
 
         $this->assertMatchesRegularExpression(
             '/try\s*\{[\s\S]*?Carbon::parse[\s\S]*?\}\s*catch/s',
