@@ -32,6 +32,7 @@ class SloAudit
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
         $eventTypePath = app_path('Services/Ai/Kernel/Evidence/LedgerEventType.php');
         $decidePath = app_path('Services/Ai/AtlasDecideService.php');
+        $kernelContractPath = app_path('Services/Ai/Decide/KernelContractSection.php');
         $contextPath = app_path('Services/Ai/Context/AiContextPackBuilder.php');
         $toolGatePath = app_path('Services/Tools/AtlasToolGateService.php');
         $workerPath = app_path('Services/Ai/AiWorker.php');
@@ -49,6 +50,7 @@ class SloAudit
         $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
         $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
         $decide = File::exists($decidePath) ? File::get($decidePath) : '';
+        $kernelContract = File::exists($kernelContractPath) ? File::get($kernelContractPath) : '';
         $context = File::exists($contextPath) ? File::get($contextPath) : '';
         $toolGate = File::exists($toolGatePath) ? File::get($toolGatePath) : '';
         $worker = File::exists($workerPath) ? File::get($workerPath) : '';
@@ -86,8 +88,11 @@ class SloAudit
             $violations[] = 'app/Services/Ai/AtlasDecideService.php: DecisionReceipt issuance must be instrumented with KernelSloProbe stage decide.issue';
         }
 
-        if (! str_contains($decide, "slo->measure('provider.prepare'")) {
-            $violations[] = 'app/Services/Ai/AtlasDecideService.php: provider request preparation must be instrumented with KernelSloProbe stage provider.prepare';
+        // Façade keeps the decide.issue instrumentation; the provider-contract
+        // preparation (provider.prepare stage) was relocated under GOD-DEBULK D3
+        // to Decide/KernelContractSection (invariant unchanged, str_contains kept).
+        if (! str_contains($kernelContract, "slo->measure('provider.prepare'")) {
+            $violations[] = 'app/Services/Ai/Decide/KernelContractSection.php: provider request preparation must be instrumented with KernelSloProbe stage provider.prepare';
         }
 
         if (! str_contains($context, "slo->measure('context.compose'")) {
