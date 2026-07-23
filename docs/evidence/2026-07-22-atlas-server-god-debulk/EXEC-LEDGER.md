@@ -3709,3 +3709,40 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 118 — bind dispatch policy capabilities to the mother facade, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0037
+commit: 3fc75a734
+subject: "refactor(core): GOD-DEBULK bind dispatch policy capabilities"
+scope:
+  - app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch1Section.php
+  - app/Services/Ai/SelfConstruction/Readiness/AutomaticDispatchBatch1/DispatchBatch1Part02SubSection.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentAutomaticDispatchBatch1SectionTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionReadinessProjectionAgentAutomaticDispatchBatch1SectionTest.php --filter=test_scheduler_policy_resolves_dispatch_capabilities_through_the_public_readiness_facade --no-coverage
+  result: "FAIL after 1 assertion: the real public policy emitted all three declared dispatch capabilities as false because method_exists() inspected the extracted sub-section rather than the bound readiness facade."
+green:
+  behavior: "The public scheduler-policy payload now probes the bound mother facade for agentDispatchPreflight, agentDispatchReceiptWrite, and agentDispatchExecutorPreflight. An unbound section remains fail-closed."
+verification:
+  characterization: "PASS 1 test, 1 assertion through AtlasSelfConstructionReadinessService::agentAutomaticDispatchSchedulerPolicy(); no reflection or private-method call is used."
+  package_suite: "PASS 2 tests, 10 assertions: the full focused Batch1 projection Feature file."
+  php_lint: "PASS all three touched PHP files."
+  pint: "Scoped Pint revealed inherited whole-file import/whitespace drift; its unrelated rewrite was restored, so no broad formatting cleanup is included."
+  diff_check: "PASS scoped diff check."
+  density: "Batch1 facade=318 LOC; Batch1 part02=1492 LOC; focused Feature test=53 LOC; all <2000 and test <800."
+boundary:
+  - "The acceptance invokes the same public readiness facade used by consumers, then reads its emitted component_readiness contract."
+  - "The probe checks declared methods on the real mother facade, not is_callable() on the magic-dispatch section; arbitrary __call aliases cannot become capability evidence."
+  - "This changes only the policy's structural capability projection. It neither writes receipts nor enables automatic dispatch, provider start, runtime mutation, token spend, or self-programming."
+residual:
+  - "Policy readiness can still be blocked by its real table and upstream-policy prerequisites; this correction removes only the three artificial extraction-induced blockers."
+next_cursor: "Continue from the highest remaining executable A1 s1 META bug; skip structural items without an approved blueprint and preserve unrelated WIP."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-118-dispatch-policy-3fc75a734
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
