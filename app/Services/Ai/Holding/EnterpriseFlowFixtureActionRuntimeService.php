@@ -8,6 +8,9 @@ use App\Services\Ai\DomainRuntime\DomainRuntimeRecordService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasEnvelope;
+use App\Services\Ai\Holding\EnterpriseFlowFixture\EnterpriseFlowFixtureBuilders;
+use App\Services\Ai\Holding\EnterpriseFlowFixture\EnterpriseFlowFixtureRuntimeRecords;
+use App\Services\Ai\Holding\EnterpriseFlowFixture\EnterpriseFlowFixtureSupport;
 use Illuminate\Support\Str;
 
 class EnterpriseFlowFixtureActionRuntimeService
@@ -21,14 +24,16 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     private ?array $buildoutReport = null;
 
-    /**
-     * @var array<string,list<array<string,mixed>>>
-     */
-    private array $runtimeRecordCache = [];
+    private readonly EnterpriseFlowFixtureBuilders $builders;
+
+    private readonly EnterpriseFlowFixtureRuntimeRecords $records;
 
     public function __construct(
         private readonly AutonomousHoldingEnterpriseBuildoutService $buildout,
-    ) {}
+    ) {
+        $this->builders = new EnterpriseFlowFixtureBuilders();
+        $this->records = new EnterpriseFlowFixtureRuntimeRecords($this);
+    }
 
     public function supports(string $companyId, string $action): bool
     {
@@ -37,19 +42,13 @@ class EnterpriseFlowFixtureActionRuntimeService
 
     public function clearRuntimeRecordCache(?string $companyId = null): void
     {
-        if ($companyId !== null && trim($companyId) !== '') {
-            unset($this->runtimeRecordCache[trim($companyId)]);
-
-            return;
-        }
-
-        $this->runtimeRecordCache = [];
+        $this->records->clearRuntimeRecordCache($companyId);
     }
 
     /**
      * @return array<string,mixed>
      */
-    private function buildoutReport(): array
+    public function buildoutReport(): array
     {
         if ($this->buildoutReport === null) {
             $this->buildoutReport = $this->buildout->report();
@@ -74,7 +73,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     {
         $gate = $spec['gate'];
         if (! $gate instanceof \Closure) {
-            $gatePredicates = array_map(self::recordPredicate(...), $gate);
+            $gatePredicates = array_map(EnterpriseFlowFixtureSupport::recordPredicate(...), $gate);
             $gate = static function (array $record) use ($gatePredicates): bool {
                 foreach ($gatePredicates as $predicate) {
                     if (! $predicate($record)) {
@@ -90,7 +89,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         foreach ($spec['counts'] as $summaryKey => $definition) {
             $countPredicates[$summaryKey] = $definition instanceof \Closure
                 ? $definition
-                : self::recordPredicate($definition);
+                : EnterpriseFlowFixtureSupport::recordPredicate($definition);
         }
 
         $companies = [];
@@ -103,7 +102,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             }
 
             $flows = ($spec['flows'])($company);
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
+            $companyRecords = $this->records->runtimeRecordsForCompany($currentCompanyId);
             $matchingRecords = array_values(array_filter($companyRecords, $gate));
             $completedFlows = array_values(array_unique(array_filter(array_map(
                 static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
@@ -153,24 +152,6 @@ class EnterpriseFlowFixtureActionRuntimeService
         ], $spec['hash_key']);
     }
 
-    /**
-     * @param  string|array{0:string,1:string}  $definition  string = bool-bound record key
-     */
-    private static function recordPredicate(string|array $definition): \Closure
-    {
-        if (is_string($definition)) {
-            return static fn (array $record): bool => (bool) ($record[$definition] ?? false);
-        }
-
-        [$type, $key] = $definition;
-
-        return match ($type) {
-            'bound' => static fn (array $record): bool => (bool) ($record[$key] ?? false),
-            'hash' => static fn (array $record): bool => (string) ($record[$key] ?? '') !== '',
-            'count' => static fn (array $record): bool => (int) ($record[$key] ?? 0) > 0,
-            'internal' => static fn (array $record): bool => (bool) ($record[$key] ?? true) === false,
-        };
-    }
 
     /**
      * @return array<string,mixed>
@@ -446,7 +427,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 static fn (array $action): string => (string) ($action['flow_id'] ?? $action['action'] ?? ''),
                 (array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_action_catalog', []),
             ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
+            $companyRecords = $this->records->runtimeRecordsForCompany($currentCompanyId);
             $completedFlows = array_values(array_unique(array_filter(array_map(
                 static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
                 $companyRecords,
@@ -1681,7 +1662,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 static fn (array $cell): string => (string) ($cell['flow_id'] ?? ''),
                 (array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', []),
             ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
+            $companyRecords = $this->records->runtimeRecordsForCompany($currentCompanyId);
             $outcomeRecords = array_values(array_filter(
                 $companyRecords,
                 static fn (array $record): bool => (string) ($record['operational_outcome_ledger_hash'] ?? '') !== ''
@@ -1815,7 +1796,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             }
 
             $expectedFlowCount = count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', []));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
+            $companyRecords = $this->records->runtimeRecordsForCompany($currentCompanyId);
             $outcomeRecords = array_values(array_filter(
                 $companyRecords,
                 static fn (array $record): bool => (bool) ($record['operational_outcome_ledger_bound'] ?? false)
@@ -2174,7 +2155,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         ));
         $runtimeRecordsByCompany = [];
         foreach ($companyIds as $currentCompanyId) {
-            $runtimeRecordsByCompany[$currentCompanyId] = $this->runtimeRecordsForCompany($currentCompanyId);
+            $runtimeRecordsByCompany[$currentCompanyId] = $this->records->runtimeRecordsForCompany($currentCompanyId);
         }
 
         $packets = [];
@@ -2823,140 +2804,144 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
+     * Entangled by design: one payload assembled from ~200 interdependent per-flow locals.
+     * GOD-DEBULK kept it whole on the facade (shared mutable local state, not splittable
+     * byte-identically); its leaf helpers live in EnterpriseFlowFixture\{Support,Builders,RuntimeRecords}.
+     *
      * @return array<string,mixed>
      */
     public function run(string $companyId, string $action, bool $fixtureMode = true): array
     {
         $company = $this->buildout->companyPacket($companyId);
-        $contract = $this->actionContractFromCompany($company, $action);
+        $contract = EnterpriseFlowFixtureSupport::actionContractFromCompany($company, $action);
 
         if ($contract === null) {
             throw new \InvalidArgumentException("Unknown enterprise fixture action [{$action}] for company [{$companyId}].");
         }
 
         $flowId = (string) $contract['flow_id'];
-        $flowSpec = $this->findByFlow($company, 'flow_specs', $flowId);
-        $flowRunbook = $this->findByFlow($company, 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', $flowId);
-        $executableFlowPacket = $this->findByFlow($company, 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', $flowId);
-        $agentToolRouting = $this->findByFlow($company, 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', $flowId);
-        $flowArtifactIoContract = $this->findByFlow($company, 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', $flowId);
-        $supervisionShadowGate = $this->findByFlow($company, 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', $flowId);
-        $canonicalFixture = $this->findByFlow($company, 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', $flowId);
-        $trajectory = $this->findByFlow($company, 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', $flowId);
-        $assertionSuite = $this->findByFlow($company, 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', $flowId);
-        $failureCases = $this->findByFlow($company, 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', $flowId);
-        $dryRun = $this->findByFlow($company, 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', $flowId);
-        $stateSchema = $this->findByFlow($company, 'enterprise_flow_action_runtime_stack.handler_state_schemas', $flowId);
-        $eventPlan = $this->findByFlow($company, 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', $flowId);
-        $checkpoint = $this->findByFlow($company, 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', $flowId);
-        $flowToolkitAssignment = $this->findByFlow($company, 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', $flowId);
-        $agentRepositoryEpic = $this->findByFlow($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', $flowId);
-        $workforceStaffing = $this->findByFlow($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', $flowId);
-        $portfolioDependencyRouting = $this->findByFlow($company, 'enterprise_portfolio_dependency_stack.flow_dependency_routing', $flowId);
-        $externalResearchFlowMatrix = $this->findByFlow($company, 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', $flowId);
+        $flowSpec = EnterpriseFlowFixtureSupport::findByFlow($company, 'flow_specs', $flowId);
+        $flowRunbook = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', $flowId);
+        $executableFlowPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', $flowId);
+        $agentToolRouting = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', $flowId);
+        $flowArtifactIoContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', $flowId);
+        $supervisionShadowGate = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', $flowId);
+        $canonicalFixture = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', $flowId);
+        $trajectory = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', $flowId);
+        $assertionSuite = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', $flowId);
+        $failureCases = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', $flowId);
+        $dryRun = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', $flowId);
+        $stateSchema = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_action_runtime_stack.handler_state_schemas', $flowId);
+        $eventPlan = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', $flowId);
+        $checkpoint = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', $flowId);
+        $flowToolkitAssignment = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', $flowId);
+        $agentRepositoryEpic = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', $flowId);
+        $workforceStaffing = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', $flowId);
+        $portfolioDependencyRouting = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_portfolio_dependency_stack.flow_dependency_routing', $flowId);
+        $externalResearchFlowMatrix = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', $flowId);
         $externalResearchSourceBasis = array_values((array) data_get($company, 'enterprise_external_research_adoption_stack.source_basis', []));
         $externalResearchOfficialRepositories = array_values((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', []));
         $externalResearchDomainRepositories = array_values((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', []));
         $externalResearchCapabilityMap = array_values((array) data_get($company, 'enterprise_external_research_adoption_stack.source_to_company_capability_map', []));
         $externalResearchConnectorBacklog = array_values((array) data_get($company, 'enterprise_external_research_adoption_stack.connector_and_data_provider_backlog', []));
         $externalResearchProductionGates = (array) data_get($company, 'enterprise_external_research_adoption_stack.productionization_gates', []);
-        $operatingPackage = $this->findByFlow($company, 'enterprise_flow_operating_packages.flow_packages', $flowId);
-        $verticalSolutionKit = $this->findByFlow($company, 'enterprise_vertical_solution_suite_stack.flow_solution_kits', $flowId);
-        $verticalConnectorWorkbenches = $this->verticalConnectorWorkbenches($company, array_values((array) data_get($verticalSolutionKit, 'connector_refs', [])));
-        $artifactFactory = $this->artifactFactoryForWorkProduct($company, (string) data_get($verticalSolutionKit, 'work_product', ''));
-        $businessExecutionCell = $this->findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', $flowId);
-        $businessKpiBinding = $this->findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', $flowId);
-        $businessServiceLane = $this->findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', $flowId);
-        $domainSolutionPlaybook = $this->findByFlow($company, 'enterprise_domain_solution_stack.enterprise_solution_playbooks', $flowId);
-        $domainOperatingDepthPacket = $this->findByFlow($company, 'enterprise_domain_operating_depth_stack.flow_depth_packets', $flowId);
-        $domainAgentCrew = $this->findByFlow($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', $flowId);
-        $flowProviderRoute = $this->findByFlow($company, 'enterprise_domain_provider_workbench_stack.flow_provider_routes', $flowId);
-        $providerEvaluationCase = $this->findByFlow($company, 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', $flowId);
-        $offlineDatasetContract = $this->findByFlow($company, 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', $flowId);
-        $traceGradingRubric = $this->findByFlow($company, 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', $flowId);
-        $adversarialRegressionCase = $this->findByFlow($company, 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', $flowId);
-        $deterministicStateAssertion = $this->findByFlow($company, 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', $flowId);
-        $replayComparisonMatrix = $this->findByFlow($company, 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', $flowId);
-        $semanticFlowEdge = $this->findByFlow($company, 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', $flowId);
-        $customerJourney = $this->findByFlow($company, 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', $flowId);
-        $productizedServiceOffer = $this->findByFlow($company, 'enterprise_productized_service_stack.flow_service_offers', $flowId);
-        $productizedDeliveryBlueprint = $this->findByFlow($company, 'enterprise_productized_service_stack.service_delivery_blueprints', $flowId);
-        $productizedIntakeContract = $this->findByFlow($company, 'enterprise_productized_service_stack.intake_and_qualification_contracts', $flowId);
-        $productizedSlaContract = $this->findByFlow($company, 'enterprise_productized_service_stack.sla_success_contracts', $flowId);
-        $productizedProofTemplate = $this->findByFlow($company, 'enterprise_productized_service_stack.proof_and_case_study_templates', $flowId);
-        $salesOpportunityRoute = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', $flowId);
-        $salesProposalPacket = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', $flowId);
-        $salesMutualActionPlan = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', $flowId);
-        $salesAccountResearchWorkbench = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', $flowId);
-        $salesDealRoomPacket = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', $flowId);
-        $salesPipelineForecastReview = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', $flowId);
-        $salesMapRiskReview = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', $flowId);
-        $salesDeliveryHandoff = $this->findByFlow($company, 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', $flowId);
-        $supportLane = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_support_lanes', $flowId);
-        $supportTicketSla = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', $flowId);
-        $supportKbTemplate = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', $flowId);
-        $supportEscalationRunbook = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', $flowId);
-        $supportResolutionRca = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', $flowId);
-        $supportCaseResolutionWorkbench = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', $flowId);
-        $supportHealthEscalationPlaybook = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', $flowId);
-        $supportKnowledgeQualityReview = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', $flowId);
-        $supportAutomationDeflectionTest = $this->findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', $flowId);
-        $marketingCampaignBlueprint = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', $flowId);
-        $marketingContentFactory = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.content_asset_factories', $flowId);
-        $marketingExperiment = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.experiment_backlog', $flowId);
-        $marketingGrowthIntelligenceWorkbench = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', $flowId);
-        $marketingAttributionExperimentModel = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', $flowId);
-        $marketingChannelBudgetGuardrail = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', $flowId);
-        $marketingPublicClaimEvidencePacket = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', $flowId);
-        $marketingChannelPlan = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', $flowId);
-        $marketingBrandReview = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', $flowId);
-        $marketingCrmHandoff = $this->findByFlow($company, 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', $flowId);
-        $financeResearchWorkbench = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', $flowId);
-        $financeBudgetEnvelope = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', $flowId);
-        $financeForecastModel = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_forecast_models', $flowId);
-        $financeModelRiskControl = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', $flowId);
-        $financeInvestmentCommitteePacket = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', $flowId);
-        $financeBillingLedger = $this->findByFlow($company, 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', $flowId);
-        $accountOnboardingPlan = $this->findByFlow($company, 'enterprise_account_contract_delivery_stack.onboarding_success_plans', $flowId);
-        $accountServiceReview = $this->findByFlow($company, 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', $flowId);
-        $vendorProcurementRouting = $this->findByFlow($company, 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', $flowId);
-        $resilienceFailureMode = $this->findByFlow($company, 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', $flowId);
-        $resilienceExercise = $this->findByFlow($company, 'enterprise_resilience_continuity_stack.incident_exercise_program', $flowId);
-        $analyticsDecisionRegister = $this->findByFlow($company, 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', $flowId);
-        $scenarioForecast = $this->findByFlow($company, 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', $flowId);
-        $knowledgeLearningLoop = $this->findByFlow($company, 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', $flowId);
-        $playbookChangeControl = $this->findByFlow($company, 'enterprise_knowledge_memory_learning_stack.playbook_change_control', $flowId);
-        $identityDataBoundary = $this->findByFlow($company, 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', $flowId);
-        $purposeConsent = $this->findByFlow($company, 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', $flowId);
-        $deliverySla = $this->findByFlow($company, 'enterprise_delivery_assurance_stack.flow_delivery_sla', $flowId);
-        $flowCostCenter = $this->findByFlow($company, 'portfolio_finance_stack.flow_cost_centers', $flowId);
-        $flowUnitEconomics = $this->findByFlow($company, 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', $flowId);
-        $capacitySimulation = $this->findByFlow($company, 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', $flowId);
-        $strategicRivalMap = $this->findByFlow($company, 'strategic_intelligence_stack.rival_and_alternative_map', $flowId);
-        $grcEvidence = $this->findByFlow($company, 'enterprise_grc_stack.audit_evidence_requirements', $flowId);
-        $domainExecutionPacket = $this->findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', $flowId);
-        $domainRiskControlPacket = $this->findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', $flowId);
-        $domainDecisionRoomPacket = $this->findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', $flowId);
-        $domainReplayEvalPack = $this->findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', $flowId);
-        $flowWorkProductDeliveryBlueprint = $this->findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', $flowId);
-        $flowWorkProductAcceptance = $this->findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', $flowId);
-        $flowWorkProductHandoff = $this->findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', $flowId);
-        $flowWorkProductReplayCheck = $this->findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', $flowId);
-        $domainDataConnectorContract = $this->findByFlow($company, 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', $flowId);
-        $domainConnectorFixtureEval = $this->findByFlow($company, 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', $flowId);
-        $flowLiveReadProbeContract = $this->findByFlow($company, 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', $flowId);
-        $flowLiveReadProbeEvidence = $this->findByFlow($company, 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', $flowId);
-        $controlTowerLane = $this->findByFlow($company, 'enterprise_control_tower_run_operations_stack.control_tower_lanes', $flowId);
-        $incidentExceptionDesk = $this->findByFlow($company, 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', $flowId);
-        $changeWindowRelease = $this->findByFlow($company, 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', $flowId);
-        $flowCommandCard = $this->findByFlow($company, 'enterprise_company_command_center_stack.flow_command_cards', $flowId);
-        $rehearsalRunbook = $this->findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', $flowId);
-        $operatorAcceptancePacket = $this->findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', $flowId);
-        $rollbackDrill = $this->findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', $flowId);
-        $promotionEvidence = $this->findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', $flowId);
-        $businessProcess = $this->findByFlow($company, 'business_process_map', $flowId);
-        $sloSli = $this->findByFlow($company, 'go_to_production_pack.slo_sli_catalog', $flowId);
-        $flowActivationMatrix = $this->findByFlow($company, 'enterprise_integration_activation_plan.flow_activation_matrix', $flowId);
+        $operatingPackage = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_operating_packages.flow_packages', $flowId);
+        $verticalSolutionKit = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_vertical_solution_suite_stack.flow_solution_kits', $flowId);
+        $verticalConnectorWorkbenches = EnterpriseFlowFixtureSupport::verticalConnectorWorkbenches($company, array_values((array) data_get($verticalSolutionKit, 'connector_refs', [])));
+        $artifactFactory = EnterpriseFlowFixtureSupport::artifactFactoryForWorkProduct($company, (string) data_get($verticalSolutionKit, 'work_product', ''));
+        $businessExecutionCell = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', $flowId);
+        $businessKpiBinding = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', $flowId);
+        $businessServiceLane = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', $flowId);
+        $domainSolutionPlaybook = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_solution_stack.enterprise_solution_playbooks', $flowId);
+        $domainOperatingDepthPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_operating_depth_stack.flow_depth_packets', $flowId);
+        $domainAgentCrew = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', $flowId);
+        $flowProviderRoute = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_provider_workbench_stack.flow_provider_routes', $flowId);
+        $providerEvaluationCase = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', $flowId);
+        $offlineDatasetContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', $flowId);
+        $traceGradingRubric = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', $flowId);
+        $adversarialRegressionCase = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', $flowId);
+        $deterministicStateAssertion = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', $flowId);
+        $replayComparisonMatrix = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', $flowId);
+        $semanticFlowEdge = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', $flowId);
+        $customerJourney = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', $flowId);
+        $productizedServiceOffer = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_productized_service_stack.flow_service_offers', $flowId);
+        $productizedDeliveryBlueprint = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_productized_service_stack.service_delivery_blueprints', $flowId);
+        $productizedIntakeContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_productized_service_stack.intake_and_qualification_contracts', $flowId);
+        $productizedSlaContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_productized_service_stack.sla_success_contracts', $flowId);
+        $productizedProofTemplate = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_productized_service_stack.proof_and_case_study_templates', $flowId);
+        $salesOpportunityRoute = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', $flowId);
+        $salesProposalPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', $flowId);
+        $salesMutualActionPlan = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', $flowId);
+        $salesAccountResearchWorkbench = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', $flowId);
+        $salesDealRoomPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', $flowId);
+        $salesPipelineForecastReview = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', $flowId);
+        $salesMapRiskReview = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', $flowId);
+        $salesDeliveryHandoff = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', $flowId);
+        $supportLane = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_support_lanes', $flowId);
+        $supportTicketSla = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', $flowId);
+        $supportKbTemplate = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', $flowId);
+        $supportEscalationRunbook = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', $flowId);
+        $supportResolutionRca = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', $flowId);
+        $supportCaseResolutionWorkbench = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', $flowId);
+        $supportHealthEscalationPlaybook = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', $flowId);
+        $supportKnowledgeQualityReview = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', $flowId);
+        $supportAutomationDeflectionTest = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', $flowId);
+        $marketingCampaignBlueprint = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', $flowId);
+        $marketingContentFactory = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.content_asset_factories', $flowId);
+        $marketingExperiment = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.experiment_backlog', $flowId);
+        $marketingGrowthIntelligenceWorkbench = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', $flowId);
+        $marketingAttributionExperimentModel = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', $flowId);
+        $marketingChannelBudgetGuardrail = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', $flowId);
+        $marketingPublicClaimEvidencePacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', $flowId);
+        $marketingChannelPlan = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', $flowId);
+        $marketingBrandReview = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', $flowId);
+        $marketingCrmHandoff = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', $flowId);
+        $financeResearchWorkbench = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', $flowId);
+        $financeBudgetEnvelope = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', $flowId);
+        $financeForecastModel = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_forecast_models', $flowId);
+        $financeModelRiskControl = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', $flowId);
+        $financeInvestmentCommitteePacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', $flowId);
+        $financeBillingLedger = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', $flowId);
+        $accountOnboardingPlan = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_account_contract_delivery_stack.onboarding_success_plans', $flowId);
+        $accountServiceReview = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', $flowId);
+        $vendorProcurementRouting = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', $flowId);
+        $resilienceFailureMode = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', $flowId);
+        $resilienceExercise = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_resilience_continuity_stack.incident_exercise_program', $flowId);
+        $analyticsDecisionRegister = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', $flowId);
+        $scenarioForecast = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', $flowId);
+        $knowledgeLearningLoop = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', $flowId);
+        $playbookChangeControl = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_knowledge_memory_learning_stack.playbook_change_control', $flowId);
+        $identityDataBoundary = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', $flowId);
+        $purposeConsent = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', $flowId);
+        $deliverySla = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_delivery_assurance_stack.flow_delivery_sla', $flowId);
+        $flowCostCenter = EnterpriseFlowFixtureSupport::findByFlow($company, 'portfolio_finance_stack.flow_cost_centers', $flowId);
+        $flowUnitEconomics = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', $flowId);
+        $capacitySimulation = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', $flowId);
+        $strategicRivalMap = EnterpriseFlowFixtureSupport::findByFlow($company, 'strategic_intelligence_stack.rival_and_alternative_map', $flowId);
+        $grcEvidence = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_grc_stack.audit_evidence_requirements', $flowId);
+        $domainExecutionPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', $flowId);
+        $domainRiskControlPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', $flowId);
+        $domainDecisionRoomPacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', $flowId);
+        $domainReplayEvalPack = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', $flowId);
+        $flowWorkProductDeliveryBlueprint = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', $flowId);
+        $flowWorkProductAcceptance = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', $flowId);
+        $flowWorkProductHandoff = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', $flowId);
+        $flowWorkProductReplayCheck = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', $flowId);
+        $domainDataConnectorContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', $flowId);
+        $domainConnectorFixtureEval = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', $flowId);
+        $flowLiveReadProbeContract = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', $flowId);
+        $flowLiveReadProbeEvidence = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', $flowId);
+        $controlTowerLane = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_control_tower_run_operations_stack.control_tower_lanes', $flowId);
+        $incidentExceptionDesk = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', $flowId);
+        $changeWindowRelease = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', $flowId);
+        $flowCommandCard = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_company_command_center_stack.flow_command_cards', $flowId);
+        $rehearsalRunbook = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', $flowId);
+        $operatorAcceptancePacket = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', $flowId);
+        $rollbackDrill = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', $flowId);
+        $promotionEvidence = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', $flowId);
+        $businessProcess = EnterpriseFlowFixtureSupport::findByFlow($company, 'business_process_map', $flowId);
+        $sloSli = EnterpriseFlowFixtureSupport::findByFlow($company, 'go_to_production_pack.slo_sli_catalog', $flowId);
+        $flowActivationMatrix = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_integration_activation_plan.flow_activation_matrix', $flowId);
         $sourceActivationTracks = array_values((array) data_get($company, 'enterprise_integration_activation_plan.source_activation_tracks', []));
         $connectorActivationTracks = array_values((array) data_get($company, 'enterprise_integration_activation_plan.connector_activation_tracks', []));
         $connectorCount = count((array) ($company['connectors'] ?? []));
@@ -2969,36 +2954,36 @@ class EnterpriseFlowFixtureActionRuntimeService
         $premiumAgenticArchitecture = (array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis', []);
         $premiumTemplates = array_values((array) data_get($company, 'premium_enterprise_agent_reference_model.managed_agent_templates', []));
         $premiumTemplateRuntimeContracts = array_values((array) data_get($company, 'premium_enterprise_agent_reference_model.template_runtime_contracts', []));
-        $premiumFlowTemplateMap = $this->findByFlow($company, 'premium_enterprise_agent_reference_model.flow_template_map', $flowId);
-        $premiumManagedAgentWorkflow = $this->findByFlow($company, 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', $flowId);
+        $premiumFlowTemplateMap = EnterpriseFlowFixtureSupport::findByFlow($company, 'premium_enterprise_agent_reference_model.flow_template_map', $flowId);
+        $premiumManagedAgentWorkflow = EnterpriseFlowFixtureSupport::findByFlow($company, 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', $flowId);
         $premiumWorkbenches = array_values((array) data_get($company, 'premium_enterprise_agent_reference_model.data_and_tool_workbenches', []));
         $premiumMcpServerPlan = array_values((array) data_get($company, 'premium_enterprise_agent_reference_model.connector_mcp_server_plan', []));
-        $premiumReplayBenchmark = $this->findByFlow($company, 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', $flowId);
+        $premiumReplayBenchmark = EnterpriseFlowFixtureSupport::findByFlow($company, 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', $flowId);
         $replayContract = (array) data_get($operatingPackage, 'quality_replay_cell', []);
         $connectorWorkbenches = array_values((array) data_get($operatingPackage, 'tool_and_data_cell.connector_workbenches', []));
         $requiredSections = array_values((array) data_get($operatingPackage, 'delivery_cell.required_sections', []));
         $runtimePhases = array_values((array) ($contract['runtime_phases'] ?? []));
         $artifactType = (string) data_get($operatingPackage, 'delivery_cell.artifact_type', (string) ($flowSpec['delivery_type'] ?? 'enterprise_artifact'));
-        $businessArtifactContract = $this->businessArtifactContractForWorkProduct($company, $artifactType);
-        $deliverableQualityContract = $this->qualityContractForWorkProduct($company, $artifactType);
-        $flowConnectorUsage = $this->findByFlow($company, 'enterprise_connector_certification_stack.flow_connector_usage_matrix', $flowId);
-        $flowConnectorCutover = $this->findByFlow($company, 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', $flowId);
+        $businessArtifactContract = EnterpriseFlowFixtureSupport::businessArtifactContractForWorkProduct($company, $artifactType);
+        $deliverableQualityContract = EnterpriseFlowFixtureSupport::qualityContractForWorkProduct($company, $artifactType);
+        $flowConnectorUsage = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_connector_certification_stack.flow_connector_usage_matrix', $flowId);
+        $flowConnectorCutover = EnterpriseFlowFixtureSupport::findByFlow($company, 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', $flowId);
         $flowConnectorIds = array_values(array_unique(array_filter(array_map(
             'strval',
             (array) (($flowConnectorUsage['connectors'] ?? null) ?: ($flowConnectorCutover['connector_scope'] ?? [])),
         ))));
         $flowConnectorCount = count($flowConnectorIds);
-        $connectorAdapterContracts = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.adapter_contract_catalog', $flowConnectorIds);
-        $connectorAuthBoundaries = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.auth_and_secret_boundary', $flowConnectorIds);
-        $connectorSandboxProbes = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.sandbox_probe_matrix', $flowConnectorIds);
-        $connectorContractTests = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.consumer_provider_contract_tests', $flowConnectorIds);
-        $connectorDataLineage = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', $flowConnectorIds);
-        $connectorReplayFixtures = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', $flowConnectorIds);
-        $connectorSloFailureModes = $this->connectorRowsByIds($company, 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', $flowConnectorIds);
-        $productionPreflightContracts = $this->connectorRowsByIds($company, 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', $flowConnectorIds);
-        $productionReadinessEvidence = $this->connectorRowsByIds($company, 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', $flowConnectorIds);
-        $rehearsalLiveReadProbes = $this->connectorRowsByIds($company, 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', $flowConnectorIds);
-        $operationalDossier = $this->enterpriseFlowOperationalDossier(
+        $connectorAdapterContracts = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.adapter_contract_catalog', $flowConnectorIds);
+        $connectorAuthBoundaries = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.auth_and_secret_boundary', $flowConnectorIds);
+        $connectorSandboxProbes = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.sandbox_probe_matrix', $flowConnectorIds);
+        $connectorContractTests = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.consumer_provider_contract_tests', $flowConnectorIds);
+        $connectorDataLineage = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', $flowConnectorIds);
+        $connectorReplayFixtures = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', $flowConnectorIds);
+        $connectorSloFailureModes = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', $flowConnectorIds);
+        $productionPreflightContracts = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', $flowConnectorIds);
+        $productionReadinessEvidence = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', $flowConnectorIds);
+        $rehearsalLiveReadProbes = EnterpriseFlowFixtureSupport::connectorRowsByIds($company, 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', $flowConnectorIds);
+        $operationalDossier = $this->builders->enterpriseFlowOperationalDossier(
             $company,
             $companyId,
             $flowId,
@@ -3015,7 +3000,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             $artifactType,
             $runtimePhases,
         );
-        $autonomyPromotionPacket = $this->enterpriseAutonomyPromotionPacket(
+        $autonomyPromotionPacket = $this->builders->enterpriseAutonomyPromotionPacket(
             $company,
             $companyId,
             $flowId,
@@ -4488,7 +4473,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_execution_allowed' => false,
                 'attestation_hash' => hash('sha256', 'operating_package_attestation|'.$companyId.'|'.$flowId.'|'.(string) ($operatingPackage['package_hash'] ?? '')),
             ],
-            'managed_agent_execution' => $this->managedAgentExecution(
+            'managed_agent_execution' => $this->builders->managedAgentExecution(
                 $companyId,
                 $flowId,
                 $flowSpec,
@@ -4501,7 +4486,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $eventPlan,
                 $checkpoint,
             ),
-            'enterprise_business_operating_packet' => $this->enterpriseBusinessOperatingPacket(
+            'enterprise_business_operating_packet' => $this->builders->enterpriseBusinessOperatingPacket(
                 $company,
                 $companyId,
                 $flowId,
@@ -4519,7 +4504,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $accountServiceReview,
                 $customerJourney,
             ),
-            'enterprise_artifact' => $this->enterpriseArtifact(
+            'enterprise_artifact' => $this->builders->enterpriseArtifact(
                 $company,
                 $companyId,
                 $flowId,
@@ -5065,7 +5050,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             'blocked_operations' => ['write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security'],
         ];
         $payload['receipt_hash'] = MissionCanonicalHash::sha256($payload);
-        $payload['runtime_record'] = $fixtureMode ? null : $this->persistInternalRuntimeRecord($company, $payload);
+        $payload['runtime_record'] = $fixtureMode ? null : $this->records->persistInternalRuntimeRecord($company, $payload);
 
         return $payload;
     }
@@ -5075,1983 +5060,29 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     private function actionContract(string $companyId, string $action): ?array
     {
-        return $this->actionContractFromCompany($this->buildout->companyPacket($companyId), $action);
+        return EnterpriseFlowFixtureSupport::actionContractFromCompany($this->buildout->companyPacket($companyId), $action);
     }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @return array<string,mixed>|null
-     */
-    private function actionContractFromCompany(array $company, string $action): ?array
-    {
-        foreach ((array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_action_catalog', []) as $contract) {
-            if (($contract['action'] ?? null) === $action) {
-                return (array) $contract;
-            }
-        }
 
-        return null;
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @return array<string,mixed>
-     */
-    private function findByFlow(array $company, string $path, string $flowId): array
-    {
-        foreach ((array) data_get($company, $path, []) as $item) {
-            if (($item['flow_id'] ?? null) === $flowId) {
-                return (array) $item;
-            }
-        }
 
-        return [];
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  list<string>  $connectorIds
-     * @return list<array<string,mixed>>
-     */
-    private function connectorRowsByIds(array $company, string $path, array $connectorIds): array
-    {
-        $wanted = array_values(array_unique(array_filter(array_map('strval', $connectorIds))));
 
-        return array_values(array_filter(
-            array_map(
-                static fn (array $row): array => $row,
-                (array) data_get($company, $path, []),
-            ),
-            static fn (array $row): bool => in_array((string) ($row['connector_id'] ?? ''), $wanted, true),
-        ));
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  list<mixed>  $connectorIds
-     * @return list<array<string,mixed>>
-     */
-    private function verticalConnectorWorkbenches(array $company, array $connectorIds): array
-    {
-        $wanted = array_values(array_map('strval', $connectorIds));
 
-        return array_values(array_filter(
-            array_map(
-                static fn (array $workbench): array => $workbench,
-                (array) data_get($company, 'enterprise_vertical_solution_suite_stack.connector_solution_workbenches', []),
-            ),
-            static fn (array $workbench): bool => in_array((string) ($workbench['connector_id'] ?? ''), $wanted, true),
-        ));
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @return array<string,mixed>
-     */
-    private function artifactFactoryForWorkProduct(array $company, string $workProduct): array
-    {
-        foreach ((array) data_get($company, 'enterprise_vertical_solution_suite_stack.artifact_factory_catalog', []) as $factory) {
-            if (($factory['work_product'] ?? null) === $workProduct) {
-                return (array) $factory;
-            }
-        }
 
-        return [];
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @return array<string,mixed>
-     */
-    private function businessArtifactContractForWorkProduct(array $company, string $workProduct): array
-    {
-        foreach ((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.business_artifact_delivery_contracts', []) as $contract) {
-            if (($contract['work_product'] ?? null) === $workProduct) {
-                return (array) $contract;
-            }
-        }
 
-        return [];
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @return array<string,mixed>
-     */
-    private function qualityContractForWorkProduct(array $company, string $workProduct): array
-    {
-        $aliases = [
-            'architecture_decision_record' => ['architecture', 'decision', 'adr'],
-            'patch_plan' => ['patch', 'plan'],
-            'repair_packet' => ['repair', 'triage', 'failure'],
-            'release_certification' => ['release', 'certification'],
-            'security_review_report' => ['security', 'review'],
-        ];
 
-        foreach ((array) data_get($company, 'deliverable_quality_contracts', []) as $contract) {
-            $contractWorkProduct = (string) ($contract['work_product'] ?? '');
-            if ($contractWorkProduct === $workProduct
-                || ($contractWorkProduct !== '' && str_contains($workProduct, $contractWorkProduct))
-                || ($workProduct !== '' && str_contains($contractWorkProduct, $workProduct))) {
-                return (array) $contract;
-            }
-        }
 
-        foreach ((array) data_get($company, 'deliverable_quality_contracts', []) as $contract) {
-            $contractWorkProduct = (string) ($contract['work_product'] ?? '');
-            foreach ($aliases[$contractWorkProduct] ?? [] as $alias) {
-                if (str_contains($workProduct, $alias)) {
-                    return (array) $contract;
-                }
-            }
-        }
 
-        foreach ((array) data_get($company, 'deliverable_quality_contracts', []) as $contract) {
-            if (count((array) ($contract['required_sections'] ?? [])) >= 7
-                && count((array) ($contract['acceptance_criteria'] ?? [])) >= 5
-                && count((array) ($contract['rejection_criteria'] ?? [])) >= 4) {
-                return (array) $contract;
-            }
-        }
 
-        return [];
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $flowSpec
-     * @param  array<string,mixed>  $businessExecutionCell
-     * @param  array<string,mixed>  $businessKpiBinding
-     * @param  array<string,mixed>  $businessServiceLane
-     * @param  array<string,mixed>  $businessArtifactContract
-     * @param  array<string,mixed>  $deliverySla
-     * @param  array<string,mixed>  $flowCostCenter
-     * @param  array<string,mixed>  $flowUnitEconomics
-     * @param  array<string,mixed>  $capacitySimulation
-     * @param  array<string,mixed>  $accountOnboardingPlan
-     * @param  array<string,mixed>  $accountServiceReview
-     * @param  array<string,mixed>  $customerJourney
-     * @return array<string,mixed>
-     */
-    private function enterpriseBusinessOperatingPacket(
-        array $company,
-        string $companyId,
-        string $flowId,
-        string $artifactType,
-        array $flowSpec,
-        array $businessExecutionCell,
-        array $businessKpiBinding,
-        array $businessServiceLane,
-        array $businessArtifactContract,
-        array $deliverySla,
-        array $flowCostCenter,
-        array $flowUnitEconomics,
-        array $capacitySimulation,
-        array $accountOnboardingPlan,
-        array $accountServiceReview,
-        array $customerJourney,
-    ): array {
-        $kpiRefs = array_values(array_unique(array_filter(array_map(
-            'strval',
-            array_merge(
-                (array) data_get($businessKpiBinding, 'kpi_refs', []),
-                array_slice((array) ($company['metrics'] ?? []), 0, 5),
-            ),
-        ))));
-        $serviceCatalog = array_values((array) data_get($company, 'commercial_operating_stack.service_catalog', []));
-        $pricingLadder = array_values((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', []));
-        $matchedPricing = $this->pricingForWorkProduct($pricingLadder, $artifactType);
 
-        $packet = [
-            'schema' => 'atlas.ai.company.enterprise_business_operating_packet.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'status' => 'business_operating_packet_ready_external_commitments_blocked',
-            'business_model' => [
-                'service_line' => (string) data_get($serviceCatalog, '0.service_id', $companyId.'_enterprise_service'),
-                'artifact_type' => $artifactType,
-                'declared_output' => (string) ($flowSpec['output'] ?? $artifactType),
-                'delivery_contract_hash' => (string) data_get($businessArtifactContract, 'delivery_contract_hash', ''),
-                'external_customer_commitment_allowed' => false,
-                'external_billing_allowed' => false,
-            ],
-            'kpi_contract' => [
-                'kpi_refs' => $kpiRefs,
-                'minimum_kpi_count' => 3,
-                'acceptance_metric' => 'operator_accepted_work_product_with_source_lineage',
-                'external_value_claim_allowed' => false,
-            ],
-            'delivery_lane' => [
-                'service_lane_id' => (string) data_get($businessServiceLane, 'lane_id', ''),
-                'queue' => (string) data_get($businessServiceLane, 'queue', $companyId.'.'.$flowId.'.execution_queue'),
-                'sla_id' => (string) data_get($deliverySla, 'sla_id', data_get($deliverySla, 'flow_id', '')),
-                'sla_class' => (string) data_get($deliverySla, 'sla_class', 'internal_packet_sla'),
-                'review_roles' => array_values((array) data_get($businessServiceLane, 'review_roles', [])),
-                'customer_visible_delivery_allowed' => false,
-            ],
-            'economics' => [
-                'cost_center_id' => (string) data_get($flowCostCenter, 'cost_center_id', data_get($flowCostCenter, 'cost_center', '')),
-                'unit_economics_id' => (string) data_get($flowUnitEconomics, 'unit_id', data_get($flowUnitEconomics, 'flow_id', '')),
-                'capacity_simulation_id' => (string) data_get($capacitySimulation, 'simulation_id', ''),
-                'pricing_ref' => (string) data_get($matchedPricing, 'pricing_id', data_get($matchedPricing, 'work_product', $artifactType)),
-                'margin_or_roi_claim_requires_external_evidence' => true,
-                'real_capital_action_allowed' => false,
-            ],
-            'account_operations' => [
-                'customer_journey_id' => (string) data_get($customerJourney, 'journey_id', data_get($customerJourney, 'flow_id', '')),
-                'onboarding_plan_id' => (string) data_get($accountOnboardingPlan, 'success_plan_id', data_get($accountOnboardingPlan, 'plan_id', '')),
-                'service_review_calendar_id' => (string) data_get($accountServiceReview, 'calendar_id', data_get($accountServiceReview, 'calendar_hash', '')),
-                'revenue_collection_allowed' => false,
-                'renewal_or_upsell_commitment_allowed' => false,
-            ],
-            'operating_controls' => [
-                'source_lineage_required' => true,
-                'tool_receipt_required' => true,
-                'operator_acceptance_required' => true,
-                'second_review_required_for_external_commitment' => true,
-                'rollback_or_compensation_plan_required' => true,
-                'blocked_operations' => ['external_write', 'paid_spend', 'live_trade', 'public_publish', 'customer_commitment', 'vendor_procurement', 'secret_export'],
-            ],
-            'readiness' => [
-                'business_execution_cell_bound' => $businessExecutionCell !== [],
-                'kpi_contract_bound' => count($kpiRefs) >= 3,
-                'delivery_lane_bound' => $businessServiceLane !== [] && $deliverySla !== [],
-                'economics_bound' => $flowCostCenter !== [] && $flowUnitEconomics !== [] && $capacitySimulation !== [],
-                'account_operations_bound' => $customerJourney !== [] && $accountOnboardingPlan !== [] && $accountServiceReview !== [],
-                'external_side_effects_enabled' => false,
-            ],
-            'external_side_effects' => false,
-        ];
-        $packet['business_operating_packet_hash'] = MissionCanonicalHash::sha256($packet);
 
-        return $packet;
-    }
 
-    /**
-     * @param  list<array<string,mixed>>  $pricingLadder
-     * @return array<string,mixed>
-     */
-    private function pricingForWorkProduct(array $pricingLadder, string $artifactType): array
-    {
-        foreach ($pricingLadder as $pricing) {
-            if (($pricing['work_product'] ?? null) === $artifactType) {
-                return (array) $pricing;
-            }
-        }
 
-        return (array) ($pricingLadder[0] ?? []);
-    }
 
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $flowSpec
-     * @param  array<string,mixed>  $contract
-     * @param  array<string,mixed>  $operatingPackage
-     * @param  array<string,mixed>  $domainSolutionPlaybook
-     * @param  array<string,mixed>  $businessExecutionCell
-     * @param  array<string,mixed>  $businessKpiBinding
-     * @param  array<string,mixed>  $businessServiceLane
-     * @param  array<string,mixed>  $deliverySla
-     * @param  array<string,mixed>  $flowUnitEconomics
-     * @param  array<string,mixed>  $semanticFlowEdge
-     * @param  list<mixed>  $runtimePhases
-     * @return array<string,mixed>
-     */
-    private function enterpriseFlowOperationalDossier(
-        array $company,
-        string $companyId,
-        string $flowId,
-        array $flowSpec,
-        array $contract,
-        array $operatingPackage,
-        array $domainSolutionPlaybook,
-        array $businessExecutionCell,
-        array $businessKpiBinding,
-        array $businessServiceLane,
-        array $deliverySla,
-        array $flowUnitEconomics,
-        array $semanticFlowEdge,
-        string $artifactType,
-        array $runtimePhases,
-    ): array {
-        $sourceRefs = array_values(array_map('strval', (array) data_get($domainSolutionPlaybook, 'source_pack.source_refs', [])));
-        $connectorRefs = array_values(array_map('strval', (array) data_get($domainSolutionPlaybook, 'tooling_contract.connector_refs', [])));
-        $evidenceSpine = [
-            'flow_spec:'.(string) ($flowSpec['flow_id'] ?? $flowId),
-            'action_contract:'.(string) ($contract['action'] ?? $flowId),
-            'operating_package:'.(string) ($operatingPackage['package_hash'] ?? ''),
-            'domain_solution_playbook:'.(string) ($domainSolutionPlaybook['playbook_hash'] ?? ''),
-            'business_execution_cell:'.(string) ($businessExecutionCell['cell_hash'] ?? ''),
-            'business_kpi_binding:'.(string) ($businessKpiBinding['binding_hash'] ?? ''),
-            'business_service_lane:'.(string) ($businessServiceLane['lane_hash'] ?? ''),
-            'delivery_sla:'.(string) ($deliverySla['sla_hash'] ?? ''),
-            'unit_economics:'.(string) ($flowUnitEconomics['unit_economics_hash'] ?? ''),
-            'semantic_flow_edge:'.(string) ($semanticFlowEdge['edge_hash'] ?? ''),
-        ];
-
-        foreach ($sourceRefs as $sourceRef) {
-            $evidenceSpine[] = 'domain_source:'.$sourceRef;
-        }
-        foreach ($connectorRefs as $connectorRef) {
-            $evidenceSpine[] = 'connector_scope:'.$connectorRef;
-        }
-
-        $dossier = [
-            'schema' => 'atlas.ai.company.enterprise_flow_operational_dossier.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'artifact_type' => $artifactType,
-            'status' => 'internal_operational_dossier_ready_external_blocked',
-            'owner_agent' => (string) data_get($operatingPackage, 'owner_agent', (string) ($flowSpec['owner_agent'] ?? 'company_operator_agent')),
-            'source_pack' => [
-                'source_refs' => $sourceRefs,
-                'direct_hyperlinks_required' => (bool) data_get($domainSolutionPlaybook, 'source_pack.direct_hyperlinks_required', false),
-                'claim_traceability_required' => (bool) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.claim_traceability_required', false),
-                'cross_source_verification_required' => (bool) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.cross_source_verification_required', false),
-            ],
-            'execution_blueprint' => [
-                'runtime_phases' => array_values(array_map('strval', $runtimePhases)),
-                'execution_nodes' => array_values(array_map('strval', (array) data_get($domainSolutionPlaybook, 'execution_path.nodes', []))),
-                'durable_state_required' => (bool) data_get($domainSolutionPlaybook, 'execution_path.durable_state_required', false),
-                'checkpoint_after_every_node' => (bool) data_get($operatingPackage, 'runtime_cell.checkpoint_after_every_node', true),
-                'idempotency_required' => true,
-            ],
-            'control_plane' => [
-                'required_controls' => [
-                    'policy_gate_before_external_action',
-                    'operator_checkpoint_required',
-                    'second_reviewer_for_external_action',
-                    'source_lineage_required',
-                    'tool_receipt_required',
-                    'rollback_or_compensation_plan_required',
-                    'budget_and_scope_bound_before_external_use',
-                    'redaction_review_for_sensitive_data',
-                ],
-                'review_queue' => (string) data_get($operatingPackage, 'operating_cell.review_queue', $companyId.'_operator_review_queue'),
-                'policy_findings_allowed' => 0,
-                'external_mutation_allowed' => false,
-                'external_delivery_allowed' => false,
-            ],
-            'business_binding' => [
-                'execution_cell_id' => (string) ($businessExecutionCell['cell_id'] ?? ''),
-                'service_lane_id' => (string) ($businessServiceLane['lane_id'] ?? ''),
-                'kpi_refs' => array_values((array) data_get($businessKpiBinding, 'kpi_refs', [])),
-                'sla_id' => (string) ($deliverySla['sla_id'] ?? $deliverySla['flow_id'] ?? ''),
-                'unit_economics_mode' => (string) data_get($flowUnitEconomics, 'mode', 'internal_unit_economics_proxy'),
-            ],
-            'evidence_spine' => array_values(array_unique(array_filter($evidenceSpine))),
-            'decision_packet' => [
-                'decision_use' => 'promote_flow_to_shadow_or_supervised_internal_operation',
-                'operator_checkpoint_required' => true,
-                'required_before_external_promotion' => ['signed_scope', 'credential_probe_green', 'budget_limit', 'rollback_plan', 'second_review'],
-                'external_delivery_allowed' => false,
-                'real_world_autonomy_claim_allowed' => false,
-            ],
-            'promotion_path' => [
-                ['stage' => 'contract_bound', 'required_evidence' => ['operating_package', 'domain_solution_playbook', 'policy_profile'], 'external_side_effects' => false],
-                ['stage' => 'fixture_green', 'required_evidence' => ['canonical_fixture', 'assertion_suite', 'failure_injection'], 'external_side_effects' => false],
-                ['stage' => 'shadow_ready', 'required_evidence' => ['replay_dataset', 'tool_receipts', 'critic_review'], 'external_side_effects' => false],
-                ['stage' => 'supervised_internal', 'required_evidence' => ['operator_checkpoint', 'runbook_drill', 'incident_route'], 'external_side_effects' => false],
-            ],
-            'readiness_scorecard' => [
-                'source_pack_score' => count($sourceRefs) > 0 ? 1.0 : 0.0,
-                'execution_blueprint_score' => count($runtimePhases) > 0 ? 1.0 : 0.0,
-                'control_plane_score' => 1.0,
-                'business_binding_score' => $businessExecutionCell !== [] && $businessKpiBinding !== [] && $businessServiceLane !== [] ? 1.0 : 0.0,
-                'operational_readiness_score' => 1.0,
-            ],
-            'external_side_effects' => false,
-        ];
-        $dossier['dossier_hash'] = MissionCanonicalHash::sha256($dossier);
-
-        return $dossier;
-    }
-
-    /**
-     * @param  array<string,mixed>  $flowSpec
-     * @param  array<string,mixed>  $operatingPackage
-     * @param  list<mixed>  $runtimePhases
-     * @param  list<array<string,mixed>>  $connectorWorkbenches
-     * @return array<string,mixed>
-     */
-    private function managedAgentExecution(
-        string $companyId,
-        string $flowId,
-        array $flowSpec,
-        array $operatingPackage,
-        array $runtimePhases,
-        array $connectorWorkbenches,
-        array $flowToolkitAssignment,
-        array $agentRepositoryEpic,
-        array $stateSchema,
-        array $eventPlan,
-        array $checkpoint,
-    ): array {
-        $ownerAgent = (string) ($operatingPackage['owner_agent'] ?? $flowSpec['owner_agent'] ?? 'company_operator_agent');
-        $supportAgents = array_values(array_map('strval', (array) data_get($operatingPackage, 'operating_cell.support_agents', [])));
-        $nodes = array_values((array) data_get($operatingPackage, 'runtime_cell.runtime_nodes', $runtimePhases));
-        $toolReceipts = array_values(array_map(
-            static fn (array $workbench): array => [
-                'connector_id' => (string) ($workbench['connector_id'] ?? 'unknown'),
-                'workbench_id' => (string) ($workbench['workbench_id'] ?? 'unknown'),
-                'access_mode' => (string) ($workbench['access_mode'] ?? 'internal_fixture'),
-                'receipt_hash' => hash('sha256', 'tool_receipt|'.$companyId.'|'.$flowId.'|'.(string) ($workbench['connector_id'] ?? 'unknown')),
-                'external_side_effects' => false,
-            ],
-            $connectorWorkbenches,
-        ));
-        $subagentRoster = array_values(array_map(
-            static fn (string $agent, int $index): array => [
-                'agent_id' => $agent,
-                'role' => $index === 0 ? 'lead_domain_executor' : 'specialist_subagent',
-                'responsibility' => match ($index % 5) {
-                    0 => 'domain_execution_and_final_packet_assembly',
-                    1 => 'source_lineage_and_connector_context',
-                    2 => 'methodology_or_quality_critic',
-                    3 => 'policy_risk_and_external_action_guardrail',
-                    default => 'handoff_reconciliation_and_learning_update',
-                },
-                'can_call_external_tool' => false,
-                'requires_trace_event' => true,
-            ],
-            array_values(array_unique(array_merge([$ownerAgent], $supportAgents))),
-            array_keys(array_values(array_unique(array_merge([$ownerAgent], $supportAgents)))),
-        ));
-        $connectorExecutionPlane = array_values(array_map(
-            static fn (array $workbench): array => [
-                'connector_id' => (string) ($workbench['connector_id'] ?? 'unknown'),
-                'workbench_id' => (string) ($workbench['workbench_id'] ?? 'unknown'),
-                'mode' => (string) ($workbench['access_mode'] ?? 'internal_fixture'),
-                'allowed_operations' => ['read_fixture', 'read_only_probe', 'export_receipt'],
-                'blocked_operations' => ['write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'admin', 'secret_export'],
-                'receipt_required' => true,
-                'external_side_effects_enabled' => false,
-            ],
-            $connectorWorkbenches,
-        ));
-        $requiredEvents = array_values(array_map('strval', (array) ($eventPlan['required_events'] ?? [])));
-        $stateObjects = array_values(array_map('strval', (array) ($stateSchema['state_objects'] ?? $nodes)));
-        $requiredSkills = array_values(array_unique(array_filter(array_map(
-            'strval',
-            array_merge(
-                (array) data_get($flowToolkitAssignment, 'required_skill_sequence', []),
-                ['source_lineage', 'tool_receipt_export', 'critic_review', 'policy_gate', 'operator_handoff'],
-            ),
-        ))));
-
-        $packet = [
-            'schema' => 'atlas.ai.company.enterprise_managed_agent_execution.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'owner_agent' => $ownerAgent,
-            'support_agents' => $supportAgents,
-            'agent_operating_system' => [
-                'schema' => 'atlas.ai.company.enterprise_agent_operating_system_packet.v1',
-                'pattern_refs' => [
-                    'skills_connectors_subagents',
-                    'tools_handoffs_guardrails_tracing_sessions',
-                    'durable_state_human_interrupts',
-                    'role_task_flow_orchestration',
-                ],
-                'primary_framework_ref' => (string) ($agentRepositoryEpic['primary_framework_ref'] ?? 'atlas_native_agent_runtime'),
-                'assigned_toolkit' => (string) ($flowToolkitAssignment['assigned_toolkit'] ?? 'atlas_enterprise_toolkit'),
-                'skill_pack' => [
-                    'required_skills' => $requiredSkills,
-                    'minimum_skill_count' => 5,
-                    'skill_inputs_are_schema_bound' => true,
-                    'skill_outputs_require_receipt_hash' => true,
-                ],
-                'subagent_roster' => $subagentRoster,
-                'connector_execution_plane' => $connectorExecutionPlane,
-                'session_memory' => [
-                    'durable_state_required' => (bool) ($stateSchema['state_hash_required'] ?? true),
-                    'state_objects' => $stateObjects,
-                    'resume_token_required' => true,
-                    'idempotency_key_required' => true,
-                    'raw_secret_or_sensitive_payload_memory_allowed' => false,
-                ],
-                'guardrail_stack' => [
-                    'input_schema_validation' => true,
-                    'source_lineage_required' => true,
-                    'policy_gate_before_tool_use' => in_array('policy_checked', $requiredEvents, true),
-                    'external_side_effect_guardrail' => true,
-                    'output_claim_review' => true,
-                    'human_checkpoint_required_for_external_action' => (bool) ($checkpoint['auto_approval_allowed'] ?? true) === false,
-                ],
-                'handoff_graph' => [
-                    'required_events' => $requiredEvents,
-                    'handoff_targets' => array_values(array_map('strval', (array) ($flowSpec['handoffs'] ?? []))),
-                    'handoff_packet_requires_source_lineage' => true,
-                    'handoff_packet_requires_tool_receipts' => true,
-                    'external_handoff_is_packet_only' => true,
-                ],
-                'evaluation_harness' => [
-                    'fixture_replay_required' => true,
-                    'adversarial_cases_required' => true,
-                    'policy_findings_allowed' => 0,
-                    'minimum_source_faithfulness_score' => 0.95,
-                    'minimum_domain_correctness_score' => 0.9,
-                    'promotion_without_green_eval_allowed' => false,
-                ],
-                'external_execution_allowed' => false,
-                'external_side_effects_enabled' => false,
-            ],
-            'runtime_nodes_completed' => $nodes,
-            'checkpoint_after_every_node' => (bool) data_get($operatingPackage, 'runtime_cell.checkpoint_after_every_node', true),
-            'idempotency_key' => hash('sha256', 'idempotency|'.$companyId.'|'.$flowId),
-            'state_hash' => hash('sha256', 'state|'.$companyId.'|'.$flowId.'|'.implode('|', array_map('strval', $nodes))),
-            'tool_receipts' => $toolReceipts,
-            'policy_events' => ['policy_checked', 'external_side_effects_blocked', 'operator_checkpoint_required'],
-            'handoff_events' => array_values((array) data_get($flowSpec, 'handoffs', [])),
-            'external_side_effects' => false,
-        ];
-        $packet['agent_operating_system']['agent_os_hash'] = MissionCanonicalHash::sha256($packet['agent_operating_system']);
-
-        return $packet;
-    }
-
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $contract
-     * @param  array<string,mixed>  $operatingPackage
-     * @param  array<string,mixed>  $operationalDossier
-     * @param  array<string,mixed>  $promotionEvidence
-     * @param  array<string,mixed>  $flowConnectorCutover
-     * @param  array<string,mixed>  $externalResearchFlowMatrix
-     * @param  array<string,mixed>  $businessExecutionCell
-     * @param  array<string,mixed>  $businessKpiBinding
-     * @param  array<string,mixed>  $flowUnitEconomics
-     * @param  array<string,mixed>  $deliverySla
-     * @return array<string,mixed>
-     */
-    private function enterpriseAutonomyPromotionPacket(
-        array $company,
-        string $companyId,
-        string $flowId,
-        array $contract,
-        array $operatingPackage,
-        array $operationalDossier,
-        array $promotionEvidence,
-        array $flowConnectorCutover,
-        array $externalResearchFlowMatrix,
-        array $businessExecutionCell,
-        array $businessKpiBinding,
-        array $flowUnitEconomics,
-        array $deliverySla,
-    ): array {
-        $promotionGates = (array) data_get($operatingPackage, 'promotion_gates', []);
-        $connectorScope = array_values(array_map('strval', (array) ($flowConnectorCutover['connector_scope'] ?? [])));
-        $kpiRefs = array_values(array_map('strval', (array) ($businessKpiBinding['kpi_refs'] ?? [])));
-        $runtimePhases = array_values(array_map('strval', (array) ($contract['runtime_phases'] ?? [])));
-        $handlerContract = $contract['handler_contract'] ?? '';
-        $handlerContractRef = is_array($handlerContract)
-            ? MissionCanonicalHash::sha256($handlerContract)
-            : (string) $handlerContract;
-
-        $evidenceSpine = array_values(array_filter([
-            'flow_contract:'.(string) ($contract['flow_id'] ?? $flowId),
-            'handler_contract:'.$handlerContractRef,
-            'operating_package:'.(string) ($operatingPackage['package_id'] ?? ''),
-            'operational_dossier:'.(string) ($operationalDossier['dossier_hash'] ?? ''),
-            'decision_packet:'.(string) data_get($operationalDossier, 'decision_packet.decision_id', 'operator_review_required'),
-            'promotion_path:'.count((array) ($operationalDossier['promotion_path'] ?? [])),
-            'replay_dataset:'.(string) data_get($operatingPackage, 'quality_replay_cell.dataset_id', ''),
-            'minimum_shadow_cases:'.(string) data_get($operatingPackage, 'quality_replay_cell.minimum_cases_before_shadow', '0'),
-            'external_research_matrix:'.(string) ($externalResearchFlowMatrix['matrix_hash'] ?? ''),
-            'business_execution_cell:'.(string) ($businessExecutionCell['cell_id'] ?? ''),
-            'kpi_binding:'.(string) ($businessKpiBinding['binding_hash'] ?? ''),
-            'unit_economics:'.(string) ($flowUnitEconomics['unit_economics_hash'] ?? $flowUnitEconomics['unit_id'] ?? ''),
-            'delivery_sla:'.(string) ($deliverySla['sla_id'] ?? $deliverySla['flow_id'] ?? ''),
-            'connector_cutover:'.(string) ($flowConnectorCutover['cutover_hash'] ?? $flowConnectorCutover['flow_id'] ?? ''),
-            'rollback_drill:'.(string) ($promotionEvidence['rollback_drill_ref'] ?? 'rollback_drill_required'),
-            'acceptance_packet:operator_and_domain_owner_required',
-        ]));
-
-        $limitedAutonomyBlockers = [
-            'operator_and_second_reviewer_signed_mandate_missing',
-            'credential_vault_binding_per_connector_not_attached_to_runtime',
-            'external_worker_dispatch_disabled',
-            'budget_cap_signature_missing',
-            'loss_cap_signature_missing',
-            'legal_or_risk_scope_acceptance_missing',
-            'post_execution_reconciliation_adapter_not_proven_live',
-            'customer_or_counterparty_acceptance_loop_not_live',
-            'production_incident_owner_not_signed_for_autonomous_mode',
-        ];
-
-        $packet = [
-            'schema' => 'atlas.ai.company.enterprise_autonomy_promotion_packet.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'current_allowed_level' => 'A3_supervised_external_packet_ready',
-            'next_promotion_target' => 'A4_limited_external_autonomy_after_signed_scope_live_credentials_worker_and_reconciliation',
-            'autonomy_ladder' => [
-                [
-                    'level' => 'A0_fixture',
-                    'description' => 'schema_bound_fixture_and_failure_cases_only',
-                    'external_side_effects_allowed' => false,
-                ],
-                [
-                    'level' => 'A1_internal_shadow',
-                    'description' => 'internal_replay_shadow_with_realistic_artifacts_and_no_external_mutation',
-                    'external_side_effects_allowed' => false,
-                ],
-                [
-                    'level' => 'A2_supervised_internal',
-                    'description' => 'operator_reviewed_internal_run_with_receipts_rollbacks_and_kpi_proxy',
-                    'external_side_effects_allowed' => false,
-                ],
-                [
-                    'level' => 'A3_supervised_external_packet',
-                    'description' => 'external_execution_packet_ready_for_manual_or_supervised_handoff',
-                    'external_side_effects_allowed' => false,
-                ],
-                [
-                    'level' => 'A4_limited_external_autonomy',
-                    'description' => 'narrow_external_autonomy_after_signed_scope_live_credentials_budget_loss_caps_and_reconciliation',
-                    'external_side_effects_allowed' => false,
-                    'blocked_until' => $limitedAutonomyBlockers,
-                ],
-            ],
-            'stage_readiness' => [
-                'fixture_internal' => [
-                    'ready' => true,
-                    'required_evidence' => ['canonical_fixture', 'expected_trace', 'assertion_suite', 'failure_injection'],
-                    'external_side_effects' => false,
-                ],
-                'shadow_internal' => [
-                    'ready' => (int) data_get($operatingPackage, 'quality_replay_cell.minimum_cases_before_shadow', 0) >= 25,
-                    'required_evidence' => array_values((array) ($promotionGates['shadow_ready'] ?? [])),
-                    'external_side_effects' => false,
-                ],
-                'supervised_internal' => [
-                    'ready' => (bool) data_get($operationalDossier, 'decision_packet.operator_checkpoint_required', false)
-                        && (bool) data_get($operationalDossier, 'decision_packet.external_delivery_allowed', true) === false
-                        && count((array) ($operationalDossier['promotion_path'] ?? [])) >= 4,
-                    'required_evidence' => array_values((array) ($promotionGates['supervised_ready'] ?? [])),
-                    'runtime_phases' => $runtimePhases,
-                    'external_side_effects' => false,
-                ],
-                'supervised_external_packet' => [
-                    'ready' => $flowConnectorCutover !== []
-                        && count($connectorScope) > 0
-                        && (bool) ($flowConnectorCutover['auto_execute_allowed'] ?? true) === false
-                        && (bool) ($flowConnectorCutover['external_side_effects_enabled'] ?? true) === false,
-                    'connector_scope' => $connectorScope,
-                    'required_evidence' => [
-                        'production_connector_preflight_contract',
-                        'vault_scope_attestation_placeholder',
-                        'sandbox_probe_receipt',
-                        'operator_acceptance_packet',
-                        'rollback_drill',
-                        'manual_handoff_owner',
-                    ],
-                    'external_side_effects' => false,
-                ],
-                'limited_external_autonomy' => [
-                    'ready' => false,
-                    'blockers' => $limitedAutonomyBlockers,
-                    'external_side_effects' => false,
-                ],
-            ],
-            'promotion_evidence_spine' => $evidenceSpine,
-            'autonomy_budget_and_loss_cap' => [
-                'kpi_refs' => $kpiRefs,
-                'unit_economics_id' => (string) ($flowUnitEconomics['unit_id'] ?? $flowUnitEconomics['flow_id'] ?? ''),
-                'budget_cap_signature_required' => true,
-                'loss_cap_signature_required' => true,
-                'real_capital_action_allowed_without_signature' => false,
-                'trade_spend_publish_deploy_delete_allowed_without_signature' => false,
-            ],
-            'rollback_and_reconciliation' => [
-                'rollback_drill_required' => true,
-                'rollback_drill_ref' => (string) ($promotionEvidence['rollback_drill_ref'] ?? 'rollback_drill_required'),
-                'post_execution_reconciliation_required' => true,
-                'compensation_plan_required_for_external_action' => true,
-                'incident_owner_required_before_autonomous_mode' => true,
-            ],
-            'promotion_policy' => [
-                'calendar_wait_blocker_enabled' => false,
-                'external_autonomous_execution_allowed' => false,
-                'operator_mandate_required_for_external_autonomy' => true,
-                'second_reviewer_required_for_external_autonomy' => true,
-                'live_credentials_in_packet_allowed' => false,
-                'autonomy_claim_without_external_evidence_allowed' => false,
-                'offensive_security_or_unbounded_financial_action_allowed' => false,
-            ],
-        ];
-        $packet['autonomy_promotion_hash'] = MissionCanonicalHash::sha256($packet);
-
-        return $packet;
-    }
-
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $flowSpec
-     * @param  array<string,mixed>  $operatingPackage
-     * @param  list<mixed>  $requiredSections
-     * @return array<string,mixed>
-     */
-    private function enterpriseArtifact(
-        array $company,
-        string $companyId,
-        string $flowId,
-        string $artifactType,
-        array $requiredSections,
-        array $flowSpec,
-        array $operatingPackage,
-        array $verticalSolutionKit,
-        array $verticalConnectorWorkbenches,
-        array $artifactFactory,
-        array $businessExecutionCell,
-        array $businessKpiBinding,
-        array $businessServiceLane,
-        array $businessArtifactContract,
-    ): array {
-        $packageId = (string) data_get($operatingPackage, 'package_id', '');
-        $packageHash = (string) data_get($operatingPackage, 'package_hash', '');
-        $verticalKitId = (string) data_get($verticalSolutionKit, 'kit_id', '');
-        $verticalKitHash = (string) data_get($verticalSolutionKit, 'kit_hash', '');
-        $artifactFactoryId = (string) data_get($artifactFactory, 'factory_id', '');
-        $artifactFactoryHash = (string) data_get($artifactFactory, 'factory_hash', '');
-        $businessExecutionCellId = (string) data_get($businessExecutionCell, 'cell_id', '');
-        $businessExecutionCellHash = (string) data_get($businessExecutionCell, 'cell_hash', '');
-        $businessServiceLaneId = (string) data_get($businessServiceLane, 'lane_id', '');
-        $businessServiceLaneHash = (string) data_get($businessServiceLane, 'lane_hash', '');
-        $businessArtifactContractHash = (string) data_get($businessArtifactContract, 'delivery_contract_hash', '');
-        $ownerAgent = (string) ($operatingPackage['owner_agent'] ?? $flowSpec['owner_agent'] ?? 'company_operator_agent');
-        $connectorWorkbenches = array_values((array) data_get($operatingPackage, 'tool_and_data_cell.connector_workbenches', []));
-        $connectorIds = array_values(array_map(
-            static fn (array $workbench): string => (string) ($workbench['connector_id'] ?? 'unknown'),
-            $connectorWorkbenches,
-        ));
-        $datasetId = (string) data_get($operatingPackage, 'quality_replay_cell.dataset_id', '');
-        $minimumScores = (array) data_get($operatingPackage, 'quality_replay_cell.minimum_scores', []);
-        $promotionGates = (array) data_get($operatingPackage, 'promotion_gates', []);
-        $incidentRoute = array_values((array) data_get($operatingPackage, 'operations_cell.incident_route', []));
-        $requiredSections = array_values(array_map('strval', $requiredSections));
-        $domainExecutionBrief = $this->domainExecutionBrief(
-            $company,
-            $companyId,
-            $flowId,
-            $artifactType,
-            $flowSpec,
-            $verticalSolutionKit,
-            $verticalConnectorWorkbenches,
-        );
-
-        $sourceLineage = [
-            'flow_spec_ref' => (string) ($flowSpec['flow_id'] ?? $flowId),
-            'operating_package_id' => $packageId,
-            'operating_package_hash' => $packageHash,
-            'vertical_solution_kit_id' => $verticalKitId,
-            'vertical_solution_kit_hash' => $verticalKitHash,
-            'vertical_suite_refs' => array_values((array) data_get($verticalSolutionKit, 'suite_refs', [])),
-            'vertical_artifact_factory_id' => $artifactFactoryId,
-            'vertical_artifact_factory_hash' => $artifactFactoryHash,
-            'business_execution_cell_id' => $businessExecutionCellId,
-            'business_execution_cell_hash' => $businessExecutionCellHash,
-            'business_execution_mode' => (string) data_get($businessExecutionCell, 'execution_mode', ''),
-            'business_kpi_refs' => array_values((array) data_get($businessKpiBinding, 'kpi_refs', [])),
-            'business_kpi_binding_hash' => (string) data_get($businessKpiBinding, 'binding_hash', ''),
-            'business_service_lane_id' => $businessServiceLaneId,
-            'business_service_lane_hash' => $businessServiceLaneHash,
-            'business_artifact_delivery_contract_hash' => $businessArtifactContractHash,
-            'owner_agent' => $ownerAgent,
-            'support_agents' => array_values((array) data_get($operatingPackage, 'operating_cell.support_agents', [])),
-            'dataset_id' => $datasetId,
-            'connector_ids' => $connectorIds,
-            'vertical_connector_workbench_ids' => array_values(array_map(
-                static fn (array $workbench): string => (string) ($workbench['workbench_id'] ?? 'unknown_workbench'),
-                $verticalConnectorWorkbenches,
-            )),
-            'tool_receipt_refs' => array_values(array_map(
-                static fn (string $connectorId): string => 'tool_receipt:'.$connectorId,
-                $connectorIds,
-            )),
-            'data_boundary' => (string) data_get(
-                $operatingPackage,
-                'tool_and_data_cell.data_boundary',
-                'company_scoped_redacted_context_with_source_lineage',
-            ),
-        ];
-
-        $qualitySignals = [
-            'schema_bound' => true,
-            'required_sections_present' => true,
-            'source_lineage_present' => true,
-            'tool_receipt_coverage' => count($connectorIds) > 0 ? 1.0 : 0.0,
-            'vertical_solution_kit_present' => $verticalSolutionKit !== [],
-            'artifact_factory_present' => $artifactFactory !== [],
-            'vertical_connector_workbench_coverage' => count($connectorIds) > 0 ? round(count($verticalConnectorWorkbenches) / count($connectorIds), 4) : 0.0,
-            'business_execution_cell_present' => $businessExecutionCell !== [],
-            'business_kpi_binding_present' => $businessKpiBinding !== [],
-            'business_service_lane_present' => $businessServiceLane !== [],
-            'business_artifact_contract_present' => $businessArtifactContract !== [],
-            'domain_execution_brief_present' => true,
-            'minimum_offline_eval_score' => (float) ($minimumScores['offline_eval'] ?? 0.9),
-            'minimum_source_faithfulness_score' => (float) ($minimumScores['source_faithfulness'] ?? 0.94),
-            'policy_compliance_floor' => (float) ($minimumScores['policy_compliance'] ?? 1.0),
-            'external_side_effects' => false,
-        ];
-
-        $riskRegister = [
-            [
-                'risk_id' => $companyId.'.'.$flowId.'.source_drift',
-                'severity' => 'medium',
-                'control' => 'source_lineage_and_replay_dataset_must_be_refreshed_before_external_use',
-                'owner' => $ownerAgent,
-            ],
-            [
-                'risk_id' => $companyId.'.'.$flowId.'.external_mutation',
-                'severity' => 'high',
-                'control' => 'operator_signed_mandate_required_before_write_publish_spend_trade_deploy_delete_or_security_action',
-                'owner' => 'policy_gate_agent',
-            ],
-            [
-                'risk_id' => $companyId.'.'.$flowId.'.connector_scope_expansion',
-                'severity' => 'medium',
-                'control' => 'connector_scope_must_match_certified_workbench_and_emit_tool_receipt',
-                'owner' => 'operations_coordinator_agent',
-            ],
-        ];
-
-        $decisionPacket = [
-            'decision_use' => 'operator_review_shadow_candidate_or_internal_supervised_run',
-            'recommended_mode' => 'internal_shadow_or_supervised_after_operator_review',
-            'external_delivery_allowed' => false,
-            'requires_operator_checkpoint' => true,
-            'rollback_or_manual_fallback_required' => (bool) data_get(
-                $operatingPackage,
-                'operations_cell.rollback_or_compensation_plan_required',
-                true,
-            ),
-            'incident_route' => $incidentRoute,
-        ];
-        $operationalOutcomeLedger = $this->operationalOutcomeLedger(
-            $companyId,
-            $flowId,
-            $artifactType,
-            $businessExecutionCell,
-            $businessKpiBinding,
-            $businessServiceLane,
-            $businessArtifactContract,
-            $domainExecutionBrief,
-        );
-
-        $nextActions = [
-            [
-                'action_id' => 'operator_review',
-                'owner' => 'operator',
-                'evidence_required' => ['artifact_sections_present', 'source_lineage_present', 'risk_register_reviewed'],
-                'external_side_effects' => false,
-            ],
-            [
-                'action_id' => 'shadow_run',
-                'owner' => $ownerAgent,
-                'evidence_required' => array_values((array) ($promotionGates['shadow_ready'] ?? [])),
-                'external_side_effects' => false,
-            ],
-            [
-                'action_id' => 'supervised_internal_run',
-                'owner' => 'portfolio_governor',
-                'evidence_required' => array_values((array) ($promotionGates['supervised_ready'] ?? [])),
-                'external_side_effects' => false,
-            ],
-        ];
-
-        $sections = [];
-        foreach ($requiredSections as $section) {
-            $sectionId = (string) $section;
-            $sectionTitle = ucwords(str_replace('_', ' ', $sectionId));
-            $sections[$sectionId] = [
-                'title' => $sectionTitle,
-                'status' => 'present',
-                'content' => $this->artifactSectionContent(
-                    $sectionId,
-                    $companyId,
-                    $flowId,
-                    $artifactType,
-                    $ownerAgent,
-                    $connectorIds,
-                    $datasetId,
-                    $promotionGates,
-                ),
-                'source_refs' => [
-                    (string) ($flowSpec['flow_id'] ?? $flowId),
-                    $packageId,
-                ],
-                'source_lineage' => $sourceLineage,
-                'evidence_refs' => [
-                    'operating_package:'.$packageId,
-                    'vertical_solution_kit:'.$verticalKitId,
-                    'vertical_artifact_factory:'.$artifactFactoryId,
-                    'business_execution_cell:'.$businessExecutionCellId,
-                    'business_service_lane:'.$businessServiceLaneId,
-                    'business_artifact_contract:'.(string) data_get($businessArtifactContract, 'work_product', ''),
-                    'replay_dataset:'.$datasetId,
-                    'flow_spec:'.$flowId,
-                    'domain_execution_brief:'.(string) $domainExecutionBrief['brief_hash'],
-                ],
-                'risk_notes' => array_values(array_map(
-                    static fn (array $risk): string => (string) ($risk['risk_id'] ?? ''),
-                    $riskRegister,
-                )),
-                'decision_use' => (string) $decisionPacket['decision_use'],
-                'quality_signals' => $qualitySignals,
-                'section_hash' => hash('sha256', 'artifact_section|'.$companyId.'|'.$flowId.'|'.$sectionId.'|'.$packageHash),
-            ];
-        }
-
-        $artifact = [
-            'schema' => 'atlas.ai.company.enterprise_flow_artifact.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'artifact_type' => $artifactType,
-            'status' => 'draft_ready_for_operator_review',
-            'required_section_count' => count($requiredSections),
-            'sections' => $sections,
-            'source_lineage' => $sourceLineage,
-            'domain_execution_brief' => $domainExecutionBrief,
-            'operational_outcome_ledger' => $operationalOutcomeLedger,
-            'quality_signals' => $qualitySignals,
-            'risk_register' => $riskRegister,
-            'decision_packet' => $decisionPacket,
-            'operator_review_packet' => [
-                'schema' => 'atlas.ai.company.enterprise_flow_operator_review_packet.v1',
-                'review_queue' => (string) data_get($operatingPackage, 'operating_cell.review_queue', $companyId.'_operator_review_queue'),
-                'required_review_fields' => ['decision', 'risk_acceptance', 'source_lineage_check', 'rollback_plan', 'receipt_hash'],
-                'second_reviewer_required_for_external_action' => true,
-                'auto_approval_allowed' => false,
-                'external_delivery_allowed' => false,
-            ],
-            'next_actions' => $nextActions,
-            'recommendation' => 'operator_review_then_shadow_or_supervised_internal_run_with_no_external_side_effects',
-            'external_delivery_allowed' => false,
-        ];
-        $artifact['artifact_hash'] = MissionCanonicalHash::sha256($artifact);
-
-        return $artifact;
-    }
-
-    /**
-     * @param  array<string,mixed>  $businessExecutionCell
-     * @param  array<string,mixed>  $businessKpiBinding
-     * @param  array<string,mixed>  $businessServiceLane
-     * @param  array<string,mixed>  $businessArtifactContract
-     * @param  array<string,mixed>  $domainExecutionBrief
-     * @return array<string,mixed>
-     */
-    private function operationalOutcomeLedger(
-        string $companyId,
-        string $flowId,
-        string $artifactType,
-        array $businessExecutionCell,
-        array $businessKpiBinding,
-        array $businessServiceLane,
-        array $businessArtifactContract,
-        array $domainExecutionBrief,
-    ): array {
-        $kpis = array_values(array_map('strval', (array) data_get($businessKpiBinding, 'kpi_refs', [])));
-        $ledger = [
-            'schema' => 'atlas.ai.company.enterprise_operational_outcome_ledger.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'artifact_type' => $artifactType,
-            'status' => 'internal_outcome_measured_external_claim_blocked',
-            'execution_cell_id' => (string) data_get($businessExecutionCell, 'cell_id', ''),
-            'service_lane_id' => (string) data_get($businessServiceLane, 'lane_id', ''),
-            'artifact_contract_hash' => (string) data_get($businessArtifactContract, 'delivery_contract_hash', ''),
-            'measured_kpis' => array_values(array_map(
-                static fn (string $kpi, int $index): array => [
-                    'kpi_id' => $kpi,
-                    'measurement_mode' => 'internal_runtime_proxy_until_external_evidence',
-                    'baseline' => 0.0,
-                    'observed' => 1.0,
-                    'target' => 1.0,
-                    'confidence' => round(0.9 + min($index, 4) * 0.01, 2),
-                    'external_evidence_required_for_real_world_claim' => true,
-                ],
-                $kpis,
-                array_keys($kpis),
-            )),
-            'value_proxy' => [
-                'mode' => 'operator_accepted_work_product_proxy',
-                'value_unit' => 'internal_operational_readiness_and_accepted_artifact_proxy',
-                'proxy_score' => 1.0,
-                'accepted_work_product_present' => true,
-                'decision_packet_present' => true,
-                'source_lineage_present' => true,
-                'policy_gate_green' => true,
-                'external_value_claim_allowed' => false,
-            ],
-            'outcome_acceptance_contract' => [
-                'acceptance_status' => 'internal_acceptance_packet_ready_requires_operator_for_external_claim',
-                'acceptance_metric' => 'operator_accepted_work_product_with_source_lineage',
-                'required_evidence' => ['accepted_work_product', 'decision_packet', 'source_lineage', 'policy_gate', 'risk_review'],
-                'operator_acceptance_required_for_external_claim' => true,
-                'auto_accept_allowed' => false,
-            ],
-            'risk_adjusted_scorecard' => [
-                'risk_status' => 'controlled_internal_proxy_external_claim_blocked',
-                'risk_score' => 0.1,
-                'delivery_risk_review_required' => true,
-                'policy_exception_count' => 0,
-                'external_commitment_risk_blocked' => true,
-            ],
-            'next_cycle' => [
-                'cycle_state' => 'ready_for_operator_review_shadow_or_supervised_internal_run',
-                'promotion_candidate_mode' => 'internal_shadow_or_supervised_only',
-                'next_actions' => ['operator_review', 'shadow_run', 'supervised_internal_run'],
-                'blocked_external_actions' => ['publish', 'spend', 'trade', 'deploy', 'delete', 'external_customer_commitment', 'external_revenue_claim'],
-            ],
-            'acceptance_evidence' => [
-                'domain_execution_brief_hash' => (string) ($domainExecutionBrief['brief_hash'] ?? ''),
-                'business_cell_hash' => (string) data_get($businessExecutionCell, 'cell_hash', ''),
-                'kpi_binding_hash' => (string) data_get($businessKpiBinding, 'binding_hash', ''),
-                'service_lane_hash' => (string) data_get($businessServiceLane, 'lane_hash', ''),
-            ],
-            'evidence_refs' => [
-                'domain_execution_brief:'.(string) ($domainExecutionBrief['brief_hash'] ?? ''),
-                'business_cell:'.(string) data_get($businessExecutionCell, 'cell_hash', ''),
-                'kpi_binding:'.(string) data_get($businessKpiBinding, 'binding_hash', ''),
-                'service_lane:'.(string) data_get($businessServiceLane, 'lane_hash', ''),
-                'artifact_contract:'.(string) data_get($businessArtifactContract, 'delivery_contract_hash', ''),
-            ],
-            'external_side_effects' => false,
-        ];
-        $ledger['outcome_ledger_hash'] = MissionCanonicalHash::sha256($ledger);
-
-        return $ledger;
-    }
-
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $flowSpec
-     * @param  array<string,mixed>  $verticalSolutionKit
-     * @param  list<array<string,mixed>>  $verticalConnectorWorkbenches
-     * @return array<string,mixed>
-     */
-    private function domainExecutionBrief(
-        array $company,
-        string $companyId,
-        string $flowId,
-        string $artifactType,
-        array $flowSpec,
-        array $verticalSolutionKit,
-        array $verticalConnectorWorkbenches,
-    ): array {
-        $domainPlay = $this->domainPlaybookForCompany($companyId);
-        $metrics = array_values(array_map('strval', (array) ($company['metrics'] ?? [])));
-        $workProducts = array_values(array_map('strval', (array) ($company['work_products'] ?? [])));
-        $connectorIds = array_values(array_map(
-            static fn (array $workbench): string => (string) ($workbench['connector_id'] ?? 'unknown_connector'),
-            $verticalConnectorWorkbenches,
-        ));
-
-        $brief = [
-            'schema' => 'atlas.ai.company.enterprise_domain_execution_brief.v1',
-            'company_id' => $companyId,
-            'flow_id' => $flowId,
-            'artifact_type' => $artifactType,
-            'enterprise_play' => (string) $domainPlay['enterprise_play'],
-            'domain_decision_lenses' => array_values((array) $domainPlay['decision_lenses']),
-            'specialized_workflow' => array_values((array) $domainPlay['workflow']),
-            'required_domain_checks' => array_values((array) $domainPlay['checks']),
-            'operator_questions' => array_values((array) $domainPlay['operator_questions']),
-            'flow_specific_outputs' => [
-                'declared_output' => (string) ($flowSpec['output'] ?? $artifactType),
-                'vertical_work_product' => (string) data_get($verticalSolutionKit, 'work_product', $artifactType),
-                'suite_refs' => array_values((array) data_get($verticalSolutionKit, 'suite_refs', [])),
-                'connector_workbenches' => $connectorIds,
-                'primary_metrics' => array_slice($metrics, 0, 5),
-                'adjacent_work_products' => array_slice($workProducts, 0, 5),
-            ],
-            'acceptance_model' => [
-                'must_be_source_lineaged' => true,
-                'must_bind_vertical_solution_kit' => true,
-                'must_bind_artifact_factory' => true,
-                'must_emit_tool_receipts' => true,
-                'must_pass_domain_specific_checks' => true,
-                'external_side_effects_allowed' => false,
-            ],
-            'handoff_contract' => [
-                'audience' => 'operator_or_company_command_center',
-                'decision_mode' => 'internal_review_shadow_or_supervised_execution',
-                'external_action_requires_signed_scope_budget_rollback_and_second_review' => true,
-            ],
-        ];
-        $brief['brief_hash'] = MissionCanonicalHash::sha256($brief);
-
-        return $brief;
-    }
-
-    /**
-     * @return array{enterprise_play:string,decision_lenses:list<string>,workflow:list<string>,checks:list<string>,operator_questions:list<string>}
-     */
-    private function domainPlaybookForCompany(string $companyId): array
-    {
-        return match ($companyId) {
-            'software' => [
-                'enterprise_play' => 'repo_grounded_delivery_with_patch_review_repair_and_release_evidence',
-                'decision_lenses' => ['architecture_fit', 'dependency_blast_radius', 'test_signal', 'security_regression', 'rollback_path'],
-                'workflow' => ['load_repo_context', 'map_symbols_and_tests', 'plan_patch', 'apply_minimal_change', 'run_targeted_tests', 'prepare_release_packet'],
-                'checks' => ['owner_boundary_respected', 'tests_bound_to_change', 'security_review_complete', 'no_unrelated_refactor', 'release_receipt_ready'],
-                'operator_questions' => ['Is this patch inside the requested scope?', 'Which tests prove the behavior?', 'What rollback path exists?'],
-            ],
-            'research' => [
-                'enterprise_play' => 'primary_source_research_with_claim_attribution_contradiction_review_and_update_cadence',
-                'decision_lenses' => ['source_authority', 'recency', 'contradiction', 'methodology_quality', 'decision_relevance'],
-                'workflow' => ['define_claims', 'collect_primary_sources', 'rank_source_quality', 'map_contradictions', 'synthesize_findings', 'export_citation_packet'],
-                'checks' => ['primary_sources_present', 'quotes_within_policy', 'contradictions_disclosed', 'staleness_flagged', 'citation_graph_bound'],
-                'operator_questions' => ['Which claims are directly sourced?', 'What changed recently?', 'Where is evidence weak?'],
-            ],
-            'strategy' => [
-                'enterprise_play' => 'venture_strategy_operating_room_with_market_map_experiment_allocator_and_board_dossier',
-                'decision_lenses' => ['market_timing', 'competitive_moat', 'distribution_edge', 'capital_efficiency', 'option_value'],
-                'workflow' => ['frame_thesis', 'map_market_segments', 'score_rivals', 'design_experiments', 'rank_capital_options', 'draft_board_decision'],
-                'checks' => ['assumptions_explicit', 'experiment_success_metric_bound', 'rival_response_modeled', 'capital_commitment_blocked', 'board_packet_ready'],
-                'operator_questions' => ['Which assumption kills the thesis?', 'What is the cheapest learning loop?', 'What decision is needed now?'],
-            ],
-            'finance' => [
-                'enterprise_play' => 'financial_services_analyst_terminal_with_research_modeling_compliance_and_investment_committee_controls',
-                'decision_lenses' => ['filing_evidence', 'valuation_sensitivity', 'portfolio_exposure', 'compliance_obligation', 'trade_execution_block'],
-                'workflow' => ['bind_market_and_filing_sources', 'normalize_kpis', 'model_assumptions_and_scenarios', 'review_risk_and_compliance', 'draft_ic_memo', 'block_trade_until_signed_mandate'],
-                'checks' => ['filing_or_market_source_attached', 'assumptions_auditable', 'sensitivity_table_present', 'compliance_gap_reviewed', 'no_live_trade_or_advice_execution'],
-                'operator_questions' => ['Which source changed the thesis?', 'What assumptions drive valuation?', 'What approval is required before any execution?'],
-            ],
-            'marketing' => [
-                'enterprise_play' => 'growth_operating_system_with_icp_positioning_campaign_factory_and_experiment_measurement',
-                'decision_lenses' => ['icp_fit', 'message_evidence', 'channel_economics', 'brand_risk', 'conversion_learning'],
-                'workflow' => ['define_icp', 'map_funnel_baseline', 'draft_positioning', 'produce_campaign_variants', 'plan_experiment', 'prepare_send_or_publish_approval'],
-                'checks' => ['claims_supported', 'brand_voice_reviewed', 'audience_scope_clear', 'paid_spend_blocked', 'external_send_or_publish_blocked'],
-                'operator_questions' => ['Who is the exact audience?', 'Which proof supports the claim?', 'What metric decides the experiment?'],
-            ],
-            'cyber' => [
-                'enterprise_play' => 'authorized_security_operations_with_scope_roe_evidence_and_remediation_program_controls',
-                'decision_lenses' => ['authorized_scope', 'asset_criticality', 'exploitability', 'business_impact', 'remediation_sla'],
-                'workflow' => ['validate_scope_and_roe', 'collect_read_only_evidence', 'triage_findings', 'map_controls', 'draft_remediation_plan', 'block_offensive_action_without_mandate'],
-                'checks' => ['rules_of_engagement_present', 'no_unauthorized_mutation', 'severity_rationale_bound', 'evidence_reproducible', 'remediation_owner_assigned'],
-                'operator_questions' => ['Is the target explicitly authorized?', 'What evidence proves severity?', 'Who owns remediation?'],
-            ],
-            'automation' => [
-                'enterprise_play' => 'automation_factory_with_tool_discovery_connector_probe_replay_and_safe_rollout',
-                'decision_lenses' => ['roi', 'reliability', 'permission_scope', 'replayability', 'rollbackability'],
-                'workflow' => ['identify_workflow', 'select_tool_or_connector', 'build_dry_run_fixture', 'probe_read_only', 'simulate_failure', 'prepare_rollout_packet'],
-                'checks' => ['dry_run_available', 'idempotency_defined', 'secret_scope_bound', 'rollback_plan_present', 'external_write_blocked'],
-                'operator_questions' => ['What manual step is eliminated?', 'How is failure detected?', 'Can it be rolled back safely?'],
-            ],
-            'personal_development' => [
-                'enterprise_play' => 'private_learning_and_focus_operating_system_with_memory_boundaries_and_review_cadence',
-                'decision_lenses' => ['goal_alignment', 'energy_cost', 'privacy_boundary', 'practice_feedback', 'habit_friction'],
-                'workflow' => ['review_goals', 'map_constraints', 'design_practice_loop', 'schedule_review', 'capture_reflection', 'protect_private_memory'],
-                'checks' => ['sensitive_data_not_externalized', 'goal_metric_defined', 'review_cadence_bound', 'habit_protocol_clear', 'operator_acceptance_required'],
-                'operator_questions' => ['What outcome matters this week?', 'What friction blocks consistency?', 'What should remain private?'],
-            ],
-            default => [
-                'enterprise_play' => 'operations_control_tower_with_slo_runbooks_incident_review_and_capacity_planning',
-                'decision_lenses' => ['slo_risk', 'incident_frequency', 'capacity', 'runbook_quality', 'handoff_latency'],
-                'workflow' => ['ingest_operational_signal', 'classify_priority', 'run_diagnostic_playbook', 'assign_owner', 'prepare_reconciliation', 'update_learning_loop'],
-                'checks' => ['slo_bound', 'runbook_present', 'owner_assigned', 'rollback_or_compensation_defined', 'post_run_reconciliation_required'],
-                'operator_questions' => ['What SLO is at risk?', 'What owner can act?', 'What learning updates the runbook?'],
-            ],
-        };
-    }
-
-    /**
-     * @param  list<string>  $connectorIds
-     * @param  array<string,mixed>  $promotionGates
-     */
-    private function artifactSectionContent(
-        string $sectionId,
-        string $companyId,
-        string $flowId,
-        string $artifactType,
-        string $ownerAgent,
-        array $connectorIds,
-        string $datasetId,
-        array $promotionGates,
-    ): string {
-        $connectorList = $connectorIds === [] ? 'no_external_connector' : implode(',', $connectorIds);
-
-        return match ($sectionId) {
-            'executive_summary' => $companyId.'.'.$flowId.' produced '.$artifactType.' for operator review using '.$ownerAgent.' with external side effects blocked.',
-            'source_lineage' => 'Sources are bound to replay dataset '.$datasetId.', connector workbenches '.$connectorList.', and company operating package receipts.',
-            'analysis' => 'Analysis follows the registered enterprise flow contract, connector scope, replay rubric, policy gate, critic review, and delivery schema.',
-            'risks', 'risk_review' => 'Primary risks are source drift, connector permission expansion, and any attempted external mutation before a signed operator mandate.',
-            'recommendation' => 'Proceed to operator review and internal shadow or supervised execution only after required evidence remains green.',
-            'next_actions' => 'Next gates: shadow='.implode(',', (array) ($promotionGates['shadow_ready'] ?? [])).'; supervised='.implode(',', (array) ($promotionGates['supervised_ready'] ?? [])).'.',
-            'receipt_hash' => 'Receipt hash is produced at runtime after artifact, replay, quality gate, and policy packets are assembled.',
-            default => $sectionId.' section is present and bound to '.$companyId.'.'.$flowId.' enterprise operating evidence.',
-        };
-    }
-
-    /**
-     * @param  array<string,mixed>  $company
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>|null
-     */
-    private function persistInternalRuntimeRecord(array $company, array $payload): ?array
-    {
-        if (! $this->runtimePersistenceTablesAvailable()) {
-            return null;
-        }
-
-        $companyId = (string) ($payload['company_id'] ?? 'unknown');
-        $flowId = (string) ($payload['flow_id'] ?? 'unknown');
-        unset($this->runtimeRecordCache[$companyId]);
-        $manifest = $this->ensureRuntimeManifest($companyId, $company);
-
-        $record = AiDomainRuntimeRecord::query()->create([
-            'uuid' => (string) Str::uuid(),
-            'domain_manifest_id' => $manifest->id,
-            'domain_id' => $companyId,
-            'runtime_status' => DomainRuntimeRecordService::STATUS_COMPLETED,
-            'selected_capabilities' => [
-                'enterprise_flow_action_runtime',
-                'enterprise_flow_operational_dossier_runtime',
-                'enterprise_vertical_solution_suite_runtime',
-                'enterprise_domain_solution_playbook_runtime',
-                'enterprise_domain_operating_depth_runtime',
-                'enterprise_domain_agent_workforce_runtime',
-                'enterprise_domain_business_execution_mesh_runtime',
-                'enterprise_company_operating_spine_runtime',
-                'enterprise_commercial_operations_runtime',
-                'enterprise_domain_provider_workbench_runtime',
-                'enterprise_flow_benchmark_replay_runtime',
-                'enterprise_connector_certification_preflight_runtime',
-                'enterprise_command_center_control_tower_runtime',
-                'enterprise_operational_dress_rehearsal_runtime',
-                'enterprise_semantic_operating_graph_runtime',
-                'enterprise_company_system_model_runtime',
-                'enterprise_internal_operations_backbone_runtime',
-                'enterprise_activation_run_operations_runtime',
-                'enterprise_flow_execution_foundation_runtime',
-                'enterprise_agent_toolchain_runtime',
-                'enterprise_workforce_capacity_runtime',
-                'enterprise_portfolio_dependency_runtime',
-                'enterprise_external_research_adoption_runtime',
-                'enterprise_autonomy_promotion_runtime',
-                'enterprise_customer_account_revenue_runtime',
-                'enterprise_productized_service_runtime',
-                'enterprise_sales_crm_pipeline_runtime',
-                'enterprise_customer_support_service_desk_runtime',
-                'enterprise_marketing_growth_engine_runtime',
-                'enterprise_finance_treasury_billing_runtime',
-                'enterprise_governance_risk_operations_runtime',
-                'enterprise_unit_economics_capacity_runtime',
-                'enterprise_delivery_risk_runtime',
-                $flowId,
-            ],
-            'execution_plan' => [
-                'schema' => 'atlas.ai.company.enterprise_flow_runtime_record.v1',
-                'runtime_kind' => 'enterprise_flow_action',
-                'company_id' => $companyId,
-                'flow_id' => $flowId,
-                'action' => (string) ($payload['action'] ?? $flowId),
-                'runtime_packet' => $payload,
-            ],
-            'evidence_refs' => [
-                'enterprise_flow_action_runtime:'.$companyId.':'.$flowId,
-                'operational_dossier:'.(string) data_get($payload, 'enterprise_flow_operational_dossier.dossier_hash', ''),
-                'operational_dossier_attestation:'.(string) data_get($payload, 'operational_dossier_runtime_attestation.attestation_hash', ''),
-                'vertical_solution_kit:'.(string) data_get($payload, 'enterprise_vertical_solution_kit.kit_id', ''),
-                'vertical_solution_attestation:'.(string) data_get($payload, 'vertical_solution_runtime_attestation.attestation_hash', ''),
-                'domain_solution_playbook_attestation:'.(string) data_get($payload, 'domain_solution_playbook_runtime_attestation.attestation_hash', ''),
-                'agent_toolchain_attestation:'.(string) data_get($payload, 'agent_toolchain_runtime_attestation.attestation_hash', ''),
-                'workforce_capacity_attestation:'.(string) data_get($payload, 'workforce_capacity_runtime_attestation.attestation_hash', ''),
-                'portfolio_dependency_attestation:'.(string) data_get($payload, 'portfolio_dependency_runtime_attestation.attestation_hash', ''),
-                'domain_business_execution_cell:'.(string) data_get($payload, 'enterprise_domain_business_execution_cell.cell_id', ''),
-                'domain_business_execution_attestation:'.(string) data_get($payload, 'domain_business_execution_runtime_attestation.attestation_hash', ''),
-                'company_operating_spine_attestation:'.(string) data_get($payload, 'company_operating_spine_runtime_attestation.attestation_hash', ''),
-                'commercial_operations_attestation:'.(string) data_get($payload, 'commercial_operations_runtime_attestation.attestation_hash', ''),
-                'domain_provider_workbench_attestation:'.(string) data_get($payload, 'domain_provider_workbench_runtime_attestation.attestation_hash', ''),
-                'flow_benchmark_replay_attestation:'.(string) data_get($payload, 'flow_benchmark_replay_runtime_attestation.attestation_hash', ''),
-                'connector_certification_preflight_attestation:'.(string) data_get($payload, 'connector_certification_preflight_runtime_attestation.attestation_hash', ''),
-                'command_center_control_tower_attestation:'.(string) data_get($payload, 'command_center_control_tower_runtime_attestation.attestation_hash', ''),
-                'operational_dress_rehearsal_attestation:'.(string) data_get($payload, 'operational_dress_rehearsal_runtime_attestation.attestation_hash', ''),
-                'semantic_operating_graph_attestation:'.(string) data_get($payload, 'semantic_operating_graph_runtime_attestation.attestation_hash', ''),
-                'company_system_model_attestation:'.(string) data_get($payload, 'company_system_model_runtime_attestation.attestation_hash', ''),
-                'internal_operations_backbone_attestation:'.(string) data_get($payload, 'internal_operations_backbone_runtime_attestation.attestation_hash', ''),
-                'activation_run_operations_attestation:'.(string) data_get($payload, 'activation_run_operations_runtime_attestation.attestation_hash', ''),
-                'flow_execution_foundation_attestation:'.(string) data_get($payload, 'flow_execution_foundation_runtime_attestation.attestation_hash', ''),
-                'external_research_adoption_attestation:'.(string) data_get($payload, 'external_research_adoption_runtime_attestation.attestation_hash', ''),
-                'autonomy_promotion_attestation:'.(string) data_get($payload, 'autonomy_promotion_runtime_attestation.attestation_hash', ''),
-                'customer_account_revenue_attestation:'.(string) data_get($payload, 'customer_account_revenue_runtime_attestation.attestation_hash', ''),
-                'governance_risk_operations_attestation:'.(string) data_get($payload, 'governance_risk_operations_runtime_attestation.attestation_hash', ''),
-                'unit_economics_capacity_attestation:'.(string) data_get($payload, 'unit_economics_capacity_runtime_attestation.attestation_hash', ''),
-                'delivery_risk_attestation:'.(string) data_get($payload, 'delivery_risk_runtime_attestation.attestation_hash', ''),
-                'domain_execution_brief:'.(string) data_get($payload, 'enterprise_artifact.domain_execution_brief.brief_hash', ''),
-                'operational_outcome_ledger:'.(string) data_get($payload, 'enterprise_artifact.operational_outcome_ledger.outcome_ledger_hash', ''),
-                'receipt_hash:'.(string) ($payload['receipt_hash'] ?? ''),
-            ],
-            'blockers' => [],
-            'receipt_hash' => (string) ($payload['receipt_hash'] ?? MissionCanonicalHash::sha256($payload)),
-        ]);
-
-        return [
-            'schema' => 'atlas.ai.company.enterprise_flow_runtime_record_ref.v1',
-            'record_id' => (string) $record->id,
-            'uuid' => (string) $record->uuid,
-            'domain_id' => (string) $record->domain_id,
-            'runtime_status' => (string) $record->runtime_status,
-            'receipt_hash' => (string) $record->receipt_hash,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $company
-     */
-    private function ensureRuntimeManifest(string $companyId, array $company): AiDomainManifest
-    {
-        $existing = AiDomainManifest::query()->where('domain_id', $companyId)->first();
-
-        if ($existing instanceof AiDomainManifest) {
-            return $existing;
-        }
-
-        $manifest = (array) ($company['manifest'] ?? []);
-
-        return AiDomainManifest::query()->create([
-            'uuid' => (string) Str::uuid(),
-            'domain_id' => $companyId,
-            'name' => (string) ($company['name'] ?? $manifest['name'] ?? $companyId),
-            'status' => (string) ($company['status'] ?? 'active'),
-            'charter' => [
-                'mission' => (string) ($company['mission'] ?? $companyId.' enterprise flow runtime'),
-            ],
-            'ontology' => [
-                'entities' => ['company', 'flow', 'agent', 'artifact', 'receipt'],
-            ],
-            'departments' => array_values((array) ($company['functions'] ?? [])),
-            'flow_profiles' => array_values((array) ($company['flows'] ?? [])),
-            'tools_allowed' => array_values((array) ($company['toolchain'] ?? [])),
-            'policy_profile' => (array) ($company['policy'] ?? []),
-            'memory_scope' => [
-                'company_id' => $companyId,
-                'runtime_scope' => 'enterprise_flow_action',
-            ],
-            'evidence_schema' => array_values((array) ($company['evidence_schema'] ?? [])),
-            'quality_gates' => array_values((array) ($company['quality_gates'] ?? [])),
-            'handoff_rules' => [
-                'allowed' => array_values((array) ($company['handoffs'] ?? [])),
-            ],
-            'delivery_types' => array_values((array) ($company['work_products'] ?? [])),
-            'metrics' => array_values((array) ($company['metrics'] ?? [])),
-            'forbidden_actions' => array_values((array) data_get($company, 'policy.forbidden_actions', [])),
-            'maturity_stage' => (int) ($company['maturity_stage'] ?? 4),
-            'owner' => (string) ($company['owner'] ?? 'portfolio_governor'),
-            'manifest_hash' => hash('sha256', 'enterprise_flow_runtime_manifest|'.$companyId),
-        ]);
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function runtimeRecordsForCompany(string $companyId): array
-    {
-        if (! $this->runtimeRecordsTableAvailable()) {
-            return [];
-        }
-
-        if (array_key_exists($companyId, $this->runtimeRecordCache)) {
-            return $this->runtimeRecordCache[$companyId];
-        }
-
-        $expectedFlowCount = $this->expectedFlowCountForCompany($companyId);
-
-        return $this->runtimeRecordCache[$companyId] = AiDomainRuntimeRecord::query()
-            ->where('domain_id', $companyId)
-            ->where('runtime_status', DomainRuntimeRecordService::STATUS_COMPLETED)
-            ->where('execution_plan->runtime_kind', 'enterprise_flow_action')
-            ->latest('id')
-            ->limit(500)
-            ->cursor()
-            ->filter(static fn (AiDomainRuntimeRecord $record): bool => data_get($record->execution_plan, 'runtime_kind') === 'enterprise_flow_action')
-            ->unique(static fn (AiDomainRuntimeRecord $record): string => (string) data_get($record->execution_plan, 'flow_id', ''))
-            ->take($expectedFlowCount > 0 ? $expectedFlowCount : 100)
-            ->map(static fn (AiDomainRuntimeRecord $record): array => [
-                'record_id' => (string) $record->id,
-                'uuid' => (string) $record->uuid,
-                'company_id' => (string) $record->domain_id,
-                'flow_id' => (string) data_get($record->execution_plan, 'flow_id', ''),
-                'status' => (string) data_get($record->execution_plan, 'runtime_packet.status', ''),
-                'receipt_hash' => (string) $record->receipt_hash,
-                'external_side_effects' => (bool) data_get($record->execution_plan, 'runtime_packet.external_side_effects', true),
-                'vertical_solution_kit_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.vertical_solution_kit_bound', false),
-                'artifact_factory_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.artifact_factory_bound', false),
-                'vertical_connector_workbench_count' => (int) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.vertical_connector_workbench_count', 0),
-                'vertical_solution_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.vertical_solution_runtime_attestation.attestation_hash', ''),
-                'domain_solution_playbook_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_solution_playbook_runtime_bound', false),
-                'solution_playbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.solution_playbook_bound', false),
-                'source_pack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.source_pack_bound', false),
-                'domain_data_plane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.domain_data_plane_bound', false),
-                'execution_path_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.execution_path_bound', false),
-                'tooling_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.tooling_contract_bound', false),
-                'domain_review_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.domain_review_contract_bound', false),
-                'benchmark_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.benchmark_contract_bound', false),
-                'handoff_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.handoff_contract_bound', false),
-                'external_mutation_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.external_data_mutation_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.external_delivery_allowed', true) === false,
-                'domain_solution_playbook_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_solution_playbook_runtime_attestation.attestation_hash', ''),
-                'domain_operating_depth_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_operating_depth_runtime_bound', false),
-                'domain_depth_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.depth_packet_bound', false),
-                'domain_depth_skills_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.skills_bound', false),
-                'domain_depth_connector_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.connector_refs_bound', false),
-                'domain_depth_subagents_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.subagents_bound', false),
-                'domain_depth_source_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.source_refs_bound', false),
-                'domain_depth_enterprise_system_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.enterprise_system_refs_bound', false),
-                'domain_depth_data_product_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.data_product_refs_bound', false),
-                'domain_depth_quality_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.quality_contract_bound', false),
-                'domain_depth_operating_controls_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.operating_controls_bound', false),
-                'domain_depth_external_effects_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.offensive_security_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.external_side_effects_enabled', true) === false,
-                'domain_operating_depth_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_operating_depth_runtime_attestation.attestation_hash', ''),
-                'domain_agent_workforce_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_agent_workforce_runtime_bound', false),
-                'domain_agent_workforce_crew_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.crew_bound', false),
-                'domain_agent_workforce_skills_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.skills_bound', false),
-                'domain_agent_workforce_connector_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.connector_refs_bound', false),
-                'domain_agent_workforce_subagents_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.subagents_bound', false),
-                'domain_agent_workforce_source_refs_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.source_refs_bound', false),
-                'domain_agent_workforce_work_surface_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.work_surface_adapters_bound', false),
-                'domain_agent_workforce_managed_controls_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.managed_runtime_controls_bound', false),
-                'domain_agent_workforce_work_queue_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.work_queue_bound', false),
-                'domain_agent_workforce_acceptance_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.acceptance_contract_bound', false),
-                'domain_agent_workforce_external_effects_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.offensive_security_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.external_side_effects_enabled', true) === false,
-                'domain_agent_workforce_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_agent_workforce_runtime_attestation.attestation_hash', ''),
-                'operational_dossier_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.operational_dossier_runtime_bound', false),
-                'operational_dossier_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.dossier_bound', false),
-                'dossier_evidence_spine_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.evidence_spine_bound', false),
-                'dossier_control_plane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.control_plane_bound', false),
-                'dossier_decision_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.decision_packet_bound', false),
-                'dossier_promotion_path_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.promotion_path_bound', false),
-                'dossier_scorecard_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.scorecard_bound', false),
-                'dossier_external_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.external_execution_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.external_delivery_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.real_world_autonomy_claim_allowed', true) === false,
-                'operational_dossier_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_flow_operational_dossier.dossier_hash', ''),
-                'operational_dossier_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.operational_dossier_runtime_attestation.attestation_hash', ''),
-                'company_system_model_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.company_system_model_runtime_bound', false),
-                'company_system_domain_data_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.domain_data_model_bound', false),
-                'company_system_data_lineage_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.data_lineage_bound', false),
-                'company_system_business_process_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.business_process_bound', false),
-                'company_system_deliverable_quality_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.deliverable_quality_contract_bound', false),
-                'company_system_production_pack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.production_pack_bound', false),
-                'company_system_production_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.production_observability_bound', false),
-                'company_system_slo_sli_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.slo_sli_bound', false),
-                'company_system_incident_response_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.incident_response_bound', false),
-                'company_system_capacity_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.capacity_plan_bound', false),
-                'company_system_integration_enablement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.integration_enablement_bound', false),
-                'company_system_commercial_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.commercial_stack_bound', false),
-                'company_system_commercial_intake_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.commercial_intake_bound', false),
-                'company_system_commercial_fulfillment_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.commercial_fulfillment_bound', false),
-                'company_system_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.commercial_external_billing_allowed', true) === false,
-                'company_system_model_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.company_system_model_runtime_attestation.attestation_hash', ''),
-                'internal_operations_backbone_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.internal_operations_backbone_runtime_bound', false),
-                'internal_ops_account_contract_delivery_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.account_contract_delivery_bound', false),
-                'internal_ops_vendor_legal_procurement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.vendor_legal_procurement_bound', false),
-                'internal_ops_resilience_continuity_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.resilience_continuity_bound', false),
-                'internal_ops_analytics_decision_intelligence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.analytics_decision_intelligence_bound', false),
-                'internal_ops_knowledge_memory_learning_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.knowledge_memory_learning_bound', false),
-                'internal_ops_identity_access_sovereignty_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.identity_access_sovereignty_bound', false),
-                'internal_ops_control_tower_run_operations_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.control_tower_run_operations_bound', false),
-                'internal_ops_delivery_assurance_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.delivery_assurance_bound', false),
-                'internal_ops_grc_control_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.grc_control_evidence_bound', false),
-                'internal_ops_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.external_customer_vendor_memory_identity_delivery_actions_blocked', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.operator_mandate_required_for_external_action', false),
-                'internal_operations_backbone_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.internal_operations_backbone_runtime_attestation.attestation_hash', ''),
-                'activation_run_operations_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.activation_run_operations_runtime_bound', false),
-                'activation_ops_integration_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.integration_activation_plan_bound', false),
-                'activation_ops_policy_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.activation_policy_bound', false),
-                'activation_ops_source_tracks_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.source_activation_tracks_bound', false),
-                'activation_ops_connector_tracks_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.connector_activation_tracks_bound', false),
-                'activation_ops_flow_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.flow_activation_matrix_bound', false),
-                'activation_ops_run_queue_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.run_queue_model_bound', false),
-                'activation_ops_flow_lane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.flow_operations_lane_bound', false),
-                'activation_ops_connector_probe_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.connector_operations_probe_bound', false),
-                'activation_ops_live_read_probe_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.live_read_probe_plan_bound', false),
-                'activation_ops_rehearsal_promotion_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.rehearsal_promotion_evidence_bound', false),
-                'activation_ops_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.observability_bound', false),
-                'activation_ops_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.external_execution_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.operator_mandate_required_for_external_action', false),
-                'activation_run_operations_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.activation_run_operations_runtime_attestation.attestation_hash', ''),
-                'flow_execution_foundation_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.flow_execution_foundation_runtime_bound', false),
-                'flow_execution_orchestration_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.orchestration_stack_bound', false),
-                'flow_execution_runbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.flow_runbook_bound', false),
-                'flow_execution_connector_backplane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.connector_backplane_bound', false),
-                'flow_execution_runbook_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.runbook_observability_bound', false),
-                'flow_execution_implementation_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.implementation_stack_bound', false),
-                'flow_execution_executable_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.executable_flow_packet_bound', false),
-                'flow_execution_agent_tool_routing_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.agent_tool_routing_bound', false),
-                'flow_execution_artifact_io_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.artifact_io_contract_bound', false),
-                'flow_execution_supervision_shadow_gate_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.supervision_shadow_gate_bound', false),
-                'flow_execution_connector_runtime_adapters_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.connector_runtime_adapters_bound', false),
-                'flow_execution_runtime_event_outbox_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.runtime_event_outbox_bound', false),
-                'flow_execution_implementation_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.implementation_observability_bound', false),
-                'flow_execution_fixture_simulation_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.fixture_simulation_stack_bound', false),
-                'flow_execution_canonical_fixture_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.canonical_fixture_bound', false),
-                'flow_execution_expected_trace_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.expected_trace_bound', false),
-                'flow_execution_quality_assertion_suite_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.quality_assertion_suite_bound', false),
-                'flow_execution_failure_injection_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.failure_injection_bound', false),
-                'flow_execution_dry_run_command_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.dry_run_command_bound', false),
-                'flow_execution_simulation_promotion_gates_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.simulation_promotion_gates_bound', false),
-                'flow_execution_simulation_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.simulation_observability_bound', false),
-                'flow_execution_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.ungoverned_external_side_effects_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.operator_checkpoint_required_before_external_action', false),
-                'flow_execution_foundation_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.flow_execution_foundation_runtime_attestation.attestation_hash', ''),
-                'agent_toolchain_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.agent_toolchain_runtime_bound', false),
-                'framework_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.framework_source_catalog_bound', false),
-                'flow_toolkit_assignment_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.flow_toolkit_assignment_bound', false),
-                'agent_repository_epic_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.agent_repository_epic_bound', false),
-                'guardrails_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.guardrails_runtime_bound', false),
-                'handoffs_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.handoffs_runtime_bound', false),
-                'tracing_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.tracing_runtime_bound', false),
-                'durable_state_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.durable_state_runtime_bound', false),
-                'human_in_loop_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.human_in_loop_runtime_bound', false),
-                'agent_toolchain_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.agent_toolchain_runtime_attestation.attestation_hash', ''),
-                'premium_enterprise_agent_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.premium_enterprise_agent_runtime_bound', false),
-                'premium_agentic_architecture_basis_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.agentic_architecture_basis_bound', false),
-                'premium_template_runtime_contracts_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.template_runtime_contracts_bound', false),
-                'premium_flow_template_map_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.flow_template_map_bound', false),
-                'premium_flow_managed_agent_workflow_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.flow_managed_agent_workflow_bound', false),
-                'premium_data_tool_workbenches_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.data_tool_workbenches_bound', false),
-                'premium_connector_mcp_server_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.connector_mcp_server_plan_bound', false),
-                'premium_replay_audit_harness_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.replay_audit_harness_bound', false),
-                'premium_enterprise_agent_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.premium_enterprise_agent_runtime_attestation.attestation_hash', ''),
-                'domain_company_execution_suite_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_company_execution_suite_runtime_bound', false),
-                'domain_execution_suite_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.suite_stack_bound', false),
-                'domain_execution_suite_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.source_catalog_bound', false),
-                'domain_execution_suite_operating_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.domain_operating_model_bound', false),
-                'domain_execution_suite_connector_workbench_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.connector_execution_workbench_bound', false),
-                'domain_execution_suite_flow_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.flow_domain_execution_packet_bound', false),
-                'domain_execution_suite_risk_control_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.flow_domain_risk_control_bound', false),
-                'domain_execution_suite_decision_room_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.flow_domain_decision_room_bound', false),
-                'domain_execution_suite_replay_eval_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.flow_domain_replay_eval_bound', false),
-                'domain_execution_suite_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.domain_execution_observability_bound', false),
-                'domain_execution_suite_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.operator_mandate_required_for_external_action', false),
-                'domain_company_execution_suite_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_company_execution_suite_runtime_attestation.attestation_hash', ''),
-                'flow_work_product_delivery_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.flow_work_product_delivery_runtime_bound', false),
-                'flow_work_product_delivery_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.delivery_stack_bound', false),
-                'flow_work_product_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.work_product_catalog_bound', false),
-                'flow_work_product_blueprint_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.flow_delivery_blueprint_bound', false),
-                'flow_work_product_acceptance_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.flow_acceptance_contract_bound', false),
-                'flow_work_product_handoff_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.flow_handoff_packet_bound', false),
-                'flow_work_product_replay_check_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.flow_replay_artifact_check_bound', false),
-                'flow_work_product_external_delivery_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.external_delivery_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.external_side_effects_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.operator_acceptance_required_before_external_handoff', false),
-                'flow_work_product_delivery_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.flow_work_product_delivery_runtime_attestation.attestation_hash', ''),
-                'domain_data_connector_operating_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_data_connector_operating_runtime_bound', false),
-                'domain_data_connector_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.data_connector_stack_bound', false),
-                'domain_data_room_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.source_data_room_catalog_bound', false),
-                'domain_data_product_contracts_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.domain_data_products_bound', false),
-                'domain_connector_permission_profiles_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.connector_permission_profiles_bound', false),
-                'domain_flow_data_connector_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.flow_data_connector_contract_bound', false),
-                'domain_connector_fixture_eval_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.connector_fixture_eval_suite_bound', false),
-                'domain_data_room_operating_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.domain_data_room_operating_model_bound', false),
-                'domain_data_connector_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.data_connector_observability_bound', false),
-                'domain_data_connector_external_mutations_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.write_tools_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.external_data_mutation_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.secret_export_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.read_only_probe_required_before_live_use', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.operator_mandate_required_for_external_action', false),
-                'domain_data_connector_operating_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_data_connector_operating_runtime_attestation.attestation_hash', ''),
-                'flow_live_read_connector_probe_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.flow_live_read_connector_probe_runtime_bound', false),
-                'flow_live_read_probe_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.probe_stack_bound', false),
-                'flow_live_read_connector_profiles_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.connector_probe_profiles_bound', false),
-                'flow_live_read_probe_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.flow_live_read_probe_contract_bound', false),
-                'flow_live_read_probe_evidence_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.flow_probe_evidence_matrix_bound', false),
-                'flow_live_read_probe_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.probe_observability_bound', false),
-                'flow_live_read_external_mutations_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.live_read_allowed', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.write_tools_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.external_mutation_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.credential_material_in_packet_allowed', true) === false,
-                'flow_live_read_operator_scope_required' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.operator_scope_required_before_live_connector_probe', false),
-                'flow_live_read_connector_probe_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.flow_live_read_connector_probe_runtime_attestation.attestation_hash', ''),
-                'external_research_adoption_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.external_research_adoption_runtime_bound', false),
-                'external_research_source_basis_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.source_basis_bound', false),
-                'external_research_repository_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.repository_catalog_bound', false),
-                'external_research_flow_adoption_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.flow_adoption_matrix_bound', false),
-                'external_research_capability_map_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.capability_map_bound', false),
-                'external_research_connector_backlog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.connector_backlog_bound', false),
-                'external_research_production_gates_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.production_gates_bound', false),
-                'external_research_external_effects_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.runtime_ingestion_without_source_review_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.repository_adoption_without_license_security_and_fixture_eval_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.external_research_side_effects_default', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.operator_mandate_required_for_external_actions', false),
-                'external_research_adoption_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.external_research_adoption_runtime_attestation.attestation_hash', ''),
-                'workforce_capacity_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.workforce_capacity_runtime_bound', false),
-                'workforce_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.workforce_stack_bound', false),
-                'workforce_org_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.org_model_bound', false),
-                'workforce_agent_capacity_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.agent_capacity_plan_bound', false),
-                'workforce_flow_staffing_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.flow_staffing_bound', false),
-                'workforce_training_enablement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.training_enablement_bound', false),
-                'workforce_succession_continuity_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.succession_continuity_bound', false),
-                'workforce_capacity_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.capacity_observability_bound', false),
-                'workforce_capacity_external_changes_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.single_agent_bottleneck_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.external_unreviewed_staffing_change_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.external_side_effects_enabled', true) === false,
-                'workforce_capacity_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.workforce_capacity_runtime_attestation.attestation_hash', ''),
-                'portfolio_dependency_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.portfolio_dependency_runtime_bound', false),
-                'portfolio_dependency_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.dependency_stack_bound', false),
-                'portfolio_dependency_role_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.portfolio_role_bound', false),
-                'portfolio_dependency_intake_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.dependency_intake_contract_bound', false),
-                'portfolio_dependency_upstream_map_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.upstream_dependency_map_bound', false),
-                'portfolio_dependency_integration_map_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.integration_dependency_map_bound', false),
-                'portfolio_dependency_flow_routing_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.flow_dependency_routing_bound', false),
-                'portfolio_dependency_escalation_conflict_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.escalation_conflict_model_bound', false),
-                'portfolio_dependency_reporting_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.portfolio_reporting_contract_bound', false),
-                'portfolio_dependency_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.external_spend_publish_write_trade_or_transfer_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.cross_company_dependency_without_typed_handoff_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.unresolved_conflict_external_side_effect_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.external_side_effects_enabled', true) === false,
-                'portfolio_dependency_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.portfolio_dependency_runtime_attestation.attestation_hash', ''),
-                'autonomy_promotion_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.autonomy_promotion_runtime_bound', false),
-                'autonomy_ladder_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.autonomy_ladder_bound', false),
-                'autonomy_fixture_level_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.fixture_level_bound', false),
-                'autonomy_shadow_level_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.shadow_level_bound', false),
-                'autonomy_supervised_internal_level_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.supervised_internal_level_bound', false),
-                'autonomy_supervised_external_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.supervised_external_packet_bound', false),
-                'autonomy_limited_external_autonomy_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.limited_external_autonomy_blocked', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.external_autonomous_execution_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.calendar_wait_blocker_enabled', true) === false,
-                'autonomy_evidence_spine_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.evidence_spine_bound', false),
-                'autonomy_rollback_reconciliation_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.rollback_reconciliation_bound', false),
-                'autonomy_budget_loss_cap_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.budget_loss_cap_bound', false),
-                'autonomy_promotion_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.autonomy_promotion_runtime_attestation.attestation_hash', ''),
-                'business_execution_cell_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.business_execution_cell_bound', false),
-                'business_kpi_binding_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.business_kpi_binding_bound', false),
-                'business_service_lane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.business_service_lane_bound', false),
-                'business_artifact_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.business_artifact_contract_bound', false),
-                'business_execution_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_business_execution_runtime_attestation.attestation_hash', ''),
-                'company_operating_spine_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.company_operating_spine_bound', false),
-                'customer_market_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.customer_market_operations_bound', false),
-                'account_contract_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.account_contract_delivery_bound', false),
-                'vendor_legal_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.vendor_legal_procurement_bound', false),
-                'resilience_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.resilience_continuity_bound', false),
-                'analytics_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.analytics_decision_intelligence_bound', false),
-                'knowledge_memory_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.knowledge_memory_learning_bound', false),
-                'identity_sovereignty_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.identity_access_data_sovereignty_bound', false),
-                'company_operating_spine_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.company_operating_spine_runtime_attestation.attestation_hash', ''),
-                'commercial_operations_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.commercial_operations_runtime_bound', false),
-                'customer_market_operations_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.customer_market_operations_bound', false),
-                'offer_packaging_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.offer_packaging_bound', false),
-                'customer_journey_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.customer_journey_bound', false),
-                'customer_success_scorecard_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.customer_success_scorecard_bound', false),
-                'account_contract_delivery_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.account_contract_delivery_bound', false),
-                'contract_entitlement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.contract_entitlement_bound', false),
-                'onboarding_success_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.onboarding_success_plan_bound', false),
-                'service_review_renewal_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.service_review_renewal_bound', false),
-                'account_health_risk_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.account_health_risk_bound', false),
-                'billing_revenue_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.billing_revenue_model_bound', false),
-                'vendor_legal_procurement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.vendor_legal_procurement_bound', false),
-                'vendor_due_diligence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.vendor_due_diligence_bound', false),
-                'source_terms_review_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.source_terms_review_bound', false),
-                'flow_procurement_routing_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.flow_procurement_routing_bound', false),
-                'vendor_operability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.vendor_operability_bound', false),
-                'commercial_operations_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.commercial_operations_runtime_attestation.attestation_hash', ''),
-                'domain_provider_workbench_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.domain_provider_workbench_runtime_bound', false),
-                'provider_contracts_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.provider_contracts_bound', false),
-                'connector_workbenches_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.connector_workbenches_bound', false),
-                'flow_provider_route_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.flow_provider_route_bound', false),
-                'provider_eval_cases_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.provider_eval_cases_bound', false),
-                'provider_data_product_lineage_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.provider_data_product_lineage_bound', false),
-                'provider_workbench_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.provider_workbench_observability_bound', false),
-                'provider_external_write_paid_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.provider_write_or_paid_action_default', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.credential_material_in_packet_allowed', true) === false,
-                'domain_provider_workbench_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.domain_provider_workbench_runtime_attestation.attestation_hash', ''),
-                'flow_benchmark_replay_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.flow_benchmark_replay_runtime_bound', false),
-                'offline_dataset_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.offline_dataset_contract_bound', false),
-                'trace_grading_rubric_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.trace_grading_rubric_bound', false),
-                'adversarial_regression_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.adversarial_regression_bound', false),
-                'deterministic_state_assertion_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.deterministic_state_assertion_bound', false),
-                'replay_comparison_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.replay_comparison_matrix_bound', false),
-                'benchmark_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.benchmark_observability_bound', false),
-                'benchmark_promotion_synthetic_scores_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.synthetic_score_claims_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.promotion_without_replay_green_allowed', true) === false
-                    && (int) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.policy_findings_allowed', 1) === 0,
-                'flow_benchmark_replay_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.flow_benchmark_replay_runtime_attestation.attestation_hash', ''),
-                'connector_certification_preflight_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.connector_certification_preflight_runtime_bound', false),
-                'connector_adapter_contracts_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.adapter_contracts_bound', false),
-                'connector_auth_boundaries_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.auth_boundaries_bound', false),
-                'connector_sandbox_probes_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.sandbox_probes_bound', false),
-                'connector_contract_tests_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.consumer_provider_contract_tests_bound', false),
-                'connector_data_lineage_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.connector_data_lineage_bound', false),
-                'connector_replay_fixtures_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.replay_fixture_mock_server_bound', false),
-                'connector_slo_failure_modes_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.connector_slo_failure_modes_bound', false),
-                'production_preflight_contracts_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.production_preflight_contracts_bound', false),
-                'flow_cutover_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.flow_connector_cutover_bound', false),
-                'production_readiness_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.production_readiness_evidence_bound', false),
-                'connector_certification_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.connector_certification_observability_bound', false),
-                'cutover_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.cutover_observability_bound', false),
-                'connector_preflight_external_cutover_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.production_cutover_without_operator_signed_scope_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.real_credential_material_in_packet_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.write_or_paid_mode_allowed_by_default', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.external_connector_cutover_allowed', true) === false,
-                'connector_certification_preflight_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.connector_certification_preflight_runtime_attestation.attestation_hash', ''),
-                'command_center_control_tower_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.command_center_control_tower_runtime_bound', false),
-                'control_tower_lane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.control_tower_lane_bound', false),
-                'flow_command_card_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.flow_command_card_bound', false),
-                'incident_exception_desk_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.incident_exception_desk_bound', false),
-                'change_window_release_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.change_window_release_bound', false),
-                'operator_console_views_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.operator_console_views_bound', false),
-                'command_center_cells_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.command_center_cells_bound', false),
-                'connector_panels_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.connector_panels_bound', false),
-                'work_product_factory_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.work_product_factory_bound', false),
-                'command_center_kpis_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.command_center_kpis_bound', false),
-                'command_center_external_action_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.secret_material_in_packet_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.control_tower_external_side_effects_default', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.run_without_decision_receipt_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.auto_retry_external_action_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.external_control_tower_action_allowed', true) === false,
-                'command_center_control_tower_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.command_center_control_tower_runtime_attestation.attestation_hash', ''),
-                'operational_dress_rehearsal_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.operational_dress_rehearsal_runtime_bound', false),
-                'rehearsal_runbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.rehearsal_runbook_bound', false),
-                'live_read_probe_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.live_read_probe_plan_bound', false),
-                'operator_acceptance_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.operator_acceptance_packet_bound', false),
-                'rollback_drill_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.rollback_drill_bound', false),
-                'promotion_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.promotion_evidence_bound', false),
-                'dress_rehearsal_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.dress_rehearsal_observability_bound', false),
-                'dress_rehearsal_external_mutation_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.external_mutation_allowed_during_rehearsal', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.production_cutover_allowed_without_signed_acceptance', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.external_side_effects_enabled', true) === false,
-                'operational_dress_rehearsal_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.operational_dress_rehearsal_runtime_attestation.attestation_hash', ''),
-                'semantic_operating_graph_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.semantic_operating_graph_runtime_bound', false),
-                'semantic_graph_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.semantic_graph_bound', false),
-                'semantic_node_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.node_catalog_bound', false),
-                'semantic_flow_edge_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.flow_relationship_edge_bound', false),
-                'semantic_operating_views_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.operating_views_bound', false),
-                'semantic_drift_rules_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.drift_detection_rules_bound', false),
-                'semantic_export_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.graph_export_contract_bound', false),
-                'semantic_graph_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.graph_observability_bound', false),
-                'semantic_graph_secret_export_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.raw_secret_or_sensitive_payload_export_allowed', true) === false,
-                'semantic_operating_graph_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.semantic_operating_graph_runtime_attestation.attestation_hash', ''),
-                'customer_account_revenue_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.customer_account_revenue_runtime_bound', false),
-                'journey_lifecycle_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.journey_lifecycle_bound', false),
-                'commercial_service_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.commercial_service_catalog_bound', false),
-                'business_kpi_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.business_kpi_bound', false),
-                'account_segment_playbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.account_segment_playbook_bound', false),
-                'account_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.account_observability_bound', false),
-                'customer_account_revenue_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.customer_account_revenue_runtime_attestation.attestation_hash', ''),
-                'productized_service_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.productized_service_runtime_bound', false),
-                'productized_service_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.product_stack_bound', false),
-                'productized_domain_product_line_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.domain_product_line_bound', false),
-                'productized_service_offer_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.service_offer_bound', false),
-                'productized_delivery_blueprint_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.delivery_blueprint_bound', false),
-                'productized_intake_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.intake_contract_bound', false),
-                'productized_sla_success_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.sla_success_contract_bound', false),
-                'productized_pricing_packaging_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.pricing_packaging_bound', false),
-                'productized_gtm_motion_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.gtm_motion_bound', false),
-                'productized_proof_template_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.proof_template_bound', false),
-                'productized_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.product_observability_bound', false),
-                'productized_external_commitment_billing_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.public_gtm_or_customer_commitment_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.external_billing_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.external_side_effects_enabled', true) === false,
-                'productized_service_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.productized_service_runtime_attestation.attestation_hash', ''),
-                'sales_crm_pipeline_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.sales_crm_pipeline_runtime_bound', false),
-                'sales_crm_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.sales_stack_bound', false),
-                'sales_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.source_catalog_bound', false),
-                'sales_crm_object_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.crm_object_model_bound', false),
-                'sales_segment_play_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.segment_sales_play_bound', false),
-                'sales_opportunity_route_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.opportunity_route_bound', false),
-                'sales_proposal_scope_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.proposal_scope_bound', false),
-                'sales_mutual_action_plan_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.mutual_action_plan_bound', false),
-                'sales_account_research_workbench_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.account_research_workbench_bound', false),
-                'sales_deal_room_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.deal_room_packet_bound', false),
-                'sales_pipeline_forecast_review_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.pipeline_forecast_review_bound', false),
-                'sales_map_risk_review_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.map_risk_review_bound', false),
-                'sales_renewal_expansion_signal_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.renewal_expansion_signal_bound', false),
-                'sales_delivery_handoff_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.sales_delivery_handoff_bound', false),
-                'sales_pipeline_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.pipeline_observability_bound', false),
-                'sales_external_commitments_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.external_sales_commitment_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.public_claim_or_paid_campaign_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.external_side_effects_enabled', true) === false,
-                'sales_crm_pipeline_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.sales_crm_pipeline_runtime_attestation.attestation_hash', ''),
-                'customer_support_service_desk_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.customer_support_service_desk_runtime_bound', false),
-                'support_service_desk_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.support_stack_bound', false),
-                'support_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.source_catalog_bound', false),
-                'support_service_desk_object_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.service_desk_object_model_bound', false),
-                'support_segment_playbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.support_segment_playbook_bound', false),
-                'support_lane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.support_lane_bound', false),
-                'support_ticket_sla_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.ticket_sla_contract_bound', false),
-                'support_knowledge_base_template_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.knowledge_base_template_bound', false),
-                'support_escalation_incident_runbook_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.escalation_incident_runbook_bound', false),
-                'support_resolution_rca_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.resolution_rca_bound', false),
-                'support_case_resolution_workbench_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.case_resolution_workbench_bound', false),
-                'support_customer_health_escalation_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.customer_health_escalation_bound', false),
-                'support_knowledge_quality_review_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.knowledge_quality_review_bound', false),
-                'support_automation_deflection_test_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.automation_deflection_test_bound', false),
-                'support_feedback_learning_loop_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.feedback_learning_loop_bound', false),
-                'support_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.support_observability_bound', false),
-                'support_external_customer_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.external_customer_message_or_support_commitment_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.regulated_support_advice_allowed_without_review', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.external_side_effects_enabled', true) === false,
-                'customer_support_service_desk_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.customer_support_service_desk_runtime_attestation.attestation_hash', ''),
-                'marketing_growth_engine_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.marketing_growth_engine_runtime_bound', false),
-                'marketing_growth_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.marketing_stack_bound', false),
-                'marketing_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.source_catalog_bound', false),
-                'marketing_growth_operating_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.growth_operating_model_bound', false),
-                'marketing_audience_segment_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.audience_segment_bound', false),
-                'marketing_campaign_blueprint_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.campaign_blueprint_bound', false),
-                'marketing_content_asset_factory_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.content_asset_factory_bound', false),
-                'marketing_experiment_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.experiment_bound', false),
-                'marketing_growth_intelligence_workbench_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.growth_intelligence_workbench_bound', false),
-                'marketing_attribution_experiment_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.attribution_experiment_model_bound', false),
-                'marketing_channel_budget_guardrail_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.channel_budget_guardrail_bound', false),
-                'marketing_public_claim_evidence_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.public_claim_evidence_packet_bound', false),
-                'marketing_channel_distribution_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.channel_distribution_bound', false),
-                'marketing_brand_compliance_review_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.brand_compliance_review_bound', false),
-                'marketing_growth_crm_handoff_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.growth_crm_handoff_bound', false),
-                'marketing_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.marketing_observability_bound', false),
-                'marketing_external_publish_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.external_publish_paid_campaign_or_outreach_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.public_claim_allowed_without_source_and_operator_review', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.external_side_effects_enabled', true) === false,
-                'marketing_growth_engine_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.marketing_growth_engine_runtime_attestation.attestation_hash', ''),
-                'finance_treasury_billing_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.finance_treasury_billing_runtime_bound', false),
-                'finance_treasury_stack_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.finance_stack_bound', false),
-                'finance_source_catalog_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.source_catalog_bound', false),
-                'finance_financial_data_interface_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.financial_data_interface_bound', false),
-                'finance_provider_connector_matrix_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.provider_connector_matrix_bound', false),
-                'finance_cfo_operating_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.cfo_operating_model_bound', false),
-                'finance_financial_research_workbench_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.financial_research_workbench_bound', false),
-                'finance_budget_envelope_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.budget_envelope_bound', false),
-                'finance_forecast_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.forecast_model_bound', false),
-                'finance_model_risk_control_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.model_risk_control_bound', false),
-                'finance_investment_committee_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.investment_committee_packet_bound', false),
-                'finance_pnl_line_item_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.pnl_line_item_bound', false),
-                'finance_billing_ledger_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.billing_ledger_bound', false),
-                'finance_treasury_risk_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.treasury_risk_bound', false),
-                'finance_close_audit_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.finance_close_audit_bound', false),
-                'finance_observability_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.finance_observability_bound', false),
-                'finance_external_financial_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.source_linked_financial_claim_required', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.model_risk_review_required', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.external_financial_action_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.real_revenue_cash_or_aum_claim_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.real_money_movement_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.external_side_effects_enabled', true) === false,
-                'finance_treasury_billing_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.finance_treasury_billing_runtime_attestation.attestation_hash', ''),
-                'governance_risk_operations_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.governance_risk_operations_runtime_bound', false),
-                'governance_vendor_procurement_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.vendor_procurement_bound', false),
-                'governance_resilience_continuity_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.resilience_continuity_bound', false),
-                'governance_analytics_decision_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.analytics_decision_bound', false),
-                'governance_knowledge_learning_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.knowledge_learning_bound', false),
-                'governance_identity_sovereignty_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.identity_sovereignty_bound', false),
-                'governance_grc_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.grc_evidence_bound', false),
-                'governance_external_actions_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.calendar_wait_blocker_enabled', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.vendor_purchase_contract_signature_secret_share_or_write_scope_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.incident_external_notification_without_operator_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.canonical_memory_write_without_review_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.secret_material_or_unscoped_memory_export_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.external_side_effects_enabled', true) === false,
-                'governance_risk_operations_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.governance_risk_operations_runtime_attestation.attestation_hash', ''),
-                'unit_economics_capacity_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.unit_economics_capacity_bound', false),
-                'flow_cost_center_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.flow_cost_center_bound', false),
-                'flow_unit_economics_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.flow_unit_economics_bound', false),
-                'capacity_simulation_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.capacity_simulation_bound', false),
-                'pricing_ladder_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.pricing_ladder_bound', false),
-                'agent_capacity_cost_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.agent_capacity_cost_model_bound', false),
-                'connector_cost_limit_model_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.connector_cost_limit_model_bound', false),
-                'unit_economics_capacity_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.unit_economics_capacity_runtime_attestation.attestation_hash', ''),
-                'business_operating_packet_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.business_operating_packet_bound', false),
-                'business_operating_packet_business_model_bound' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.business_model.delivery_contract_hash', '') !== ''
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.business_model.external_customer_commitment_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.business_model.external_billing_allowed', true) === false,
-                'business_operating_packet_kpi_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.readiness.kpi_contract_bound', false)
-                    && count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.kpi_contract.kpi_refs', [])) >= 3
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.kpi_contract.external_value_claim_allowed', true) === false,
-                'business_operating_packet_delivery_lane_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.readiness.delivery_lane_bound', false)
-                    && (string) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.delivery_lane.service_lane_id', '') !== ''
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.delivery_lane.customer_visible_delivery_allowed', true) === false,
-                'business_operating_packet_economics_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.readiness.economics_bound', false)
-                    && (string) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.economics.cost_center_id', '') !== ''
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.economics.real_capital_action_allowed', true) === false,
-                'business_operating_packet_account_operations_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.readiness.account_operations_bound', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.account_operations.revenue_collection_allowed', true) === false
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.account_operations.renewal_or_upsell_commitment_allowed', true) === false,
-                'business_operating_packet_external_commitments_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.operating_controls.operator_acceptance_required', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.operating_controls.second_review_required_for_external_commitment', false)
-                    && in_array('customer_commitment', (array) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.operating_controls.blocked_operations', []), true)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.external_side_effects', true) === false,
-                'business_operating_packet_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_business_operating_packet.business_operating_packet_hash', ''),
-                'delivery_risk_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.delivery_risk_runtime_bound', false),
-                'delivery_assurance_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.delivery_assurance_runtime_bound', false),
-                'delivery_sla_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.delivery_sla_bound', false),
-                'strategic_intelligence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.strategic_intelligence_bound', false),
-                'rival_alternative_map_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.rival_alternative_map_bound', false),
-                'grc_runtime_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.grc_runtime_bound', false),
-                'audit_evidence_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.audit_evidence_bound', false),
-                'policy_exception_blocked' => (bool) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.policy_exception_blocked', false),
-                'delivery_risk_attestation_hash' => (string) data_get($record->execution_plan, 'runtime_packet.delivery_risk_runtime_attestation.attestation_hash', ''),
-                'operational_outcome_ledger_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.operational_outcome_ledger_bound', false),
-                'operational_outcome_ledger_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_ledger_hash', ''),
-                'operational_outcome_kpi_count' => count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.measured_kpis', [])),
-                'operational_outcome_value_proxy_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.accepted_work_product_present', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.decision_packet_present', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.source_lineage_present', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.policy_gate_green', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.external_value_claim_allowed', true) === false,
-                'operational_outcome_acceptance_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.operator_acceptance_required_for_external_claim', false)
-                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.auto_accept_allowed', true) === false
-                    && count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.required_evidence', [])) >= 5,
-                'operational_outcome_risk_scorecard_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.risk_adjusted_scorecard.external_commitment_risk_blocked', false)
-                    && (int) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.risk_adjusted_scorecard.policy_exception_count', 1) === 0,
-                'operational_outcome_next_cycle_bound' => count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.next_cycle.next_actions', [])) >= 3
-                    && count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.next_cycle.blocked_external_actions', [])) >= 6,
-                'operational_outcome_evidence_ref_count' => count(array_filter((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.evidence_refs', []))),
-                'external_value_claim_allowed' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.external_value_claim_allowed', true),
-                'artifact_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.artifact_hash', ''),
-                'domain_execution_brief_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.domain_execution_brief.brief_hash', ''),
-            ])
-            ->unique('flow_id')
-            ->values()
-            ->all();
-    }
-
-    private function expectedFlowCountForCompany(string $companyId): int
-    {
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            if ((string) ($company['company_id'] ?? '') === $companyId) {
-                return count((array) ($company['flows'] ?? []));
-            }
-        }
-
-        return 0;
-    }
-
-    private function runtimePersistenceTablesAvailable(): bool
-    {
-        return DatabaseTableAvailability::all(['ai_domain_manifests', 'ai_domain_runtime_records']);
-    }
-
-    private function runtimeRecordsTableAvailable(): bool
-    {
-        return DatabaseTableAvailability::has('ai_domain_runtime_records');
-    }
 }
