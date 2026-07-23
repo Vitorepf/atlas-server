@@ -3089,3 +3089,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 101 — fail-close lease recovery pre-sweep, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0107
+commit: 02d9e2afa
+subject: "refactor(core): GOD-DEBULK fail-close lease recovery"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueRecoveryFailureTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskQueueRecoveryFailureTest.php --filter=test_claim_next_fails_closed_when_lease_recovery_is_unavailable --no-coverage
+  result: "FAIL 1 test, 1 assertion: public claimNext() swallowed the unavailable lease-recovery exception and returned no_claimable_task."
+green:
+  behavior: "A failed lease-recovery pre-sweep now stops claimNext() before queue selection with claim_blocked / lease_recovery_unavailable, lease_recovery_status=unavailable, and the concrete throwable class."
+verification:
+  characterization: "PASS 1 test, 5 assertions through public claimNext() with a real unavailable lease repository; no reflection or mocked target."
+  package: "PASS 103 tests, 497 assertions: Unit and Feature orchestrator suites plus the recovery contract."
+  php_lint: "PASS production orchestrator and focused Unit test."
+  pint: "NOT GREEN for whole-file source formatting drift (no broad reformatting was applied); the focused Unit test passes Pint."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1994 LOC (<2000); focused Unit test=42 LOC (<800 hot limit)."
+boundary:
+  - "The contract executes the real public claimNext() path against the real recovery service and storage-backed lease repository; it does not inspect the private pre-sweep by reflection."
+  - "On the unavailable branch, selection stops before a task is leased or a queue record is written; no dispatch, provider, token, completion, or evidence authority is granted."
+residual:
+  - "This fails closed only on lease-recovery unavailability. Recovery policy ownership and all separate admission and learning exception paths remain independently governed."
+next_cursor: "Pick the next executable META finding; do not represent A1-SC-0107 as a lifecycle-owner extraction."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
