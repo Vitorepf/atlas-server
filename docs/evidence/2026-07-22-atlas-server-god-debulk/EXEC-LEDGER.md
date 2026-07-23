@@ -4,42 +4,38 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0124 status persistence rejection closed
+phase: A1-SC-0127 transition blocker classification closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: completion-evidence status surface remains read-only under persistence flags
-finding_id: A1-SC-0124
-action_op: reject persistence requests while preserving canonical submission reads
+focus: partition self-programming transition blockers from the actual gate result
+finding_id: A1-SC-0127
+action_op: classify actual transition blockers into human, provider, and technical partitions
 queue_index: 6
-last_commit: e6114bbcc
+last_commit: d6cacf73b
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_command_does_not_persist_human_receipt_before_runtime_promotion
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_does_not_persist_real_provider_smoke_before_human_receipt_command
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php --filter=test_completion_evidence_status_loads_canonical_submissions_only_when_explicit_persist_flag_is_supplied
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php --filter=test_self_programming_transition_keeps_technical_only_gate_blockers_technical
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php --compact
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
-  vendor/bin/pint --test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCompletionEvidenceCertificationTest.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php
+  vendor/bin/pint --test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionFinalCompletionReadinessGateTest.php
   git diff --check
 before_after: |
-  red: the real public completion-evidence status command accepted --persist-completion-evidence and returned real_provider_smoke.persisted=true.
-  green: status calls verification only, returns persisted=false, rejects the request explicitly, and never invokes the receipt writer.
+  red: a real public readiness transition driven by the technical_gate_drift audit reported two injected human blockers and no technical blockers.
+  green: the status reports only actual gate blockers; technical_gate_drift stays technical and human/provider partitions remain empty.
 stdout: |
-  red_characterization: FAIL 1 test, 4 assertions (expected real_provider_smoke.persisted=false, received true)
-  focused: PASS 1 test, 9 assertions
-  smoke_persistence_regression: PASS 1 test, 4 assertions
-  canonical_submission_regression: PASS 1 test, 14 assertions
-  completion_evidence_feature_file: completed without a reported test failure
+  red_characterization: FAIL 1 test, 2 assertions (expected human_blocker_count=0, received 2)
+  focused: PASS 1 test, 8 assertions
+  completion_readiness_feature_file: NOT GREEN proof; the aggregate file command did not terminate in the shared runner and the executor-local retry was stopped with exit 143
   php_lint: PASS source plus changed Feature test
   feature_pint: PASS
   source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, single_quote, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space) were left untouched outside this focused change
-  loc_check: readiness_projection_os_evidence_section=1792
+  loc_check: readiness_projection_os_evidence_section=1795
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the real public Artisan status command with valid smoke and receipt payloads; it does not use reflection or mock the writer.
-  Runtime-promotion persistence is hard-disabled in this status surface. The live matrix currently has no pending runtime gaps, so its writer rejects every candidate before storage; no artificial green test was retained for that unreachable write path.
+  Characterization executes the real public readiness service and transition status path with a concrete incomplete completion audit; it does not use reflection or mocks.
+  Human and real-provider lists are now intersections with the transition's actual blocker list. The technical list is the remaining actual blockers, so the three partitions neither inject nor overlap blockers.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1978,6 +1974,36 @@ write_back:
   context_feedback: "persisted provider-safe feedback; measured=false, utility=20, missing canonical_doc/test/code sources; review required"
   outcome_id: god-debulk-rootsingles-context-controlplane-decide-2026-07-22
   outcome_status: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
+```
+
+## Task 63 — A1-SC-0127 classify actual transition blockers, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: d6cacf73b
+subject: "refactor(core): GOD-DEBULK classify transition blockers"
+red:
+  result: "FAIL 1 test, 2 assertions: a technical-only completion audit injected two human blockers and exposed no technical blocker."
+green:
+  behavior: "The real transition status derives the human and provider subsets only from actual blockers, then exposes every unclassified actual blocker as technical."
+verification:
+  focused_feature: "PASS 1 test, 8 assertions"
+  completion_readiness_feature_file: "NOT GREEN proof: aggregate file run did not terminate in the shared runner; the executor-local retry was stopped with exit 143 and is recorded in EXEC-DEBTS."
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN only for pre-existing full-file formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "readiness_projection_os_evidence_section=1795 (<2000)"
+boundary:
+  - exercises the concrete readiness service and transition-status method with a real incomplete completion audit; no reflection, mock, provider call, dispatch, token spend, runtime activation, or durable write
+  - deduplicates only non-empty string blockers already emitted by the gate before partitioning them
+  - a blocker is human or provider only when it is actually emitted by the transition; every remaining emitted blocker is technical
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0127
+  context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
 ```
