@@ -590,7 +590,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         foreach ($runtimeGapRecords as $record) {
             $this->assertSame('not_yet_runtime_capable', data_get($record, 'task_packet.continuation_context.auto_replenishment_source'));
             $this->assertNotEmpty(data_get($record, 'task_packet.continuation_context.auto_replenishment_reference'));
-            $this->assertContains('app/Services/Ai/SelfConstruction/', data_get($record, 'task_packet.normalized_scope.scope_in'));
+            $allowedFiles = (array) data_get($record, 'task_packet.normalized_scope.allowed_files');
+            $scopeIn = (array) data_get($record, 'task_packet.normalized_scope.scope_in');
+            $this->assertContains($allowedFiles[0], $scopeIn);
+            $this->assertContains($allowedFiles[1], $scopeIn);
+            $this->assertNotContains('app/Services/Ai/SelfConstruction/', $scopeIn);
         }
     }
 

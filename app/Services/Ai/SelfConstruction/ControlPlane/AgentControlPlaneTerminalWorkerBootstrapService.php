@@ -99,7 +99,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         }
 
         $claimableAfterReplenishment = count($this->claimableRecords($queueTags));
-        if ($claimableAfterReplenishment < $targetMin && (int) data_get($replenishment, 'generated_task_count', 0) === 0) {
+        if ($claimableAfterReplenishment < $targetMin && (int) data_get($replenishment, 'generated_task_count', 0) === 0 && $maxNew === 0) {
             return $this->blockedBeforeClaimPayload(
                 actor: $actor,
                 leaseMinutes: $leaseMinutes,

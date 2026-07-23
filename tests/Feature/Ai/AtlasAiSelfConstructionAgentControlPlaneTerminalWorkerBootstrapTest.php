@@ -174,10 +174,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
             'max_new_tasks' => 3,
         ]);
 
+        $this->assertSame(3, $first['generated_task_count'], json_encode(data_get($first, 'auto_replenishment.skipped_tasks', []), JSON_PRETTY_PRINT));
         $this->assertSame('ready_for_worker', $first['status']);
         $this->assertSame('ready_for_worker', $second['status']);
         $this->assertNotSame($first['task_packet_id'], $second['task_packet_id']);
         $this->assertNotSame($first['lease_id'], $second['lease_id']);
+        $this->assertNotContains('prepare_blocked', array_column((array) data_get($first, 'auto_replenishment.skipped_tasks', []), 'event'));
+        $this->assertNotContains('prepare_blocked', array_column((array) data_get($second, 'auto_replenishment.skipped_tasks', []), 'event'));
 
         $firstWriteSet = (array) data_get($first, 'one_shot_worker_packet.lease.write_set', []);
         $secondWriteSet = (array) data_get($second, 'one_shot_worker_packet.lease.write_set', []);

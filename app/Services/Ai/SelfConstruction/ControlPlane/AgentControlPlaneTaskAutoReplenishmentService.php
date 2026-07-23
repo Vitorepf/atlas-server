@@ -676,11 +676,13 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             if ($runtimeGap === '') {
                 continue;
             }
-            $seeds[] = $this->seed('not_yet_runtime_capable_'.$this->slug($runtimeGap), 'Fechar runtime gap do Agent Control Plane: '.$runtimeGap, [
+            $runtimeGapWords = str_replace('_', ' ', $runtimeGap);
+            $seeds[] = $this->seed('not_yet_runtime_capable_'.$this->slug($runtimeGap), 'Close '.$runtimeGapWords.' capability gap with a dedicated control-plane proof.', [
                 'source' => 'not_yet_runtime_capable',
                 'reference' => $runtimeGap,
                 'priority' => 3,
                 'tags' => ['runtime_gap', 'not_yet_runtime_capable'],
+                'acceptance_criteria' => ['runtime_gap_'.$this->slug($runtimeGap).'_focused_tests_pass'],
             ]);
         }
 
@@ -875,14 +877,14 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'routes/api.php',
                 'atlas-desktop/',
             ],
-            'acceptance_criteria' => [
+            'acceptance_criteria' => (array) ($seed['acceptance_criteria'] ?? [
                 'implementation_matches_canonical_contract',
                 'scope_is_limited_to_agent_control_plane',
                 'focused_tests_pass',
                 'docs_updated_if_contract_or_cli_changes',
                 'runtime_flags_remain_false',
                 'git_status_preserves_unrelated_changes',
-            ],
+            ]),
             'required_evidence' => [
                 'task_packet_created',
                 'lease_claim_required',
@@ -923,15 +925,14 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         if ($source === 'current_pointer' && $reference !== '') {
             $slice = str_replace('activate_signed_one_shot_scheduler_tick_', '', $reference);
             $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $slice)));
+            $implementation = 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTick'.$studly.'Invoker.php';
+            $test = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTick'.$studly.'InvokerTest.php';
 
             return [
-                'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTick'.$studly.'Invoker.php',
-                    'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTick'.$studly.'InvokerTest.php',
-                ],
+                'allowed_files' => [$implementation, $test],
                 'scope_in' => [
-                    'app/Services/Ai/SelfConstruction/',
-                    'tests/Feature/Ai/',
+                    $implementation,
+                    $test,
                     'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
                 ],
             ];
@@ -959,21 +960,30 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         }
 
         if ($source === 'not_yet_runtime_capable') {
-            $lane = match ($reference) {
-                'adapter_execution_runtime' => 'AtlasSelfConstructionAdapterExecutionRuntimeGraduation',
-                'automatic_cost_import_runtime' => 'AtlasSelfConstructionAutomaticCostImportRuntimeGraduation',
-                'automatic_work_product_collection_runtime' => 'AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduation',
-                default => 'AtlasSelfConstructionRuntimeGapMatrix',
+            [$implementation, $test] = match ($reference) {
+                'adapter_execution_runtime' => [
+                    'app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionAdapterExecutionRuntimeGraduationService.php',
+                    'tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionAdapterExecutionRuntimeGraduationServiceTest.php',
+                ],
+                'automatic_cost_import_runtime' => [
+                    'app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionAutomaticCostImportRuntimeGraduationService.php',
+                    'tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionAutomaticCostImportRuntimeGraduationServiceTest.php',
+                ],
+                'automatic_work_product_collection_runtime' => [
+                    'app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduationService.php',
+                    'tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduationServiceTest.php',
+                ],
+                default => [
+                    'app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimeGapMatrixService.php',
+                    'tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRuntimeGapMatrixTest.php',
+                ],
             };
 
             return [
-                'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/'.$lane,
-                    'tests/Feature/Ai/SelfConstruction/'.$lane,
-                ],
+                'allowed_files' => [$implementation, $test],
                 'scope_in' => [
-                    'app/Services/Ai/SelfConstruction/',
-                    'tests/Feature/Ai/SelfConstruction/',
+                    $implementation,
+                    $test,
                     'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
                 ],
             ];
