@@ -3439,3 +3439,41 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 111 — bound servability inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_UNRELATED_HEALTH_SUITE_DEBT
+finding: A1-SC-0108
+commit: e220c8420
+subject: "refactor(core): GOD-DEBULK bound servability inventory"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - app/Services/Ai/SelfConstruction/TaskServing/AtlasTaskCoordinationHealthService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter='test_servability_refuses_to_classify_an_unbounded_claimable_queue|test_health_marks_an_unbounded_servability_inventory_as_unknown_not_jammed' --no-coverage
+  result: "FAIL 2 tests: public servability emitted no limit status after reading 65 real packets, and the health snapshot incorrectly remained healthy."
+green:
+  behavior: "Above 64 claimable registry entries, servability reads only the read-only registry summary and returns blocked/servability_queue_scan_limit_exceeded with the exact claimable count plus unknown servable and wait metrics. Coordination health preserves that unknown state, marks the snapshot unhealthy without calling it jammed, and gives the operator an explicit scan-limit inspection recommendation."
+verification:
+  characterization: "PASS 2 tests, 13 assertions: real 65-packet storage fixtures exercise public servability and the public health snapshot; no queue, lease, dispatch, provider, token, completion, or ledger mutation occurs."
+  package_suite: "PASS 107 tests, 519 assertions: bounded anti-farm Feature plus Feature and Unit orchestrator suites."
+  health_file: "NOT GREEN: 6 existing cases return awis_execution_blocked before reaching their health assertions; 113 pass / 6 fail. The failing files and AWIS behavior are outside this three-file scope."
+  php_lint: "PASS all three touched PHP files."
+  pint: "PASS health service and focused Feature test; NOT GREEN only for inherited whole-file formatting drift in AgentControlPlaneTaskQueueOrchestrator.php. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check. The repository-wide check also reports unrelated trailing whitespace in ARCH-BLUEPRINTS/README.md, which was preserved."
+  density: "orchestrator=1996 LOC; health_service=231 LOC; focused Feature test=152 LOC; all <2000 and hot test <800."
+boundary:
+  - "The limit decision reads the actual queue registry through its public read-only API before task payload materialization; it does not reflect into the repository or mock the scan."
+  - "A partial inventory is represented as unknown rather than zero, so health does not manufacture a jam diagnosis or replenishment recommendation from incomplete facts."
+  - "No repair, dependency-wait, cooldown, forbidden-target, malformed, provider, dispatch, token, completion, or runtime-execution behavior changed."
+residual:
+  - "A1-SC-0108 remains partially open: malformed sweep, forbidden-target repair, scope repair, dependency-wait, and cooldown paths still use their own full-list scans and require separate real characterizations."
+next_cursor: "Pick the next executable A1-SC-0108 bounded scan or the next executable s0 META finding; skip structural monster work until its blueprint is approved."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-111-servability-inventory-e220c8420
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
