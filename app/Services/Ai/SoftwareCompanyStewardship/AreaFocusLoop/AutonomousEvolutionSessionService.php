@@ -25,6 +25,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ExecutionSummarySection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FlowContractSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ProviderDiffQualitySection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\RejectionSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ReviewReceiptSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SandboxSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SemanticSliceSection;
@@ -314,6 +315,8 @@ final class AutonomousEvolutionSessionService
 
     private ?CyclePostProcessingSection $cyclePostProcessing = null;
 
+    private ?RejectionSection $rejection = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
@@ -410,6 +413,12 @@ final class AutonomousEvolutionSessionService
     private function cyclePostProcessing(): CyclePostProcessingSection
     {
         return $this->cyclePostProcessing ??= new CyclePostProcessingSection($this);
+    }
+
+    /** Candidate-rejection leaf + candidate-scope section (GOD-DEBULK split; lazily constructed). */
+    private function rejection(): RejectionSection
+    {
+        return $this->rejection ??= new RejectionSection($this);
     }
 
     /**
@@ -516,7 +525,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param  array<string,mixed>  $finding */
-    private function isStructuralRuntimeGapFinding(array $finding): bool
+    public function isStructuralRuntimeGapFinding(array $finding): bool
     {
         return $this->factoryMaxSelection()->isStructuralRuntimeGapFinding($finding);
     }
@@ -795,7 +804,7 @@ final class AutonomousEvolutionSessionService
         $this->repairLearning = $service;
     }
 
-    private function repairLearning(): RepairLearningRegistryService
+    public function repairLearning(): RepairLearningRegistryService
     {
         $service = $this->repairLearning ??= app(RepairLearningRegistryService::class);
         if ($this->storageDirOverride !== null) {
@@ -814,7 +823,7 @@ final class AutonomousEvolutionSessionService
      *
      * @param  array<string,mixed>  $finding
      */
-    private function repairLearningTaskClass(array $finding): string
+    public function repairLearningTaskClass(array $finding): string
     {
         if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet'
             || (string) ($finding['origin_type'] ?? '') === 'build_plan_decomposition'
@@ -2382,259 +2391,74 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * AP-790 starvation recovery must stay executable even when the same state
-     * hash was review-locked, quarantined or previously attempted. Only hard
-     * factory-max safety checks apply so empty selection becomes one bounded
-     * owner-runtime cycle instead of repeating no_candidate_with_allowed_files.
-     *
-     * @param  list<string>  $allowedFiles
+     * GOD-DEBULK split delegators: the candidate-rejection leaves + candidate-scope
+     * projections live in {@see RejectionSection}; these thin forwarders preserve the
+     * historical method surface candidateRejectionReason (the sacred-coupled HEAD, kept
+     * on this facade) and the selection/flow orchestration bind to.
      */
     private function factoryMaxStarvationRecoveryRejectionReason(
         array $finding,
         array $allowedFiles,
         string $scopeProfile,
-    ): string {
-        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
-            return '';
-        }
-        if (! $this->touchesFactoryRuntime($allowedFiles)) {
-            return 'factory_max_requires_direct_factory_runtime_or_test_impact';
-        }
-
-        return '';
+    ): string
+    {
+        return $this->rejection()->factoryMaxStarvationRecoveryRejectionReason($finding, $allowedFiles, $scopeProfile);
     }
 
-    /**
-     * AP-790 terminal backlog unlock must stay executable through review locks so
-     * terminal-locked starvation can convert into one bounded owner-runtime cycle.
-     *
-     * @param  list<string>  $allowedFiles
-     */
     private function factoryMaxTerminalBacklogUnlockRejectionReason(
         array $finding,
         array $allowedFiles,
         string $scopeProfile,
-    ): string {
-        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
-            return '';
-        }
-        if (! $this->touchesFactoryRuntime($allowedFiles)) {
-            return 'factory_max_requires_direct_factory_runtime_or_test_impact';
-        }
-
-        return '';
+    ): string
+    {
+        return $this->rejection()->factoryMaxTerminalBacklogUnlockRejectionReason($finding, $allowedFiles, $scopeProfile);
     }
 
-    /**
-     * If a broad parent class has repeatedly produced non-retryable failures,
-     * reject the parent before provider spend so AP-806 can re-slice it into a
-     * bounded Self-Construction packet. This mirrors the zero-provider preflight
-     * signal but moves it into selection, avoiding cheap-but-useless blocked
-     * cycles when there is still executable packet runway.
-     *
-     * @param  array<string,mixed>  $finding
-     */
     private function repairLearningRejectsCandidateBeforeProvider(string $areaId, string $focus, array $finding): bool
     {
-        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
-            return false;
-        }
-
-        $hint = $this->repairLearning()->repairHintForTaskClass(
-            $areaId,
-            $focus,
-            $this->repairLearningTaskClass($finding),
-        );
-
-        return is_array($hint)
-            && ZeroProviderPreflightGate::repairLearningShowsNonRetryableFailurePattern($hint);
+        return $this->rejection()->repairLearningRejectsCandidateBeforeProvider($areaId, $focus, $finding);
     }
 
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     */
     private function benchmarkOrRivalsCandidate(array $finding, array $allowedFiles): bool
     {
-        $haystack = strtolower(implode(' ', array_merge($allowedFiles, [
-            (string) ($finding['finding_id'] ?? ''),
-            (string) ($finding['title'] ?? ''),
-            (string) ($finding['detail'] ?? ''),
-            (string) ($finding['why_it_matters'] ?? ''),
-        ])));
-
-        return str_contains($haystack, 'rivals') || str_contains($haystack, 'benchmark');
+        return $this->rejection()->benchmarkOrRivalsCandidate($finding, $allowedFiles);
     }
 
-    /**
-     * Atlas Dev's provider prompt quality gate intentionally blocks Forge/Council
-     * instructions. Rejecting these candidates before owner execution keeps the
-     * 24h loop from spending a full branch/sandbox cycle on a prompt projection
-     * that cannot be sent.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     */
     private function atlasDevForbiddenTopologyLeakCandidate(array $finding, array $allowedFiles): bool
     {
-        $haystack = strtolower(implode(' ', array_merge($allowedFiles, [
-            (string) ($finding['finding_id'] ?? ''),
-            (string) ($finding['title'] ?? ''),
-            (string) ($finding['detail'] ?? ''),
-            (string) ($finding['why_it_matters'] ?? ''),
-            (string) ($finding['proposed_next_action'] ?? ''),
-            (string) data_get($finding, 'spec_seed.title', ''),
-            (string) data_get($finding, 'spec_seed.rationale', ''),
-        ])));
-
-        return str_contains($haystack, 'forge') || str_contains($haystack, 'council');
+        return $this->rejection()->atlasDevForbiddenTopologyLeakCandidate($finding, $allowedFiles);
     }
 
-    /** @param array<string,mixed> $finding */
     private function highRiskDeepFinding(array $finding): bool
     {
-        if ($this->isStructuralRuntimeGapFinding($finding)) {
-            return false;
-        }
-
-        $origin = (string) ($finding['origin'] ?? '');
-        $originType = (string) ($finding['origin_type'] ?? '');
-        if ($origin === 'factory_max_seed' || str_starts_with($originType, 'ap')) {
-            return false;
-        }
-
-        return strtolower((string) ($finding['severity'] ?? '')) === 'high';
+        return $this->rejection()->highRiskDeepFinding($finding);
     }
 
-    /**
-     * Mirrors AP-774's narrow factory-scoped auto-merge boundary so AP-790 does
-     * not select work it cannot merge without human review while Forge authority
-     * is unavailable.
-     *
-     * @param  list<string>  $allowedFiles
-     */
     private function factoryScopedAutonomousPatchCandidate(array $allowedFiles): bool
     {
-        if ($allowedFiles === []) {
-            return false;
-        }
-
-        foreach ($allowedFiles as $file) {
-            if (str_starts_with($file, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
-                continue;
-            }
-            if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
-                continue;
-            }
-            if (str_starts_with($file, 'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/')) {
-                continue;
-            }
-            if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/ProductMode/')) {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
+        return $this->rejection()->factoryScopedAutonomousPatchCandidate($allowedFiles);
     }
 
-    /** @param array<string,mixed> $finding */
     private function hasExistingImplementationSource(array $finding): bool
     {
-        $files = AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []);
-        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
-            $packet = is_array($finding['self_construction_packet'] ?? null) ? $finding['self_construction_packet'] : [];
-            $files = AreaFocusStringListNormalizer::uniqueMergedStringValues(
-                $files,
-                AreaFocusStringListNormalizer::preserveNonBlankStrings($packet['parent_affected_files'] ?? []),
-            );
-        }
-
-        foreach ($files as $file) {
-            if (! str_starts_with($file, 'app/')) {
-                continue;
-            }
-            $absolute = function_exists('base_path') ? base_path($file) : $file;
-            if (is_file($absolute)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->rejection()->hasExistingImplementationSource($finding);
     }
 
-    /** @param array<string,mixed> $forgeInputs */
     public function hasLiveForgeAuthority(array $forgeInputs): bool
     {
-        $obra = trim((string) ($forgeInputs['forge_obra'] ?? $forgeInputs['obra_id'] ?? ''));
-        $topology = is_array($forgeInputs['forge_live_topology'] ?? null) ? $forgeInputs['forge_live_topology'] : [];
-        $decision = is_array($forgeInputs['forge_live_decision'] ?? null) ? $forgeInputs['forge_live_decision'] : [];
-
-        return $obra !== ''
-            && strtolower((string) ($topology['status'] ?? '')) === 'live'
-            && $decision !== [];
+        return $this->rejection()->hasLiveForgeAuthority($forgeInputs);
     }
 
-    /**
-     * @param  array<string,mixed>  $finding
-     * @return list<string>
-     */
     public function allowedFiles(array $finding): array
     {
-        $files = array_merge(
-            AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []),
-            AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_docs'] ?? []),
-            AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.tests_required', [])),
-        );
-        foreach ((array) ($finding['evidence_refs'] ?? []) as $ref) {
-            if (! is_string($ref)) {
-                continue;
-            }
-            if (str_starts_with($ref, 'expected_test:')) {
-                $basename = trim(substr($ref, strlen('expected_test:')));
-                $testPath = $this->expectedTestPath($basename, AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []));
-                if ($testPath !== '') {
-                    $files[] = $testPath;
-                }
-            }
-            if (preg_match_all('/(?:tests|app|docs|config|routes|database)\/[A-Za-z0-9_.,:\/\\\\ -]+?\.(?:php|md|ts|tsx|json|yml|yaml)/', $ref, $matches)) {
-                foreach ($matches[0] as $match) {
-                    $files[] = trim($match, " \t\n\r\0\x0B,.:");
-                }
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
-            fn (string $file): string => AreaFocusPathNormalizer::repoRelativeNoWhitespace($file),
-            $files,
-        ), fn (string $file): bool => $file !== '' && ! $this->forbidden($file)));
+        return $this->rejection()->allowedFiles($finding);
     }
 
-    /**
-     * @param  list<string>  $affectedFiles
-     */
     private function expectedTestPath(string $basename, array $affectedFiles): string
     {
-        if ($basename === '') {
-            return '';
-        }
-        $source = $affectedFiles[0] ?? '';
-        if (str_starts_with($source, 'app/Services/Ai/NightShift/')) {
-            return 'tests/Unit/Ai/NightShift/'.$basename;
-        }
-        if (str_starts_with($source, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
-            return 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.$basename;
-        }
-        if (str_starts_with($source, 'app/Services/Ai/')) {
-            $tail = substr($source, strlen('app/Services/Ai/'));
-            $dir = trim(dirname($tail), '.');
-
-            return 'tests/Unit/Ai/'.($dir !== '' ? $dir.'/' : '').$basename;
-        }
-
-        return 'tests/Unit/'.$basename;
+        return $this->rejection()->expectedTestPath($basename, $affectedFiles);
     }
+
 
     /**
      * GOD-DEBULK split delegators: the AP-726/AP-756 sandbox preflight + base-ref
@@ -4141,7 +3965,7 @@ final class AutonomousEvolutionSessionService
         return $this->cyclePostProcessing()->nextActions($status, $blockers);
     }
 
-    private function forbidden(string $path): bool
+    public function forbidden(string $path): bool
     {
         return $this->cyclePostProcessing()->forbidden($path);
     }
