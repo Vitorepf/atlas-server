@@ -39,6 +39,9 @@ use App\Services\Ai\OpenBrainMcp\TaskTools;
 use App\Services\Ai\OpenBrainMcp\MemoryEntryTools;
 use App\Services\Ai\OpenBrainMcp\GraphRagTools;
 use App\Services\Ai\OpenBrainMcp\WorkspaceTools;
+use App\Services\Ai\OpenBrainMcp\ContextTools;
+use App\Services\Ai\OpenBrainMcp\HealthMetricsTools;
+use App\Services\Ai\OpenBrainMcp\ProviderReleaseTools;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -170,6 +173,9 @@ class AtlasOpenBrainMcpService
         private readonly MemoryEntryTools $memoryEntry,
         private readonly GraphRagTools $graphRag,
         private readonly WorkspaceTools $workspaceTools,
+        private readonly ContextTools $contextTools,
+        private readonly HealthMetricsTools $healthMetrics,
+        private readonly ProviderReleaseTools $providerReleaseTools,
     ) {
         $this->processStartedAt = Carbon::now()->toIso8601String();
     }
@@ -1416,10 +1422,10 @@ class AtlasOpenBrainMcpService
 
         try {
             $response = match ($name) {
-                'atlas_memory_recall' => $this->toolResponse($id, $this->memoryRecall($arguments)),
-                'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
-                'atlas_context_expand' => $this->toolResponse($id, $this->contextExpand($arguments)),
-                'atlas_context_feedback' => $this->toolResponse($id, $this->contextFeedback($arguments)),
+                'atlas_memory_recall' => $this->toolResponse($id, $this->contextTools->memoryRecall($arguments)),
+                'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextTools->contextPack($arguments)),
+                'atlas_context_expand' => $this->toolResponse($id, $this->contextTools->contextExpand($arguments)),
+                'atlas_context_feedback' => $this->toolResponse($id, $this->contextTools->contextFeedback($arguments)),
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
@@ -1443,8 +1449,8 @@ class AtlasOpenBrainMcpService
                 'atlas_agent_behavior_report' => $this->toolResponse($id, $this->agentBehaviorReport($arguments)),
                 'atlas_provider_performance_report' => $this->toolResponse($id, $this->providerPerformanceReport($arguments)),
                 'atlas_dynamic_compute_market_report' => $this->toolResponse($id, $this->dynamicComputeMarketReport($arguments)),
-                'atlas_provider_release_review' => $this->toolResponse($id, $this->providerReleaseReview($arguments)),
-                'atlas_provider_release_sources' => $this->toolResponse($id, $this->providerReleaseSources($arguments)),
+                'atlas_provider_release_review' => $this->toolResponse($id, $this->providerReleaseTools->providerReleaseReview($arguments)),
+                'atlas_provider_release_sources' => $this->toolResponse($id, $this->providerReleaseTools->providerReleaseSources($arguments)),
                 'atlas_ledger_projection_health' => $this->toolResponse($id, $this->ledgerProjectionHealth($arguments)),
                 'atlas_decision_receipt_report' => $this->toolResponse($id, $this->decisionReceiptReport($arguments)),
                 'atlas_workspace_info' => $this->toolResponse($id, $this->workspaceInfo($arguments)),
@@ -1627,259 +1633,6 @@ class AtlasOpenBrainMcpService
      * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
      */
-    private function memoryRecall(array $arguments): array
-    {
-        $query = $this->string($arguments['query'] ?? '') ?? '';
-        if ($query === '') {
-            return [
-                'ok' => false,
-                'error' => 'query_required',
-            ];
-        }
-
-        $context = $this->object($arguments['context'] ?? []);
-        $workspace = $this->workspace($context['workspace'] ?? ($arguments['workspace'] ?? null));
-        if ($workspace !== null) {
-            $context['workspace'] = $workspace;
-        }
-
-        $recall = $this->recall->recall(
-            $query,
-            $context,
-            $this->object($arguments['filters'] ?? []),
-            $this->object($arguments['options'] ?? []),
-        );
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_memory_recall',
-            'memory_recall' => $recall,
-            // T4-S4 (Obra #17) — the recall's UNCERTAINTY MAP: how confident is this
-            // retrieval? A weak/flat recall is flagged so the caller treats it as a weak
-            // signal (and can ask for more), not as settled truth. Pure read over the
-            // recall result; zero extra provider spend.
-            'uncertainty' => (new AtlasRecallUncertaintyMap)->forRecall($recall),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function contextPack(array $arguments): array
-    {
-        $objective = $this->string($arguments['objective'] ?? '') ?? '';
-        if ($objective === '') {
-            return [
-                'ok' => false,
-                'error' => 'objective_required',
-            ];
-        }
-
-        $packArguments = $arguments;
-        $packArguments['task'] = $objective;
-        $pack = $this->contextPack->packFor($objective, $this->contextPackOptions($packArguments));
-        $workspace = $this->workspace($arguments['workspace'] ?? data_get($arguments, 'payload.workspace'));
-        $audit = $this->recordLegacyContextPackAudit($arguments, $objective, $workspace, $pack);
-        $summary = [
-            'context_refs_count' => (int) data_get($pack, 'context_feedback_request.delivered_ref_count', 0),
-            'memory_refs_count' => count((array) ($pack['memory'] ?? [])),
-            'provider_safe' => true,
-            'runtime_version' => data_get($pack, 'provenance.aobg_runtime.runtime_version'),
-            'deprecated_alias_of' => 'atlas_context_pack',
-        ];
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_open_brain_context_pack',
-            'deprecated_alias_of' => 'atlas_context_pack',
-            'provider_bound' => true,
-            'pack' => $pack,
-            'open_brain' => [
-                'ok' => true,
-                'schema_version' => 1,
-                'context_pack_hash' => $pack['context_pack_hash'] ?? null,
-                'context_pack' => $pack,
-                'context_refs' => (array) data_get($pack, 'context_feedback_request.delivered_context_refs', []),
-                'summary' => $summary,
-                'safety' => [
-                    'provider_safe' => true,
-                    'audit_persisted' => $audit !== null,
-                    'raw_text_exposed' => false,
-                ],
-                'audit' => $audit,
-                'deprecated_alias_of' => 'atlas_context_pack',
-            ],
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @param  array<string,mixed>  $pack
-     * @return array<string,mixed>|null
-     */
-    private function recordLegacyContextPackAudit(array $arguments, string $objective, ?string $workspace, array $pack): ?array
-    {
-        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
-            return null;
-        }
-
-        $log = AtlasOpenBrainAccessLog::query()->create([
-            'surface' => 'mcp',
-            'requester' => $this->string($arguments['requester'] ?? null) ?: 'mcp-client',
-            'action' => 'context_pack_export',
-            'status' => 'completed',
-            'workspace_hash' => $workspace !== null ? hash('sha256', $workspace) : null,
-            'workspace_label' => $workspace !== null ? basename($workspace) : null,
-            'context_pack_hash' => $pack['context_pack_hash'] ?? null,
-            'context_refs_count' => (int) data_get($pack, 'context_feedback_request.delivered_ref_count', 0),
-            'memory_refs_count' => count((array) ($pack['memory'] ?? [])),
-            'provider_safe' => true,
-            'query_json' => [
-                'objective_hash' => hash('sha256', $objective),
-                'objective_excerpt_redacted' => true,
-                'objective_length' => mb_strlen($objective),
-                'workspace_hash' => $workspace !== null ? hash('sha256', $workspace) : null,
-                'workspace_label' => $workspace !== null ? basename($workspace) : null,
-            ],
-            'result_summary_json' => [
-                'schema_version' => 'atlas.aobg.legacy_context_pack_alias.v1',
-                'deprecated_alias_of' => 'atlas_context_pack',
-                'runtime_version' => data_get($pack, 'provenance.aobg_runtime.runtime_version'),
-                'provider_safe' => true,
-            ],
-            'metadata' => [
-                'schema_version' => 2,
-                'source' => 'atlas_open_brain_mcp_service',
-                'alias_of' => 'atlas_context_pack',
-                'query_redaction' => 'hash_only_no_raw_objective_or_workspace_path',
-            ],
-            'accessed_at' => now(),
-        ]);
-
-        return [
-            'id' => $log->id,
-            'surface' => $log->surface,
-            'requester' => $log->requester,
-            'action' => $log->action,
-            'status' => $log->status,
-            'context_pack_hash' => $log->context_pack_hash,
-            'context_refs_count' => $log->context_refs_count,
-            'memory_refs_count' => $log->memory_refs_count,
-            'provider_safe' => $log->provider_safe,
-            'accessed_at' => $log->accessed_at?->toJSON(),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function contextExpand(array $arguments): array
-    {
-        $handle = $this->string($arguments['handle'] ?? '') ?? '';
-        if ($handle === '') {
-            return [
-                'ok' => false,
-                'error' => 'handle_required',
-            ];
-        }
-
-        $objective = $this->string($arguments['objective'] ?? $arguments['task'] ?? $arguments['query'] ?? '') ?? '';
-        if ($objective === '') {
-            return [
-                'ok' => false,
-                'error' => 'objective_required',
-            ];
-        }
-
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_context_expand',
-            'context_expansion' => $this->contextExpansion->expand([
-                'handle' => $handle,
-                'objective' => $objective,
-                'workspace' => $workspace,
-                'task_type' => $this->string($arguments['task_type'] ?? null) ?: 'dev',
-                'domain' => $this->string($arguments['domain'] ?? null) ?: 'atlas',
-                'risk_level' => $this->string($arguments['risk_level'] ?? $arguments['risk'] ?? null) ?: 'low',
-                'max_refs' => $this->positiveInt($arguments['max_refs'] ?? null) ?: 6,
-                'budget' => $this->positiveInt($arguments['budget'] ?? null) ?: 3200,
-            ]),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function contextFeedback(array $arguments): array
-    {
-        $objective = $this->string($arguments['objective'] ?? $arguments['task'] ?? $arguments['query'] ?? '') ?? '';
-        if ($objective === '') {
-            return [
-                'ok' => false,
-                'error' => 'objective_required',
-            ];
-        }
-
-        $contextPackHash = $this->string($arguments['context_pack_hash'] ?? null);
-        $retrievalReceiptId = $this->string($arguments['retrieval_receipt_id'] ?? null) ?: $contextPackHash;
-        $workspace = $this->workspace($arguments['workspace'] ?? null);
-        $missedSources = $this->stringList($arguments['missed_required_sources'] ?? $arguments['missed_sources'] ?? []);
-        $input = [
-            'objective' => $objective,
-            'workspace' => $workspace,
-            'task_type' => $this->string($arguments['task_type'] ?? null) ?: 'dev',
-            'domain' => $this->string($arguments['domain'] ?? null) ?: 'atlas',
-            'risk_level' => $this->string($arguments['risk_level'] ?? $arguments['risk'] ?? null) ?: 'low',
-            'outcome_status' => $this->string($arguments['outcome_status'] ?? $arguments['outcome'] ?? null) ?: 'unknown',
-            'max_refs' => $this->positiveInt($arguments['max_refs'] ?? null) ?: 8,
-            'delivered_context_refs' => $this->stringList($arguments['delivered_context_refs'] ?? $arguments['delivered_refs'] ?? []),
-            'used_context_refs' => $this->stringList($arguments['used_context_refs'] ?? $arguments['used_refs'] ?? []),
-            'noise_context_refs' => $this->stringList($arguments['noise_context_refs'] ?? $arguments['noise_refs'] ?? []),
-            'missed_required_sources' => array_map(
-                static fn (string $source): array => [
-                    'source_type' => $source,
-                    'reason' => 'mcp_reported_missing_source',
-                ],
-                $missedSources,
-            ),
-            'record' => (bool) ($arguments['record'] ?? false),
-        ];
-
-        if (($flowId = $this->string($arguments['flow_id'] ?? null)) !== null) {
-            $input['flow_id'] = $flowId;
-        }
-        if ($retrievalReceiptId !== null) {
-            $input['retrieval_receipt_id'] = $retrievalReceiptId;
-        }
-        if ($contextPackHash !== null) {
-            $input['context_pack_hash'] = $contextPackHash;
-        }
-        if (is_numeric($arguments['post_execution_utility'] ?? $arguments['utility'] ?? null)) {
-            $input['post_execution_utility'] = max(0, min(100, (int) ($arguments['post_execution_utility'] ?? $arguments['utility'])));
-        }
-        if (($runOutcomeId = $this->string($arguments['run_outcome_id'] ?? null)) !== null) {
-            $input['run_outcome_id'] = $runOutcomeId;
-        }
-        if (($memoryCandidateId = $this->string($arguments['memory_candidate_id'] ?? null)) !== null) {
-            $input['memory_candidate_id'] = $memoryCandidateId;
-        }
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_context_feedback',
-            'context_feedback' => $this->retrievalFeedback->capture($input),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
     private function maintenanceStatus(array $arguments): array
     {
         $workspace = $this->workspace($arguments['workspace'] ?? null);
@@ -1890,12 +1643,12 @@ class AtlasOpenBrainMcpService
         ]);
         $knowledge = $this->knowledge->summary();
         $code = $this->code->summary();
-        $memory = $this->memorySummary($workspace);
+        $memory = $this->healthMetrics->memorySummary($workspace);
         $memoryQuality = $this->quality->scorecard([
             'workspace' => $workspace,
         ]);
-        $promptMetrics = $this->openBrainPromptMetrics();
-        $contextFeedbackMetrics = $this->contextFeedbackMetrics();
+        $promptMetrics = $this->healthMetrics->openBrainPromptMetrics();
+        $contextFeedbackMetrics = $this->healthMetrics->contextFeedbackMetrics();
         $runtimeSourceProbe = $this->runtimeSourceProbe();
         $includeDriftAudit = (bool) ($arguments['include_drift_audit'] ?? false);
         $codeAudit = $includeDriftAudit
@@ -1918,8 +1671,8 @@ class AtlasOpenBrainMcpService
             'code_intelligence' => $code,
             'code_audit' => $codeAudit,
             'provider_projection' => $projection,
-            'overall_status' => $this->overallStatus($memory, $memoryQuality, $promptMetrics, $contextFeedbackMetrics, $runtimeSourceProbe, $knowledge, $code, $projection, $codeAudit),
-            'next_actions' => $this->nextActions($workspace, $memory, $memoryQuality, $promptMetrics, $contextFeedbackMetrics, $runtimeSourceProbe, $knowledge, $code, $projection, $codeAudit),
+            'overall_status' => $this->healthMetrics->overallStatus($memory, $memoryQuality, $promptMetrics, $contextFeedbackMetrics, $runtimeSourceProbe, $knowledge, $code, $projection, $codeAudit),
+            'next_actions' => $this->healthMetrics->nextActions($workspace, $memory, $memoryQuality, $promptMetrics, $contextFeedbackMetrics, $runtimeSourceProbe, $knowledge, $code, $projection, $codeAudit),
             'writes' => false,
             'generated_at' => now()->toJSON(),
         ];
@@ -2523,76 +2276,6 @@ class AtlasOpenBrainMcpService
         return [
             'ok' => ($payload['status'] ?? null) === 'ok',
             'tool' => 'atlas_dynamic_compute_market_report',
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function providerReleaseReview(array $arguments): array
-    {
-        $title = $this->string($arguments['title'] ?? null);
-        if ($title === null) {
-            return [
-                'ok' => false,
-                'tool' => 'atlas_provider_release_review',
-                'error' => 'title_required',
-                'writes' => false,
-            ];
-        }
-
-        $payload = $this->providerReleaseIntelligence->review([
-            'provider' => $this->string($arguments['provider'] ?? null),
-            'title' => $title,
-            'url' => $this->string($arguments['url'] ?? null),
-            'published_at' => $this->string($arguments['published_at'] ?? null),
-            'content_hash' => $this->string($arguments['content_hash'] ?? null),
-            'type' => $this->string($arguments['type'] ?? null),
-            'domains' => $this->stringList($arguments['domain'] ?? ($arguments['domains'] ?? [])),
-            'capabilities' => $this->stringList($arguments['capability'] ?? ($arguments['capabilities'] ?? [])),
-            'connectors' => $this->stringList($arguments['connector'] ?? ($arguments['connectors'] ?? [])),
-        ]);
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok',
-            'tool' => 'atlas_provider_release_review',
-            ...$payload,
-            'writes' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function providerReleaseSources(array $arguments): array
-    {
-        $payload = $this->providerReleaseSources->summary([
-            'provider' => $this->string($arguments['provider'] ?? null),
-            'tier' => $this->string($arguments['tier'] ?? null),
-            'cadence' => $this->string($arguments['cadence'] ?? null),
-            'track' => $this->string($arguments['track'] ?? null),
-        ]);
-
-        $url = $this->string($arguments['url'] ?? null);
-        if ($url !== null) {
-            $payload = array_merge($payload, [
-                'mode' => 'read_only_candidate_preview',
-                'candidate' => $this->providerReleaseSources->candidateFromDetection(
-                    url: $url,
-                    title: $this->string($arguments['title'] ?? null) ?? 'untitled-provider-release-candidate',
-                    contentHash: $this->string($arguments['content_hash'] ?? null),
-                    publishedAt: $this->string($arguments['published_at'] ?? null),
-                ),
-            ]);
-        }
-
-        return [
-            'ok' => ($payload['status'] ?? null) === 'ok',
-            'tool' => 'atlas_provider_release_sources',
             ...$payload,
             'writes' => false,
         ];
@@ -3308,7 +2991,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => $tool, 'error' => 'task_required'];
         }
 
-        $opts = $this->contextPackOptions($arguments);
+        $opts = $this->contextTools->contextPackOptions($arguments);
 
         $pack = $this->contextPack->packFor($task, $opts);
 
@@ -3320,47 +3003,6 @@ class AtlasOpenBrainMcpService
             'pack' => $pack,
             'generated_at' => now()->toJSON(),
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function contextPackOptions(array $arguments): array
-    {
-        $opts = [];
-
-        if ($this->string($arguments['workspace'] ?? null) !== null) {
-            $opts['workspace'] = $this->workspace($arguments['workspace']);
-        } elseif ($this->string($arguments['cwd'] ?? null) !== null) {
-            $opts['cwd'] = $this->string($arguments['cwd']);
-        } else {
-            $opts['workspace'] = $this->workspace(null);
-        }
-
-        foreach (['budget', 'code_budget', 'memory_budget', 'feedback_window_hours'] as $key) {
-            if (is_numeric($arguments[$key] ?? null)) {
-                $opts[$key] = (int) $arguments[$key];
-            }
-        }
-
-        foreach (['task_type', 'domain', 'flow_id', 'session_id', 'obra_id', 'decision_id'] as $key) {
-            $value = $this->string($arguments[$key] ?? null);
-            if ($value !== null) {
-                $opts[$key] = $value;
-            }
-        }
-
-        if (is_array($arguments['composed_arc'] ?? null)) {
-            $opts['composed_arc'] = $arguments['composed_arc'];
-        }
-
-        $changedFiles = $this->stringList($arguments['changed_files'] ?? []);
-        if ($changedFiles !== []) {
-            $opts['changed_files'] = $changedFiles;
-        }
-
-        return $opts;
     }
 
 
@@ -3515,155 +3157,6 @@ class AtlasOpenBrainMcpService
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function openBrainPromptMetrics(int $hours = 168): array
-    {
-        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
-            return [
-                'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
-                'status' => 'not_migrated',
-                'window_hours' => $hours,
-                'observed_count' => 0,
-                'review_signal' => [
-                    'status' => 'unavailable',
-                    'severity' => 'low',
-                    'reasons' => ['open_brain_audit_table_missing'],
-                    'recommended_action' => 'run_open_brain_audit_migrations_before_prompt_metric_review',
-                    'recommended_command' => 'php artisan migrate --path=database/migrations/2026_05_03_130000_create_atlas_open_brain_access_logs_table.php',
-                ],
-            ];
-        }
-
-        $logs = AtlasOpenBrainAccessLog::query()
-            ->where('accessed_at', '>=', now()->subHours($hours))
-            ->where('action', 'context_pack_export')
-            ->orderByDesc('accessed_at')
-            ->limit(200)
-            ->get();
-
-        $promptRows = $logs
-            ->map(function (AtlasOpenBrainAccessLog $log): ?array {
-                $summary = (array) ($log->result_summary_json ?? []);
-                $prompt = data_get($summary, 'prompt');
-                if (! is_array($prompt)) {
-                    return null;
-                }
-
-                return [
-                    'id' => $log->id,
-                    'mode' => (string) ($prompt['mode'] ?? 'unknown'),
-                    'chars' => (int) ($prompt['chars'] ?? 0),
-                    'lines' => (int) ($prompt['lines'] ?? 0),
-                    'estimated_tokens' => (int) ($prompt['estimated_tokens'] ?? 0),
-                    'full_chars' => (int) ($prompt['full_chars'] ?? 0),
-                    'saved_chars' => (int) ($prompt['saved_chars'] ?? 0),
-                    'estimated_tokens_saved' => (int) ($prompt['estimated_tokens_saved'] ?? 0),
-                    'savings_ratio' => AiValueNormalizer::finiteFloatOrNull($prompt['savings_ratio'] ?? null) ?? 0.0,
-                    'compact_to_full_ratio' => AiValueNormalizer::finiteFloatOrNull($prompt['compact_to_full_ratio'] ?? null) ?? 0.0,
-                    'raw_prompt_persisted' => (bool) ($prompt['raw_prompt_persisted'] ?? false)
-                        || (bool) data_get($summary, 'safety.prompt_raw_prompt_persisted', false)
-                        || array_key_exists('prompt_section', $summary),
-                    'accessed_at' => $log->accessed_at?->toJSON(),
-                ];
-            })
-            ->filter()
-            ->values();
-
-        if ($promptRows->isEmpty()) {
-            return [
-                'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
-                'status' => 'no_data',
-                'window_hours' => $hours,
-                'observed_count' => 0,
-                'total_context_pack_exports' => $logs->count(),
-                'review_signal' => [
-                    'status' => 'observe',
-                    'severity' => 'low',
-                    'reasons' => ['no_prompt_metric_exports_in_window'],
-                    'recommended_action' => 'collect_include_prompt_exports_before_prompt_metric_review',
-                    'recommended_command' => './bin/atlas open-brain context "AOBG prompt metric calibration" --include-prompt --prompt-mode=compact --json',
-                ],
-            ];
-        }
-
-        $compactRows = $promptRows->where('mode', 'compact')->values();
-        $fullRows = $promptRows->where('mode', 'full')->values();
-        $unknownRows = $promptRows
-            ->reject(fn (array $row): bool => in_array($row['mode'], ['compact', 'full'], true))
-            ->values();
-        $rawPromptViolations = $promptRows
-            ->filter(fn (array $row): bool => (bool) ($row['raw_prompt_persisted'] ?? false))
-            ->values();
-        $lowSavingsRows = $compactRows
-            ->filter(fn (array $row): bool => (AiValueNormalizer::finiteFloatOrNull($row['savings_ratio'] ?? null) ?? 0.0) < 0.25)
-            ->values();
-
-        $observedCount = $promptRows->count();
-        $fullModeRatio = $observedCount > 0 ? round($fullRows->count() / $observedCount, 4) : 0.0;
-        $fullModeDominant = $observedCount >= 3 && $fullModeRatio > 0.5;
-        $reasons = [];
-        if ($rawPromptViolations->isNotEmpty()) {
-            $reasons[] = 'raw_prompt_persistence_detected';
-        }
-        if ($lowSavingsRows->isNotEmpty()) {
-            $reasons[] = 'compact_prompt_savings_below_threshold';
-        }
-        if ($fullModeDominant) {
-            $reasons[] = 'full_prompt_mode_dominant';
-        }
-        if ($unknownRows->isNotEmpty()) {
-            $reasons[] = 'unknown_prompt_mode_observed';
-        }
-
-        $status = 'ready';
-        if ($rawPromptViolations->isNotEmpty()) {
-            $status = 'critical';
-        } elseif ($reasons !== []) {
-            $status = 'warning';
-        }
-
-        return [
-            'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
-            'status' => $status,
-            'window_hours' => $hours,
-            'observed_count' => $observedCount,
-            'total_context_pack_exports' => $logs->count(),
-            'compact_count' => $compactRows->count(),
-            'full_count' => $fullRows->count(),
-            'unknown_mode_count' => $unknownRows->count(),
-            'full_mode_ratio' => $fullModeRatio,
-            'raw_prompt_persistence_violation_count' => $rawPromptViolations->count(),
-            'low_savings_count' => $lowSavingsRows->count(),
-            'averages' => [
-                'chars' => $this->averageMetric($promptRows, 'chars'),
-                'estimated_tokens' => $this->averageMetric($promptRows, 'estimated_tokens'),
-                'saved_chars' => $this->averageMetric($promptRows, 'saved_chars'),
-                'estimated_tokens_saved' => $this->averageMetric($promptRows, 'estimated_tokens_saved'),
-                'savings_ratio' => $this->averageMetric($promptRows, 'savings_ratio', 4),
-            ],
-            'compact' => [
-                'count' => $compactRows->count(),
-                'avg_chars' => $this->averageMetric($compactRows, 'chars'),
-                'avg_full_chars' => $this->averageMetric($compactRows, 'full_chars'),
-                'avg_saved_chars' => $this->averageMetric($compactRows, 'saved_chars'),
-                'avg_estimated_tokens_saved' => $this->averageMetric($compactRows, 'estimated_tokens_saved'),
-                'avg_savings_ratio' => $this->averageMetric($compactRows, 'savings_ratio', 4),
-                'avg_compact_to_full_ratio' => $this->averageMetric($compactRows, 'compact_to_full_ratio', 4),
-            ],
-            'latest' => $promptRows->first(),
-            'review_signal' => [
-                'status' => $status === 'ready' ? 'ready' : ($status === 'critical' ? 'blocking' : 'review'),
-                'severity' => $status === 'critical' ? 'high' : ($status === 'warning' ? 'medium' : 'low'),
-                'reasons' => $reasons,
-                'recommended_action' => $status === 'ready'
-                    ? 'keep_compact_prompt_default_and_continue_measuring'
-                    : 'review_open_brain_prompt_metric_regression_before_changing_prompt_delivery_policy',
-            ],
-        ];
-    }
-
-    /**
      * OPE-07 — read-only surface review. It never removes tools; it emits the
      * evidence-backed verdict a future deprecation slice may consume.
      *
@@ -3734,264 +3227,6 @@ class AtlasOpenBrainMcpService
         ];
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    private function contextFeedbackMetrics(int $hours = 168): array
-    {
-        if (! Schema::hasTable('ai_rag_feedback_events')) {
-            return [
-                'schema_version' => 'atlas.open_brain.context_feedback_metric_aggregate.v1',
-                'status' => 'not_migrated',
-                'window_hours' => $hours,
-                'observed_count' => 0,
-                'review_signal' => [
-                    'status' => 'unavailable',
-                    'severity' => 'low',
-                    'reasons' => ['rag_feedback_table_missing'],
-                    'recommended_action' => 'run_ai_rag_feedback_events_migration_before_context_feedback_review',
-                    'recommended_command' => 'php artisan migrate --path=database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php && php artisan migrate --path=database/migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php',
-                    'schema_repair_commands' => [
-                        'php artisan migrate --path=database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php',
-                        'php artisan migrate --path=database/migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php',
-                    ],
-                    'drift_hint' => 'If migrations are already recorded but ai_rag_feedback_events is missing, run the two migration up() methods idempotently or repair the migration ledger before collecting feedback.',
-                ],
-            ];
-        }
-
-        $events = AiRagFeedbackEvent::query()
-            ->where('created_at', '>=', now()->subHours($hours))
-            ->latest('created_at')
-            ->limit(200)
-            ->get();
-
-        if ($events->isEmpty()) {
-            return [
-                'schema_version' => 'atlas.open_brain.context_feedback_metric_aggregate.v1',
-                'status' => 'no_data',
-                'window_hours' => $hours,
-                'observed_count' => 0,
-                'review_signal' => [
-                    'status' => 'observe',
-                    'severity' => 'low',
-                    'reasons' => ['no_context_feedback_events_in_window'],
-                    'recommended_action' => 'ask_external_providers_to_call_atlas_context_feedback_after_context_sensitive_runs',
-                ],
-            ];
-        }
-
-        $rows = $events
-            ->map(function (AiRagFeedbackEvent $event): array {
-                $roi = (array) (data_get($event->payload, 'context_roi') ?: data_get($event->payload, 'payload.context_roi', []));
-                $attribution = (array) (data_get($event->payload, 'context_ref_attribution') ?: data_get($event->payload, 'payload.context_ref_attribution', []));
-                $policy = (array) (data_get($event->payload, 'next_context_policy') ?: data_get($event->payload, 'payload.next_context_policy', []));
-                $missedCount = count((array) $event->missed_required_sources);
-                $hasRoiSignal = $roi !== [] || $attribution !== [];
-                $actionableFeedback = $hasRoiSignal || $policy !== [] || $missedCount > 0 || (int) $event->noise_sources > 0;
-                $measured = $this->feedbackEventMeasured($event);
-
-                return [
-                    'feedback_hash' => $event->feedback_hash,
-                    'flow_id' => $event->flow_id,
-                    'outcome_status' => (string) ($event->outcome_status ?: 'unknown'),
-                    'included_sources' => (int) $event->included_sources,
-                    'used_sources' => (int) $event->used_sources,
-                    'noise_sources' => (int) $event->noise_sources,
-                    'missed_required_source_count' => $missedCount,
-                    'context_sufficiency' => (int) $event->context_sufficiency,
-                    'post_execution_utility' => (int) $event->post_execution_utility,
-                    'measured' => $measured,
-                    'has_roi_signal' => $hasRoiSignal,
-                    'actionable_feedback' => $actionableFeedback,
-                    'roi_score' => array_key_exists('roi_score', $roi) ? AiValueNormalizer::finiteFloatOrNull($roi['roi_score']) : null,
-                    'quality_band' => (string) ($roi['quality_band'] ?? 'unknown'),
-                    'use_ratio' => array_key_exists('use_ratio', $attribution) ? AiValueNormalizer::finiteFloatOrNull($attribution['use_ratio']) : null,
-                    'waste_ratio' => array_key_exists('waste_ratio', $attribution) ? AiValueNormalizer::finiteFloatOrNull($attribution['waste_ratio']) : null,
-                    'policy_actions' => array_values(array_filter((array) ($policy['actions'] ?? []), 'is_string')),
-                    'created_at' => $event->created_at?->toJSON(),
-                ];
-            })
-            ->values();
-
-        $totalEventCount = $rows->count();
-        $rows = $rows->filter(fn (array $row): bool => (bool) ($row['measured'] ?? false))->values();
-        if ($rows->isEmpty()) {
-            return [
-                'schema_version' => 'atlas.open_brain.context_feedback_metric_aggregate.v1',
-                'status' => 'no_measured_data',
-                'window_hours' => $hours,
-                'observed_count' => 0,
-                'measured_count' => 0,
-                'total_event_count' => $totalEventCount,
-                'quality_band_counts' => [
-                    'strong' => 0,
-                    'mixed' => 0,
-                    'weak' => 0,
-                    'unknown' => 0,
-                ],
-                'outcome_counts' => [],
-                'low_roi_count' => 0,
-                'waste_count' => 0,
-                'noise_count' => 0,
-                'missed_required_source_feedback_count' => 0,
-                'non_passing_count' => 0,
-                'roi_signal_count' => 0,
-                'actionable_feedback_count' => 0,
-                'non_actionable_feedback_count' => 0,
-                'missing_roi_signal_count' => $totalEventCount,
-                'weak_ratio' => 0.0,
-                'non_passing_ratio' => 0.0,
-                'averages' => [
-                    'roi_score' => 0.0,
-                    'use_ratio' => 0.0,
-                    'waste_ratio' => 0.0,
-                    'context_sufficiency' => 0.0,
-                    'post_execution_utility' => 0.0,
-                    'included_sources' => 0.0,
-                    'used_sources' => 0.0,
-                    'noise_sources' => 0.0,
-                ],
-                'latest' => null,
-                'review_signal' => [
-                    'status' => 'observe',
-                    'severity' => 'low',
-                    'reasons' => ['context_feedback_events_unmeasured'],
-                    'recommended_action' => 'collect_explicit_used_refs_and_post_execution_utility_before_aggregating_context_feedback',
-                    'auto_apply_threshold' => 0,
-                    'auto_apply_ready' => false,
-                    'remaining_feedback_events_before_auto_apply' => 0,
-                ],
-            ];
-        }
-
-        $observedCount = $rows->count();
-        $weakRows = $rows->where('quality_band', 'weak')->values();
-        $mixedRows = $rows->where('quality_band', 'mixed')->values();
-        $strongRows = $rows->where('quality_band', 'strong')->values();
-        $roiSignalRows = $rows->filter(fn (array $row): bool => (bool) $row['has_roi_signal'])->values();
-        $actionableRows = $rows->filter(fn (array $row): bool => (bool) $row['actionable_feedback'])->values();
-        $lowRoiRows = $roiSignalRows->filter(fn (array $row): bool => $row['roi_score'] !== null && (AiValueNormalizer::finiteFloatOrNull($row['roi_score']) ?? 0.0) < 0.50)->values();
-        $wasteRows = $rows->filter(fn (array $row): bool => $row['waste_ratio'] !== null && (AiValueNormalizer::finiteFloatOrNull($row['waste_ratio']) ?? 0.0) >= 0.40)->values();
-        $noiseRows = $rows->filter(fn (array $row): bool => (int) $row['noise_sources'] > 0)->values();
-        $missedRows = $rows->filter(fn (array $row): bool => (int) $row['missed_required_source_count'] > 0)->values();
-        $nonPassingRows = $rows
-            ->filter(fn (array $row): bool => $this->isNonPassingContextOutcome((string) $row['outcome_status']))
-            ->values();
-        $missingRoiRows = $rows->reject(fn (array $row): bool => (bool) $row['has_roi_signal'])->values();
-
-        $reasons = [];
-        if ($lowRoiRows->isNotEmpty()) {
-            $reasons[] = 'low_context_roi_observed';
-        }
-        if ($wasteRows->isNotEmpty()) {
-            $reasons[] = 'context_waste_observed';
-        }
-        if ($noiseRows->isNotEmpty()) {
-            $reasons[] = 'noise_context_observed';
-        }
-        if ($missedRows->isNotEmpty()) {
-            $reasons[] = 'missed_required_sources_observed';
-        }
-        if ($nonPassingRows->isNotEmpty()) {
-            $reasons[] = 'non_passing_context_outcome_observed';
-        }
-        if ($missingRoiRows->isNotEmpty()) {
-            $reasons[] = 'context_feedback_missing_roi_signal';
-        }
-
-        $weakRatio = round($weakRows->count() / max(1, $observedCount), 4);
-        $nonPassingRatio = round($nonPassingRows->count() / max(1, $observedCount), 4);
-        $status = ($weakRatio >= 0.50 && $observedCount >= 3) || ($nonPassingRatio >= 0.75 && $observedCount >= 3)
-            ? 'critical'
-            : ($reasons !== [] ? 'warning' : 'ready');
-        $latest = $rows->first();
-        $latestPolicyAction = is_array($latest) ? (string) (($latest['policy_actions'][0] ?? '') ?: '') : '';
-        $recommendedAction = $status === 'ready'
-            ? 'keep_collecting_provider_safe_context_feedback'
-            : ($reasons === ['context_waste_observed'] && $latestPolicyAction !== ''
-                ? $latestPolicyAction
-                : 'review_context_feedback_before_expanding_initial_context_or_demoting_sources');
-        $autoApplyThreshold = $recommendedAction === 'shrink_initial_context' ? 2 : 0;
-        $remainingBeforeAutoApply = $autoApplyThreshold > 0 ? max(0, $autoApplyThreshold - $observedCount) : 0;
-
-        return [
-            'schema_version' => 'atlas.open_brain.context_feedback_metric_aggregate.v1',
-            'status' => $status,
-            'window_hours' => $hours,
-            'observed_count' => $observedCount,
-            'measured_count' => $observedCount,
-            'total_event_count' => $totalEventCount,
-            'quality_band_counts' => [
-                'strong' => $strongRows->count(),
-                'mixed' => $mixedRows->count(),
-                'weak' => $weakRows->count(),
-                'unknown' => $observedCount - $strongRows->count() - $mixedRows->count() - $weakRows->count(),
-            ],
-            'outcome_counts' => $rows->map(fn (array $row): string => (string) $row['outcome_status'])->countBy()->all(),
-            'low_roi_count' => $lowRoiRows->count(),
-            'waste_count' => $wasteRows->count(),
-            'noise_count' => $noiseRows->count(),
-            'missed_required_source_feedback_count' => $missedRows->count(),
-            'non_passing_count' => $nonPassingRows->count(),
-            'roi_signal_count' => $roiSignalRows->count(),
-            'actionable_feedback_count' => $actionableRows->count(),
-            'non_actionable_feedback_count' => $observedCount - $actionableRows->count(),
-            'missing_roi_signal_count' => $missingRoiRows->count(),
-            'weak_ratio' => $weakRatio,
-            'non_passing_ratio' => $nonPassingRatio,
-            'averages' => [
-                'roi_score' => $this->averageMetric($rows, 'roi_score', 4),
-                'use_ratio' => $this->averageMetric($rows, 'use_ratio', 4),
-                'waste_ratio' => $this->averageMetric($rows, 'waste_ratio', 4),
-                'context_sufficiency' => $this->averageMetric($rows, 'context_sufficiency'),
-                'post_execution_utility' => $this->averageMetric($rows, 'post_execution_utility'),
-                'included_sources' => $this->averageMetric($rows, 'included_sources'),
-                'used_sources' => $this->averageMetric($rows, 'used_sources'),
-                'noise_sources' => $this->averageMetric($rows, 'noise_sources'),
-            ],
-            'latest' => $latest,
-            'review_signal' => [
-                'status' => $status === 'ready' ? 'ready' : ($status === 'critical' ? 'blocking' : 'review'),
-                'severity' => $status === 'critical' ? 'high' : ($status === 'warning' ? 'medium' : 'low'),
-                'reasons' => $reasons,
-                'recommended_action' => $recommendedAction,
-                'auto_apply_threshold' => $autoApplyThreshold,
-                'auto_apply_ready' => $autoApplyThreshold > 0 && $remainingBeforeAutoApply === 0,
-                'remaining_feedback_events_before_auto_apply' => $remainingBeforeAutoApply,
-            ],
-        ];
-    }
-
-    private function isNonPassingContextOutcome(string $status): bool
-    {
-        $status = strtolower(trim($status));
-        if ($status === '' || in_array($status, ['passed', 'success', 'succeeded', 'ok', 'ready', 'completed'], true)) {
-            return false;
-        }
-
-        if (in_array($status, ['ready_for_provider', 'unknown', 'observed', 'no_data'], true)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private function feedbackEventMeasured(AiRagFeedbackEvent $event): bool
-    {
-        $payload = is_array($event->payload) ? $event->payload : [];
-
-        return (bool) data_get(
-            $payload,
-            'measured',
-            data_get(
-                $payload,
-                'payload.measured',
-                data_get($payload, 'payload.context_roi.measured', data_get($payload, 'context_roi.measured', false)),
-            ),
-        );
-    }
-
     private function averageMetric(Collection $rows, string $key, int $precision = 2): float
     {
         if ($rows->isEmpty()) {
@@ -3999,125 +3234,6 @@ class AtlasOpenBrainMcpService
         }
 
         return round(AiValueNormalizer::finiteFloatOrNull($rows->avg($key)) ?? 0.0, $precision);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function memorySummary(?string $workspace): array
-    {
-        $memoryTable = Schema::hasTable('atlas_memory_entries');
-        $verbatimTable = Schema::hasTable('atlas_verbatim_memories');
-        $openBrainAuditTable = Schema::hasTable('atlas_open_brain_access_logs');
-        $providerSafeCount = 0;
-        if ($memoryTable) {
-            $providerSafeCount = AtlasMemoryEntry::query()
-                ->where('status', 'active')
-                ->get()
-                ->filter(fn (AtlasMemoryEntry $entry): bool => $this->privacy->providerAllowed($entry))
-                ->count();
-        }
-
-        return [
-            'status' => $memoryTable ? ($providerSafeCount > 0 ? 'ready' : 'empty_provider_safe_memory') : 'not_migrated',
-            'tables' => [
-                'atlas_memory_entries' => $memoryTable,
-                'atlas_verbatim_memories' => $verbatimTable,
-                'atlas_open_brain_access_logs' => $openBrainAuditTable,
-            ],
-            'active_memory_count' => $memoryTable ? AtlasMemoryEntry::query()->where('status', 'active')->count() : 0,
-            'provider_safe_memory_count' => $providerSafeCount,
-            'verbatim_active_count' => $verbatimTable ? AtlasVerbatimMemory::query()->where('status', 'active')->count() : 0,
-            'open_brain_audit_count' => $openBrainAuditTable ? AtlasOpenBrainAccessLog::query()->count() : 0,
-            'workspace' => $workspace,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>|null  $codeAudit
-     */
-    private function overallStatus(array $memory, array $memoryQuality, array $promptMetrics, array $contextFeedbackMetrics, array $runtimeSourceProbe, array $knowledge, array $code, array $projection, ?array $codeAudit): string
-    {
-        if (($runtimeSourceProbe['status'] ?? null) === 'stale_source_mismatch') {
-            return 'mcp_runtime_stale';
-        }
-        if (($memory['status'] ?? null) !== 'ready') {
-            return 'needs_memory';
-        }
-        if (in_array($memoryQuality['status'] ?? null, ['critical'], true)) {
-            return 'needs_memory_quality_review';
-        }
-        if (in_array($promptMetrics['status'] ?? null, ['critical'], true)) {
-            return 'needs_prompt_metric_review';
-        }
-        if (in_array($contextFeedbackMetrics['status'] ?? null, ['critical'], true)) {
-            return 'needs_context_feedback_review';
-        }
-        if (($knowledge['status'] ?? null) !== 'ready') {
-            return 'needs_knowledge_sync';
-        }
-        if (($code['status'] ?? null) !== 'ready') {
-            return 'needs_code_index';
-        }
-        if (($projection['status'] ?? null) !== 'passed') {
-            return 'needs_projection_review';
-        }
-        if ($codeAudit !== null && ($codeAudit['status'] ?? null) !== 'fresh') {
-            return 'needs_code_index_refresh';
-        }
-
-        return 'ready';
-    }
-
-    /**
-     * @param  array<string,mixed>|null  $codeAudit
-     * @return array<int,string>
-     */
-    private function nextActions(?string $workspace, array $memory, array $memoryQuality, array $promptMetrics, array $contextFeedbackMetrics, array $runtimeSourceProbe, array $knowledge, array $code, array $projection, ?array $codeAudit): array
-    {
-        $workspaceArg = $workspace ? ' --workspace="'.str_replace('"', '\"', $workspace).'"' : '';
-        $actions = [];
-
-        if (($runtimeSourceProbe['status'] ?? null) === 'stale_source_mismatch') {
-            $actions[] = 'Restart the provider MCP client/session; until then use /opt/homebrew/bin/php artisan atlas:context-pack "<task>" --workspace="'.$workspace.'" --json as the fresh CLI fallback.';
-        }
-        if (($memory['provider_safe_memory_count'] ?? 0) < 1) {
-            $actions[] = '/opt/homebrew/bin/php artisan atlas:memory:seed-core';
-        }
-        foreach ((array) ($memoryQuality['recommendations'] ?? []) as $action) {
-            if (is_string($action) && $action !== '') {
-                $actions[] = $action;
-            }
-        }
-        if (in_array($promptMetrics['status'] ?? null, ['critical', 'warning'], true)) {
-            $actions[] = 'Review open_brain_prompt_metrics before changing prompt delivery policy.';
-        }
-        if (($contextFeedbackMetrics['status'] ?? null) === 'no_data') {
-            $actions[] = 'Ask external providers to call atlas_context_feedback after context-sensitive runs.';
-        }
-        if (in_array($contextFeedbackMetrics['status'] ?? null, ['critical', 'warning'], true)) {
-            $flow = (string) data_get($contextFeedbackMetrics, 'latest.flow_id', '');
-            if (data_get($contextFeedbackMetrics, 'review_signal.recommended_action') === 'shrink_initial_context') {
-                $remaining = (int) data_get($contextFeedbackMetrics, 'review_signal.remaining_feedback_events_before_auto_apply', 0);
-                $actions[] = $remaining > 0
-                    ? 'Collect one more AOBG context feedback'.($flow !== '' ? ' for flow '.$flow : '').' before auto-shrinking initial context budget.'
-                    : 'Shrink initial AOBG context budget'.($flow !== '' ? ' for flow '.$flow : '').' before expanding source coverage.';
-            } else {
-                $actions[] = 'Review context_feedback_metrics before expanding initial context or demoting sources.';
-            }
-        }
-        if (($knowledge['status'] ?? null) !== 'ready') {
-            $actions[] = './bin/atlas engineering knowledge sync --prune --json';
-        }
-        if (($code['status'] ?? null) !== 'ready' || ($codeAudit !== null && ($codeAudit['status'] ?? null) !== 'fresh')) {
-            $actions[] = './bin/atlas engineering knowledge index-code --prune'.$workspaceArg.' --summary-only --json';
-        }
-        if (($projection['status'] ?? null) !== 'passed') {
-            $actions[] = './bin/atlas memory projection review --target=all'.$workspaceArg.' --json';
-            $actions[] = './bin/atlas memory projection apply --target=all'.$workspaceArg.' --yes --json';
-        }
-
-        return array_values(array_unique($actions));
     }
 
 
