@@ -3405,3 +3405,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 110 — verify terminal-fleet evidence rollup, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0187-adjacent-terminal-fleet-evidence
+commit: a53014c61
+subject: "refactor(core): GOD-DEBULK verify fleet evidence rollup"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_direct_terminal_fleet_evidence_rollup_probe_reaches_review_ready --no-coverage
+  result: "FAIL 1 test, 1 assertion: the public evidence-rollup probe returned blocked because normal claimNext() excluded its synthetic packet before completion evidence could be recorded."
+green:
+  behavior: "The evidence probe claims only its exact synthetic packet through the fleet-owned lease/CAS route and records substantive, scope-bound structured completion evidence. The public digest reaches fleet evidence rollup green and cycle-supervisor review-evidence ready."
+verification:
+  characterization: "PASS 1 test, 3 assertions through public runTerminalFleetEvidenceRollupProbe(): evidence rollup is green and the supervisor reaches review-ready."
+  certification_file: "PASS 22 tests, 267 assertions. All launch, resume, released-requeue, evidence-rollup, supervisor, cleanup, negative, and runtime-safety contracts are green."
+  php_lint: "PASS runner and focused Feature test."
+  pint: "NOT GREEN only for inherited whole-file runner formatting drift; the focused Feature test passes Pint. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "multi_agent_loop_probe_runner=1673 LOC; Feature test=534 LOC; both <2000, no new class or structural split."
+boundary:
+  - "The positive contract executes public evidence probing with real admission, fleet-owned lease/CAS claim, completeDryRun, evidence validation, health digest, supervisor projection, and cleanup; it uses neither reflection nor a mocked target."
+  - "The normal worker path remains claimNext() and still excludes all certification/probe packets. The evidence producer was made truthful to the existing validator; the validator and anti-farm gate were not weakened, and all runtime/provider/dispatch/token flags remain false."
+residual:
+  - "The terminal-fleet certification family is green. Separate auto-replenishment anti-farm and completion-audit-wrapper reds remain recorded in EXEC-DEBTS and require their own characterizations."
+next_cursor: "Pick the first executable s0 META finding in META-FINDINGS/A1--SelfConstruction.md, highest LOC first; do not claim terminal-fleet residuals remain."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
