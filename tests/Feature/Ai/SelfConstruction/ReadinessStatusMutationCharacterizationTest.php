@@ -111,6 +111,30 @@ final class ReadinessStatusMutationCharacterizationTest extends TestCase
         $this->assertNotSame('', (string) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.lease_id'));
     }
 
+    public function test_task_queue_claim_next_status_mutates_and_reports_the_write_truthfully(): void
+    {
+        $disk = Storage::disk('local');
+        $before = $disk->allFiles(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'god-debulk-claim-characterization',
+            '--queue-tag' => ['god_debulk_claim_characterization'],
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['runtime_write_allowed']);
+        $this->assertTrue((bool) $payload['runtime_write_performed']);
+        $this->assertSame('mutating_agent_control_plane_task_queue_claim_next_status', $payload['mode']);
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.runtime_claim_persisted'));
+
+        $after = $disk->allFiles(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
+
+        $this->assertNotSame($before, $after, 'claim-next persists a claim (and fallback-enqueues when the lane is empty)');
+    }
+
     public function test_preview_bootstrap_status_stays_read_only(): void
     {
         $disk = Storage::disk('local');
