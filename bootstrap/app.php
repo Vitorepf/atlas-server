@@ -24,7 +24,6 @@ use App\Console\Commands\AtlasAcosTeto10ReviewDigestCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
-use App\Console\Commands\AtlasAiAutonomousHoldingCommand;
 use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
 use App\Console\Commands\AtlasAiAbstractionLadderCommand;
 use App\Console\Commands\AtlasAiCounterfactualLiftCommand;
@@ -278,7 +277,6 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAobgSemanticRetrievalLiftCommand::class,
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
-        AtlasAiAutonomousHoldingCommand::class,
         AtlasAiAbstractionLadderCommand::class,
         AtlasAiCounterfactualLiftCommand::class,
         AtlasAiProceduralSkillPromoterCommand::class,

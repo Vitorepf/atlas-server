@@ -1725,13 +1725,8 @@ class AutonomousHoldingEnterpriseBuildoutServiceTest extends TestCase
         }
     }
 
-    public function test_enterprise_buildout_command_returns_json(): void
-    {
-        $exit = $this->artisan('atlas:ai:autonomous-holding', [
-            '--action' => 'enterprise-buildout',
-            '--json' => true,
-        ])->run();
-
-        $this->assertSame(0, $exit);
-    }
+    // GOD-DEBULK step 4c: the `atlas:ai:autonomous-holding` command surface was quarantined
+    // (paper machinery — see archive/app/Console/Commands/AtlasAiAutonomousHoldingCommand.php).
+    // This one method certified the retired command corpse; the buildout SERVICE it wrapped
+    // stays fully covered by the direct-service tests above + the golden characterization suite.
 }
