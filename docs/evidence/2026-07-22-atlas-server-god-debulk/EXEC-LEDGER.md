@@ -2007,3 +2007,41 @@ write_back:
   auto_promoted: false
   merged_to_main_by_aobg: false
 ```
+
+## Task 64 — RootSinglesRehome Policy canonical namespace, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Policy
+commit: 46f4a37ed
+subject: "refactor(core): GOD-DEBULK RootSingles Policy canonical rehome"
+scope:
+  - app/Services/Ai/Policy/{AtlasAiPolicyService,AtlasEffectivePolicyComposer,AtlasDomainProfilePolicyService,AtlasDomainProfileRegistry,AtlasAiRuntimeSettings,AiRuntimeBudgetService}.php
+  - canonical consumer imports, static scanner paths, one-cycle aliases, compatibility coverage, AI CODEMAP, and the live Hermes engineering-doc paths
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_policy_services_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Policy\\AtlasAiPolicyService was not resolvable before the namespace re-home."
+green:
+  behavior: "The six Policy owners now declare one canonical Policy namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "Compatibility covers every canonical-to-legacy relationship; focused consumers cover policy resolution, domains, runtime settings, provider selection, provider governance, and domain flow contracts through canonical imports."
+verification:
+  root_compatibility: "PASS 13 tests, 104 assertions in ParaTest; targeted canonical/legacy method also PASS 1 test, 18 assertions after formatting."
+  focused_suite: "PASS 92 tests, 1,641 assertions (Policy, domain registry, settings/budget, provider resolver/manager/governance, domain compliance, learning, strategic decision, and provider-pipe contracts)."
+  composer: "PASS dump-autoload. It reports unrelated PSR-4 test-file warnings."
+  php_lint: "PASS all 55 touched PHP paths."
+  root_sweep: "PASS: legacy FQCN hits in PHP remain only in explicit compatibility imports. Live doc paths use Policy; the sole old path is archive history."
+  pint: "PASS strict Pint for the compatibility test, alias adapter, and four already-clean moved owners. Broad selected-file strict Pint is NOT GREEN because it finds full-file formatting drift in large consumers and two moved owners; no mass reformat was applied."
+  phpstan: "NOT GREEN: 14 model/type diagnostics in Policy. The only moved-owner diagnostics are in an unchanged AiRuntimeBudgetService body (diff proves namespace-only); other reported Policy owners were untouched. No suppression or unrelated model change was added."
+  codemap: "PASS god-debulk-codemap-verify (targets=41)."
+  density_guard: "PASS current audit: >5k=11, >2k=44; the six re-homed owners total 2,547 LOC, largest AtlasDomainProfileRegistry.php=757."
+  architecture_gate: "NOT GREEN globally: 167/169 static APs pass; the remaining AP2 Surface context_pack and AP15 AtlasOpenBrainMcp evidence-ledger failures are outside this slice. Documentation health has independent failures and is not used as proof."
+  diff_check: PASS
+boundary:
+  - organizational namespace re-home only; policy composition, domain resolution, provider/default selection, runtime budgets, and API/CLI behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - static validators, canonical consumers, CODEMAP, and the live Hermes document name Policy directly
+write_back:
+  status: pending_human_review
+  auto_promoted: false
+  merged_to_main_by_aobg: false
+```
