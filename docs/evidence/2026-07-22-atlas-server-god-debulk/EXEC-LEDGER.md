@@ -2822,3 +2822,32 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 92 — align completed-dry-run bridge fixture, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 70ad30ac0
+subject: "test(core): GOD-DEBULK complete bridge evidence fixture"
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneReportLearningBridgeTest.php --filter=test_completed_dry_run_report_produces_a_completed_dry_run_fact --no-coverage
+  result: "FAIL 1 test, 1 assertion: public completeDryRun() returned complete_dry_run_blocked rather than completed_dry_run because the fixture omitted implementation_notes and capability_delta."
+green:
+  behavior: "The bridge fixture now provides the current structured completion-evidence fields, recalculates its canonical hash through the production API, and public completeDryRun() produces the completed_dry_run learning fact."
+verification:
+  characterization: "PASS 1 test, 3 assertions: real prepareAndEnqueue() → claimNext() → completeDryRun() verifies the public completion event and bridged fact."
+  bridge_file: "PASS 8 tests, 37 assertions."
+  package_suite: "PASS 113 tests, 543 assertions: bridge plus Unit + Feature orchestrator suites and bounded anti-farm characterization."
+  php_lint: "PASS focused Unit test."
+  pint: "NOT GREEN for inherited full-file class-attribute separation and unused-import violations outside this three-field fixture hunk."
+  diff_check: PASS
+  density: "focused bridge test=273 LOC (<800 hot limit)."
+commit_scope: "PASS: git commit --only recorded exactly the focused Unit test."
+boundary:
+  - "The test exercises real public completion behavior and its emitted learning fact; it neither reflects into validator internals nor asserts a fixture-only schema."
+  - "The change supplies honest fields to a pre-existing completion proof; it does not weaken the validator, relax fail-closed behavior, or authorize real completion, provider calls, dispatch, or token spend."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
