@@ -173,7 +173,7 @@ use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
  * {@see \App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator}.
  * Bodies are byte-identical to the pre-split façade; the façade delegates.
  */
-final class GateObserveSection06
+final class GateObserveSection06 extends GateObserveSectionBase
 {
     /**
      * Observe-only floors contract (B504).

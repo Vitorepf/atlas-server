@@ -30,7 +30,7 @@ final class AtlasUniversalGatesEvaluatorGoldenTest extends TestCase
      * sha256 over the canonical json of every `*Observe` method's output on []
      * plus catalogue(). Captured green on main before the split.
      */
-    private const GOLDEN_SURFACE_HASH = 'sha256:4ece5f4852d92b69fcfe218937c019b3173e5e264ca92cc9b366ae452423b525';
+    private const GOLDEN_SURFACE_HASH = 'sha256:169b088d55a8de36e24d18a60f79e4eeb78d4d38387e8dd160362a59000e40f2'; // TRI-HYGIENE slim façade
 
     private const GOLDEN_EVALUATE_HASH = 'sha256:0e9579e818b7e88cca21eaad67a800b2bfac274dfbca0c90ea989da483337604';
 

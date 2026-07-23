@@ -46,7 +46,8 @@ summary: "Mapa mental da superfície CLI (~926 commands). Diário = Dev/Forge/Au
 
 ## Advanced / não diário
 
-- `atlas:aaeos` (god observe ~1800 LOC) — advanced only
+- `atlas:aeos:observe` — god observe floors (~1800 LOC)
+- `atlas:aaeos` (sem action) — thin router de help; com action encaminha para observe
 - `atlas:software-company-stewardship` god CLI
 - Finance/rivals/marketing suites
 

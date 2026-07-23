@@ -31,7 +31,7 @@ use Illuminate\Console\Command;
  */
 final class AtlasAaeosCommand extends Command
 {
-    protected $signature = 'atlas:aaeos
+    protected $signature = 'atlas:aeos:observe
         {action : runbook|phase-handoff|phase-skip|department-status|cockpit|universal-gates|http-path-status}
         {--intent= : intent_id used by phase-handoff/cockpit/universal-gates}
         {--phase-in= : phase_in for phase-handoff/phase-skip}
@@ -805,7 +805,7 @@ final class AtlasAaeosCommand extends Command
                             {--b780-aaeos-department-floors-contract= : JSON file (any object) to observe aaeos/department floors}
         {--json : Machine-readable JSON output}';
 
-    protected $description = '[ADVANCED ONLY — not daily; see atlas-cli-daily-map] Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
+    protected $description = '[ADVANCED observe floors — prefer atlas:aaeos:run for daily; see atlas-cli-daily-map] Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
 
     public function handle(
         DepartmentContractRuntime $departments,

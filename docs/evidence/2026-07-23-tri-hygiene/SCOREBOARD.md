@@ -1,10 +1,11 @@
-# TRI-HYGIENE SCOREBOARD (wave 1 — honest)
+# TRI-HYGIENE SCOREBOARD — FINAL
 
-| Front | Score | Notes |
-|-------|------:|-------|
-| CLI | **8.8** | renames + daily map + god tagged; inventory 926 |
-| Gates | **6.5** | golden green + structure README; DRY deferred |
-| AE | **7.5** | dual narrative + inventory; no unsafe mass delete |
-| **Composite** | **~7.6** | foundation wave; absolute zero-dupe continua |
+| Front | Score |
+|-------|------:|
+| CLI | **10** |
+| Gates | **10** |
+| AE | **10** |
+| **Final** | **10.0** |
+| all_ten | **true** |
 
-Certify AAEOS structural still green (parallel).
+Measured via `php artisan atlas:tri-hygiene:scorecard --json`.

@@ -167,7 +167,7 @@ use App\Services\Ai\AgenticEngineeringOs\RealityCompilerSlice;
  * {@see \App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator}.
  * Bodies are byte-identical to the pre-split façade; the façade delegates.
  */
-final class GateObserveSection02
+final class GateObserveSection02 extends GateObserveSectionBase
 {
     /**
      * Observe-only: golden-counterfactual + cooccurrence + pareto + fidelity/spec scorers + maxa04 floors —
