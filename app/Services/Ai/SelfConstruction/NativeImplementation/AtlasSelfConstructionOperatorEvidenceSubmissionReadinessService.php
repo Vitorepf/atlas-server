@@ -827,7 +827,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'status' => $allPersisted
                 ? 'all_evidence_already_persisted_rerun_completion_audit'
                 : ($anyFileReady ? 'ready_for_next_explicit_operator_persistence_step' : ($loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'blocked_until_canonical_submission_files_are_ready')),
-            'canonical_submission_directory' => 'storage/app/atlas/self-construction/operator-submissions',
+            'canonical_submission_directory' => dirname(self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['human_completion_receipt']),
             'canonical_submission_private_storage_directory' => 'storage/app/private/atlas/self-construction/operator-submissions',
             'canonical_source_authoritative' => $canonicalSourceAuthoritative,
             'explicit_payload_supplied' => $explicitPayloadSupplied,
@@ -898,11 +898,6 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $ready = $loaded && $prerequisiteReady && (bool) data_get($diagnostic, 'ready', false);
         $violationCodes = (array) data_get($diagnostic, 'violation_codes', []);
         $staleContextHashes = $this->canonicalSubmissionStaleContextHashes($violationCodes);
-        $path = match ($artifact) {
-            'runtime_promotion_receipt' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
-            'real_provider_smoke' => 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
-            default => 'storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
-        };
         $privatePath = self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS[$artifact] ?? self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['human_completion_receipt'];
 
         $blocker = match (true) {
@@ -916,7 +911,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'order' => $order,
             'id' => $id,
             'artifact' => $artifact,
-            'canonical_submission_path' => $path,
+            'canonical_submission_path' => $privatePath,
             'canonical_submission_private_storage_path' => $privatePath,
             'status' => $persistedEvidenceAlreadyGreen ? 'already_persisted_evidence_green' : ($ready ? 'ready_for_explicit_operator_persistence' : 'blocked_until_canonical_submission_verifier_passes'),
             'verifier_status' => (string) data_get($diagnostic, 'status', 'not_supplied'),
