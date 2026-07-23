@@ -3001,3 +3001,29 @@ boundary:
   - "The temporary serving exception was reverted; real workers remain excluded from certification probes."
 next_cursor: "Treat admission plus scope-evidence compatibility as a separately governed serving/certification repair; skip A1-SC-0187 cleanup until its exception path has an executable public failure."
 ```
+
+## Task 98 — declare queue registry index collaborator, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_FEATURE_RED
+finding: discovered dynamic-property debt adjacent to A1-SC-0149
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketQueueRepository.php
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepositoryTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepositoryTest.php --filter=test_registry_initializes_its_index_store_without_dynamic_property_deprecation --no-coverage
+  result: "FAIL 1 test, 1 assertion: public registry() created AgentControlPlaneTaskPacketQueueRepository::$registryIndexStore dynamically under PHP 8.5."
+green:
+  behavior: "The existing lazy registry-index factory now initializes a declared nullable typed collaborator; public registry() preserves its returned empty registry without an E_DEPRECATED write."
+verification:
+  characterization: "PASS 1 test, 2 assertions through public registry()."
+  unit_file: "PASS 10 tests, 28 assertions."
+  adjacent_feature_file: "NOT GREEN: 25 passed, 1 failed, 198 assertions. Existing corrupt-registry test expects corrupt=true while current public registry() returns its healed form; recorded separately in EXEC-DEBTS."
+  php_lint: "PASS production repository and focused Unit test."
+  pint: "NOT GREEN only for inherited full-file source formatting outside this two-line declaration and new test; no broad reformatting was applied."
+  diff_check: PASS
+  density: "repository=1177 LOC (<2000); Unit test=206 LOC (<800)."
+boundary:
+  - "The test invokes the public registry() path and captures only the real PHP deprecation from this repository; it does not call the lazy factory by reflection."
+  - "No queue/lease record, provider, dispatch, token, execution, or evidence authority behavior changed."
+```

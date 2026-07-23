@@ -56,6 +56,29 @@ final class AgentControlPlaneTaskPacketQueueRepositoryTest extends TestCase
         $this->assertSame(2, $report['checked_count']);
     }
 
+    public function test_registry_initializes_its_index_store_without_dynamic_property_deprecation(): void
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $severity, string $message) use (&$deprecations): bool {
+            if ($severity === E_DEPRECATED && str_contains($message, 'AgentControlPlaneTaskPacketQueueRepository::$registryIndexStore')) {
+                $deprecations[] = $message;
+
+                return true;
+            }
+
+            return false;
+        });
+
+        try {
+            $registry = $this->repo->registry();
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+        $this->assertSame(0, $registry['total_count']);
+    }
+
     public function test_missing_task_file_is_reported(): void
     {
         $this->enqueuePacket('integrity_missing_file');

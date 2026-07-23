@@ -71,6 +71,8 @@ final class AgentControlPlaneTaskPacketQueueRepository
 
     private readonly float $lockTimeoutSeconds;
 
+    private ?\App\Services\Ai\SelfConstruction\TaskQueue\TaskQueueRegistryIndexStore $registryIndexStore = null;
+
     public function __construct(
         private readonly ?string $disk = null,
         ?float $lockTimeoutSeconds = null,
