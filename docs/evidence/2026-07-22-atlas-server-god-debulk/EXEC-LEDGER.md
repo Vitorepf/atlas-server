@@ -4,36 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0176 one-shot writer preflight fail-closed closed
+phase: A1-SC-0177 downstream one-shot release envelopes fail-closed closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: one-shot writer semantic preflight blocker boundary
-finding_id: A1-SC-0176
-action_op: fold every failed semantic preflight check into blocking reasons
+focus: downstream one-shot release envelope source-preflight boundary
+finding_id: A1-SC-0177
+action_op: propagate source-preflight readiness and blockers through three downstream envelopes
 queue_index: 6
-last_commit: 2f53e00e8
+last_commit: fa31cafa7
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_writer_preflight_exposes_missing_release_receipt_hash_as_a_blocker
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_downstream_release_envelopes_block_when_their_source_preflight_is_blocked
   /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: direct public preflight reported a missing release receipt hash in failed_preflight_checks but omitted it from blocking_reasons.
-  green: each failed semantic preflight check is a blocker, so status, human summary, and next slice all fail closed on it.
+  red: the real public release template reported ready even though its writer preflight was blocked.
+  green: template, unsigned draft, and persistence contract carry their source status and blockers, so every envelope reports blocked with a repair slice until its source preflight is ready.
 stdout: |
-  red_characterization: FAIL 1 test, 2 assertions
-  focused_and_package: PASS 3 tests, 7 assertions
+  red_characterization: FAIL 1 test, 1 assertion
+  focused_and_package: PASS 4 tests, 13 assertions
   php_lint: PASS source plus changed Unit test
-  source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
   unit_pint: PASS
-  loc_check: release_writer_section=1392
+  loc_check: release_writer_section=1413
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the public readiness facade; it does not use reflection or a fabricated preflight payload.
+  Characterization executes three public readiness-facade paths; it does not use reflection or a fabricated preflight payload.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1695,6 +1694,31 @@ boundary:
   - organizational re-home only; sanitizer fail-closed rules, provider-transcript extraction, surface-handoff identity boundaries, human-state schemas, timers, worker gate ordering, and HTTP behavior are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - production consumers, focused unit/feature coverage, and CODEMAP name the Surface/HumanSurface owners directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 56 — A1-SC-0177 block downstream one-shot release envelopes, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: fa31cafa7
+subject: "refactor(core): GOD-DEBULK block downstream release envelopes"
+red:
+  result: "FAIL 1 test, 1 assertion: the real public release template reported agent_automatic_dispatch_scheduler_one_shot_tick_release_template_ready while its writer preflight was blocked."
+green:
+  behavior: "Release template, unsigned receipt draft, and receipt-persistence contract now inherit source readiness and blocking reasons, returning blocked plus an envelope-specific repair slice until their source preflight is ready."
+verification:
+  focused_unit: "PASS 1 test, 6 assertions"
+  writer_section_unit: "PASS 4 tests, 13 assertions"
+  php_lint: "PASS source and changed Unit test"
+  unit_pint: PASS
+  diff_check: PASS
+  loc: "release_writer_section=1413 (<2000)"
+boundary:
+  - direct readiness-facade invocation across all three downstream envelope paths; no reflection, provider, dispatch, token, persistence, or runtime mutation
+  - mutating-writer contract was already source-gated; this wave closes the remaining three false-ready envelopes named by A1-SC-0177
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
