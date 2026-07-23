@@ -2682,3 +2682,32 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 87 — A1-SC-0107 recovery pre-sweep characterization, 2026-07-23
+
+```yaml
+status: DEFERRED_BY_DENSITY_GUARD
+commit: null
+red:
+  result: "FAIL 1 test, 1 assertion: a real public claimNext() request continued to no_claimable_task after the lease-recovery repository threw, proving recovery failure was swallowed before candidate listing."
+green_precommit:
+  behavior: "The characterized repair returned claim_blocked with reason=lease_recovery_unavailable, status=unavailable, the throwable class, and no queue record."
+verification:
+  focused_feature: "PASS before rollback: 1 test, 4 assertions; executes public claimNext() against a real file-backed repository whose lease root is deliberately invalid."
+  package_suite: "PASS before rollback: 102 tests, 492 assertions (Unit + Feature orchestrator suites)."
+  php_lint: "PASS source and focused Feature test before rollback."
+  pint: "PASS focused Feature test before rollback; source full-file Pint remains pre-existing outside the hunk."
+  diff_check: PASS
+  density: "FAIL HARD GUARD: source reaches 2,005 LOC when this 10-line fail-closed change is present (limit <2,000)."
+decision:
+  - "No source or test change remains in the worktree; the exact candidate change was removed with apply_patch rather than bypassing the density law."
+  - "A1-SC-0107 recovery remains open and requires Commander-approved lifecycle-owner extraction before this local repair can land."
+boundary:
+  - "The failed/green characterization executes public claimNext(), never a reflection-only inventory."
+  - "No task is leased, provider invoked, token spent, completion promoted, or durable queue record written in either preflight fixture."
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
