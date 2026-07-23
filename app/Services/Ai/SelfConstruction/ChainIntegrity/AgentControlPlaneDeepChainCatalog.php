@@ -271,7 +271,10 @@ final class AgentControlPlaneDeepChainCatalog
         return [
             'slice_key' => $sliceKey,
             'method_prefix' => $methodPrefix,
-            'invoker_class' => 'App\\Services\\Ai\\SelfConstruction\\'.$invokerClass,
+            // Re-anchored after the concurrent ControlPlane re-home (all 34 catalog
+            // invokers were moved out of the SelfConstruction root — 4th stale pin
+            // missed by 178235aa9; verified on disk before re-pinning).
+            'invoker_class' => 'App\\Services\\Ai\\SelfConstruction\\ControlPlane\\'.$invokerClass,
             'prepare_method' => $prepareMethod,
             'doc_bullet' => $docBullet,
             'activate_key' => 'activate_signed_one_shot_scheduler_tick_'.preg_replace('/^automatic_dispatch_scheduler_one_shot_tick_/', '', $sliceKey).$contractSuffix,
