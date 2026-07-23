@@ -5,236 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
 use App\Models\AtlasSelfConstructionAgentCostEvent;
-use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentHeartbeat;
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Models\AtlasSelfConstructionAgentSandboxBinding;
 use App\Models\AtlasSelfConstructionAgentWakeupItem;
 use App\Models\AtlasSelfConstructionAgentWorkProduct;
-use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
-use App\Services\Ai\SelfConstruction\Support\ReadinessCatalog;
-use App\Services\Ai\SelfConstruction\Support\ReadinessDocumentProbe;
-use App\Services\Ai\SelfConstruction\Support\ReadinessPathPolicy;
-use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticCostImportRuntimeCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticWorkProductCollectionCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneBaselineCaptureReadinessService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationBaselineService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationCoverageReportService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationEvidenceQueryService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationFuzzHarness;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationMutationGuard;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationScenarioCorpusService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationScenarioSimulator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationStatusBatchService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityAuditService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseSimulator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostImportDryRun;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDeterministicChainReplayService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspaceCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernanceApprovalCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMacroSprintPromotionGate;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentParallelismPlanner;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiSnapshotComparisonService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneOneShotWorkerPacketService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReleaseDossierExporter;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReleaseDossierService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplayDiffService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplaySnapshotStore;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotOrchestrator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockPlanner;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskQueueLeaseCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopOperationalProofService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestPlanner;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkerTaskEligibilityCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorAdapterInvocationBoundary;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorProviderStartDriver;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorReceiptUseWriter;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterExecutionGuard;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryAvailabilityPlanner;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCapabilityCatalog;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCertificationService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHandoffProtocolBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHeartbeatRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryLoadBalancingPolicy;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryOrchestrator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryQuarantineRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryTaskMatcher;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionAuditBlockerExplainerService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashComposerService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionFinalizationGateService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionOperatorActionPacketService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionDossierExporterService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionHumanGateService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionReadinessGateService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceBundleService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOsCompletionAuditService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixAuditService;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixService;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessInvocationAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessInvokerDryRun;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessRuntimeDriver;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexProcessSpawnEnablementGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexProcessSpawnExecutor;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexProcessStartReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexProviderExecutionDriver;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerActualProcessStartRehearsalExecutor;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorEnablementGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorFreshReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerExecutorPlan;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerFinalProcessStartAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerGuardedProcessStartExecutor;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerImplementationBoundary;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerManualStartExecutorReceiptWriter;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerOperatorStartHandoffBuilder;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartAdapterExecutionGuardGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartDispatchExecutorHandoff;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartDispatchReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartEvidenceReceiptWriter;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExecutorEnablementGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExecutorFreshReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExecutorPlanGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExternalProcessInvokerDryRunGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartExternalProcessRuntimeGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartImplementationBoundaryGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartLivenessMonitor;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartManualStartExecutorReceiptWriter;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartOperatorStartHandoffBuilder;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessInvocationAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessSpawnEnablementGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStartEnvelopeGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStartReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProcessStarterReadinessGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProviderExecutionContractGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProviderStartDriverGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartReceiptContractBuilder;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartStartExecutionGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSupervisedStartActivationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartSupervisedStartExecutorGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerProcessStartEnvelopeBuilder;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerProcessStarterReadinessGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerReleasePreflight;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerStartExecutionGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerSupervisedStartActivationGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexSignedRealInvokerReleaseGate;
-use App\Services\Ai\SelfConstruction\Support\AgentCodexSupervisedStartExecutor;
-use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCertificationService;
-use App\Services\Ai\SelfConstruction\Support\AgentValidationGatePlanBuilder;
-use App\Services\Ai\SelfConstruction\Support\AtlasSelfProgrammingSafetyContractCertificationService;
-use App\Services\Ai\SelfConstruction\Support\ReadinessCommandSurface;
-use App\Services\Ai\SelfConstruction\Support\ReadinessCompletionClaimAuthority;
-use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
-use App\Services\Ai\SelfConstruction\Support\ReadinessJsonInput;
 
 /**
- * Family agentControlPlane — Obra 3 SC-01 fatia (~4k LOC from mother).
+ * Agent Control Plane readiness projection.
+ *
+ * GOD-DEBULK "patamar superior": the ~250 class_exists/method_exists probes,
+ * the 336-branch first-gap if/elseif chain and the ~315 capability-append
+ * ifs that made agentControlPlane() a 4k-LOC method are now DATA — the four
+ * const tables below — iterated by a handful of loops. Output is byte-
+ * identical to the pre-rewrite method (frozen by
+ * ReadinessAgentControlPlaneGoldenCharacterizationTest). Class probes carry
+ * fully-qualified names so the ControlPlane `use` imports are no longer
+ * needed; class_exists/method_exists still gate real runtime presence.
  */
 final class ReadinessProjectionAgentControlPlaneSection
 {
@@ -258,7 +45,1528 @@ final class ReadinessProjectionAgentControlPlaneSection
         return $method->invokeArgs($this->mother, $arguments);
     }
 
+    /**
+     * Declarative readiness-probe table (was ~250 hand-written probe lines).
+     * Each row resolves one flag via class_exists (runtime service class
+     * present) or method_exists on the mother projection (method present).
+     *
+     * @var list<array{flag: string, class?: class-string, method?: string}>
+     */
+    private const CAPABILITY_PROBES = [
+        ['flag' => 'releaseReceiptPersistenceWriterReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter'],
+        ['flag' => 'mutatingWriterServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter'],
+        ['flag' => 'mutatingWriterStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterStatus'],
+        ['flag' => 'mutatingWriterReleasePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterReleasePreflight'],
+        ['flag' => 'mutatingWriterContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterContract'],
+        ['flag' => 'mutatingWriterPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterPreflight'],
+        ['flag' => 'mutatingWriterImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterImplementationPacket'],
+        ['flag' => 'guardedRuntimeInvocationContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationContract'],
+        ['flag' => 'guardedRuntimeInvocationPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationPreflight'],
+        ['flag' => 'guardedRuntimeInvocationImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationImplementationPacket'],
+        ['flag' => 'guardedRuntimeInvocationServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker'],
+        ['flag' => 'guardedRuntimeInvocationStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationStatus'],
+        ['flag' => 'dispatchReceiptUseReleaseContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseReleaseContract'],
+        ['flag' => 'dispatchReceiptUsePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUsePreflight'],
+        ['flag' => 'dispatchReceiptUseImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseImplementationPacket'],
+        ['flag' => 'dispatchReceiptUseServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker'],
+        ['flag' => 'dispatchReceiptUseStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseStatus'],
+        ['flag' => 'providerStartDriverReleaseContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverReleaseContract'],
+        ['flag' => 'providerStartDriverPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverPreflight'],
+        ['flag' => 'providerStartDriverImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverImplementationPacket'],
+        ['flag' => 'providerStartDriverInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker'],
+        ['flag' => 'providerStartDriverStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverStatus'],
+        ['flag' => 'adapterInvocationBoundaryReleaseContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryReleaseContract'],
+        ['flag' => 'adapterInvocationBoundaryPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryPreflight'],
+        ['flag' => 'adapterInvocationBoundaryImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryImplementationPacket'],
+        ['flag' => 'adapterInvocationBoundaryInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker'],
+        ['flag' => 'adapterInvocationBoundaryStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryStatus'],
+        ['flag' => 'providerAdapterExecutionGuardReleaseContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardReleaseContract'],
+        ['flag' => 'providerAdapterExecutionGuardPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardPreflight'],
+        ['flag' => 'providerAdapterExecutionGuardImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardImplementationPacket'],
+        ['flag' => 'providerAdapterExecutionGuardInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker'],
+        ['flag' => 'providerAdapterExecutionGuardStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardStatus'],
+        ['flag' => 'providerSpecificExecutionContractReleaseReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractRelease'],
+        ['flag' => 'providerSpecificExecutionContractPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractPreflight'],
+        ['flag' => 'providerSpecificExecutionContractImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractImplementationPacket'],
+        ['flag' => 'providerSpecificExecutionContractInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker'],
+        ['flag' => 'providerSpecificExecutionContractStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractStatus'],
+        ['flag' => 'codexProcessStartReleaseContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseContract'],
+        ['flag' => 'codexProcessStartReleasePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleasePreflight'],
+        ['flag' => 'codexProcessStartReleaseImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseImplementationPacket'],
+        ['flag' => 'codexProcessStartReleaseInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker'],
+        ['flag' => 'codexProcessStartReleaseStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseStatus'],
+        ['flag' => 'codexSupervisedStartExecutorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorReleaseContract'],
+        ['flag' => 'codexSupervisedStartExecutorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorPreflight'],
+        ['flag' => 'codexSupervisedStartExecutorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorImplementationPacket'],
+        ['flag' => 'codexSupervisedStartExecutorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker'],
+        ['flag' => 'codexSupervisedStartExecutorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorStatus'],
+        ['flag' => 'codexProcessSpawnEnablementContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementContract'],
+        ['flag' => 'codexProcessSpawnEnablementPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementPreflight'],
+        ['flag' => 'codexProcessSpawnEnablementImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementImplementationPacket'],
+        ['flag' => 'codexProcessSpawnEnablementInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker'],
+        ['flag' => 'codexProcessSpawnEnablementStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementStatus'],
+        ['flag' => 'codexFinalProcessSpawnExecutorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorContract'],
+        ['flag' => 'codexFinalProcessSpawnExecutorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorPreflight'],
+        ['flag' => 'codexFinalProcessSpawnExecutorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorImplementationPacket'],
+        ['flag' => 'codexFinalProcessSpawnExecutorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker'],
+        ['flag' => 'codexFinalProcessSpawnExecutorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorStatus'],
+        ['flag' => 'codexExternalProcessRuntimeDriverContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverContract'],
+        ['flag' => 'codexExternalProcessRuntimeDriverPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverPreflight'],
+        ['flag' => 'codexExternalProcessRuntimeDriverImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverImplementationPacket'],
+        ['flag' => 'codexExternalProcessRuntimeDriverInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker'],
+        ['flag' => 'codexExternalProcessRuntimeDriverStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverStatus'],
+        ['flag' => 'codexProcessInvocationAuthorizationContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationContract'],
+        ['flag' => 'codexProcessInvocationAuthorizationPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationPreflight'],
+        ['flag' => 'codexProcessInvocationAuthorizationImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationImplementationPacket'],
+        ['flag' => 'codexProcessInvocationAuthorizationInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker'],
+        ['flag' => 'codexProcessInvocationAuthorizationStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationStatus'],
+        ['flag' => 'codexExternalProcessInvokerDryRunContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunContract'],
+        ['flag' => 'codexExternalProcessInvokerDryRunPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunPreflight'],
+        ['flag' => 'codexExternalProcessInvokerDryRunImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunImplementationPacket'],
+        ['flag' => 'codexExternalProcessInvokerDryRunInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker'],
+        ['flag' => 'codexExternalProcessInvokerDryRunStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunStatus'],
+        ['flag' => 'codexRealInvokerReleasePreflightContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightContract'],
+        ['flag' => 'codexRealInvokerReleasePreflightPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightPreflight'],
+        ['flag' => 'codexRealInvokerReleasePreflightImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightImplementationPacket'],
+        ['flag' => 'codexRealInvokerReleasePreflightInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightInvoker'],
+        ['flag' => 'codexRealInvokerReleasePreflightStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightStatus'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateContract'],
+        ['flag' => 'codexSignedRealInvokerReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGatePreflight'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateImplementationPacket'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryContract'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryPreflight'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryImplementationPacket'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryStatus'],
+        ['flag' => 'codexRealInvokerExecutorPlanContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanContract'],
+        ['flag' => 'codexRealInvokerExecutorPlanPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanPreflight'],
+        ['flag' => 'codexRealInvokerExecutorPlanImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanImplementationPacket'],
+        ['flag' => 'codexRealInvokerExecutorPlanInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker'],
+        ['flag' => 'codexRealInvokerExecutorPlanStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanStatus'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateContract'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGatePreflight'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateContract'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGatePreflight'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateStatus'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateContract'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGatePreflight'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateStatus'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorContract'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorPreflight'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorImplementationPacket'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorStatus'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateContract'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGatePreflight'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateStatus'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorContract'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorPreflight'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorImplementationPacket'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorStatus'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderContract'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderPreflight'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderImplementationPacket'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderStatus'],
+        ['flag' => 'codexRealInvokerStartExecutionGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateContract'],
+        ['flag' => 'codexRealInvokerStartExecutionGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGatePreflight'],
+        ['flag' => 'codexRealInvokerStartExecutionGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerStartExecutionGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateInvoker'],
+        ['flag' => 'codexRealInvokerStartExecutionGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateStatus'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateContract'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGatePreflight'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateStatus'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptContract'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptPreflight'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptImplementationPacket'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptStatus'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffContract'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffPreflight'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffImplementationPacket'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffStatus'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContract'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractPreflight'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractStatus'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptContract'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptPreflight'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptStatus'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeContract'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgePreflight'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeStatus'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorContract'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorPreflight'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorStatus'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateContract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateContract'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffContract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffPreflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffStatus'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorContract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorPreflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorStatus'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateContract'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateContract'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateContract'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateContract'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateContract'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateContract'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateContract'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateContract'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateContract'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateContract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateContract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateContract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateContract'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateContract'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateContract'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateContract'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateContract'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateContract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGatePreflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateStatus'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptContract'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptPreflight'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptStatus'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffContractReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffContract'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffPreflightReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffPreflight'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffImplementationPacket'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady', 'class' => 'App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffStatusReady', 'method' => 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffStatus'],
+    ];
 
+    /**
+     * Ordered first-gap table (was the 336-branch if/elseif chain, 1687 LOC).
+     * The FIRST row whose `requires` flags are not all met selects
+     * next_required_slice / next_build_slices — mirroring the original
+     * first-match semantics exactly. All met => GAP_FALLBACK (terminal else).
+     *
+     * @var list<array{requires: list<string>, slice: string, build: list<string>}>
+     */
+    private const NEXT_BUILD_GAP_MATRIX = [
+        ['requires' => ['allRuntimeTablesReady'], 'slice' => 'apply_agent_control_plane_runtime_schema_migration', 'build' => ['apply_agent_control_plane_runtime_schema_migration', 'verify_persistent_agent_runs_table', 'verify_persistent_heartbeat_runs_table', 'verify_persistent_cost_events_table', 'verify_persistent_work_products_table', 'verify_persistent_wakeup_items_table', 'verify_persistent_dispatch_receipts_table']],
+        ['requires' => ['releaseReceiptPersistenceWriterReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_service', 'build' => ['activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_service']],
+        ['requires' => ['mutatingWriterReleasePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_release_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_mutating_writer_release_preflight']],
+        ['requires' => ['mutatingWriterContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_mutating_writer_contract']],
+        ['requires' => ['mutatingWriterPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_mutating_writer_preflight']],
+        ['requires' => ['mutatingWriterImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet']],
+        ['requires' => ['mutatingWriterServiceReady', 'mutatingWriterStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_mutating_writer_service', 'build' => ['activate_signed_one_shot_scheduler_tick_mutating_writer_service']],
+        ['requires' => ['guardedRuntimeInvocationContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract']],
+        ['requires' => ['guardedRuntimeInvocationPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight']],
+        ['requires' => ['guardedRuntimeInvocationImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet']],
+        ['requires' => ['guardedRuntimeInvocationServiceReady', 'guardedRuntimeInvocationStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service', 'build' => ['activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service']],
+        ['requires' => ['dispatchReceiptUseReleaseContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract']],
+        ['requires' => ['dispatchReceiptUsePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight']],
+        ['requires' => ['dispatchReceiptUseImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet']],
+        ['requires' => ['dispatchReceiptUseServiceReady', 'dispatchReceiptUseStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service', 'build' => ['activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service']],
+        ['requires' => ['providerStartDriverReleaseContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract']],
+        ['requires' => ['providerStartDriverPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_start_driver_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_start_driver_preflight']],
+        ['requires' => ['providerStartDriverImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_start_driver_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_start_driver_implementation_packet']],
+        ['requires' => ['providerStartDriverInvokerServiceReady', 'providerStartDriverStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_start_driver_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_start_driver_invoker_service']],
+        ['requires' => ['adapterInvocationBoundaryReleaseContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract']],
+        ['requires' => ['adapterInvocationBoundaryPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_preflight']],
+        ['requires' => ['adapterInvocationBoundaryImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_implementation_packet']],
+        ['requires' => ['adapterInvocationBoundaryInvokerServiceReady', 'adapterInvocationBoundaryStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_invoker_service']],
+        ['requires' => ['providerAdapterExecutionGuardReleaseContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_release_contract']],
+        ['requires' => ['providerAdapterExecutionGuardPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_preflight']],
+        ['requires' => ['providerAdapterExecutionGuardImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_implementation_packet']],
+        ['requires' => ['providerAdapterExecutionGuardInvokerServiceReady', 'providerAdapterExecutionGuardStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_invoker_service']],
+        ['requires' => ['providerSpecificExecutionContractReleaseReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release']],
+        ['requires' => ['providerSpecificExecutionContractPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_preflight']],
+        ['requires' => ['providerSpecificExecutionContractImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_implementation_packet']],
+        ['requires' => ['providerSpecificExecutionContractInvokerServiceReady', 'providerSpecificExecutionContractStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_invoker_service']],
+        ['requires' => ['codexProcessStartReleaseContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract']],
+        ['requires' => ['codexProcessStartReleasePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_start_release_preflight']],
+        ['requires' => ['codexProcessStartReleaseImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_start_release_implementation_packet']],
+        ['requires' => ['codexProcessStartReleaseInvokerServiceReady', 'codexProcessStartReleaseStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_start_release_invoker_service']],
+        ['requires' => ['codexSupervisedStartExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract']],
+        ['requires' => ['codexSupervisedStartExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_preflight']],
+        ['requires' => ['codexSupervisedStartExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_implementation_packet']],
+        ['requires' => ['codexSupervisedStartExecutorInvokerServiceReady', 'codexSupervisedStartExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_invoker_service']],
+        ['requires' => ['codexProcessSpawnEnablementContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_contract']],
+        ['requires' => ['codexProcessSpawnEnablementPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_preflight']],
+        ['requires' => ['codexProcessSpawnEnablementImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_implementation_packet']],
+        ['requires' => ['codexProcessSpawnEnablementInvokerServiceReady', 'codexProcessSpawnEnablementStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_invoker_service']],
+        ['requires' => ['codexFinalProcessSpawnExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract']],
+        ['requires' => ['codexFinalProcessSpawnExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_preflight']],
+        ['requires' => ['codexFinalProcessSpawnExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_implementation_packet']],
+        ['requires' => ['codexFinalProcessSpawnExecutorInvokerServiceReady', 'codexFinalProcessSpawnExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_invoker_service']],
+        ['requires' => ['codexExternalProcessRuntimeDriverContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_contract']],
+        ['requires' => ['codexExternalProcessRuntimeDriverPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_preflight']],
+        ['requires' => ['codexExternalProcessRuntimeDriverImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_implementation_packet']],
+        ['requires' => ['codexExternalProcessRuntimeDriverInvokerServiceReady', 'codexExternalProcessRuntimeDriverStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_invoker_service']],
+        ['requires' => ['codexProcessInvocationAuthorizationContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_contract']],
+        ['requires' => ['codexProcessInvocationAuthorizationPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_preflight']],
+        ['requires' => ['codexProcessInvocationAuthorizationImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_implementation_packet']],
+        ['requires' => ['codexProcessInvocationAuthorizationInvokerServiceReady', 'codexProcessInvocationAuthorizationStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_invoker_service']],
+        ['requires' => ['codexExternalProcessInvokerDryRunContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract']],
+        ['requires' => ['codexExternalProcessInvokerDryRunPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_preflight']],
+        ['requires' => ['codexExternalProcessInvokerDryRunImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_implementation_packet']],
+        ['requires' => ['codexExternalProcessInvokerDryRunInvokerServiceReady', 'codexExternalProcessInvokerDryRunStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_invoker_service']],
+        ['requires' => ['codexRealInvokerReleasePreflightContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract']],
+        ['requires' => ['codexRealInvokerReleasePreflightPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_preflight']],
+        ['requires' => ['codexRealInvokerReleasePreflightImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_implementation_packet']],
+        ['requires' => ['codexRealInvokerReleasePreflightInvokerServiceReady', 'codexRealInvokerReleasePreflightStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_invoker_service']],
+        ['requires' => ['codexSignedRealInvokerReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_contract']],
+        ['requires' => ['codexSignedRealInvokerReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_preflight']],
+        ['requires' => ['codexSignedRealInvokerReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_implementation_packet']],
+        ['requires' => ['codexSignedRealInvokerReleaseGateInvokerServiceReady', 'codexSignedRealInvokerReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerImplementationBoundaryContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_contract']],
+        ['requires' => ['codexRealInvokerImplementationBoundaryPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_preflight']],
+        ['requires' => ['codexRealInvokerImplementationBoundaryImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_implementation_packet']],
+        ['requires' => ['codexRealInvokerImplementationBoundaryInvokerServiceReady', 'codexRealInvokerImplementationBoundaryStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_invoker_service']],
+        ['requires' => ['codexRealInvokerExecutorPlanContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_contract']],
+        ['requires' => ['codexRealInvokerExecutorPlanPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_preflight']],
+        ['requires' => ['codexRealInvokerExecutorPlanImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_implementation_packet']],
+        ['requires' => ['codexRealInvokerExecutorPlanInvokerServiceReady', 'codexRealInvokerExecutorPlanStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_invoker_service']],
+        ['requires' => ['codexRealInvokerExecutorFreshReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_contract']],
+        ['requires' => ['codexRealInvokerExecutorFreshReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady', 'codexRealInvokerExecutorFreshReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerExecutorEnablementGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_contract']],
+        ['requires' => ['codexRealInvokerExecutorEnablementGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_preflight']],
+        ['requires' => ['codexRealInvokerExecutorEnablementGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerExecutorEnablementGateInvokerServiceReady', 'codexRealInvokerExecutorEnablementGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerSupervisedStartActivationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_contract']],
+        ['requires' => ['codexRealInvokerSupervisedStartActivationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_preflight']],
+        ['requires' => ['codexRealInvokerSupervisedStartActivationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerSupervisedStartActivationGateInvokerServiceReady', 'codexRealInvokerSupervisedStartActivationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerGuardedProcessStartExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_contract']],
+        ['requires' => ['codexRealInvokerGuardedProcessStartExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_preflight']],
+        ['requires' => ['codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet']],
+        ['requires' => ['codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady', 'codexRealInvokerGuardedProcessStartExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_invoker_service']],
+        ['requires' => ['codexRealInvokerFinalProcessStartAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady', 'codexRealInvokerFinalProcessStartAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerActualProcessStartRehearsalExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_contract']],
+        ['requires' => ['codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_preflight']],
+        ['requires' => ['codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_implementation_packet']],
+        ['requires' => ['codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady', 'codexRealInvokerActualProcessStartRehearsalExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_invoker_service']],
+        ['requires' => ['codexRealInvokerProcessStartEnvelopeBuilderContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_contract']],
+        ['requires' => ['codexRealInvokerProcessStartEnvelopeBuilderPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_preflight']],
+        ['requires' => ['codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_implementation_packet']],
+        ['requires' => ['codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady', 'codexRealInvokerProcessStartEnvelopeBuilderStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_invoker_service']],
+        ['requires' => ['codexRealInvokerStartExecutionGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_contract']],
+        ['requires' => ['codexRealInvokerStartExecutionGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_preflight']],
+        ['requires' => ['codexRealInvokerStartExecutionGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerStartExecutionGateInvokerServiceReady', 'codexRealInvokerStartExecutionGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerProcessStarterReadinessGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract']],
+        ['requires' => ['codexRealInvokerProcessStarterReadinessGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_preflight']],
+        ['requires' => ['codexRealInvokerProcessStarterReadinessGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerProcessStarterReadinessGateInvokerServiceReady', 'codexRealInvokerProcessStarterReadinessGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerManualStartExecutorReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_contract']],
+        ['requires' => ['codexRealInvokerManualStartExecutorReceiptPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_preflight']],
+        ['requires' => ['codexRealInvokerManualStartExecutorReceiptImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet']],
+        ['requires' => ['codexRealInvokerManualStartExecutorReceiptInvokerServiceReady', 'codexRealInvokerManualStartExecutorReceiptStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service']],
+        ['requires' => ['codexRealInvokerOperatorStartHandoffContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract']],
+        ['requires' => ['codexRealInvokerOperatorStartHandoffPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_preflight']],
+        ['requires' => ['codexRealInvokerOperatorStartHandoffImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_implementation_packet']],
+        ['requires' => ['codexRealInvokerOperatorStartHandoffInvokerServiceReady', 'codexRealInvokerOperatorStartHandoffStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractInvokerServiceReady', 'codexRealInvokerPostStartReceiptContractStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady', 'codexRealInvokerPostStartEvidenceReceiptStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady', 'codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorInvokerServiceReady', 'codexRealInvokerPostStartLivenessMonitorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartDispatchReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady', 'codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady', 'codexRealInvokerPostStartDispatchExecutorHandoffStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady', 'codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady', 'codexRealInvokerPostStartProviderStartDriverGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady', 'codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady', 'codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady', 'codexRealInvokerPostStartProviderExecutionContractGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartProcessStartReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady', 'codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady', 'codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady', 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady', 'codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady', 'codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady', 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady', 'codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartImplementationBoundaryGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartImplementationBoundaryGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady', 'codexRealInvokerPostStartImplementationBoundaryGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExecutorPlanGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExecutorPlanGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady', 'codexRealInvokerPostStartExecutorPlanGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExecutorFreshReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExecutorEnablementGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExecutorEnablementGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady', 'codexRealInvokerPostStartExecutorEnablementGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartActivationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady', 'codexRealInvokerPostStartSupervisedStartActivationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady', 'codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady', 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady', 'codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartEnvelopeGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady', 'codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartStartExecutionGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartStartExecutionGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartStartExecutionGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartStartExecutionGateInvokerServiceReady', 'codexRealInvokerPostStartStartExecutionGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessStarterReadinessGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady', 'codexRealInvokerPostStartProcessStarterReadinessGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartManualStartExecutorReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract']],
+        ['requires' => ['codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight']],
+        ['requires' => ['codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady', 'codexRealInvokerPostStartManualStartExecutorReceiptStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartOperatorStartHandoffContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract']],
+        ['requires' => ['codexRealInvokerPostStartOperatorStartHandoffPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_preflight']],
+        ['requires' => ['codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady', 'codexRealInvokerPostStartOperatorStartHandoffStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartReceiptContractInvokerServiceReady', 'codexRealInvokerPostStartReceiptContractStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady', 'codexRealInvokerPostStartEvidenceReceiptStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady', 'codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartLivenessMonitorInvokerServiceReady', 'codexRealInvokerPostStartLivenessMonitorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartDispatchReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady', 'codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady', 'codexRealInvokerPostStartDispatchExecutorHandoffStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady', 'codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady', 'codexRealInvokerPostStartProviderStartDriverGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady', 'codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady', 'codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady', 'codexRealInvokerPostStartProviderExecutionContractGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady', 'codexRealInvokerPostStartProcessStartReleaseGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady', 'codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady', 'codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady', 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady', 'codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady', 'codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady', 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet']],
+        ['requires' => ['codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady', 'codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady'], 'slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service']],
+    ];
+
+    /** @var array{slice: string, build: list<string>} */
+    private const NEXT_BUILD_GAP_FALLBACK = ['slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract', 'build' => ['activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract']];
+
+    /** Capabilities present regardless of runtime-table readiness. @var list<string> */
+    private const BASE_CAPABILITIES = [
+        'durable_packet_checkout_lock',
+        'provider_session_state_projection',
+        'agent_run_projection_from_reservations',
+        'persistent_run_liveness_detector',
+        'dispatch_receipt_schema_contract',
+        'forge_workspace_projection',
+        'packet_queue_projection',
+        'multi_session_readiness_projection',
+        'continuation_summary_projection',
+        'post_start_evidence_bridge_invariant',
+        'agent_control_plane_chain_integrity_certification_contract',
+        'agent_control_plane_chain_integrity_certification_preflight',
+        'agent_control_plane_chain_integrity_certification_implementation_packet',
+        'agent_control_plane_chain_integrity_certification_service',
+        'agent_control_plane_chain_integrity_certification_status_projection',
+        'agent_control_plane_deterministic_chain_replay_contract',
+        'agent_control_plane_deterministic_chain_replay_preflight',
+        'agent_control_plane_deterministic_chain_replay_implementation_packet',
+        'agent_control_plane_deterministic_chain_replay_service',
+        'agent_control_plane_deterministic_chain_replay_status_projection',
+        'agent_control_plane_replay_snapshot_store_contract',
+        'agent_control_plane_replay_snapshot_store_preflight',
+        'agent_control_plane_replay_snapshot_store_implementation_packet',
+        'agent_control_plane_replay_snapshot_store_service',
+        'agent_control_plane_replay_snapshot_store_status_projection',
+        'agent_control_plane_replay_diff_contract',
+        'agent_control_plane_replay_diff_preflight',
+        'agent_control_plane_replay_diff_implementation_packet',
+        'agent_control_plane_replay_diff_service',
+        'agent_control_plane_replay_diff_status_projection',
+        'agent_control_plane_macro_sprint_promotion_gate_contract',
+        'agent_control_plane_macro_sprint_promotion_gate_preflight',
+        'agent_control_plane_macro_sprint_promotion_gate_implementation_packet',
+        'agent_control_plane_macro_sprint_promotion_gate_service',
+        'agent_control_plane_macro_sprint_promotion_gate_status_projection',
+        'agent_control_plane_certification_baseline_contract',
+        'agent_control_plane_certification_baseline_preflight',
+        'agent_control_plane_certification_baseline_implementation_packet',
+        'agent_control_plane_certification_baseline_service',
+        'agent_control_plane_certification_baseline_status_projection',
+        'agent_control_plane_certification_scenario_simulator_contract',
+        'agent_control_plane_certification_scenario_simulator_preflight',
+        'agent_control_plane_certification_scenario_simulator_implementation_packet',
+        'agent_control_plane_certification_scenario_simulator_service',
+        'agent_control_plane_certification_scenario_simulator_status_projection',
+        'agent_control_plane_release_dossier_contract',
+        'agent_control_plane_release_dossier_preflight',
+        'agent_control_plane_release_dossier_implementation_packet',
+        'agent_control_plane_release_dossier_service',
+        'agent_control_plane_release_dossier_status_projection',
+        'agent_control_plane_certification_mutation_guard_contract',
+        'agent_control_plane_certification_mutation_guard_preflight',
+        'agent_control_plane_certification_mutation_guard_implementation_packet',
+        'agent_control_plane_certification_mutation_guard_service',
+        'agent_control_plane_certification_mutation_guard_status_projection',
+        'agent_control_plane_certification_evidence_query_contract',
+        'agent_control_plane_certification_evidence_query_preflight',
+        'agent_control_plane_certification_evidence_query_implementation_packet',
+        'agent_control_plane_certification_evidence_query_service',
+        'agent_control_plane_certification_evidence_query_status_projection',
+        'agent_control_plane_certification_scenario_corpus_contract',
+        'agent_control_plane_certification_scenario_corpus_preflight',
+        'agent_control_plane_certification_scenario_corpus_implementation_packet',
+        'agent_control_plane_certification_scenario_corpus_service',
+        'agent_control_plane_certification_scenario_corpus_status_projection',
+        'agent_control_plane_certification_fuzz_harness_contract',
+        'agent_control_plane_certification_fuzz_harness_preflight',
+        'agent_control_plane_certification_fuzz_harness_implementation_packet',
+        'agent_control_plane_certification_fuzz_harness_service',
+        'agent_control_plane_certification_fuzz_harness_status_projection',
+        'agent_control_plane_multi_snapshot_comparison_contract',
+        'agent_control_plane_multi_snapshot_comparison_preflight',
+        'agent_control_plane_multi_snapshot_comparison_implementation_packet',
+        'agent_control_plane_multi_snapshot_comparison_service',
+        'agent_control_plane_multi_snapshot_comparison_status_projection',
+        'agent_control_plane_release_dossier_exporter_contract',
+        'agent_control_plane_release_dossier_exporter_preflight',
+        'agent_control_plane_release_dossier_exporter_implementation_packet',
+        'agent_control_plane_release_dossier_exporter_service',
+        'agent_control_plane_release_dossier_exporter_status_projection',
+        'agent_control_plane_certification_coverage_report_contract',
+        'agent_control_plane_certification_coverage_report_preflight',
+        'agent_control_plane_certification_coverage_report_implementation_packet',
+        'agent_control_plane_certification_coverage_report_service',
+        'agent_control_plane_certification_coverage_report_status_projection',
+        'agent_control_plane_certification_status_batch_contract',
+        'agent_control_plane_certification_status_batch_preflight',
+        'agent_control_plane_certification_status_batch_implementation_packet',
+        'agent_control_plane_certification_status_batch_service',
+        'agent_control_plane_certification_status_batch_status_projection',
+        'atlas_self_construction_os_completion_audit_contract',
+        'atlas_self_construction_os_completion_audit_preflight',
+        'atlas_self_construction_os_completion_audit_implementation_packet',
+        'atlas_self_construction_os_completion_audit_service',
+        'atlas_self_construction_os_completion_audit_status_projection',
+        'atlas_self_construction_final_evidence_bundle_contract',
+        'atlas_self_construction_final_evidence_bundle_preflight',
+        'atlas_self_construction_final_evidence_bundle_implementation_packet',
+        'atlas_self_construction_final_evidence_bundle_service',
+        'atlas_self_construction_final_evidence_bundle_status_projection',
+        'atlas_self_construction_completion_audit_blocker_explainer_contract',
+        'atlas_self_construction_completion_audit_blocker_explainer_preflight',
+        'atlas_self_construction_completion_audit_blocker_explainer_implementation_packet',
+        'atlas_self_construction_completion_audit_blocker_explainer_service',
+        'atlas_self_construction_completion_audit_blocker_explainer_status_projection',
+        'atlas_self_construction_completion_evidence_submission_preflight_contract',
+        'atlas_self_construction_completion_evidence_submission_preflight_preflight',
+        'atlas_self_construction_completion_evidence_submission_preflight_implementation_packet',
+        'atlas_self_construction_completion_evidence_submission_preflight_service',
+        'atlas_self_construction_completion_evidence_submission_preflight_status_projection',
+        'atlas_self_construction_os_handoff_contract',
+        'atlas_self_construction_os_handoff_preflight',
+        'atlas_self_construction_os_handoff_implementation_packet',
+        'atlas_self_construction_os_handoff_service',
+        'atlas_self_construction_os_handoff_status_projection',
+        'atlas_self_construction_completion_evidence_hash_composer_contract',
+        'atlas_self_construction_completion_evidence_hash_composer_preflight',
+        'atlas_self_construction_completion_evidence_hash_composer_implementation_packet',
+        'atlas_self_construction_completion_evidence_hash_composer_service',
+        'atlas_self_construction_completion_evidence_hash_composer_status_projection',
+        'atlas_self_construction_runtime_promotion_receipt_draft_contract',
+        'atlas_self_construction_runtime_promotion_receipt_draft_preflight',
+        'atlas_self_construction_runtime_promotion_receipt_draft_implementation_packet',
+        'atlas_self_construction_runtime_promotion_receipt_draft_service',
+        'atlas_self_construction_runtime_promotion_receipt_draft_status_projection',
+        'atlas_self_construction_runtime_promotion_draft_hash_finalizer_contract',
+        'atlas_self_construction_runtime_promotion_draft_hash_finalizer_preflight',
+        'atlas_self_construction_runtime_promotion_draft_hash_finalizer_implementation_packet',
+        'atlas_self_construction_runtime_promotion_draft_hash_finalizer_service',
+        'atlas_self_construction_runtime_promotion_draft_hash_finalizer_status_projection',
+        'atlas_self_construction_operator_evidence_draft_hash_finalizer_contract',
+        'atlas_self_construction_operator_evidence_draft_hash_finalizer_preflight',
+        'atlas_self_construction_operator_evidence_draft_hash_finalizer_implementation_packet',
+        'atlas_self_construction_operator_evidence_draft_hash_finalizer_service',
+        'atlas_self_construction_operator_evidence_draft_hash_finalizer_status_projection',
+        'atlas_self_construction_operator_evidence_draft_workspace_publisher_contract',
+        'atlas_self_construction_operator_evidence_draft_workspace_publisher_preflight',
+        'atlas_self_construction_operator_evidence_draft_workspace_publisher_implementation_packet',
+        'atlas_self_construction_operator_evidence_draft_workspace_publisher_service',
+        'atlas_self_construction_operator_evidence_draft_workspace_publisher_status_projection',
+        'atlas_self_construction_human_completion_receipt_draft_contract',
+        'atlas_self_construction_human_completion_receipt_draft_preflight',
+        'atlas_self_construction_human_completion_receipt_draft_implementation_packet',
+        'atlas_self_construction_human_completion_receipt_draft_service',
+        'atlas_self_construction_human_completion_receipt_draft_status_projection',
+        'atlas_self_construction_runtime_promotion_evidence_dossier_contract',
+        'atlas_self_construction_runtime_promotion_evidence_dossier_preflight',
+        'atlas_self_construction_runtime_promotion_evidence_dossier_implementation_packet',
+        'atlas_self_construction_runtime_promotion_evidence_dossier_service',
+        'atlas_self_construction_runtime_promotion_evidence_dossier_status_projection',
+        'atlas_self_construction_runtime_promotion_closure_execution_pack_contract',
+        'atlas_self_construction_runtime_promotion_closure_execution_pack_preflight',
+        'atlas_self_construction_runtime_promotion_closure_execution_pack_implementation_packet',
+        'atlas_self_construction_runtime_promotion_closure_execution_pack_service',
+        'atlas_self_construction_runtime_promotion_closure_execution_pack_status_projection',
+        'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_contract',
+        'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_preflight',
+        'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_implementation_packet',
+        'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_service',
+        'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_status_projection',
+        'atlas_self_construction_runtime_promotion_endgame_contract',
+        'atlas_self_construction_runtime_promotion_endgame_preflight',
+        'atlas_self_construction_runtime_promotion_endgame_implementation_packet',
+        'atlas_self_construction_runtime_promotion_endgame_service',
+        'atlas_self_construction_runtime_promotion_endgame_status_projection',
+        'atlas_self_construction_runtime_promotion_endgame_verifier_contract',
+        'atlas_self_construction_runtime_promotion_endgame_verifier_preflight',
+        'atlas_self_construction_runtime_promotion_endgame_verifier_implementation_packet',
+        'atlas_self_construction_runtime_promotion_endgame_verifier_service',
+        'atlas_self_construction_runtime_promotion_endgame_verifier_status_projection',
+        'atlas_self_construction_runtime_promotion_operator_runbook_exporter_contract',
+        'atlas_self_construction_runtime_promotion_operator_runbook_exporter_preflight',
+        'atlas_self_construction_runtime_promotion_operator_runbook_exporter_implementation_packet',
+        'atlas_self_construction_runtime_promotion_operator_runbook_exporter_service',
+        'atlas_self_construction_runtime_promotion_operator_runbook_exporter_status_projection',
+        'atlas_self_construction_real_provider_smoke_endgame_contract',
+        'atlas_self_construction_real_provider_smoke_endgame_preflight',
+        'atlas_self_construction_real_provider_smoke_endgame_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_endgame_service',
+        'atlas_self_construction_real_provider_smoke_endgame_status_projection',
+        'atlas_self_construction_real_provider_smoke_endgame_verifier_contract',
+        'atlas_self_construction_real_provider_smoke_endgame_verifier_preflight',
+        'atlas_self_construction_real_provider_smoke_endgame_verifier_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_endgame_verifier_service',
+        'atlas_self_construction_real_provider_smoke_endgame_verifier_status_projection',
+        'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_contract',
+        'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_preflight',
+        'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_service',
+        'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_status_projection',
+        'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_contract',
+        'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_preflight',
+        'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_service',
+        'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_status_projection',
+        'atlas_self_construction_human_completion_receipt_endgame_verifier_contract',
+        'atlas_self_construction_human_completion_receipt_endgame_verifier_preflight',
+        'atlas_self_construction_human_completion_receipt_endgame_verifier_implementation_packet',
+        'atlas_self_construction_human_completion_receipt_endgame_verifier_service',
+        'atlas_self_construction_human_completion_receipt_endgame_verifier_status_projection',
+        'atlas_self_construction_final_completion_human_gate_contract',
+        'atlas_self_construction_final_completion_human_gate_preflight',
+        'atlas_self_construction_final_completion_human_gate_implementation_packet',
+        'atlas_self_construction_final_completion_human_gate_service',
+        'atlas_self_construction_final_completion_human_gate_status_projection',
+        'atlas_self_construction_final_completion_dossier_exporter_contract',
+        'atlas_self_construction_final_completion_dossier_exporter_preflight',
+        'atlas_self_construction_final_completion_dossier_exporter_implementation_packet',
+        'atlas_self_construction_final_completion_dossier_exporter_service',
+        'atlas_self_construction_final_completion_dossier_exporter_status_projection',
+        'atlas_self_construction_final_completion_readiness_gate_contract',
+        'atlas_self_construction_final_completion_readiness_gate_preflight',
+        'atlas_self_construction_final_completion_readiness_gate_implementation_packet',
+        'atlas_self_construction_final_completion_readiness_gate_service',
+        'atlas_self_construction_final_completion_readiness_gate_status_projection',
+        'atlas_self_programming_os_transition_readiness_contract',
+        'atlas_self_programming_os_transition_readiness_preflight',
+        'atlas_self_programming_os_transition_readiness_implementation_packet',
+        'atlas_self_programming_os_transition_readiness_service',
+        'atlas_self_programming_os_transition_readiness_status_projection',
+        'atlas_self_programming_safety_contract_certification_contract',
+        'atlas_self_programming_safety_contract_certification_preflight',
+        'atlas_self_programming_safety_contract_certification_implementation_packet',
+        'atlas_self_programming_safety_contract_certification_service',
+        'atlas_self_programming_safety_contract_certification_status_projection',
+        'atlas_self_construction_completion_finalization_gate_contract',
+        'atlas_self_construction_completion_finalization_gate_preflight',
+        'atlas_self_construction_completion_finalization_gate_implementation_packet',
+        'atlas_self_construction_completion_finalization_gate_service',
+        'atlas_self_construction_completion_finalization_gate_status_projection',
+        'atlas_self_construction_human_completion_receipt_dossier_contract',
+        'atlas_self_construction_human_completion_receipt_dossier_preflight',
+        'atlas_self_construction_human_completion_receipt_dossier_implementation_packet',
+        'atlas_self_construction_human_completion_receipt_dossier_service',
+        'atlas_self_construction_human_completion_receipt_dossier_status_projection',
+        'atlas_self_construction_real_provider_smoke_evidence_dossier_contract',
+        'atlas_self_construction_real_provider_smoke_evidence_dossier_preflight',
+        'atlas_self_construction_real_provider_smoke_evidence_dossier_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_evidence_dossier_service',
+        'atlas_self_construction_real_provider_smoke_evidence_dossier_status_projection',
+        'atlas_self_construction_real_provider_smoke_offline_harness_contract',
+        'atlas_self_construction_real_provider_smoke_offline_harness_preflight',
+        'atlas_self_construction_real_provider_smoke_offline_harness_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_offline_harness_service',
+        'atlas_self_construction_real_provider_smoke_offline_harness_status_projection',
+        'atlas_self_construction_real_provider_smoke_draft_contract',
+        'atlas_self_construction_real_provider_smoke_draft_preflight',
+        'atlas_self_construction_real_provider_smoke_draft_implementation_packet',
+        'atlas_self_construction_real_provider_smoke_draft_service',
+        'atlas_self_construction_real_provider_smoke_draft_status_projection',
+        'atlas_self_construction_final_operator_evidence_closure_corridor_contract',
+        'atlas_self_construction_final_operator_evidence_closure_corridor_preflight',
+        'atlas_self_construction_final_operator_evidence_closure_corridor_implementation_packet',
+        'atlas_self_construction_final_operator_evidence_closure_corridor_service',
+        'atlas_self_construction_final_operator_evidence_closure_corridor_status_projection',
+        'atlas_self_construction_operator_evidence_artifact_template_pack_contract',
+        'atlas_self_construction_operator_evidence_artifact_template_pack_preflight',
+        'atlas_self_construction_operator_evidence_artifact_template_pack_implementation_packet',
+        'atlas_self_construction_operator_evidence_artifact_template_pack_service',
+        'atlas_self_construction_operator_evidence_artifact_template_pack_status_projection',
+        'atlas_self_construction_operator_evidence_draft_workspace_inspector_contract',
+        'atlas_self_construction_operator_evidence_draft_workspace_inspector_preflight',
+        'atlas_self_construction_operator_evidence_draft_workspace_inspector_implementation_packet',
+        'atlas_self_construction_operator_evidence_draft_workspace_inspector_service',
+        'atlas_self_construction_operator_evidence_draft_workspace_inspector_status_projection',
+        'atlas_self_construction_operator_evidence_submission_readiness_contract',
+        'atlas_self_construction_operator_evidence_submission_readiness_preflight',
+        'atlas_self_construction_operator_evidence_submission_readiness_implementation_packet',
+        'atlas_self_construction_operator_evidence_submission_readiness_service',
+        'atlas_self_construction_operator_evidence_submission_readiness_status_projection',
+        'agent_control_plane_runtime_evidence_journal_contract',
+        'agent_control_plane_runtime_evidence_journal_preflight',
+        'agent_control_plane_runtime_evidence_journal_implementation_packet',
+        'agent_control_plane_runtime_evidence_journal_service',
+        'agent_control_plane_runtime_evidence_journal_status_projection',
+        'agent_control_plane_execution_workspace_runtime_contract',
+        'agent_control_plane_execution_workspace_runtime_preflight',
+        'agent_control_plane_execution_workspace_runtime_implementation_packet',
+        'agent_control_plane_execution_workspace_runtime_service',
+        'agent_control_plane_execution_workspace_runtime_status_projection',
+        'agent_control_plane_governance_approval_runtime_contract',
+        'agent_control_plane_governance_approval_runtime_preflight',
+        'agent_control_plane_governance_approval_runtime_implementation_packet',
+        'agent_control_plane_governance_approval_runtime_service',
+        'agent_control_plane_governance_approval_runtime_status_projection',
+        'agent_control_plane_automatic_cost_import_runtime_contract',
+        'agent_control_plane_automatic_cost_import_runtime_preflight',
+        'agent_control_plane_automatic_cost_import_runtime_implementation_packet',
+        'agent_control_plane_automatic_cost_import_runtime_service',
+        'agent_control_plane_automatic_cost_import_runtime_status_projection',
+        'agent_control_plane_automatic_work_product_collection_runtime_contract',
+        'agent_control_plane_automatic_work_product_collection_runtime_preflight',
+        'agent_control_plane_automatic_work_product_collection_runtime_implementation_packet',
+        'agent_control_plane_automatic_work_product_collection_runtime_service',
+        'agent_control_plane_automatic_work_product_collection_runtime_status_projection',
+        'agent_control_plane_adapter_execution_runtime_boundary_contract',
+        'agent_control_plane_adapter_execution_runtime_boundary_preflight',
+        'agent_control_plane_adapter_execution_runtime_boundary_implementation_packet',
+        'agent_control_plane_adapter_execution_runtime_boundary_service',
+        'agent_control_plane_adapter_execution_runtime_boundary_status_projection',
+        'agent_control_plane_dispatch_planner_runtime_contract',
+        'agent_control_plane_dispatch_planner_runtime_preflight',
+        'agent_control_plane_dispatch_planner_runtime_implementation_packet',
+        'agent_control_plane_dispatch_planner_runtime_service',
+        'agent_control_plane_dispatch_planner_runtime_status_projection',
+        'agent_control_plane_validation_gate_runtime_contract',
+        'agent_control_plane_validation_gate_runtime_preflight',
+        'agent_control_plane_validation_gate_runtime_implementation_packet',
+        'agent_control_plane_validation_gate_runtime_service',
+        'agent_control_plane_validation_gate_runtime_status_projection',
+        'agent_control_plane_merge_review_runtime_contract',
+        'agent_control_plane_merge_review_runtime_preflight',
+        'agent_control_plane_merge_review_runtime_implementation_packet',
+        'agent_control_plane_merge_review_runtime_service',
+        'agent_control_plane_merge_review_runtime_status_projection',
+        'agent_control_plane_task_packet_builder_contract',
+        'agent_control_plane_task_packet_builder_preflight',
+        'agent_control_plane_task_packet_builder_implementation_packet',
+        'agent_control_plane_task_packet_builder_service',
+        'agent_control_plane_task_packet_builder_status_projection',
+        'agent_control_plane_claim_lease_simulator_contract',
+        'agent_control_plane_claim_lease_simulator_preflight',
+        'agent_control_plane_claim_lease_simulator_implementation_packet',
+        'agent_control_plane_claim_lease_simulator_service',
+        'agent_control_plane_claim_lease_simulator_status_projection',
+        'agent_control_plane_scope_lock_planner_contract',
+        'agent_control_plane_scope_lock_planner_preflight',
+        'agent_control_plane_scope_lock_planner_implementation_packet',
+        'agent_control_plane_scope_lock_planner_service',
+        'agent_control_plane_scope_lock_planner_status_projection',
+        'agent_control_plane_evidence_ledger_dry_run_contract',
+        'agent_control_plane_evidence_ledger_dry_run_preflight',
+        'agent_control_plane_evidence_ledger_dry_run_implementation_packet',
+        'agent_control_plane_evidence_ledger_dry_run_service',
+        'agent_control_plane_evidence_ledger_dry_run_status_projection',
+        'agent_control_plane_continuation_summary_builder_contract',
+        'agent_control_plane_continuation_summary_builder_preflight',
+        'agent_control_plane_continuation_summary_builder_implementation_packet',
+        'agent_control_plane_continuation_summary_builder_service',
+        'agent_control_plane_continuation_summary_builder_status_projection',
+        'agent_control_plane_work_product_manifest_planner_contract',
+        'agent_control_plane_work_product_manifest_planner_preflight',
+        'agent_control_plane_work_product_manifest_planner_implementation_packet',
+        'agent_control_plane_work_product_manifest_planner_service',
+        'agent_control_plane_work_product_manifest_planner_status_projection',
+        'agent_control_plane_cost_import_dry_run_contract',
+        'agent_control_plane_cost_import_dry_run_preflight',
+        'agent_control_plane_cost_import_dry_run_implementation_packet',
+        'agent_control_plane_cost_import_dry_run_service',
+        'agent_control_plane_cost_import_dry_run_status_projection',
+        'agent_control_plane_multi_agent_parallelism_planner_contract',
+        'agent_control_plane_multi_agent_parallelism_planner_preflight',
+        'agent_control_plane_multi_agent_parallelism_planner_implementation_packet',
+        'agent_control_plane_multi_agent_parallelism_planner_service',
+        'agent_control_plane_multi_agent_parallelism_planner_status_projection',
+        'agent_control_plane_runtime_pilot_orchestrator_contract',
+        'agent_control_plane_runtime_pilot_orchestrator_preflight',
+        'agent_control_plane_runtime_pilot_orchestrator_implementation_packet',
+        'agent_control_plane_runtime_pilot_orchestrator_service',
+        'agent_control_plane_runtime_pilot_orchestrator_status_projection',
+        'agent_control_plane_runtime_pilot_certification_contract',
+        'agent_control_plane_runtime_pilot_certification_preflight',
+        'agent_control_plane_runtime_pilot_certification_implementation_packet',
+        'agent_control_plane_runtime_pilot_certification_service',
+        'agent_control_plane_runtime_pilot_certification_status_projection',
+        'agent_control_plane_task_packet_queue_contract',
+        'agent_control_plane_task_packet_queue_preflight',
+        'agent_control_plane_task_packet_queue_implementation_packet',
+        'agent_control_plane_task_packet_queue_service',
+        'agent_control_plane_task_packet_queue_status_projection',
+        'agent_control_plane_claim_lease_runtime_contract',
+        'agent_control_plane_claim_lease_runtime_preflight',
+        'agent_control_plane_claim_lease_runtime_implementation_packet',
+        'agent_control_plane_claim_lease_runtime_service',
+        'agent_control_plane_claim_lease_runtime_status_projection',
+        'agent_control_plane_scope_lock_runtime_validator_contract',
+        'agent_control_plane_scope_lock_runtime_validator_preflight',
+        'agent_control_plane_scope_lock_runtime_validator_implementation_packet',
+        'agent_control_plane_scope_lock_runtime_validator_service',
+        'agent_control_plane_scope_lock_runtime_validator_status_projection',
+        'agent_control_plane_task_queue_orchestrator_contract',
+        'agent_control_plane_task_queue_orchestrator_preflight',
+        'agent_control_plane_task_queue_orchestrator_implementation_packet',
+        'agent_control_plane_task_queue_orchestrator_service',
+        'agent_control_plane_task_queue_orchestrator_status_projection',
+        'agent_control_plane_task_queue_claim_next_status_projection',
+        'agent_control_plane_task_queue_complete_dry_run_status_projection',
+        'agent_control_plane_task_auto_replenishment_contract',
+        'agent_control_plane_task_auto_replenishment_preflight',
+        'agent_control_plane_task_auto_replenishment_implementation_packet',
+        'agent_control_plane_task_auto_replenishment_service',
+        'agent_control_plane_task_auto_replenishment_status_projection',
+        'agent_control_plane_worker_task_eligibility_certification_contract',
+        'agent_control_plane_worker_task_eligibility_certification_preflight',
+        'agent_control_plane_worker_task_eligibility_certification_implementation_packet',
+        'agent_control_plane_worker_task_eligibility_certification_service',
+        'agent_control_plane_worker_task_eligibility_certification_status_projection',
+        'agent_control_plane_terminal_loop_health_digest_contract',
+        'agent_control_plane_terminal_loop_health_digest_preflight',
+        'agent_control_plane_terminal_loop_health_digest_implementation_packet',
+        'agent_control_plane_terminal_loop_health_digest_service',
+        'agent_control_plane_terminal_loop_health_digest_status_projection',
+        'agent_control_plane_terminal_loop_operational_proof_contract',
+        'agent_control_plane_terminal_loop_operational_proof_preflight',
+        'agent_control_plane_terminal_loop_operational_proof_implementation_packet',
+        'agent_control_plane_terminal_loop_operational_proof_service',
+        'agent_control_plane_terminal_loop_operational_proof_status_projection',
+        'agent_control_plane_terminal_worker_bootstrap_contract',
+        'agent_control_plane_terminal_worker_bootstrap_preflight',
+        'agent_control_plane_terminal_worker_bootstrap_implementation_packet',
+        'agent_control_plane_terminal_worker_bootstrap_service',
+        'agent_control_plane_terminal_worker_bootstrap_status_projection',
+        'agent_control_plane_task_queue_lease_certification_contract',
+        'agent_control_plane_task_queue_lease_certification_preflight',
+        'agent_control_plane_task_queue_lease_certification_implementation_packet',
+        'agent_control_plane_task_queue_lease_certification_service',
+        'agent_control_plane_task_queue_lease_certification_status_projection',
+        'agent_control_plane_agent_runtime_registry_contract',
+        'agent_control_plane_agent_runtime_registry_preflight',
+        'agent_control_plane_agent_runtime_registry_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_service',
+        'agent_control_plane_agent_runtime_registry_status_projection',
+        'agent_control_plane_agent_runtime_registry_heartbeat_contract',
+        'agent_control_plane_agent_runtime_registry_heartbeat_preflight',
+        'agent_control_plane_agent_runtime_registry_heartbeat_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_heartbeat_service',
+        'agent_control_plane_agent_runtime_registry_heartbeat_status_projection',
+        'agent_control_plane_agent_runtime_registry_capability_catalog_contract',
+        'agent_control_plane_agent_runtime_registry_capability_catalog_preflight',
+        'agent_control_plane_agent_runtime_registry_capability_catalog_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_capability_catalog_service',
+        'agent_control_plane_agent_runtime_registry_capability_catalog_status_projection',
+        'agent_control_plane_agent_runtime_registry_availability_contract',
+        'agent_control_plane_agent_runtime_registry_availability_preflight',
+        'agent_control_plane_agent_runtime_registry_availability_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_availability_service',
+        'agent_control_plane_agent_runtime_registry_availability_status_projection',
+        'agent_control_plane_agent_runtime_registry_task_matcher_contract',
+        'agent_control_plane_agent_runtime_registry_task_matcher_preflight',
+        'agent_control_plane_agent_runtime_registry_task_matcher_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_task_matcher_service',
+        'agent_control_plane_agent_runtime_registry_task_matcher_status_projection',
+        'agent_control_plane_agent_runtime_registry_load_balancing_contract',
+        'agent_control_plane_agent_runtime_registry_load_balancing_preflight',
+        'agent_control_plane_agent_runtime_registry_load_balancing_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_load_balancing_service',
+        'agent_control_plane_agent_runtime_registry_load_balancing_status_projection',
+        'agent_control_plane_agent_runtime_registry_quarantine_contract',
+        'agent_control_plane_agent_runtime_registry_quarantine_preflight',
+        'agent_control_plane_agent_runtime_registry_quarantine_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_quarantine_service',
+        'agent_control_plane_agent_runtime_registry_quarantine_status_projection',
+        'agent_control_plane_agent_runtime_registry_handoff_contract',
+        'agent_control_plane_agent_runtime_registry_handoff_preflight',
+        'agent_control_plane_agent_runtime_registry_handoff_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_handoff_service',
+        'agent_control_plane_agent_runtime_registry_handoff_status_projection',
+        'agent_control_plane_agent_runtime_registry_orchestrator_contract',
+        'agent_control_plane_agent_runtime_registry_orchestrator_preflight',
+        'agent_control_plane_agent_runtime_registry_orchestrator_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_orchestrator_service',
+        'agent_control_plane_agent_runtime_registry_orchestrator_status_projection',
+        'agent_control_plane_agent_runtime_registry_certification_contract',
+        'agent_control_plane_agent_runtime_registry_certification_preflight',
+        'agent_control_plane_agent_runtime_registry_certification_implementation_packet',
+        'agent_control_plane_agent_runtime_registry_certification_service',
+        'agent_control_plane_agent_runtime_registry_certification_status_projection',
+    ];
+
+    /** Added (via array_merge) only when the runtime schema is ready. @var list<string> */
+    private const RUNTIME_READY_CAPABILITIES = [
+        'database_backed_agent_runs',
+        'heartbeat_runs',
+        'manual_cost_event_writer',
+        'manual_work_product_registry',
+        'wakeup_queue',
+        'wakeup_writer',
+        'wakeup_claims',
+        'liveness_state_writer',
+        'signed_dispatch_receipt_writer',
+        'provider_adapter_invocation_runtime_policy',
+        'provider_process_supervision_policy',
+        'automatic_cost_import_policy',
+        'automatic_work_product_collection_policy',
+        'automatic_dispatch_scheduler_policy',
+        'automatic_dispatch_scheduler_runtime_execution_gate',
+        'automatic_dispatch_scheduler_dry_run_tick',
+        'automatic_dispatch_scheduler_one_shot_tick_writer_contract',
+        'automatic_dispatch_scheduler_one_shot_tick_writer_preflight',
+        'automatic_dispatch_scheduler_one_shot_tick_release_template',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_validation_preflight',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_service',
+        'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_status_projection',
+        'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_release_preflight',
+    ];
+
+    /**
+     * Per-flag capability appends emitted (in order) when the runtime schema
+     * is ready and the flag is met (was ~315 `if ($flag) { $caps[] = ... }`).
+     *
+     * @var list<array{flag: string, slug: string}>
+     */
+    private const RUNTIME_CAPABILITY_APPENDS = [
+        ['flag' => 'mutatingWriterContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract'],
+        ['flag' => 'mutatingWriterPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight'],
+        ['flag' => 'mutatingWriterImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet'],
+        ['flag' => 'mutatingWriterServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_service'],
+        ['flag' => 'mutatingWriterStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_projection'],
+        ['flag' => 'guardedRuntimeInvocationContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract'],
+        ['flag' => 'guardedRuntimeInvocationPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight'],
+        ['flag' => 'guardedRuntimeInvocationImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet'],
+        ['flag' => 'guardedRuntimeInvocationServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_service'],
+        ['flag' => 'guardedRuntimeInvocationStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_projection'],
+        ['flag' => 'dispatchReceiptUseReleaseContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract'],
+        ['flag' => 'dispatchReceiptUsePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight'],
+        ['flag' => 'dispatchReceiptUseImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet'],
+        ['flag' => 'dispatchReceiptUseServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_service'],
+        ['flag' => 'dispatchReceiptUseStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_projection'],
+        ['flag' => 'providerStartDriverReleaseContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract'],
+        ['flag' => 'providerStartDriverPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight'],
+        ['flag' => 'providerStartDriverImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet'],
+        ['flag' => 'providerStartDriverInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_invoker_service'],
+        ['flag' => 'providerStartDriverStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_projection'],
+        ['flag' => 'adapterInvocationBoundaryReleaseContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract'],
+        ['flag' => 'adapterInvocationBoundaryPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight'],
+        ['flag' => 'adapterInvocationBoundaryImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet'],
+        ['flag' => 'adapterInvocationBoundaryInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_invoker_service'],
+        ['flag' => 'adapterInvocationBoundaryStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_projection'],
+        ['flag' => 'providerAdapterExecutionGuardReleaseContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract'],
+        ['flag' => 'providerAdapterExecutionGuardPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight'],
+        ['flag' => 'providerAdapterExecutionGuardImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet'],
+        ['flag' => 'providerAdapterExecutionGuardInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_invoker_service'],
+        ['flag' => 'providerAdapterExecutionGuardStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_projection'],
+        ['flag' => 'providerSpecificExecutionContractReleaseReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release'],
+        ['flag' => 'providerSpecificExecutionContractPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight'],
+        ['flag' => 'providerSpecificExecutionContractImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet'],
+        ['flag' => 'providerSpecificExecutionContractInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_provider_execution_contract_invoker_service'],
+        ['flag' => 'providerSpecificExecutionContractStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_projection'],
+        ['flag' => 'codexProcessStartReleaseContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract'],
+        ['flag' => 'codexProcessStartReleasePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight'],
+        ['flag' => 'codexProcessStartReleaseImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet'],
+        ['flag' => 'codexProcessStartReleaseInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_invoker_service'],
+        ['flag' => 'codexProcessStartReleaseStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_projection'],
+        ['flag' => 'codexSupervisedStartExecutorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract'],
+        ['flag' => 'codexSupervisedStartExecutorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight'],
+        ['flag' => 'codexSupervisedStartExecutorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet'],
+        ['flag' => 'codexSupervisedStartExecutorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_invoker_service'],
+        ['flag' => 'codexSupervisedStartExecutorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_projection'],
+        ['flag' => 'codexProcessSpawnEnablementContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract'],
+        ['flag' => 'codexProcessSpawnEnablementPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight'],
+        ['flag' => 'codexProcessSpawnEnablementImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet'],
+        ['flag' => 'codexProcessSpawnEnablementInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_invoker_service'],
+        ['flag' => 'codexProcessSpawnEnablementStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_projection'],
+        ['flag' => 'codexFinalProcessSpawnExecutorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract'],
+        ['flag' => 'codexFinalProcessSpawnExecutorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight'],
+        ['flag' => 'codexFinalProcessSpawnExecutorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet'],
+        ['flag' => 'codexFinalProcessSpawnExecutorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_invoker_service'],
+        ['flag' => 'codexFinalProcessSpawnExecutorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_projection'],
+        ['flag' => 'codexExternalProcessRuntimeDriverContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract'],
+        ['flag' => 'codexExternalProcessRuntimeDriverPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight'],
+        ['flag' => 'codexExternalProcessRuntimeDriverImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet'],
+        ['flag' => 'codexExternalProcessRuntimeDriverInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_invoker_service'],
+        ['flag' => 'codexExternalProcessRuntimeDriverStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_projection'],
+        ['flag' => 'codexProcessInvocationAuthorizationContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_contract'],
+        ['flag' => 'codexProcessInvocationAuthorizationPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_preflight'],
+        ['flag' => 'codexProcessInvocationAuthorizationImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet'],
+        ['flag' => 'codexProcessInvocationAuthorizationInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_invoker_service'],
+        ['flag' => 'codexProcessInvocationAuthorizationStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_status_projection'],
+        ['flag' => 'codexExternalProcessInvokerDryRunContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_contract'],
+        ['flag' => 'codexExternalProcessInvokerDryRunPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_preflight'],
+        ['flag' => 'codexExternalProcessInvokerDryRunImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet'],
+        ['flag' => 'codexExternalProcessInvokerDryRunInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_invoker_service'],
+        ['flag' => 'codexExternalProcessInvokerDryRunStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_status_projection'],
+        ['flag' => 'codexRealInvokerReleasePreflightContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_contract'],
+        ['flag' => 'codexRealInvokerReleasePreflightPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_preflight'],
+        ['flag' => 'codexRealInvokerReleasePreflightImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet'],
+        ['flag' => 'codexRealInvokerReleasePreflightInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_invoker_service'],
+        ['flag' => 'codexRealInvokerReleasePreflightStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_status_projection'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_contract'],
+        ['flag' => 'codexSignedRealInvokerReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_preflight'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_invoker_service'],
+        ['flag' => 'codexSignedRealInvokerReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_contract'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_preflight'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_invoker_service'],
+        ['flag' => 'codexRealInvokerImplementationBoundaryStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_status_projection'],
+        ['flag' => 'codexRealInvokerExecutorPlanContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_contract'],
+        ['flag' => 'codexRealInvokerExecutorPlanPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_preflight'],
+        ['flag' => 'codexRealInvokerExecutorPlanImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet'],
+        ['flag' => 'codexRealInvokerExecutorPlanInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_invoker_service'],
+        ['flag' => 'codexRealInvokerExecutorPlanStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_status_projection'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_contract'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_preflight'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerExecutorFreshReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_contract'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_preflight'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerExecutorEnablementGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_status_projection'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_contract'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_preflight'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerSupervisedStartActivationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_status_projection'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_contract'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_preflight'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_invoker_service'],
+        ['flag' => 'codexRealInvokerGuardedProcessStartExecutorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_status_projection'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_contract'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_preflight'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerFinalProcessStartAuthorizationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_status_projection'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_contract'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_preflight'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_invoker_service'],
+        ['flag' => 'codexRealInvokerActualProcessStartRehearsalExecutorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_status_projection'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_contract'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_preflight'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_invoker_service'],
+        ['flag' => 'codexRealInvokerProcessStartEnvelopeBuilderStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_status_projection'],
+        ['flag' => 'codexRealInvokerStartExecutionGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_contract'],
+        ['flag' => 'codexRealInvokerStartExecutionGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_preflight'],
+        ['flag' => 'codexRealInvokerStartExecutionGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerStartExecutionGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerStartExecutionGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_status_projection'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_contract'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_preflight'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerProcessStarterReadinessGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_status_projection'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_contract'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_preflight'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service'],
+        ['flag' => 'codexRealInvokerManualStartExecutorReceiptStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_status_projection'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_contract'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_preflight'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_implementation_packet'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_invoker_service'],
+        ['flag' => 'codexRealInvokerOperatorStartHandoffStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_preflight'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartReceiptContractStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_contract'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_preflight'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceReceiptStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_contract'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_preflight'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartLivenessMonitorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartDispatchExecutorHandoffStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProviderStartDriverGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProviderExecutionContractGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartImplementationBoundaryGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartExecutorPlanGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartExecutorEnablementGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartSupervisedStartActivationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartStartExecutionGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartProcessStarterReadinessGateStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartManualStartExecutorReceiptStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_status_projection'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffContractReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_contract'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffPreflightReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_preflight'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service'],
+        ['flag' => 'codexRealInvokerPostStartOperatorStartHandoffStatusReady', 'slug' => 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status_projection'],
+    ];
+
+    /** not_yet_runtime_capable when the runtime schema is missing. @var list<string> */
+    private const NOT_YET_RUNTIME_CAPABLE_BASE = [
+        'database_backed_agent_runs',
+        'heartbeat_runs',
+        'wakeup_queue',
+        'liveness_state_writer',
+        'cost_events',
+        'adapter_invocation_runtime',
+        'signed_dispatch_receipt_writer',
+        'automatic_work_product_collection',
+        'automatic_dispatch_scheduler_codex_real_invoker_process_start_envelope_runtime',
+    ];
+
+    /** not_yet_runtime_capable when the runtime schema is ready. @var list<string> */
+    private const NOT_YET_RUNTIME_CAPABLE_READY = [
+        'adapter_execution_runtime',
+        'automatic_cost_import_runtime',
+        'automatic_work_product_collection_runtime',
+        'automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime',
+    ];
 
     /**
      * @param  array{workspace?: string|null, target?: string|null}  $options
@@ -341,3788 +1649,39 @@ final class ReadinessProjectionAgentControlPlaneSection
             ? AtlasSelfConstructionAgentDispatchReceipt::query()->count()
             : null;
         $allRuntimeTablesReady = $this->agentControlPlaneRuntimeSchemaReady($runtimeTables);
-        $releaseReceiptPersistenceWriterReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter::class);
-        $mutatingWriterServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter::class);
-        $mutatingWriterStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterStatus');
-        $mutatingWriterReleasePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterReleasePreflight');
-        $mutatingWriterContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterContract');
-        $mutatingWriterPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterPreflight');
-        $mutatingWriterImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickMutatingWriterImplementationPacket');
-        $guardedRuntimeInvocationContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationContract');
-        $guardedRuntimeInvocationPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationPreflight');
-        $guardedRuntimeInvocationImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationImplementationPacket');
-        $guardedRuntimeInvocationServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker::class);
-        $guardedRuntimeInvocationStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvocationStatus');
-        $dispatchReceiptUseReleaseContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseReleaseContract');
-        $dispatchReceiptUsePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUsePreflight');
-        $dispatchReceiptUseImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseImplementationPacket');
-        $dispatchReceiptUseServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker::class);
-        $dispatchReceiptUseStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseStatus');
-        $providerStartDriverReleaseContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverReleaseContract');
-        $providerStartDriverPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverPreflight');
-        $providerStartDriverImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverImplementationPacket');
-        $providerStartDriverInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker::class);
-        $providerStartDriverStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderStartDriverStatus');
-        $adapterInvocationBoundaryReleaseContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryReleaseContract');
-        $adapterInvocationBoundaryPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryPreflight');
-        $adapterInvocationBoundaryImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryImplementationPacket');
-        $adapterInvocationBoundaryInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker::class);
-        $adapterInvocationBoundaryStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryStatus');
-        $providerAdapterExecutionGuardReleaseContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardReleaseContract');
-        $providerAdapterExecutionGuardPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardPreflight');
-        $providerAdapterExecutionGuardImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardImplementationPacket');
-        $providerAdapterExecutionGuardInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker::class);
-        $providerAdapterExecutionGuardStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardStatus');
-        $providerSpecificExecutionContractReleaseReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractRelease');
-        $providerSpecificExecutionContractPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractPreflight');
-        $providerSpecificExecutionContractImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractImplementationPacket');
-        $providerSpecificExecutionContractInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker::class);
-        $providerSpecificExecutionContractStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickProviderSpecificExecutionContractStatus');
-        $codexProcessStartReleaseContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseContract');
-        $codexProcessStartReleasePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleasePreflight');
-        $codexProcessStartReleaseImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseImplementationPacket');
-        $codexProcessStartReleaseInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker::class);
-        $codexProcessStartReleaseStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseStatus');
-        $codexSupervisedStartExecutorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorReleaseContract');
-        $codexSupervisedStartExecutorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorPreflight');
-        $codexSupervisedStartExecutorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorImplementationPacket');
-        $codexSupervisedStartExecutorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker::class);
-        $codexSupervisedStartExecutorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorStatus');
-        $codexProcessSpawnEnablementContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementContract');
-        $codexProcessSpawnEnablementPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementPreflight');
-        $codexProcessSpawnEnablementImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementImplementationPacket');
-        $codexProcessSpawnEnablementInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker::class);
-        $codexProcessSpawnEnablementStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementStatus');
-        $codexFinalProcessSpawnExecutorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorContract');
-        $codexFinalProcessSpawnExecutorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorPreflight');
-        $codexFinalProcessSpawnExecutorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorImplementationPacket');
-        $codexFinalProcessSpawnExecutorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker::class);
-        $codexFinalProcessSpawnExecutorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorStatus');
-        $codexExternalProcessRuntimeDriverContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverContract');
-        $codexExternalProcessRuntimeDriverPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverPreflight');
-        $codexExternalProcessRuntimeDriverImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverImplementationPacket');
-        $codexExternalProcessRuntimeDriverInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker::class);
-        $codexExternalProcessRuntimeDriverStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverStatus');
-        $codexProcessInvocationAuthorizationContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationContract');
-        $codexProcessInvocationAuthorizationPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationPreflight');
-        $codexProcessInvocationAuthorizationImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationImplementationPacket');
-        $codexProcessInvocationAuthorizationInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker::class);
-        $codexProcessInvocationAuthorizationStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationStatus');
-        $codexExternalProcessInvokerDryRunContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunContract');
-        $codexExternalProcessInvokerDryRunPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunPreflight');
-        $codexExternalProcessInvokerDryRunImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunImplementationPacket');
-        $codexExternalProcessInvokerDryRunInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker::class);
-        $codexExternalProcessInvokerDryRunStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunStatus');
-        $codexRealInvokerReleasePreflightContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightContract');
-        $codexRealInvokerReleasePreflightPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightPreflight');
-        $codexRealInvokerReleasePreflightImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightImplementationPacket');
-        $codexRealInvokerReleasePreflightInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightInvoker::class);
-        $codexRealInvokerReleasePreflightStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightStatus');
-        $codexSignedRealInvokerReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateContract');
-        $codexSignedRealInvokerReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGatePreflight');
-        $codexSignedRealInvokerReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateImplementationPacket');
-        $codexSignedRealInvokerReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker::class);
-        $codexSignedRealInvokerReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateStatus');
-        $codexRealInvokerImplementationBoundaryContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryContract');
-        $codexRealInvokerImplementationBoundaryPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryPreflight');
-        $codexRealInvokerImplementationBoundaryImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryImplementationPacket');
-        $codexRealInvokerImplementationBoundaryInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker::class);
-        $codexRealInvokerImplementationBoundaryStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryStatus');
-        $codexRealInvokerExecutorPlanContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanContract');
-        $codexRealInvokerExecutorPlanPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanPreflight');
-        $codexRealInvokerExecutorPlanImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanImplementationPacket');
-        $codexRealInvokerExecutorPlanInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker::class);
-        $codexRealInvokerExecutorPlanStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanStatus');
-        $codexRealInvokerExecutorFreshReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateContract');
-        $codexRealInvokerExecutorFreshReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGatePreflight');
-        $codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateImplementationPacket');
-        $codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker::class);
-        $codexRealInvokerExecutorFreshReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateStatus');
-        $codexRealInvokerExecutorEnablementGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateContract');
-        $codexRealInvokerExecutorEnablementGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGatePreflight');
-        $codexRealInvokerExecutorEnablementGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateImplementationPacket');
-        $codexRealInvokerExecutorEnablementGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker::class);
-        $codexRealInvokerExecutorEnablementGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateStatus');
-        $codexRealInvokerSupervisedStartActivationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateContract');
-        $codexRealInvokerSupervisedStartActivationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGatePreflight');
-        $codexRealInvokerSupervisedStartActivationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateImplementationPacket');
-        $codexRealInvokerSupervisedStartActivationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker::class);
-        $codexRealInvokerSupervisedStartActivationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateStatus');
-        $codexRealInvokerGuardedProcessStartExecutorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorContract');
-        $codexRealInvokerGuardedProcessStartExecutorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorPreflight');
-        $codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorImplementationPacket');
-        $codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker::class);
-        $codexRealInvokerGuardedProcessStartExecutorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorStatus');
-        $codexRealInvokerFinalProcessStartAuthorizationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateContract');
-        $codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGatePreflight');
-        $codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateImplementationPacket');
-        $codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker::class);
-        $codexRealInvokerFinalProcessStartAuthorizationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateStatus');
-        $codexRealInvokerActualProcessStartRehearsalExecutorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorContract');
-        $codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorPreflight');
-        $codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorImplementationPacket');
-        $codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker::class);
-        $codexRealInvokerActualProcessStartRehearsalExecutorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorStatus');
-        $codexRealInvokerProcessStartEnvelopeBuilderContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderContract');
-        $codexRealInvokerProcessStartEnvelopeBuilderPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderPreflight');
-        $codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderImplementationPacket');
-        $codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker::class);
-        $codexRealInvokerProcessStartEnvelopeBuilderStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderStatus');
-        $codexRealInvokerStartExecutionGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateContract');
-        $codexRealInvokerStartExecutionGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGatePreflight');
-        $codexRealInvokerStartExecutionGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateImplementationPacket');
-        $codexRealInvokerStartExecutionGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateInvoker::class);
-        $codexRealInvokerStartExecutionGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateStatus');
-        $codexRealInvokerProcessStarterReadinessGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateContract');
-        $codexRealInvokerProcessStarterReadinessGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGatePreflight');
-        $codexRealInvokerProcessStarterReadinessGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateImplementationPacket');
-        $codexRealInvokerProcessStarterReadinessGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker::class);
-        $codexRealInvokerProcessStarterReadinessGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateStatus');
-        $codexRealInvokerManualStartExecutorReceiptContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptContract');
-        $codexRealInvokerManualStartExecutorReceiptPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptPreflight');
-        $codexRealInvokerManualStartExecutorReceiptImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptImplementationPacket');
-        $codexRealInvokerManualStartExecutorReceiptInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker::class);
-        $codexRealInvokerManualStartExecutorReceiptStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptStatus');
-        $codexRealInvokerOperatorStartHandoffContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffContract');
-        $codexRealInvokerOperatorStartHandoffPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffPreflight');
-        $codexRealInvokerOperatorStartHandoffImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffImplementationPacket');
-        $codexRealInvokerOperatorStartHandoffInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker::class);
-        $codexRealInvokerOperatorStartHandoffStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffStatus');
-        $codexRealInvokerPostStartReceiptContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContract');
-        $codexRealInvokerPostStartReceiptContractPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractPreflight');
-        $codexRealInvokerPostStartReceiptContractImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractImplementationPacket');
-        $codexRealInvokerPostStartReceiptContractInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker::class);
-        $codexRealInvokerPostStartReceiptContractStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractStatus');
-        $codexRealInvokerPostStartEvidenceReceiptContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptContract');
-        $codexRealInvokerPostStartEvidenceReceiptPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptPreflight');
-        $codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptImplementationPacket');
-        $codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker::class);
-        $codexRealInvokerPostStartEvidenceReceiptStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptStatus');
-        $codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeContract');
-        $codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgePreflight');
-        $codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacket');
-        $codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker::class);
-        $codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeStatus');
-        $codexRealInvokerPostStartLivenessMonitorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorContract');
-        $codexRealInvokerPostStartLivenessMonitorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorPreflight');
-        $codexRealInvokerPostStartLivenessMonitorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorImplementationPacket');
-        $codexRealInvokerPostStartLivenessMonitorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker::class);
-        $codexRealInvokerPostStartLivenessMonitorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorStatus');
-        $codexRealInvokerPostStartDispatchReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateContract');
-        $codexRealInvokerPostStartDispatchReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGatePreflight');
-        $codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateImplementationPacket');
-        $codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker::class);
-        $codexRealInvokerPostStartDispatchReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateStatus');
-        $codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateContract');
-        $codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGatePreflight');
-        $codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacket');
-        $codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker::class);
-        $codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateStatus');
-        $codexRealInvokerPostStartDispatchExecutorHandoffContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffContract');
-        $codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffPreflight');
-        $codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffImplementationPacket');
-        $codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker::class);
-        $codexRealInvokerPostStartDispatchExecutorHandoffStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffStatus');
-        $codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorContract');
-        $codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorPreflight');
-        $codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacket');
-        $codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker::class);
-        $codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorStatus');
-        $codexRealInvokerPostStartProviderStartDriverGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateContract');
-        $codexRealInvokerPostStartProviderStartDriverGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGatePreflight');
-        $codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateImplementationPacket');
-        $codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker::class);
-        $codexRealInvokerPostStartProviderStartDriverGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateStatus');
-        $codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateContract');
-        $codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGatePreflight');
-        $codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacket');
-        $codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker::class);
-        $codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateStatus');
-        $codexRealInvokerPostStartAdapterExecutionGuardGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateContract');
-        $codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight');
-        $codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacket');
-        $codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker::class);
-        $codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateStatus');
-        $codexRealInvokerPostStartProviderExecutionContractGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateContract');
-        $codexRealInvokerPostStartProviderExecutionContractGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGatePreflight');
-        $codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateImplementationPacket');
-        $codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker::class);
-        $codexRealInvokerPostStartProviderExecutionContractGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateStatus');
-        $codexRealInvokerPostStartProcessStartReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateContract');
-        $codexRealInvokerPostStartProcessStartReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGatePreflight');
-        $codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateImplementationPacket');
-        $codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker::class);
-        $codexRealInvokerPostStartProcessStartReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateStatus');
-        $codexRealInvokerPostStartSupervisedStartExecutorGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateContract');
-        $codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGatePreflight');
-        $codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacket');
-        $codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker::class);
-        $codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateStatus');
-        $codexRealInvokerPostStartProcessSpawnEnablementGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateContract');
-        $codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGatePreflight');
-        $codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacket');
-        $codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker::class);
-        $codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateStatus');
-        $codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateContract');
-        $codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflight');
-        $codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacket');
-        $codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker::class);
-        $codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateStatus');
-        $codexRealInvokerPostStartExternalProcessRuntimeGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateContract');
-        $codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGatePreflight');
-        $codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacket');
-        $codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker::class);
-        $codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateStatus');
-        $codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateContract');
-        $codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGatePreflight');
-        $codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacket');
-        $codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker::class);
-        $codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateStatus');
-        $codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateContract');
-        $codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflight');
-        $codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacket');
-        $codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker::class);
-        $codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateStatus');
-        $codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateContract');
-        $codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGatePreflight');
-        $codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacket');
-        $codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker::class);
-        $codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateStatus');
-        $codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateContract');
-        $codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGatePreflight');
-        $codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacket');
-        $codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker::class);
-        $codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateStatus');
-        $codexRealInvokerPostStartImplementationBoundaryGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateContract');
-        $codexRealInvokerPostStartImplementationBoundaryGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGatePreflight');
-        $codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateImplementationPacket');
-        $codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker::class);
-        $codexRealInvokerPostStartImplementationBoundaryGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateStatus');
-        $codexRealInvokerPostStartExecutorPlanGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateContract');
-        $codexRealInvokerPostStartExecutorPlanGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGatePreflight');
-        $codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateImplementationPacket');
-        $codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateInvoker::class);
-        $codexRealInvokerPostStartExecutorPlanGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateStatus');
-        $codexRealInvokerPostStartExecutorFreshReleaseGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateContract');
-        $codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGatePreflight');
-        $codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacket');
-        $codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateInvoker::class);
-        $codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateStatus');
-        $codexRealInvokerPostStartExecutorEnablementGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateContract');
-        $codexRealInvokerPostStartExecutorEnablementGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGatePreflight');
-        $codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateImplementationPacket');
-        $codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker::class);
-        $codexRealInvokerPostStartExecutorEnablementGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateStatus');
-        $codexRealInvokerPostStartSupervisedStartActivationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateContract');
-        $codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGatePreflight');
-        $codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateImplementationPacket');
-        $codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker::class);
-        $codexRealInvokerPostStartSupervisedStartActivationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateStatus');
-        $codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateContract');
-        $codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGatePreflight');
-        $codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacket');
-        $codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker::class);
-        $codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateStatus');
-        $codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateContract');
-        $codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflight');
-        $codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacket');
-        $codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker::class);
-        $codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateStatus');
-        $codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateContract');
-        $codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGatePreflight');
-        $codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacket');
-        $codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker::class);
-        $codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateStatus');
-        $codexRealInvokerPostStartProcessStartEnvelopeGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateContract');
-        $codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGatePreflight');
-        $codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacket');
-        $codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker::class);
-        $codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateStatus');
-        $codexRealInvokerPostStartStartExecutionGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateContract');
-        $codexRealInvokerPostStartStartExecutionGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGatePreflight');
-        $codexRealInvokerPostStartStartExecutionGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateImplementationPacket');
-        $codexRealInvokerPostStartStartExecutionGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker::class);
-        $codexRealInvokerPostStartStartExecutionGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateStatus');
-        $codexRealInvokerPostStartProcessStarterReadinessGateContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateContract');
-        $codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGatePreflight');
-        $codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateImplementationPacket');
-        $codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker::class);
-        $codexRealInvokerPostStartProcessStarterReadinessGateStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateStatus');
-        $codexRealInvokerPostStartManualStartExecutorReceiptContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptContract');
-        $codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptPreflight');
-        $codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptImplementationPacket');
-        $codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker::class);
-        $codexRealInvokerPostStartManualStartExecutorReceiptStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptStatus');
-        $codexRealInvokerPostStartOperatorStartHandoffContractReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffContract');
-        $codexRealInvokerPostStartOperatorStartHandoffPreflightReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffPreflight');
-        $codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffImplementationPacket');
-        $codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady = class_exists(AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker::class);
-        $codexRealInvokerPostStartOperatorStartHandoffStatusReady = method_exists($this->mother, 'agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffStatus');
-        if (! $allRuntimeTablesReady) {
-            $nextRequiredSlice = 'apply_agent_control_plane_runtime_schema_migration';
-            $nextBuildSlices = [
-                'apply_agent_control_plane_runtime_schema_migration',
-                'verify_persistent_agent_runs_table',
-                'verify_persistent_heartbeat_runs_table',
-                'verify_persistent_cost_events_table',
-                'verify_persistent_work_products_table',
-                'verify_persistent_wakeup_items_table',
-                'verify_persistent_dispatch_receipts_table',
-            ];
-        } elseif (! $releaseReceiptPersistenceWriterReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_service',
-            ];
-        } elseif (! $mutatingWriterReleasePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_mutating_writer_release_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_mutating_writer_release_preflight',
-            ];
-        } elseif (! $mutatingWriterContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_mutating_writer_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_mutating_writer_contract',
-            ];
-        } elseif (! $mutatingWriterPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_mutating_writer_preflight',
-            ];
-        } elseif (! $mutatingWriterImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_mutating_writer_implementation_packet',
-            ];
-        } elseif (! $mutatingWriterServiceReady || ! $mutatingWriterStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_mutating_writer_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_mutating_writer_service',
-            ];
-        } elseif (! $guardedRuntimeInvocationContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_contract',
-            ];
-        } elseif (! $guardedRuntimeInvocationPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_preflight',
-            ];
-        } elseif (! $guardedRuntimeInvocationImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_implementation_packet',
-            ];
-        } elseif (! $guardedRuntimeInvocationServiceReady || ! $guardedRuntimeInvocationStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_guarded_runtime_invocation_service',
-            ];
-        } elseif (! $dispatchReceiptUseReleaseContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_release_contract',
-            ];
-        } elseif (! $dispatchReceiptUsePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_preflight',
-            ];
-        } elseif (! $dispatchReceiptUseImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_implementation_packet',
-            ];
-        } elseif (! $dispatchReceiptUseServiceReady || ! $dispatchReceiptUseStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_dispatch_receipt_use_service',
-            ];
-        } elseif (! $providerStartDriverReleaseContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_start_driver_release_contract',
-            ];
-        } elseif (! $providerStartDriverPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_start_driver_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_start_driver_preflight',
-            ];
-        } elseif (! $providerStartDriverImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_start_driver_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_start_driver_implementation_packet',
-            ];
-        } elseif (! $providerStartDriverInvokerServiceReady || ! $providerStartDriverStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_start_driver_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_start_driver_invoker_service',
-            ];
-        } elseif (! $adapterInvocationBoundaryReleaseContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract',
-            ];
-        } elseif (! $adapterInvocationBoundaryPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_preflight',
-            ];
-        } elseif (! $adapterInvocationBoundaryImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_implementation_packet',
-            ];
-        } elseif (! $adapterInvocationBoundaryInvokerServiceReady || ! $adapterInvocationBoundaryStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_invoker_service',
-            ];
-        } elseif (! $providerAdapterExecutionGuardReleaseContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_release_contract',
-            ];
-        } elseif (! $providerAdapterExecutionGuardPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_preflight',
-            ];
-        } elseif (! $providerAdapterExecutionGuardImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_implementation_packet',
-            ];
-        } elseif (! $providerAdapterExecutionGuardInvokerServiceReady || ! $providerAdapterExecutionGuardStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_adapter_execution_guard_invoker_service',
-            ];
-        } elseif (! $providerSpecificExecutionContractReleaseReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release',
-            ];
-        } elseif (! $providerSpecificExecutionContractPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_preflight',
-            ];
-        } elseif (! $providerSpecificExecutionContractImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_implementation_packet',
-            ];
-        } elseif (! $providerSpecificExecutionContractInvokerServiceReady || ! $providerSpecificExecutionContractStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_invoker_service',
-            ];
-        } elseif (! $codexProcessStartReleaseContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract',
-            ];
-        } elseif (! $codexProcessStartReleasePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_start_release_preflight',
-            ];
-        } elseif (! $codexProcessStartReleaseImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_start_release_implementation_packet',
-            ];
-        } elseif (! $codexProcessStartReleaseInvokerServiceReady || ! $codexProcessStartReleaseStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_start_release_invoker_service',
-            ];
-        } elseif (! $codexSupervisedStartExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract',
-            ];
-        } elseif (! $codexSupervisedStartExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_preflight',
-            ];
-        } elseif (! $codexSupervisedStartExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_implementation_packet',
-            ];
-        } elseif (! $codexSupervisedStartExecutorInvokerServiceReady || ! $codexSupervisedStartExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_invoker_service',
-            ];
-        } elseif (! $codexProcessSpawnEnablementContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_contract',
-            ];
-        } elseif (! $codexProcessSpawnEnablementPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_preflight',
-            ];
-        } elseif (! $codexProcessSpawnEnablementImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_implementation_packet',
-            ];
-        } elseif (! $codexProcessSpawnEnablementInvokerServiceReady || ! $codexProcessSpawnEnablementStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_spawn_enablement_invoker_service',
-            ];
-        } elseif (! $codexFinalProcessSpawnExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract',
-            ];
-        } elseif (! $codexFinalProcessSpawnExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_preflight',
-            ];
-        } elseif (! $codexFinalProcessSpawnExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_implementation_packet',
-            ];
-        } elseif (! $codexFinalProcessSpawnExecutorInvokerServiceReady || ! $codexFinalProcessSpawnExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_invoker_service',
-            ];
-        } elseif (! $codexExternalProcessRuntimeDriverContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_contract',
-            ];
-        } elseif (! $codexExternalProcessRuntimeDriverPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_preflight',
-            ];
-        } elseif (! $codexExternalProcessRuntimeDriverImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_implementation_packet',
-            ];
-        } elseif (! $codexExternalProcessRuntimeDriverInvokerServiceReady || ! $codexExternalProcessRuntimeDriverStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_runtime_driver_invoker_service',
-            ];
-        } elseif (! $codexProcessInvocationAuthorizationContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_contract',
-            ];
-        } elseif (! $codexProcessInvocationAuthorizationPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_preflight',
-            ];
-        } elseif (! $codexProcessInvocationAuthorizationImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_implementation_packet',
-            ];
-        } elseif (! $codexProcessInvocationAuthorizationInvokerServiceReady || ! $codexProcessInvocationAuthorizationStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_process_invocation_authorization_invoker_service',
-            ];
-        } elseif (! $codexExternalProcessInvokerDryRunContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract',
-            ];
-        } elseif (! $codexExternalProcessInvokerDryRunPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_preflight',
-            ];
-        } elseif (! $codexExternalProcessInvokerDryRunImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_implementation_packet',
-            ];
-        } elseif (! $codexExternalProcessInvokerDryRunInvokerServiceReady || ! $codexExternalProcessInvokerDryRunStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerReleasePreflightContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract',
-            ];
-        } elseif (! $codexRealInvokerReleasePreflightPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_preflight',
-            ];
-        } elseif (! $codexRealInvokerReleasePreflightImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerReleasePreflightInvokerServiceReady || ! $codexRealInvokerReleasePreflightStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_invoker_service',
-            ];
-        } elseif (! $codexSignedRealInvokerReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_contract',
-            ];
-        } elseif (! $codexSignedRealInvokerReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_preflight',
-            ];
-        } elseif (! $codexSignedRealInvokerReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexSignedRealInvokerReleaseGateInvokerServiceReady || ! $codexSignedRealInvokerReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_signed_real_invoker_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerImplementationBoundaryContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_contract',
-            ];
-        } elseif (! $codexRealInvokerImplementationBoundaryPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_preflight',
-            ];
-        } elseif (! $codexRealInvokerImplementationBoundaryImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerImplementationBoundaryInvokerServiceReady || ! $codexRealInvokerImplementationBoundaryStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_implementation_boundary_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerExecutorPlanContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_contract',
-            ];
-        } elseif (! $codexRealInvokerExecutorPlanPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_preflight',
-            ];
-        } elseif (! $codexRealInvokerExecutorPlanImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerExecutorPlanInvokerServiceReady || ! $codexRealInvokerExecutorPlanStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_plan_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerExecutorFreshReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerExecutorFreshReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady || ! $codexRealInvokerExecutorFreshReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerExecutorEnablementGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerExecutorEnablementGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerExecutorEnablementGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerExecutorEnablementGateInvokerServiceReady || ! $codexRealInvokerExecutorEnablementGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_executor_enablement_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerSupervisedStartActivationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerSupervisedStartActivationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerSupervisedStartActivationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerSupervisedStartActivationGateInvokerServiceReady || ! $codexRealInvokerSupervisedStartActivationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerGuardedProcessStartExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_contract',
-            ];
-        } elseif (! $codexRealInvokerGuardedProcessStartExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_preflight',
-            ];
-        } elseif (! $codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady || ! $codexRealInvokerGuardedProcessStartExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_guarded_process_start_executor_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerFinalProcessStartAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady || ! $codexRealInvokerFinalProcessStartAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerActualProcessStartRehearsalExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_contract',
-            ];
-        } elseif (! $codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_preflight',
-            ];
-        } elseif (! $codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady || ! $codexRealInvokerActualProcessStartRehearsalExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_actual_process_start_rehearsal_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerProcessStartEnvelopeBuilderContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_contract',
-            ];
-        } elseif (! $codexRealInvokerProcessStartEnvelopeBuilderPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_preflight',
-            ];
-        } elseif (! $codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady || ! $codexRealInvokerProcessStartEnvelopeBuilderStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_start_envelope_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerStartExecutionGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerStartExecutionGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerStartExecutionGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerStartExecutionGateInvokerServiceReady || ! $codexRealInvokerStartExecutionGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_start_execution_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerProcessStarterReadinessGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerProcessStarterReadinessGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerProcessStarterReadinessGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerProcessStarterReadinessGateInvokerServiceReady || ! $codexRealInvokerProcessStarterReadinessGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerManualStartExecutorReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerManualStartExecutorReceiptPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_preflight',
-            ];
-        } elseif (! $codexRealInvokerManualStartExecutorReceiptImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerManualStartExecutorReceiptInvokerServiceReady || ! $codexRealInvokerManualStartExecutorReceiptStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerOperatorStartHandoffContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract',
-            ];
-        } elseif (! $codexRealInvokerOperatorStartHandoffPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_preflight',
-            ];
-        } elseif (! $codexRealInvokerOperatorStartHandoffImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerOperatorStartHandoffInvokerServiceReady || ! $codexRealInvokerOperatorStartHandoffStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractInvokerServiceReady || ! $codexRealInvokerPostStartReceiptContractStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady || ! $codexRealInvokerPostStartEvidenceReceiptStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady || ! $codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorInvokerServiceReady || ! $codexRealInvokerPostStartLivenessMonitorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartDispatchReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady || ! $codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady || ! $codexRealInvokerPostStartDispatchExecutorHandoffStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady || ! $codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady || ! $codexRealInvokerPostStartProviderStartDriverGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady || ! $codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady || ! $codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady || ! $codexRealInvokerPostStartProviderExecutionContractGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessStartReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady || ! $codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady || ! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady || ! $codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartImplementationBoundaryGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartImplementationBoundaryGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady || ! $codexRealInvokerPostStartImplementationBoundaryGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorPlanGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorPlanGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady || ! $codexRealInvokerPostStartExecutorPlanGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorFreshReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorEnablementGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorEnablementGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady || ! $codexRealInvokerPostStartExecutorEnablementGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartActivationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady || ! $codexRealInvokerPostStartSupervisedStartActivationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady || ! $codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady || ! $codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartEnvelopeGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartStartExecutionGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartStartExecutionGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartStartExecutionGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartStartExecutionGateInvokerServiceReady || ! $codexRealInvokerPostStartStartExecutionGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStarterReadinessGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessStarterReadinessGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartManualStartExecutorReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady || ! $codexRealInvokerPostStartManualStartExecutorReceiptStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartOperatorStartHandoffContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartOperatorStartHandoffPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady || ! $codexRealInvokerPostStartOperatorStartHandoffStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartReceiptContractInvokerServiceReady || ! $codexRealInvokerPostStartReceiptContractStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady || ! $codexRealInvokerPostStartEvidenceReceiptStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady || ! $codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartLivenessMonitorInvokerServiceReady || ! $codexRealInvokerPostStartLivenessMonitorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartDispatchReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady || ! $codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady || ! $codexRealInvokerPostStartDispatchExecutorHandoffStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady || ! $codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady || ! $codexRealInvokerPostStartProviderStartDriverGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady || ! $codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady || ! $codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady || ! $codexRealInvokerPostStartProviderExecutionContractGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessStartReleaseGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady || ! $codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady || ! $codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady || ! $codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady || ! $codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet',
-            ];
-        } elseif (! $codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady || ! $codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady) {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service',
-            ];
-        } else {
-            $nextRequiredSlice = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-            $nextBuildSlices = [
-                'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract',
-            ];
+
+        // Resolve every readiness flag from the declarative probe table.
+        $flags = ['allRuntimeTablesReady' => $allRuntimeTablesReady];
+        foreach (self::CAPABILITY_PROBES as $probe) {
+            $flags[$probe['flag']] = isset($probe['class'])
+                ? class_exists($probe['class'])
+                : method_exists($this->mother, $probe['method']);
         }
-        $currentCapabilities = [
-            'durable_packet_checkout_lock',
-            'provider_session_state_projection',
-            'agent_run_projection_from_reservations',
-            'persistent_run_liveness_detector',
-            'dispatch_receipt_schema_contract',
-            'forge_workspace_projection',
-            'packet_queue_projection',
-            'multi_session_readiness_projection',
-            'continuation_summary_projection',
-            'post_start_evidence_bridge_invariant',
-            'agent_control_plane_chain_integrity_certification_contract',
-            'agent_control_plane_chain_integrity_certification_preflight',
-            'agent_control_plane_chain_integrity_certification_implementation_packet',
-            'agent_control_plane_chain_integrity_certification_service',
-            'agent_control_plane_chain_integrity_certification_status_projection',
-            'agent_control_plane_deterministic_chain_replay_contract',
-            'agent_control_plane_deterministic_chain_replay_preflight',
-            'agent_control_plane_deterministic_chain_replay_implementation_packet',
-            'agent_control_plane_deterministic_chain_replay_service',
-            'agent_control_plane_deterministic_chain_replay_status_projection',
-            'agent_control_plane_replay_snapshot_store_contract',
-            'agent_control_plane_replay_snapshot_store_preflight',
-            'agent_control_plane_replay_snapshot_store_implementation_packet',
-            'agent_control_plane_replay_snapshot_store_service',
-            'agent_control_plane_replay_snapshot_store_status_projection',
-            'agent_control_plane_replay_diff_contract',
-            'agent_control_plane_replay_diff_preflight',
-            'agent_control_plane_replay_diff_implementation_packet',
-            'agent_control_plane_replay_diff_service',
-            'agent_control_plane_replay_diff_status_projection',
-            'agent_control_plane_macro_sprint_promotion_gate_contract',
-            'agent_control_plane_macro_sprint_promotion_gate_preflight',
-            'agent_control_plane_macro_sprint_promotion_gate_implementation_packet',
-            'agent_control_plane_macro_sprint_promotion_gate_service',
-            'agent_control_plane_macro_sprint_promotion_gate_status_projection',
-            'agent_control_plane_certification_baseline_contract',
-            'agent_control_plane_certification_baseline_preflight',
-            'agent_control_plane_certification_baseline_implementation_packet',
-            'agent_control_plane_certification_baseline_service',
-            'agent_control_plane_certification_baseline_status_projection',
-            'agent_control_plane_certification_scenario_simulator_contract',
-            'agent_control_plane_certification_scenario_simulator_preflight',
-            'agent_control_plane_certification_scenario_simulator_implementation_packet',
-            'agent_control_plane_certification_scenario_simulator_service',
-            'agent_control_plane_certification_scenario_simulator_status_projection',
-            'agent_control_plane_release_dossier_contract',
-            'agent_control_plane_release_dossier_preflight',
-            'agent_control_plane_release_dossier_implementation_packet',
-            'agent_control_plane_release_dossier_service',
-            'agent_control_plane_release_dossier_status_projection',
-            'agent_control_plane_certification_mutation_guard_contract',
-            'agent_control_plane_certification_mutation_guard_preflight',
-            'agent_control_plane_certification_mutation_guard_implementation_packet',
-            'agent_control_plane_certification_mutation_guard_service',
-            'agent_control_plane_certification_mutation_guard_status_projection',
-            'agent_control_plane_certification_evidence_query_contract',
-            'agent_control_plane_certification_evidence_query_preflight',
-            'agent_control_plane_certification_evidence_query_implementation_packet',
-            'agent_control_plane_certification_evidence_query_service',
-            'agent_control_plane_certification_evidence_query_status_projection',
-            'agent_control_plane_certification_scenario_corpus_contract',
-            'agent_control_plane_certification_scenario_corpus_preflight',
-            'agent_control_plane_certification_scenario_corpus_implementation_packet',
-            'agent_control_plane_certification_scenario_corpus_service',
-            'agent_control_plane_certification_scenario_corpus_status_projection',
-            'agent_control_plane_certification_fuzz_harness_contract',
-            'agent_control_plane_certification_fuzz_harness_preflight',
-            'agent_control_plane_certification_fuzz_harness_implementation_packet',
-            'agent_control_plane_certification_fuzz_harness_service',
-            'agent_control_plane_certification_fuzz_harness_status_projection',
-            'agent_control_plane_multi_snapshot_comparison_contract',
-            'agent_control_plane_multi_snapshot_comparison_preflight',
-            'agent_control_plane_multi_snapshot_comparison_implementation_packet',
-            'agent_control_plane_multi_snapshot_comparison_service',
-            'agent_control_plane_multi_snapshot_comparison_status_projection',
-            'agent_control_plane_release_dossier_exporter_contract',
-            'agent_control_plane_release_dossier_exporter_preflight',
-            'agent_control_plane_release_dossier_exporter_implementation_packet',
-            'agent_control_plane_release_dossier_exporter_service',
-            'agent_control_plane_release_dossier_exporter_status_projection',
-            'agent_control_plane_certification_coverage_report_contract',
-            'agent_control_plane_certification_coverage_report_preflight',
-            'agent_control_plane_certification_coverage_report_implementation_packet',
-            'agent_control_plane_certification_coverage_report_service',
-            'agent_control_plane_certification_coverage_report_status_projection',
-            'agent_control_plane_certification_status_batch_contract',
-            'agent_control_plane_certification_status_batch_preflight',
-            'agent_control_plane_certification_status_batch_implementation_packet',
-            'agent_control_plane_certification_status_batch_service',
-            'agent_control_plane_certification_status_batch_status_projection',
-            'atlas_self_construction_os_completion_audit_contract',
-            'atlas_self_construction_os_completion_audit_preflight',
-            'atlas_self_construction_os_completion_audit_implementation_packet',
-            'atlas_self_construction_os_completion_audit_service',
-            'atlas_self_construction_os_completion_audit_status_projection',
-            'atlas_self_construction_final_evidence_bundle_contract',
-            'atlas_self_construction_final_evidence_bundle_preflight',
-            'atlas_self_construction_final_evidence_bundle_implementation_packet',
-            'atlas_self_construction_final_evidence_bundle_service',
-            'atlas_self_construction_final_evidence_bundle_status_projection',
-            'atlas_self_construction_completion_audit_blocker_explainer_contract',
-            'atlas_self_construction_completion_audit_blocker_explainer_preflight',
-            'atlas_self_construction_completion_audit_blocker_explainer_implementation_packet',
-            'atlas_self_construction_completion_audit_blocker_explainer_service',
-            'atlas_self_construction_completion_audit_blocker_explainer_status_projection',
-            'atlas_self_construction_completion_evidence_submission_preflight_contract',
-            'atlas_self_construction_completion_evidence_submission_preflight_preflight',
-            'atlas_self_construction_completion_evidence_submission_preflight_implementation_packet',
-            'atlas_self_construction_completion_evidence_submission_preflight_service',
-            'atlas_self_construction_completion_evidence_submission_preflight_status_projection',
-            'atlas_self_construction_os_handoff_contract',
-            'atlas_self_construction_os_handoff_preflight',
-            'atlas_self_construction_os_handoff_implementation_packet',
-            'atlas_self_construction_os_handoff_service',
-            'atlas_self_construction_os_handoff_status_projection',
-            'atlas_self_construction_completion_evidence_hash_composer_contract',
-            'atlas_self_construction_completion_evidence_hash_composer_preflight',
-            'atlas_self_construction_completion_evidence_hash_composer_implementation_packet',
-            'atlas_self_construction_completion_evidence_hash_composer_service',
-            'atlas_self_construction_completion_evidence_hash_composer_status_projection',
-            'atlas_self_construction_runtime_promotion_receipt_draft_contract',
-            'atlas_self_construction_runtime_promotion_receipt_draft_preflight',
-            'atlas_self_construction_runtime_promotion_receipt_draft_implementation_packet',
-            'atlas_self_construction_runtime_promotion_receipt_draft_service',
-            'atlas_self_construction_runtime_promotion_receipt_draft_status_projection',
-            'atlas_self_construction_runtime_promotion_draft_hash_finalizer_contract',
-            'atlas_self_construction_runtime_promotion_draft_hash_finalizer_preflight',
-            'atlas_self_construction_runtime_promotion_draft_hash_finalizer_implementation_packet',
-            'atlas_self_construction_runtime_promotion_draft_hash_finalizer_service',
-            'atlas_self_construction_runtime_promotion_draft_hash_finalizer_status_projection',
-            'atlas_self_construction_operator_evidence_draft_hash_finalizer_contract',
-            'atlas_self_construction_operator_evidence_draft_hash_finalizer_preflight',
-            'atlas_self_construction_operator_evidence_draft_hash_finalizer_implementation_packet',
-            'atlas_self_construction_operator_evidence_draft_hash_finalizer_service',
-            'atlas_self_construction_operator_evidence_draft_hash_finalizer_status_projection',
-            'atlas_self_construction_operator_evidence_draft_workspace_publisher_contract',
-            'atlas_self_construction_operator_evidence_draft_workspace_publisher_preflight',
-            'atlas_self_construction_operator_evidence_draft_workspace_publisher_implementation_packet',
-            'atlas_self_construction_operator_evidence_draft_workspace_publisher_service',
-            'atlas_self_construction_operator_evidence_draft_workspace_publisher_status_projection',
-            'atlas_self_construction_human_completion_receipt_draft_contract',
-            'atlas_self_construction_human_completion_receipt_draft_preflight',
-            'atlas_self_construction_human_completion_receipt_draft_implementation_packet',
-            'atlas_self_construction_human_completion_receipt_draft_service',
-            'atlas_self_construction_human_completion_receipt_draft_status_projection',
-            'atlas_self_construction_runtime_promotion_evidence_dossier_contract',
-            'atlas_self_construction_runtime_promotion_evidence_dossier_preflight',
-            'atlas_self_construction_runtime_promotion_evidence_dossier_implementation_packet',
-            'atlas_self_construction_runtime_promotion_evidence_dossier_service',
-            'atlas_self_construction_runtime_promotion_evidence_dossier_status_projection',
-            'atlas_self_construction_runtime_promotion_closure_execution_pack_contract',
-            'atlas_self_construction_runtime_promotion_closure_execution_pack_preflight',
-            'atlas_self_construction_runtime_promotion_closure_execution_pack_implementation_packet',
-            'atlas_self_construction_runtime_promotion_closure_execution_pack_service',
-            'atlas_self_construction_runtime_promotion_closure_execution_pack_status_projection',
-            'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_contract',
-            'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_preflight',
-            'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_implementation_packet',
-            'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_service',
-            'atlas_self_construction_runtime_promotion_receipt_pre_submission_verifier_status_projection',
-            'atlas_self_construction_runtime_promotion_endgame_contract',
-            'atlas_self_construction_runtime_promotion_endgame_preflight',
-            'atlas_self_construction_runtime_promotion_endgame_implementation_packet',
-            'atlas_self_construction_runtime_promotion_endgame_service',
-            'atlas_self_construction_runtime_promotion_endgame_status_projection',
-            'atlas_self_construction_runtime_promotion_endgame_verifier_contract',
-            'atlas_self_construction_runtime_promotion_endgame_verifier_preflight',
-            'atlas_self_construction_runtime_promotion_endgame_verifier_implementation_packet',
-            'atlas_self_construction_runtime_promotion_endgame_verifier_service',
-            'atlas_self_construction_runtime_promotion_endgame_verifier_status_projection',
-            'atlas_self_construction_runtime_promotion_operator_runbook_exporter_contract',
-            'atlas_self_construction_runtime_promotion_operator_runbook_exporter_preflight',
-            'atlas_self_construction_runtime_promotion_operator_runbook_exporter_implementation_packet',
-            'atlas_self_construction_runtime_promotion_operator_runbook_exporter_service',
-            'atlas_self_construction_runtime_promotion_operator_runbook_exporter_status_projection',
-            'atlas_self_construction_real_provider_smoke_endgame_contract',
-            'atlas_self_construction_real_provider_smoke_endgame_preflight',
-            'atlas_self_construction_real_provider_smoke_endgame_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_endgame_service',
-            'atlas_self_construction_real_provider_smoke_endgame_status_projection',
-            'atlas_self_construction_real_provider_smoke_endgame_verifier_contract',
-            'atlas_self_construction_real_provider_smoke_endgame_verifier_preflight',
-            'atlas_self_construction_real_provider_smoke_endgame_verifier_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_endgame_verifier_service',
-            'atlas_self_construction_real_provider_smoke_endgame_verifier_status_projection',
-            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_contract',
-            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_preflight',
-            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_service',
-            'atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_status_projection',
-            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_contract',
-            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_preflight',
-            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_service',
-            'atlas_self_construction_real_provider_smoke_operator_runbook_exporter_status_projection',
-            'atlas_self_construction_human_completion_receipt_endgame_verifier_contract',
-            'atlas_self_construction_human_completion_receipt_endgame_verifier_preflight',
-            'atlas_self_construction_human_completion_receipt_endgame_verifier_implementation_packet',
-            'atlas_self_construction_human_completion_receipt_endgame_verifier_service',
-            'atlas_self_construction_human_completion_receipt_endgame_verifier_status_projection',
-            'atlas_self_construction_final_completion_human_gate_contract',
-            'atlas_self_construction_final_completion_human_gate_preflight',
-            'atlas_self_construction_final_completion_human_gate_implementation_packet',
-            'atlas_self_construction_final_completion_human_gate_service',
-            'atlas_self_construction_final_completion_human_gate_status_projection',
-            'atlas_self_construction_final_completion_dossier_exporter_contract',
-            'atlas_self_construction_final_completion_dossier_exporter_preflight',
-            'atlas_self_construction_final_completion_dossier_exporter_implementation_packet',
-            'atlas_self_construction_final_completion_dossier_exporter_service',
-            'atlas_self_construction_final_completion_dossier_exporter_status_projection',
-            'atlas_self_construction_final_completion_readiness_gate_contract',
-            'atlas_self_construction_final_completion_readiness_gate_preflight',
-            'atlas_self_construction_final_completion_readiness_gate_implementation_packet',
-            'atlas_self_construction_final_completion_readiness_gate_service',
-            'atlas_self_construction_final_completion_readiness_gate_status_projection',
-            'atlas_self_programming_os_transition_readiness_contract',
-            'atlas_self_programming_os_transition_readiness_preflight',
-            'atlas_self_programming_os_transition_readiness_implementation_packet',
-            'atlas_self_programming_os_transition_readiness_service',
-            'atlas_self_programming_os_transition_readiness_status_projection',
-            'atlas_self_programming_safety_contract_certification_contract',
-            'atlas_self_programming_safety_contract_certification_preflight',
-            'atlas_self_programming_safety_contract_certification_implementation_packet',
-            'atlas_self_programming_safety_contract_certification_service',
-            'atlas_self_programming_safety_contract_certification_status_projection',
-            'atlas_self_construction_completion_finalization_gate_contract',
-            'atlas_self_construction_completion_finalization_gate_preflight',
-            'atlas_self_construction_completion_finalization_gate_implementation_packet',
-            'atlas_self_construction_completion_finalization_gate_service',
-            'atlas_self_construction_completion_finalization_gate_status_projection',
-            'atlas_self_construction_human_completion_receipt_dossier_contract',
-            'atlas_self_construction_human_completion_receipt_dossier_preflight',
-            'atlas_self_construction_human_completion_receipt_dossier_implementation_packet',
-            'atlas_self_construction_human_completion_receipt_dossier_service',
-            'atlas_self_construction_human_completion_receipt_dossier_status_projection',
-            'atlas_self_construction_real_provider_smoke_evidence_dossier_contract',
-            'atlas_self_construction_real_provider_smoke_evidence_dossier_preflight',
-            'atlas_self_construction_real_provider_smoke_evidence_dossier_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_evidence_dossier_service',
-            'atlas_self_construction_real_provider_smoke_evidence_dossier_status_projection',
-            'atlas_self_construction_real_provider_smoke_offline_harness_contract',
-            'atlas_self_construction_real_provider_smoke_offline_harness_preflight',
-            'atlas_self_construction_real_provider_smoke_offline_harness_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_offline_harness_service',
-            'atlas_self_construction_real_provider_smoke_offline_harness_status_projection',
-            'atlas_self_construction_real_provider_smoke_draft_contract',
-            'atlas_self_construction_real_provider_smoke_draft_preflight',
-            'atlas_self_construction_real_provider_smoke_draft_implementation_packet',
-            'atlas_self_construction_real_provider_smoke_draft_service',
-            'atlas_self_construction_real_provider_smoke_draft_status_projection',
-            'atlas_self_construction_final_operator_evidence_closure_corridor_contract',
-            'atlas_self_construction_final_operator_evidence_closure_corridor_preflight',
-            'atlas_self_construction_final_operator_evidence_closure_corridor_implementation_packet',
-            'atlas_self_construction_final_operator_evidence_closure_corridor_service',
-            'atlas_self_construction_final_operator_evidence_closure_corridor_status_projection',
-            'atlas_self_construction_operator_evidence_artifact_template_pack_contract',
-            'atlas_self_construction_operator_evidence_artifact_template_pack_preflight',
-            'atlas_self_construction_operator_evidence_artifact_template_pack_implementation_packet',
-            'atlas_self_construction_operator_evidence_artifact_template_pack_service',
-            'atlas_self_construction_operator_evidence_artifact_template_pack_status_projection',
-            'atlas_self_construction_operator_evidence_draft_workspace_inspector_contract',
-            'atlas_self_construction_operator_evidence_draft_workspace_inspector_preflight',
-            'atlas_self_construction_operator_evidence_draft_workspace_inspector_implementation_packet',
-            'atlas_self_construction_operator_evidence_draft_workspace_inspector_service',
-            'atlas_self_construction_operator_evidence_draft_workspace_inspector_status_projection',
-            'atlas_self_construction_operator_evidence_submission_readiness_contract',
-            'atlas_self_construction_operator_evidence_submission_readiness_preflight',
-            'atlas_self_construction_operator_evidence_submission_readiness_implementation_packet',
-            'atlas_self_construction_operator_evidence_submission_readiness_service',
-            'atlas_self_construction_operator_evidence_submission_readiness_status_projection',
-            'agent_control_plane_runtime_evidence_journal_contract',
-            'agent_control_plane_runtime_evidence_journal_preflight',
-            'agent_control_plane_runtime_evidence_journal_implementation_packet',
-            'agent_control_plane_runtime_evidence_journal_service',
-            'agent_control_plane_runtime_evidence_journal_status_projection',
-            'agent_control_plane_execution_workspace_runtime_contract',
-            'agent_control_plane_execution_workspace_runtime_preflight',
-            'agent_control_plane_execution_workspace_runtime_implementation_packet',
-            'agent_control_plane_execution_workspace_runtime_service',
-            'agent_control_plane_execution_workspace_runtime_status_projection',
-            'agent_control_plane_governance_approval_runtime_contract',
-            'agent_control_plane_governance_approval_runtime_preflight',
-            'agent_control_plane_governance_approval_runtime_implementation_packet',
-            'agent_control_plane_governance_approval_runtime_service',
-            'agent_control_plane_governance_approval_runtime_status_projection',
-            'agent_control_plane_automatic_cost_import_runtime_contract',
-            'agent_control_plane_automatic_cost_import_runtime_preflight',
-            'agent_control_plane_automatic_cost_import_runtime_implementation_packet',
-            'agent_control_plane_automatic_cost_import_runtime_service',
-            'agent_control_plane_automatic_cost_import_runtime_status_projection',
-            'agent_control_plane_automatic_work_product_collection_runtime_contract',
-            'agent_control_plane_automatic_work_product_collection_runtime_preflight',
-            'agent_control_plane_automatic_work_product_collection_runtime_implementation_packet',
-            'agent_control_plane_automatic_work_product_collection_runtime_service',
-            'agent_control_plane_automatic_work_product_collection_runtime_status_projection',
-            'agent_control_plane_adapter_execution_runtime_boundary_contract',
-            'agent_control_plane_adapter_execution_runtime_boundary_preflight',
-            'agent_control_plane_adapter_execution_runtime_boundary_implementation_packet',
-            'agent_control_plane_adapter_execution_runtime_boundary_service',
-            'agent_control_plane_adapter_execution_runtime_boundary_status_projection',
-            'agent_control_plane_dispatch_planner_runtime_contract',
-            'agent_control_plane_dispatch_planner_runtime_preflight',
-            'agent_control_plane_dispatch_planner_runtime_implementation_packet',
-            'agent_control_plane_dispatch_planner_runtime_service',
-            'agent_control_plane_dispatch_planner_runtime_status_projection',
-            'agent_control_plane_validation_gate_runtime_contract',
-            'agent_control_plane_validation_gate_runtime_preflight',
-            'agent_control_plane_validation_gate_runtime_implementation_packet',
-            'agent_control_plane_validation_gate_runtime_service',
-            'agent_control_plane_validation_gate_runtime_status_projection',
-            'agent_control_plane_merge_review_runtime_contract',
-            'agent_control_plane_merge_review_runtime_preflight',
-            'agent_control_plane_merge_review_runtime_implementation_packet',
-            'agent_control_plane_merge_review_runtime_service',
-            'agent_control_plane_merge_review_runtime_status_projection',
-            'agent_control_plane_task_packet_builder_contract',
-            'agent_control_plane_task_packet_builder_preflight',
-            'agent_control_plane_task_packet_builder_implementation_packet',
-            'agent_control_plane_task_packet_builder_service',
-            'agent_control_plane_task_packet_builder_status_projection',
-            'agent_control_plane_claim_lease_simulator_contract',
-            'agent_control_plane_claim_lease_simulator_preflight',
-            'agent_control_plane_claim_lease_simulator_implementation_packet',
-            'agent_control_plane_claim_lease_simulator_service',
-            'agent_control_plane_claim_lease_simulator_status_projection',
-            'agent_control_plane_scope_lock_planner_contract',
-            'agent_control_plane_scope_lock_planner_preflight',
-            'agent_control_plane_scope_lock_planner_implementation_packet',
-            'agent_control_plane_scope_lock_planner_service',
-            'agent_control_plane_scope_lock_planner_status_projection',
-            'agent_control_plane_evidence_ledger_dry_run_contract',
-            'agent_control_plane_evidence_ledger_dry_run_preflight',
-            'agent_control_plane_evidence_ledger_dry_run_implementation_packet',
-            'agent_control_plane_evidence_ledger_dry_run_service',
-            'agent_control_plane_evidence_ledger_dry_run_status_projection',
-            'agent_control_plane_continuation_summary_builder_contract',
-            'agent_control_plane_continuation_summary_builder_preflight',
-            'agent_control_plane_continuation_summary_builder_implementation_packet',
-            'agent_control_plane_continuation_summary_builder_service',
-            'agent_control_plane_continuation_summary_builder_status_projection',
-            'agent_control_plane_work_product_manifest_planner_contract',
-            'agent_control_plane_work_product_manifest_planner_preflight',
-            'agent_control_plane_work_product_manifest_planner_implementation_packet',
-            'agent_control_plane_work_product_manifest_planner_service',
-            'agent_control_plane_work_product_manifest_planner_status_projection',
-            'agent_control_plane_cost_import_dry_run_contract',
-            'agent_control_plane_cost_import_dry_run_preflight',
-            'agent_control_plane_cost_import_dry_run_implementation_packet',
-            'agent_control_plane_cost_import_dry_run_service',
-            'agent_control_plane_cost_import_dry_run_status_projection',
-            'agent_control_plane_multi_agent_parallelism_planner_contract',
-            'agent_control_plane_multi_agent_parallelism_planner_preflight',
-            'agent_control_plane_multi_agent_parallelism_planner_implementation_packet',
-            'agent_control_plane_multi_agent_parallelism_planner_service',
-            'agent_control_plane_multi_agent_parallelism_planner_status_projection',
-            'agent_control_plane_runtime_pilot_orchestrator_contract',
-            'agent_control_plane_runtime_pilot_orchestrator_preflight',
-            'agent_control_plane_runtime_pilot_orchestrator_implementation_packet',
-            'agent_control_plane_runtime_pilot_orchestrator_service',
-            'agent_control_plane_runtime_pilot_orchestrator_status_projection',
-            'agent_control_plane_runtime_pilot_certification_contract',
-            'agent_control_plane_runtime_pilot_certification_preflight',
-            'agent_control_plane_runtime_pilot_certification_implementation_packet',
-            'agent_control_plane_runtime_pilot_certification_service',
-            'agent_control_plane_runtime_pilot_certification_status_projection',
-            'agent_control_plane_task_packet_queue_contract',
-            'agent_control_plane_task_packet_queue_preflight',
-            'agent_control_plane_task_packet_queue_implementation_packet',
-            'agent_control_plane_task_packet_queue_service',
-            'agent_control_plane_task_packet_queue_status_projection',
-            'agent_control_plane_claim_lease_runtime_contract',
-            'agent_control_plane_claim_lease_runtime_preflight',
-            'agent_control_plane_claim_lease_runtime_implementation_packet',
-            'agent_control_plane_claim_lease_runtime_service',
-            'agent_control_plane_claim_lease_runtime_status_projection',
-            'agent_control_plane_scope_lock_runtime_validator_contract',
-            'agent_control_plane_scope_lock_runtime_validator_preflight',
-            'agent_control_plane_scope_lock_runtime_validator_implementation_packet',
-            'agent_control_plane_scope_lock_runtime_validator_service',
-            'agent_control_plane_scope_lock_runtime_validator_status_projection',
-            'agent_control_plane_task_queue_orchestrator_contract',
-            'agent_control_plane_task_queue_orchestrator_preflight',
-            'agent_control_plane_task_queue_orchestrator_implementation_packet',
-            'agent_control_plane_task_queue_orchestrator_service',
-            'agent_control_plane_task_queue_orchestrator_status_projection',
-            'agent_control_plane_task_queue_claim_next_status_projection',
-            'agent_control_plane_task_queue_complete_dry_run_status_projection',
-            'agent_control_plane_task_auto_replenishment_contract',
-            'agent_control_plane_task_auto_replenishment_preflight',
-            'agent_control_plane_task_auto_replenishment_implementation_packet',
-            'agent_control_plane_task_auto_replenishment_service',
-            'agent_control_plane_task_auto_replenishment_status_projection',
-            'agent_control_plane_worker_task_eligibility_certification_contract',
-            'agent_control_plane_worker_task_eligibility_certification_preflight',
-            'agent_control_plane_worker_task_eligibility_certification_implementation_packet',
-            'agent_control_plane_worker_task_eligibility_certification_service',
-            'agent_control_plane_worker_task_eligibility_certification_status_projection',
-            'agent_control_plane_terminal_loop_health_digest_contract',
-            'agent_control_plane_terminal_loop_health_digest_preflight',
-            'agent_control_plane_terminal_loop_health_digest_implementation_packet',
-            'agent_control_plane_terminal_loop_health_digest_service',
-            'agent_control_plane_terminal_loop_health_digest_status_projection',
-            'agent_control_plane_terminal_loop_operational_proof_contract',
-            'agent_control_plane_terminal_loop_operational_proof_preflight',
-            'agent_control_plane_terminal_loop_operational_proof_implementation_packet',
-            'agent_control_plane_terminal_loop_operational_proof_service',
-            'agent_control_plane_terminal_loop_operational_proof_status_projection',
-            'agent_control_plane_terminal_worker_bootstrap_contract',
-            'agent_control_plane_terminal_worker_bootstrap_preflight',
-            'agent_control_plane_terminal_worker_bootstrap_implementation_packet',
-            'agent_control_plane_terminal_worker_bootstrap_service',
-            'agent_control_plane_terminal_worker_bootstrap_status_projection',
-            'agent_control_plane_task_queue_lease_certification_contract',
-            'agent_control_plane_task_queue_lease_certification_preflight',
-            'agent_control_plane_task_queue_lease_certification_implementation_packet',
-            'agent_control_plane_task_queue_lease_certification_service',
-            'agent_control_plane_task_queue_lease_certification_status_projection',
-            'agent_control_plane_agent_runtime_registry_contract',
-            'agent_control_plane_agent_runtime_registry_preflight',
-            'agent_control_plane_agent_runtime_registry_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_service',
-            'agent_control_plane_agent_runtime_registry_status_projection',
-            'agent_control_plane_agent_runtime_registry_heartbeat_contract',
-            'agent_control_plane_agent_runtime_registry_heartbeat_preflight',
-            'agent_control_plane_agent_runtime_registry_heartbeat_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_heartbeat_service',
-            'agent_control_plane_agent_runtime_registry_heartbeat_status_projection',
-            'agent_control_plane_agent_runtime_registry_capability_catalog_contract',
-            'agent_control_plane_agent_runtime_registry_capability_catalog_preflight',
-            'agent_control_plane_agent_runtime_registry_capability_catalog_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_capability_catalog_service',
-            'agent_control_plane_agent_runtime_registry_capability_catalog_status_projection',
-            'agent_control_plane_agent_runtime_registry_availability_contract',
-            'agent_control_plane_agent_runtime_registry_availability_preflight',
-            'agent_control_plane_agent_runtime_registry_availability_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_availability_service',
-            'agent_control_plane_agent_runtime_registry_availability_status_projection',
-            'agent_control_plane_agent_runtime_registry_task_matcher_contract',
-            'agent_control_plane_agent_runtime_registry_task_matcher_preflight',
-            'agent_control_plane_agent_runtime_registry_task_matcher_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_task_matcher_service',
-            'agent_control_plane_agent_runtime_registry_task_matcher_status_projection',
-            'agent_control_plane_agent_runtime_registry_load_balancing_contract',
-            'agent_control_plane_agent_runtime_registry_load_balancing_preflight',
-            'agent_control_plane_agent_runtime_registry_load_balancing_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_load_balancing_service',
-            'agent_control_plane_agent_runtime_registry_load_balancing_status_projection',
-            'agent_control_plane_agent_runtime_registry_quarantine_contract',
-            'agent_control_plane_agent_runtime_registry_quarantine_preflight',
-            'agent_control_plane_agent_runtime_registry_quarantine_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_quarantine_service',
-            'agent_control_plane_agent_runtime_registry_quarantine_status_projection',
-            'agent_control_plane_agent_runtime_registry_handoff_contract',
-            'agent_control_plane_agent_runtime_registry_handoff_preflight',
-            'agent_control_plane_agent_runtime_registry_handoff_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_handoff_service',
-            'agent_control_plane_agent_runtime_registry_handoff_status_projection',
-            'agent_control_plane_agent_runtime_registry_orchestrator_contract',
-            'agent_control_plane_agent_runtime_registry_orchestrator_preflight',
-            'agent_control_plane_agent_runtime_registry_orchestrator_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_orchestrator_service',
-            'agent_control_plane_agent_runtime_registry_orchestrator_status_projection',
-            'agent_control_plane_agent_runtime_registry_certification_contract',
-            'agent_control_plane_agent_runtime_registry_certification_preflight',
-            'agent_control_plane_agent_runtime_registry_certification_implementation_packet',
-            'agent_control_plane_agent_runtime_registry_certification_service',
-            'agent_control_plane_agent_runtime_registry_certification_status_projection',
-        ];
-        $notYetRuntimeCapable = [
-            'database_backed_agent_runs',
-            'heartbeat_runs',
-            'wakeup_queue',
-            'liveness_state_writer',
-            'cost_events',
-            'adapter_invocation_runtime',
-            'signed_dispatch_receipt_writer',
-            'automatic_work_product_collection',
-            'automatic_dispatch_scheduler_codex_real_invoker_process_start_envelope_runtime',
-        ];
 
+        // First unmet gap wins (first-match, exactly like the old chain).
+        $nextRequiredSlice = self::NEXT_BUILD_GAP_FALLBACK['slice'];
+        $nextBuildSlices = self::NEXT_BUILD_GAP_FALLBACK['build'];
+        foreach (self::NEXT_BUILD_GAP_MATRIX as $gap) {
+            foreach ($gap['requires'] as $flag) {
+                if (! $flags[$flag]) {
+                    $nextRequiredSlice = $gap['slice'];
+                    $nextBuildSlices = $gap['build'];
+                    break 2;
+                }
+            }
+        }
+
+        // Capability emission: base list, plus runtime-gated merge + appends.
+        $currentCapabilities = self::BASE_CAPABILITIES;
+        $notYetRuntimeCapable = self::NOT_YET_RUNTIME_CAPABLE_BASE;
         if ($allRuntimeTablesReady) {
-            $currentCapabilities = array_merge($currentCapabilities, [
-                'database_backed_agent_runs',
-                'heartbeat_runs',
-                'manual_cost_event_writer',
-                'manual_work_product_registry',
-                'wakeup_queue',
-                'wakeup_writer',
-                'wakeup_claims',
-                'liveness_state_writer',
-                'signed_dispatch_receipt_writer',
-                'provider_adapter_invocation_runtime_policy',
-                'provider_process_supervision_policy',
-                'automatic_cost_import_policy',
-                'automatic_work_product_collection_policy',
-                'automatic_dispatch_scheduler_policy',
-                'automatic_dispatch_scheduler_runtime_execution_gate',
-                'automatic_dispatch_scheduler_dry_run_tick',
-                'automatic_dispatch_scheduler_one_shot_tick_writer_contract',
-                'automatic_dispatch_scheduler_one_shot_tick_writer_preflight',
-                'automatic_dispatch_scheduler_one_shot_tick_release_template',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_validation_preflight',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_service',
-                'automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_status_projection',
-                'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_release_preflight',
-            ]);
-
-            if ($mutatingWriterContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract';
-            }
-
-            if ($mutatingWriterPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight';
-            }
-
-            if ($mutatingWriterImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet';
-            }
-
-            if ($mutatingWriterServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_service';
-            }
-
-            if ($mutatingWriterStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_mutating_writer_status_projection';
-            }
-
-            if ($guardedRuntimeInvocationContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_contract';
-            }
-
-            if ($guardedRuntimeInvocationPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight';
-            }
-
-            if ($guardedRuntimeInvocationImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet';
-            }
-
-            if ($guardedRuntimeInvocationServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_service';
-            }
-
-            if ($guardedRuntimeInvocationStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_status_projection';
-            }
-
-            if ($dispatchReceiptUseReleaseContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_release_contract';
-            }
-
-            if ($dispatchReceiptUsePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_preflight';
-            }
-
-            if ($dispatchReceiptUseImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet';
-            }
-
-            if ($dispatchReceiptUseServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_service';
-            }
-
-            if ($dispatchReceiptUseStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_status_projection';
-            }
-
-            if ($providerStartDriverReleaseContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_release_contract';
-            }
-
-            if ($providerStartDriverPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_preflight';
-            }
-
-            if ($providerStartDriverImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet';
-            }
-
-            if ($providerStartDriverInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_invoker_service';
-            }
-
-            if ($providerStartDriverStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_status_projection';
-            }
-
-            if ($adapterInvocationBoundaryReleaseContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_release_contract';
-            }
-
-            if ($adapterInvocationBoundaryPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_preflight';
-            }
-
-            if ($adapterInvocationBoundaryImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet';
-            }
-
-            if ($adapterInvocationBoundaryInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_invoker_service';
-            }
-
-            if ($adapterInvocationBoundaryStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_status_projection';
-            }
-
-            if ($providerAdapterExecutionGuardReleaseContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_release_contract';
-            }
-
-            if ($providerAdapterExecutionGuardPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_preflight';
-            }
-
-            if ($providerAdapterExecutionGuardImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet';
-            }
-
-            if ($providerAdapterExecutionGuardInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_invoker_service';
-            }
-
-            if ($providerAdapterExecutionGuardStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_status_projection';
-            }
-
-            if ($providerSpecificExecutionContractReleaseReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_release';
-            }
-
-            if ($providerSpecificExecutionContractPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_preflight';
-            }
-
-            if ($providerSpecificExecutionContractImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet';
-            }
-
-            if ($providerSpecificExecutionContractInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_provider_execution_contract_invoker_service';
-            }
-
-            if ($providerSpecificExecutionContractStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_status_projection';
-            }
-
-            if ($codexProcessStartReleaseContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_contract';
-            }
-
-            if ($codexProcessStartReleasePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_preflight';
-            }
-
-            if ($codexProcessStartReleaseImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet';
-            }
-
-            if ($codexProcessStartReleaseInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_invoker_service';
-            }
-
-            if ($codexProcessStartReleaseStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_status_projection';
-            }
-
-            if ($codexSupervisedStartExecutorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_release_contract';
-            }
-
-            if ($codexSupervisedStartExecutorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_preflight';
-            }
-
-            if ($codexSupervisedStartExecutorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet';
-            }
-
-            if ($codexSupervisedStartExecutorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_invoker_service';
-            }
-
-            if ($codexSupervisedStartExecutorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_status_projection';
-            }
-
-            if ($codexProcessSpawnEnablementContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_contract';
-            }
-
-            if ($codexProcessSpawnEnablementPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_preflight';
-            }
-
-            if ($codexProcessSpawnEnablementImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet';
-            }
-
-            if ($codexProcessSpawnEnablementInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_invoker_service';
-            }
-
-            if ($codexProcessSpawnEnablementStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_status_projection';
-            }
-
-            if ($codexFinalProcessSpawnExecutorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_contract';
-            }
-
-            if ($codexFinalProcessSpawnExecutorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_preflight';
-            }
-
-            if ($codexFinalProcessSpawnExecutorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet';
-            }
-
-            if ($codexFinalProcessSpawnExecutorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_invoker_service';
-            }
-
-            if ($codexFinalProcessSpawnExecutorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_status_projection';
-            }
-
-            if ($codexExternalProcessRuntimeDriverContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_contract';
-            }
-
-            if ($codexExternalProcessRuntimeDriverPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_preflight';
-            }
-
-            if ($codexExternalProcessRuntimeDriverImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet';
-            }
-
-            if ($codexExternalProcessRuntimeDriverInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_invoker_service';
-            }
-
-            if ($codexExternalProcessRuntimeDriverStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_status_projection';
-            }
-
-            if ($codexProcessInvocationAuthorizationContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_contract';
-            }
-
-            if ($codexProcessInvocationAuthorizationPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_preflight';
-            }
-
-            if ($codexProcessInvocationAuthorizationImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet';
-            }
-
-            if ($codexProcessInvocationAuthorizationInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_invoker_service';
-            }
-
-            if ($codexProcessInvocationAuthorizationStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_status_projection';
-            }
-
-            if ($codexExternalProcessInvokerDryRunContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_contract';
-            }
-
-            if ($codexExternalProcessInvokerDryRunPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_preflight';
-            }
-
-            if ($codexExternalProcessInvokerDryRunImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet';
-            }
-
-            if ($codexExternalProcessInvokerDryRunInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_invoker_service';
-            }
-
-            if ($codexExternalProcessInvokerDryRunStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_status_projection';
-            }
-
-            if ($codexRealInvokerReleasePreflightContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_contract';
-            }
-
-            if ($codexRealInvokerReleasePreflightPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_preflight';
-            }
-
-            if ($codexRealInvokerReleasePreflightImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet';
-            }
-
-            if ($codexRealInvokerReleasePreflightInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_invoker_service';
-            }
-
-            if ($codexRealInvokerReleasePreflightStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_status_projection';
-            }
-
-            if ($codexSignedRealInvokerReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_contract';
-            }
-
-            if ($codexSignedRealInvokerReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_preflight';
-            }
-
-            if ($codexSignedRealInvokerReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet';
-            }
-
-            if ($codexSignedRealInvokerReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_invoker_service';
-            }
-
-            if ($codexSignedRealInvokerReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerImplementationBoundaryContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_contract';
-            }
-
-            if ($codexRealInvokerImplementationBoundaryPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_preflight';
-            }
-
-            if ($codexRealInvokerImplementationBoundaryImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet';
-            }
-
-            if ($codexRealInvokerImplementationBoundaryInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_invoker_service';
-            }
-
-            if ($codexRealInvokerImplementationBoundaryStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_status_projection';
-            }
-
-            if ($codexRealInvokerExecutorPlanContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_contract';
-            }
-
-            if ($codexRealInvokerExecutorPlanPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_preflight';
-            }
-
-            if ($codexRealInvokerExecutorPlanImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet';
-            }
-
-            if ($codexRealInvokerExecutorPlanInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_invoker_service';
-            }
-
-            if ($codexRealInvokerExecutorPlanStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_status_projection';
-            }
-
-            if ($codexRealInvokerExecutorFreshReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_contract';
-            }
-
-            if ($codexRealInvokerExecutorFreshReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_preflight';
-            }
-
-            if ($codexRealInvokerExecutorFreshReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerExecutorFreshReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerExecutorFreshReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerExecutorEnablementGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_contract';
-            }
-
-            if ($codexRealInvokerExecutorEnablementGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_preflight';
-            }
-
-            if ($codexRealInvokerExecutorEnablementGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerExecutorEnablementGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerExecutorEnablementGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_status_projection';
-            }
-
-            if ($codexRealInvokerSupervisedStartActivationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_contract';
-            }
-
-            if ($codexRealInvokerSupervisedStartActivationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_preflight';
-            }
-
-            if ($codexRealInvokerSupervisedStartActivationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerSupervisedStartActivationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerSupervisedStartActivationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_status_projection';
-            }
-
-            if ($codexRealInvokerGuardedProcessStartExecutorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_contract';
-            }
-
-            if ($codexRealInvokerGuardedProcessStartExecutorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_preflight';
-            }
-
-            if ($codexRealInvokerGuardedProcessStartExecutorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet';
-            }
-
-            if ($codexRealInvokerGuardedProcessStartExecutorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_invoker_service';
-            }
-
-            if ($codexRealInvokerGuardedProcessStartExecutorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_status_projection';
-            }
-
-            if ($codexRealInvokerFinalProcessStartAuthorizationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_contract';
-            }
-
-            if ($codexRealInvokerFinalProcessStartAuthorizationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_preflight';
-            }
-
-            if ($codexRealInvokerFinalProcessStartAuthorizationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerFinalProcessStartAuthorizationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerFinalProcessStartAuthorizationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_status_projection';
-            }
-
-            if ($codexRealInvokerActualProcessStartRehearsalExecutorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_contract';
-            }
-
-            if ($codexRealInvokerActualProcessStartRehearsalExecutorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_preflight';
-            }
-
-            if ($codexRealInvokerActualProcessStartRehearsalExecutorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet';
-            }
-
-            if ($codexRealInvokerActualProcessStartRehearsalExecutorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_invoker_service';
-            }
-
-            if ($codexRealInvokerActualProcessStartRehearsalExecutorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_status_projection';
-            }
-
-            if ($codexRealInvokerProcessStartEnvelopeBuilderContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_contract';
-            }
-
-            if ($codexRealInvokerProcessStartEnvelopeBuilderPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_preflight';
-            }
-
-            if ($codexRealInvokerProcessStartEnvelopeBuilderImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet';
-            }
-
-            if ($codexRealInvokerProcessStartEnvelopeBuilderInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_invoker_service';
-            }
-
-            if ($codexRealInvokerProcessStartEnvelopeBuilderStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_status_projection';
-            }
-
-            if ($codexRealInvokerStartExecutionGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_contract';
-            }
-
-            if ($codexRealInvokerStartExecutionGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_preflight';
-            }
-
-            if ($codexRealInvokerStartExecutionGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerStartExecutionGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerStartExecutionGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_status_projection';
-            }
-
-            if ($codexRealInvokerProcessStarterReadinessGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_contract';
-            }
-
-            if ($codexRealInvokerProcessStarterReadinessGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_preflight';
-            }
-
-            if ($codexRealInvokerProcessStarterReadinessGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerProcessStarterReadinessGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerProcessStarterReadinessGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_status_projection';
-            }
-
-            if ($codexRealInvokerManualStartExecutorReceiptContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_contract';
-            }
-
-            if ($codexRealInvokerManualStartExecutorReceiptPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_preflight';
-            }
-
-            if ($codexRealInvokerManualStartExecutorReceiptImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet';
-            }
-
-            if ($codexRealInvokerManualStartExecutorReceiptInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_invoker_service';
-            }
-
-            if ($codexRealInvokerManualStartExecutorReceiptStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_status_projection';
-            }
-
-            if ($codexRealInvokerOperatorStartHandoffContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_contract';
-            }
-
-            if ($codexRealInvokerOperatorStartHandoffPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_preflight';
-            }
-
-            if ($codexRealInvokerOperatorStartHandoffImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_implementation_packet';
-            }
-
-            if ($codexRealInvokerOperatorStartHandoffInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_invoker_service';
-            }
-
-            if ($codexRealInvokerOperatorStartHandoffStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartReceiptContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract';
-            }
-
-            if ($codexRealInvokerPostStartReceiptContractPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_preflight';
-            }
-
-            if ($codexRealInvokerPostStartReceiptContractImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartReceiptContractInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartReceiptContractStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceReceiptContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_contract';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceReceiptPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_preflight';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceReceiptImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceReceiptInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceReceiptStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceAcceptanceBridgeContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_contract';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceAcceptanceBridgePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceAcceptanceBridgeImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceAcceptanceBridgeInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartEvidenceAcceptanceBridgeStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartLivenessMonitorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_contract';
-            }
-
-            if ($codexRealInvokerPostStartLivenessMonitorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_preflight';
-            }
-
-            if ($codexRealInvokerPostStartLivenessMonitorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartLivenessMonitorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartLivenessMonitorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartSignedDispatchAuthorizationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartSignedDispatchAuthorizationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartSignedDispatchAuthorizationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartSignedDispatchAuthorizationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartSignedDispatchAuthorizationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartDispatchExecutorHandoffContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_contract';
-            }
-
-            if ($codexRealInvokerPostStartDispatchExecutorHandoffPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_preflight';
-            }
-
-            if ($codexRealInvokerPostStartDispatchExecutorHandoffImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartDispatchExecutorHandoffInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartDispatchExecutorHandoffStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReceiptUseExecutorContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReceiptUseExecutorPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReceiptUseExecutorImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReceiptUseExecutorInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartDispatchReceiptUseExecutorStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProviderStartDriverGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProviderStartDriverGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProviderStartDriverGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProviderStartDriverGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProviderStartDriverGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartAdapterInvocationBoundaryGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartAdapterInvocationBoundaryGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartAdapterInvocationBoundaryGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartAdapterInvocationBoundaryGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartAdapterInvocationBoundaryGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartAdapterExecutionGuardGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartAdapterExecutionGuardGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartAdapterExecutionGuardGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartAdapterExecutionGuardGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartAdapterExecutionGuardGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProviderExecutionContractGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProviderExecutionContractGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProviderExecutionContractGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProviderExecutionContractGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProviderExecutionContractGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartExecutorGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartExecutorGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartExecutorGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartExecutorGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartExecutorGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProcessSpawnEnablementGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProcessSpawnEnablementGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProcessSpawnEnablementGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProcessSpawnEnablementGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProcessSpawnEnablementGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessSpawnExecutorGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessSpawnExecutorGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessSpawnExecutorGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessSpawnExecutorGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessSpawnExecutorGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessRuntimeGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessRuntimeGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessRuntimeGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessRuntimeGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessRuntimeGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProcessInvocationAuthorizationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProcessInvocationAuthorizationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProcessInvocationAuthorizationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProcessInvocationAuthorizationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProcessInvocationAuthorizationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessInvokerDryRunGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessInvokerDryRunGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessInvokerDryRunGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessInvokerDryRunGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartExternalProcessInvokerDryRunGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartRealInvokerReleasePreflightGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartRealInvokerReleasePreflightGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartRealInvokerReleasePreflightGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartRealInvokerReleasePreflightGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartRealInvokerReleasePreflightGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartSignedRealInvokerReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartSignedRealInvokerReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartSignedRealInvokerReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartSignedRealInvokerReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartSignedRealInvokerReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartImplementationBoundaryGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartImplementationBoundaryGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartImplementationBoundaryGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartImplementationBoundaryGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartImplementationBoundaryGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartExecutorPlanGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartExecutorPlanGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartExecutorPlanGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartExecutorPlanGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartExecutorPlanGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartExecutorFreshReleaseGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartExecutorFreshReleaseGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartExecutorFreshReleaseGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartExecutorFreshReleaseGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartExecutorFreshReleaseGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartExecutorEnablementGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartExecutorEnablementGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartExecutorEnablementGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartExecutorEnablementGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartExecutorEnablementGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartActivationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartActivationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartActivationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartActivationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartSupervisedStartActivationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartGuardedProcessStartExecutorGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartGuardedProcessStartExecutorGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartGuardedProcessStartExecutorGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartGuardedProcessStartExecutorGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartGuardedProcessStartExecutorGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessStartAuthorizationGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessStartAuthorizationGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessStartAuthorizationGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessStartAuthorizationGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartFinalProcessStartAuthorizationGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartActualProcessStartRehearsalGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartActualProcessStartRehearsalGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartActualProcessStartRehearsalGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartActualProcessStartRehearsalGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartActualProcessStartRehearsalGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartEnvelopeGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartEnvelopeGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartEnvelopeGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartEnvelopeGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProcessStartEnvelopeGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartStartExecutionGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartStartExecutionGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartStartExecutionGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartStartExecutionGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartStartExecutionGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartProcessStarterReadinessGateContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_contract';
-            }
-
-            if ($codexRealInvokerPostStartProcessStarterReadinessGatePreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_preflight';
-            }
-
-            if ($codexRealInvokerPostStartProcessStarterReadinessGateImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartProcessStarterReadinessGateInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartProcessStarterReadinessGateStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartManualStartExecutorReceiptContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_contract';
-            }
-
-            if ($codexRealInvokerPostStartManualStartExecutorReceiptPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_preflight';
-            }
-
-            if ($codexRealInvokerPostStartManualStartExecutorReceiptImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartManualStartExecutorReceiptInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartManualStartExecutorReceiptStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_status_projection';
-            }
-
-            if ($codexRealInvokerPostStartOperatorStartHandoffContractReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_contract';
-            }
-
-            if ($codexRealInvokerPostStartOperatorStartHandoffPreflightReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_preflight';
-            }
-
-            if ($codexRealInvokerPostStartOperatorStartHandoffImplementationPacketReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet';
-            }
-
-            if ($codexRealInvokerPostStartOperatorStartHandoffInvokerServiceReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_service';
-            }
-
-            if ($codexRealInvokerPostStartOperatorStartHandoffStatusReady) {
-                $currentCapabilities[] = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status_projection';
-            }
-
-            $notYetRuntimeCapable = [
-                'adapter_execution_runtime',
-                'automatic_cost_import_runtime',
-                'automatic_work_product_collection_runtime',
-                'automatic_dispatch_scheduler_codex_real_invoker_post_start_receipt_contract_runtime',
-            ];
+            $currentCapabilities = array_merge($currentCapabilities, self::RUNTIME_READY_CAPABILITIES);
+            foreach (self::RUNTIME_CAPABILITY_APPENDS as $append) {
+                if ($flags[$append['flag']]) {
+                    $currentCapabilities[] = $append['slug'];
+                }
+            }
+            $notYetRuntimeCapable = self::NOT_YET_RUNTIME_CAPABLE_READY;
         }
 
         $controlPlane = [
