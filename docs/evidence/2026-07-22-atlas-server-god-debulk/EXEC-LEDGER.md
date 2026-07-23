@@ -650,8 +650,7 @@ boundary:
   - no command execution, persistence, provider call, token spend, signature, or completion promotion occurs in this read-only readiness path
   - duplicated registry consolidation and distinct stale storage-root hints remain outside this one-operation repair
 write_back:
-  status: recorded_for_human_review
-  context_feedback: recorded
+  status: pending
   auto_promoted: false
 ```
 
@@ -2476,7 +2475,36 @@ boundary:
   - the test does not expose a production accessor merely to inspect the lazy private Section; its path is the compatibility seam used by callers
   - no Codex source behavior, split, provider call, dispatch, token spend, ledger write, runtime activation, or persistence changed
 write_back:
-  status: pending
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 80 — A1-SC-0026..0032 execute Codex Review/Merge corpus, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_HISTORICAL_SNAPSHOT_DEBT
+commit: b9dc2c046
+subject: "test(core): GOD-DEBULK execute Codex review merge aliases"
+red:
+  result: "The frozen `ced5b7…` corpus hash failed against all current real aliases, which produced `a61e9885…`; history shows the old snapshot predates the `cd018c6b3` section split."
+green:
+  behavior: "The current 149-method section corpus is snapshotted as `a61e9885…`, every alias is re-executed through the public facade, and both paths are byte-identical under the current fixture."
+verification:
+  focused_feature: "PASS 3 tests, 900 assertions, 21.56s"
+  php_lint: "PASS changed Feature test"
+  pint: "PASS changed Feature test"
+  diff_check: PASS
+  loc: "feature_test=106 (<800 hot limit)"
+boundary:
+  - each method has a semantic family row and must provide schema_version, status, non-execution guarantees, execution_allowed=false, and dispatch_allowed=false
+  - an externally *_ready envelope would now require execution and dispatch authority plus zero contract blockers
+  - the new hash characterizes current behavior only; the missing pre-split semantic-equivalence receipt remains in EXEC-DEBTS
+  - no Review/Merge source behavior, split, command route, provider call, dispatch, token spend, ledger write, runtime activation, or persistence changed
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
