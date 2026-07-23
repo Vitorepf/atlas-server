@@ -6,10 +6,13 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Foundry\FoundrySemanticGapFinderService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\CanonicalDocBacklogSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\DeepFindingFactory;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\DeepFindingSupport;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\FactoryBacklogQualitySection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\FactoryRuntimeSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\FindingSummarySection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\SemanticCapabilityGapSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeepFinding\StrategicMultiplierSeeds;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
@@ -51,6 +54,12 @@ use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoo
  * Determinism: classification runs over normalized input. Production gathering
  * lives behind overridable seams (and a `base_report` override) so the core is
  * unit-testable with synthetic fixtures and the same input yields the same hash.
+ *
+ * GOD-DEBULK split: the single makeFinding pipeline lives in {@see DeepFindingFactory}
+ * and the heavy deep-check families live in {@see SemanticCapabilityGapSection},
+ * {@see CanonicalDocBacklogSection} and {@see FactoryRuntimeSection}. This façade
+ * owns orchestration, structural composition, the smaller focus/wiring/inert
+ * checks, persistence and the report envelope. Taxonomy constants stay here.
  */
 class AreaFocusDeepFindingEngineService
 {
@@ -160,16 +169,6 @@ class AreaFocusDeepFindingEngineService
         'operator_review' => self::OWNER_PRODUCT_MODE,
     ];
 
-    /** owner_candidate -> Self-Directed-Evolution spec_seed gap_kind. */
-    private const OWNER_SPEC_GAP_KIND = [
-        self::OWNER_ATLAS_DEV => 'pipeline_not_proven',
-        self::OWNER_FORGE => 'partial_canon',
-        self::OWNER_AAEOS => 'partial_canon',
-        self::OWNER_SELF_DIRECTED_EVOLUTION => 'missing_service_class',
-        self::OWNER_EVIDENCE => 'pipeline_not_proven',
-        self::OWNER_PRODUCT_MODE => 'partial_canon',
-    ];
-
     /** @var array<string,int> */
     public const SEVERITY_RANK = [
         'critical' => 4,
@@ -179,14 +178,7 @@ class AreaFocusDeepFindingEngineService
         'unknown' => 0,
     ];
 
-    /** @var array<string,float> */
-    private const CONFIDENCE_SCORE = [
-        'high' => 0.9,
-        'medium' => 0.6,
-        'low' => 0.3,
-    ];
-
-    private const DOCS_ROOT = 'docs/engineering-knowledge-base/';
+    public const DOCS_ROOT = 'docs/engineering-knowledge-base/';
 
     public const STEWARDSHIP_ROOT = 'app/Services/Ai/SoftwareCompanyStewardship/';
 
@@ -227,31 +219,39 @@ class AreaFocusDeepFindingEngineService
 
     private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_deep_scans';
 
+    private readonly DeepFindingFactory $findingFactory;
+
+    private readonly SemanticCapabilityGapSection $semanticCapabilityGapSection;
+
+    private readonly CanonicalDocBacklogSection $canonicalDocBacklogSection;
+
+    private readonly FactoryRuntimeSection $factoryRuntimeSection;
+
     public function __construct(
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
         private readonly DeepFindingSupport $deepFindingSupport = new DeepFindingSupport,
         private readonly FactoryBacklogQualitySection $factoryBacklogQualitySection = new FactoryBacklogQualitySection(new DeepFindingSupport),
         private readonly FindingSummarySection $findingSummarySection = new FindingSummarySection,
-        private readonly ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
-        private readonly ?FoundrySemanticGapFinderService $semanticGapFinder = null,
-        private readonly ?SelfTargetSelectorService $selfTargetSelector = null,
-    ) {}
-
-    private function canonicalDocReader(): CanonicalDocFrontmatterReader
-    {
-        return $this->canonicalDocReader ?? new CanonicalDocFrontmatterReader;
-    }
-
-    private function semanticGapFinder(): FoundrySemanticGapFinderService
-    {
-        if ($this->semanticGapFinder !== null) {
-            return $this->semanticGapFinder;
-        }
-        if (function_exists('app')) {
-            return app(FoundrySemanticGapFinderService::class);
-        }
-
-        throw new \RuntimeException('FoundrySemanticGapFinderService is unavailable.');
+        ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
+        ?FoundrySemanticGapFinderService $semanticGapFinder = null,
+        ?SelfTargetSelectorService $selfTargetSelector = null,
+    ) {
+        $this->findingFactory = new DeepFindingFactory($this->deepFindingSupport);
+        $this->semanticCapabilityGapSection = new SemanticCapabilityGapSection(
+            $this->findingFactory,
+            $this->deepFindingSupport,
+            $semanticGapFinder,
+            $selfTargetSelector,
+        );
+        $this->canonicalDocBacklogSection = new CanonicalDocBacklogSection(
+            $this->findingFactory,
+            $canonicalDocReader,
+        );
+        $this->factoryRuntimeSection = new FactoryRuntimeSection(
+            $this->findingFactory,
+            $this->deepFindingSupport,
+            $this->factoryBacklogQualitySection,
+        );
     }
 
     /**
@@ -330,11 +330,11 @@ class AreaFocusDeepFindingEngineService
         $sources['wiring_chain'] = $wiringSource;
         $findings = array_merge($findings, $wiringFindings);
 
-        [$bottleneckFindings, $bottleneckSource] = $this->checkAtlasDevFactoryRuntimeBottlenecks($areaId, $focus, $focusConfig, $input);
+        [$bottleneckFindings, $bottleneckSource] = $this->factoryRuntimeSection->checkAtlasDevFactoryRuntimeBottlenecks($areaId, $focus, $focusConfig, $input);
         $sources['atlas_dev_factory_runtime_bottlenecks'] = $bottleneckSource;
         $findings = array_merge($findings, $bottleneckFindings);
 
-        [$runtimeCoverageFindings, $runtimeCoverageSource] = $this->checkFactoryRuntimeCoverage($areaId, $focus, $focusConfig, $input);
+        [$runtimeCoverageFindings, $runtimeCoverageSource] = $this->factoryRuntimeSection->checkFactoryRuntimeCoverage($areaId, $focus, $focusConfig, $input);
         $sources['factory_runtime_coverage'] = $runtimeCoverageSource;
         $findings = array_merge($findings, $runtimeCoverageFindings);
 
@@ -346,11 +346,11 @@ class AreaFocusDeepFindingEngineService
         $sources['inert_wiring_debt'] = $inertWiringSource;
         $findings = array_merge($findings, $inertWiringFindings);
 
-        [$docBacklogFindings, $docBacklogSource] = $this->checkCanonicalDocBacklog($areaId, $focus, $focusConfig, $input);
+        [$docBacklogFindings, $docBacklogSource] = $this->canonicalDocBacklogSection->checkCanonicalDocBacklog($areaId, $focus, $focusConfig, $input);
         $sources['canonical_doc_backlog'] = $docBacklogSource;
         $findings = array_merge($findings, $docBacklogFindings);
 
-        [$semanticGapFindings, $semanticGapSource] = $this->checkDocumentedVsRuntimeCapabilityGaps($areaId, $focus, $focusConfig, $input);
+        [$semanticGapFindings, $semanticGapSource] = $this->semanticCapabilityGapSection->checkDocumentedVsRuntimeCapabilityGaps($areaId, $focus, $focusConfig, $input);
         $sources['semantic_capability_gaps'] = $semanticGapSource;
         $findings = array_merge($findings, $semanticGapFindings);
 
@@ -524,12 +524,12 @@ class AreaFocusDeepFindingEngineService
 
         $owner = $this->ownerFromTypeAndRoute($type, $route, $map['owner']);
         $severity = AreaFocusScalarNormalizer::severityOrMedium((string) ($structural['severity'] ?? 'medium'));
-        $confidence = $this->normalizeConfidence((string) ($structural['confidence'] ?? 'medium'));
+        $confidence = $this->findingFactory->normalizeConfidence((string) ($structural['confidence'] ?? 'medium'));
 
         $affectedPaths = AreaFocusStringListNormalizer::coercedStringValues($structural['affected_paths'] ?? []);
         $evidence = AreaFocusStringListNormalizer::coercedStringValues($structural['evidence_refs'] ?? []);
 
-        return $this->makeFinding([
+        return $this->findingFactory->makeFinding([
             'area_id' => $areaId,
             'focus' => $focus,
             'origin' => 'structural_ap717',
@@ -543,7 +543,7 @@ class AreaFocusDeepFindingEngineService
             'confidence' => $confidence,
             'evidence_refs' => $evidence,
             'affected_paths' => $affectedPaths,
-            'why_it_matters' => $this->whyItMatters($map['kind'], $owner, (string) ($structural['detail'] ?? '')),
+            'why_it_matters' => $this->findingFactory->whyItMatters($map['kind'], $owner, (string) ($structural['detail'] ?? '')),
             'proposed_next_action' => (string) ($structural['recommended_action'] ?? 'Operator review required.'),
         ], $focusConfig);
     }
@@ -586,7 +586,7 @@ class AreaFocusDeepFindingEngineService
 
                 continue;
             }
-            $findings[] = $this->makeFinding([
+            $findings[] = $this->findingFactory->makeFinding([
                 'area_id' => $areaId,
                 'focus' => $focus,
                 'origin' => 'deep_focus_owner_doc',
@@ -647,7 +647,7 @@ class AreaFocusDeepFindingEngineService
             return [[], ['available' => true, 'chain_total' => count($chain), 'chain_present' => $present, 'chain_complete' => true]];
         }
 
-        $finding = $this->makeFinding([
+        $finding = $this->findingFactory->makeFinding([
             'area_id' => $areaId,
             'focus' => $focus,
             'origin' => 'deep_wiring_chain',
@@ -738,7 +738,7 @@ class AreaFocusDeepFindingEngineService
                 continue; // wired (or already has a caller) => not inert => no finding
             }
 
-            $findings[] = $this->makeFinding([
+            $findings[] = $this->findingFactory->makeFinding([
                 'area_id' => $areaId,
                 'focus' => $focus,
                 'origin' => 'deep_inert_wiring_debt',
@@ -760,721 +760,6 @@ class AreaFocusDeepFindingEngineService
         }
 
         return $findings;
-    }
-
-    // ---------- semantic capability gap-finder (evidence-anchored finding source) ----------
-
-    /**
-     * Documented-capability-vs-runtime-reality gap source (FASE 4 / Pilar 2).
-     *
-     * This is the evidence-anchored REPLACEMENT for the boilerplate doc-miner's
-     * "keep doc in sync" pseudo-gaps. For each documented capability claim it
-     * checks whether the runtime reference the claim points at (a service class
-     * file, an artisan command, or a code symbol) actually EXISTS. When the doc
-     * claims a capability but the runtime ref is absent, it asks the REAL
-     * {@see FoundrySemanticGapFinderService} (which
-     * re-verifies every anchor through the same evidence verifier as gate I1) to
-     * emit a CONCRETE capability_gap.v1, then enriches it into a deep finding
-     * carrying (a) an evidence anchor — the doc path:line PLUS the missing
-     * runtime ref — and (b) the claim's outcome_contract (metric_id / baseline /
-     * target_delta via a REAL existing measure_command), so the downstream
-     * decomposer/measured-or-reverted keystone can prove the gap was closed.
-     *
-     * Default OFF (byte-identical when off). The loop opts in via
-     * scan_semantic_capability_gaps OR by injecting capability_claims (test seam).
-     *
-     * Recognised $input keys:
-     *   - scan_semantic_capability_gaps: bool   enable a real docs-root scan
-     *   - capability_claims: list<claim>   injected claims (deterministic test seam)
-     *   - semantic_gap_verifier_input: array   evidence seam (cycles/ledger_events)
-     *     forwarded to the gap-finder's anchor verifier
-     *   - semantic_gap_dossier: array   override the AP-A dossier (test seam)
-     *
-     * @param  array<string,mixed>  $focusConfig
-     * @param  array<string,mixed>  $input
-     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
-     */
-    private function checkDocumentedVsRuntimeCapabilityGaps(string $areaId, string $focus, array $focusConfig, array $input): array
-    {
-        $injected = array_key_exists('capability_claims', $input);
-
-        // Governed RSI · Part B: optionally source SELF gaps (the loop's own
-        // weakest, non-sacred, value-per-token component) and fold them into the
-        // SAME capability_claims that flow to the Pilar 2 gap-finder. Each self
-        // claim has ALREADY passed the fail-closed Immutable Invariant Registry
-        // guard inside the selector (proposal-only). Default OFF.
-        [$selfClaims, $selfSource] = $this->collectRsiSelfTargetClaims($areaId, $focus, $input);
-
-        $enabled = ($input['scan_semantic_capability_gaps'] ?? false) === true || $injected || $selfClaims !== [];
-        if (! $enabled) {
-            return [[], ['available' => true, 'enabled' => false, 'claim_count' => 0, 'gap_count' => 0, 'emitted_count' => 0, 'rsi_self_targets' => $selfSource]];
-        }
-
-        $claims = $injected && is_array($input['capability_claims'])
-            ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['capability_claims'])
-            : $this->scanCapabilityClaims($input);
-        $claims = array_merge($claims, $selfClaims);
-
-        // Build the dossier + verifier evidence seam. Production: the AP-A
-        // dossier (anchors[]) is supplied; tests inject both directly.
-        $dossier = is_array($input['semantic_gap_dossier'] ?? null)
-            ? $input['semantic_gap_dossier']
-            : $this->capabilityClaimsDossier($areaId, $claims);
-        $verifierInput = is_array($input['semantic_gap_verifier_input'] ?? null)
-            ? $input['semantic_gap_verifier_input']
-            : $this->capabilityClaimsVerifierInput($claims);
-
-        $report = $this->semanticGapFinder()->project([
-            'dossier' => $dossier,
-            'capability_claims' => $claims,
-            'verifier_input' => $verifierInput,
-        ]);
-
-        $gaps = is_array($report['gaps'] ?? null) ? $report['gaps'] : [];
-        $findings = $this->capabilityGapFindings($gaps, $areaId, $focus, $focusConfig);
-
-        return [$findings, [
-            'available' => true,
-            'enabled' => true,
-            'source' => $injected ? 'injected' : ($selfClaims !== [] && ! $injected ? 'rsi_self_target' : 'docs_scan'),
-            'report_status' => (string) ($report['status'] ?? 'unknown'),
-            'report_hash' => (string) ($report['report_hash'] ?? ''),
-            'claim_count' => count($claims),
-            'gap_count' => count($gaps),
-            'drop_count' => count(is_array($report['drops'] ?? null) ? $report['drops'] : []),
-            'emitted_count' => count($findings),
-            'rsi_self_targets' => $selfSource,
-        ]];
-    }
-
-    /**
-     * Governed RSI · Part B · self-gap source. When enabled, asks the
-     * SelfTargetSelectorService for the weakest non-sacred value-per-token
-     * component's SELF capability_claim — which the selector only returns AFTER
-     * the proposal that would close it passes the fail-closed Immutable Invariant
-     * Registry guard (proposal-only). The returned claims merge into the same
-     * Pilar 2 gap pipeline as product gaps, so SELF gaps reach the curation inbox
-     * proposal-only and never auto-applied. Default OFF (byte-identical when off).
-     *
-     * Recognised $input keys:
-     *   - scan_rsi_self_targets: bool   enable the self-gap source
-     *   - rsi_self_target_records: list  injected ComponentValueLedger events (test seam)
-     *   - rsi_mode_enabled: bool         forwarded to the proposal gate (un-mutes routing)
-     *   - rsi_self_target_delta: float   minimum value-per-token raise the gap demands
-     *
-     * @param  array<string,mixed>  $input
-     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
-     */
-    private function collectRsiSelfTargetClaims(string $areaId, string $focus, array $input): array
-    {
-        $injectedRecords = array_key_exists('rsi_self_target_records', $input);
-        $enabled = ($input['scan_rsi_self_targets'] ?? false) === true || $injectedRecords;
-        if (! $enabled) {
-            return [[], ['available' => true, 'enabled' => false, 'status' => 'disabled', 'claim_count' => 0]];
-        }
-
-        $selector = $this->selfTargetSelector
-            ?? (function_exists('app')
-                ? app(SelfTargetSelectorService::class)
-                : null);
-        if ($selector === null) {
-            return [[], ['available' => false, 'enabled' => true, 'status' => 'selector_unavailable', 'claim_count' => 0]];
-        }
-
-        $selectorInput = [
-            'area_id' => $areaId,
-            'focus' => $focus,
-        ];
-        if ($injectedRecords && is_array($input['rsi_self_target_records'])) {
-            $selectorInput['records'] = AreaFocusLoopPayloadNormalizer::listOfArrays($input['rsi_self_target_records']);
-        }
-        if (($input['rsi_mode_enabled'] ?? null) === true) {
-            $selectorInput['rsi_mode_enabled'] = true;
-        }
-        if (is_numeric($input['rsi_self_target_delta'] ?? null)) {
-            $selectorInput['target_delta'] = (float) $input['rsi_self_target_delta'];
-        }
-
-        $record = $selector->select($selectorInput);
-        $claims = $selector->capabilityClaims($selectorInput);
-
-        return [$claims, [
-            'available' => true,
-            'enabled' => true,
-            'status' => (string) ($record['status'] ?? 'unknown'),
-            'target_component_id' => $record['target_component_id'] ?? null,
-            'guard_status' => (string) (($record['guard_screening']['status'] ?? '')),
-            'claim_count' => count($claims),
-        ]];
-    }
-
-    /**
-     * Turn each evidence-anchored capability_gap.v1 into a deep finding. The
-     * finding carries the gap's outcome_contract and an evidence anchor (doc
-     * path:line + missing runtime ref) so it flows straight into the backlog /
-     * Fase 1 decomposer with a measurable success target.
-     *
-     * @param  list<array<string,mixed>>  $gaps
-     * @param  array<string,mixed>  $focusConfig
-     * @return list<array<string,mixed>>
-     */
-    private function capabilityGapFindings(array $gaps, string $areaId, string $focus, array $focusConfig): array
-    {
-        $findings = [];
-        foreach ($gaps as $gap) {
-            if (! is_array($gap)) {
-                continue;
-            }
-            $capability = trim((string) ($gap['capability'] ?? ''));
-            $driftKind = (string) ($gap['drift_kind'] ?? '');
-            $anchorId = (string) ($gap['anchor_id'] ?? '');
-            $outcomeContract = is_array($gap['outcome_contract'] ?? null) ? $gap['outcome_contract'] : null;
-            if ($capability === '' || $anchorId === '' || $outcomeContract === null) {
-                continue; // gap-finder guarantees these; defensive skip only
-            }
-
-            $docAnchor = (string) ($gap['evidence_doc_anchor'] ?? ($gap['source_doc'] ?? ''));
-            $missingRuntimeRef = (string) ($gap['missing_runtime_ref'] ?? '');
-            $severity = (string) ($gap['severity'] ?? 'high');
-
-            $evidenceRefs = array_values(array_filter([
-                'capability_gap:'.$capability,
-                'drift_kind:'.$driftKind,
-                'anchor:'.$anchorId.':confirmed',
-                $docAnchor !== '' ? 'doc_anchor:'.$docAnchor : '',
-                $missingRuntimeRef !== '' ? 'missing_runtime_ref:'.$missingRuntimeRef : '',
-                'outcome_contract_metric:'.(string) ($outcomeContract['metric_id'] ?? ''),
-            ], static fn (string $r): bool => $r !== ''));
-
-            $finding = $this->makeFinding([
-                'area_id' => $areaId,
-                'focus' => $focus,
-                'origin' => 'deep_semantic_capability_gap',
-                'origin_type' => 'capability_drift_'.$driftKind,
-                'source_ref' => 'capability_gap:'.$capability.':'.$driftKind.':'.$anchorId,
-                'title' => 'Capability drift ('.$driftKind.'): '.$capability,
-                'detail' => 'Documented capability "'.$capability.'" diverges from runtime reality (drift_kind='.$driftKind.'). '
-                    .'Documented state: '.(string) ($gap['documented_state'] ?? '').'; runtime state: '.(string) ($gap['runtime_state'] ?? '').'. '
-                    .($missingRuntimeRef !== '' ? 'Missing runtime reference: '.$missingRuntimeRef.'. ' : '')
-                    .'Proven by confirmed evidence anchor '.$anchorId.'.',
-                'kind' => self::KIND_IMPLEMENTATION,
-                'owner_candidate' => self::OWNER_ATLAS_DEV,
-                'severity' => $severity,
-                'confidence' => 'high',
-                'evidence_refs' => $evidenceRefs,
-                'affected_paths' => array_values(array_filter([$missingRuntimeRef], $this->deepFindingSupport->isCodePath(...))),
-                'why_it_matters' => 'A documented capability with no runtime evidence is a real, measurable gap — not "keep the doc in sync" noise. '
-                    .'It carries an outcome_contract so closing it must move metric "'.(string) ($outcomeContract['metric_id'] ?? '').'" by at least '
-                    .(string) ($outcomeContract['target_delta'] ?? '').' (measured-or-reverted), proving the capability actually landed.',
-                'proposed_next_action' => 'Implement the missing runtime for "'.$capability.'" and prove it moves metric "'.(string) ($outcomeContract['metric_id'] ?? '').'" per the outcome_contract.',
-            ], $focusConfig);
-
-            // The measurable success target rides with the finding into the
-            // decomposer / measured-or-reverted keystone.
-            $finding['outcome_contract'] = $outcomeContract;
-            $finding['capability_gap'] = [
-                'capability' => $capability,
-                'drift_kind' => $driftKind,
-                'anchor_id' => $anchorId,
-                'anchor_verdict' => (string) ($gap['anchor_verdict'] ?? 'confirmed'),
-                'gap_hash' => (string) ($gap['gap_hash'] ?? ''),
-            ];
-
-            $findings[] = $finding;
-        }
-
-        return $findings;
-    }
-
-    /**
-     * Scan canonical doc frontmatter for `capabilities:` claims and probe the
-     * runtime for each declared reference. A doc that claims a capability whose
-     * runtime ref (service file / artisan command / symbol) is ABSENT yields a
-     * claimed_capability_no_runtime_evidence claim. Read-only; never guesses a
-     * metric — only docs that declare an outcome metric in their frontmatter
-     * produce a measurable claim (others are skipped, never faked).
-     *
-     * @param  array<string,mixed>  $input
-     * @return list<array<string,mixed>>
-     */
-    private function scanCapabilityClaims(array $input): array
-    {
-        // Production docs-root scanning is intentionally conservative: without a
-        // declared per-capability runtime_ref + outcome metric in frontmatter we
-        // cannot build a measurable, evidence-anchored claim, so we emit none
-        // rather than fabricate. The injected seam (capability_claims) is the
-        // proven path; a richer frontmatter scanner is a separate, gated slice.
-        return [];
-    }
-
-    /**
-     * Build a minimal AP-A-shaped dossier whose anchors[] carry the cycle
-     * anchors the injected claims reference, so the gap-finder's verifier can
-     * confirm them via the verifier_input seam. Production supplies the real
-     * AP-A dossier instead (semantic_gap_dossier override).
-     *
-     * @param  list<array<string,mixed>>  $claims
-     * @return array<string,mixed>
-     */
-    private function capabilityClaimsDossier(string $areaId, array $claims): array
-    {
-        $anchors = [];
-        $seen = [];
-        foreach ($claims as $claim) {
-            $anchorId = (string) ($claim['anchor_id'] ?? '');
-            $cycleId = (string) ($claim['anchor_cycle_id'] ?? '');
-            if ($anchorId === '' || $cycleId === '' || isset($seen[$anchorId])) {
-                continue;
-            }
-            $seen[$anchorId] = true;
-            $anchors[] = [
-                'anchor_id' => $anchorId,
-                'anchor_type' => 'cycle_id',
-                'anchor_source' => 'cycles',
-                'source_path' => 'cycle.cycle_id',
-                'anchor_claim' => $cycleId,
-                'resolved' => true,
-                'integrity_status' => 'ok',
-                'anchor_hash' => 'sha256:'.substr(MissionCanonicalHash::sha256($anchorId.'|'.$cycleId), 0, 32),
-            ];
-        }
-
-        return [
-            'schema_version' => 'atlas.foundry.dossier.v1',
-            'status' => 'ready',
-            'area_id' => $areaId,
-            'anchors' => $anchors,
-        ];
-    }
-
-    /**
-     * Build the verifier evidence seam (cycles) for the synthesized anchors so
-     * each referenced cycle resolves as a REAL cycle (confirmed) without I/O.
-     *
-     * @param  list<array<string,mixed>>  $claims
-     * @return array<string,mixed>
-     */
-    private function capabilityClaimsVerifierInput(array $claims): array
-    {
-        $cycles = [];
-        $seen = [];
-        foreach ($claims as $claim) {
-            $cycleId = (string) ($claim['anchor_cycle_id'] ?? '');
-            if ($cycleId === '' || isset($seen[$cycleId])) {
-                continue;
-            }
-            $seen[$cycleId] = true;
-            $cycles[] = ['cycle_id' => $cycleId, 'area_id' => 'agentic_engineering_os'];
-        }
-
-        return ['cycles' => $cycles];
-    }
-
-    // ---------- canonical doc backlog miner (read-only finding source) ----------
-
-    /**
-     * Canonical Doc Backlog Miner. READ-ONLY finding source: each emitted finding
-     * maps 1:1 onto a REAL directive line already written in a canonical doc's YAML
-     * frontmatter (`next_actions` -> doc_next_action, `allowed_changes` ->
-     * doc_allowed_change). `forbidden_changes` lines are DROPPED at source — never
-     * converted into work. NEVER invents, paraphrases, executes or auto-approves.
-     *
-     * Default OFF so direct scan() callers and the existing test suite stay
-     * byte-identical; the loop opts in via scan_canonical_doc_backlog OR by
-     * injecting canonical_doc_backlog_lines (deterministic, filesystem-free).
-     *
-     * Recognised $input keys:
-     *   - scan_canonical_doc_backlog: bool   enable a real docs-root scan
-     *   - canonical_doc_backlog_lines: list<directiveLine>  injected directives (test seam)
-     *   - canonical_doc_backlog_docs_root: string  override docs root (default DOCS_ROOT)
-     *   - canonical_doc_backlog_max_docs: int  cap docs scanned
-     *   - existing_self_improvement_candidate_hashes: list<string>  real SDE candidate_hash set for cross-layer dedup
-     *
-     * @param  array<string,mixed>  $focusConfig
-     * @param  array<string,mixed>  $input
-     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
-     */
-    private function checkCanonicalDocBacklog(string $areaId, string $focus, array $focusConfig, array $input): array
-    {
-        $injected = array_key_exists('canonical_doc_backlog_lines', $input);
-        $enabled = ($input['scan_canonical_doc_backlog'] ?? false) === true || $injected;
-        if (! $enabled) {
-            return [[], ['available' => true, 'enabled' => false, 'directive_count' => 0, 'emitted_count' => 0]];
-        }
-
-        // Gather REAL directive lines: injected (test) OR a read-only docs scan.
-        $directives = [];
-        $forbiddenDropped = 0;
-        $docsScanned = 0;
-        if ($injected) {
-            $candidates = is_array($input['canonical_doc_backlog_lines']) ? $input['canonical_doc_backlog_lines'] : [];
-            $docsRoot = (string) ($input['canonical_doc_backlog_docs_root'] ?? self::DOCS_ROOT);
-        } else {
-            $reader = $this->canonicalDocReader();
-            $docsRoot = (string) ($input['canonical_doc_backlog_docs_root'] ?? self::DOCS_ROOT);
-            $base = function_exists('base_path') ? base_path() : getcwd();
-            $absRoot = rtrim((string) $base, '/').'/'.ltrim($docsRoot, '/');
-            $maxDocs = (int) ($input['canonical_doc_backlog_max_docs'] ?? 500);
-            $candidates = [];
-            foreach ($reader->discoverDocs($absRoot, $maxDocs) as $absPath) {
-                $docsScanned++;
-                $risk = $reader->extractRiskLevel($absPath);
-                foreach ($reader->extractDirectives($absPath) as $directive) {
-                    $directive['risk_level'] = $risk;
-                    $candidates[] = $directive;
-                }
-            }
-        }
-
-        // Forbidden lines are dropped at source; only actionable directives flow on.
-        foreach ($candidates as $candidate) {
-            if (! is_array($candidate)) {
-                continue;
-            }
-            $kind = (string) ($candidate['directive_kind'] ?? '');
-            if ($kind === 'forbidden_change') {
-                $forbiddenDropped++;
-
-                continue;
-            }
-            if (! in_array($kind, ['next_action', 'allowed_change'], true)) {
-                continue;
-            }
-            $directives[] = $candidate;
-        }
-
-        $existingHashes = [];
-        $sdeSupplied = array_key_exists('existing_self_improvement_candidate_hashes', $input);
-        if ($sdeSupplied) {
-            $existingHashes = array_values(array_filter(
-                (array) $input['existing_self_improvement_candidate_hashes'],
-                'is_string'
-            ));
-        }
-
-        // POINT 3 — autonomous execution of the doc backlog is OFF by default and only
-        // turns on via the explicit operator flag (input override or config). Off => the
-        // doc-mined findings stay operator-review-gated (byte-identical to before).
-        $autonomousExec = ($input['autonomous_doc_backlog_execution'] ?? null) === true
-            || (function_exists('config') && (bool) config('atlas.software_company_stewardship.autonomous_doc_backlog_execution', false) === true);
-
-        [$findings, $sdeSuppressed] = $this->canonicalDocBacklogFindings(
-            $directives, $areaId, $focus, $focusConfig, $existingHashes, $docsRoot, $autonomousExec
-        );
-
-        return [$findings, [
-            'available' => true,
-            'enabled' => true,
-            'source' => $injected ? 'injected' : 'docs_scan',
-            'docs_root' => $docsRoot,
-            'docs_scanned' => $docsScanned,
-            'directive_count' => count($directives),
-            'forbidden_dropped_count' => $forbiddenDropped,
-            'emitted_count' => count($findings),
-            'self_improvement_dedup' => $sdeSupplied ? 'supplied' : 'not_supplied',
-            'self_improvement_suppressed_count' => $sdeSuppressed,
-        ]];
-    }
-
-    /**
-     * Pure emitter: turn REAL frontmatter directive lines into deep findings, one
-     * finding per directive line. The title/proposed_next_action is the verbatim
-     * trimmed YAML item; the FULL raw line lives in evidence_refs[1]='text:'+line.
-     * No fabrication, no paraphrase. owner_candidate is always atlas_dev (local /
-     * branch-allowed); routing stays downstream. THREE honest dedup stages start
-     * here: (1) intra-source seen-set; (2) cross-layer SDE suppression when the
-     * caller supplies the real self_improvement candidate_hash set.
-     *
-     * @param  list<array<string,mixed>>  $directives
-     * @param  array<string,mixed>  $focusConfig
-     * @param  list<string>  $existingSelfImprovementHashes
-     * @return array{0:list<array<string,mixed>>,1:int}
-     */
-    private function canonicalDocBacklogFindings(
-        array $directives,
-        string $areaId,
-        string $focus,
-        array $focusConfig,
-        array $existingSelfImprovementHashes = [],
-        string $docsRoot = self::DOCS_ROOT,
-        bool $autonomousExec = false
-    ): array {
-        $existingTokenSet = [];
-        foreach ($existingSelfImprovementHashes as $hash) {
-            $existingTokenSet[$hash] = true;
-        }
-
-        // POINT 2 — resolve file scope: a doc's `allowed_changes` directives ARE the
-        // operator-declared file scope for that doc's `next_actions`. Group them by doc
-        // path so each next_action finding inherits its doc's allowed files (the operator
-        // wrote them; no path is ever guessed). A doc with no allowed_changes contributes
-        // no scope and its next_actions block honestly at the SDD gate.
-        $allowedByDoc = [];
-        foreach ($directives as $directive) {
-            if (! is_array($directive) || (string) ($directive['directive_kind'] ?? '') !== 'allowed_change') {
-                continue;
-            }
-            $docPath = (string) ($directive['path'] ?? '');
-            foreach ($this->resolveDirectivePaths((string) ($directive['text'] ?? ''), $docsRoot) as $p) {
-                $allowedByDoc[$docPath][$p] = true;
-            }
-        }
-
-        $findings = [];
-        $seen = [];
-        $sdeSuppressed = 0;
-
-        foreach ($directives as $directive) {
-            if (! is_array($directive)) {
-                continue;
-            }
-            $rawLine = trim((string) ($directive['text'] ?? ''));
-            $line = (int) ($directive['line'] ?? 0);
-            $absPath = (string) ($directive['path'] ?? '');
-            $directiveKind = (string) ($directive['directive_kind'] ?? '');
-            if ($rawLine === '' || $line < 1 || $absPath === '' || ! in_array($directiveKind, ['next_action', 'allowed_change'], true)) {
-                continue;
-            }
-
-            $relPath = $this->canonicalRelPath($absPath, $docsRoot);
-
-            // Deterministic source-ref token over the normalized text + location.
-            $normalized = strtolower(preg_replace('/\s+/', ' ', $rawLine) ?? $rawLine);
-            $token = substr(MissionCanonicalHash::sha256($normalized), 0, 12);
-            $sourceRef = 'canonical_doc:'.$relPath.':line:'.$line.':'.$token;
-
-            // (2) Cross-layer SDE suppression: a doc line whose computed token
-            // matches an existing self_improvement candidate is deduped, not
-            // double-counted. Honest: only when the real set was supplied.
-            if ($existingTokenSet !== [] && (isset($existingTokenSet[$token]) || isset($existingTokenSet[$sourceRef]))) {
-                $sdeSuppressed++;
-
-                continue;
-            }
-
-            $isAllowedChange = $directiveKind === 'allowed_change';
-            $isMaintenance = preg_match('/^(Manter|Rodar|Atualizar|Separar)/i', $rawLine) === 1;
-
-            $kind = $isAllowedChange
-                ? self::KIND_IMPROVEMENT
-                : ($isMaintenance ? self::KIND_DOC : self::KIND_IMPLEMENTATION);
-
-            // Severity from doc risk_level, defaulting to medium.
-            $severity = AreaFocusScalarNormalizer::severityOrMedium((string) ($directive['risk_level'] ?? 'medium'));
-            if ($isMaintenance) {
-                $severity = 'low';
-            } elseif (preg_match('/missing|blocked|broken|required|must/i', $rawLine) === 1) {
-                $severity = 'high';
-            }
-
-            $multiSystem = preg_match('/multi-system|cross-department|todos os|provider topology|new (sub)?system|\bOS\b/i', $rawLine) === 1;
-            $detail = 'Mined verbatim from the canonical doc frontmatter '
-                .($isAllowedChange ? 'allowed_changes' : 'next_actions').' block at '.$relPath.':'.$line.'.';
-            if ($multiSystem && ! $isMaintenance) {
-                $severity = $this->bumpSeverity($severity);
-                $detail .= ' multi_system_route_hint: this directive reads as multi-system / cross-department work — downstream routing must treat it as honestly large, never fake-small.';
-            }
-
-            $finding = $this->makeFinding([
-                'area_id' => $areaId,
-                'focus' => $focus,
-                'origin' => self::SOURCE_CANONICAL_DOC_BACKLOG,
-                'origin_type' => $isAllowedChange ? self::ORIGIN_TYPE_DOC_ALLOWED_CHANGE : self::ORIGIN_TYPE_DOC_NEXT_ACTION,
-                'source_ref' => $sourceRef,
-                'title' => $this->truncate($rawLine, 120),
-                'detail' => $detail,
-                'kind' => $kind,
-                'owner_candidate' => self::OWNER_ATLAS_DEV,
-                'severity' => $severity,
-                'confidence' => 'high',
-                'evidence_refs' => [
-                    'doc:'.$relPath.':line:'.$line,
-                    'text:'.$rawLine,
-                ],
-                // POINT 2 — file scope from the operator's own frontmatter: the doc's
-                // allowed_changes + any explicit repo path the directive text names. For an
-                // allowed_change directive its own text IS the scope. Never a guessed path.
-                'affected_paths' => $this->resolveDocBacklogScope(
-                    $rawLine,
-                    (array) ($allowedByDoc[$absPath] ?? []),
-                    $isAllowedChange,
-                    $docsRoot,
-                ),
-                'why_it_matters' => 'A directive the operator already wrote into canonical doc frontmatter is real, governed backlog. Mining it surfaces committed intent without inventing work.'
-                    .($autonomousExec ? ' Operator authorized autonomous execution of the doc backlog (atlas.software_company_stewardship.autonomous_doc_backlog_execution).' : ' It inherits full operator-review governance and is never auto-executed.')
-                    .($multiSystem ? ' multi_system_route_hint' : ''),
-                'proposed_next_action' => $rawLine,
-            ], $focusConfig);
-
-            // POINT 3 — execution governance: ONLY when the operator's explicit, default-off
-            // flag is on, mark the doc-mined finding auto-executable (same authorization
-            // model as operator_authorized_plan_execution). Otherwise it stays operator-
-            // review-gated. The no-scaffold / provider-proof / merge gates still protect main.
-            if ($autonomousExec) {
-                $finding['auto_execution_allowed'] = true;
-                $finding['operator_review_required'] = false;
-                $finding['autonomous_execution_reason'] = 'operator_authorized_doc_backlog_execution';
-            }
-
-            // (1) Intra-source seen-set: identical doc lines collapse to one.
-            $hash = (string) ($finding['finding_hash'] ?? '');
-            if ($hash !== '' && isset($seen[$hash])) {
-                continue;
-            }
-            $seen[$hash] = true;
-            $findings[] = $finding;
-        }
-
-        return [$findings, $sdeSuppressed];
-    }
-
-    /**
-     * Extract repo-relative file/dir paths a directive text names EXPLICITLY (an
-     * allowed_changes entry or a path token inside a next_action). Never guesses: returns
-     * only tokens that look like real repo paths/globs. Repo-relative is preserved verbatim.
-     *
-     * @return list<string>
-     */
-    private function resolveDirectivePaths(string $text, string $docsRoot): array
-    {
-        $text = trim($text);
-        if ($text === '') {
-            return [];
-        }
-
-        $paths = [];
-        // Path/glob tokens under known repo roots, with or without a file extension
-        // (e.g. config/atlas.php, app/Services/Ai/Foundry/, app/Services/**/X.php).
-        if (preg_match_all('#(?:app|tests|config|routes|database|resources|docs)/[A-Za-z0-9_./*\\\\-]+#', $text, $m) >= 1) {
-            foreach ($m[0] as $token) {
-                $clean = $this->canonicalRelPath(trim($token, " \t\n\r\0\x0B,.:;\"'`"), $docsRoot);
-                if ($clean !== '') {
-                    $paths[] = $clean;
-                }
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
-    }
-
-    /**
-     * Resolve the executable file scope for a doc-backlog directive (POINT 2). An
-     * allowed_change directive's own text is the scope; a next_action inherits its doc's
-     * allowed_changes plus any explicit path it names. Empty => honest block downstream.
-     *
-     * @param  array<string,bool>  $allowedDocPaths  doc's allowed_changes (path => true)
-     * @return list<string>
-     */
-    private function resolveDocBacklogScope(string $rawLine, array $allowedDocPaths, bool $isAllowedChange, string $docsRoot): array
-    {
-        if ($isAllowedChange) {
-            $paths = $this->resolveDirectivePaths($rawLine, $docsRoot);
-            foreach ($this->resolveClassPaths($rawLine) as $p) {
-                $paths[] = $p;
-            }
-
-            return AreaFocusStringListNormalizer::uniqueStringValues($paths);
-        }
-
-        $scope = array_keys(array_filter($allowedDocPaths));
-        foreach ($this->resolveDirectivePaths($rawLine, $docsRoot) as $p) {
-            $scope[] = $p;
-        }
-        // Yield multiplier: most directives name a CLASS (e.g. "AtlasAaeosHttpPathFacadeService"),
-        // not a path. Resolve each PascalCase class token the directive cites to its REAL file
-        // under app/ via the class index. Honest — only files that actually exist are added; a
-        // class with no file on disk (a to-be-created service) is skipped (no guessed path).
-        foreach ($this->resolveClassPaths($rawLine) as $p) {
-            $scope[] = $p;
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($scope);
-    }
-
-    /**
-     * Resolve PascalCase class tokens named in a directive to their real repo file paths via a
-     * lazily-built basename->path index of app/. Never guesses: a token with no matching file
-     * on disk is dropped. This turns "Implementar X em FooService" into a concrete file scope.
-     *
-     * @return list<string>
-     */
-    private function resolveClassPaths(string $text): array
-    {
-        if (! preg_match_all('/\b([A-Z][A-Za-z0-9]{3,}(?:Service|Contract|Gate|Runner|Bridge|Executor|Adapter|Manager|Controller|Repository|Resolver|Planner|Projector|Builder|Engine|Orchestrator|Governor|Coordinator|Registry|Validator|Compiler|Handler|Dispatcher))\b/', $text, $m)) {
-            return [];
-        }
-
-        $index = $this->classBasenameIndex();
-        $paths = [];
-        foreach (array_unique($m[1]) as $class) {
-            if (isset($index[$class])) {
-                $paths[] = $index[$class];
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
-    }
-
-    /**
-     * @var array<string,string>|null basename(without .php) => first repo-relative path under app/
-     */
-    private ?array $classBasenameIndex = null;
-
-    /**
-     * @return array<string,string>
-     */
-    private function classBasenameIndex(): array
-    {
-        if ($this->classBasenameIndex !== null) {
-            return $this->classBasenameIndex;
-        }
-
-        $index = [];
-        $base = function_exists('base_path') ? base_path() : getcwd();
-        $appDir = rtrim((string) $base, '/').'/app';
-        if (is_dir($appDir)) {
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($appDir, \FilesystemIterator::SKIP_DOTS));
-            foreach ($it as $file) {
-                if (! $file->isFile() || $file->getExtension() !== 'php') {
-                    continue;
-                }
-                $name = $file->getBasename('.php');
-                if (! isset($index[$name])) {
-                    $index[$name] = $this->canonicalRelPath($file->getPathname(), '');
-                }
-            }
-        }
-
-        return $this->classBasenameIndex = $index;
-    }
-
-    private function canonicalRelPath(string $absPath, string $docsRoot): string
-    {
-        $base = function_exists('base_path') ? base_path() : getcwd();
-        $prefix = rtrim((string) $base, '/').'/';
-        if (str_starts_with($absPath, $prefix)) {
-            return substr($absPath, strlen($prefix));
-        }
-
-        // Injected paths may already be repo-relative; keep them verbatim.
-        return $absPath;
-    }
-
-    private function truncate(string $text, int $max): string
-    {
-        $text = trim($text);
-
-        return strlen($text) <= $max ? $text : rtrim(substr($text, 0, $max));
-    }
-
-    private function bumpSeverity(string $severity): string
-    {
-        return match ($severity) {
-            'low' => 'medium',
-            'medium' => 'high',
-            'high', 'critical' => 'critical',
-            default => 'high',
-        };
     }
 
     /**
@@ -1571,308 +856,6 @@ class AreaFocusDeepFindingEngineService
     }
 
     /**
-     * Focus-scoped runtime bottleneck scan for Atlas Dev + factory execution paths.
-     * Surfaces provider-routing risks, blocking execution patterns and missing focused
-     * tests on the highest-leverage runtimes instead of doc-only drift.
-     *
-     * @param  array<string,mixed>  $focusConfig
-     * @param  array<string,mixed>  $input
-     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
-     */
-    private function checkAtlasDevFactoryRuntimeBottlenecks(string $areaId, string $focus, array $focusConfig, array $input): array
-    {
-        if (($input['skip_atlas_dev_factory_runtime_bottlenecks'] ?? false) === true) {
-            return [[], ['available' => true, 'skipped' => true, 'watch_count' => 0, 'emitted_count' => 0]];
-        }
-
-        $overrides = is_array($input['atlas_dev_factory_bottleneck_signals'] ?? null)
-            ? $input['atlas_dev_factory_bottleneck_signals']
-            : [];
-
-        $findings = [];
-        $signalCounts = [
-            'provider_routing_risk' => 0,
-            'execution_bottleneck' => 0,
-            'missing_test' => 0,
-        ];
-
-        foreach (self::ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES as $source) {
-            if (! $this->deepFindingSupport->pathExists($source)) {
-                continue;
-            }
-
-            $signals = is_array($overrides[$source] ?? null)
-                ? AreaFocusStringListNormalizer::coercedStringValues($overrides[$source])
-                : $this->detectAtlasDevFactoryBottleneckSignals($source);
-
-            foreach ($signals as $signal) {
-                $finding = $this->makeAtlasDevFactoryBottleneckFinding(
-                    $areaId,
-                    $focus,
-                    $focusConfig,
-                    $source,
-                    $signal,
-                );
-                if ($finding === null) {
-                    continue;
-                }
-                $findings[] = $finding;
-                if (array_key_exists($signal, $signalCounts)) {
-                    $signalCounts[$signal]++;
-                }
-            }
-        }
-
-        return [$findings, [
-            'available' => true,
-            'skipped' => false,
-            'watch_count' => count(self::ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES),
-            'emitted_count' => count($findings),
-            'signal_counts' => $signalCounts,
-            'discovery_mode' => $overrides !== [] ? 'override' : 'static_analysis',
-        ]];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function detectAtlasDevFactoryBottleneckSignals(string $source): array
-    {
-        $signals = [];
-        if ($this->detectProviderRoutingRisk($source)) {
-            $signals[] = 'provider_routing_risk';
-        }
-        if ($this->detectExecutionBottleneck($source)) {
-            $signals[] = 'execution_bottleneck';
-        }
-        $test = $this->factoryBacklogQualitySection->expectedTestPath(basename($source, '.php').'Test.php', [$source]);
-        if ($test !== '' && ! $this->deepFindingSupport->pathExists($test) && $this->isFactoryRuntimeCoverageCandidate($source)) {
-            $signals[] = 'missing_test';
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($signals);
-    }
-
-    private function detectProviderRoutingRisk(string $source): bool
-    {
-        $content = $this->readSourceHead($source, 32768);
-        if ($content === '') {
-            return false;
-        }
-
-        $hasProviderSurface = preg_match(
-            '/(?:provider-invoke|driverInvoke|PROVIDER_COMMANDS|atlas:forge:provider|cursor_cli|codex_cli|gemini_cli|AtlasForgeProviderInvocation|provider_invocation)/i',
-            $content,
-        ) === 1;
-        $hasDecideGovernance = preg_match(
-            '/(?:atlas_decide|chosen_by_atlas_decide|decision_receipt|AtlasDecide|live_atlas_decide|decision_receipt_id)/i',
-            $content,
-        ) === 1;
-
-        return $hasProviderSurface && ! $hasDecideGovernance;
-    }
-
-    private function detectExecutionBottleneck(string $source): bool
-    {
-        $content = $this->readSourceHead($source, 49152);
-        if ($content === '') {
-            return false;
-        }
-        if (preg_match('/\b(?:sleep|usleep)\s*\(/', $content) !== 1) {
-            return false;
-        }
-
-        return preg_match(
-            '/(?:timeout|budget|max_wait|TIMEOUT|stop_reason|budget_stop|rate_limit|kill_switch|Process::)/i',
-            $content,
-        ) !== 1;
-    }
-
-    private function readSourceHead(string $source, int $maxBytes): string
-    {
-        if (! $this->deepFindingSupport->pathExists($source)) {
-            return '';
-        }
-
-        return (string) file_get_contents(AreaFocusPathNormalizer::absoluteFromBasePath($source), false, null, 0, $maxBytes);
-    }
-
-    /**
-     * @param  array<string,mixed>  $focusConfig
-     * @return array<string,mixed>|null
-     */
-    private function makeAtlasDevFactoryBottleneckFinding(
-        string $areaId,
-        string $focus,
-        array $focusConfig,
-        string $source,
-        string $signal,
-    ): ?array {
-        $class = basename($source, '.php');
-        $test = $this->factoryBacklogQualitySection->expectedTestPath($class.'Test.php', [$source]);
-
-        return match ($signal) {
-            'provider_routing_risk' => $this->makeFinding([
-                'area_id' => $areaId,
-                'focus' => $focus,
-                'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
-                'origin_type' => 'provider_routing_risk',
-                'source_ref' => 'atlas_dev_factory_runtime_bottleneck:provider_routing:'.$source,
-                'title' => 'Provider routing risk · '.$class,
-                'detail' => $class.' exposes provider/driver dispatch surfaces without Atlas Decide topology or Decision Receipt governance in the same runtime file.',
-                'kind' => self::KIND_RISK,
-                'owner_candidate' => self::OWNER_ATLAS_DEV,
-                'severity' => 'high',
-                'confidence' => 'high',
-                'evidence_refs' => [
-                    'atlas_dev_factory_runtime_bottleneck:provider_routing:'.$source,
-                    'impl:'.$source,
-                ],
-                'affected_paths' => [$source],
-                'why_it_matters' => 'Autonomous Atlas Dev and factory cycles can hardcode provider paths and stall when a driver fails; routing must stay policy-driven through Atlas Decide.',
-                'proposed_next_action' => 'Route '.$source.' through Atlas Decide topology + Decision Receipt v2 before owner/provider execution and prove it in '.($test !== '' ? $test : 'focused tests').'.',
-            ], $focusConfig),
-            'execution_bottleneck' => $this->makeFinding([
-                'area_id' => $areaId,
-                'focus' => $focus,
-                'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
-                'origin_type' => 'execution_bottleneck',
-                'source_ref' => 'atlas_dev_factory_runtime_bottleneck:execution:'.$source,
-                'title' => 'Execution bottleneck · '.$class,
-                'detail' => $class.' uses blocking sleep/usleep without an explicit timeout, budget or kill-switch guard in the same runtime file.',
-                'kind' => self::KIND_RUNTIME,
-                'owner_candidate' => self::OWNER_ATLAS_DEV,
-                'severity' => 'medium',
-                'confidence' => 'medium',
-                'evidence_refs' => [
-                    'atlas_dev_factory_runtime_bottleneck:execution:'.$source,
-                    'impl:'.$source,
-                ],
-                'affected_paths' => [$source],
-                'why_it_matters' => 'Factory and 24h loops can stall provider throughput when a hot path blocks without bounded waits or budget stop reasons.',
-                'proposed_next_action' => 'Replace unbounded blocking in '.$source.' with timeout/budget-aware pacing and prove recovery in '.($test !== '' ? $test : 'focused tests').'.',
-            ], $focusConfig),
-            'missing_test' => $test === '' || $this->deepFindingSupport->pathExists($test)
-                ? null
-                : $this->makeFinding([
-                    'area_id' => $areaId,
-                    'focus' => $focus,
-                    'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
-                    'origin_type' => 'missing_test',
-                    'source_ref' => 'atlas_dev_factory_runtime_bottleneck:missing_test:'.$source,
-                    'title' => 'Factory runtime bottleneck · missing test for '.$class,
-                    'detail' => $class.' is on the Atlas Dev/factory bottleneck watchlist without same-name focused regression coverage.',
-                    'kind' => self::KIND_TEST,
-                    'owner_candidate' => self::OWNER_ATLAS_DEV,
-                    'severity' => 'medium',
-                    'confidence' => 'high',
-                    'evidence_refs' => [
-                        'atlas_dev_factory_runtime_bottleneck:missing_test:'.$source,
-                        'impl:'.$source,
-                        'expected_test:'.basename($test),
-                    ],
-                    'affected_paths' => [$source],
-                    'why_it_matters' => 'Runtime bottlenecks in Atlas Dev and the factory cannot be hardened safely when hot-path services lack focused tests.',
-                    'proposed_next_action' => 'Add or harden '.$test.' for '.$source.' and prove it with php artisan test '.$test.'.',
-                ], $focusConfig),
-            default => null,
-        };
-    }
-
-    /**
-     * AP-790 needs a deep backlog, not a tiny curated list. This read-only sweep
-     * turns existing high-leverage factory runtime classes without same-name
-     * tests into executable missing-test findings. It deliberately excludes DTOs,
-     * contracts, interfaces, traits and abstract classes so the loop does not
-     * burn provider cycles on structural false positives.
-     *
-     * @param  array<string,mixed>  $focusConfig
-     * @param  array<string,mixed>  $input
-     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
-     */
-    private function checkFactoryRuntimeCoverage(string $areaId, string $focus, array $focusConfig, array $input): array
-    {
-        if (($input['skip_factory_runtime_coverage'] ?? false) === true) {
-            return [[], ['available' => true, 'skipped' => true, 'candidate_count' => 0]];
-        }
-
-        $replenishmentActive = $this->terminalBacklogReplenishmentActive($input);
-        $coverageRoots = $this->resolveFactoryRuntimeCoverageRoots($input);
-        $files = is_array($input['factory_runtime_coverage_files'] ?? null)
-            ? AreaFocusStringListNormalizer::stringifiedNonEmptyValues($input['factory_runtime_coverage_files'])
-            : $this->discoverFactoryRuntimeCoverageFiles($coverageRoots);
-
-        $findings = [];
-        $skippedCovered = 0;
-        $skippedNonRuntime = 0;
-        foreach ($files as $file) {
-            if (! $this->isFactoryRuntimeCoverageCandidate($file)) {
-                $skippedNonRuntime++;
-
-                continue;
-            }
-            $test = $this->factoryBacklogQualitySection->expectedTestPath(basename($file, '.php').'Test.php', [$file]);
-            if ($test === '' || $this->deepFindingSupport->pathExists($test)) {
-                $skippedCovered++;
-
-                continue;
-            }
-
-            $class = basename($file, '.php');
-            $finding = $this->makeFinding([
-                'area_id' => $areaId,
-                'focus' => $focus,
-                'origin' => 'factory_runtime_coverage_sweep',
-                'origin_type' => 'missing_test',
-                'source_ref' => 'factory_runtime_coverage_sweep:'.$file,
-                'title' => 'Missing test for '.$class,
-                'detail' => $class.' is a factory-critical runtime class in the AAEOS / Atlas Dev / Forge flow without same-name focused coverage.',
-                'kind' => self::KIND_TEST,
-                'owner_candidate' => self::OWNER_ATLAS_DEV,
-                'severity' => 'medium',
-                'confidence' => 'high',
-                'evidence_refs' => [
-                    'factory_runtime_coverage_sweep:'.$file,
-                    'impl:'.$file,
-                    'expected_test:'.basename($test),
-                ],
-                'affected_paths' => [$file],
-                'why_it_matters' => 'The autonomous software factory cannot run safely for many cycles if core Dev/Forge/stewardship runtimes lack focused regression coverage.',
-                'proposed_next_action' => 'Add or harden '.$test.' for '.$file.' and prove it with php artisan test '.$test.'.',
-            ], $focusConfig);
-            if ($replenishmentActive && $this->factoryRuntimeCoverageFileFromReplenishmentRoot($file)) {
-                $finding['terminal_backlog_replenishment'] = true;
-                $finding['terminal_backlog_state_hash'] = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
-            }
-            $findings[] = $finding;
-        }
-
-        return [$findings, [
-            'available' => true,
-            'recursive_scan' => true,
-            'discovery_mode' => is_array($input['factory_runtime_coverage_files'] ?? null) ? 'override' : 'recursive',
-            'root_count' => count($coverageRoots),
-            'terminal_backlog_replenishment' => $replenishmentActive,
-            'terminal_backlog_state_hash' => trim((string) ($input['terminal_backlog_state_hash'] ?? '')),
-            'terminal_backlog_rejection_reason_count' => count(array_values(array_filter(
-                (array) ($input['terminal_backlog_rejection_reasons'] ?? []),
-                'is_string',
-            ))),
-            'replenished_root_count' => $replenishmentActive ? count(self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS) : 0,
-            'replenished_roots' => $replenishmentActive ? self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS : [],
-            'candidate_count' => count($files),
-            'nested_candidate_count' => $this->countNestedFactoryRuntimeCoverageFiles($files, $coverageRoots),
-            'emitted_count' => count($findings),
-            'executable_emitted_count' => count(array_filter(
-                $findings,
-                static fn (array $finding): bool => (string) ($finding['origin'] ?? '') === 'factory_runtime_coverage_sweep',
-            )),
-            'skipped_already_covered_count' => $skippedCovered,
-            'skipped_non_runtime_count' => $skippedNonRuntime,
-        ]];
-    }
-
-    /**
      * Operator-authored multiplier material, expressed as bounded runtime/test
      * work so the loop has an explicit high-ROI order after ordinary findings.
      *
@@ -1897,7 +880,7 @@ class AreaFocusDeepFindingEngineService
             }
 
             $testPath = $this->factoryBacklogQualitySection->expectedTestPath($seed['test'], [$source]);
-            $finding = $this->makeFinding([
+            $finding = $this->findingFactory->makeFinding([
                 'area_id' => $areaId,
                 'focus' => $focus,
                 'origin' => 'strategic_multiplier_backlog',
@@ -1934,211 +917,6 @@ class AreaFocusDeepFindingEngineService
             'missing_sources' => $missingSource,
             'order' => array_map(static fn (array $seed): string => $seed['tier'].': '.$seed['title'], StrategicMultiplierSeeds::ALL),
         ]];
-    }
-
-    // ---------- finding construction ----------
-
-    /**
-     * @param  array<string,mixed>  $base
-     * @param  array<string,mixed>  $focusConfig
-     * @return array<string,mixed>
-     */
-    private function makeFinding(array $base, array $focusConfig): array
-    {
-        $areaId = (string) $base['area_id'];
-        $focus = (string) $base['focus'];
-        $kind = (string) $base['kind'];
-        $owner = (string) $base['owner_candidate'];
-        $severity = AreaFocusScalarNormalizer::severityOrMedium((string) $base['severity']);
-        $confidence = $this->normalizeConfidence((string) ($base['confidence'] ?? 'medium'));
-        $title = (string) $base['title'];
-
-        $affectedPaths = AreaFocusStringListNormalizer::coercedStringValues($base['affected_paths'] ?? []);
-        $affectedFiles = array_values(array_filter($affectedPaths, $this->deepFindingSupport->isCodePath(...)));
-        $affectedDocs = array_values(array_filter($affectedPaths, static fn (string $p): bool => str_starts_with($p, 'docs/')));
-
-        $sourceRef = (string) ($base['source_ref'] ?? ($kind.':'.$title));
-        $raw = hash('sha256', json_encode([$areaId, $focus, $kind, $owner, $sourceRef], JSON_THROW_ON_ERROR));
-        $findingId = 'afdf_'.substr($raw, 0, 16);
-        $findingHash = 'sha256:'.$raw;
-
-        $inFocus = $this->isInFocus($owner, $affectedPaths, $title.' '.(string) ($base['detail'] ?? ''), $focusConfig);
-        $confidenceScore = self::CONFIDENCE_SCORE[$confidence] ?? 0.6;
-        $priorityScore = (self::SEVERITY_RANK[$severity] ?? 0) * 100
-            + ($inFocus ? 50 : 0)
-            + (int) round($confidenceScore * 10);
-
-        $finding = [
-            'schema_version' => self::FINDING_SCHEMA,
-            'finding_id' => $findingId,
-            'finding_hash' => $findingHash,
-            'area_id' => $areaId,
-            'focus' => $focus,
-            'title' => $title,
-            'detail' => (string) ($base['detail'] ?? ''),
-            'kind' => $kind,
-            'severity' => $severity,
-            'confidence' => $confidence,
-            'confidence_score' => $confidenceScore,
-            'owner_candidate' => $owner,
-            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($base['evidence_refs'] ?? []),
-            'affected_files' => $affectedFiles,
-            'affected_docs' => $affectedDocs,
-            'why_it_matters' => (string) ($base['why_it_matters'] ?? ''),
-            'proposed_spec_title' => $this->proposedSpecTitle($kind, $title),
-            'proposed_next_action' => (string) ($base['proposed_next_action'] ?? 'Operator review required.'),
-            'in_focus' => $inFocus,
-            'priority_score' => $priorityScore,
-            'origin' => (string) ($base['origin'] ?? 'deep'),
-            'origin_type' => (string) ($base['origin_type'] ?? $kind),
-            'auto_execution_allowed' => false,
-            'operator_review_required' => true,
-        ];
-
-        $finding['spec_seed'] = $this->specSeed($finding);
-
-        return $finding;
-    }
-
-    /**
-     * Build a Self-Directed-Evolution-compatible gap candidate from a finding.
-     * Shape matches {@see SelfDirectedEvolutionGapReadModelService} candidates so
-     * it can flow straight into the Spec Proposal Adapter — drafted by SDE, never
-     * here.
-     *
-     * @param  array<string,mixed>  $finding
-     * @return array<string,mixed>
-     */
-    private function specSeed(array $finding): array
-    {
-        $owner = (string) $finding['owner_candidate'];
-        $rawHash = (string) $finding['finding_hash'];
-
-        return [
-            'schema_version' => self::SPEC_SEED_SCHEMA,
-            'candidate_id' => 'gapc_'.substr(hash('sha256', 'deep_seed|'.$rawHash), 0, 16),
-            'candidate_hash' => $rawHash,
-            'source_owner' => $owner,
-            'gap_kind' => self::OWNER_SPEC_GAP_KIND[$owner] ?? 'partial_canon',
-            'title' => (string) $finding['title'],
-            'rationale' => (string) $finding['why_it_matters'],
-            'capability' => 'area_focus_'.(string) $finding['focus'],
-            'risk_level' => (string) $finding['severity'],
-            'evidence_refs' => $finding['evidence_refs'],
-            'owner_doc_refs' => $finding['affected_docs'],
-            'route_hint_owner' => $owner,
-            'proposal_only' => true,
-            'operator_review_required' => true,
-        ];
-    }
-
-    private function proposedSpecTitle(string $kind, string $title): string
-    {
-        $prefix = match ($kind) {
-            self::KIND_BUG => 'Fix',
-            self::KIND_TEST => 'Pin with tests',
-            self::KIND_DOC => 'Restore canon for',
-            self::KIND_IMPLEMENTATION => 'Implement',
-            self::KIND_RUNTIME => 'Wire runtime for',
-            self::KIND_IMPROVEMENT => 'Improve',
-            default => 'Resolve',
-        };
-
-        return $prefix.': '.$title;
-    }
-
-    private function whyItMatters(string $kind, string $owner, string $detail): string
-    {
-        $base = match ($kind) {
-            self::KIND_TEST => 'Untested runtime in the development flow can regress silently and break the governed loop.',
-            self::KIND_DOC => 'Stale or missing canon lets the development flow drift from its source of truth.',
-            self::KIND_RISK => 'An unmanaged risk in the development flow can corrupt evidence or duplicate runtime authority.',
-            self::KIND_GAP => 'A gap in the development flow blocks work from reaching governed Dev/Forge execution.',
-            self::KIND_IMPLEMENTATION => 'An uncontracted capability has no reviewable spec, so the operator cannot safely authorise it.',
-            self::KIND_BUG => 'A failing gate hint signals the development flow may not be provably green.',
-            default => 'This finding affects the integrity of the Atlas development flow.',
-        };
-
-        return $detail !== '' ? $base.' '.$detail : $base;
-    }
-
-    private function isInFocus(string $owner, array $affectedPaths, string $text, array $focusConfig): bool
-    {
-        if (in_array($owner, [self::OWNER_ATLAS_DEV, self::OWNER_FORGE, self::OWNER_AAEOS], true)) {
-            return true;
-        }
-        $tokens = AreaFocusStringListNormalizer::coercedStringValues($focusConfig['tokens'] ?? []);
-        $haystack = strtolower($text.' '.implode(' ', $affectedPaths));
-        foreach ($tokens as $token) {
-            if ($token !== '' && str_contains($haystack, $token)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /** @var list<string> */
-    private const FACTORY_RUNTIME_COVERAGE_ROOTS = [
-        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
-        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/',
-        'app/Services/Ai/Programming/',
-        'app/Services/Ai/AgenticEngineeringOs/',
-        'app/Services/Ai/AtlasDecide/',
-    ];
-
-    /**
-     * Extra Dev/Forge runtime roots surfaced only after AP-790 terminal starvation
-     * so factory_max scans can replenish executable candidates beyond the default
-     * stewardship/programming sweep.
-     *
-     * @var list<string>
-     */
-    private const FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS = [
-        'app/Services/Ai/ProgrammingRuntime/',
-        'app/Services/Ai/AtlasForge/',
-        'app/Services/Ai/AgenticWorkcell/',
-        'app/Services/Ai/Provider/',
-    ];
-
-    /**
-     * Highest-leverage Atlas Dev + factory runtimes for bottleneck discovery
-     * (provider routing, blocking execution, missing focused tests).
-     *
-     * @var list<string>
-     */
-    private const ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES = [
-        'app/Services/Ai/Programming/AtlasDevRuntimeService.php',
-        'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
-        'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php',
-        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php',
-        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php',
-        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
-        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php',
-    ];
-
-    /** @var list<string> */
-    private const FACTORY_RUNTIME_COVERAGE_NAME_TERMS = [
-        'Service', 'Runtime', 'Runner', 'Engine', 'Coordinator', 'Dispatcher',
-        'Router', 'Evaluator', 'Builder', 'Adapter', 'Driver', 'Governor',
-        'Guard', 'Projector', 'Bridge', 'Planner', 'Registry', 'Certification',
-        'Policy', 'Store', 'Executor', 'Classifier', 'Orchestrator',
-    ];
-
-    /** @var list<string> */
-    private const FACTORY_RUNTIME_COVERAGE_EXCLUDED_NAME_TERMS = [
-        'Interface', 'Contract', 'Dto', 'DTO', 'Data', 'Enum', 'Exception', 'Trait',
-        'Value',
-    ];
-
-    // ---------- normalization / dedupe / sort / summaries ----------
-
-    private function normalizeConfidence(string $confidence): string
-    {
-        $confidence = strtolower(trim($confidence));
-
-        return array_key_exists($confidence, self::CONFIDENCE_SCORE) ? $confidence : 'medium';
     }
 
     // ---------- persistence (record mode) ----------
@@ -2275,132 +1053,11 @@ class AreaFocusDeepFindingEngineService
         return null;
     }
 
-    /**
-     * @param  array<string,mixed>  $input
-     * @return list<string>
-     */
-    private function resolveFactoryRuntimeCoverageRoots(array $input): array
-    {
-        $roots = self::FACTORY_RUNTIME_COVERAGE_ROOTS;
-        if ($this->terminalBacklogReplenishmentActive($input)) {
-            $roots = AreaFocusStringListNormalizer::uniqueMergedStringValues($roots, self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS);
-        }
-
-        return $roots;
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function terminalBacklogReplenishmentActive(array $input): bool
-    {
-        $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
-        $reasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
-
-        return $stateHash !== '' || $reasons !== [];
-    }
-
-    private function factoryRuntimeCoverageFileFromReplenishmentRoot(string $file): bool
-    {
-        foreach (self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS as $root) {
-            if (str_starts_with($file, $root)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  list<string>  $roots
-     * @return list<string>
-     */
-    private function discoverFactoryRuntimeCoverageFiles(array $roots): array
-    {
-        $files = [];
-        foreach ($roots as $root) {
-            $absolute = AreaFocusPathNormalizer::absoluteFromBasePath($root);
-            if (! is_dir($absolute)) {
-                continue;
-            }
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($absolute, \FilesystemIterator::SKIP_DOTS),
-            );
-            foreach ($iterator as $fileInfo) {
-                if (! $fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
-                    continue;
-                }
-                $relative = AreaFocusPathNormalizer::repoRelativeFromBasePath($fileInfo->getPathname());
-                if ($relative !== '') {
-                    $files[] = $relative;
-                }
-            }
-        }
-
-        sort($files);
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($files);
-    }
-
-    /**
-     * @param  list<string>  $files
-     * @param  list<string>  $roots
-     */
-    private function countNestedFactoryRuntimeCoverageFiles(array $files, array $roots): int
-    {
-        $nested = 0;
-        foreach ($files as $file) {
-            foreach ($roots as $root) {
-                if (! str_starts_with($file, $root)) {
-                    continue;
-                }
-                if (str_contains(substr($file, strlen($root)), '/')) {
-                    $nested++;
-                }
-                break;
-            }
-        }
-
-        return $nested;
-    }
-
-    private function isFactoryRuntimeCoverageCandidate(string $file): bool
-    {
-        if (! $this->factoryBacklogQualitySection->factoryRuntimeFile($file) || ! str_ends_with($file, '.php') || ! $this->deepFindingSupport->pathExists($file)) {
-            return false;
-        }
-
-        $class = basename($file, '.php');
-        foreach (self::FACTORY_RUNTIME_COVERAGE_EXCLUDED_NAME_TERMS as $term) {
-            if ($term !== '' && str_contains($class, $term)) {
-                return false;
-            }
-        }
-
-        $matchesName = false;
-        foreach (self::FACTORY_RUNTIME_COVERAGE_NAME_TERMS as $term) {
-            if ($term !== '' && str_ends_with($class, $term)) {
-                $matchesName = true;
-                break;
-            }
-        }
-        if (! $matchesName) {
-            return false;
-        }
-
-        $head = (string) file_get_contents(AreaFocusPathNormalizer::absoluteFromBasePath($file), false, null, 0, 4096);
-        if (preg_match('/\b(interface|trait)\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1) {
-            return false;
-        }
-        if (preg_match('/\babstract\s+class\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1) {
-            return false;
-        }
-
-        return preg_match('/\b(?:final\s+)?class\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1;
-    }
-
     // ---------- envelope / policy ----------
 
+    /**
+     * @param  list<array<string,mixed>>  $findings
+     */
     private function scanId(string $areaId, string $focus, array $findings): string
     {
         $hashes = array_map(static fn (array $f): string => (string) ($f['finding_hash'] ?? ''), $findings);

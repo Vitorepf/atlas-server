@@ -13,7 +13,8 @@ final class AreaFocusDeepFindingEngineServiceHardeningTest extends TestCase
      */
     public function test_source_uses_json_encode_for_finding_id(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php');
+        // GOD-DEBULK split: the makeFinding pipeline (injective finding id) now lives in DeepFindingFactory.
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DeepFinding/DeepFindingFactory.php');
 
         $this->assertStringContainsString('json_encode', $source, 'must use json_encode for injective id');
         $this->assertStringContainsString('JSON_THROW_ON_ERROR', $source, 'must throw on encode failure');
@@ -24,7 +25,8 @@ final class AreaFocusDeepFindingEngineServiceHardeningTest extends TestCase
      */
     public function test_old_pipe_implode_for_finding_id_removed(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php');
+        // GOD-DEBULK split: the makeFinding pipeline (injective finding id) now lives in DeepFindingFactory.
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DeepFinding/DeepFindingFactory.php');
 
         // The specific implode('|', [$areaId, $focus, $kind, $owner, $sourceRef]) must be gone.
         $this->assertStringNotContainsString(
