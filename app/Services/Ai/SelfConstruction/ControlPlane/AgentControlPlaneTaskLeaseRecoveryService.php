@@ -55,6 +55,8 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
     private const ROOT_CAUSE_SUMMARY_EXAMPLE_LIMIT = 5;
 
+    private const MAX_RELEASED_RECOVERY_RECORDS = 64;
+
     public function __construct(
         private readonly ?AgentControlPlaneTaskPacketQueueRepository $queue = null,
         private readonly ?AgentControlPlaneClaimLeaseRepository $leases = null,
@@ -254,8 +256,9 @@ final class AgentControlPlaneTaskLeaseRecoveryService
     }
 
     /**
-     * Return explicitly released, non-terminal tasks to `claimable` when they
-     * were paused/released rather than blocked by a failed worker packet.
+     * Return an exact released packet, or a bounded released inventory, to
+     * `claimable` when it was paused/released rather than blocked by a failed
+     * worker packet. An oversized unscoped inventory stays untouched.
      *
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
@@ -267,6 +270,29 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $reasonOverride = $this->reasonOverride($options);
         $taskPacketId = trim((string) ($options['packet'] ?? ''));
         $queueTags = $this->queueTags($options);
+
+        if ($taskPacketId === '') {
+            $releasedRecordCount = (int) data_get($queueRepo->registry(['status' => 'released'], true), 'entry_count', 0);
+            if ($releasedRecordCount > self::MAX_RELEASED_RECOVERY_RECORDS) {
+                return $this->envelope([
+                    'event' => 'recover_released_tasks',
+                    'status' => 'blocked',
+                    'reason' => 'queue_scan_limit_exceeded',
+                    'released_record_count' => $releasedRecordCount,
+                    'candidate_count' => self::MAX_RELEASED_RECOVERY_RECORDS,
+                    'minimum_claimable_count' => self::MAX_RELEASED_RECOVERY_RECORDS + 1,
+                    'scan_limit' => self::MAX_RELEASED_RECOVERY_RECORDS,
+                    'recovered_count' => 0,
+                    'skipped_count' => 0,
+                    'released_skipped_count' => 0,
+                    'recovered' => [],
+                    'skipped' => [],
+                    'released_skipped' => [],
+                    'actor' => $actor,
+                    'queue_tags' => $queueTags,
+                ]);
+            }
+        }
 
         $releasedRecords = $taskPacketId !== ''
             ? array_values(array_filter([$queueRepo->get($taskPacketId)], static fn ($record): bool => is_array($record)))

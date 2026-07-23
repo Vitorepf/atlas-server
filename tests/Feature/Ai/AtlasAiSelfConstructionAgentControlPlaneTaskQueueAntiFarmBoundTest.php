@@ -315,6 +315,54 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame('claimable', data_get($queue->get('dependency-serving-bound-64'), 'status'));
     }
 
+    public function test_serving_refuses_an_unbounded_cooldown_recovery_before_requeueing_it(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $id = 'cooldown-serving-bound-'.$index;
+            $packet = $this->input($id);
+            $packet['objective'] = 'independent bounded cooldown recovery scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove bounded cooldown recovery constraint '.$index];
+            $built = $builder->build($packet);
+            $built['status'] = 'released';
+            $queue->enqueue($built, ['metadata' => [
+                'release_reason' => 'client_reported_give_back',
+                'last_give_back_by' => 'cooldown-serving-bound-worker',
+                'last_give_back_at' => now()->toIso8601String(),
+            ]]);
+        }
+
+        $this->assertSame(65, data_get($queue->registry(['status' => 'released'], true), 'entry_count'));
+        $this->assertSame(0, data_get($queue->registry(['status' => 'claimable'], true), 'entry_count'));
+
+        $gate = new class implements AwisExecutionGatePort
+        {
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return [
+                    'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
+                    'allowed' => true,
+                    'status' => 'ready',
+                    'mode' => $mode,
+                    'blockers' => [],
+                ];
+            }
+        };
+
+        $result = (new AtlasTaskServingService($this->orchestrator(), awisGate: $gate))->next('cooldown-serving-bound-worker');
+
+        $this->assertSame('queue_scan_limit_exceeded', $result['status']);
+        $this->assertSame('queue_scan_limit_exceeded', $result['reason']);
+        $this->assertSame(64, $result['candidate_count']);
+        $this->assertSame(65, $result['minimum_claimable_count']);
+        $this->assertSame(64, $result['scan_limit']);
+        $this->assertSame('released', data_get($queue->get('cooldown-serving-bound-64'), 'status'));
+        $this->assertSame(65, data_get($queue->registry(['status' => 'released'], true), 'entry_count'));
+        $this->assertSame(0, data_get($queue->registry(['status' => 'claimable'], true), 'entry_count'));
+    }
+
     /** @return array<string, mixed> */
     private function input(string $id): array
     {

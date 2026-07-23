@@ -269,7 +269,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
         // Reclaim recoverable work before bounded selection.
         $recoveryFailure = $this->reapExpiredBeforeListing();
         if ($recoveryFailure !== null) {
-            return $this->envelope('claim_blocked', ['reason' => 'lease_recovery_unavailable'] + $recoveryFailure);
+            return $this->envelope('claim_blocked', $recoveryFailure);
         }
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters, [
@@ -389,10 +389,13 @@ final class AgentControlPlaneTaskQueueOrchestrator
             $recovery = new AgentControlPlaneTaskLeaseRecoveryService($this->queue, $this->leases);
             $recovery->recoverExpiredLeases(['actor' => 'claim_next_presweep']);
             $recovery->recoverOrphanedClaims(['actor' => 'claim_next_presweep']);
-            $recovery->recoverReleasedTasks(['actor' => 'claim_next_presweep']);
+            $releasedRecovery = $recovery->recoverReleasedTasks(['actor' => 'claim_next_presweep']);
+            if ((string) ($releasedRecovery['status'] ?? '') === 'blocked') {
+                return $releasedRecovery;
+            }
             return null;
         } catch (Throwable $e) {
-            return ['lease_recovery_status' => 'unavailable', 'recovery_exception' => $e::class];
+            return ['reason' => 'lease_recovery_unavailable', 'lease_recovery_status' => 'unavailable', 'recovery_exception' => $e::class];
         }
     }
 
