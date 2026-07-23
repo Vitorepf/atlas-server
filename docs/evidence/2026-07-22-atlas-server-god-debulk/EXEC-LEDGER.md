@@ -2508,3 +2508,33 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 81 — A1-SC-0038 align Batch1 guarded-runtime packet paths, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_COMMIT_SCOPE_INCIDENT
+commit: 6c9f79bfe
+subject: "refactor(core): GOD-DEBULK align Batch1 packet paths"
+red:
+  result: "FAIL 1 test, 4 assertions: the ready implementation packet declared app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php, which does not exist."
+green:
+  behavior: "The packet now declares the ControlPlane invoker and Readiness facade at their real current paths; direct section and public facade outputs agree."
+verification:
+  focused_feature: "PASS 1 test, 9 assertions"
+  php_lint: "PASS Batch1 source and Feature test"
+  pint: "PASS Feature test; NOT GREEN for pre-existing full-file Batch1 violations outside the two-path hunk (including recorded unused-import debt)"
+  diff_check: PASS
+  density: "Batch1 remains the pre-existing 6,198 LOC monster; this two-line replacement adds no density and its structural split is not attempted without blueprint."
+commit_scope_incident:
+  status: "NOT CLEAN"
+  detail: "After another session released .git/index.lock, 56 already-staged unrelated Foundry-to-archive renames entered this commit. No rename content is attributed to this task; history was preserved rather than rewritten."
+  prevention: "Subsequent commits use explicit staging plus git commit --only -- <paths> against the shared index."
+boundary:
+  - fixes only the two stale allowed_files paths in one implementation-packet payload
+  - no packet is executed, no writer/provider/adapter/dispatch/ledger operation is enabled, and all outer runtime authorities remain false
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
