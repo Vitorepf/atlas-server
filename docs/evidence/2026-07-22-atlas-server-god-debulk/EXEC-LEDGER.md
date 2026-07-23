@@ -2980,3 +2980,24 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 97 — Multi-Agent certification serving preflight, 2026-07-23
+
+```yaml
+status: NOT_COMMITTED
+finding: A1-SC-0187-adjacent
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --no-coverage
+  result: "FAIL 10 tests, 59 assertions: every synthetic packet was rejected by the serving probe guard."
+act:
+  behavior: "A run/cycle-scoped synthetic-agent exception was tried locally and rejected from the wave because acceptance did not become green."
+proof:
+  public_replay: "The real service then claimed only agent 0; packets 1..N failed admission with template_farm_similarity, and agent 0 completion was blocked by lowercase-normalized scope versus mixed-case evidence paths."
+  result: "NOT GREEN: 10 focused failures remain. No app/ change was staged or committed."
+boundary:
+  - "The diagnostic invoked the public certification service and queue/orchestrator APIs, never reflection."
+  - "The temporary serving exception was reverted; real workers remain excluded from certification probes."
+next_cursor: "Treat admission plus scope-evidence compatibility as a separately governed serving/certification repair; skip A1-SC-0187 cleanup until its exception path has an executable public failure."
+```
