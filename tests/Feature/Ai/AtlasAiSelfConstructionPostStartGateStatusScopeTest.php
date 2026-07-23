@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionPostStartGateStatusSection;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
 use Tests\TestCase;
@@ -51,6 +52,39 @@ final class AtlasAiSelfConstructionPostStartGateStatusScopeTest extends TestCase
             $this->assertSame(1, $status[$contract['provider_count_key']], $contract['method']);
             $this->assertSame('packet-match', $status[$contract['latest_key']]['packet_id'], $contract['method']);
         }
+    }
+
+    public function test_post_start_status_derives_latest_and_counts_from_one_agent_run_snapshot(): void
+    {
+        $scope = [
+            'workspace' => 'workspace-snapshot',
+            'target' => 'target-snapshot',
+            'actor' => 'actor-snapshot',
+            'session' => 'session-snapshot',
+            'packet' => 'packet-snapshot',
+            'receipt_hash' => str_repeat('c', 64),
+        ];
+        $this->createRun('provider-start:snapshot-original', $scope);
+
+        $injected = false;
+        DB::listen(function (QueryExecuted $query) use (&$injected, $scope): void {
+            $sql = strtolower(ltrim($query->sql));
+            if ($injected || ! str_starts_with($sql, 'select * from') || ! str_contains($sql, 'atlas_self_construction_agent_runs')) {
+                return;
+            }
+
+            $injected = true;
+            $this->createRun('provider-start:snapshot-intruder', $scope, CarbonImmutable::now()->addSecond());
+        });
+
+        $result = (new ReadinessProjectionPostStartGateStatusSection)
+            ->agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateStatus($scope);
+        $status = $result['agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_status'];
+
+        $this->assertTrue($injected);
+        $this->assertSame(1, $status['codex_real_invoker_post_start_executor_plan_recorded_run_count']);
+        $this->assertSame(1, $status['provider_start_runs_with_codex_real_invoker_executor_plan_count']);
+        $this->assertSame('provider-start:snapshot-original', $status['latest_codex_real_invoker_post_start_executor_plan']['run_key']);
     }
 
     /**

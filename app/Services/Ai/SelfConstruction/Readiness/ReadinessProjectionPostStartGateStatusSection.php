@@ -290,6 +290,45 @@ final class ReadinessProjectionPostStartGateStatusSection
 
     /**
      * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
+     * @return array{observed_count: int, provider_count: int, latest_observed: AtlasSelfConstructionAgentRun|null}
+     */
+    private function postStartRunSnapshot(array $options, string $observedMetadataPath, string $providerMetadataPath): array
+    {
+        $observedColumn = 'metadata->'.str_replace('.', '->', $observedMetadataPath);
+        $providerColumn = 'metadata->'.str_replace('.', '->', $providerMetadataPath);
+        $runs = $this->scopePostStartRunsQuery(AtlasSelfConstructionAgentRun::query(), $options)
+            ->where(function ($query) use ($observedColumn, $providerColumn): void {
+                $query->whereNotNull($observedColumn)
+                    ->orWhere(function ($query) use ($providerColumn): void {
+                        $query->where('run_key', 'like', 'provider-start:%')
+                            ->where('status', 'adapter_invocation_prepared')
+                            ->whereNotNull($providerColumn);
+                    });
+            })
+            ->get();
+        $hasMetadataValue = static function (AtlasSelfConstructionAgentRun $run, string $path): bool {
+            $value = data_get($run->metadata, $path);
+
+            return is_string($value) && trim($value) !== '';
+        };
+        $observedRuns = $runs
+            ->filter(fn (AtlasSelfConstructionAgentRun $run): bool => $hasMetadataValue($run, $observedMetadataPath))
+            ->sortByDesc('updated_at')
+            ->values();
+        $providerRuns = $runs
+            ->filter(fn (AtlasSelfConstructionAgentRun $run): bool => str_starts_with($run->run_key, 'provider-start:')
+                && $run->status === 'adapter_invocation_prepared'
+                && $hasMetadataValue($run, $providerMetadataPath));
+
+        return [
+            'observed_count' => $observedRuns->count(),
+            'provider_count' => $providerRuns->count(),
+            'latest_observed' => $observedRuns->first(),
+        ];
+    }
+
+    /**
+     * @param  array{workspace?: string|null, target?: string|null, actor?: string|null, session?: string|null, packet?: string|null, receipt_hash?: string|null}  $options
      * @return array<string, mixed>
      */
     private function agentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateContract(array $options = []): array
@@ -319,25 +358,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $implementationBoundaryReady = class_exists(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
             && method_exists(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class, 'preparePostStartImplementationBoundary');
 
-        $observedPlanRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_executor_plan->real_invoker_executor_plan_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_executor_plan.real_invoker_executor_plan_id',
+                'codex_real_invoker_executor_plan.real_invoker_executor_plan_id'
             )
             : null;
-        $providerRunsWithPlanQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_executor_plan->real_invoker_executor_plan_id'),
-                $options
-            )
-            : null;
-        $latestObservedPlan = $observedPlanRunsQuery === null
-            ? null
-            : (clone $observedPlanRunsQuery)->latest('updated_at')->first();
+        $latestObservedPlan = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -362,8 +390,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_implementation_boundary_gate_ready' => $implementationBoundaryReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_executor_plan_recorded_run_count' => $observedPlanRunsQuery === null ? null : (clone $observedPlanRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_executor_plan_count' => $providerRunsWithPlanQuery === null ? null : (clone $providerRunsWithPlanQuery)->count(),
+            'codex_real_invoker_post_start_executor_plan_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_executor_plan_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_executor_plan' => $latestObservedPlan instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedPlan->id,
@@ -457,25 +485,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $rehearsalReady = class_exists(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class)
             && method_exists(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class, 'rehearsePostStartActualProcessStart');
 
-        $observedEnvelopeRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_process_start_envelope->real_invoker_process_start_envelope_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_process_start_envelope.real_invoker_process_start_envelope_id',
+                'codex_real_invoker_process_start_envelope.real_invoker_process_start_envelope_id'
             )
             : null;
-        $providerRunsWithEnvelopeQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_process_start_envelope->real_invoker_process_start_envelope_id'),
-                $options
-            )
-            : null;
-        $latestObservedEnvelope = $observedEnvelopeRunsQuery === null
-            ? null
-            : (clone $observedEnvelopeRunsQuery)->latest('updated_at')->first();
+        $latestObservedEnvelope = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -500,8 +517,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_actual_process_start_rehearsal_gate_ready' => $rehearsalReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_process_start_envelope_recorded_run_count' => $observedEnvelopeRunsQuery === null ? null : (clone $observedEnvelopeRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_process_start_envelope_count' => $providerRunsWithEnvelopeQuery === null ? null : (clone $providerRunsWithEnvelopeQuery)->count(),
+            'codex_real_invoker_post_start_process_start_envelope_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_process_start_envelope_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_process_start_envelope' => $latestObservedEnvelope instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedEnvelope->id,
@@ -595,25 +612,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $envelopeReady = class_exists(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class)
             && method_exists(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class, 'buildPostStartProcessStartEnvelope');
 
-        $observedStartExecutionRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_start_execution_gate->real_invoker_start_execution_gate_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_start_execution_gate.real_invoker_start_execution_gate_id',
+                'codex_real_invoker_start_execution_gate.real_invoker_start_execution_gate_id'
             )
             : null;
-        $providerRunsWithStartExecutionQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_start_execution_gate->real_invoker_start_execution_gate_id'),
-                $options
-            )
-            : null;
-        $latestObservedStartExecution = $observedStartExecutionRunsQuery === null
-            ? null
-            : (clone $observedStartExecutionRunsQuery)->latest('updated_at')->first();
+        $latestObservedStartExecution = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -638,8 +644,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_process_start_envelope_gate_ready' => $envelopeReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_start_execution_gate_recorded_run_count' => $observedStartExecutionRunsQuery === null ? null : (clone $observedStartExecutionRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_start_execution_gate_count' => $providerRunsWithStartExecutionQuery === null ? null : (clone $providerRunsWithStartExecutionQuery)->count(),
+            'codex_real_invoker_post_start_start_execution_gate_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_start_execution_gate_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_start_execution_gate' => $latestObservedStartExecution instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedStartExecution->id,
@@ -733,25 +739,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $guardedReady = class_exists(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class)
             && method_exists(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class, 'preparePostStartGuardedProcessStart');
 
-        $observedFinalAuthRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_final_process_start_authorization->real_invoker_final_process_start_authorization_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_final_process_start_authorization.real_invoker_final_process_start_authorization_id',
+                'codex_real_invoker_final_process_start_authorization.real_invoker_final_process_start_authorization_id'
             )
             : null;
-        $providerRunsWithFinalAuthQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_final_process_start_authorization->real_invoker_final_process_start_authorization_id'),
-                $options
-            )
-            : null;
-        $latestObservedFinalAuth = $observedFinalAuthRunsQuery === null
-            ? null
-            : (clone $observedFinalAuthRunsQuery)->latest('updated_at')->first();
+        $latestObservedFinalAuth = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -776,8 +771,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_guarded_process_start_executor_gate_ready' => $guardedReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_final_process_start_authorization_recorded_run_count' => $observedFinalAuthRunsQuery === null ? null : (clone $observedFinalAuthRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_final_process_start_authorization_count' => $providerRunsWithFinalAuthQuery === null ? null : (clone $providerRunsWithFinalAuthQuery)->count(),
+            'codex_real_invoker_post_start_final_process_start_authorization_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_final_process_start_authorization_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_final_process_start_authorization' => $latestObservedFinalAuth instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedFinalAuth->id,
@@ -870,25 +865,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $finalAuthorizationReady = class_exists(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)
             && method_exists(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class, 'authorizePostStartFinalProcessStart');
 
-        $observedRehearsalRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_actual_process_start_rehearsal->real_invoker_actual_process_start_rehearsal_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_actual_process_start_rehearsal.real_invoker_actual_process_start_rehearsal_id',
+                'codex_real_invoker_actual_process_start_rehearsal.real_invoker_actual_process_start_rehearsal_id'
             )
             : null;
-        $providerRunsWithRehearsalQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_actual_process_start_rehearsal->real_invoker_actual_process_start_rehearsal_id'),
-                $options
-            )
-            : null;
-        $latestObservedRehearsal = $observedRehearsalRunsQuery === null
-            ? null
-            : (clone $observedRehearsalRunsQuery)->latest('updated_at')->first();
+        $latestObservedRehearsal = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -913,8 +897,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_final_process_start_authorization_gate_ready' => $finalAuthorizationReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_actual_process_start_rehearsal_recorded_run_count' => $observedRehearsalRunsQuery === null ? null : (clone $observedRehearsalRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_actual_process_start_rehearsal_count' => $providerRunsWithRehearsalQuery === null ? null : (clone $providerRunsWithRehearsalQuery)->count(),
+            'codex_real_invoker_post_start_actual_process_start_rehearsal_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_actual_process_start_rehearsal_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_actual_process_start_rehearsal' => $latestObservedRehearsal instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedRehearsal->id,
@@ -1136,25 +1120,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $executorPlanReady = class_exists(AgentCodexRealInvokerPostStartExecutorPlanGate::class)
             && method_exists(AgentCodexRealInvokerPostStartExecutorPlanGate::class, 'preparePostStartExecutorPlan');
 
-        $observedFreshReleaseRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_executor_fresh_release->real_invoker_executor_fresh_release_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_executor_fresh_release.real_invoker_executor_fresh_release_id',
+                'codex_real_invoker_executor_fresh_release.real_invoker_executor_fresh_release_id'
             )
             : null;
-        $providerRunsWithFreshReleaseQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_executor_fresh_release->real_invoker_executor_fresh_release_id'),
-                $options
-            )
-            : null;
-        $latestObservedFreshRelease = $observedFreshReleaseRunsQuery === null
-            ? null
-            : (clone $observedFreshReleaseRunsQuery)->latest('updated_at')->first();
+        $latestObservedFreshRelease = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -1179,8 +1152,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_executor_plan_gate_ready' => $executorPlanReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_executor_fresh_release_recorded_run_count' => $observedFreshReleaseRunsQuery === null ? null : (clone $observedFreshReleaseRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_executor_fresh_release_count' => $providerRunsWithFreshReleaseQuery === null ? null : (clone $providerRunsWithFreshReleaseQuery)->count(),
+            'codex_real_invoker_post_start_executor_fresh_release_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_executor_fresh_release_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_executor_fresh_release' => $latestObservedFreshRelease instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedFreshRelease->id,
@@ -1271,25 +1244,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $enablementReady = class_exists(AgentCodexRealInvokerPostStartExecutorEnablementGate::class)
             && method_exists(AgentCodexRealInvokerPostStartExecutorEnablementGate::class, 'enablePostStartExecutor');
 
-        $observedActivationRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_supervised_start_activation->real_invoker_supervised_start_activation_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_supervised_start_activation.real_invoker_supervised_start_activation_id',
+                'codex_real_invoker_supervised_start_activation.real_invoker_supervised_start_activation_id'
             )
             : null;
-        $providerRunsWithActivationQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_supervised_start_activation->real_invoker_supervised_start_activation_id'),
-                $options
-            )
-            : null;
-        $latestObservedActivation = $observedActivationRunsQuery === null
-            ? null
-            : (clone $observedActivationRunsQuery)->latest('updated_at')->first();
+        $latestObservedActivation = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -1314,8 +1276,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_executor_enablement_gate_ready' => $enablementReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_supervised_start_activation_recorded_run_count' => $observedActivationRunsQuery === null ? null : (clone $observedActivationRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_supervised_start_activation_count' => $providerRunsWithActivationQuery === null ? null : (clone $providerRunsWithActivationQuery)->count(),
+            'codex_real_invoker_post_start_supervised_start_activation_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_supervised_start_activation_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_supervised_start_activation' => $latestObservedActivation instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedActivation->id,
@@ -1406,25 +1368,14 @@ final class ReadinessProjectionPostStartGateStatusSection
         $activationReady = class_exists(AgentCodexRealInvokerPostStartSupervisedStartActivationGate::class)
             && method_exists(AgentCodexRealInvokerPostStartSupervisedStartActivationGate::class, 'preparePostStartSupervisedStartActivation');
 
-        $observedGuardedRunsQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->whereNotNull('metadata->codex_real_invoker_post_start_guarded_process_start->real_invoker_guarded_process_start_id'),
-                $options
+        $runSnapshot = $runsTableReady
+            ? $this->postStartRunSnapshot(
+                $options,
+                'codex_real_invoker_post_start_guarded_process_start.real_invoker_guarded_process_start_id',
+                'codex_real_invoker_guarded_process_start.real_invoker_guarded_process_start_id'
             )
             : null;
-        $providerRunsWithGuardedQuery = $runsTableReady
-            ? $this->scopePostStartRunsQuery(
-                AtlasSelfConstructionAgentRun::query()
-                    ->where('run_key', 'like', 'provider-start:%')
-                    ->where('status', 'adapter_invocation_prepared')
-                    ->whereNotNull('metadata->codex_real_invoker_guarded_process_start->real_invoker_guarded_process_start_id'),
-                $options
-            )
-            : null;
-        $latestObservedGuarded = $observedGuardedRunsQuery === null
-            ? null
-            : (clone $observedGuardedRunsQuery)->latest('updated_at')->first();
+        $latestObservedGuarded = $runSnapshot['latest_observed'] ?? null;
 
         $statusReady = $runsTableReady
             && $ledgerTableReady
@@ -1449,8 +1400,8 @@ final class ReadinessProjectionPostStartGateStatusSection
             'post_start_supervised_start_activation_gate_ready' => $activationReady,
             'agent_runs_table_ready' => $runsTableReady,
             'ledger_table_ready' => $ledgerTableReady,
-            'codex_real_invoker_post_start_guarded_process_start_recorded_run_count' => $observedGuardedRunsQuery === null ? null : (clone $observedGuardedRunsQuery)->count(),
-            'provider_start_runs_with_codex_real_invoker_guarded_process_start_count' => $providerRunsWithGuardedQuery === null ? null : (clone $providerRunsWithGuardedQuery)->count(),
+            'codex_real_invoker_post_start_guarded_process_start_recorded_run_count' => $runSnapshot['observed_count'] ?? null,
+            'provider_start_runs_with_codex_real_invoker_guarded_process_start_count' => $runSnapshot['provider_count'] ?? null,
             'latest_codex_real_invoker_post_start_guarded_process_start' => $latestObservedGuarded instanceof AtlasSelfConstructionAgentRun
                 ? [
                     'agent_run_id' => $latestObservedGuarded->id,
