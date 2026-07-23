@@ -66,9 +66,13 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\Ai\AiWorkerSupport\AtlasScoutBriefSection;
+use App\Services\Ai\AiWorkerSupport\KernelGovernanceSection;
 use App\Services\Ai\AiWorkerSupport\MacBackgroundReadinessSection;
 use App\Services\Ai\AiWorkerSupport\PermissionSteerSection;
 use App\Services\Ai\AiWorkerSupport\ProgrammingRepairSupportSection;
+use App\Services\Ai\AiWorkerSupport\ProviderFairnessBudgetSection;
+use App\Services\Ai\AiWorkerSupport\ReadyPromptPrepSection;
 
 class AiWorker
 {
@@ -110,6 +114,14 @@ class AiWorker
     private readonly PermissionSteerSection $permissionSteer;
 
     private readonly ProgrammingRepairSupportSection $programmingRepairSupport;
+
+    private readonly KernelGovernanceSection $kernelGovernance;
+
+    private readonly ReadyPromptPrepSection $readyPromptPrep;
+
+    private readonly ProviderFairnessBudgetSection $providerFairnessBudget;
+
+    private readonly AtlasScoutBriefSection $scoutBrief;
 
     public function __construct(
         private readonly AiProviderManager $providers,
@@ -155,6 +167,24 @@ class AiWorker
         $this->macBackgroundReadiness = new MacBackgroundReadinessSection($this->logger, $this->macAgent);
         $this->permissionSteer = new PermissionSteerSection($this->finalResponses, $this->states);
         $this->programmingRepairSupport = new ProgrammingRepairSupportSection;
+        $this->kernelGovernance = new KernelGovernanceSection(
+            $this->kernelPipelines,
+            $this->kernelPipelineAudit,
+            $this->missionLifecycle,
+            $this->missionEvidence,
+            $this->missionCertification,
+            $this->missionEvidenceAdapter,
+            $this->permissionGates,
+            $this->logger,
+        );
+        $this->readyPromptPrep = new ReadyPromptPrepSection($this->youtubeKnowledge, $this->prompts);
+        $this->providerFairnessBudget = new ProviderFairnessBudgetSection(
+            $this->fairClaude,
+            $this->models,
+            $this->budgets,
+            $this->logger,
+        );
+        $this->scoutBrief = new AtlasScoutBriefSection;
     }
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -169,181 +199,12 @@ class AiWorker
 
     private function refreshReadyYouTubePrompt(AiJob $job): AiJob
     {
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $videos = data_get($payload, 'youtube_ingestion.videos', []);
-        if (! is_array($videos) || $videos === []) {
-            return $job;
-        }
-
-        $hasProcessingVideo = collect($videos)
-            ->contains(fn (mixed $video): bool => is_array($video) && ($video['status'] ?? null) === 'processing');
-        if (! $hasProcessingVideo) {
-            return $job;
-        }
-
-        // Canonical capability · union URLs from input_text and
-        // rich_input_payload.url_attachments[] so the refresh path matches
-        // the gateway extraction path. Mobile/desktop that attach via
-        // payload only otherwise miss the processing→ready refresh.
-        $payloadUrls = data_get($payload, 'rich_input_payload.url_attachments');
-        $urlsFromText = trim((string) $job->input_text) !== ''
-            ? $this->youtubeKnowledge->extractUrls((string) $job->input_text)
-            : [];
-        $urlsFromPayload = is_array($payloadUrls)
-            ? $this->youtubeKnowledge->extractUrlsFromRichInputPayload($payloadUrls)
-            : [];
-        $urls = collect([...$urlsFromText, ...$urlsFromPayload])
-            ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
-            ->unique()
-            ->values()
-            ->all();
-
-        if ($urls === []) {
-            return $job;
-        }
-
-        try {
-            $fresh = $this->youtubeKnowledge->ingestFromUrls($urls, [
-                'defer_audio_fallback' => true,
-            ]);
-        } catch (\Throwable) {
-            return $job;
-        }
-
-        $freshVideos = data_get($fresh, 'videos', []);
-        if (! is_array($freshVideos) || $freshVideos === []) {
-            return $job;
-        }
-
-        $hasReadyVideo = collect($freshVideos)
-            ->contains(fn (mixed $video): bool => is_array($video) && ($video['status'] ?? null) === 'ready');
-        if (! $hasReadyVideo) {
-            return $job;
-        }
-
-        $payload['youtube_ingestion'] = $fresh;
-        $prompt = $this->prompts->build((string) $job->input_text, [
-            'provider' => $job->provider,
-            'model' => $job->model,
-            'source_type' => $job->trace?->source_type,
-            'payload' => $payload,
-        ]);
-        $metadata = is_array($job->metadata) ? $job->metadata : [];
-        $metadata['youtube_ingestion'] = $fresh;
-        $metadata['task_request'] = $prompt->taskRequest;
-        $metadata['context_pack'] = $prompt->contextPack;
-        $metadata['open_brain_injection'] = $prompt->openBrainInjection;
-        $metadata['execution_plan'] = $prompt->executionPlan;
-        $metadata['skills_activated'] = $prompt->activatedSkills;
-
-        $job->forceFill([
-            'prompt' => $prompt->prompt,
-            'context_refs' => $prompt->contextRefs,
-            'payload' => $payload,
-            'metadata' => $metadata,
-        ])->save();
-
-        if ($job->trace) {
-            $traceMetadata = is_array($job->trace->metadata) ? $job->trace->metadata : [];
-            $traceMetadata['youtube_ingestion'] = $fresh;
-            $traceMetadata['task_request'] = $prompt->taskRequest;
-            $traceMetadata['context_pack'] = $prompt->contextPack;
-            $traceMetadata['open_brain_injection'] = $prompt->openBrainInjection;
-            $traceMetadata['execution_plan'] = $prompt->executionPlan;
-            $traceMetadata['skills_activated'] = $prompt->activatedSkills;
-            $job->trace->forceFill([
-                'prompt_hash' => hash('sha256', $prompt->prompt),
-                'context_refs' => $prompt->contextRefs,
-                'metadata' => $traceMetadata,
-            ])->save();
-        }
-
-        return $job->refresh();
+        return $this->readyPromptPrep->refreshReadyYouTubePrompt($job);
     }
 
-    /**
-     * Árbitro SEMÂNTICO no worker (decisão do operador 03/07): quando o
-     * léxico caiu no fallback (S52), um modelo LOCAL lê a mensagem contra o
-     * catálogo de flows e escolhe o destino — "analise esse ativo" vira
-     * finanças, "essa página quebrou" vira debug — sem lista de frases.
-     * Roda AQUI (job assíncrono; ~15-20s do hermes são invisíveis) e nunca
-     * no router HTTP. Fail-open em qualquer falha: o job segue como estava
-     * (gateway agêntico S52). Segue o padrão rebuild-prompt-pós-claim do
-     * {@see refreshReadyYouTubePrompt}.
-     */
     private function applySemanticFlowArbiter(AiJob $job): AiJob
     {
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $reason = (string) data_get($payload, 'atlas_ai_router.routing_reason', '');
-        if (! in_array($reason, ['agentic_gateway_default', 'fallback_conversation'], true)) {
-            return $job;
-        }
-        $message = trim((string) $job->input_text);
-        if (mb_strlen($message) < 13) {
-            return $job;
-        }
-
-        try {
-            $flowId = app(AtlasSemanticFlowArbiterService::class)->arbitrate($message);
-        } catch (\Throwable) {
-            return $job;
-        }
-        if ($flowId === null || $flowId === (string) data_get($payload, 'atlas_ai_router.flow_id')) {
-            return $job;
-        }
-
-        // Reescreve a decisão de forma auditável e mapeia a execução como o
-        // AiInteractionController mapeia flows de programação.
-        $payload['atlas_ai_router']['flow_id'] = $flowId;
-        $payload['atlas_ai_router']['routing_reason'] = 'semantic_arbiter:'.$reason;
-        $payload['flow_id'] = $flowId;
-        if (in_array($flowId, ['atlas_dev', 'atlas_debug', 'atlas_review', 'atlas_plan'], true)
-            && (bool) data_get($payload, 'atlas_ai_router.handoff_payload.workspace_present', false)) {
-            $payload['atlas_mode'] = 'programming';
-            $payload['routing_task'] = match ($flowId) {
-                'atlas_debug' => 'debug',
-                'atlas_review' => 'review',
-                'atlas_plan' => 'plan',
-                default => 'dev',
-            };
-        }
-
-        $prompt = $this->prompts->build((string) $job->input_text, [
-            'provider' => $job->provider,
-            'model' => $job->model,
-            'source_type' => $job->trace?->source_type,
-            'payload' => $payload,
-        ]);
-        $metadata = is_array($job->metadata) ? $job->metadata : [];
-        $metadata['semantic_flow_arbiter'] = ['flow_id' => $flowId, 'superseded_reason' => $reason];
-
-        // Cada arbitragem é um EXEMPLO ROTULADO grátis (frase real → flow
-        // escolhido pelo modelo): gravar a resolução no ledger de misses
-        // fecha o ciclo de aprendizado — frases recorrentes viram atalho
-        // léxico por evidência e o custo do árbitro amortiza sozinho.
-        try {
-            AppendOnlyJsonlStore::append(
-                storage_path('atlas/router/misroute_candidates.jsonl'),
-                [
-                    'schema_version' => 'atlas.router.misroute_candidate.v1',
-                    'recorded_at' => now()->toIso8601String(),
-                    'surface_id' => (string) data_get($payload, 'surface_id', ''),
-                    'intent' => mb_substr($message, 0, 500),
-                    'decision' => 'semantic_arbiter_resolved',
-                    'resolved_flow' => $flowId,
-                ],
-            );
-        } catch (\Throwable) {
-            // fail-open
-        }
-        $job->forceFill([
-            'prompt' => $prompt->prompt,
-            'context_refs' => $prompt->contextRefs,
-            'payload' => $payload,
-            'metadata' => $metadata,
-        ])->save();
-
-        return $job->refresh();
+        return $this->readyPromptPrep->applySemanticFlowArbiter($job);
     }
 
     private function runNextMatching(?string $traceId = null, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -677,15 +538,7 @@ class AiWorker
 
     private function recordAcceptedKernelPipelineRuntimeContract(AiJob $job): void
     {
-        $pipelinePlan = $this->kernelPipelines->pipelinePlanForJob($job);
-        if ($pipelinePlan === null) {
-            return;
-        }
-
-        $this->kernelPipelineAudit->recordAcceptedPlan(
-            $pipelinePlan,
-            $this->kernelPipelines->auditContextForJob($job),
-        );
+        $this->kernelGovernance->recordAcceptedKernelPipelineRuntimeContract($job);
     }
 
     private function assertEliteKernelHonestOutcome(AiJob $job, AiJobAttempt $attempt): void
@@ -731,202 +584,12 @@ class AiWorker
         ?string $responseHash,
         string $workerId,
     ): void {
-        $kernel = data_get($job->payload, 'kernel');
-        if (! is_array($kernel) || empty($kernel['mission_id'])) {
-            return;
-        }
-        if (! DatabaseTableAvailability::all([
-            'ai_missions',
-            'ai_mission_evidence_refs',
-            'ai_mission_certifications',
-            'ai_certifications',
-            'ai_evidence_packs',
-        ])) {
-            return;
-        }
-
-        try {
-            $mission = AiMission::query()->find((string) $kernel['mission_id']);
-            if (! $mission instanceof AiMission || $mission->status === MissionLifecycleService::STATUS_COMPLETED) {
-                return;
-            }
-
-            if ($mission->status === MissionLifecycleService::STATUS_PLANNED) {
-                $this->missionLifecycle->transition($mission, MissionLifecycleService::STATUS_RUNNING, [
-                    'actor_type' => 'ai_worker',
-                    'job_id' => $job->id,
-                    'attempt_id' => $attempt->id,
-                ]);
-                $mission->refresh();
-            }
-
-            $this->missionEvidence->attach($mission, [
-                'evidence_type' => MissionEvidenceService::TYPE_RECEIPT,
-                'evidence_ref' => 'ai_trace:'.$job->trace_id,
-                'work_order_id' => data_get($kernel, 'work_order_id'),
-                'actor_type' => 'ai_worker',
-                'metadata' => array_filter([
-                    'job_id' => $job->id,
-                    'attempt_id' => $attempt->id,
-                    'provider' => $attempt->provider,
-                    'model' => $attempt->model,
-                    'response_hash' => $responseHash,
-                    'decision_receipt_id' => data_get($job->metadata, 'decision_receipt.receipt_id'),
-                ], static fn (mixed $value): bool => $value !== null && $value !== ''),
-            ]);
-            $mission->refresh();
-
-            if (in_array($mission->status, [
-                MissionLifecycleService::STATUS_RUNNING,
-                MissionLifecycleService::STATUS_REPAIRING,
-            ], true)) {
-                $this->missionLifecycle->transition($mission, MissionLifecycleService::STATUS_CERTIFYING, [
-                    'actor_type' => 'ai_worker',
-                    'job_id' => $job->id,
-                    'attempt_id' => $attempt->id,
-                ]);
-                $mission->refresh();
-            }
-
-            $foundationCertification = $this->missionCertification->certify($mission);
-            $mission->refresh();
-            $evidencePack = $this->missionEvidenceAdapter->buildMissionPack($mission);
-            $universalCertification = $this->missionEvidenceAdapter->certifyMission($mission, (string) $evidencePack->id);
-
-            if ($foundationCertification->status === MissionCertificationService::STATUS_PASSED
-                && $universalCertification->status === CertificationRuntimeService::STATUS_PASSED
-                && $mission->status === MissionLifecycleService::STATUS_CERTIFYING
-            ) {
-                $this->missionLifecycle->transition($mission, MissionLifecycleService::STATUS_COMPLETED, [
-                    'actor_type' => 'ai_worker',
-                    'job_id' => $job->id,
-                    'attempt_id' => $attempt->id,
-                    'mission_certification_hash' => $foundationCertification->certification_hash,
-                    'universal_certification_hash' => $universalCertification->certification_hash,
-                    'evidence_pack_id' => $evidencePack->id,
-                ]);
-                $mission->refresh();
-            }
-
-            $metadata = is_array($job->metadata) ? $job->metadata : [];
-            $metadata['kernel_mission_completion'] = [
-                'schema_version' => 'atlas.ai.aiworker.kernel_mission_completion.v1',
-                'mission_id' => (string) $mission->id,
-                'mission_status' => (string) $mission->status,
-                'mission_certification_status' => (string) $foundationCertification->status,
-                'universal_certification_status' => (string) $universalCertification->status,
-                'evidence_pack_id' => (string) $evidencePack->id,
-                'mode' => 'enforced_completion_gate',
-                'recorded_at' => now()->toJSON(),
-            ];
-            $job->forceFill(['metadata' => $metadata])->save();
-
-            if ($job->trace) {
-                $traceMetadata = is_array($job->trace->metadata) ? $job->trace->metadata : [];
-                $traceMetadata['kernel_mission_completion'] = $metadata['kernel_mission_completion'];
-                $job->trace->forceFill(['metadata' => $traceMetadata])->save();
-            }
-        } catch (\Throwable $exception) {
-            $this->logger->event(
-                eventType: 'kernel_mission_completion_failed',
-                message: 'AiWorker could not complete Kernel mission; job result remains persisted and mission awaits repair.',
-                severity: 'warning',
-                provider: $attempt->provider,
-                job: $job,
-                attempt: $attempt,
-                metadata: [
-                    'exception_class' => $exception::class,
-                    'reason' => $exception->getMessage(),
-                    'mission_id' => data_get($kernel, 'mission_id'),
-                ],
-                workerId: $workerId,
-            );
-        }
+        $this->kernelGovernance->completeKernelMissionFromSuccessfulJob($job, $attempt, $responseHash, $workerId);
     }
 
     private function recordKernelPermissionGate(AiJob $job, string $providerKey, string $workerId): void
     {
-        $kernel = data_get($job->payload, 'kernel');
-        if (! is_array($kernel) || empty($kernel['mission_id'])) {
-            return;
-        }
-        if (! DatabaseTableAvailability::all(['ai_permission_gates', 'ai_policy_profiles'])) {
-            return;
-        }
-
-        $domainId = (string) (
-            data_get($kernel, 'domain_id')
-            ?: data_get($job->payload, 'primary_domain')
-            ?: data_get($job->payload, 'routing.primary_domain')
-            ?: data_get($job->metadata, 'primary_domain')
-            ?: data_get($job->metadata, 'intent.domain')
-            ?: 'general'
-        );
-        $capability = (string) (
-            data_get($kernel, 'capability')
-            ?: data_get($job->payload, 'capability')
-            ?: data_get($job->payload, 'task_request.capability')
-            ?: data_get($job->metadata, 'task_request.capability')
-            ?: 'ai.worker.provider_execute'
-        );
-        $riskLevel = (string) (
-            data_get($kernel, 'risk_level')
-            ?: data_get($job->payload, 'risk_level')
-            ?: ($domainId === 'programming' ? 'medium' : 'low')
-        );
-
-        try {
-            $gate = $this->permissionGates->evaluate([
-                'requested_action' => 'ai.worker.provider_execute',
-                'gate_type' => 'permission',
-                'risk_level' => $riskLevel,
-                'domain_id' => $domainId,
-                'tool_id' => $providerKey,
-                'mission_id' => (string) $kernel['mission_id'],
-                'work_order_id' => data_get($kernel, 'work_order_id'),
-                'evidence_refs' => array_values(array_filter([
-                    $job->trace_id ? 'ai_trace:'.$job->trace_id : null,
-                    'ai_job:'.$job->id,
-                    data_get($job->metadata, 'decision_receipt.receipt_id')
-                        ? 'decision_receipt:'.data_get($job->metadata, 'decision_receipt.receipt_id')
-                        : null,
-                ])),
-            ]);
-
-            $metadata = is_array($job->metadata) ? $job->metadata : [];
-            $metadata['kernel_permission_gate'] = [
-                'schema_version' => 'atlas.ai.aiworker.kernel_permission_gate.v1',
-                'gate_id' => (string) $gate->id,
-                'decision' => (string) $gate->decision,
-                'receipt_hash' => (string) $gate->receipt_hash,
-                'provider' => $providerKey,
-                'domain_id' => $domainId,
-                'capability' => $capability,
-                'mode' => 'warn_only',
-                'recorded_at' => now()->toJSON(),
-            ];
-            $job->forceFill(['metadata' => $metadata])->save();
-
-            if ($job->trace) {
-                $traceMetadata = is_array($job->trace->metadata) ? $job->trace->metadata : [];
-                $traceMetadata['kernel_permission_gate'] = $metadata['kernel_permission_gate'];
-                $job->trace->forceFill(['metadata' => $traceMetadata])->save();
-            }
-        } catch (\Throwable $exception) {
-            $this->logger->event(
-                eventType: 'kernel_permission_gate_warn_only_failed',
-                message: 'AiWorker could not record Kernel PermissionGate decision; legacy permission path remains authoritative.',
-                severity: 'warning',
-                provider: $providerKey,
-                job: $job,
-                metadata: [
-                    'exception_class' => $exception::class,
-                    'reason' => $exception->getMessage(),
-                    'mode' => 'warn_only',
-                ],
-                workerId: $workerId,
-            );
-        }
+        $this->kernelGovernance->recordKernelPermissionGate($job, $providerKey, $workerId);
     }
 
     private function claimJob(string $workerId, ?string $providerOverride, ?string $traceId = null): ?AiJob
@@ -2996,78 +2659,24 @@ class AiWorker
         return $scoutJob->refresh()->load(['trace', 'attemptHistory']);
     }
 
-    /**
-     * @param  array<string,mixed>  $extraMetadata
-     */
     private function applyAtlasScoutBriefToExecutor(AiJob $executor, ?AiJob $scoutJob, string $brief, string $dependencyState, array $extraMetadata = []): AiJob
     {
-        $metadata = array_merge($executor->metadata ?? [], [
-            'dependency_state' => $dependencyState,
-            'dependency_resolved_at' => now()->toJSON(),
-            'dependency_job_id' => $scoutJob?->id ?: data_get($executor->metadata, 'dependency_job_id'),
-            'dependency_provider' => $scoutJob?->provider ?: data_get($executor->metadata, 'dependency_provider'),
-            'dependency_model' => $scoutJob?->model ?: data_get($executor->metadata, 'dependency_model'),
-        ], $extraMetadata);
-        $payload = is_array($executor->payload) ? $executor->payload : [];
-        $payload['atlas_decide_execution'] = array_merge(
-            is_array($payload['atlas_decide_execution'] ?? null) ? $payload['atlas_decide_execution'] : [],
-            [
-                'dependency_state' => $dependencyState,
-                'dependency_resolved_at' => $metadata['dependency_resolved_at'],
-                'dependency_job_id' => $metadata['dependency_job_id'],
-            ],
-        );
-
-        $executor->forceFill([
-            'prompt' => $this->promptWithAtlasScoutBrief($executor->prompt, $brief),
-            'available_at' => now(),
-            'reserved_at' => null,
-            'started_at' => null,
-            'worker_id' => null,
-            'payload' => $payload,
-            'metadata' => $metadata,
-        ])->save();
-
-        return $executor->refresh()->load('trace');
+        return $this->scoutBrief->applyAtlasScoutBriefToExecutor($executor, $scoutJob, $brief, $dependencyState, $extraMetadata);
     }
 
     private function atlasScoutBrief(AiJob $scoutJob, string $output): string
     {
-        return trim(<<<TEXT
-Atlas Decide context scout concluido.
-provider: {$scoutJob->provider}
-model: {$scoutJob->model}
-job_id: {$scoutJob->id}
-
-{$output}
-TEXT);
+        return $this->scoutBrief->atlasScoutBrief($scoutJob, $output);
     }
 
     private function atlasScoutFailureBrief(?AiJob $scoutJob, ?string $errorCode, ?string $errorMessage): string
     {
-        $provider = $scoutJob?->provider ?: 'unknown';
-        $model = $scoutJob?->model ?: 'unknown';
-        $jobId = $scoutJob?->id ?: 'unknown';
-        $errorCode = $errorCode ?: 'scout_unavailable';
-        $errorMessage = $errorMessage ?: 'Scout de contexto indisponivel; siga com o contexto original e marque incertezas.';
-
-        return trim(<<<TEXT
-Atlas Decide context scout degradado.
-provider: {$provider}
-model: {$model}
-job_id: {$jobId}
-error_code: {$errorCode}
-error_message: {$errorMessage}
-
-Siga com o contexto original. Se a tarefa depender de arquivos, logs ou decisões nao carregadas, explicite a lacuna antes de concluir.
-TEXT);
+        return $this->scoutBrief->atlasScoutFailureBrief($scoutJob, $errorCode, $errorMessage);
     }
 
     private function promptWithAtlasScoutBrief(string $prompt, string $brief): string
     {
-        $brief = Str::limit(trim($brief), 20000, '...');
-
-        return rtrim($prompt)."\n\n# Atlas Decide Context Scout\n\n{$brief}\n";
+        return $this->scoutBrief->promptWithAtlasScoutBrief($prompt, $brief);
     }
 
     private function privacyFromJob(AiJob $job): array
@@ -3167,54 +2776,12 @@ TEXT);
 
     private function fairModeRuntimeViolation(AiJob $job, string $providerKey, mixed $model, bool $requireModel = true): ?array
     {
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $metadata = is_array($job->metadata) ? $job->metadata : [];
-        if (! $this->fairClaude->isFairPayload($payload) && ! $this->fairClaude->isFairPayload($metadata)) {
-            return null;
-        }
-
-        if (! $requireModel && $providerKey !== FairClaudePolicy::PROVIDER_LOCK) {
-            return $this->fairClaude->violation(
-                message: 'Fair Claude mode requires provider claude_cli.',
-                details: ['provider' => $providerKey],
-            );
-        }
-
-        if (! $requireModel) {
-            return null;
-        }
-
-        $mergedPayload = array_merge($payload, [
-            'fair_mode' => data_get($payload, 'fair_mode') ?: data_get($metadata, 'fair_mode'),
-            'dev_execution_plan' => data_get($payload, 'dev_execution_plan') ?: data_get($metadata, 'dev_execution_plan'),
-        ]);
-        $model = is_string($model) || is_numeric($model) ? trim((string) $model) : null;
-        $violation = $this->fairClaude->validateInvocation($providerKey, $model !== '' ? $model : null, $mergedPayload);
-
-        return (bool) ($violation['ok'] ?? false) ? null : $violation;
+        return $this->providerFairnessBudget->fairModeRuntimeViolation($job, $providerKey, $model, $requireModel);
     }
 
-    /**
-     * @param  array<string,mixed>  $violation
-     */
     private function fairModeViolationResult(array $violation): AiProviderResult
     {
-        $message = (string) ($violation['message'] ?? 'Fair Claude mode violation.');
-
-        return new AiProviderResult(
-            ok: false,
-            output: '',
-            command: [],
-            exitCode: null,
-            durationMs: 0,
-            stdout: '',
-            stderr: $message,
-            errorCode: FairClaudePolicy::ERROR_CODE,
-            errorMessage: $message,
-            metadata: [
-                'fair_mode_violation' => $violation,
-            ],
-        );
+        return $this->providerFairnessBudget->fairModeViolationResult($violation);
     }
 
     private function shouldFallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result): bool
@@ -3245,47 +2812,7 @@ TEXT);
 
     private function fallbackProviderWithinBudget(AiJob $job, string $provider): bool
     {
-        $model = $this->models->resolve($provider, null);
-
-        try {
-            $this->budgets->assertAllows($provider, $model, [
-                'payload' => is_array($job->payload) ? $job->payload : [],
-            ]);
-
-            return true;
-        } catch (\RuntimeException $exception) {
-            $metadata = array_merge($job->metadata ?? [], [
-                'fallback_budget_blocked' => true,
-                'fallback_budget_provider' => $provider,
-                'fallback_budget_model' => $model,
-                'fallback_budget_error' => $exception->getMessage(),
-                'fallback_budget_checked_at' => now()->toIso8601String(),
-            ]);
-            $job->forceFill(['metadata' => $metadata])->save();
-            $job->trace?->forceFill([
-                'metadata' => array_merge($job->trace->metadata ?? [], [
-                    'fallback_budget_blocked' => true,
-                    'fallback_budget_provider' => $provider,
-                    'fallback_budget_model' => $model,
-                    'fallback_budget_error' => $exception->getMessage(),
-                ]),
-            ])->save();
-
-            $this->logger->event(
-                eventType: 'provider_fallback_budget_blocked',
-                message: 'Gemini fallback to Claude blocked by runtime budget.',
-                severity: 'warning',
-                provider: $job->provider,
-                job: $job,
-                metadata: [
-                    'fallback_provider' => $provider,
-                    'fallback_model' => $model,
-                    'budget_error' => $exception->getMessage(),
-                ],
-            );
-
-            return false;
-        }
+        return $this->providerFairnessBudget->fallbackProviderWithinBudget($job, $provider);
     }
 
     private function fallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
