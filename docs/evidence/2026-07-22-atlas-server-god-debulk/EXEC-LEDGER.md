@@ -3591,3 +3591,41 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 115 — fail closed composite repair command, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0108
+commit: fa8546802
+subject: "refactor(core): GOD-DEBULK fail closed repair command"
+scope:
+  - app/Console/Commands/AtlasTaskRepairBlockedCommand.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_repair_command_returns_failure_for_an_unbounded_blocked_inventory --no-coverage
+  result: "FAIL 1 test, 1 assertion: the registered JSON command returned exit 0 even though both inner repair paths were blocked by 65 real queue records."
+green:
+  behavior: "The command stops after its first blocked inner repair, emits status=blocked with the exact reason, path, and inner receipt, and exits failure in JSON and text modes. It does not invoke a later repair or self-heal phase after the blocked result."
+verification:
+  characterization: "PASS 1 test, 5 assertions through the registered Artisan command against 65 real blocked queue records."
+  normal_cli: "PASS 1 test, 5 assertions: a bounded normal repair still prints its legacy JSON shape and reopens the packet."
+  self_heal_family: "PASS 4 tests, 9 assertions: quarantine cancellation, recoverable preservation, dry-run, and mixed inputs remain real-path green."
+  package_suite: "PASS 121 tests, 569 assertions when run serially: bounded anti-farm Feature, scope repair, self-heal, and Feature/Unit orchestrator suites."
+  php_lint: "PASS both touched PHP files."
+  pint: "PASS both touched PHP files."
+  diff_check: "PASS scoped diff check."
+  density: "repair command=162 LOC; focused Feature test=268 LOC; both <2000 and hot test <800."
+boundary:
+  - "The acceptance invokes the actual registered Artisan command and parses its emitted JSON plus process exit; it does not call a command method directly."
+  - "A blocked inventory prevents later command phases rather than merely decorating a green outer result; the inner receipt remains inspectable without task payload materialization."
+  - "No queue, lease, receipt, provider, dispatch, token, completion, or runtime-execution mutation occurs in the oversized path."
+residual:
+  - "A1-SC-0108 remains partially open: dependency-wait and cooldown scans require separate real characterizations and bounded-index ownership."
+next_cursor: "Characterize the dependency-wait scan through its public serving/heartbeat entrypoint; preserve all now-bounded repair and CLI guards."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-115-repair-command-fa8546802
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
