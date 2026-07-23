@@ -240,6 +240,8 @@ final class AtlasSelfConstructionReadinessService
     private ?\App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionRuntimePromotionSection $runtimePromotionSection = null;
 
     private ?\App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentControlPlaneSection $agentControlPlaneSection = null;
+
+    private ?ReadinessEnvelopeProjector $envelopeProjector = null;
     private ?\App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionForgeWorkspaceSection $forgeWorkspaceSection = null;
     private ?\App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionParallelSessionSection $parallelSessionSection = null;
     private ?\App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionSurfaceMatrixSection $surfaceMatrixSection = null;
@@ -25111,6 +25113,10 @@ public function releasePacket(array $options = []): array
         $releasedResult = $service->recoverReleasedTasks(
             $packet !== '' ? array_merge($serviceOptions, ['packet' => $packet]) : $serviceOptions,
         );
+        // ponytail: write truth from recovered counts; repository-level write telemetry is the Runtime owner's job.
+        $runtimeWritePerformed = ((int) data_get($expiredResult, 'recovered_count', 0)
+            + (int) data_get($orphanResult, 'recovered_count', 0)
+            + (int) data_get($releasedResult, 'recovered_count', 0)) > 0;
         $inspectResult = $service->inspectRecoverability(
             $packet !== '' ? array_merge($serviceOptions, ['packet' => $packet]) : $serviceOptions,
         );
@@ -25161,6 +25167,7 @@ public function releasePacket(array $options = []): array
                 'resume_requires_fresh_claim_before_work' => $resumePacket !== null ? (bool) data_get($resumePacket, 'resume_packet.resume_contract.requires_fresh_claim_before_work', false) : false,
                 'resume_requires_one_shot_packet_regeneration_after_claim' => $resumePacket !== null ? (bool) data_get($resumePacket, 'resume_packet.resume_contract.requires_one_shot_packet_regeneration_after_claim', false) : false,
             ],
+            runtimeWritePerformed: $runtimeWritePerformed,
         );
     }
 
@@ -25313,6 +25320,7 @@ public function releasePacket(array $options = []): array
                 'queue_event' => (string) data_get($result, 'queue_entry.event'),
                 'continuation_hash' => (string) data_get($result, 'continuation_summary.continuation_hash'),
             ],
+            runtimeWritePerformed: $event === 'prepared_and_enqueued',
         );
     }
 
@@ -25338,12 +25346,14 @@ public function releasePacket(array $options = []): array
         }
         $claim = $orchestrator->claimNext($actor, $claimFilters);
 
+        $fallbackEnqueuePerformed = false;
         if ((string) ($claim['event'] ?? '') === 'no_claimable_task') {
             $prepareInput = ['task_packet' => $this->defaultRuntimePilotInput()];
             if ($queueTags !== []) {
                 $prepareInput['queue'] = ['tags' => $queueTags];
             }
             $orchestrator->prepareAndEnqueue($prepareInput);
+            $fallbackEnqueuePerformed = true;
             $claim = $orchestrator->claimNext($actor, $claimFilters);
         }
 
@@ -25386,6 +25396,7 @@ public function releasePacket(array $options = []): array
                 'legacy_reservation_claim_used' => false,
                 'safe_for_parallel_terminal_loop' => $event === 'claimed',
             ],
+            runtimeWritePerformed: $event === 'claimed' || $fallbackEnqueuePerformed,
         );
     }
 
@@ -25475,6 +25486,7 @@ public function releasePacket(array $options = []): array
                 'accepted_seed_keys' => (array) data_get($result, 'plan_evaluation.accepted_seed_keys', []),
                 'replenishment_plan_hash' => (string) data_get($result, 'replenishment_plan_hash'),
             ],
+            runtimeWritePerformed: (int) data_get($result, 'generated_task_count', 0) > 0,
         );
     }
 
@@ -25766,6 +25778,9 @@ public function releasePacket(array $options = []): array
                 'terminal_loop_shell_recipe_max_cycles_recommended' => (int) data_get($result, 'terminal_loop_shell_recipe.max_cycles_recommended', 0),
                 'terminal_loop_shell_recipe_hash' => (string) data_get($result, 'terminal_loop_shell_recipe_hash', ''),
             ],
+            runtimeWritePerformed: ! (bool) data_get($result, 'preview_only', false)
+                && ((bool) data_get($result, 'runtime_claim_persisted', false)
+                    || (int) data_get($result, 'generated_task_count', 0) > 0),
         );
     }
 
@@ -26683,33 +26698,19 @@ public function releasePacket(array $options = []): array
      * @param  array<string, mixed>  $extraStatusFields
      * @return array<string, mixed>
      */
-    private function wrapCertificationWorkbenchStatus(string $keyPrefix, string $label, array $payload, string $statusKey, array $extraStatusFields): array
+    private function wrapCertificationWorkbenchStatus(string $keyPrefix, string $label, array $payload, string $statusKey, array $extraStatusFields, bool $runtimeWritePerformed = false): array
     {
-        $statusValue = (string) data_get($payload, $statusKey, 'unknown');
-        $status = array_merge([
-            'status' => $statusValue,
-        ], $extraStatusFields);
-
-        return [
-            'schema_version' => "atlas.self_construction_agent_control_plane_{$keyPrefix}_status.v1",
-            'status' => $statusValue,
-            'mode' => "read_only_agent_control_plane_{$keyPrefix}_status",
-            'execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'ledger_write_allowed' => false,
-            'runtime_write_allowed' => false,
-            "agent_control_plane_{$keyPrefix}_status" => $status,
-            "agent_control_plane_{$keyPrefix}" => $payload,
-            "agent_control_plane_{$keyPrefix}_status_hash" => $this->stableHash($status),
-            'non_execution_guarantees' => [
-                "agent_control_plane_{$keyPrefix}_status_does_not_start_codex",
-                "agent_control_plane_{$keyPrefix}_status_does_not_advance_pointer",
-                "agent_control_plane_{$keyPrefix}_status_does_not_dispatch_work",
-                "agent_control_plane_{$keyPrefix}_status_does_not_execute_adapter",
-                "agent_control_plane_{$keyPrefix}_status_does_not_enable_self_programming",
-            ],
-            'human_summary' => "Agent Control Plane {$label} status is {$statusValue}.",
-        ];
+        // GOD-DEBULK Fase 1 (A1-SC-0003): envelope construction is owned by
+        // ReadinessEnvelopeProjector; routes that actually wrote durable state
+        // pass $runtimeWritePerformed and stop claiming read_only.
+        return ($this->envelopeProjector ??= new ReadinessEnvelopeProjector)->projectCertificationWorkbenchStatus(
+            $keyPrefix,
+            $label,
+            $payload,
+            $statusKey,
+            $extraStatusFields,
+            $runtimeWritePerformed,
+        );
     }
 
     /**

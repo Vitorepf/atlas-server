@@ -700,8 +700,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertSame('atlas.self_construction_agent_control_plane_terminal_worker_bootstrap_status.v1', $payload['schema_version']);
-        $this->assertSame('read_only_agent_control_plane_terminal_worker_bootstrap_status', $payload['mode']);
-        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        // A1-SC-0003 fix: non-preview bootstrap persists a claim (a durable write) and says so.
+        $this->assertSame('mutating_agent_control_plane_terminal_worker_bootstrap_status', $payload['mode']);
+        $this->assertTrue((bool) $payload['runtime_write_allowed']);
+        $this->assertTrue((bool) $payload['runtime_write_performed']);
         $this->assertFalse((bool) $payload['execution_allowed']);
         $this->assertFalse((bool) $payload['dispatch_allowed']);
         $this->assertFalse((bool) $payload['ledger_write_allowed']);
