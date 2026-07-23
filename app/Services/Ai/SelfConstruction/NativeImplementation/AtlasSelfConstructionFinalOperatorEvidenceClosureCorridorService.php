@@ -60,7 +60,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $draftWorkspacePublisherOptions = $draftWorkspaceLoaded
             ? array_replace($options, ['operator_draft_workspace_path' => $operatorDraftWorkspacePath])
             : $options;
-        $draftWorkspacePublisher = $this->safeCall(fn () => (new AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService)->publish($draftWorkspacePublisherOptions));
+        $draftWorkspacePublisher = $this->draftWorkspacePublisherPreview($draftWorkspacePublisherOptions);
         $draftWorkspacePublisherStatus = (string) data_get($draftWorkspacePublisher, 'status', 'not_requested');
         $draftWorkspacePublishableCount = (int) data_get($draftWorkspacePublisher, 'publishable_artifact_count', 0);
         $draftWorkspacePublishedCount = (int) data_get($draftWorkspacePublisher, 'published_artifact_count', 0);
@@ -473,6 +473,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $payload['closure_corridor_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @param array<string, mixed> $options */
+    private function draftWorkspacePublisherPreview(array $options): array
+    {
+        return $this->safeCall(fn () => (new AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService)->publish(
+            array_replace($options, ['publish_operator_draft_workspace' => false]),
+        ));
     }
 
     /**
