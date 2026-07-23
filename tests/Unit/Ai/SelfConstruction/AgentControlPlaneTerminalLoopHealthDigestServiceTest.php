@@ -138,6 +138,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
 
         $this->assertSame(1, $state['recoverable_count']);
         $this->assertSame('reap_recoverable', $state['next_safe_action']);
+        $this->assertSame('recoverable_leases_require_reaping', $state['wait_reason']);
+        $this->assertStringContainsString('--agent-control-plane-task-lease-recovery-status', $state['next_recheck_command']);
+        $this->assertNotEmpty($state['supply_explanation']);
     }
 
     public function test_muscle_supply_state_counts_blocked_packets_without_making_them_claimable(): void

@@ -1423,7 +1423,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             default => 'replenish',
         };
 
-        $waitStates = ['blocked_by_eligibility', 'replenish', 'wait_for_workers'];
+        $waitStates = ['blocked_by_eligibility', 'reap_recoverable', 'replenish', 'wait_for_workers'];
         $isWaitState = in_array($nextSafeAction, $waitStates, true);
 
         $result = [
@@ -1444,6 +1444,11 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'worker_task_eligibility_blocked',
                 $commands['worker_task_eligibility_certification'] ?? '',
                 'Worker task eligibility is blocked; certify eligibility before pulling or replenishing tasks.',
+            ],
+            'reap_recoverable' => [
+                'recoverable_leases_require_reaping',
+                $commands['inspect_or_recover_leases'] ?? '',
+                sprintf('%d recoverable lease(s) require recovery before any new claim, replenishment, or worker launch.', $recoverableCount),
             ],
             'replenish' => [
                 'claimable_supply_below_target',
