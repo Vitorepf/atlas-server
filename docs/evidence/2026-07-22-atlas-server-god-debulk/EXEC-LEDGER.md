@@ -4,35 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0178 persistence writer schema evidence fail-closed closed
+phase: A1-SC-0180 Codex integration evidence binding fail-closed closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: one-shot release receipt persistence writer atomicity evidence boundary
-finding_id: A1-SC-0178
-action_op: replace self-declared atomicity booleans with live database schema evidence
+focus: Codex integration completed-packet evidence binding boundary
+finding_id: A1-SC-0180
+action_op: deny review readiness to missing, mismatched, or malformed completion evidence
 queue_index: 6
-last_commit: 7b929ca85
+last_commit: 6c35634eb
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_persistence_writer_preflight_uses_live_schema_evidence_for_atomicity_requirements
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/CodexIntegrationReportEvidenceTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=test_command_codex_integration_report_lists_completed_packets
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: the persistence contract asserted a four-field idempotency key that has no matching unique database index or writer behavior.
-  green: receipt_hash names the actual writer idempotency key, while the public preflight reads the live connection driver, receipt unique indexes, and wakeup row-lock prerequisites before it can attest them.
+  red: a real completed packet carrying not-a-sha256-receipt was counted ready_to_review and could cross into merge readiness.
+  green: a completed packet is review-ready only when the reservation selected by packet id has a strict SHA-256 completion evidence hash; rejected completions remain a missing packet with an explicit repair action.
 stdout: |
   red_characterization: FAIL 1 test, 1 assertion
-  focused_and_package: PASS 5 tests, 18 assertions
-  php_lint: PASS source plus changed Unit test
-  unit_pint: PASS
-  loc_check: release_writer_section=1461
+  focused_and_package: PASS malformed-evidence feature 1 test, 6 assertions; existing valid-evidence command feature 1 test, 8 assertions
+  php_lint: PASS source plus changed Feature test
+  feature_pint: PASS
+  loc_check: release_writer_section=1484
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes public readiness-facade paths and compares their returned schema evidence to live database metadata; it does not use reflection or a fabricated preflight payload.
+  Characterization executes claim, complete, and integration-report commands against their real reservation fixture; it does not use reflection or fabricated projections.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1744,6 +1744,31 @@ verification:
 boundary:
   - public readiness facade and live Schema metadata only; no reflection, migration, receipt persistence, transaction, row lock, provider, dispatch, token, or runtime mutation
   - the preflight remains non-executing and blocks whenever the active database cannot prove its declared atomicity prerequisites
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 58 — A1-SC-0180 validate Codex integration evidence, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 6c35634eb
+subject: "refactor(core): GOD-DEBULK validate integration evidence"
+red:
+  result: "FAIL 1 test, 4 assertions: a claim→complete command sequence using not-a-sha256-receipt produced one ready-to-review packet."
+green:
+  behavior: "The integration report now admits only a matching completed reservation with a strict SHA-256 completion evidence hash. Missing, mismatched, or malformed evidence is an explicit completed missing packet that blocks merge readiness and requests evidence repair."
+verification:
+  malformed_evidence_feature: "PASS 1 test, 6 assertions"
+  valid_evidence_regression: "PASS 1 test, 8 assertions (run serially; these fixtures share the reservation directory)."
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  diff_check: PASS
+  loc: "release_writer_section=1484 (<2000)"
+boundary:
+  - executes real claim, complete, and integration-report command paths; no reflection, provider, dispatch, token, approval, merge, or runtime execution
+  - preserves valid completed evidence behavior while fail-closing invalid completed evidence into the existing missing-packet merge blocker
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
