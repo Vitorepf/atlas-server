@@ -1598,3 +1598,40 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 53 — RootSinglesRehome Governance, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Governance
+commit: 62f3d0baa
+subject: "refactor(core): GOD-DEBULK RootSingles Governance rehome"
+scope:
+  - app/Services/Ai/Governance/AiPermissionDecision.php, AiPermissionEngine.php, and AiPermissionEngineSupport.php
+  - canonical AiWorker and feature/unit imports, one-cycle legacy aliases, AI CODEMAP, compatibility coverage, and worker navigation paths
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_permission_services_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Governance\\AiPermissionDecision did not exist before the re-home."
+green:
+  behavior: "AiPermissionDecision, AiPermissionEngine, and AiPermissionEngineSupport now have one canonical Governance namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "The compatibility test proves canonical and retired class loading plus the alias relationship for every moved type; unit and feature coverage exercises authorization and worker injection through canonical imports."
+verification:
+  unit_suites: "PASS 18 tests, 58 assertions (root compatibility, permission engine, and fail-closed coverage)."
+  feature_suites: "PASS AtlasDecideScoutWorkflow 5 tests, 54 assertions; AiWorkerProviderChoice 23 tests, 182 assertions."
+  parallel_root_compatibility: "PASS 8 tests, 23 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports unrelated existing PSR-4 warnings)."
+  root_sweep: "PASS: old root source paths are absent; old FQCN hits remain only in explicit compatibility imports. One untouched historical, untracked plan retains an old path literal."
+  php_lint: "PASS all 10 touched PHP files"
+  phpstan: "NOT GREEN: moved owner plus alias analysis reports two AiJob::$payload property diagnostics, verified at identical lines in pre-move content; the combined owner/worker run reports 416 file errors, including the pre-existing AiWorker typing debt. Not used as proof."
+  pint: "PASS moved Decision and Support, alias, root compatibility, and engine unit test. Strict full-file Pint is NOT GREEN for existing formatting drift in moved Engine, fail-closed test, and two feature hosts; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=15)"
+  density_guard: "PASS current baseline: >5k=13, >2k=38; decision=59 LOC, engine=101 LOC, support=368 LOC. Root first-level Ai owner count is currently 84 (54720 LOC); concurrent refactors confound any repository-wide delta."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; workspace certificates, fail-closed decisions, permission runtime payloads, provider policy, and worker gate ordering are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production consumers, focused feature/unit coverage, docs navigation, and CODEMAP name the Governance owner directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
