@@ -861,42 +861,28 @@ final class AgentControlPlaneTaskQueueOrchestrator
         ];
     }
 
-    /**
-     * Repair the OTHER blocked class the forbidden-target repair cannot touch: a packet whose pétreo target was
-     * ALREADY moved out of allowed_files by a prior scope-repair, but whose acceptance STILL demands that target
-     * — so the inspector keeps it blocked on `scope_repair_removed_required_target_from_allowed_files` forever
-     * (this was the dominant jam cause: ~all blocked packets, each stranding dead-prereq dependents). It also
-     * reopens any blocked packet that simply re-inspects self-sufficient now (stale quarantine).
-     *
-     * Per blocked packet:
-     *   - re-inspect; if SELF-SUFFICIENT now ⇒ reopen unchanged (stale quarantine cleared).
-     *   - else if blocked ONLY by the scope-repair deficiency:
-     *       · if a BUILDABLE target remains (a non-test, non-pétreo allowed_file) ⇒ scrub the acceptance lines
-     *         that demand a pétreo/removed path (operator-wiring, not worker work), reopen. The worker builds the
-     *         class + test; the pétreo flag/judge wiring is the operator's separate step.
-     *       · else (allowed is only tests / only pétreo) ⇒ RETIRE (cancel). A cancelled prereq is fail-open, so
-     *         its dependents stop being `blocked_by_dead_prereq` and the ladder advances.
-     *   - else ⇒ leave blocked (unrepairable here; reported).
-     *
-     * Same task_packet_id throughout, so depends_on edges never fork.
-     *
-     * @return array<string, mixed>
-     */
+    /** Reopen or retire scope-repair-blocked packets without forking dependency task ids. */
     public function repairScopeBlockedTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
     {
         $guard = new AtlasLoopHarnessGuard;
         $inspector = new AtlasTaskPacketQualityInspector($guard);
-        $limit = max(0, $limit);
+        $limit = $limit > 0 ? min($limit, self::MAX_ANTI_FARM_CANDIDATES) : self::MAX_ANTI_FARM_CANDIDATES;
+        $blockedCount = (int) data_get($this->queue->registry(['status' => 'blocked'], true), 'entry_count', 0);
+        if ($blockedCount > $limit) {
+            return [
+                'schema' => 'atlas.task_serving.scope_blocked_repair.v1', 'status' => 'blocked', 'reason' => 'scope_repair_scan_limit_exceeded',
+                'dry_run' => $dryRun, 'blocked_count' => $blockedCount, 'scan_limit' => $limit, 'inspected_blocked' => 0,
+                'reopened_count' => 0, 'retired_count' => 0, 'unrepairable_count' => 0, 'planned_count' => 0,
+                'reopened' => [], 'retired' => [], 'unrepairable' => [], 'plan' => [],
+            ];
+        }
         $inspected = 0;
         $reopened = [];
         $retired = [];
         $unrepairable = [];
         $plan = [];
 
-        foreach ($this->queue->list(['status' => 'blocked']) as $record) {
-            if ($limit > 0 && count($reopened) + count($retired) + count($unrepairable) + count($plan) >= $limit) {
-                break;
-            }
+        foreach ($this->queue->list(['status' => 'blocked', 'limit' => $limit]) as $record) {
             $taskPacketId = (string) ($record['task_packet_id'] ?? '');
             if ($taskPacketId === '') {
                 continue;
