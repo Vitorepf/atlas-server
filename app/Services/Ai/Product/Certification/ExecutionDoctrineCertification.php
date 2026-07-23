@@ -132,8 +132,8 @@ final class ExecutionDoctrineCertification
             && str_contains($controllerSource, 'assisted_execution_needs_context')
             && str_contains($controllerSource, 'dev_context_not_provider_safe')
             && str_contains($controllerSource, 'provider_execution_allowed');
-        $testsCover = str_contains($testSource, 'test_login_bug_human_request_builds_control_area_envelope_and_blocks_without_review')
-            && str_contains($testSource, 'test_reviewed_login_bug_can_pass_assisted_execution_gate')
+        $testsCover = str_contains($testSource, 'test_auth_login_bug_human_request_builds_control_area_envelope_and_blocks_without_review')
+            && str_contains($testSource, 'test_reviewed_auth_login_bug_can_pass_assisted_execution_gate')
             && str_contains($testSource, 'test_missing_workspace_blocks_before_provider')
             && str_contains($testSource, 'test_large_obra_request_routes_to_forge_without_dev_preview')
             && str_contains($testSource, 'test_hash_is_deterministic_for_same_input')
