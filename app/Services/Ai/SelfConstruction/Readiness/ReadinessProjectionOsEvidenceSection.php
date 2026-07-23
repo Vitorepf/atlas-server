@@ -1022,43 +1022,43 @@ final class ReadinessProjectionOsEvidenceSection
      */
     public function atlasSelfConstructionOsCompletionEvidenceStatus(array $options = []): array
     {
-        $persistRuntimePromotionReceipt = (bool) ($options['persist_runtime_promotion_receipt'] ?? false);
-        $persistEvidence = (bool) ($options['persist_completion_evidence'] ?? false);
+        $persistRuntimePromotionReceiptRequested = (bool) ($options['persist_runtime_promotion_receipt'] ?? false);
+        $persistEvidenceRequested = (bool) ($options['persist_completion_evidence'] ?? false);
         $runtimePromotionReceiptInputEnvelope = $this->completionEvidenceSubmissionInput(
             options: $options,
             payloadKey: 'runtime_promotion_receipt',
             jsonKey: 'runtime_promotion_receipt_json',
             canonicalPath: AtlasSelfConstructionReadinessService::CANONICAL_OPERATOR_SUBMISSION_PATHS['runtime_promotion_receipt'],
-            canonicalLoadAllowed: $persistRuntimePromotionReceipt,
+            canonicalLoadAllowed: $persistRuntimePromotionReceiptRequested,
         );
         $completionReceiptInputEnvelope = $this->completionEvidenceSubmissionInput(
             options: $options,
             payloadKey: 'completion_receipt',
             jsonKey: 'completion_receipt_json',
             canonicalPath: AtlasSelfConstructionReadinessService::CANONICAL_OPERATOR_SUBMISSION_PATHS['completion_receipt'],
-            canonicalLoadAllowed: $persistEvidence,
+            canonicalLoadAllowed: $persistEvidenceRequested,
         );
         $realProviderSmokeInputEnvelope = $this->completionEvidenceSubmissionInput(
             options: $options,
             payloadKey: 'real_provider_smoke',
             jsonKey: 'real_provider_smoke_json',
             canonicalPath: AtlasSelfConstructionReadinessService::CANONICAL_OPERATOR_SUBMISSION_PATHS['real_provider_smoke'],
-            canonicalLoadAllowed: $persistEvidence,
+            canonicalLoadAllowed: $persistEvidenceRequested,
         );
 
         $runtimePromotionReceiptInput = (array) data_get($runtimePromotionReceiptInputEnvelope, 'payload', []);
         $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this->mother ?? throw new \RuntimeException("mother unbound")))->matrix([
             'runtime_promotion_receipt' => $runtimePromotionReceiptInput,
-            'persist_runtime_promotion_receipt' => $persistRuntimePromotionReceipt,
+            'persist_runtime_promotion_receipt' => false,
         ]);
         $receiptInput = (array) data_get($completionReceiptInputEnvelope, 'payload', []);
         $smokeInput = (array) data_get($realProviderSmokeInputEnvelope, 'payload', []);
         $humanReceiptService = new AtlasSelfConstructionHumanCompletionReceiptVerifierService;
         $realProviderSmokeService = new AtlasSelfConstructionRealProviderSmokeCertificationService;
         $realProviderSmokeBeforePersistence = $realProviderSmokeService->certify();
-        $realProviderSmoke = $persistEvidence && $smokeInput !== []
-            ? $realProviderSmokeService->persist($smokeInput)
-            : $realProviderSmokeService->certify($smokeInput);
+        $realProviderSmoke = array_merge($realProviderSmokeService->certify($smokeInput), [
+            'persisted' => false,
+        ]);
         $releaseDossier = $this->agentControlPlaneReleaseDossierStatus(['skip_simulator' => true]);
         $replayDiff = $this->agentControlPlaneReplayDiffStatus();
         $certificationStatusBatch = $this->agentControlPlaneCertificationStatusBatchStatus();
@@ -1083,21 +1083,13 @@ final class ReadinessProjectionOsEvidenceSection
             $humanReceiptPersistencePrerequisites,
             static fn (bool $passed): bool => ! $passed,
         ));
-        if ($persistEvidence && $receiptInput !== []) {
-            $humanReceipt = $missingHumanReceiptPrerequisites === []
-                ? $humanReceiptService->persist($receiptInput, $humanReceiptContext)
-                : array_merge($humanReceipt, [
-                    'status' => 'blocked',
-                    'persisted' => false,
-                    'persistence_blocker' => 'human_completion_receipt_prerequisites_not_green',
-                    'missing_persistence_prerequisites' => $missingHumanReceiptPrerequisites,
-                    'completion_claim_allowed' => false,
-                    'violations' => array_merge((array) data_get($humanReceipt, 'violations', []), array_map(
-                        static fn (string $criterion): array => ['code' => 'human_completion_receipt_persistence_prerequisite_failed', 'criterion' => $criterion],
-                        $missingHumanReceiptPrerequisites,
-                    )),
-                    'violation_count' => (int) data_get($humanReceipt, 'violation_count', 0) + count($missingHumanReceiptPrerequisites),
-                ]);
+        if ($persistEvidenceRequested && $receiptInput !== []) {
+            $humanReceipt = array_merge($humanReceipt, [
+                'persisted' => false,
+                'persistence_blocker' => 'persistence_request_rejected_by_status_surface',
+                'missing_persistence_prerequisites' => $missingHumanReceiptPrerequisites,
+                'completion_claim_allowed' => false,
+            ]);
         }
         $forgeSmoke = (new AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService)->certify($options);
         $operatorActionPacket = (new AtlasSelfConstructionCompletionOperatorActionPacketService($this->mother ?? throw new \RuntimeException("mother unbound")))->build($runtimeGapMatrix, $humanReceipt, $realProviderSmoke, [
@@ -1303,8 +1295,9 @@ final class ReadinessProjectionOsEvidenceSection
             'real_provider_blockers' => $realProviderBlockers,
             'technical_blocker_count' => count($technicalBlockers),
             'technical_blockers' => $technicalBlockers,
-            'persist_completion_evidence_requested' => $persistEvidence,
-            'persist_runtime_promotion_receipt_requested' => $persistRuntimePromotionReceipt,
+            'persist_completion_evidence_requested' => $persistEvidenceRequested,
+            'persist_runtime_promotion_receipt_requested' => $persistRuntimePromotionReceiptRequested,
+            'persistence_request_rejected_by_status_surface' => $persistEvidenceRequested || $persistRuntimePromotionReceiptRequested,
             'operator_submission_input' => [
                 'runtime_promotion_receipt' => $this->completionEvidenceSubmissionInputSummary($runtimePromotionReceiptInputEnvelope),
                 'real_provider_smoke' => $this->completionEvidenceSubmissionInputSummary($realProviderSmokeInputEnvelope),
@@ -1335,6 +1328,7 @@ final class ReadinessProjectionOsEvidenceSection
                 'completion_evidence_status_does_not_call_provider',
                 'completion_evidence_status_does_not_dispatch_work',
                 'completion_evidence_status_does_not_spend_tokens',
+                'completion_evidence_status_does_not_persist_receipts',
                 'completion_evidence_status_does_not_enable_self_programming',
                 'completion_evidence_status_does_not_accept_external_completion_claims',
             ],

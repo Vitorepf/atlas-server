@@ -5,8 +5,8 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanSignedCompletionReceiptService;
-use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -481,14 +481,15 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertSame(0, $exit);
         $this->assertTrue($payload['persist_completion_evidence_requested']);
         $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
-        $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertFalse(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertTrue($payload['persistence_request_rejected_by_status_surface']);
         $this->assertSame('blocked', data_get($payload, 'human_signed_completion_receipt.status'));
-        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertSame('persistence_request_rejected_by_status_surface', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
         $this->assertContains('runtime_promotion_receipt_present', data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'));
         $this->assertSame('passed', data_get($payload, 'real_provider_smoke.status'));
     }
 
-    public function test_completion_evidence_status_requires_real_provider_smoke_to_be_persisted_before_human_receipt_command(): void
+    public function test_completion_evidence_status_does_not_persist_real_provider_smoke_before_human_receipt_command(): void
     {
         Storage::fake('local');
         $readiness = app(AtlasSelfConstructionReadinessService::class);
@@ -537,9 +538,9 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             'persist_completion_evidence' => true,
         ]);
 
-        $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertFalse(data_get($payload, 'real_provider_smoke.persisted'));
         $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
-        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertSame('persistence_request_rejected_by_status_surface', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
         $this->assertContains(
             'real_provider_smoke_persisted_before_human_receipt_command',
             data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'),
@@ -618,9 +619,9 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertSame('canonical_submission', data_get($payload, 'operator_submission_input.completion_receipt.source'));
         $this->assertTrue(data_get($payload, 'operator_submission_input.real_provider_smoke.canonical_loaded'));
         $this->assertTrue(data_get($payload, 'operator_submission_input.completion_receipt.canonical_loaded'));
-        $this->assertTrue(data_get($payload, 'real_provider_smoke.persisted'));
+        $this->assertFalse(data_get($payload, 'real_provider_smoke.persisted'));
         $this->assertFalse(data_get($payload, 'human_signed_completion_receipt.persisted'));
-        $this->assertSame('human_completion_receipt_prerequisites_not_green', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
+        $this->assertSame('persistence_request_rejected_by_status_surface', data_get($payload, 'human_signed_completion_receipt.persistence_blocker'));
         $this->assertContains('runtime_promotion_receipt_present', data_get($payload, 'human_signed_completion_receipt.missing_persistence_prerequisites'));
     }
 
