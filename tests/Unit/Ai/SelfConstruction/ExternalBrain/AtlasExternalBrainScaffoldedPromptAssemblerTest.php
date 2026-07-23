@@ -1,0 +1,386 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldedPromptAssembler;
+use PHPUnit\Framework\TestCase;
+
+final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
+{
+    private AtlasExternalBrainScaffoldedPromptAssembler $assembler;
+
+    protected function setUp(): void
+    {
+        $this->assembler = new AtlasExternalBrainScaffoldedPromptAssembler;
+    }
+
+    private function validInput(array $overrides = []): array
+    {
+        return array_merge([
+            'model_tier'                => 'scaffolded_small_model',
+            'evidence_intake'           => [
+                ['text' => 'AtlasFooService is missing its wiring.'],
+                ['text' => 'No tests exist for BarService.'],
+            ],
+            'queued_targets'            => ['app/Services/BazService.php'],
+            'allow_direct_final_answer' => false,
+            'context_budget_chars'      => 8000,
+        ], $overrides);
+    }
+
+    // ── Schema / AC2 required keys ────────────────────────────────────────────
+
+    public function test_result_has_required_keys(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        foreach ([
+            'schema_version', 'assembled', 'failure_reason',
+            'prompt_sections', 'required_artifacts', 'anti_duplication_checks', 'max_context_budget_chars',
+        ] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
+        $this->assertSame(AtlasExternalBrainScaffoldedPromptAssembler::SCHEMA_VERSION, $result['schema_version']);
+    }
+
+    // ── AC2: successful assembly ──────────────────────────────────────────────
+
+    public function test_valid_input_produces_assembled_prompt(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $this->assertTrue($result['assembled']);
+        $this->assertNull($result['failure_reason']);
+    }
+
+    public function test_prompt_sections_are_ordered_correctly(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $sectionNames = array_column($result['prompt_sections'], 'section');
+
+        $this->assertSame([
+            'evidence_intake',
+            'live_queue_snapshot',
+            'ranking_order',
+            'reasoning_scaffold',
+            'anti_duplication_check',
+            'forbidden_output_shapes',
+            'acceptance_floor',
+            'budget_guard',
+            'no_wait_policy',
+            'no_comfortable_queue_stop',
+            'output_contract',
+        ], $sectionNames);
+    }
+
+    public function test_prompt_sections_each_have_content(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        foreach ($result['prompt_sections'] as $section) {
+            $this->assertArrayHasKey('section', $section);
+            $this->assertArrayHasKey('content', $section);
+            $this->assertNotEmpty($section['content']);
+        }
+    }
+
+    // ── AC2: required_artifacts ───────────────────────────────────────────────
+
+    public function test_required_artifacts_are_non_empty(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $this->assertNotEmpty($result['required_artifacts']);
+        $this->assertContains('acceptance_criteria_runnable', $result['required_artifacts']);
+    }
+
+    // ── AC2: anti_duplication_checks ─────────────────────────────────────────
+
+    public function test_anti_duplication_checks_echo_queued_targets(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'queued_targets' => ['app/Services/FooService.php', 'app/Services/BarService.php'],
+        ]));
+
+        $this->assertContains('app/Services/FooService.php', $result['anti_duplication_checks']);
+        $this->assertContains('app/Services/BarService.php', $result['anti_duplication_checks']);
+    }
+
+    public function test_anti_duplication_checks_deduplicate_case_insensitive_repeats(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'queued_targets' => ['AtlasFoo.php', 'AtlasFoo.php', 'atlasfoo.php', 'AtlasBar.php'],
+        ]));
+
+        $this->assertCount(2, $result['anti_duplication_checks']);
+        $this->assertSame(['AtlasFoo.php', 'AtlasBar.php'], $result['anti_duplication_checks']);
+    }
+
+    // ── AC2: max_context_budget_chars ────────────────────────────────────────
+
+    public function test_context_budget_echoed_in_result(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['context_budget_chars' => 12000]));
+
+        $this->assertSame(12000, $result['max_context_budget_chars']);
+    }
+
+    // ── AC3: fail-closed on allow_direct_final_answer=true ───────────────────
+
+    public function test_allow_direct_final_answer_true_fails_closed(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'allow_direct_final_answer' => true,
+        ]));
+
+        $this->assertFalse($result['assembled']);
+        $this->assertNotNull($result['failure_reason']);
+        $this->assertStringContainsString('allow_direct_final_answer', $result['failure_reason']);
+        $this->assertSame([], $result['prompt_sections']);
+    }
+
+    // ── AC3: fail-closed on empty evidence_intake ────────────────────────────
+
+    public function test_empty_evidence_intake_fails_closed(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'evidence_intake' => [],
+        ]));
+
+        $this->assertFalse($result['assembled']);
+        $this->assertStringContainsString('evidence_intake_empty', $result['failure_reason']);
+    }
+
+    public function test_missing_evidence_intake_fails_closed(): void
+    {
+        $input = $this->validInput();
+        unset($input['evidence_intake']);
+
+        $result = $this->assembler->assemble($input);
+
+        $this->assertFalse($result['assembled']);
+    }
+
+    // ── AC2: fail-closed on missing queued_targets (dedup state unknown) ──────
+
+    public function test_missing_queued_targets_key_fails_closed(): void
+    {
+        $input = $this->validInput();
+        unset($input['queued_targets']);
+
+        $result = $this->assembler->assemble($input);
+
+        $this->assertFalse($result['assembled']);
+        $this->assertStringContainsString('queued_target_dedup_missing', $result['failure_reason']);
+        $this->assertSame([], $result['prompt_sections']);
+    }
+
+    public function test_explicit_empty_queued_targets_does_not_fail_closed(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['queued_targets' => []]));
+
+        $this->assertTrue($result['assembled']);
+    }
+
+    // ── AC3: fail-closed output is still schema-complete ─────────────────────
+
+    public function test_failed_assembly_still_has_schema_and_budget(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['evidence_intake' => []]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldedPromptAssembler::SCHEMA_VERSION, $result['schema_version']);
+        $this->assertIsInt($result['max_context_budget_chars']);
+    }
+
+    // ── Evidence content appears in evidence_intake section ───────────────────
+
+    public function test_evidence_text_appears_in_evidence_section(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'evidence_intake' => [
+                ['text' => 'AtlasMegaService gap detected here'],
+            ],
+        ]));
+
+        $section = $this->findSection($result, 'evidence_intake');
+        $this->assertStringContainsString('AtlasMegaService gap detected', $section['content']);
+    }
+
+    // ── Queued targets appear in anti-duplication section ────────────────────
+
+    public function test_queued_targets_appear_in_dedup_section(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'queued_targets' => ['app/Services/UniqueTarget.php'],
+        ]));
+
+        $section = $this->findSection($result, 'anti_duplication_check');
+        $this->assertStringContainsString('UniqueTarget.php', $section['content']);
+    }
+
+    // ── New sections: live_queue_snapshot ─────────────────────────────────────
+
+    public function test_live_queue_snapshot_lists_queued_targets(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'queued_targets' => ['app/Services/SomeService.php'],
+        ]));
+
+        $section = $this->findSection($result, 'live_queue_snapshot');
+        $this->assertStringContainsString('SomeService.php', $section['content']);
+    }
+
+    public function test_live_queue_snapshot_empty_queue_message(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['queued_targets' => []]));
+
+        $section = $this->findSection($result, 'live_queue_snapshot');
+        $this->assertStringContainsString('empty', $section['content']);
+    }
+
+    // ── New sections: ranking_order ───────────────────────────────────────────
+
+    public function test_ranking_order_section_has_priority_content(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $section = $this->findSection($result, 'ranking_order');
+        $this->assertStringContainsString('RANKING ORDER', $section['content']);
+    }
+
+    // ── New sections: forbidden_output_shapes ─────────────────────────────────
+
+    public function test_forbidden_output_shapes_mentions_template_farm(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $section = $this->findSection($result, 'forbidden_output_shapes');
+        $this->assertStringContainsString('template-farm', $section['content']);
+    }
+
+    public function test_forbidden_output_shapes_mentions_generic_phrases(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $section = $this->findSection($result, 'forbidden_output_shapes');
+        $this->assertStringContainsString('generic phrases', $section['content']);
+    }
+
+    // ── New sections: acceptance_floor ────────────────────────────────────────
+
+    public function test_acceptance_floor_mentions_runnable_command(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $section = $this->findSection($result, 'acceptance_floor');
+        $this->assertStringContainsString('/opt/homebrew/bin/php', $section['content']);
+    }
+
+    public function test_acceptance_floor_mentions_pascal_case_requirement(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $section = $this->findSection($result, 'acceptance_floor');
+        $this->assertStringContainsString('PascalCase', $section['content']);
+    }
+
+    // ── New sections: budget_guard ────────────────────────────────────────────
+
+    public function test_budget_guard_reflects_context_budget(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['context_budget_chars' => 5000]));
+
+        $section = $this->findSection($result, 'budget_guard');
+        $this->assertStringContainsString('5000', $section['content']);
+    }
+
+    public function test_budget_guard_shows_evidence_ceiling(): void
+    {
+        $result = $this->assembler->assemble($this->validInput(['context_budget_chars' => 8000]));
+
+        $section = $this->findSection($result, 'budget_guard');
+        // 50% of 8000 = 4000
+        $this->assertStringContainsString('4000', $section['content']);
+    }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
+
+    public function test_same_input_produces_same_output(): void
+    {
+        $input = $this->validInput();
+        $this->assertSame(
+            $this->assembler->assemble($input),
+            $this->assembler->assemble($input),
+        );
+    }
+
+    public function test_no_wait_policy_section_forbids_stopping_on_healthy_queue_depth(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_wait_policy');
+
+        $this->assertStringContainsString('servable_now is healthy', $section['content']);
+        $this->assertStringContainsString('no valuable task exists', $section['content']);
+    }
+
+    public function test_unexplored_surfaces_requires_candidate_batch_or_exhausted_proof(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'unexplored_surfaces' => ['app/Services/UnexploredArea.php'],
+        ]));
+
+        $this->assertContains('candidate_batch_or_exhausted_surface_proof', $result['required_artifacts']);
+    }
+
+    public function test_no_unexplored_surfaces_does_not_require_exhausted_proof(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $this->assertNotContains('candidate_batch_or_exhausted_surface_proof', $result['required_artifacts']);
+    }
+
+    public function test_no_comfortable_queue_stop_section_present(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_comfortable_queue_stop');
+
+        $this->assertNotEmpty($section['content']);
+    }
+
+    public function test_no_comfortable_queue_stop_section_says_healthy_depth_changes_sizing_not_stop(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_comfortable_queue_stop');
+
+        $this->assertStringContainsString('batch sizing', $section['content']);
+        $this->assertStringContainsString('does NOT permit stopping', $section['content']);
+    }
+
+    public function test_fail_closed_behavior_for_missing_evidence_intake_or_queued_targets_unchanged(): void
+    {
+        $missingEvidence = $this->assembler->assemble($this->validInput(['evidence_intake' => []]));
+        $this->assertFalse($missingEvidence['assembled']);
+        $this->assertStringContainsString('evidence_intake_empty', $missingEvidence['failure_reason']);
+
+        $input = $this->validInput();
+        unset($input['queued_targets']);
+        $result = $this->assembler->assemble($input);
+        $this->assertFalse($result['assembled']);
+        $this->assertStringContainsString('queued_target_dedup_missing', $result['failure_reason']);
+    }
+
+    // ── helper ────────────────────────────────────────────────────────────────
+
+    private function findSection(array $result, string $name): array
+    {
+        foreach ($result['prompt_sections'] as $s) {
+            if ($s['section'] === $name) {
+                return $s;
+            }
+        }
+        $this->fail("Section '{$name}' not found in prompt_sections.");
+    }
+}

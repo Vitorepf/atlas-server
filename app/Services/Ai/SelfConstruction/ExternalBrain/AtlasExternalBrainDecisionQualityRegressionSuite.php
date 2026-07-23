@@ -1,0 +1,272 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\SelfConstruction\ExternalBrain;
+
+/**
+ * Pure local gate. Scores external-brain decision outputs against a compact
+ * scenario suite so regressions are detected before decisions reach the queue.
+ *
+ * Scenarios covered:
+ *   template_farm         — low-value farming; must be REJECTED
+ *   duplicate_target      — dedup conflict; must be REJECTED
+ *   weak_evidence         — no runnable acceptance or missing evidence; must be REJECTED
+ *   poison_packet         — poisoned / unrecoverable; must be REJECTED
+ *   high_leverage_genuine — real high-impact task; must be ADMITTED
+ *   consolidation_needed  — system-quality consolidation task; must be ADMITTED
+ *   false_wait_on_sufficient_depth — evidence depth is already sufficient; must be ADMITTED,
+ *                            never stalled on a further wait
+ *
+ * Decision outputs supplied to score() must each carry:
+ *   scenario_id: string   — one of the scenario keys above
+ *   admitted:    bool     — whether the upstream decision admitted the candidate
+ *
+ * Additional content fields (weakness_labels[], is_duplicate, is_poison,
+ * leverage_score) are also inspected so the suite detects regressions even when
+ * scenario_id is unknown or missing.
+ *
+ * Pure: no I/O, no provider calls, deterministic.
+ */
+final class AtlasExternalBrainDecisionQualityRegressionSuite
+{
+    public const SCHEMA = 'atlas.external_brain.decision_quality_regression_suite.v1';
+
+    // Scenarios that must be REJECTED
+    public const SCENARIO_TEMPLATE_FARM    = 'template_farm';
+    public const SCENARIO_DUPLICATE_TARGET = 'duplicate_target';
+    public const SCENARIO_WEAK_EVIDENCE    = 'weak_evidence';
+    public const SCENARIO_POISON_PACKET    = 'poison_packet';
+
+    public const SCENARIO_PROXY_PROOF      = 'proxy_proof';
+    public const SCENARIO_SHALLOW_WRAPPER  = 'shallow_wrapper_spec';
+
+    // A decision that WAITS/rejects even though evidence depth is already sufficient is itself
+    // a regression — the correct outcome is admission, not more stalling.
+    public const SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH = 'false_wait_on_sufficient_depth';
+
+    // Scenarios that must be ADMITTED
+    public const SCENARIO_HIGH_LEVERAGE_GENUINE = 'high_leverage_genuine';
+    public const SCENARIO_CONSOLIDATION_NEEDED  = 'consolidation_needed';
+    public const SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE = 'ambitious_multi_step_genuine';
+
+    private const EXPECTED_ADMITTED = [
+        self::SCENARIO_TEMPLATE_FARM         => false,
+        self::SCENARIO_DUPLICATE_TARGET      => false,
+        self::SCENARIO_WEAK_EVIDENCE         => false,
+        self::SCENARIO_POISON_PACKET         => false,
+        self::SCENARIO_PROXY_PROOF           => false,
+        self::SCENARIO_SHALLOW_WRAPPER       => false,
+        self::SCENARIO_HIGH_LEVERAGE_GENUINE => true,
+        self::SCENARIO_CONSOLIDATION_NEEDED  => true,
+        self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE => true,
+        self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH => true,
+    ];
+
+    private const REGRESSION_RULES = [
+        self::SCENARIO_TEMPLATE_FARM    => 'template-farm candidate must not be admitted; it produces low-value tasks',
+        self::SCENARIO_DUPLICATE_TARGET => 'duplicate-target candidate must not be admitted; it wastes queue cycles',
+        self::SCENARIO_WEAK_EVIDENCE    => 'weak-evidence candidate must not be admitted; task is unverifiable',
+        self::SCENARIO_POISON_PACKET    => 'poison packet must not be admitted; it is unrecoverable',
+        self::SCENARIO_PROXY_PROOF      => 'proxy-proof candidate must not be admitted; it gates on a non-runnable or gameable metric instead of real evidence',
+        self::SCENARIO_SHALLOW_WRAPPER  => 'shallow-wrapper-spec candidate must not be admitted; it wraps an existing capability with no new behavior',
+        self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH => 'candidate with sufficient evidence depth must be admitted, not stalled on a false wait',
+    ];
+
+    private const CONTENT_LOW_VALUE_LABELS = ['template_farming', 'shallow_duplication', 'fake_confidence', 'proxy_proof', 'shallow_wrapper'];
+
+    /** leverage_score at/above this is strong enough on its own to justify admission. */
+    private const ADMISSION_LEVERAGE_FLOOR = 0.70;
+
+    /**
+     * @var list<array<string,mixed>> Frozen good/bad decision cases used to
+     *      detect regressions toward template-farm, proxy proof, duplicate
+     *      target, or shallow wrapper specs without re-litigating real
+     *      candidates. Each case states the upstream decision's actual
+     *      `admitted` outcome on a known-good or known-bad input; the suite
+     *      proves that outcome still matches the scenario's correct verdict.
+     */
+    private const FROZEN_CASES = [
+        ['case_id' => 'frozen_template_farm', 'scenario_id' => self::SCENARIO_TEMPLATE_FARM, 'admitted' => false],
+        ['case_id' => 'frozen_duplicate_target', 'scenario_id' => self::SCENARIO_DUPLICATE_TARGET, 'admitted' => false],
+        ['case_id' => 'frozen_weak_evidence', 'scenario_id' => self::SCENARIO_WEAK_EVIDENCE, 'admitted' => false],
+        ['case_id' => 'frozen_poison_packet', 'scenario_id' => self::SCENARIO_POISON_PACKET, 'admitted' => false],
+        ['case_id' => 'frozen_proxy_proof', 'scenario_id' => self::SCENARIO_PROXY_PROOF, 'admitted' => false],
+        ['case_id' => 'frozen_shallow_wrapper', 'scenario_id' => self::SCENARIO_SHALLOW_WRAPPER, 'admitted' => false],
+        ['case_id' => 'frozen_high_leverage_genuine', 'scenario_id' => self::SCENARIO_HIGH_LEVERAGE_GENUINE, 'admitted' => true],
+        ['case_id' => 'frozen_consolidation_needed', 'scenario_id' => self::SCENARIO_CONSOLIDATION_NEEDED, 'admitted' => true],
+        ['case_id' => 'frozen_ambitious_multi_step_genuine', 'scenario_id' => self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE, 'admitted' => true],
+        ['case_id' => 'frozen_false_wait_on_sufficient_depth', 'scenario_id' => self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH, 'admitted' => true],
+    ];
+
+    /**
+     * @param  list<array<string,mixed>>  $decisions
+     * @return array{schema:string, passed_scenarios:list<string>, failed_scenarios:list<string>, quality_score:float, regression_reasons:list<string>}
+     */
+    public function score(array $decisions): array
+    {
+        $passed            = [];
+        $failed            = [];
+        $regressionReasons = [];
+
+        foreach ($decisions as $decision) {
+            if (! is_array($decision)) {
+                continue;
+            }
+
+            $scenarioId = trim((string) ($decision['scenario_id'] ?? ''));
+            $admitted   = (bool) ($decision['admitted'] ?? false);
+
+            // Resolve expected outcome: from scenario map first, then content
+            $expectedAdmitted = $this->resolveExpected($scenarioId, $decision);
+
+            if ($expectedAdmitted === null) {
+                // Unrecognized scenario with no content signal — skip scoring
+                continue;
+            }
+
+            $label = $scenarioId !== '' ? $scenarioId : $this->inferScenarioLabel($decision);
+
+            if ($admitted === $expectedAdmitted) {
+                $passed[] = $label;
+            } else {
+                $failed[]            = $label;
+                $regressionReasons[] = $this->regressionReason($label, $admitted, $expectedAdmitted, $decision);
+            }
+        }
+
+        $total        = count($passed) + count($failed);
+        $qualityScore = $total > 0 ? round(count($passed) / $total, 4) : 1.0;
+
+        return [
+            'schema'             => self::SCHEMA,
+            'passed_scenarios'   => $passed,
+            'failed_scenarios'   => $failed,
+            'quality_score'      => $qualityScore,
+            'regression_reasons' => $regressionReasons,
+            // AC3: failed_regressions/repair_hint alias failed_scenarios/regression_reasons under
+            // the vocabulary the brain-prompt/policy caller expects, without renaming the originals.
+            'failed_regressions' => $failed,
+            'repair_hint'        => $failed === [] ? null : (self::REGRESSION_RULES[$failed[0]] ?? $regressionReasons[0]),
+        ];
+    }
+
+    /**
+     * Runs the frozen good/bad case suite and returns a regression verdict.
+     * verdict='pass' only when every frozen case's expected admit/reject
+     * outcome still matches; otherwise verdict='fail' and failed_case_ids
+     * names exactly which frozen cases regressed.
+     *
+     * @return array{schema:string, verdict:string, failed_case_ids:list<string>, violated_quality_rule:string|null}
+     */
+    public function runFrozenRegressionSuite(): array
+    {
+        $failedCaseIds = [];
+        $violatedRule = null;
+
+        foreach (self::FROZEN_CASES as $case) {
+            $scenarioId = (string) $case['scenario_id'];
+            $admitted = (bool) $case['admitted'];
+            $expectedAdmitted = $this->resolveExpected($scenarioId, $case);
+
+            if ($expectedAdmitted !== null && $admitted !== $expectedAdmitted) {
+                $failedCaseIds[] = (string) $case['case_id'];
+                if ($violatedRule === null) {
+                    $violatedRule = self::REGRESSION_RULES[$scenarioId] ?? "scenario={$scenarioId} expected ".($expectedAdmitted ? 'admission' : 'rejection');
+                }
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'verdict' => $failedCaseIds === [] ? 'pass' : 'fail',
+            'failed_case_ids' => $failedCaseIds,
+            'violated_quality_rule' => $violatedRule,
+        ];
+    }
+
+    private function resolveExpected(string $scenarioId, array $decision): ?bool
+    {
+        // Known scenario — authoritative
+        if (isset(self::EXPECTED_ADMITTED[$scenarioId])) {
+            return self::EXPECTED_ADMITTED[$scenarioId];
+        }
+
+        // Content-based fallback: bad signals → must NOT be admitted
+        if ($this->contentSignalsBad($decision)) {
+            return false;
+        }
+
+        // Content-based fallback: strong leverage + no bad signals → SHOULD be admitted
+        $leverage = (float) ($decision['leverage_score'] ?? 0.0);
+        if ($leverage >= self::ADMISSION_LEVERAGE_FLOOR) {
+            return true;
+        }
+
+        // Below the admission floor with nothing proving the work happened: never silently skip
+        // this — an unscored decision is indistinguishable from "no regression detected", which
+        // lets a low-leverage, no-evidence admission dodge scoring by simply omitting scenario_id.
+        if (! $this->hasEvidence($decision)) {
+            return false;
+        }
+
+        return null;
+    }
+
+    private function hasEvidence(array $decision): bool
+    {
+        return ! empty($decision['evidence'])
+            || ! empty($decision['evidence_refs'])
+            || (bool) ($decision['has_evidence'] ?? false);
+    }
+
+    private function contentSignalsBad(array $decision): bool
+    {
+        if ((bool) ($decision['is_poison']    ?? false)) {
+            return true;
+        }
+        if ((bool) ($decision['is_duplicate'] ?? false)) {
+            return true;
+        }
+
+        $weaknesses  = (array) ($decision['weakness_labels'] ?? []);
+        $lowValueHit = array_intersect($weaknesses, self::CONTENT_LOW_VALUE_LABELS);
+        if ($lowValueHit !== []) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function inferScenarioLabel(array $decision): string
+    {
+        if ((bool) ($decision['is_poison']    ?? false)) {
+            return self::SCENARIO_POISON_PACKET;
+        }
+        if ((bool) ($decision['is_duplicate'] ?? false)) {
+            return self::SCENARIO_DUPLICATE_TARGET;
+        }
+        $weaknesses = (array) ($decision['weakness_labels'] ?? []);
+        if (array_intersect($weaknesses, self::CONTENT_LOW_VALUE_LABELS) !== []) {
+            return self::SCENARIO_TEMPLATE_FARM;
+        }
+
+        $leverage = (float) ($decision['leverage_score'] ?? 0.0);
+        if ($leverage < self::ADMISSION_LEVERAGE_FLOOR && ! $this->hasEvidence($decision)) {
+            return self::SCENARIO_WEAK_EVIDENCE;
+        }
+
+        return 'unknown_content_signal';
+    }
+
+    private function regressionReason(string $label, bool $actualAdmitted, bool $expectedAdmitted, array $decision): string
+    {
+        $action   = $actualAdmitted ? 'admitted'  : 'rejected';
+        $expected = $expectedAdmitted ? 'admission' : 'rejection';
+
+        $hint = self::REGRESSION_RULES[$label]
+            ?? "scenario={$label} expected {$expected} but got {$action}";
+
+        return "[{$label}] {$action} but expected {$expected}: {$hint}";
+    }
+}

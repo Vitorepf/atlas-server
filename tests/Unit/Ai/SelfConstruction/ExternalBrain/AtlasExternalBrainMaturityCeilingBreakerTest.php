@@ -1,0 +1,531 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityCeilingBreaker;
+use PHPUnit\Framework\TestCase;
+
+final class AtlasExternalBrainMaturityCeilingBreakerTest extends TestCase
+{
+    private function breaker(): AtlasExternalBrainMaturityCeilingBreaker
+    {
+        return new AtlasExternalBrainMaturityCeilingBreaker;
+    }
+
+    private function task(bool $unlocks, float $delta = 0.01): array
+    {
+        return ['id' => uniqid(), 'unlocks_new_capability' => $unlocks, 'metric_delta' => $delta];
+    }
+
+    private function jump(array $overrides = []): array
+    {
+        return array_merge([
+            'name'          => 'self_directed_origination',
+            'prerequisites' => ['queue_stable', 'worker_healthy'],
+            'blast_radius'  => 0.3,
+            'risk_score'    => 0.4,
+            'proof_gates'   => ['integration_suite_green', 'no_regression'],
+        ], $overrides);
+    }
+
+    // ── AC4: output shape ─────────────────────────────────────────────────────
+
+    public function test_output_has_required_keys(): void
+    {
+        $r = $this->breaker()->analyze([]);
+        $this->assertSame(AtlasExternalBrainMaturityCeilingBreaker::SCHEMA, $r['schema_version']);
+        $this->assertArrayHasKey('ceiling_detected', $r);
+        $this->assertArrayHasKey('proposed_jump', $r);
+        $this->assertArrayHasKey('prerequisites', $r);
+        $this->assertArrayHasKey('proof_gates', $r);
+        $this->assertArrayHasKey('rejected_incremental_tasks', $r);
+        $this->assertArrayHasKey('unlock_chain', $r);
+        $this->assertArrayHasKey('incremental_rejection_reason', $r);
+    }
+
+    // ── insufficient data guard ────────────────────────────────────────────────
+
+    public function test_ceiling_not_declared_from_too_little_data_even_above_stagnation_threshold(): void
+    {
+        // Only 2 samples, both non-unlocking, with a low custom threshold — would otherwise
+        // trigger stagnation, but there isn't enough data to honestly declare a ceiling.
+        $r = $this->breaker()->analyze([
+            'recent_tasks'          => [$this->task(false), $this->task(false)],
+            'stagnation_threshold'  => 2,
+        ]);
+
+        $this->assertFalse($r['ceiling_detected']);
+        $this->assertTrue($r['ceiling_evidence']['insufficient_data']);
+    }
+
+    public function test_ceiling_can_be_declared_once_minimum_sample_size_is_met(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'         => array_fill(0, 3, $this->task(false)),
+            'stagnation_threshold' => 3,
+        ]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertFalse($r['ceiling_evidence']['insufficient_data']);
+    }
+
+    // ── unlock_chain ────────────────────────────────────────────────────────────
+
+    public function test_unlock_chain_lists_every_eligible_jump_in_order_with_compound_lift(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                $this->jump(['name' => 'best', 'risk_score' => 0.1, 'blast_radius' => 0.1]),
+                $this->jump(['name' => 'second', 'risk_score' => 0.4, 'blast_radius' => 0.3]),
+            ],
+        ]);
+
+        $this->assertCount(2, $r['unlock_chain']);
+        $this->assertSame('best', $r['unlock_chain'][0]['name']);
+        $this->assertSame(1, $r['unlock_chain'][0]['order']);
+        $this->assertSame('second', $r['unlock_chain'][1]['name']);
+        $this->assertSame(2, $r['unlock_chain'][1]['order']);
+
+        foreach ($r['unlock_chain'] as $entry) {
+            foreach (['prerequisites', 'proof_gates', 'risk_score', 'blast_radius', 'expected_compound_lift'] as $k) {
+                $this->assertArrayHasKey($k, $entry);
+            }
+        }
+    }
+
+    public function test_unlock_chain_excludes_rejected_jumps(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                $this->jump(['name' => 'unsafe', 'risk_score' => 0.9]),
+            ],
+        ]);
+
+        $this->assertSame([], $r['unlock_chain']);
+        $this->assertNotEmpty($r['rejected_jumps']);
+    }
+
+    public function test_incremental_rejection_reason_cites_non_unlocking_count(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => array_fill(0, 5, $this->task(false))]);
+
+        $this->assertStringContainsString('non_unlocking_task_count=5', $r['incremental_rejection_reason']);
+    }
+
+    // ── AC2: ceiling detection ────────────────────────────────────────────────
+
+    public function test_ceiling_detected_when_non_unlocking_count_reaches_threshold(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks, 'stagnation_threshold' => 5]);
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertSame(5, $r['ceiling_evidence']['non_unlocking_task_count']);
+    }
+
+    public function test_ceiling_not_detected_below_threshold(): void
+    {
+        $tasks = array_fill(0, 4, $this->task(false));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks, 'stagnation_threshold' => 5]);
+        $this->assertFalse($r['ceiling_detected']);
+    }
+
+    public function test_unlocking_tasks_do_not_count_toward_ceiling(): void
+    {
+        $tasks = [
+            $this->task(false), $this->task(false), $this->task(false),
+            $this->task(true),  // unlocking — not counted
+            $this->task(false),
+        ];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks, 'stagnation_threshold' => 5]);
+        $this->assertFalse($r['ceiling_detected']);
+        $this->assertSame(4, $r['ceiling_evidence']['non_unlocking_task_count']);
+    }
+
+    public function test_default_stagnation_threshold_is_five(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]); // no threshold key
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertSame(5, $r['ceiling_evidence']['stagnation_threshold_used']);
+    }
+
+    public function test_rejected_incremental_tasks_equals_non_unlocking_tasks(): void
+    {
+        $tasks = [$this->task(false), $this->task(true), $this->task(false)];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+        $this->assertCount(2, $r['rejected_incremental_tasks']);
+    }
+
+    // ── AC3: jump qualification ───────────────────────────────────────────────
+
+    public function test_safe_jump_is_proposed_on_ceiling(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+        $this->assertNotNull($r['proposed_jump']);
+        $this->assertSame('self_directed_origination', $r['proposed_jump']['name']);
+        $this->assertTrue($r['blast_radius_within_bounds']);
+        $this->assertTrue($r['risk_within_bounds']);
+    }
+
+    public function test_jump_with_excessive_blast_radius_is_rejected(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump(['blast_radius' => 0.8])],
+        ]);
+        $this->assertNull($r['proposed_jump']);
+        $this->assertCount(1, $r['rejected_jumps']);
+        $this->assertContains('blast_radius_exceeds_bound', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_jump_with_excessive_risk_score_is_rejected(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['risk_score' => 0.9])],
+        ]);
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('risk_score_exceeds_bound', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_jump_without_proof_gates_is_rejected(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['proof_gates' => []])],
+        ]);
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('no_proof_gates_defined', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_best_jump_selected_by_lowest_risk_then_blast(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                $this->jump(['name' => 'risky',  'risk_score' => 0.55, 'blast_radius' => 0.2]),
+                $this->jump(['name' => 'safest', 'risk_score' => 0.30, 'blast_radius' => 0.4]),
+                $this->jump(['name' => 'mid',    'risk_score' => 0.30, 'blast_radius' => 0.3]),
+            ],
+        ]);
+        $this->assertSame('mid', $r['proposed_jump']['name']); // lowest risk 0.30, then lowest blast 0.3
+    }
+
+    public function test_prerequisites_and_proof_gates_surfaced_from_proposed_jump(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+        $this->assertSame(['queue_stable', 'worker_healthy'], $r['prerequisites']);
+        $this->assertSame(['integration_suite_green', 'no_regression'], $r['proof_gates']);
+    }
+
+    public function test_no_proposed_jump_when_no_eligible_jumps(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [],
+        ]);
+        $this->assertNull($r['proposed_jump']);
+        $this->assertEmpty($r['prerequisites']);
+        $this->assertEmpty($r['proof_gates']);
+    }
+
+    // ── AC1: new ceiling metrics ──────────────────────────────────────────────
+
+    public function test_structural_unlock_rate_in_ceiling_evidence(): void
+    {
+        // 3 unlocking out of 5 → rate = 0.6
+        $tasks = [
+            $this->task(true),  $this->task(true),  $this->task(true),
+            $this->task(false), $this->task(false),
+        ];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.6, $r['ceiling_evidence']['structural_unlock_rate']);
+    }
+
+    public function test_repeated_family_rate_computed_from_task_family_field(): void
+    {
+        // 4 bug-hunt, 1 research → repeated = 4/5 = 0.8
+        $tasks = [
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'research'],
+        ];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.8, $r['ceiling_evidence']['repeated_family_rate']);
+    }
+
+    public function test_saturation_score_is_derived_from_unlock_and_family_rates(): void
+    {
+        // All non-unlocking (unlock_rate=0.0), all same family (repeated=1.0)
+        // saturation = (1.0 + 1.0) / 2 = 1.0
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(1.0, $r['ceiling_evidence']['saturation_score']);
+    }
+
+    public function test_ambition_jump_score_derived_from_risk_and_blast_of_best_jump(): void
+    {
+        // (1-0.4) * (1-0.3) = 0.6 * 0.7 = 0.42
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump(['risk_score' => 0.4, 'blast_radius' => 0.3])],
+        ]);
+
+        $this->assertSame(0.42, $r['ceiling_evidence']['ambition_jump_score']);
+    }
+
+    public function test_ambition_jump_score_zero_when_no_eligible_jump(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => array_fill(0, 5, $this->task(false))]);
+        $this->assertSame(0.0, $r['ceiling_evidence']['ambition_jump_score']);
+    }
+
+    public function test_tasks_without_task_family_do_not_inflate_repeated_family_rate(): void
+    {
+        // No task_family → repeated_family_rate = 0.0
+        $tasks = array_fill(0, 4, $this->task(false));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.0, $r['ceiling_evidence']['repeated_family_rate']);
+    }
+
+    // ── AC2: saturation triggers ceiling ──────────────────────────────────────
+
+    public function test_ceiling_detected_by_saturation_without_stagnation_count(): void
+    {
+        // Only 3 tasks but all same family, all non-unlocking → saturation=1.0 >= 0.60
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks, 'stagnation_threshold' => 5]);
+
+        $this->assertTrue($r['ceiling_detected']);       // saturation triggered, not stagnation count
+        $this->assertSame(3, $r['ceiling_evidence']['non_unlocking_task_count']); // still < threshold
+    }
+
+    public function test_saturation_ceiling_proposes_eligible_jump(): void
+    {
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'stagnation_threshold'      => 5,
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertNotNull($r['proposed_jump']);
+        $this->assertSame('self_directed_origination', $r['proposed_jump']['name']);
+    }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
+
+    public function test_output_is_deterministic(): void
+    {
+        $facts = [
+            'recent_tasks'              => [
+                ['id' => 'a', 'unlocks_new_capability' => false, 'metric_delta' => 0.01],
+                ['id' => 'b', 'unlocks_new_capability' => false, 'metric_delta' => 0.02],
+                ['id' => 'c', 'unlocks_new_capability' => false, 'metric_delta' => 0.01],
+                ['id' => 'd', 'unlocks_new_capability' => false, 'metric_delta' => 0.01],
+                ['id' => 'e', 'unlocks_new_capability' => false, 'metric_delta' => 0.01],
+            ],
+            'proposed_capability_jumps' => [$this->jump()],
+        ];
+        $a = $this->breaker()->analyze($facts);
+        $b = $this->breaker()->analyze($facts);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
+
+    // ── AC: repeated low-yield bug hunting classified as ceiling_reached when a leap exists ──
+
+    public function test_repeated_low_yield_bug_hunting_is_ceiling_reached_when_leap_available(): void
+    {
+        $tasks = array_fill(0, 5, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt', 'metric_delta' => 0.01]);
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertSame('ceiling_reached', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_detected_without_leap_is_not_ceiling_reached(): void
+    {
+        $tasks = array_fill(0, 5, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt', 'metric_delta' => 0.01]);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertSame('ceiling_detected_no_leap_available', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_status_is_insufficient_data_with_too_few_samples(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => [$this->task(false)]]);
+
+        $this->assertSame('insufficient_data', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_status_is_not_at_ceiling_when_healthy(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(true));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame('not_at_ceiling', $r['ceiling_status']);
+    }
+
+    // ── AC: recommended leap names target_area, evidence_gap and expected_unlock ──
+
+    public function test_proposed_jump_includes_target_area_evidence_gap_and_expected_unlock(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump([
+                'target_area'     => 'origination_autonomy',
+                'evidence_gap'    => 'no proof that origination survives 24h unattended',
+                'expected_unlock' => 'sustained autonomous batch origination without human seeding',
+            ])],
+        ]);
+
+        $this->assertSame('origination_autonomy', $r['proposed_jump']['target_area']);
+        $this->assertSame('no proof that origination survives 24h unattended', $r['proposed_jump']['evidence_gap']);
+        $this->assertSame('sustained autonomous batch origination without human seeding', $r['proposed_jump']['expected_unlock']);
+    }
+
+    // ── AC: cosmetic or wrapper additions are never recommended as ceiling breakers ──
+
+    public function test_cosmetic_jump_is_rejected_even_when_otherwise_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['is_cosmetic' => true])],
+        ]);
+
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('cosmetic_or_wrapper_only_addition_not_a_ceiling_breaker', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_wrapper_only_jump_is_rejected_even_when_otherwise_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['is_wrapper_only' => true])],
+        ]);
+
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('cosmetic_or_wrapper_only_addition_not_a_ceiling_breaker', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_substantive_jump_not_flagged_cosmetic_is_still_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertNotNull($r['proposed_jump']);
+    }
+
+    // AC: output includes next_leverage_moves
+    public function test_next_leverage_moves_present(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('next_leverage_moves', $r);
+        $this->assertIsArray($r['next_leverage_moves']);
+    }
+
+    // AC: plateau_claim_allowed=false when unexplored high-leverage surfaces remain
+    public function test_plateau_claim_not_allowed_when_moves_exist(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('plateau_claim_allowed', $r);
+        $this->assertFalse($r['plateau_claim_allowed']);
+    }
+
+    // AC: plateau_claim_allowed=true when no ceiling and no moves
+    public function test_plateau_claim_allowed_when_healthy(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 3, $this->task(true)),
+            'proposed_capability_jumps' => [],
+        ]);
+
+        $this->assertTrue($r['plateau_claim_allowed']);
+    }
+
+    // AC: ceiling_type categorizes the ceiling
+    public function test_ceiling_type_stagnation(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('ceiling_type', $r);
+        $this->assertSame('stagnation', $r['ceiling_type']);
+    }
+
+    // AC: evidence_refs present
+    public function test_evidence_refs_present(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => [
+                ['id' => 't1', 'unlocks_new_capability' => false, 'evidence_ref' => 'ev-1'],
+                ['id' => 't2', 'unlocks_new_capability' => false, 'evidence_ref' => 'ev-2'],
+            ],
+            'proposed_capability_jumps' => [],
+        ]);
+
+        $this->assertArrayHasKey('evidence_refs', $r);
+        $this->assertSame(['ev-1', 'ev-2'], $r['evidence_refs']);
+    }
+
+    // AC: chosen_move equals proposed_jump
+    public function test_chosen_move_equals_proposed_jump(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('chosen_move', $r);
+        $this->assertSame($r['proposed_jump'], $r['chosen_move']);
+    }
+
+    // AC: rejected_moves equals rejected_jumps
+    public function test_rejected_moves_equals_rejected_jumps(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                ['name' => 'bad', 'blast_radius' => 1.0, 'risk_score' => 1.0],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('rejected_moves', $r);
+        $this->assertSame($r['rejected_jumps'], $r['rejected_moves']);
+    }
+}
