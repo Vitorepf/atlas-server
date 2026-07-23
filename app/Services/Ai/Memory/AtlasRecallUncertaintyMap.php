@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 /**
  * T4-S4 (Obra #17) — the recall's UNCERTAINTY MAP. A conversational MCP recall must not

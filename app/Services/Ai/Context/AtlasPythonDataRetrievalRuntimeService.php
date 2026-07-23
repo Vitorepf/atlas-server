@@ -34,7 +34,7 @@ use Carbon\CarbonImmutable;
  * is {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient} (spawns
  * `runtimes/python/semantic_rag/.venv/bin/python`, enforces the `real_embeddings`
  * boundary receipt) and is consumed by the live prompt-retrieval path
- * ({@see \App\Services\Ai\AtlasHybridMemoryRetrievalService}). Wiring THIS class to
+ * ({@see \App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService}). Wiring THIS class to
  * semantic_rag would invent a RAG role the architecture assigns elsewhere; following
  * the {@see \App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService} precedent,
  * the over-claim is corrected here in the contract, not by renaming the load-bearing

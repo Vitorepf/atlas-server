@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Memory;
 
 use App\Models\AiCompoundingMemory;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
-use App\Services\Ai\AtlasMemoryContextComposer;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryContextComposer;
 use Illuminate\Support\Facades\Schema;
 use ReflectionMethod;
 use Tests\TestCase;

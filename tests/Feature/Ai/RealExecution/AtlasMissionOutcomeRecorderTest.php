@@ -7,7 +7,7 @@ namespace Tests\Feature\Ai\RealExecution;
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\RealExecution\AtlasMissionOutcomeRecorder;

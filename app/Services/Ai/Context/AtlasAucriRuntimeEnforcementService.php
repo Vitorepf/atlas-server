@@ -25,7 +25,7 @@ use Illuminate\Support\Carbon;
  * and SCHEMA_VERSION constants are retained because they are load-bearing (DI bindings +
  * persisted/hashed audit schemas); the over-claim is corrected here in the contract, not by
  * renaming the gate. The ACTUAL prompt retrieval path is
- * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} (semantic recall) wired into
+ * {@see \App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService} (semantic recall) wired into
  * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService} (the live prompt builder).
  */
 final class AtlasAucriRuntimeEnforcementService

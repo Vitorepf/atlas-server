@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\SelfConstruction\Lineage\AtlasDecisionLineageLedger;
 use App\Services\Ai\SelfConstruction\Lineage\AtlasRollbackCascadeExecutor;

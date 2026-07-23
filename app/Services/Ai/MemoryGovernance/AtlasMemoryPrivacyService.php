@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\MemoryGovernance;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\MemoryQueryInput;

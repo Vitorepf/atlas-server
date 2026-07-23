@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\MemoryGovernance;
 
-use App\Services\Ai\MemoryHealthCompositePolicy;
+use App\Services\Ai\MemoryGovernance\MemoryHealthCompositePolicy;
 
 /**
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)

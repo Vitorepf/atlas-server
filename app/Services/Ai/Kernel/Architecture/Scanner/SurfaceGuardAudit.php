@@ -34,7 +34,7 @@ class SurfaceGuardAudit
             'ap2_surface_context_bypass' => fn (): array => $this->primitives->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
                             'App\\Services\\Ai\\Context\\AiContextPackBuilder',
                             'App\\Services\\Ai\\AtlasOpenBrainContextInjectionService',
-                            'App\\Services\\Ai\\AtlasMemoryRegistryService',
+                            'App\\Services\\Ai\\Memory\\AtlasMemoryRegistryService',
                             'App\\Services\\Ai\\EngineeringContextPackService',
                             'App\\Services\\Engineering\\EngineeringContextPackService',
                             'ContextPackBuilder',

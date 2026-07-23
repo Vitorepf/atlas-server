@@ -24,6 +24,8 @@ use App\Services\Ai\Context\SpanLevelRetrievalResolver;
 use App\Services\Ai\Context\TaskFacetExtractor;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;

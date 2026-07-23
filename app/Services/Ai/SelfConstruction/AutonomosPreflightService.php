@@ -109,13 +109,13 @@ final class AutonomosPreflightService
         return $this->guarded(
             'Memory admission chokepoint (ASI-02) — AtlasMemoryRegistryService present',
             function (): array {
-                $registry = base_path('app/Services/Ai/AtlasMemoryRegistryService.php');
+                $registry = base_path('app/Services/Ai/Memory/AtlasMemoryRegistryService.php');
                 $exists = is_file($registry);
 
                 return [
                     'pass' => $exists,
                     'reason' => $exists ? 'registry_present_gate_g0_g8_wired' : 'registry_missing',
-                    'evidence_path' => 'app/Services/Ai/AtlasMemoryRegistryService.php',
+                    'evidence_path' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php',
                 ];
             },
         );

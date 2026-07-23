@@ -6,7 +6,7 @@ use App\Jobs\ProcessAudioTranscription;
 use App\Models\Capture;
 use App\Models\TranscriptionJob;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
-use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\Memory\AiMemoryDeltaProposer;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\Ai\Cognition\ImmuneSignatureIngestor;

@@ -6,7 +6,6 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;

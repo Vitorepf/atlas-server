@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use Illuminate\Console\Command;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**

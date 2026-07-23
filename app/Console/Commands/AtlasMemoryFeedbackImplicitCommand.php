@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntryUsage;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;

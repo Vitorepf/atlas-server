@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Obra;
 
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Throwable;
 
 /**

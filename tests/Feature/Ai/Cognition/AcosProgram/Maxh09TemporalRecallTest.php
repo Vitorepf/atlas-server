@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;

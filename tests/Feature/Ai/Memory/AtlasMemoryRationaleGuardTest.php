@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;

@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AiContextSnapshot;
 use App\Models\AiTrace;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\Memory\AtlasMemoryActorTagger;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;

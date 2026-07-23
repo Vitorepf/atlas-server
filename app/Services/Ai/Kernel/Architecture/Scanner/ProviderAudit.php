@@ -722,9 +722,9 @@ class ProviderAudit
      */
     private function scanProviderMemoryPrivacy(): array
     {
-        $privacyPath = app_path('Services/Ai/AtlasMemoryPrivacyService.php');
+        $privacyPath = app_path('Services/Ai/MemoryGovernance/AtlasMemoryPrivacyService.php');
         $projectionPath = app_path('Services/Ai/Instrumentation/AtlasProviderProjectionService.php');
-        $openBrainPath = app_path('Services/Ai/AtlasHybridMemoryRetrievalService.php');
+        $openBrainPath = app_path('Services/Ai/Memory/AtlasHybridMemoryRetrievalService.php');
 
         $violations = [];
 
@@ -758,7 +758,7 @@ class ProviderAudit
         foreach ($checks as $label => $token) {
             $tokens = is_array($token) ? $token : [$token];
             if (! collect($tokens)->contains(static fn (string $candidate): bool => str_contains($privacy, $candidate))) {
-                $violations[] = "app/Services/Ai/AtlasMemoryPrivacyService.php: missing {$label} [{$token}]";
+                $violations[] = "app/Services/Ai/MemoryGovernance/AtlasMemoryPrivacyService.php: missing {$label} [{$token}]";
             }
         }
 
@@ -771,7 +771,7 @@ class ProviderAudit
         }
 
         if (! str_contains($openBrain, 'providerAllowed($entry)')) {
-            $violations[] = 'app/Services/Ai/AtlasHybridMemoryRetrievalService.php: Open Brain provider context must filter memory through AtlasMemoryPrivacyService::providerAllowed';
+            $violations[] = 'app/Services/Ai/Memory/AtlasHybridMemoryRetrievalService.php: Open Brain provider context must filter memory through AtlasMemoryPrivacyService::providerAllowed';
         }
 
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');

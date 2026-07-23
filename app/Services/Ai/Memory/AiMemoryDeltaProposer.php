@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AiQualityEvaluation;

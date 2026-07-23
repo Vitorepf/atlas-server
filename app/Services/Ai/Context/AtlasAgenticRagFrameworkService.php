@@ -26,7 +26,7 @@ use Illuminate\Support\Carbon;
  *     not reason over candidate CONTENT and never escalates required-source gaps.
  *
  * The actual agentic/semantic recall that reaches the prompt is
- * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} via
+ * {@see \App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService} via
  * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService}. The class name, the
  * `agentic_rag_*` payload keys and the SCHEMA_VERSION constants are retained ONLY because they
  * are load-bearing (DI binding + parent `hash_key` lookup + persisted/hashed audit schemas);

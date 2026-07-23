@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasAobgBlackboardService;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainGuardService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;

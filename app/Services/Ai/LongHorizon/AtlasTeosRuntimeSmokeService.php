@@ -8,7 +8,7 @@ use App\Models\AiAutonomousEngineeringGoal;
 use App\Models\AiCodebaseWorldModel;
 use App\Models\AiForgeIntake;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\Ai\Memory\AtlasVerbatimMemoryService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;

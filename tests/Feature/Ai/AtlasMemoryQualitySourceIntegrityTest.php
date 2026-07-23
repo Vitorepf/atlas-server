@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;

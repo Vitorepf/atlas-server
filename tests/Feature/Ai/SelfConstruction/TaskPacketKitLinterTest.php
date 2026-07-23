@@ -14,7 +14,7 @@ use Tests\TestCase;
  */
 class TaskPacketKitLinterTest extends TestCase
 {
-    private const REAL_FILE = 'app/Services/Ai/AtlasMemoryRegistryService.php';
+    private const REAL_FILE = 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php';
 
     private const REAL_TEST = 'tests/Feature/Ai/Brain/EvolutionDiaryTest.php';
 

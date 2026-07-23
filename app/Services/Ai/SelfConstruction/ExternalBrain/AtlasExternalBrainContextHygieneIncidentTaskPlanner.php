@@ -66,7 +66,7 @@ final class AtlasExternalBrainContextHygieneIncidentTaskPlanner
         self::ISSUE_RAW_PROMPT_LEAKAGE => ['app/Services/Ai/AtlasOpenBrainMemoryProjectionSafetyGate.php'],
         self::ISSUE_MISSING_PROVIDER_SAFE_METADATA => ['app/Services/Ai/SelfConstruction/Knowledge/AtlasSelfConstructionKnowledgeDominanceLoopPlanner.php'],
         self::ISSUE_STALE_INSTRUCTIONS => ['app/Services/Ai/SelfConstruction/Cortex/AtlasSelfConstructionCortexFreshnessBridge.php'],
-        self::ISSUE_IRRELEVANT_CONTEXT_OVERLOAD => ['app/Services/Ai/AtlasMemoryContextComposer.php'],
+        self::ISSUE_IRRELEVANT_CONTEXT_OVERLOAD => ['app/Services/Ai/Memory/AtlasMemoryContextComposer.php'],
     ];
 
     /** Leakage-class issues affect every downstream worker — always high leverage. */

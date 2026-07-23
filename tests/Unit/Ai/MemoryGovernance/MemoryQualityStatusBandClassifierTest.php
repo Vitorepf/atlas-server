@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\MemoryGovernance;
 
 use App\Services\Ai\MemoryGovernance\MemoryQualityStatusBandClassifier;
-use App\Services\Ai\MemoryQualityStatusPolicy;
+use App\Services\Ai\MemoryGovernance\MemoryQualityStatusPolicy;
 use Tests\TestCase;
 
 final class MemoryQualityStatusBandClassifierTest extends TestCase

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;

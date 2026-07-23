@@ -6,8 +6,8 @@ namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use Illuminate\Support\Facades\DB;

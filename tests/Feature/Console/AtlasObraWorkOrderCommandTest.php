@@ -43,11 +43,11 @@ class AtlasObraWorkOrderCommandTest extends TestCase
     {
         $slice = $this->descriptor([
             'objective' => 'query-aware retrieval',
-            'allowed_files' => ['app/Services/Ai/AtlasMemoryRegistryService.php'],
+            'allowed_files' => ['app/Services/Ai/Memory/AtlasMemoryRegistryService.php'],
             'forbidden_files' => ['app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php'],
             'acceptance_criteria' => ['php artisan test'],
             'acceptance_test_ref' => ['path' => 'tests/Feature/Ai/Brain/EvolutionDiaryTest.php'],
-            'glossary' => ['REG' => 'app/Services/Ai/AtlasMemoryRegistryService.php'],
+            'glossary' => ['REG' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php'],
             'freeze_callers_of' => ['AtlasMemoryRegistryService'],
         ]);
         $out = $this->dir.'/wo.json';
@@ -57,7 +57,7 @@ class AtlasObraWorkOrderCommandTest extends TestCase
         $wo = json_decode((string) file_get_contents($out), true);
         $this->assertNotSame('', $wo['acceptance_test_ref']['hash'], 'the acceptance test must be hashed for K4.');
         $this->assertNotEmpty($wo['frozen_callers'], 'callers of a real symbol must be auto-filled.');
-        $this->assertSame(['REG' => 'app/Services/Ai/AtlasMemoryRegistryService.php'], $wo['glossary']);
+        $this->assertSame(['REG' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php'], $wo['glossary']);
     }
 
     public function test_refuses_a_phantom_path(): void
@@ -89,7 +89,7 @@ class AtlasObraWorkOrderCommandTest extends TestCase
             'acceptance_criteria' => ['php artisan test'],
             'required_evidence' => ['tests_or_gates_result'],
             'acceptance_test_ref' => ['path' => 'tests/Feature/Ai/Brain/EvolutionDiaryTest.php'],
-            'glossary' => ['REG' => 'app/Services/Ai/AtlasMemoryRegistryService.php'],
+            'glossary' => ['REG' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php'],
         ]);
         $out = $this->dir.'/wo.json';
         $this->artisan('atlas:obra:work-order', ['slice' => $slice, '--out' => $out])->assertExitCode(0);

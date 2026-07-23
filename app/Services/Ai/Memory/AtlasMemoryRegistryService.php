@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
@@ -17,6 +17,9 @@ use App\Services\Ai\Memory\AtlasMemoryTemporalDefaultDeriver;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\LocalAgentIngestion\LocalAgentSecretScanner;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\MemoryScopeHelpers;

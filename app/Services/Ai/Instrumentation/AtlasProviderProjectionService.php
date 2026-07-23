@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Instrumentation;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasOpenBrainMemoryProjectionSafetyGate;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Provider\ProviderProjectionInput;

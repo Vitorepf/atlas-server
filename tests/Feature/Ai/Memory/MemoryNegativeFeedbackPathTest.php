@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

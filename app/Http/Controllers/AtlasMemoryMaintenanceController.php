@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RunAtlasMemoryMaintenanceRequest;
-use App\Services\Ai\AtlasMemoryMaintenanceService;
+use App\Services\Ai\Memory\AtlasMemoryMaintenanceService;
 use Illuminate\Http\JsonResponse;
 
 class AtlasMemoryMaintenanceController extends Controller

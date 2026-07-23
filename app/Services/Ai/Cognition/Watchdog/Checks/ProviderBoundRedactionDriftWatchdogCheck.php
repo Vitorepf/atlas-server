@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Support\DatabaseTableAvailability;

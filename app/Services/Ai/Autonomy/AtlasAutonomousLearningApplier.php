@@ -9,7 +9,7 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
-use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;

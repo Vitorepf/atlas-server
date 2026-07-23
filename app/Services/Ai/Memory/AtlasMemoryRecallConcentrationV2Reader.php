@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Memory;
 
-use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;

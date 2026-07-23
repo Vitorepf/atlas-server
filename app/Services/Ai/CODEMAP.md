@@ -48,3 +48,20 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Resolve a declared domain profile | `App\Services\Ai\Policy\AtlasDomainProfileRegistry::resolve` |
 | Read effective AI runtime settings | `App\Services\Ai\Policy\AtlasAiRuntimeSettings::effective` |
 | Enforce the configured runtime budget | `App\Services\Ai\Policy\AiRuntimeBudgetService::assertAllows` |
+| Propose a memory delta from workspace evidence | `App\Services\Ai\Memory\AiMemoryDeltaProposer::proposeForWorkspace` |
+| Recall hybrid memory safely | `App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService::recall` |
+| Compose ranked memory into provider context | `App\Services\Ai\Memory\AtlasMemoryContextComposer::compose` |
+| Promote an accepted memory delta | `App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService::promote` |
+| Run learning-driven memory promotion | `App\Services\Ai\Memory\AtlasMemoryLearningPromotionService::run` |
+| Run governed memory maintenance | `App\Services\Ai\Memory\AtlasMemoryMaintenanceService::run` |
+| Produce a memory-quality scorecard | `App\Services\Ai\Memory\AtlasMemoryQualityService::scorecard` |
+| Record a canonical memory entry | `App\Services\Ai\Memory\AtlasMemoryRegistryService::record` |
+| List memory items awaiting review | `App\Services\Ai\Memory\AtlasMemoryReviewQueueService::queue` |
+| Record memory usage for a recall | `App\Services\Ai\Memory\AtlasMemoryUsageService::recordRecallUsages` |
+| Explain recall uncertainty | `App\Services\Ai\Memory\AtlasRecallUncertaintyMap::forRecall` |
+| Record a governed verbatim memory | `App\Services\Ai\Memory\AtlasVerbatimMemoryService::record` |
+| Scan a memory entry for governance relations | `App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService::scan` |
+| Decide whether memory is provider-safe | `App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService::providerAllowed` |
+| Project source privacy for memory input | `App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy::project` |
+| Compose memory-health dimensions | `App\Services\Ai\MemoryGovernance\MemoryHealthCompositePolicy::compose` |
+| Classify memory-quality readiness | `App\Services\Ai\MemoryGovernance\MemoryQualityStatusPolicy::classify` |

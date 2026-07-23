@@ -8,7 +8,7 @@ use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Runtime\WorkspaceProfile;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;

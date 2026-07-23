@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Obra;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 

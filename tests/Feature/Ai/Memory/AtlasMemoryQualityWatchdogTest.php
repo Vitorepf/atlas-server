@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Memory;
 
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Mockery;

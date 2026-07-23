@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use Throwable;

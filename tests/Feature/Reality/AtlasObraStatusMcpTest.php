@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Reality;
 
 use App\Models\AtlasAurgNode;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;

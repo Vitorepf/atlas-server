@@ -37,14 +37,14 @@ final class TaskServingWorkOrderSchemaTest extends TestCase
             'frozen_callers' => [['caller' => 'app/C.php:10', 'destination' => 'stays additive']],
             'acceptance_test_ref' => ['path' => 'tests/Feature/XTest.php', 'hash' => 'abc123'],
             'stop_and_return' => ['scope creep', ' phantom symbol '],
-            'glossary' => ['REG' => 'app/Services/Ai/AtlasMemoryRegistryService.php'],
+            'glossary' => ['REG' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php'],
             'baseline_artifact' => ['metric' => 'x', 'value' => 0],
         ]);
 
         $this->assertSame([['caller' => 'app/C.php:10', 'destination' => 'stays additive']], $env['frozen_callers']);
         $this->assertSame(['path' => 'tests/Feature/XTest.php', 'hash' => 'abc123'], $env['acceptance_test_ref']);
         $this->assertSame(['scope creep', 'phantom symbol'], $env['stop_and_return']);
-        $this->assertSame(['REG' => 'app/Services/Ai/AtlasMemoryRegistryService.php'], $env['glossary']);
+        $this->assertSame(['REG' => 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php'], $env['glossary']);
         $this->assertSame(['metric' => 'x', 'value' => 0], $env['baseline_artifact']);
     }
 

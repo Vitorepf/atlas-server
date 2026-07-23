@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
-use App\Services\Ai\AtlasMemoryContextComposer;
+use App\Services\Ai\Memory\AtlasMemoryContextComposer;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use PHPUnit\Framework\TestCase;
 

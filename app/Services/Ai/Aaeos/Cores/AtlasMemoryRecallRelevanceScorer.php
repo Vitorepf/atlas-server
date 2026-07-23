@@ -10,7 +10,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
  * Pure, zero-dependency recall relevance scorer for normalized memory candidate rows.
  *
  * Mirrors the inlined recall relevance formula and the scope/type weight tables used by
- * App\Services\Ai\AtlasMemoryContextComposer so the same ordering can be computed and
+ * App\Services\Ai\Memory\AtlasMemoryContextComposer so the same ordering can be computed and
  * audited in isolation, with no I/O, facades, clock or randomness.
  *
  * A normalized candidate row may carry:

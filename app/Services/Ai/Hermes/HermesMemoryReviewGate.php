@@ -4,7 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;

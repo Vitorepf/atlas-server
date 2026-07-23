@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
@@ -9,6 +9,9 @@ use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryQualitySnapshot;
 use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\MemoryHealthCompositePolicy;
+use App\Services\Ai\MemoryGovernance\MemoryQualityStatusPolicy;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;

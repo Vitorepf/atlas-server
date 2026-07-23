@@ -29,15 +29,15 @@ class MemoryLearningAudit
     private function scanMemoryQueryInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Memory/MemoryQueryInput.php');
-        $registryPath = app_path('Services/Ai/AtlasMemoryRegistryService.php');
-        $verbatimPath = app_path('Services/Ai/AtlasVerbatimMemoryService.php');
-        $governancePath = app_path('Services/Ai/AtlasMemoryGovernanceService.php');
-        $privacyPath = app_path('Services/Ai/AtlasMemoryPrivacyService.php');
-        $deltaPromotionPath = app_path('Services/Ai/AtlasMemoryDeltaPromotionService.php');
-        $learningPromotionPath = app_path('Services/Ai/AtlasMemoryLearningPromotionService.php');
-        $maintenancePath = app_path('Services/Ai/AtlasMemoryMaintenanceService.php');
-        $reviewQueuePath = app_path('Services/Ai/AtlasMemoryReviewQueueService.php');
-        $qualityPath = app_path('Services/Ai/AtlasMemoryQualityService.php');
+        $registryPath = app_path('Services/Ai/Memory/AtlasMemoryRegistryService.php');
+        $verbatimPath = app_path('Services/Ai/Memory/AtlasVerbatimMemoryService.php');
+        $governancePath = app_path('Services/Ai/MemoryGovernance/AtlasMemoryGovernanceService.php');
+        $privacyPath = app_path('Services/Ai/MemoryGovernance/AtlasMemoryPrivacyService.php');
+        $deltaPromotionPath = app_path('Services/Ai/Memory/AtlasMemoryDeltaPromotionService.php');
+        $learningPromotionPath = app_path('Services/Ai/Memory/AtlasMemoryLearningPromotionService.php');
+        $maintenancePath = app_path('Services/Ai/Memory/AtlasMemoryMaintenanceService.php');
+        $reviewQueuePath = app_path('Services/Ai/Memory/AtlasMemoryReviewQueueService.php');
+        $qualityPath = app_path('Services/Ai/Memory/AtlasMemoryQualityService.php');
         $listCommandPath = app_path('Console/Commands/AtlasMemoryListCommand.php');
         $verbatimCommandPath = app_path('Console/Commands/AtlasMemoryVerbatimCommand.php');
         $relationsCommandPath = app_path('Console/Commands/AtlasMemoryRelationsCommand.php');
@@ -101,7 +101,7 @@ class MemoryLearningAudit
             '$this->input->registryLimit(',
         ] as $token) {
             if (! str_contains($registry, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryRegistryService.php: memory registry must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryRegistryService.php: memory registry must use shared query input contract [{$token}]";
             }
         }
 
@@ -110,7 +110,7 @@ class MemoryLearningAudit
             '$this->input->verbatimLimit(',
         ] as $token) {
             if (! str_contains($verbatim, $token)) {
-                $violations[] = "app/Services/Ai/AtlasVerbatimMemoryService.php: verbatim memory must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasVerbatimMemoryService.php: verbatim memory must use shared query input contract [{$token}]";
             }
         }
 
@@ -120,7 +120,7 @@ class MemoryLearningAudit
             '$this->input->relationLimit(',
         ] as $token) {
             if (! str_contains($governance, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryGovernanceService.php: memory governance must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/MemoryGovernance/AtlasMemoryGovernanceService.php: memory governance must use shared query input contract [{$token}]";
             }
         }
 
@@ -129,7 +129,7 @@ class MemoryLearningAudit
             '$this->input->governanceScanLimit(',
         ] as $token) {
             if (! str_contains($privacy, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryPrivacyService.php: memory privacy must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/MemoryGovernance/AtlasMemoryPrivacyService.php: memory privacy must use shared query input contract [{$token}]";
             }
         }
 
@@ -138,7 +138,7 @@ class MemoryLearningAudit
             '$this->input->promotionLimit(',
         ] as $token) {
             if (! str_contains($deltaPromotion, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryDeltaPromotionService.php: memory delta promotion must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryDeltaPromotionService.php: memory delta promotion must use shared query input contract [{$token}]";
             }
         }
 
@@ -147,7 +147,7 @@ class MemoryLearningAudit
             '$this->input->promotionLimit(',
         ] as $token) {
             if (! str_contains($learningPromotion, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryLearningPromotionService.php: memory learning promotion must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryLearningPromotionService.php: memory learning promotion must use shared query input contract [{$token}]";
             }
         }
 
@@ -156,7 +156,7 @@ class MemoryLearningAudit
             '$this->input->promotionLimit(',
         ] as $token) {
             if (! str_contains($maintenance, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryMaintenanceService.php: memory maintenance must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryMaintenanceService.php: memory maintenance must use shared query input contract [{$token}]";
             }
         }
 
@@ -165,7 +165,7 @@ class MemoryLearningAudit
             '$this->input->reviewQueueLimit(',
         ] as $token) {
             if (! str_contains($reviewQueue, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryReviewQueueService.php: memory review queue must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryReviewQueueService.php: memory review queue must use shared query input contract [{$token}]";
             }
         }
 
@@ -175,7 +175,7 @@ class MemoryLearningAudit
             '$this->input->registryLimit(',
         ] as $token) {
             if (! str_contains($quality, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryQualityService.php: memory quality must use shared query input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryQualityService.php: memory quality must use shared query input contract [{$token}]";
             }
         }
 
@@ -266,8 +266,8 @@ class MemoryLearningAudit
     private function scanMemoryRecallInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Memory/MemoryRecallInput.php');
-        $retrievalPath = app_path('Services/Ai/AtlasHybridMemoryRetrievalService.php');
-        $composerPath = app_path('Services/Ai/AtlasMemoryContextComposer.php');
+        $retrievalPath = app_path('Services/Ai/Memory/AtlasHybridMemoryRetrievalService.php');
+        $composerPath = app_path('Services/Ai/Memory/AtlasMemoryContextComposer.php');
         $testPath = base_path('tests/Unit/Ai/Memory/MemoryRecallInputTest.php');
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
@@ -317,7 +317,7 @@ class MemoryLearningAudit
             '$this->input->registryExcerptChars()',
         ] as $token) {
             if (! str_contains($retrieval, $token)) {
-                $violations[] = "app/Services/Ai/AtlasHybridMemoryRetrievalService.php: hybrid memory recall must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasHybridMemoryRetrievalService.php: hybrid memory recall must use shared input contract [{$token}]";
             }
         }
 
@@ -328,7 +328,7 @@ class MemoryLearningAudit
             '$this->input->itemChars($options[\'memory_recall_item_chars\'] ?? null)',
         ] as $token) {
             if (! str_contains($composer, $token)) {
-                $violations[] = "app/Services/Ai/AtlasMemoryContextComposer.php: memory context composer must use shared recall input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Memory/AtlasMemoryContextComposer.php: memory context composer must use shared recall input contract [{$token}]";
             }
         }
 

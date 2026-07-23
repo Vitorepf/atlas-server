@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;

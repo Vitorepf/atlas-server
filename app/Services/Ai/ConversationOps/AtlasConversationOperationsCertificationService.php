@@ -324,7 +324,7 @@ final class AtlasConversationOperationsCertificationService
         $paths = [
             base_path('app/Services/Ai/Mission/MissionModeService.php'),
             base_path('app/Services/Ai/AiCompactionService.php'),
-            base_path('app/Services/Ai/AtlasMemoryDeltaPromotionService.php'),
+            base_path('app/Services/Ai/Memory/AtlasMemoryDeltaPromotionService.php'),
             base_path('app/Services/Ai/LongHorizon/LongHorizonMemoryPromotionGuard.php'),
         ];
         $ok = collect($paths)->every(fn (string $path): bool => File::exists($path));

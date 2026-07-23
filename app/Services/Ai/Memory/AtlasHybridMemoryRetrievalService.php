@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AiCompoundingMemory;
 use App\Models\AtlasMemoryEntry;
@@ -13,6 +13,8 @@ use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\AiValueNormalizer;

@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Capture\CaptureInboxPipelineReadModel;
 use App\Services\Ai\Mobile\ProactiveLayerReadModel;
 use App\Services\Ai\Runtime\ToolActionRuntimeReadModel;

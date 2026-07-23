@@ -4,8 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AiMemoryDeltaProposer;
-use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AiMemoryDeltaProposer;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;

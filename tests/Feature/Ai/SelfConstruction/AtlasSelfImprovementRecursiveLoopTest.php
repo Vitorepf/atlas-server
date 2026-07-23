@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\AtlasMissionOutcomeRecorder;

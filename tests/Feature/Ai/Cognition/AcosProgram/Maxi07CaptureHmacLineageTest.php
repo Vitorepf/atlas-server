@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\Capture;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService;
 use App\Services\CaptureService;

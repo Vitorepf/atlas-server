@@ -10,7 +10,7 @@ use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;

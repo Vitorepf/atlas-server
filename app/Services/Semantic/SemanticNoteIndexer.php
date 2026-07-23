@@ -3,7 +3,7 @@
 namespace App\Services\Semantic;
 
 use App\Models\SemanticNote;
-use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\Metadata;
 use Illuminate\Support\Collection;

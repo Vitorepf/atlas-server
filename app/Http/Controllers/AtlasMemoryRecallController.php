@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RecallAtlasMemoryRequest;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Illuminate\Http\JsonResponse;
 
 class AtlasMemoryRecallController extends Controller

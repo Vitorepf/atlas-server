@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\Memory\AtlasMemoryCandidateGateService;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
@@ -156,8 +156,8 @@ final class MemoryAdmissionChokepointTest extends TestCase
 
         $producerContracts = [
             'app/Services/Ai/Memory/AtlasMemoryCandidateGateService.php' => '->registry->record(',
-            'app/Services/Ai/AtlasMemoryDeltaPromotionService.php' => '->registry->record(',
-            'app/Services/Ai/AtlasVerbatimMemoryService.php' => '->registry->curate(',
+            'app/Services/Ai/Memory/AtlasMemoryDeltaPromotionService.php' => '->registry->record(',
+            'app/Services/Ai/Memory/AtlasVerbatimMemoryService.php' => '->registry->curate(',
             'app/Services/Ai/AtlasOpenBrainMcpService.php' => '->registry->record(',
         ];
 
@@ -231,7 +231,7 @@ final class MemoryAdmissionChokepointTest extends TestCase
             }
 
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
-            if ($relativePath === 'app/Services/Ai/AtlasMemoryRegistryService.php') {
+            if ($relativePath === 'app/Services/Ai/Memory/AtlasMemoryRegistryService.php') {
                 continue;
             }
 

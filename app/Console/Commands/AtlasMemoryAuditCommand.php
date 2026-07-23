@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AiTrace;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;

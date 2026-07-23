@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Illuminate\Support\Str;
 use ReflectionMethod;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;

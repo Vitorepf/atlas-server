@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Capture\CaptureInboxPipelineReadModel;
 use App\Services\Ai\Kernel\Architecture\AtlasQualitativeLevelsReadModel;
 use App\Services\Ai\Kernel\Architecture\AtlasStructureMotherAuditReadModel;

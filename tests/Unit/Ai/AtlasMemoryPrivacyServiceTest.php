@@ -3,7 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use Tests\TestCase;
 
 class AtlasMemoryPrivacyServiceTest extends TestCase

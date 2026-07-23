@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
 use App\Services\Ai\RuntimeBoundary\NearDuplicateRuntimeClient;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

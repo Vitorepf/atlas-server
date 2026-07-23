@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Obra;
 
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Obra\AtlasBlastRadiusService;
 use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;

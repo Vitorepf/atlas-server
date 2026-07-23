@@ -6,7 +6,7 @@ use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AtlasDecisionReceipt;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\LongHorizon\AtlasTeosReadinessCertificationService;
 use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate;

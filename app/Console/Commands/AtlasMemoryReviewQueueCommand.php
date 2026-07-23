@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\AtlasMemoryReviewQueueService;
+use App\Services\Ai\Memory\AtlasMemoryReviewQueueService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;

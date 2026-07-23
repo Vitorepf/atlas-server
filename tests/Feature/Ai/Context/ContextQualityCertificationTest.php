@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Context;
 
-use App\Services\Ai\AtlasMemoryRegistryService;
-use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasVerbatimMemoryService;
 use App\Services\Ai\Context\AtlasContextQualityCertificationService;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use Illuminate\Database\Schema\Blueprint;

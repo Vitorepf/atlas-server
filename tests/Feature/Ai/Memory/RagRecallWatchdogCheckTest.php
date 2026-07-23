@@ -8,7 +8,7 @@ use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryQualitySnapshot;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

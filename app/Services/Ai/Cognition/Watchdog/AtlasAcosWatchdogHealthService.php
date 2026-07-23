@@ -11,7 +11,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;

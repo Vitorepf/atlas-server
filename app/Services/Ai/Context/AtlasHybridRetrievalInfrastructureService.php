@@ -17,7 +17,7 @@ use Throwable;
  * VERDICT (a retrieval-plan report consumed by {@see AtlasAucriRuntimeEnforcementService} as
  * one input to its binary pass/block gate). It does NOT surface recalled content into a
  * provider prompt. The actual semantic recall that reaches the prompt is
- * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} via
+ * {@see \App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService} via
  * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService}. The class name and
  * SCHEMA_VERSION constants are retained because they are load-bearing (DI + persisted/hashed
  * schemas).

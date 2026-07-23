@@ -52,7 +52,7 @@ final class MemoryRecallGoldenV2LandGateTest extends TestCase
         foreach ([
             'app/Services/Ai/Context/LocalRagBenchmarkService.php',
             'app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php',
-            'app/Services/Ai/AtlasHybridMemoryRetrievalService.php',
+            'app/Services/Ai/Memory/AtlasHybridMemoryRetrievalService.php',
         ] as $path) {
             $receipt = $analyzer->analyze([$path], [], 'medium');
             $this->assertContains(

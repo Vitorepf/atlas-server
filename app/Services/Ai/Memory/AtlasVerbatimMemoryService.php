@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;

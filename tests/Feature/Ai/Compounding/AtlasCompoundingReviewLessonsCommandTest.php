@@ -4,7 +4,7 @@ namespace Tests\Feature\Ai\Compounding;
 
 use App\Models\AiLearningCandidate;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;

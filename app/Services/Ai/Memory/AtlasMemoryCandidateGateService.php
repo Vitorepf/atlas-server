@@ -7,8 +7,6 @@ namespace App\Services\Ai\Memory;
 use App\Models\AtlasMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainContextInjectionBoundaryClassifier;
-use App\Services\Ai\AtlasMemoryRegistryService;
-use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;

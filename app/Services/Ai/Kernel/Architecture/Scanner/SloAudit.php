@@ -36,7 +36,7 @@ class SloAudit
         $toolGatePath = app_path('Services/Tools/AtlasToolGateService.php');
         $workerPath = app_path('Services/Ai/AiWorker.php');
         $surfaceAdapterPath = app_path('Services/Ai/Surface/Adapters/BaseSurfaceAdapter.php');
-        $learningPromotionPath = app_path('Services/Ai/AtlasMemoryLearningPromotionService.php');
+        $learningPromotionPath = app_path('Services/Ai/Memory/AtlasMemoryLearningPromotionService.php');
         $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
         $observabilityPath = app_path('Http/Controllers/AiObservabilityController.php');
         $violations = [];
@@ -111,7 +111,7 @@ class SloAudit
         }
 
         if (! str_contains($learningPromotion, "slo->measure('learning.project'")) {
-            $violations[] = 'app/Services/Ai/AtlasMemoryLearningPromotionService.php: memory learning projection must be instrumented with KernelSloProbe stage learning.project';
+            $violations[] = 'app/Services/Ai/Memory/AtlasMemoryLearningPromotionService.php: memory learning projection must be instrumented with KernelSloProbe stage learning.project';
         }
 
         if (! str_contains($replay, 'repairReportForWindow(') || ! str_contains($replay, 'repairReportForEnvelope(')) {

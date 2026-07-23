@@ -4834,7 +4834,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             ],
             'memory_governance_quality' => [
                 'canonical_owner' => 'docs/engineering-knowledge-base/memory/retrieval-and-context.md',
-                'owner_runtime' => 'app/Services/Ai/AtlasMemoryQualityService.php',
+                'owner_runtime' => 'app/Services/Ai/Memory/AtlasMemoryQualityService.php',
                 'adapter_or_consumer' => 'docs/engineering-knowledge-base/memory/foundation-map.md',
                 'allowed_direction' => 'memory_quality_scores_retrieval_and_memory_health_without_serving_context_directly',
                 'forbidden' => 'memory_quality_must_not_be_used_as_retrieval_owner_or_context_source',

@@ -206,7 +206,7 @@ final class AurgEvidenceLiveSourceTest extends TestCase
     {
         return new AtlasRealityGraphIngestionService(
             new CrossDomainTaxonomyMap,
-            app(\App\Services\Ai\AtlasMemoryPrivacyService::class),
+            app(\App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService::class),
             app(AtlasCrossDomainMeshService::class),
         );
     }

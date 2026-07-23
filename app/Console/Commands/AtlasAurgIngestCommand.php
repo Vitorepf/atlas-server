@@ -75,7 +75,7 @@ class AtlasAurgIngestCommand extends Command
 
         $service = new AtlasRealityGraphIngestionService(
             app(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class),
-            app(\App\Services\Ai\AtlasMemoryPrivacyService::class),
+            app(\App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService::class),
             $mesh,
         );
 

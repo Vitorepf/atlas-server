@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 use App\Models\AiLearningProposal;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldRegistryGovernance;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;

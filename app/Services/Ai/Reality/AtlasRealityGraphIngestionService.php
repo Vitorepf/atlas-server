@@ -11,7 +11,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasRealityEntity;
 use App\Models\AtlasRealityRelationship;
 use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;

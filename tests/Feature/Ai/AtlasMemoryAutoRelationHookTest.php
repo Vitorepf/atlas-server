@@ -6,7 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;

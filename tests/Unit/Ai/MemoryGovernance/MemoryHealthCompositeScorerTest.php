@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\MemoryGovernance;
 
 use App\Services\Ai\MemoryGovernance\MemoryHealthCompositeScorer;
-use App\Services\Ai\MemoryHealthCompositePolicy;
+use App\Services\Ai\MemoryGovernance\MemoryHealthCompositePolicy;
 use ReflectionClass;
 use Tests\TestCase;
 

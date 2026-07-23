@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context;
 
 use App\Models\AiCompoundingMemory;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 

@@ -11,6 +11,7 @@ use App\Services\Ai\AiDecisionReceiptRefreshService as LegacyAiDecisionReceiptRe
 use App\Services\Ai\AiExecutionPresentationState as LegacyAiExecutionPresentationState;
 use App\Services\Ai\AiIntentRouter as LegacyAiIntentRouter;
 use App\Services\Ai\AiInteractionSteeringService as LegacyAiInteractionSteeringService;
+use App\Services\Ai\AiMemoryDeltaProposer as LegacyAiMemoryDeltaProposer;
 use App\Services\Ai\AiPermissionDecision as LegacyAiPermissionDecision;
 use App\Services\Ai\AiPermissionEngine as LegacyAiPermissionEngine;
 use App\Services\Ai\AiPermissionEngineSupport as LegacyAiPermissionEngineSupport;
@@ -40,9 +41,23 @@ use App\Services\Ai\AtlasDomainProfilePolicyService as LegacyAtlasDomainProfileP
 use App\Services\Ai\AtlasDomainProfileRegistry as LegacyAtlasDomainProfileRegistry;
 use App\Services\Ai\AtlasEffectivePolicyComposer as LegacyAtlasEffectivePolicyComposer;
 use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
+use App\Services\Ai\AtlasHybridMemoryRetrievalService as LegacyAtlasHybridMemoryRetrievalService;
+use App\Services\Ai\AtlasMemoryContextComposer as LegacyAtlasMemoryContextComposer;
+use App\Services\Ai\AtlasMemoryDeltaPromotionService as LegacyAtlasMemoryDeltaPromotionService;
+use App\Services\Ai\AtlasMemoryGovernanceService as LegacyAtlasMemoryGovernanceService;
+use App\Services\Ai\AtlasMemoryLearningPromotionService as LegacyAtlasMemoryLearningPromotionService;
+use App\Services\Ai\AtlasMemoryMaintenanceService as LegacyAtlasMemoryMaintenanceService;
+use App\Services\Ai\AtlasMemoryPrivacyService as LegacyAtlasMemoryPrivacyService;
+use App\Services\Ai\AtlasMemoryQualityService as LegacyAtlasMemoryQualityService;
+use App\Services\Ai\AtlasMemoryRegistryService as LegacyAtlasMemoryRegistryService;
+use App\Services\Ai\AtlasMemoryReviewQueueService as LegacyAtlasMemoryReviewQueueService;
+use App\Services\Ai\AtlasMemorySourcePrivacyPolicy as LegacyAtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\AtlasMemoryUsageService as LegacyAtlasMemoryUsageService;
 use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy as LegacyAtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasProviderProjectionAuditService as LegacyAtlasProviderProjectionAuditService;
 use App\Services\Ai\AtlasProviderProjectionService as LegacyAtlasProviderProjectionService;
+use App\Services\Ai\AtlasRecallUncertaintyMap as LegacyAtlasRecallUncertaintyMap;
+use App\Services\Ai\AtlasVerbatimMemoryService as LegacyAtlasVerbatimMemoryService;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
 use App\Services\Ai\Context\AiContextPackBuilder as CanonicalAiContextPackBuilder;
@@ -67,6 +82,25 @@ use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService as Canon
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService as CanonicalAtlasProviderProjectionService;
 use App\Services\Ai\Knowledge\YoutubeCanonicalProjection as CanonicalYoutubeCanonicalProjection;
 use App\Services\Ai\Knowledge\YouTubeKnowledgeIngestionService as CanonicalYouTubeKnowledgeIngestionService;
+use App\Services\Ai\Memory\AiMemoryDeltaProposer as CanonicalAiMemoryDeltaProposer;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService as CanonicalAtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryContextComposer as CanonicalAtlasMemoryContextComposer;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService as CanonicalAtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryLearningPromotionService as CanonicalAtlasMemoryLearningPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryMaintenanceService as CanonicalAtlasMemoryMaintenanceService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService as CanonicalAtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService as CanonicalAtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryReviewQueueService as CanonicalAtlasMemoryReviewQueueService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService as CanonicalAtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasRecallUncertaintyMap as CanonicalAtlasRecallUncertaintyMap;
+use App\Services\Ai\Memory\AtlasVerbatimMemoryService as CanonicalAtlasVerbatimMemoryService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService as CanonicalAtlasMemoryGovernanceService;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService as CanonicalAtlasMemoryPrivacyService;
+use App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy as CanonicalAtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\MemoryGovernance\MemoryHealthCompositePolicy as CanonicalMemoryHealthCompositePolicy;
+use App\Services\Ai\MemoryGovernance\MemoryQualityStatusPolicy as CanonicalMemoryQualityStatusPolicy;
+use App\Services\Ai\MemoryHealthCompositePolicy as LegacyMemoryHealthCompositePolicy;
+use App\Services\Ai\MemoryQualityStatusPolicy as LegacyMemoryQualityStatusPolicy;
 use App\Services\Ai\Policy\AiRuntimeBudgetService as CanonicalAiRuntimeBudgetService;
 use App\Services\Ai\Policy\AtlasAiPolicyService as CanonicalAtlasAiPolicyService;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings as CanonicalAtlasAiRuntimeSettings;
@@ -157,6 +191,33 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         self::assertTrue(class_exists(CanonicalAiRuntimeBudgetService::class));
         self::assertTrue(class_exists(LegacyAiRuntimeBudgetService::class));
         self::assertTrue(is_a(CanonicalAiRuntimeBudgetService::class, LegacyAiRuntimeBudgetService::class, true));
+    }
+
+    public function test_memory_and_memory_governance_services_resolve_from_canonical_namespaces_with_legacy_aliases(): void
+    {
+        foreach ([
+            CanonicalAiMemoryDeltaProposer::class => LegacyAiMemoryDeltaProposer::class,
+            CanonicalAtlasHybridMemoryRetrievalService::class => LegacyAtlasHybridMemoryRetrievalService::class,
+            CanonicalAtlasMemoryContextComposer::class => LegacyAtlasMemoryContextComposer::class,
+            CanonicalAtlasMemoryDeltaPromotionService::class => LegacyAtlasMemoryDeltaPromotionService::class,
+            CanonicalAtlasMemoryLearningPromotionService::class => LegacyAtlasMemoryLearningPromotionService::class,
+            CanonicalAtlasMemoryMaintenanceService::class => LegacyAtlasMemoryMaintenanceService::class,
+            CanonicalAtlasMemoryQualityService::class => LegacyAtlasMemoryQualityService::class,
+            CanonicalAtlasMemoryRegistryService::class => LegacyAtlasMemoryRegistryService::class,
+            CanonicalAtlasMemoryReviewQueueService::class => LegacyAtlasMemoryReviewQueueService::class,
+            CanonicalAtlasMemoryUsageService::class => LegacyAtlasMemoryUsageService::class,
+            CanonicalAtlasRecallUncertaintyMap::class => LegacyAtlasRecallUncertaintyMap::class,
+            CanonicalAtlasVerbatimMemoryService::class => LegacyAtlasVerbatimMemoryService::class,
+            CanonicalAtlasMemoryGovernanceService::class => LegacyAtlasMemoryGovernanceService::class,
+            CanonicalAtlasMemoryPrivacyService::class => LegacyAtlasMemoryPrivacyService::class,
+            CanonicalAtlasMemorySourcePrivacyPolicy::class => LegacyAtlasMemorySourcePrivacyPolicy::class,
+            CanonicalMemoryHealthCompositePolicy::class => LegacyMemoryHealthCompositePolicy::class,
+            CanonicalMemoryQualityStatusPolicy::class => LegacyMemoryQualityStatusPolicy::class,
+        ] as $canonical => $legacy) {
+            self::assertTrue(class_exists($canonical));
+            self::assertTrue(class_exists($legacy));
+            self::assertTrue(is_a($canonical, $legacy, true));
+        }
     }
 
     public function test_intent_router_resolves_from_its_canonical_namespace_with_a_legacy_alias(): void

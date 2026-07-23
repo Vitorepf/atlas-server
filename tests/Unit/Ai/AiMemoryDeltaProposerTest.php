@@ -6,7 +6,7 @@ namespace Tests\Unit\Ai;
 
 use App\Models\AiMemoryDelta;
 use App\Models\Capture;
-use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\Memory\AiMemoryDeltaProposer;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;

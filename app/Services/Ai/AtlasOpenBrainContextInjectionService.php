@@ -4,6 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Context\ContextPackSelfReflectionGate;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\ValueObjects\AiContextPack;

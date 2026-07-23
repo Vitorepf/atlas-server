@@ -7,7 +7,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolEvidenceQueryService;

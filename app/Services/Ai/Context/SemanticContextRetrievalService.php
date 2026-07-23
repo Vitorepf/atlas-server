@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\RuntimeBoundary\SemanticCrossEncoderRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
-use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 

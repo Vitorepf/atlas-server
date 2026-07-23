@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Memory\AtlasMemoryActorTagger;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationV2Reader;
 use Carbon\CarbonImmutable;

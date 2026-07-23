@@ -6,7 +6,7 @@ namespace App\Services\Ai\SelfConstruction\Lineage;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Cache;

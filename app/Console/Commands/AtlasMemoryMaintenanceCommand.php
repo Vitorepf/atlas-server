@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
-use App\Services\Ai\AtlasMemoryMaintenanceService;
+use App\Services\Ai\Memory\AtlasMemoryMaintenanceService;
 use Illuminate\Console\Command;
 
 class AtlasMemoryMaintenanceCommand extends Command

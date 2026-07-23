@@ -4,7 +4,7 @@ namespace Tests\Feature\Ai\LongHorizon;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Memory\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
 use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionRefusedException;
 use App\Support\TemporalTruth\TemporalTruthCanon;

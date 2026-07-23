@@ -6,7 +6,7 @@ namespace Tests\Unit\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
-use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;

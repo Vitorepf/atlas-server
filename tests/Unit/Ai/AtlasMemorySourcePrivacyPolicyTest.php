@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\MemoryGovernance\AtlasMemorySourcePrivacyPolicy;
 use Tests\TestCase;
 
 class AtlasMemorySourcePrivacyPolicyTest extends TestCase

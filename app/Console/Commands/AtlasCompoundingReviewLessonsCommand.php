@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiLearningCandidate;
-use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasObraLessonHarvester;
 use App\Services\Ai\Compounding\AtlasRefutationStrengthService;

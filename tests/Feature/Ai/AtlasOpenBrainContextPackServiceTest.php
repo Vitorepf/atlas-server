@@ -10,7 +10,7 @@ use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
-use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
@@ -2398,7 +2398,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->seedCodeRow(
             'class',
             'AtlasMemoryQualityService',
-            'app/Services/Ai/AtlasMemoryQualityService.php',
+            'app/Services/Ai/Memory/AtlasMemoryQualityService.php',
             'class AtlasMemoryQualityService',
         );
         $this->seedCodeRow(
