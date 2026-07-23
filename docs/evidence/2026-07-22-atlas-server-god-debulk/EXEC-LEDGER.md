@@ -3514,3 +3514,42 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 113 — bound forbidden-target repair inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_UNRELATED_HEALTH_RESIDUAL
+finding: A1-SC-0108
+commit: 46e382036
+subject: "refactor(core): GOD-DEBULK bound forbidden target repair"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_forbidden_target_repair_refuses_an_unbounded_blocked_inventory --no-coverage
+  result: "FAIL 1 test: the direct public repair scanned 65 real blocked records and exposed no bounded-inventory status."
+green:
+  behavior: "The direct forbidden-self-target repair reads the real blocked registry summary before listing packet payloads. Above 64 it returns blocked/forbidden_target_repair_scan_limit_exceeded with zero inspected and zero repair, retirement, or quarantine actions."
+verification:
+  characterization: "PASS 1 test, 6 assertions through the public repair method and real queue records."
+  package_suite: "PASS 110 tests, 535 assertions when run serially: bounded anti-farm Feature plus Feature and Unit orchestrator suites."
+  health_repair_controls: "PARTIAL: the empty-scope repair control passes. The safe-scope repair control completes its repair assertions, then receives pre-existing awis_execution_blocked from the later serving step instead of served; this is outside the bounded repair branch."
+  isolation: "A parallel attempt with AtlasTaskCoordinationHealthTest collided with the shared fake storage and contaminated an unrelated 65-entry assertion. The serial package rerun above is the valid receipt."
+  php_lint: "PASS both touched PHP files."
+  pint: "PASS focused Feature test; NOT GREEN only for inherited whole-file formatting drift in AgentControlPlaneTaskQueueOrchestrator.php. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1998 LOC; focused Feature test=220 LOC; all <2000 and hot test <800."
+boundary:
+  - "The limit decision invokes the actual read-only blocked registry before task payload materialization; it does not reflect into the repository or mock the scan."
+  - "The green guard keeps the positive repair behavior for a bounded inventory while refusing an incomplete one; it never silently treats 64 inspected packets as the whole queue."
+  - "No queue status, packet, lease, receipt, provider, dispatch, token, completion, or runtime-execution mutation occurs in the oversized path."
+residual:
+  - "The composite atlas:task:repair-blocked command still calls the separately unbounded scope-repair and self-heal paths after the forbidden-target method returns its blocked receipt."
+  - "A1-SC-0108 remains partially open: scope repair, dependency-wait, cooldown, and the composite repair CLI require separate real characterizations and bounded-index ownership."
+next_cursor: "Characterize scope-repair's unbounded blocked scan through its public entrypoint; preserve the forbidden-target guard and do not claim the composite command fixed until it stops before all unsafe subpaths."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-113-forbidden-target-repair-46e382036
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
