@@ -18,7 +18,7 @@ use Throwable;
  */
 final class TaskQueueRegistryIndexStore
 {
-    public const REGISTRY_PATH = 'atlas/self-construction/task-packet-queue-registry.json';
+    public const REGISTRY_PATH = 'atlas/self-construction/agent-control-plane/task-queue/registry.json';
 
     /**
      * Terminal history ceiling for the registry index.
