@@ -39,6 +39,8 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
     public const MODE = 'persistent_local_agent_control_plane_task_queue_orchestrator';
 
+    private const MAX_ANTI_FARM_CANDIDATES = 64;
+
     public function __construct(
         private readonly AgentControlPlaneTaskPacketBuilder $builder,
         private readonly AgentControlPlaneScopeLockRuntimeValidator $validator,
@@ -120,11 +122,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 // ordering hint (the version-ladder phase). The serving enforces depends_on at claim time.
                 'depends_on' => array_values(array_filter((array) data_get($packetInput, 'depends_on', []), 'is_string')),
                 'wave' => (int) data_get($packetInput, 'wave', 0),
-                // Anti-farm composition: persisted so a LATER candidate's semantic-duplicate check
-                // can compare against this packet's capability/family/intent. The builder now
-                // derives these deterministically onto packet.metadata whenever the caller omits
-                // them, so this reads the BUILT packet's metadata (derived-or-caller-supplied),
-                // never blank for a real (non-empty objective/allowed_files) packet.
+                // Persist built metadata for a later semantic-duplicate check.
                 'capability_key' => trim((string) data_get($packet, 'metadata.capability_key', '')),
                 'target_family' => trim((string) data_get($packet, 'metadata.target_family', '')),
                 'acceptance_intent' => trim((string) data_get($packet, 'metadata.acceptance_intent', '')),
@@ -169,24 +167,27 @@ final class AgentControlPlaneTaskQueueOrchestrator
         ]);
     }
 
-    /**
-     * Composes the two existing, independently-tested anti-farm organs against the packets
-     * currently in the queue. Returns the prepare_blocked payload fragment (merged into the
-     * envelope by the caller) when a candidate is a near-duplicate or template-farm packet,
-     * or null when admission may proceed.
-     *
-     * @param  array<string,mixed>  $packet  built packet (objective, acceptance_criteria, normalized_scope)
-     * @param  array<string,mixed>  $packetInput  raw caller input (may carry capability_key/target_family/acceptance_intent)
-     * @return array<string,mixed>|null
-     */
+    /** @return array<string,mixed>|null */
     private function checkAntiFarmGates(array $packet, array $packetInput): ?array
     {
         $candidateId = (string) ($packet['task_packet_id'] ?? '');
-        // Exclude the candidate's own task_packet_id: a re-submission of the SAME packet_id
-        // (idempotent re-enqueue) is not a duplicate of anything — it is itself, and must reach
-        // the queue's own hash-based idempotency check untouched by the anti-farm gates.
+        $registry = $this->queue->registry(['status' => 'claimable'], true);
+        $claimableCount = (int) ($registry['entry_count'] ?? 0);
+        $claimableIds = array_column((array) ($registry['entries'] ?? []), 'task_packet_id');
+        if ($claimableCount > self::MAX_ANTI_FARM_CANDIDATES && ! in_array($candidateId, $claimableIds, true)) {
+            return [
+                'reason' => 'anti_farm_queue_scan_limit_exceeded',
+                'anti_farm_gate' => [
+                    'status' => 'blocked',
+                    'claimable_count' => $claimableCount,
+                    'scan_limit' => self::MAX_ANTI_FARM_CANDIDATES,
+                ],
+            ];
+        }
+
+        // Preserve idempotent re-enqueue of the same packet id.
         $existingEntries = array_values(array_filter(
-            $this->queue->list(['status' => 'claimable']),
+            $this->queue->list(['status' => 'claimable', 'limit' => self::MAX_ANTI_FARM_CANDIDATES]),
             static fn (array $entry): bool => $candidateId === '' || (string) ($entry['task_packet_id'] ?? '') !== $candidateId,
         ));
         if ($existingEntries === []) {
@@ -226,9 +227,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
         $candidateForDup = [
             'task_packet_id' => (string) ($packet['task_packet_id'] ?? ''),
-            // Read the BUILT packet's metadata (derived-or-caller-supplied), not the raw caller
-            // input — the raw input is blank for almost every real caller, which is exactly the
-            // gap that let same-capability keyless candidates slide past the duplicate index.
+            // Use the built packet because callers frequently omit derived metadata.
             'capability_key' => trim((string) data_get($packet, 'metadata.capability_key', '')),
             'target_family' => trim((string) data_get($packet, 'metadata.target_family', '')),
             'allowed_files' => (array) data_get($packet, 'normalized_scope.allowed_files', []),
