@@ -1,0 +1,243 @@
+{
+    "schema": "atlas.aaeos.cycle_receipt.v1",
+    "status": "dispatched",
+    "dry_run": true,
+    "live_dispatch": false,
+    "runtime_write_performed": true,
+    "runtime_write_kind": "aaeos_cycle_receipt",
+    "objective": {
+        "schema": "atlas.aaeos.objective.v1",
+        "objective": "OPERATE gauntlet: multi-packet obra SDD auth",
+        "source": "atlas_aaeos_run",
+        "interactive": true,
+        "multi_packet": true,
+        "self_evolve": false,
+        "irreversible": false,
+        "business_ambiguous": false,
+        "modules_hint": 0,
+        "raw_length": 44
+    },
+    "difficulty": {
+        "schema": "atlas.aaeos.difficulty.v1",
+        "level": 4,
+        "label": "L4_multi_day_obra",
+        "reasons": [
+            "multi_packet_or_long_horizon"
+        ]
+    },
+    "mode": {
+        "schema": "atlas.aaeos.mode_selection.v1",
+        "mode": "forge",
+        "reason": "forced_by_caller",
+        "same_bar": true,
+        "difficulty_level": 4
+    },
+    "admission": {
+        "schema": "atlas.aaeos.admission.v1",
+        "verdict": "auto",
+        "allows_execution": true,
+        "reasons": [
+            "admitted_auto_same_bar"
+        ],
+        "mode": "forge",
+        "difficulty_level": 4
+    },
+    "world": {
+        "schema": "atlas.aaeos.world_snapshot.v1",
+        "incident_open": false,
+        "queue_depth": 0,
+        "budget_pressure": 0,
+        "recent_failure_count": 0,
+        "world_source": "task_queue+landings_or_jobs",
+        "autonomos_queue_healthy": true,
+        "force_mode": "forge"
+    },
+    "dispatch": {
+        "status": "ready",
+        "mode": "forge",
+        "operate_path": [
+            "atlas forge",
+            "atlas:obra",
+            "atlas:cli:dev --forge"
+        ],
+        "spine": {
+            "delivery": "N9",
+            "evidence": "N11"
+        },
+        "spine_contract": {
+            "schema": "atlas.aaeos.engineering_spine.v1",
+            "mode": "forge",
+            "elite_same_bar": true,
+            "delivery": {
+                "owner": "N9",
+                "runtime_class": "App\\Services\\Ai\\RealExecution\\AtlasRealEngineeringExecutionKernelService",
+                "required_artifacts": [
+                    "sdd_or_plan",
+                    "work_packets",
+                    "patch_or_diff",
+                    "verification",
+                    "delivery_pack"
+                ]
+            },
+            "evidence": {
+                "owner": "N11",
+                "ledger_class": "App\\Services\\Ai\\Kernel\\Evidence\\AtlasEvidenceLedger",
+                "required_slots": [
+                    "verification_receipt",
+                    "evidence_refs",
+                    "evidence_pack",
+                    "release_decision_slot"
+                ],
+                "parallel_ledger_forbidden": true
+            },
+            "forbidden": [
+                "second_provider_registry",
+                "executor_private_evidence_truth",
+                "verified_true_without_ledger_api"
+            ]
+        },
+        "reason": "long_obra_executor",
+        "human_in_engineering_loop": false,
+        "human_in_planning": true,
+        "elite_same_bar": true,
+        "difficulty_level": 4,
+        "live": {
+            "schema": "atlas.aaeos.live_dispatch.v1",
+            "status": "plan_only",
+            "mode": "forge",
+            "live": false,
+            "effects": [],
+            "next_commands": [
+                "atlas forge",
+                "atlas:obra",
+                "atlas:cli:dev --forge"
+            ],
+            "dualcore": {
+                "route": "forge",
+                "reason": "aaeos_mode_selector",
+                "intent_summary": "OPERATE gauntlet: multi-packet obra SDD auth",
+                "recorded": true,
+                "id": "019f8f7f-b163-73f2-a17b-cd052f19d699",
+                "uuid": "a46c8229-d1ab-4a7c-9caf-ab770ff5a235"
+            },
+            "adapter": {
+                "status": "ready",
+                "mode": "forge",
+                "operate_path": [
+                    "atlas forge",
+                    "atlas:obra",
+                    "atlas:cli:dev --forge"
+                ],
+                "spine": {
+                    "delivery": "N9",
+                    "evidence": "N11"
+                },
+                "spine_contract": {
+                    "schema": "atlas.aaeos.engineering_spine.v1",
+                    "mode": "forge",
+                    "elite_same_bar": true,
+                    "delivery": {
+                        "owner": "N9",
+                        "runtime_class": "App\\Services\\Ai\\RealExecution\\AtlasRealEngineeringExecutionKernelService",
+                        "required_artifacts": [
+                            "sdd_or_plan",
+                            "work_packets",
+                            "patch_or_diff",
+                            "verification",
+                            "delivery_pack"
+                        ]
+                    },
+                    "evidence": {
+                        "owner": "N11",
+                        "ledger_class": "App\\Services\\Ai\\Kernel\\Evidence\\AtlasEvidenceLedger",
+                        "required_slots": [
+                            "verification_receipt",
+                            "evidence_refs",
+                            "evidence_pack",
+                            "release_decision_slot"
+                        ],
+                        "parallel_ledger_forbidden": true
+                    },
+                    "forbidden": [
+                        "second_provider_registry",
+                        "executor_private_evidence_truth",
+                        "verified_true_without_ledger_api"
+                    ]
+                },
+                "reason": "long_obra_executor",
+                "human_in_engineering_loop": false,
+                "human_in_planning": true,
+                "elite_same_bar": true,
+                "difficulty_level": 4
+            },
+            "provider_calls": 0
+        },
+        "dualcore": {
+            "route": "forge",
+            "reason": "aaeos_mode_selector",
+            "intent_summary": "OPERATE gauntlet: multi-packet obra SDD auth",
+            "recorded": true,
+            "id": "019f8f7f-b163-73f2-a17b-cd052f19d699",
+            "uuid": "a46c8229-d1ab-4a7c-9caf-ab770ff5a235"
+        },
+        "effects": []
+    },
+    "spine": {
+        "delivery": "N9",
+        "evidence": "N11",
+        "assert": {
+            "ok": true,
+            "violations": [],
+            "contract": {
+                "schema": "atlas.aaeos.engineering_spine.v1",
+                "mode": "forge",
+                "elite_same_bar": true,
+                "delivery": {
+                    "owner": "N9",
+                    "runtime_class": "App\\Services\\Ai\\RealExecution\\AtlasRealEngineeringExecutionKernelService",
+                    "required_artifacts": [
+                        "sdd_or_plan",
+                        "work_packets",
+                        "patch_or_diff",
+                        "verification",
+                        "delivery_pack"
+                    ]
+                },
+                "evidence": {
+                    "owner": "N11",
+                    "ledger_class": "App\\Services\\Ai\\Kernel\\Evidence\\AtlasEvidenceLedger",
+                    "required_slots": [
+                        "verification_receipt",
+                        "evidence_refs",
+                        "evidence_pack",
+                        "release_decision_slot"
+                    ],
+                    "parallel_ledger_forbidden": true
+                },
+                "forbidden": [
+                    "second_provider_registry",
+                    "executor_private_evidence_truth",
+                    "verified_true_without_ledger_api"
+                ]
+            }
+        }
+    },
+    "elite_same_bar": true,
+    "human_in_engineering_loop": false,
+    "evidence_status": "skipped",
+    "next_commands": [
+        "atlas forge",
+        "atlas:obra",
+        "atlas:cli:dev --forge"
+    ],
+    "learning": {
+        "schema": "atlas.aaeos.learning_candidate.v1",
+        "status": "not_applicable",
+        "auto_promoted": false,
+        "mode": "forge",
+        "cycle_status": "dispatched",
+        "admission": "auto",
+        "summary": "AAEOS cycle mode=forge admission=auto reasons=admitted_auto_same_bar",
+        "evidence_status": "skipped"
+    }
+}

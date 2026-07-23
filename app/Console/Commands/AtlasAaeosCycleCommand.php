@@ -16,7 +16,9 @@ class AtlasAaeosCycleCommand extends Command
     protected $signature = 'atlas:aaeos:cycle
         {intent? : Free-text objective / intent}
         {--autonomos : Force zero-operator Autonomos mode}
-        {--dry-run : Do not write evidence ledger}
+        {--live : Live dispatch within caps}
+        {--max-seeds=0 : Autonomos seed cap}
+        {--dry-run : Do not write evidence ledger / no live}
         {--json : Machine-readable JSON receipt}';
 
     protected $description = 'Run one AAEOS control cycle: intent → mode → admission → dispatch (Dev|Forge|Autonomos).';
@@ -27,12 +29,15 @@ class AtlasAaeosCycleCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
         $autonomos = (bool) $this->option('autonomos');
 
+        $hints = [
+            'source' => 'cli',
+            'interactive' => ! $autonomos,
+            'live_dispatch' => (bool) $this->option('live') && ! $dryRun,
+            'max_seeds' => (int) $this->option('max-seeds'),
+        ];
         $receipt = $autonomos
-            ? $runtime->runAutonomosCycle($intent, [], $dryRun)
-            : $runtime->runCycle($intent, [
-                'source' => 'cli',
-                'interactive' => ! $autonomos,
-            ], [], $dryRun);
+            ? $runtime->runAutonomosCycle($intent, $hints, $dryRun)
+            : $runtime->runCycle($intent, $hints, [], $dryRun);
 
         $receipt['learning'] = $outcomes->record($receipt);
 

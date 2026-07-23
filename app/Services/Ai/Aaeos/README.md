@@ -1,21 +1,30 @@
-# AAEOS = Org Control Plane ONLY
+# AAEOS = Org Control Plane — STABLE / OPERATE
 
-**Allowed here:** `Control/`, `Spine/`
+**Status:** construction of the thin control plane is **complete**.  
+New work should **use** AAEOS daily (`atlas:aaeos:run`), not grow this tree.
 
-**Forbidden under this tree:**
-- Maturity / docs-as-law / ImplementationTruth / TestExecution
-- `Cores/` scorers (live under `AgenticEngineeringOs/Scoring`)
-- `Generated/` (dissolved into domain folders)
-- Quarantine cemetery (only under `archive/.../Quarantine`)
+## Allowed here
+- `Control/` — intent → difficulty → mode → admission → live dispatch gateway
+- `Control/Dispatch/` — mode live dispatchers (call existing muscle; never reimplement Brain/Task/Forge)
+- `Spine/` — N9 delivery + N11 evidence seam
 
-**CLIs that belong to AAEOS:**
-- `atlas:aaeos:cycle`
-- `atlas:aaeos:scorecard`
-- `atlas:aaeos:certify`
+## Forbidden
+- Maturity / docs-as-law / scorers / Generated / Quarantine under this tree
+- Provider-burn by default (use `--execute-provider` only when intentional)
 
-Maturity / department / universal-gates tooling lives under
-`App\Services\Ai\AgenticEngineeringOs\` (often CLI `atlas:aeos:*`).
+## Daily port (operator)
+```bash
+php artisan atlas:aaeos:run "<intent>"              # default path
+php artisan atlas:aaeos:run --autonomos --live --max-seeds=3
+php artisan atlas:aaeos:scorecard --json
+php artisan atlas:aaeos:certify --json              # structural regression
+php artisan atlas:cli:cockpit                       # review / what needs me
+```
 
-Cemetery: `archive/app/Services/Ai/Aaeos/Quarantine` — **never import, never reanimate**.
+## Muscle (not reimplemented here)
+- Autônomos: `atlas:brain:*` + `atlas:task`
+- Dev: `atlas:cli:dev` / senior-loop / ask
+- Forge: code forge intake / obra / fast-path
 
-See `docs/engineering-knowledge-base/atlas-aaeos-vocabulary.md`.
+See `docs/engineering-knowledge-base/atlas-aaeos-vocabulary.md` and
+`docs/evidence/2026-07-23-aaeos-operate/DAY-IN-THE-LIFE.md`.

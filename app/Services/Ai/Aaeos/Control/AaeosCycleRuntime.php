@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\Control\Adapters\AaeosExecutorModeAdapter;
 use App\Services\Ai\Aaeos\Control\Adapters\AutonomosModeAdapter;
 use App\Services\Ai\Aaeos\Control\Adapters\DevModeAdapter;
 use App\Services\Ai\Aaeos\Control\Adapters\ForgeModeAdapter;
+use App\Services\Ai\Aaeos\Control\Dispatch\AaeosLiveDispatchGateway;
 use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -16,7 +17,7 @@ use Throwable;
 /**
  * Sole declared mutator of an AAEOS control cycle.
  *
- * @see docs/superpowers/plans/2026-07-23-aaeos-god-sota-complete.md
+ * @see docs/evidence/2026-07-23-aaeos-operate/DAY-IN-THE-LIFE.md
  */
 final class AaeosCycleRuntime
 {
@@ -32,6 +33,7 @@ final class AaeosCycleRuntime
         private readonly AaeosAdmissionPolicy $admission = new AaeosAdmissionPolicy,
         private readonly AaeosWorldSnapshotBuilder $worldBuilder = new AaeosWorldSnapshotBuilder,
         private readonly AaeosEngineeringSpine $spine = new AaeosEngineeringSpine,
+        private readonly AaeosLiveDispatchGateway $liveGateway = new AaeosLiveDispatchGateway,
         private readonly ?AtlasEvidenceLedger $ledger = null,
         ?DevModeAdapter $dev = null,
         ?ForgeModeAdapter $forge = null,
@@ -59,22 +61,35 @@ final class AaeosCycleRuntime
         $mode = $this->modes->select($objective, $difficulty, $worldArray);
         $admit = $this->admission->admit($objective, $difficulty, $mode, $worldArray);
 
+        $liveDispatch = ! $dryRun && (bool) ($hints['live_dispatch'] ?? false);
         $cyclePlan = [
             'objective' => $objective,
             'difficulty' => $difficulty,
             'mode' => $mode,
             'admission' => $admit,
             'world' => $worldArray,
-            'live_dispatch' => ! $dryRun && (bool) ($hints['live_dispatch'] ?? false),
+            'live_dispatch' => $liveDispatch,
         ];
 
-        $dispatch = $this->dispatch($mode['mode'], $admit, $cyclePlan);
+        $dispatch = $this->dispatch((string) ($mode['mode'] ?? ''), $admit, $cyclePlan, $hints);
         $spineAssert = $this->spine->assertShared((string) ($mode['mode'] ?? 'dev'), []);
+
+        $status = 'halted';
+        if ((bool) ($admit['allows_execution'] ?? false)) {
+            $liveStatus = (string) ($dispatch['live']['status'] ?? '');
+            $status = match ($liveStatus) {
+                'dispatch_failed' => 'dispatch_failed',
+                'dispatched_live' => 'dispatched_live',
+                'plan_only' => 'dispatched',
+                default => 'dispatched',
+            };
+        }
 
         $receipt = [
             'schema' => self::SCHEMA,
-            'status' => $admit['allows_execution'] ? 'dispatched' : 'halted',
+            'status' => $status,
             'dry_run' => $dryRun,
+            'live_dispatch' => $liveDispatch,
             'runtime_write_performed' => true,
             'runtime_write_kind' => 'aaeos_cycle_receipt',
             'objective' => $objective,
@@ -89,8 +104,9 @@ final class AaeosCycleRuntime
                 'assert' => $spineAssert,
             ],
             'elite_same_bar' => true,
-            'human_in_engineering_loop' => $mode['mode'] === AaeosExecutorMode::DEV,
+            'human_in_engineering_loop' => ($mode['mode'] ?? '') === AaeosExecutorMode::DEV,
             'evidence_status' => 'skipped',
+            'next_commands' => (array) ($dispatch['live']['next_commands'] ?? $dispatch['operate_path'] ?? []),
         ];
 
         if (! $dryRun) {
@@ -121,9 +137,10 @@ final class AaeosCycleRuntime
     /**
      * @param  array<string,mixed>  $admit
      * @param  array<string,mixed>  $cyclePlan
+     * @param  array<string,mixed>  $hints
      * @return array<string,mixed>
      */
-    private function dispatch(string $mode, array $admit, array $cyclePlan): array
+    private function dispatch(string $mode, array $admit, array $cyclePlan, array $hints = []): array
     {
         if (! (bool) ($admit['allows_execution'] ?? false)) {
             return [
@@ -145,7 +162,26 @@ final class AaeosCycleRuntime
             ];
         }
 
-        return $adapter->accept($cyclePlan);
+        $accept = $adapter->accept($cyclePlan);
+        $cyclePlan['adapter_accept'] = $accept;
+
+        $liveOptions = [
+            'live' => (bool) ($cyclePlan['live_dispatch'] ?? false),
+            'plan_only' => ! (bool) ($cyclePlan['live_dispatch'] ?? false),
+            'max_seeds' => (int) ($hints['max_seeds'] ?? 0),
+            'execute_provider' => (bool) ($hints['execute_provider'] ?? false),
+            'run_worker_once' => (bool) ($hints['run_worker_once'] ?? false),
+            'run_brain_next' => (bool) ($hints['run_brain_next'] ?? true),
+            'scope' => $hints['scope'] ?? null,
+        ];
+
+        $live = $this->liveGateway->dispatch($mode, $cyclePlan, $liveOptions);
+
+        return array_merge($accept, [
+            'live' => $live,
+            'dualcore' => $live['dualcore'] ?? null,
+            'effects' => $live['effects'] ?? [],
+        ]);
     }
 
     /**
@@ -178,6 +214,7 @@ final class AaeosCycleRuntime
                     'admission' => $receipt['admission']['verdict'] ?? null,
                     'difficulty_level' => $receipt['difficulty']['level'] ?? null,
                     'elite_same_bar' => true,
+                    'live_dispatch' => $receipt['live_dispatch'] ?? false,
                     'spine' => $receipt['spine'] ?? null,
                     'objective_hash' => hash('sha256', (string) ($receipt['objective']['objective'] ?? '')),
                 ],

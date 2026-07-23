@@ -40,6 +40,7 @@ class AtlasCliCockpitCommand extends Command
             'review_inbox' => $this->section(fn (): array => $this->reviewInbox()),
             'dev_jobs' => $this->section(fn (): array => $this->devJobs()),
             'forge_obra' => $this->section(fn (): array => $this->forgeObra()),
+            'aaeos' => $this->section(fn (): array => $this->aaeos()),
         ];
 
         if ((bool) $this->option('json')) {
@@ -57,6 +58,30 @@ class AtlasCliCockpitCommand extends Command
      * @param  callable():array<string,mixed>  $build
      * @return array<string,mixed>
      */
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function aaeos(): array
+    {
+        $org = (new \App\Services\Ai\Aaeos\Control\AaeosOrgStateProjector)->project();
+        $card = (new \App\Services\Ai\Aaeos\Control\AaeosScorecardProjector)->project();
+        $world = (new \App\Services\Ai\Aaeos\Control\AaeosWorldSnapshotBuilder)->build()->toArray();
+
+        return [
+            'daily_port' => 'php artisan atlas:aaeos:run "<intent>"',
+            'org_status' => $org['status'] ?? null,
+            'executor_modes' => $org['executor_modes'] ?? [],
+            'same_bar' => $org['same_bar'] ?? true,
+            'composite' => $card['composite'] ?? null,
+            'god_sota' => $card['god_sota'] ?? null,
+            'aaeos_tree_pure' => $card['aaeos_tree']['pure'] ?? null,
+            'queue_depth' => $world['queue_depth'] ?? 0,
+            'world_source' => $world['world_source'] ?? null,
+            'next' => 'php artisan atlas:aaeos:run --help',
+        ];
+    }
+
     private function section(callable $build): array
     {
         try {
@@ -263,6 +288,16 @@ class AtlasCliCockpitCommand extends Command
             (int) $s['landing_reviews_pending'],
             (int) $s['job_results_pending'],
             (string) $s['next'],
+        ));
+
+        $md .= "\n## AAEOS (porta diária)\n";
+        $md .= $this->renderSection($p['aaeos'] ?? ['ok' => false], fn (array $s): string => sprintf(
+            "porta: `%s`\ncomposite: **%s** · tree_pure: **%s** · queue_depth: **%s**\npróximo: `%s`",
+            (string) ($s['daily_port'] ?? ''),
+            (string) ($s['composite'] ?? '?'),
+            var_export($s['aaeos_tree_pure'] ?? null, true),
+            (string) ($s['queue_depth'] ?? 0),
+            (string) ($s['next'] ?? ''),
         ));
 
         $md .= "\n## Dev (jobs recentes)\n";
