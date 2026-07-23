@@ -107,7 +107,7 @@ class SloAudit
             $violations[] = 'app/Services/Ai/AiWorker.php: provider runtime execution must be instrumented with KernelSloProbe stage runtime.execute';
         }
 
-        if (! str_contains($worker, "slo->measure('repair.loop'")) {
+        if (! str_contains($this->primitives->aiWorkerImplementationCorpus(), "slo->measure('repair.loop'")) {
             $violations[] = 'app/Services/Ai/AiWorker.php: native programming repair loop must be instrumented with KernelSloProbe stage repair.loop';
         }
 

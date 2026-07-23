@@ -129,8 +129,7 @@ class RepairLoopAudit
             $violations[] = 'routes/api.php: POST /ai/repair must be registered inside the atlas.token API group';
         }
 
-        $workerPath = app_path('Services/Ai/AiWorker.php');
-        $worker = $this->primitives->fileContents($workerPath);
+        $worker = $this->primitives->aiWorkerImplementationCorpus();
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($worker, [
             'AtlasRepairOrchestrator',
             'RepairRequestFactory',

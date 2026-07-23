@@ -72,6 +72,34 @@ class ScanPrimitivesSupport
         return $this->fileContentsCache[$path] ??= (File::exists($path) ? File::get($path) : '');
     }
 
+    /**
+     * AiWorker implementation corpus = the facade file PLUS its owned
+     * app/Services/Ai/AiWorkerSupport/*Section.php files. GOD-DEBULK split the
+     * AiWorker godfile into same-family Section classes (constructed by, and
+     * delegated to from, AiWorker) — so the worker's architectural contracts
+     * (SLO stages, kernel repair contract, iteration-policy normalizer,
+     * normalized provider-usage events) now legitimately span those sections.
+     * Scanning the union keeps the AP invariants at full strength (the token
+     * must still exist somewhere in the worker family) without pinning the
+     * implementation to a single monolithic file.
+     */
+    public function aiWorkerImplementationCorpus(): string
+    {
+        return $this->fileContentsCache['__ai_worker_impl_corpus__'] ??= (function (): string {
+            $corpus = $this->fileContents(app_path('Services/Ai/AiWorker.php'));
+            $supportDir = app_path('Services/Ai/AiWorkerSupport');
+            if (File::isDirectory($supportDir)) {
+                foreach (File::files($supportDir) as $file) {
+                    if ($file->getExtension() === 'php') {
+                        $corpus .= "\n".File::get($file->getPathname());
+                    }
+                }
+            }
+
+            return $corpus;
+        })();
+    }
+
     public function kernelDocumentationCorpus(): string
     {
         if ($this->kernelDocumentationCorpus !== null) {

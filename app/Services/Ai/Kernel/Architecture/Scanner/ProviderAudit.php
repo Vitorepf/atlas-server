@@ -265,7 +265,7 @@ class ProviderAudit
             "'groups'",
         ], "app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events"));
 
-        $violations = array_merge($violations, $this->primitives->missingTokenViolations($worker, [
+        $violations = array_merge($violations, $this->primitives->missingTokenViolations($this->primitives->aiWorkerImplementationCorpus(), [
             'ProviderUsagePayload $providerUsage',
             'LedgerEventType::ProviderCalled',
             'LedgerEventType::ProviderReturned',

@@ -146,7 +146,7 @@ class ProgrammingAudit
             ['ProgrammingIterationPolicy::normalize($operatorOptions[\'max_iterations\'] ?? null)', $surfaceFactory],
             ['ProgrammingIterationPolicy::normalize($maxIterations)', $surfaceBuilder],
             ['ProgrammingIterationPolicy::forExecutionPolicy(', $policyService],
-            ['ProgrammingIterationPolicy::forRepairPolicy(', $worker],
+            ['ProgrammingIterationPolicy::forRepairPolicy(', $this->primitives->aiWorkerImplementationCorpus()],
             ['ProgrammingIterationPolicy::forExecutionPolicy(', $executionRequest],
             ['ProgrammingIterationPolicy::forExecutionPolicy(', $chatCommand],
         ] as [$token, $contents]) {
