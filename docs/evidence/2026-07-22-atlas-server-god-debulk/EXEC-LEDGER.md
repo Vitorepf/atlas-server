@@ -2711,3 +2711,24 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 88 — A1-SC-0126 public operator-readiness replay, 2026-07-23
+
+```yaml
+status: REFUTED_ON_CURRENT_HEAD
+commit: null
+preflight:
+  result: "PASS: the real public build() returned the no_input fail-closed operator-evidence envelope; no NativeImplementation helper resolution error escaped."
+verification:
+  feature: "PASS 1 test, 129 assertions: AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest::test_no_input_reports_runtime_promotion_receipt_as_next_required."
+  unit: "PASS 1 test, 9 assertions: AtlasSelfConstructionOperatorEvidenceSubmissionReadinessServiceTest::test_no_input_means_no_node_is_ready."
+  source_check: "The current source imports App\\Services\\Ai\\SelfConstruction\\OperatorEvidence and resolves its Canonicalizer/FieldInspector helpers through that namespace."
+decision:
+  - "No source/test edit: the META observation of missing NativeImplementation helpers is stale against current main."
+  - "The observed no-input output remains fail closed: no node is ready, completion is not allowed, and runtime promotion receipt remains the next required artifact."
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
