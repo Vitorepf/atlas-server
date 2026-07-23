@@ -3085,7 +3085,7 @@ residual:
   - "This is an observable-drift fail-closed boundary, not a claim that the recursive queue, execution-status, launch-plan, and gate graph is one immutable lock-held snapshot. A full snapshot owner remains separate structural work."
 next_cursor: "Continue the next executable META finding; do not represent A1-SC-0179 as a global immutable-snapshot extraction."
 write_back:
-  status: pending
+  status: recorded_for_human_review
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
