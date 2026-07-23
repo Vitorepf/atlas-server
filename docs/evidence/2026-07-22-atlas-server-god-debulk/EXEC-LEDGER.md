@@ -3371,3 +3371,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 109 — requeue released terminal-fleet probe, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_FLEET_EVIDENCE_RESIDUAL
+finding: A1-SC-0187-adjacent-terminal-fleet-released-requeue
+commit: 93a16182f
+subject: "refactor(core): GOD-DEBULK requeue released fleet probes"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_direct_terminal_fleet_released_resume_probe_requeues_its_released_packet --no-coverage
+  result: "FAIL 1 test, 1 assertion: the released-resume probe returned blocked because ordinary claimNext() correctly excluded its synthetic packet, so no lease could be released or requeued."
+green:
+  behavior: "The released-resume probe reuses its exact fleet-owned lease/CAS claim protocol, then executes the real releaseLease and recoverReleasedTasks sequence."
+verification:
+  characterization: "PASS 1 test, 3 assertions through public runTerminalFleetReleasedResumeProbe(): the digest identifies the released packet as recoverable and recoverReleasedTasks restores it to claimable with its requeue receipt."
+  certification_file: "NOT GREEN: 18 passed, 3 failed, 237 assertions. Launch, resume-rollup, operator-handoff recovery priority, and released-task requeue invariants are green. Only fleet evidence rollup and cycle-supervisor evidence review remain false."
+  php_lint: "PASS runner and focused Feature test."
+  pint: "NOT GREEN only for inherited whole-file runner formatting drift; the focused Feature test passes Pint. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "multi_agent_loop_probe_runner=1667 LOC; Feature test=523 LOC; both <2000, no new class or structural split."
+boundary:
+  - "The positive contract invokes public released-resume probing plus real packet admission, lease/CAS claim, release, health digest, and released-task recovery. It does not mock a released lease or reach the recovery implementation by reflection."
+  - "The probe-owned claim accepts only its exact packet/tag. Normal workers retain the unmodified claimNext() probe exclusion; no provider, dispatch, token, or runtime-execution authority is granted."
+residual:
+  - "The evidence-rollup probe still calls normal claimNext() for its synthetic packet and its synthetic completion evidence is not yet characterized against the current validator. These are the last two false fleet invariants."
+next_cursor: "Characterize the terminal-fleet evidence-rollup public probe before changing its owned claim or completion-evidence contract; preserve all worker guards."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
