@@ -260,6 +260,9 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
             'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
             'commands_run' => ['php artisan test '.$packetId.': passed'],
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Validated the scoped implementation and its behavioral proof.',
+            'capability_delta' => 'Adds the bounded capability described by this packet.',
+            'task_packet_created' => 'receipt:'.$packetId,
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',
         ], $overrides);
