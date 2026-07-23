@@ -11,11 +11,15 @@ wave: A1
 bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
-current_focus: A1-SC-0001..0008 (BUGFIX_PLAN committed; next child-plan task is the remaining status mutation matrix)
+current_focus: A1-SC-0001..0008 (Task 6.1 characterization committed; next child-plan task is the bounded status/runtime owner implementation)
 claimed_paths:
   - tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest.php
+  - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php
+  - docs/superpowers/plans/2026-07-22-god-debulk-wave-a1-selfconstruction.md
 ```
 
 ## Fila (ordem — derive dos META-FINDINGS; atualize ao executar)
@@ -57,8 +61,11 @@ claimed_paths:
      writer-backed status to a read-only projector plus an explicit runtime
      command, records persisted-ID/idempotency proof, and makes missing
      merge-review authority fields fail closed.
-   - BUGFIX next: child plan Task 6.1 completes the remaining status mutation
-     matrix before any runtime reroute.
+   - TEST status mutation matrix complete (`21b149eb9`): public lease
+     recovery, replenishment, bootstrap, and draft-publication statuses now
+     characterize their false outer authority alongside their durable effects.
+   - BUGFIX next: child plan Task 6.2 creates the bounded read projector and
+     named runtime owners before legacy routing changes.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):

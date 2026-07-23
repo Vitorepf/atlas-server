@@ -273,7 +273,7 @@ the legacy flags before this plan changes their behavior.
 - Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php`
 - Modify: `tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php`
 
-- [ ] **Step 1: Write the writer-side-effect characterization for every listed family.**
+- [x] **Step 1: Write the writer-side-effect characterization for every listed family.**
 
 ```php
 $queueBefore = (int) $queue->registry()['total_count'];
@@ -286,7 +286,7 @@ $this->assertGreaterThan($queueBefore, (int) $queue->registry()['total_count']);
 $this->assertGreaterThan($leasesBefore, count($leases->activeLeases()));
 ```
 
-- [ ] **Step 2: Record the pre-reroute baseline without treating it as green.**
+- [x] **Step 2: Record the pre-reroute baseline without treating it as green.**
 
 Run:
 
@@ -296,6 +296,11 @@ Run:
 
 Expected: each existing unrelated failure remains named separately; every new
 characterization assertion establishes the current writer status before reroute.
+
+Observed: the four-file baseline remains red with 11 existing failures and 67
+passing tests (685 assertions); the lease-recovery, replenishment,
+non-preview bootstrap, and publisher mutation characterizations each pass in
+isolation.
 
 ### Task 6.2: Implement bounded read and write owners
 
