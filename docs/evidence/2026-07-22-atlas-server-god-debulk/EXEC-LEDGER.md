@@ -650,7 +650,8 @@ boundary:
   - no command execution, persistence, provider call, token spend, signature, or completion promotion occurs in this read-only readiness path
   - duplicated registry consolidation and distinct stale storage-root hints remain outside this one-operation repair
 write_back:
-  status: pending
+  status: recorded_for_human_review
+  context_feedback: recorded
   auto_promoted: false
 ```
 
