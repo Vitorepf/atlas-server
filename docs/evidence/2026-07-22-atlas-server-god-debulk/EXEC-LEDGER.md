@@ -3303,3 +3303,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 107 — admit distinct terminal-fleet launch probes, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_FLEET_RECOVERY_RESIDUAL
+finding: A1-SC-0187-adjacent-terminal-fleet-launch
+commit: f8edf240f
+subject: "refactor(core): GOD-DEBULK admit distinct fleet probes"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_direct_terminal_fleet_launch_plan_probe_builds_a_ready_lane_bound_runbook --no-coverage
+  result: "FAIL 1 test, 1 assertion: public launch-plan probe returned blocked. Only 1/3 seeds was enqueued; the two numbered copies were blocked by the real anti-farm admission gate, leaving launch supply below target."
+green:
+  behavior: "The launch probe now models three distinct mechanisms: queue-tag command binding, supervisor transition after supply assessment, and resumption-runbook lane protection. Each has its own objective and acceptance criterion, so the anti-farm gate admits the bounded parallel work without an exception."
+verification:
+  characterization: "PASS 1 test, 5 assertions through public runTerminalFleetLaunchPlanProbe(): the plan is available, ready, lane-bound, supervisor-launch-ready, and exposes a ready three-terminal runbook."
+  certification_file: "NOT GREEN: 16 passed, 3 failed, 231 assertions. Launch-plan, supervisor-launch, and runbook invariants are green. Remaining wrappers are driven by 5 independent fleet recovery/evidence invariants."
+  php_lint: "PASS runner and focused Feature test."
+  pint: "NOT GREEN only for inherited whole-file runner formatting drift; the focused Feature test passes Pint. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "multi_agent_loop_probe_runner=1611 LOC; Feature test=501 LOC; both <2000, no new class or structural split."
+boundary:
+  - "The characterization executes the public certification launch-plan probe, real packet build/admission, health digest, lane-command projection, supervisor projection, launch-runbook projection, and synthetic cleanup; it does not mock the anti-farm decision."
+  - "The anti-farm gate remains the admission authority. This replaces a template series with distinct mechanisms rather than bypassing, lowering, or disabling the gate; no worker is served, process started, provider called, token spent, or runtime authority enabled."
+residual:
+  - "Five terminal-fleet recovery/evidence invariants still keep the aggregate certification unavailable: resume recovery, released task requeue, evidence rollup, operator-handoff recovery priority, and cycle-supervisor evidence review."
+next_cursor: "Characterize the terminal-fleet resume-recovery public probe before changing fleet recovery or evidence behavior; preserve anti-farm admission and launch-plan readiness."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
