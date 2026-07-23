@@ -4,35 +4,35 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0180 Codex integration evidence binding fail-closed closed
+phase: A1-SC-0181 work splitter canonical readiness path closed
 wave: A1
 bucket: app/Services/Ai/SelfConstruction/Readiness
-focus: Codex integration completed-packet evidence binding boundary
-finding_id: A1-SC-0180
-action_op: deny review readiness to missing, mismatched, or malformed completion evidence
+focus: work splitter readiness-service canonical scope authorization
+finding_id: A1-SC-0181
+action_op: point the executable packet at the canonical Readiness service owner
 queue_index: 6
-last_commit: 6c35634eb
+last_commit: 46f383e1a
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/CodexIntegrationReportEvidenceTest.php
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=test_command_codex_integration_report_lists_completed_packets
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_work_splitter_authorizes_the_canonical_readiness_service_path
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
   /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: a real completed packet carrying not-a-sha256-receipt was counted ready_to_review and could cross into merge readiness.
-  green: a completed packet is review-ready only when the reservation selected by packet id has a strict SHA-256 completion evidence hash; rejected completions remain a missing packet with an explicit repair action.
+  red: the real public work splitter emitted app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php, which no longer exists.
+  green: the readiness-service packet emits the canonical Readiness/ owner and the returned allowed file exists on disk.
 stdout: |
   red_characterization: FAIL 1 test, 1 assertion
-  focused_and_package: PASS malformed-evidence feature 1 test, 6 assertions; existing valid-evidence command feature 1 test, 8 assertions
-  php_lint: PASS source plus changed Feature test
-  feature_pint: PASS
+  focused_and_package: PASS focused 1 test, 2 assertions; writer section Unit 6 tests, 20 assertions
+  php_lint: PASS source plus changed Unit test
+  unit_pint: PASS
   loc_check: release_writer_section=1484
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes claim, complete, and integration-report commands against their real reservation fixture; it does not use reflection or fabricated projections.
+  Characterization executes the public readiness facade and checks its emitted path against the filesystem; it does not use reflection or fabricated packets.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
   Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
@@ -1769,6 +1769,31 @@ verification:
 boundary:
   - executes real claim, complete, and integration-report command paths; no reflection, provider, dispatch, token, approval, merge, or runtime execution
   - preserves valid completed evidence behavior while fail-closing invalid completed evidence into the existing missing-packet merge blocker
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 59 — A1-SC-0181 authorize canonical readiness path, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 46f383e1a
+subject: "refactor(core): GOD-DEBULK authorize canonical readiness path"
+red:
+  result: "FAIL 1 test, 1 assertion: public workSplitter emitted the stale non-Readiness service path."
+green:
+  behavior: "The readiness-service implementation packet now carries the canonical Readiness owner path, which exists and can be authorized by the returned scope."
+verification:
+  focused_unit: "PASS 1 test, 2 assertions"
+  writer_section_unit: "PASS 6 tests, 20 assertions"
+  php_lint: "PASS source and changed Unit test"
+  unit_pint: PASS
+  diff_check: PASS
+  loc: "release_writer_section=1484 (<2000)"
+boundary:
+  - public readiness-facade work-split projection only; no reflection, packet claim, scope mutation, provider, dispatch, token, or runtime execution
+  - corrects the packet authorization target without changing its lane, objective, boundaries, or validation policy
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
