@@ -1661,3 +1661,41 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 55 — RootSinglesRehome Surface and HumanSurface, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group Surface + HumanSurface
+commit: a76093a79
+subject: "refactor(core): GOD-DEBULK RootSingles Surface rehome"
+scope:
+  - app/Services/Ai/Surface/AtlasFinalResponseSanitizer.php and AiSurfaceHandoffService.php
+  - app/Services/Ai/HumanSurface/AiExecutionPresentationState.php
+  - canonical worker, resolver, quality-action, controller, unit/feature consumer imports, one-cycle aliases, compatibility coverage, and AI CODEMAP
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_surface_services_resolve_from_their_canonical_namespaces_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Surface\\AtlasFinalResponseSanitizer did not exist before the re-home."
+green:
+  behavior: "AtlasFinalResponseSanitizer and AiSurfaceHandoffService now have one canonical Surface namespace; AiExecutionPresentationState has one canonical HumanSurface namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "Compatibility proves canonical and retired class loading plus each alias relationship. Focused tests exercise sanitizer leak blocking, public execution states, surface handoff HTTP behavior, choice-resume projection, and quality-repair sanitization through canonical imports."
+verification:
+  focused_suite: "PASS 60 tests, 305 assertions (compatibility, sanitizer, reasoning frames, review guard, presentation state, job control, surface handoff API, and choice-resume API)."
+  supporting_consumers: "PASS 21 tests, 76 assertions (provider-choice resolver and quality-action repair behavior)."
+  parallel_root_compatibility: "PASS 9 tests, 32 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports unrelated existing PSR-4 warnings)."
+  root_sweep: "PASS: old root source paths are absent; old FQCN hits remain only in explicit compatibility imports and the intentionally escaped alias map."
+  php_lint: "PASS all 15 touched PHP files"
+  phpstan: "NOT GREEN: moved-source plus alias analysis reports three pre-existing model-property diagnostics at lines verified in pre-move content; broader canonical consumer analysis reports 104 model/type diagnostics. Neither is used as proof."
+  pint: "PASS moved sanitizer and handoff, alias map, root compatibility, sanitizer unit, and presentation-state unit. Strict full-file Pint is NOT GREEN for existing formatting drift in HumanSurface state, AiWorker, choice resolver, quality-action service, job controller, reasoning-frame test, review test, and job-control test; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=18)"
+  density_guard: "PASS current baseline: >5k=12, >2k=46; sanitizer=368 LOC, handoff=45 LOC, presentation-state=353 LOC. Root first-level Ai owner count observed 84 to 81; repository-wide LOC remains concurrent-work confounded."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; sanitizer fail-closed rules, provider-transcript extraction, surface-handoff identity boundaries, human-state schemas, timers, worker gate ordering, and HTTP behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production consumers, focused unit/feature coverage, and CODEMAP name the Surface/HumanSurface owners directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
