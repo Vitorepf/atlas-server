@@ -1723,3 +1723,40 @@ write_back:
   status: recorded_for_human_review
   auto_promoted: false
 ```
+
+## Task 57 — RootSinglesRehome ConversationOps, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / group ConversationOps
+commit: 8c95241f5
+subject: "refactor(core): GOD-DEBULK RootSingles ConversationOps rehome"
+scope:
+  - app/Services/Ai/ConversationOps/AiSessionManager.php, AiSessionStateService.php, AiThreadDeletionService.php, and AiThreadResolver.php
+  - canonical gateway, worker, steering, CLI, command, and HTTP-controller imports; one-cycle legacy aliases; compatibility coverage; AI CODEMAP; and canonical navigation/docs paths
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_conversation_ops_services_resolve_from_their_canonical_namespace_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\ConversationOps\\AiSessionManager was not resolvable before the re-home."
+green:
+  behavior: "AiSessionManager, AiSessionStateService, AiThreadDeletionService, and AiThreadResolver now have one canonical ConversationOps namespace. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "Compatibility proves canonical and retired class loading plus each alias relationship; focused unit/feature coverage exercises session lifecycle, state steering, thread resolution/deletion, workspace scope, surface handoff, gateway creation, and worker completion through canonical imports."
+verification:
+  conversation_suites: "PASS 36 tests, 245 assertions (root compatibility, session manager/state, deletion API, workspace scope, and surface-handoff API)."
+  gateway_worker_suites: "PASS 38 tests, 217 assertions (gateway provider gate and worker provider-choice coverage)."
+  parallel_root_compatibility: "PASS 10 tests, 44 assertions"
+  composer: "PASS dump-autoload -o and validate --no-check-publish (the dump reports unrelated existing PSR-4 warnings)."
+  root_sweep: "PASS: old root source paths are absent from canonical engineering docs and droid wiki; old FQCN hits in PHP remain only in explicit compatibility imports and the intentionally escaped alias map."
+  php_lint: "PASS all 14 touched PHP files"
+  phpstan: "NOT GREEN: 26 model/property and resolver type diagnostics in moved owners plus alias analysis. No type-suppression or unrelated model work was added, so this gate is not used as proof."
+  pint: "PASS moved owners, alias map, compatibility, and focused unit tests. Strict selected-file Pint is NOT GREEN for AiChatCommand, AiGatewayService, AiInteractionSteeringService, and AiWorker; no broad reformatting was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=22)"
+  density_guard: "PASS current audit: >5k=12, >2k=46; ConversationOps owners=210/361/334/480 LOC. Root first-level currently has 77 PHP files / 52,577 LOC; concurrent work confounds any repository-wide delta."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; session transactions, pending-steer consumption, deletion tombstones and append-only evidence, resolver precedence, gateway/worker gate ordering, and HTTP behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production consumers, focused coverage, navigation docs, and CODEMAP name the ConversationOps owner directly
+write_back:
+  status: pending_human_review
+  auto_promoted: false
+```
