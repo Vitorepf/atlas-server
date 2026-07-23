@@ -3123,3 +3123,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 102 — diversify certification seed mechanisms, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_SERVING_RED
+finding: A1-SC-0187-adjacent
+commit: 9de60897b
+subject: "refactor(core): GOD-DEBULK diversify certification seeds"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_distinct_certification_seeds_survive_real_admission --no-coverage
+  result: "FAIL 1 test, 1 assertion: the second synthetic seed returned prepare_blocked, leaving seed_failures non-empty."
+green:
+  behavior: "The six default certification seeds now represent distinct queue ownership, lease expiry, scope lock, continuation receipt, evidence binding, and orphan recovery mechanisms. They pass the real anti-farm gate without a serving exception."
+verification:
+  characterization: "PASS 1 test, 2 assertions through public certify(): all six seeds enqueue and the tagged queue has six claimable packets."
+  certification_file: "NOT GREEN: 10 failed, 6 passed, 61 assertions. The resolved admission contract is green; remaining failures start when candidateCanBeClaimedByWorker rejects multi_agent_loop_* tags, with scope/evidence compatibility downstream."
+  php_lint: "PASS certification service and Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited whole-file source formatting drift, so no broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "certification_service=1199 LOC (<2000); Feature test=424 LOC (<800 hot limit)."
+boundary:
+  - "The contract invokes public certify(), real queue admission, and the real anti-farm gate. It neither reflects into seedPacket() nor replaces or disables the gate."
+  - "No worker is served, lease completed, provider invoked, token spent, or runtime flag enabled by the admission characterization."
+residual:
+  - "This change does not restore any previously rejected serving exception. The tags-only serving classifier and the later scope/evidence normalization mismatch remain separate fail-closed repair candidates."
+next_cursor: "Characterize the multi_agent_loop_* serving classifier independently before changing queue admission or certification completion behavior."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
