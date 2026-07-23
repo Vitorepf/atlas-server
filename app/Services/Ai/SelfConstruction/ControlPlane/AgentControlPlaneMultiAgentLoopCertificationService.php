@@ -49,6 +49,15 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
 
     public const SYNTHETIC_FILE_NAMESPACE = 'app/Services/Ai/SelfConstruction/__multi_agent_loop_certification_synthetic__';
 
+    private const CERTIFICATION_SEED_PROFILES = [
+        ['objective' => 'Inspect queue record ownership before concurrent claim delivery', 'acceptance' => 'queue_claim_ownership_verified'],
+        ['objective' => 'Reconcile lease expiry after isolated worker interruption', 'acceptance' => 'lease_expiry_reconciliation_verified'],
+        ['objective' => 'Validate scope locks before overlapping write-set service', 'acceptance' => 'scope_lock_conflict_rejection_verified'],
+        ['objective' => 'Preserve continuation receipt lineage during dry-run settlement', 'acceptance' => 'continuation_receipt_lineage_verified'],
+        ['objective' => 'Measure evidence binding integrity across completion records', 'acceptance' => 'completion_evidence_binding_verified'],
+        ['objective' => 'Recover orphaned claim metadata without reopening packets', 'acceptance' => 'orphan_claim_recovery_verified'],
+    ];
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly AgentControlPlaneTaskPacketQueueRepository $queue,
@@ -677,14 +686,15 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $allowedFile = $simulateOverlap
             ? $namespace.'/shared_collision_target.php'
             : sprintf('%s/c%d_a%d.php', $namespace, $cycleIndex, $agentIndex);
+        $profile = self::CERTIFICATION_SEED_PROFILES[$agentIndex % count(self::CERTIFICATION_SEED_PROFILES)];
         $orchestration = $this->orchestrator->prepareAndEnqueue([
             'task_packet' => [
                 'task_packet_id' => $taskPacketId,
-                'objective' => sprintf('multi-agent loop cert cycle %d agent %d', $cycleIndex, $agentIndex),
+                'objective' => $profile['objective'].' for cycle '.$cycleIndex,
                 'operator_id' => 'multi-agent-loop-certification',
                 'allowed_files' => [$allowedFile],
                 'scope_in' => [$allowedFile],
-                'acceptance_criteria' => ['multi_agent_loop_certification_ok'],
+                'acceptance_criteria' => [$profile['acceptance']],
                 'required_evidence' => ['task_packet_created', 'claim_lease_simulated', 'continuation_summary_planned'],
                 'risk_level' => 'low',
                 'rollback_strategy' => 'plan_only',

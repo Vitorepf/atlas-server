@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
@@ -9,7 +10,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoo
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -33,6 +33,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
 
         $taskIds = array_map(fn (array $a): string => (string) $a['task_packet_id'], $cycle['agents']);
         $this->assertCount(6, array_unique($taskIds));
+    }
+
+    public function test_distinct_certification_seeds_survive_real_admission(): void
+    {
+        $cert = $this->certify(['agent_count' => 6, 'cycles' => 1]);
+
+        $cycle = $cert['cycle_evidence'][0];
+        $this->assertSame([], (array) $cycle['seed_failures']);
+        $this->assertSame(6, (int) $cycle['claimable_before_claim']);
     }
 
     public function test_lease_ids_are_unique_across_agents(): void
