@@ -2538,3 +2538,31 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 82 — A1-SC-0047 align all Batch2 implementation-packet paths, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 356adb1f4
+subject: "refactor(core): GOD-DEBULK align Batch2 packet paths"
+red:
+  result: "FAIL 1 test, 4 assertions: the first public implementation packet declared a removed root-level StartExecutionGate invoker."
+green:
+  behavior: "All eight implementation packets now declare their real ControlPlane invoker and the real Readiness facade; every declared path exists."
+verification:
+  focused_feature: "PASS 1 test, 72 assertions, 22.00s"
+  php_lint: "PASS Batch2 source and Feature test"
+  pint: "PASS Feature test; NOT GREEN for pre-existing full-file Batch2 violations outside the 16 canonical-path replacements (including recorded unused-import debt)"
+  diff_check: PASS
+  density: "Batch2 remains the pre-existing 5,360 LOC monster; this 16-for-16 canonical-path replacement adds no density and does not attempt a structural split."
+commit_scope: "PASS: git commit --only recorded exactly Batch2 source plus its focused Feature test."
+boundary:
+  - executes every packet through both the direct section with its real mother and the public compatibility facade
+  - validates 48 allowed_files entries across eight packets without executing a packet, writer, provider, adapter, dispatch, or ledger action
+  - no runtime authority was enabled; all public execution/dispatch controls remain false
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
