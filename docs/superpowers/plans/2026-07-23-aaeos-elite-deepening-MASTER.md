@@ -17,7 +17,7 @@ docs/evidence/2026-07-23-aaeos-elite-deepening/
   PHASE-*-RECEIPT.md
 ```
 
-**Versão:** v3 (absolute audit) · completeza provada por rastreabilidade, não por contagem de linhas · Partes I (§0–§20) + II (§21–§44) + III (§45–§58)
+**Versão:** v4 (adversarial absolute) · completeza = buracos fechados + contratos falsificáveis · **v3 ≠ teto** · Partes I (§0–§20) + II (§21–§44) + III (§45–§68)
 
 ### Índice rápido
 
@@ -29,9 +29,10 @@ docs/evidence/2026-07-23-aaeos-elite-deepening/
 | II | §21–§28 | Inventário 27 PHP, schemas, CLI/flags, ModeExecutor, receipt JSON, spine S1–S8, kernel ports, testes |
 | II | §29–§36 | Tasks A–G atomizadas, aceitação R/C, APs HTTP, CODEMAP, densidade, counters, DAG, RACI |
 | II | §37–§44 | Ops heartbeat, rollback, anti-padrões, glossário, evidence template, commits, DONE binário, checklist “nada omitido” |
-| III | §45–§48 | Auditoria forense do disco, correções factuais, gaps R16+, taxonomia de prova |
-| III | §49–§52 | Scorecard mensurável, receipt/side-effects, compatibilidade CLI e contratos exatos de fase |
-| III | §53–§58 | Matriz de testes, dirty-main, evidence, archive hold, autocrítica e handoff EXECUTE P0 |
+| III | §45–§48 | Auditoria forense do disco, gaps R16–R37, taxonomia de prova, ownership |
+| III | §49–§52 | Scorecard mensurável, receipt/side-effects, CLI parity, contratos de fase |
+| III | §53–§58 | Testes, dirty-main, evidence, archive hold, autocrítica, handoff |
+| III | §59–§68 | CLI disk-truth, brain args R33, dimension table live, CODEMAP, DI, schema, P0 file freeze, anti-“already done” |
 
 ---
 
@@ -86,8 +87,8 @@ Medido novamente em 2026-07-23T20:33:50Z no `main` local. Este snapshot é prova
 | Check | Valor |
 |---|---|
 | `atlas:aaeos:certify --json` | `ok=true` |
-| Composite scorecard standalone | `9.52` — constantes/defaults; `cycles_total=0` |
-| Composite certify | `9.56` — injeta hints `operate_path_wiring=9.2`, `spine_enforced=9.2`, `antifragile_loop=9.0` |
+| Composite scorecard standalone | `9.52` — consts (`control_plane=9.2`, thesis/elite=9.5) + defaults (`operate/spine/antifragile=9.0`); `counters.cycles_total=0` |
+| Composite certify | `9.56` — **injeta** hints `operate_path_wiring=9.2`, `spine_enforced=9.2`, `antifragile_loop=9.0` (diferente do standalone) |
 | `aaeos_tree.pure` | `true` |
 | `quarantine_production_imports` | `0` |
 | Quarantine archive físico | `306 PHP / 131,664 LOC` em `archive/app/Services/Ai/Aaeos/Quarantine` — **DONE; guard-only** |
@@ -118,8 +119,13 @@ Medido novamente em 2026-07-23T20:33:50Z no `main` local. Este snapshot é prova
 | R1 | Spine N9/N11 só em intakes críticos | Alta | P1 / P2 |
 | R2 | Spine daily paths partial (enqueue / senior-loop) | Média | P2 |
 | R3 | Full rewrite Dev/Forge → RealExecution only | Alta / obra maior | P2–P3 (strangler) |
-| R4 | `AutonomosLiveDispatcher` já chama `atlas:brain:next` quando `--live` (default `run_brain_next=true`) | **CLOSED_SOURCE** | P1 preserva; P4 prova efeito real |
-| R5 | Só há receipts dry no evidence pack; falta receipt real do efeito `brain_next exit_code=0` | Média | P4 obrigatório; overnight é extra ops |
+| R4 | `AutonomosLiveDispatcher` **invoca** `Artisan::call('atlas:brain:next', …)` quando `--live` (default `run_brain_next=true`) | **CLOSED_SOURCE** (wire existe) | P1 **não** “preservar bug de args”; P4 prova efeito real **após** R33 |
+| R5 | Só há receipts dry no evidence pack; falta receipt real do efeito `brain_next` com payload de sucesso | Média | P4 obrigatório; overnight é extra ops |
+| R33 | **Args de `brain:next` quebrados:** dispatcher passa só `--json` e, se scope, **`--scope` flag** — mas o comando exige argumento posicional `{scope}` e **não tem** opção `--scope` (prova: `The "--scope" option does not exist` / `missing: "scope"`). Live Autônomos **sempre falha** o call hoje | **CRÍTICA** | **P1 fix obrigatório**; red test em P0/P1; P4 bloqueado sem isto |
+| R34 | Sucesso de `brain_next` medido só por `exit_code===0` — mas `atlas:brain:next` emite `disabled`/`dry` com **SUCCESS default**; falso positivo de `mutated` | Alta | P1: classificar por `result.payload.status` + exit; P0 honesty surface |
+| R35 | `atlas:brain:seed` **não tem** `--max`; dispatcher tenta `--max` e faz retry bare — `max_seeds` é intent, não contrato real de batch size | Média | P1 documentar + honest effect; seed-gate real é do brain seed, não inventar flag |
+| R36 | P4 live tem pré-condições ops: memory (OOM observado em comprehension 128MB), brain master switch, scope default `autonomous`, fleet Autônomos opcional | Ops | §60 + P4 preflight; `blocked_ops` ≠ DONE |
+| R37 | `run` e `cycle` divergem em **exit codes** (`dispatch_failed` só no run), defaults de intent, e flags (`--mode/--execute-provider/--run-worker-once/--scope` só no run) | Alta | P0 shared application; matrix §51+§59 |
 | R6 | DualCore record best-effort | Média | P1 (honest status) |
 | R7 | Ledger `skipped_*` fail-open | Média | P1 (surface status) |
 | R8 | World snapshot fail-open | Baixa/média | P1 (world_source metrics) |
@@ -153,7 +159,15 @@ Medido novamente em 2026-07-23T20:33:50Z no `main` local. Este snapshot é prova
 
 O composite observado `9.52` e o certify `9.56` descrevem o predecessor estrutural/avaliativo; não são baseline medido nem alvo de aceitação. O projector também contém outras notas estáticas (`thesis_clarity`, `elite_same_bar`, `control_plane`, `antifragile_loop`). **P0 remove score fantasia de toda dimensão que se declara medida, não apenas as linhas 9.2.**
 
-**Correção R4:** o wiring fonte de `--live → atlas:brain:next` está implementado e é coberto como contrato de código. O que falta é uma prova de operação real capturada (`effect.kind=brain_next`, `exit_code=0`) e a preservação do comportamento durante a fusão ModeExecutor. Isso pertence a R5/P4, não é “implementar brain:next outra vez”.
+**Correção R4 (v3):** o wiring fonte de `--live → atlas:brain:next` existe — **não** reimplementar o muscle Brain.
+
+**Correção R4+R33 (v4 adversarial):** “chama o comando” ≠ “chama com contrato válido”. Disco prova:
+- `AutonomosLiveDispatcher::brainNextArgs` → `['--json'=>true]` e opcionalmente `['--scope'=>$scope]`
+- `AtlasBrainNextCommand` signature → `{scope}` **posicional obrigatório**; opções = `--repo|--docs|--m|--max-prior|--actor|--scope-signals|--json` — **sem** `--scope`
+- `Artisan::call` sem scope → exception capturada → `exit_code=1` → `brain_next_failed`
+- `Artisan::call` com `--scope=autonomous` → `The "--scope" option does not exist`
+
+Portanto: R4 = CLOSED_SOURCE; **R33 = OPEN crítico** (args). P1 deve **corrigir** o shape para `['scope' => $scope ?: 'autonomous', '--json' => true]` (e redigir output), não copiar o bug sob o slogan “byte-for-behavior”. P4 só fecha R5 **depois** de R33+R34.
 
 ---
 
@@ -366,7 +380,7 @@ php artisan test tests/Feature/Ai/Aaeos --no-coverage
 #### P1.1 Introduzir interface `AaeosModeExecutor`
 
 - [ ] Interface: `mode(): string` + `execute(cyclePlan, options): array` (policy meta + effects)
-- [ ] Migrar Autonomos: fundir `AutonomosModeAdapter` + `AutonomosLiveDispatcher`, preservando a invocação `atlas:brain:next` byte-for-behavior
+- [ ] Migrar Autonomos: fundir `AutonomosModeAdapter` + `AutonomosLiveDispatcher`, preservando a **intenção** `--live → atlas:brain:next` e **corrigindo R33** (args posicionais + default `autonomous`); proibido copiar `brainNextArgs` quebrado como “parity”
 - [ ] Migrar Dev: fundir Dev adapter + dispatcher; pack recebe `effect_level=prepared`, nunca `mutated`
 - [ ] Migrar Forge: fundir Forge adapter + dispatcher + spine stamp
 - [ ] Gateway chama ModeExecutor apenas
@@ -375,7 +389,7 @@ php artisan test tests/Feature/Ai/Aaeos --no-coverage
 
 #### P1.2 Autônomos ModeExecutor (deepening)
 
-- [ ] `--live` → preservar `brain:next` já existente + receipt effects tipados; esta task é refactor/regression, não implementação nova de R4
+- [ ] `--live` → chamar `brain:next` com args **corretos** (R33) + classificar efeito por payload status (R34) + effects tipados; refactor do path R4, **não** reimplementar Brain muscle
 - [ ] `--max-seeds` → seed com gate-required flags no receipt
 - [ ] `--run-worker-once` → `atlas:task next` uma vez
 - [ ] Nunca reimplementar seed-gate / scoped commit — só exigir no receipt
@@ -510,7 +524,7 @@ php artisan atlas:aaeos:certify --json
 
 - [ ] Dry receipts (já existem) regenerados
 - [ ] Live Autônomos mínimo sem provider/worker: `atlas:aaeos:run "AAEOS P4 live brain-next proof" --autonomos --live --max-seeds=0 --json` no env operador
-- [ ] Receipt obrigatório: `status=dispatched_live`, `effect_level=mutated`, effect `brain_next.command=atlas:brain:next`, `exit_code=0`, `provider_calls=0`
+- [ ] Receipt obrigatório: `status=dispatched_live`, `effect_level=mutated`, effect `brain_next.command=atlas:brain:next`, `exit_code=0`, `payload.status` ∈ {served, already_done, success-equivalent documentado}, **não** `disabled|dry|error`, `args.scope` presente, `provider_calls=0`
 - [ ] Colar receipt em `REAL-RUN-RECEIPTS/R-autonomos-live.json`
 - [ ] Seed/worker são provas separadas e exigem autorização: `--max-seeds=1` e/ou `--run-worker-once`; não misturar com a prova mínima R4
 - [ ] Overnight/heartbeat é operação sustentada pós-MT; se stale, registrar `blocked_ops_sustained`, sem apagar o resultado one-shot e sem chamar 24/7 de provado
@@ -784,6 +798,7 @@ git commit -m "feat(core): AAEOS-MT P0 honest receipts measured evidence and run
 | 2026-07-23 | MT v2 — completeza absoluta: inventário PHP, schemas, CLI flags, testes, critical spine list, contratos ModeExecutor, receipts, rollback, DAG, RACI, ops heartbeat, APs HTTP, densidade, anti-padrões, passos atomizados P0–P4 |
 | 2026-07-23 | Prompt Agenda iOS (copiar/melhorar MT): `docs/prompts/atlas-aaeos-mt-improve-AGENDA-COPY.md` — v2 ≠ teto; dois agentes continuam absolute no MASTER |
 | 2026-07-23 | MT v3 absolute audit — §45–§58; R4 source-wired corrigido; archive DONE/HOLD; certify 9.2/9.2/9.0 e demais constantes classificados; ledger único; proof taxonomy; hard gates sem waiver-DONE; C1–C4/R1–R32 ligados a fase+prova+receipt; S6/S7 resolvidos em símbolos reais; média arbitrária de planning removida; P0 não executado |
+| 2026-07-23 | **MT v4 adversarial absolute** — R33 brain:next args quebrados (posicional vs `--scope`); R34 false SUCCESS disabled/dry; R35 seed `--max` inexistente; R36 P4 preflight; R37 exit/flag matrix disk-truth; §42 “counter store” contradizia §34 (corrigido); §59–§68; baseline revalidado; v3 não é teto; P0 ainda não executado |
 
 ---
 
@@ -1187,7 +1202,7 @@ For each of S1–S8:
 | R1 | P2 | `AaeosSpineCriticalCoverageTest` | `PHASE-2-RECEIPT.md` | 100% dos sites aplicáveis S1–S8 stamped; N/A só com owner evidence |
 | R2 | P2 | same coverage test + ledger reader aggregation | `PHASE-2-RECEIPT.md` | Spine daily coverage publicada; enqueue path medido |
 | R3 | P2 | `EliteExecutorKernelReadOnlyVerticalTest` + per-mode receipts | `PHASE-2-RECEIPT.md` | Full rewrite fica fora; strangler progress explícito, sem false DONE |
-| R4 | P1 | `AutonomosModeExecutorTest` | `PHASE-1-RECEIPT.md` | Source wiring `--live → atlas:brain:next` preservado byte-for-behavior |
+| R4 | P1 | `AutonomosModeExecutorTest` | `PHASE-1-RECEIPT.md` | Intenção `--live → atlas:brain:next` preservada; **R33/R34** fecham contrato real |
 | R5 | P4 | real command + artifact readback | `REAL-RUN-RECEIPTS/R-autonomos-live.json` | ≥1 `brain_next.exit_code=0`; sustained blocker não substitui one-shot |
 | R6 | P0–P1 | `AaeosReceiptHonestyTest` + measured aggregation | `PHASE-1-RECEIPT.md` | `dualcore.recorded` visível e rate reproduzível |
 | R7 | P0–P1 | receipt honesty + DB-unavailable reader case | `PHASE-1-RECEIPT.md` | `evidence_status` nunca silencioso; non-dry skipped aparece no operate view |
@@ -1199,6 +1214,12 @@ For each of S1–S8:
 | R13 | P3 docs | route/docs scan dos AP-696–702 | `PHASE-3-RECEIPT.md` | HTTP listado como irmã non-daily; nenhuma casca entra no DONE |
 | R14 | P0 | `AtlasAaeosRunCommandTest` caps rows | `PHASE-0-RECEIPT.md` | provider sem live falha; dry/plan-only mostra honest banner |
 | R15 | P1 | `AtlasCliCockpitCommandTest` | `PHASE-1-RECEIPT.md` | Cockpit mostra AAEOS residual e mantém review inbox separado |
+| R16–R32 | ver §46 | testes/receipts da coluna §46 | phase receipt da coluna | Aceitação canônica de residuals novos = §46 (não duplicar aqui) |
+| R33 | P1 (+red P0/P1) | `AutonomosModeExecutorTest` brain args | `PHASE-1-RECEIPT.md` | `Artisan::call` usa posicional `scope` (default `autonomous`); zero flag `--scope` em brain:next |
+| R34 | P1 | same + payload status cases | `PHASE-1-RECEIPT.md` | `disabled|dry|error` ⇒ não `effect_level=mutated` mesmo com exit 0 |
+| R35 | P1 | seed effect honesty | `PHASE-1-RECEIPT.md` | `max_seeds` não inventa `--max`; effect registra o que o seed realmente aceitou |
+| R36 | P4 | preflight checklist §60 | `PHASE-4-COMPLETE.md` | Preflight documentado; OOM/master-off = blocked_ops, não DONE |
+| R37 | P0 | `AtlasAaeosRunCommandTest` + Cycle parity | `PHASE-0-RECEIPT.md` | Matrix §59 verde: flags, defaults, exit codes idênticos no path shared |
 
 ---
 
@@ -1382,9 +1403,9 @@ O template v2 com campos vazios foi substituído pelo schema preenchível e sem 
 ```
 docs(core): AAEOS-MT P0 evidence harness
 feat(core): AAEOS-MT P0 run-cycle alias + honesty caps
-feat(core): AAEOS-MT P0 measured scorecard + counter store
+feat(core): AAEOS-MT P0 measured scorecard + ledger read model
 test(core): AAEOS-MT P0 control/certify honesty
-refactor(core): AAEOS-MT P1 AutonomosModeExecutor
+refactor(core): AAEOS-MT P1 AutonomosModeExecutor + brain args R33
 refactor(core): AAEOS-MT P1 Dev+Forge ModeExecutors + delete adapters
 feat(core): AAEOS-MT P1 cockpit aaeos residual
 test(core): AAEOS-MT P1 mode executors
@@ -1396,6 +1417,8 @@ refactor(core): AAEOS-MT P3 hygiene alias burn
 docs(core): AAEOS-MT P3 vocabulary+CODEMAP
 docs(core): AAEOS-MT P4 gauntlet+freeze v2
 ```
+
+**Anti-contradição:** a mensagem P0 **não** pode dizer “counter store”. §34 é normativo: read model do Evidence Ledger apenas.
 
 ---
 
@@ -1424,7 +1447,7 @@ Programa DONE iff **todos** os itens forem true e todos os hard gates §49 estiv
 
 ## 44. Índice de cobertura do v2 (não é prova de completeza)
 
-Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo”. Eles **não** significam que o fato está correto, o contrato está executável ou a prova existe. A auditoria real é §45–§58.
+Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo”. Eles **não** significam que o fato está correto, o contrato está executável ou a prova existe. A auditoria real é §45–§68 (v4).
 
 - [x] Conceituais C1–C4
 - [x] Residuals R1–R15
@@ -1467,8 +1490,9 @@ Os `[x]` abaixo significam apenas “o assunto aparece em algum lugar do arquivo
 - [x] Evidence templates
 - [x] Commit message list
 - [x] Final binary DONE table
+- [x] v4: R33–R37 + §59–§68 (CLI matrix, brain contract, dimensions live, CODEMAP, DI, dry writes, schema, P0 freeze, predecessor census, anti-already-done)
 
-Se aparecer residual novo: adicionar ID `R16+` no §46, apontar owner/phase/test/receipt e refletir em §30 — nunca plano paralelo silencioso.
+Se aparecer residual novo: adicionar ID `R38+` no §46, apontar owner/phase/test/receipt e refletir em §30 — nunca plano paralelo silencioso.
 
 ---
 
@@ -1485,8 +1509,12 @@ Snapshot read-only executado em 2026-07-23 no `main` local. Nenhum P0–P4 foi i
 | AAEOS live é Control+Spine | `find app/Services/Ai/Aaeos -name '*.php'` → 27 PHP / 2,114 LOC; dirs live `Control/`, `Spine/` | **VERIFIED_DISK** | Hold; tamanho não prova capacidade |
 | Quarantine ainda precisa ser arquivada | `archive/app/Services/Ai/Aaeos/Quarantine` → 306 PHP / 131,664 LOC | **FALSE** | Archive está DONE; só guard R12 |
 | Imports Quarantine = 0 | scorecard/certify → `quarantine_production_imports=0`; busca FQCN em `app/` sem import produtivo | **VERIFIED_SCAN** | Revalidar em cada fase; nunca mover de volta |
-| R4 `--live → brain:next` falta | `AutonomosLiveDispatcher::liveDispatch` chama `Artisan::call('atlas:brain:next', ...)`; `AaeosCycleRuntime` defaulta `run_brain_next=true` | **FALSE como gap de source wiring** | R4 = CLOSED_SOURCE; P1 é parity, P4 é real-effect proof |
-| Há receipt live real de R4 | evidence predecessor contém apenas `R1-dev-dry`, `R2-forge-dry`, `R3-autonomos-dry` | **NOT_PROVEN_REAL** | P4 exige receipt `brain_next.exit_code=0` |
+| R4 `--live → brain:next` falta | `AutonomosLiveDispatcher::liveDispatch` chama `Artisan::call('atlas:brain:next', ...)`; `AaeosCycleRuntime` defaulta `run_brain_next=true` | **FALSE como gap de source wiring** | R4 = CLOSED_SOURCE |
+| R4 call é semanticamente válido | `brainNextArgs` omite posicional `scope` e usa flag `--scope` inexistente no comando | **FALSE / BROKEN_CONTRACT (R33)** | P1 corrige args; tests must fail until fix |
+| exit_code=0 implica brain serviu | `AtlasBrainNextCommand::emit` default SUCCESS para `disabled`; dry probe também | **FALSE (R34)** | Classificar payload.status |
+| `max_seeds` limita batch seed | `atlas:brain:seed` **sem** `--max`; dispatcher tenta e faz retry bare | **FALSE (R35)** | Honest effect; não fingir cap de batch |
+| Há receipt live real de R4 | evidence predecessor: só `REAL-RUN-RECEIPTS/R{1,2,3}-*-dry.json` com `dry_run=true`, `rwp=true`, effects `[]` | **NOT_PROVEN_REAL** | P4 após R33/R34 |
+| Certify e scorecard usam os mesmos 9.2 | standalone: operate/spine/antifragile **default 9.0**; certify **injeta 9.2/9.2/9.0** | **DISTINÇÃO obrigatória** | P0 remove ambos os tipos de fantasia |
 | Dev `--live` executa músculo | `DevLiveDispatcher` monta `dev_session_pack`; `provider_calls=0` | **OVERCLAIM** | Classificar `prepared`, não `mutated` |
 | Forge `--live` executa músculo | `ForgeLiveDispatcher` monta/stampa `forge_intake_envelope`; `provider_calls=0` | **OVERCLAIM** | Classificar `prepared`, não `mutated` |
 | Certify 9.56 é medido | `AtlasAaeosCertifyCommand` injeta 9.2/9.2/9.0 | **FALSE** | Structural proof válido; score não-medido |
@@ -1530,7 +1558,12 @@ rg -n "atlas:brain:next|run_brain_next" app/Services/Ai/Aaeos tests/Unit/Ai/Aaeo
 | R29 | One-shot e 24/7 sustained fundidos | P4/Ops | one-shot artifact + heartbeat series separados | `PHASE-4-COMPLETE.md` | Claims/status nunca se promovem entre níveis |
 | R30 | Dirty main sem failure-set protocol | Todas | before/after failure list + cached-path audit | todo phase receipt | §54 preenchido e nenhuma falha nova da lane |
 | R31 | Archive DONE aparecia como trabalho potencial | Plano/P4 | archive hold test + empty archive diff | `PHASE-4-COMPLETE.md` | Archive read/guard-only, zero touched file |
-| R32 | CODEMAP aponta SourceConnectors legado | P3 docs | alias retirement doc assertion | `PHASE-3-RECEIPT.md` | Canonical Brain class documentada; legacy só sai após proof |
+| R32 | CODEMAP linha “Source connector governance” aponta FQCN legado `App\Services\Ai\Aaeos\Support\AtlasSourceConnectorsAndCaptureService` (só vivo via alias map pair #40) | P3 docs | alias retirement doc assertion | `PHASE-3-RECEIPT.md` | Canonical `…\AutonomousEvolution\Brain\AtlasSourceConnectorsAndCaptureService` documentada; legacy só sai após proof |
+| R33 | `brainNextArgs` shape inválido vs `AtlasBrainNextCommand` | P1 | unit test Artisan params | `PHASE-1-RECEIPT.md` | call usa `scope` posicional + default `autonomous` + `--json`; zero `--scope` flag |
+| R34 | exit_code-only success classification | P1 | payload status matrix | `PHASE-1-RECEIPT.md` | mutated só se status de sucesso real documentado |
+| R35 | `max_seeds` / `--max` inventado | P1 | seed call inspection | `PHASE-1-RECEIPT.md` | flags = subset do signature real de `atlas:brain:seed` |
+| R36 | P4 env (memória, master switch, scope) | P4 | preflight §60 | `PHASE-4-COMPLETE.md` | preflight pass ou blocked_ops nomeado |
+| R37 | run≠cycle em flags/exit/defaults | P0 | §59 parity tests | `PHASE-0-RECEIPT.md` | path único `AaeosRunApplication` |
 
 Nenhum R16+ cria segundo plano. O owner continua este MASTER; execução registra o fechamento em §30 + LEDGER + phase receipt.
 
@@ -1550,9 +1583,9 @@ Regras:
 
 1. Um nível nunca implica automaticamente o próximo.
 2. `certify ok` atual = `AUTOMATED_CHARACTERIZED` de invariantes estruturais; não é `REAL_OPERATION`.
-3. R4 atual = `SOURCE_WIRED`; o evidence pack anterior = `DRY_RECEIPT`; P4 busca `LIVE_EFFECT` e readback.
+3. R4 atual = `SOURCE_WIRED`; R33 = call **não** sobe a `LIVE_EFFECT` até args válidos; evidence predecessor = `DRY_RECEIPT` com `runtime_write_performed=true` mentiroso; P4 busca `LIVE_EFFECT` + readback **após** R33/R34.
 4. Archive = `VERIFIED_DISK` + scan de import; é DONE como movimentação, mas o guard é contínuo.
-5. O programa nesta rodada = `PLANNED`; não usar “Elite Deepening complete/ready” antes dos hard gates.
+5. O programa nesta rodada = `PLANNED` (docs); v3/v4 **não** autorizam `EXECUTE` implícito.
 
 ## 48. Arquitetura e ownership v3
 
@@ -1621,7 +1654,7 @@ Allowed `status`: `measured|unknown|not_applicable|assessment_only|failed`. `unk
 | `daily_port_single` | Artisan registry + router/alias test | run canonical; cycle deprecated alias | true |
 | `caps_honesty` | behavior matrix tests | every row §50 | true |
 | `mode_smoke_coverage` | phase receipts | one non-dry receipt per mode | 3/3; each honest effect level |
-| `live_autonomos_brain_next` | ledger + captured receipt | ≥1 live effect | success ratio 1.0 |
+| `live_autonomos_brain_next` | ledger + captured receipt | ≥1 live effect com args+payload válidos (R33/R34) | success ratio 1.0; disabled/dry/error contam como fail |
 | `dev_kernel_port` | receipt + kernel adapter test | ≥1 P2 effect | mutated success or exact blocked capability keeps program not-DONE |
 | `forge_kernel_port` | receipt + kernel adapter test | ≥1 P2 effect | same |
 | `spine_critical_coverage` | S1–S8 evidence matrix | all applicable sites | 100%; N/A requires owner evidence, not waiver |
@@ -1680,9 +1713,10 @@ Legacy keys remain during v1 additive window, but presenters and scorecards read
 | default, no `--live` | none | DualCore/cycle ledger attempts allowed and enumerated | `effect_level=none`; never “músculo executado” |
 | `--live --mode=dev` before P2 port | pack only | receipt/ledger | `effect_level=prepared` |
 | `--live --mode=forge` before P2 port | intake+stamp only | receipt/ledger | `effect_level=prepared` |
-| `--live --autonomos --max-seeds=0` | `brain:next` | receipt/ledger | mutated only on exit 0 |
-| `--live --autonomos --max-seeds=1` | brain next + seed | receipt/ledger | each effect has independent exit code |
-| `--live --autonomos --run-worker-once` | brain next + task next | receipt/ledger | worker effect separate; no hidden provider count |
+| `--live --autonomos --max-seeds=0` | `brain:next` com `scope` posicional | receipt/ledger | mutated only se exit 0 **e** payload.status sucesso real; R33 fix pré-requisito |
+| `--live --autonomos --max-seeds=1` | brain next + seed (flags reais do seed) | receipt/ledger | each effect independent; R35: sem `--max` inventado |
+| `--live --autonomos --run-worker-once` | brain next + `atlas:task next` | receipt/ledger | worker effect separate; no hidden provider count |
+| `--live --autonomos` **hoje (pré-R33)** | call falha args | receipt/ledger | `dispatch_failed` / `brain_next_failed` esperado; **não** mutated |
 | `--execute-provider` without `--live` | none | none | exit 2, `invalid_cap_combination` |
 | `--max-seeds>0` outside Autônomos | none | none | exit 2, `max_seeds_requires_autonomos` |
 | `--run-worker-once` outside live Autônomos | none | none | exit 2, `worker_once_requires_live_autonomos` |
@@ -1701,10 +1735,12 @@ Effect outputs cross a provider-safe boundary: command excerpts/errors are redac
 | JSON stderr/stdout | receipt only | receipt only; no warning in JSON |
 | Human output | canonical presenter | deprecation warning + same presenter |
 | Exit 0 | plan/prepared/success | same |
-| Exit 1 | halted/dispatch_failed | same |
+| Exit 1 | halted/dispatch_failed | same (**hoje** cycle só trata `halted` — bug R37) |
 | Exit 2 | invalid flag/cap combination | same |
 
 Router help lists `run|scorecard|certify|cockpit`; `cycle` appears only under deprecated aliases. No TUI, desktop shell or inline editor entra nesta obra.
+
+**Disk truth atual (pré-P0) — ver tabela completa §59:** `cycle` **não** expõe `--mode`, `--execute-provider`, `--run-worker-once`, `--scope`; default intent `aaeos_default_cycle` vs `aaeos_daily_cycle`; source hint `cli` vs `atlas_aaeos_run`; `--autonomos` no cycle usa `runAutonomosCycle`, no run força `world.force_mode`.
 
 ## 52. Contratos exatos de fase (override de ambiguidades anteriores)
 
@@ -1735,8 +1771,8 @@ app/Services/Ai/Aaeos/Control/Measurement/AaeosMeasurementSnapshot.php
 ### 52.2 P1 — ModeExecutor parity
 
 **Allowed production paths:** `app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php`, `app/Services/Ai/Aaeos/Control/Dispatch/AaeosLiveDispatchGateway.php`, the three new executor paths in §24, the four files in `Control/Adapters/` and four interface/implementation files in `Control/Dispatch/` listed in P1.1 only for same-slice deletion, and `app/Console/Commands/AtlasCliCockpitCommand.php`.
-**Red first:** characterization snapshots for Dev pack, Forge stamped intake and Autônomos brain call.
-**Green exit:** one executor per mode; eight old adapter/dispatcher/interface files removed; R4 behavior preserved; Dev/Forge prepared; no provider burn.
+**Red first:** characterization snapshots for Dev pack, Forge stamped intake; Autônomos tests that **fail** on current `brainNextArgs` (R33) and on exit-only success (R34).
+**Green exit:** one executor per mode; eight old adapter/dispatcher/interface files removed; R4 path + **R33/R34/R35 closed**; Dev/Forge prepared; no provider burn.
 **Commit:** `refactor(core): AAEOS-MT P1 fuse mode executors with effect parity`.
 
 ### 52.3 P2 — existing ports + qualified axes
@@ -1748,7 +1784,7 @@ app/Services/Ai/Aaeos/Control/Measurement/AaeosMeasurementSnapshot.php
 
 ### 52.4 P3 — evidence-led compaction + alias retirement
 
-**Allowed production files:** AEOS evaluator/delegate/sections only after decision receipt; `AaeosHygieneLegacyAliases.php`; exact consumers from its 40-pair migration map; CODEMAP/docs.
+**Allowed production files:** AEOS evaluator/delegate/sections only after decision receipt; `app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php` (40 pairs em `CLASS_MAP` — contagem disco revalidada); exact consumers from that map; `app/Services/Ai/CODEMAP.md` + docs vocabulary.
 **Red first:** golden façade parity, 40 canonical-resolution/legacy-nonresolution cases, CODEMAP path test.
 **Green exit:** Observe decision has evidence; no godfile recreation; alias map removed only at 40/40; current canonical SourceConnectors path documented.
 **Commit:** `refactor(core): AAEOS-MT P3 evidence-led observe and legacy alias retirement`.
@@ -1756,8 +1792,8 @@ app/Services/Ai/Aaeos/Control/Measurement/AaeosMeasurementSnapshot.php
 ### 52.5 P4 — real proof + freeze
 
 **Allowed changes:** evidence/docs + `.github/workflows/quality.yml` para o certify explícito. Falha descoberta pelo gauntlet exige fix slice separado e reentrada em P0–P3; não hotfixar silenciosamente dentro de P4.
-**Entry:** P0–P3 phase receipts green.
-**Exit:** one-shot R4 live receipt + downstream readback, three-mode smoke coverage, all hard gates true, archive untouched, no unknown blocking dimension.
+**Entry:** P0–P3 phase receipts green **e** R33/R34 closed (sem isto o gauntlet só reproduz `brain_next_failed`).
+**Exit:** one-shot live receipt com payload sucesso real + downstream readback, three-mode smoke, hard gates true, archive untouched, preflight §60 preenchido.
 **Commit:** `docs(core): AAEOS-MT P4 real gauntlet and stable v2 freeze`.
 
 ## 53. Test catalog — nomes e intenção exatos
@@ -1769,7 +1805,7 @@ app/Services/Ai/Aaeos/Control/Measurement/AaeosMeasurementSnapshot.php
 | `tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php` | side-effect inventory; dry zero-write; precise failure_reason |
 | `tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php` | no numeric hints/constants; sample zero unknown; provenance and hard vetoes |
 | `tests/Feature/Ai/Aaeos/AaeosLedgerMeasurementReaderTest.php` | bounded window, cycle_id dedupe, mode/effect aggregation, DB unavailable |
-| `tests/Unit/Ai/Aaeos/Control/Executors/AutonomosModeExecutorTest.php` | brain next exactly once; seed/worker caps; redacted effects |
+| `tests/Unit/Ai/Aaeos/Control/Executors/AutonomosModeExecutorTest.php` | brain next once; **R33** posicional `scope`+default; **R34** disabled/dry not mutated; **R35** seed flags realistas; redacted effects |
 | `tests/Unit/Ai/Aaeos/Control/Executors/DevModeExecutorTest.php` | pack=prepared; Kernel effect=mutated only after P2 |
 | `tests/Unit/Ai/Aaeos/Control/Executors/ForgeModeExecutorTest.php` | intake stamp=prepared; Kernel effect classification |
 | `tests/Unit/Ai/EngineeringKernel/EliteLevelReferenceTest.php` | axis qualification; invalid/cross-axis rejection |
@@ -1853,38 +1889,221 @@ Aceite: directory existe; census permanece explicável; import produtivo 0; diff
 
 ## 57. Autocrítica obrigatória antes de declarar o plano/execution slice fechado
 
-- [x] **Spec coverage:** cada C1–C4/R1–R32 aponta phase + test + receipt.
-- [x] **Placeholder scan:** zero `TBD`, `TODO`, “if cheap”, “se flag existir”, “sugestão path”, “ou evoluir”, “locate call-site” em passos executáveis.
-- [x] **Type consistency:** `AaeosRunRequest`, effect levels, score statuses e proof levels têm a mesma grafia em todas as seções.
-- [x] **Fact regression:** R4 continua source-wired; archive continua DONE/HOLD; certify 9.2 continua rotulado hint até P0 removê-lo.
-- [x] **Anti-Goodhart:** nenhum score, LOC, arquivo removido ou waiver substitui hard gate.
-- [x] **No silent break:** toda falha/unknown tem `failure_reason`; toda contradição para a promoção.
-- [x] **No parallel truth:** zero counter JSON, segundo ledger, segundo mode pipeline ou Quarantine runtime.
-- [x] **Terminal-first:** nenhuma casca/UI/inline editor adicionada.
-- [x] **WIP safety:** diff/cached paths contêm só o slice.
-- [x] `git diff --check` verde.
+Checklist **reexecutável a cada rodada** (v4 desmarca o que o v3 over-claimou):
+
+- [x] **Spec coverage:** C1–C4 / R1–R37 apontam phase + test + receipt (§30 + §46).
+- [x] **Placeholder scan:** zero `TBD`/`TODO`/“if cheap” em passos executáveis (re-scan §57).
+- [x] **Type consistency:** effect levels / proof levels / score statuses uniformes.
+- [x] **Fact regression:** R4 = SOURCE_WIRED; **R33 OPEN** (args); archive DONE/HOLD; certify hints 9.2/9.2/9.0 e standalone defaults 9.0/9.0/9.0 + control 9.2 classificados.
+- [x] **Anti-Goodhart:** hard gates > composite; §42 sem “counter store”.
+- [x] **No silent break:** failure_reason obrigatório; contradição para promoção.
+- [x] **No parallel truth:** ledger único (§34); zero counter JSON.
+- [x] **Terminal-first:** sem casca.
+- [x] **Adversarial disk:** CLI matrix §59, brain contract §60, dimensions §61, CODEMAP §62 revalidados nesta rodada.
+- [ ] **Execution slice WIP safety / `git diff --check`:** só quando houver código; plan-only = N/A com nota no LEDGER.
 
 Scan reexecutável:
 
 ```bash
-awk '/^## 57\./{exit} {print}' docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md | rg -n '\bT[B]D\b|\bT[O]DO\b|if cheap|se flag existir|sugestão path|ou evoluir|locate call-site'
-awk '/^## 57\./{exit} {print}' docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md | rg -n 'D[O]NE iff all true \*\*or\*\*|live receipt OR blocked_ops|composite.*>=.*D[O]NE'
+awk '/^## 57\./{exit} {print}' docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md | rg -n '\bT[B]D\b|\bT[O]DO\b|if cheap|se flag existir|sugestão path|ou evoluir|locate call-site|counter store'
+awk '/^## 57\./{exit} {print}' docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md | rg -n 'byte-for-behavior|live receipt OR blocked_ops|composite.*>=.*DONE'
+# R33 still open until P1:
+rg -n "brainNextArgs|'--scope'" app/Services/Ai/Aaeos/Control/Dispatch/AutonomosLiveDispatcher.php
 git diff --check -- docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
 ```
 
 ## 58. Handoff e autorização
 
-Estado ao fechar esta rodada documental:
+Estado ao fechar **esta** rodada documental (v4):
 
-- MASTER aprofundado e auditado contra disco.
-- Correções factuais R4/archive/certify incorporadas.
-- P0–P4 continuam `not_started`; nenhum código foi tocado.
-- Structural certify atual continua verde, mas não prova Elite Deepening.
-- Próxima mutação só começa com autorização literal **EXECUTE P0**.
+- MASTER adversarial vs disco; R33–R37 adicionados; contradições internas (§42) corrigidas.
+- Correções factuais R4/archive/certify **mantidas e aprofundadas** (R4 wire ≠ R33 contract).
+- P0–P4 continuam `not_started`; **zero código de produção** nesta rodada.
+- Structural certify `ok=true` / composites ~9.5 **não** certificam Elite Deepening.
+- Próxima mutação de código **só** com autorização literal **`EXECUTE P0`**.
 
-Ao receber `EXECUTE P0`, executar exclusivamente §52.1 + §53 + §54 + §55; não antecipar P1. Sem essa frase, continuar somente mais uma rodada de auditoria do MASTER.
+Ao receber `EXECUTE P0`: executar **somente** §52.1 + §53 + §54 + §55 + §59 (parity) + §66 (file freeze); **não** antecipar P1/R33 fix salvo se o red test de P0 só caracterize a falha. Sem essa frase: mais uma rodada absolute no MASTER, nunca “dar por pronto”.
 
 ---
 
-**Fim do MASTER Implementation Plan (MT) v3 — absolute audit, sem over-claim.**
+## 59. CLI disk-truth matrix (`run` vs `cycle`) — revalidado
+
+Fonte: `AtlasAaeosRunCommand` + `AtlasAaeosCycleCommand` no `main` local (pré-P0).
+
+| Aspecto | `atlas:aaeos:run` | `atlas:aaeos:cycle` | P0 target |
+|---|---|---|---|
+| Default intent | `aaeos_daily_cycle` | `aaeos_default_cycle` | documentar + shared request; cycle may keep legacy default when intent omitted |
+| `--mode=` | yes | **no** | cycle gains via shared app **or** documents unsupported→exit 2 |
+| `--execute-provider` | yes | **no** | same set |
+| `--run-worker-once` | yes | **no** | same set |
+| `--scope=` | yes (→ hints.scope) | **no** | same set; feeds **positional** brain scope after R33 |
+| `--autonomos` path | `runCycle` + `force_mode=autonomos` | `runAutonomosCycle` (adds `queue_default`+force) | same application semantics; prefer one |
+| source hint | `atlas_aaeos_run` | `cli` | optional unify to `atlas_aaeos_run` / `atlas_aaeos_cycle_alias` |
+| Exit on `dispatch_failed` | FAILURE (1) | **SUCCESS (0)** today | **must align** (both 1) |
+| Exit on `halted` | 1 | 1 | keep |
+| OutcomeRecorder always called | yes, even dry | yes, even dry | P0: dry must not write; recorder skip when dry |
+| `runtime_write_performed` in runtime | **hardcoded `true`** (`AaeosCycleRuntime` receipt) | same | derive truth (§50) |
+
+## 60. Contrato canônico Brain / Seed / Task (Autônomos muscle boundary)
+
+### 60.1 `atlas:brain:next` (R33/R34)
+
+| Campo | Valor no disco |
+|---|---|
+| Signature | `{scope}` **required positional** + `--repo --docs* --m --max-prior --actor --scope-signals --json` |
+| **Não existe** | opção `--scope` |
+| Handle fallback | `trim(argument('scope')) ?: 'autonomous'` — só se o arg for string vazia; **não** dispensa o arg |
+| Master switch off | `emit(['status'=>'disabled',...])` com **SUCCESS** default |
+| Dry probe | `status=dry`, SUCCESS |
+| Served | `status` served-equivalent no payload (journal append) |
+| **Args corretos (P1 target)** | `Artisan::call('atlas:brain:next', ['scope' => $scope ?: 'autonomous', '--json' => true])` |
+| **Args errados (hoje)** | `['--json'=>true]` ± `['--scope'=>$scope]` → exception / missing scope |
+
+**Classificação de efeito (normativo R34):**
+
+| exit_code | payload.status (JSON) | effect_level | note |
+|---:|---|---|---|
+| ≠0 | any / parse fail | `blocked` or none + failure | `brain_next_failed` |
+| 0 | `disabled` | `blocked` | master off — **não** mutated |
+| 0 | `dry` | `prepared` or blocked_ops | scope dry — não mutated |
+| 0 | `error` | `blocked` | |
+| 0 | `served` / `already_done` / success documented | `mutated` | only these count for hard gate |
+| 0 | unknown | `unknown` → fail hard gate | never invent |
+
+### 60.2 `atlas:brain:seed` (R35)
+
+| Campo | Disco |
+|---|---|
+| Flags reais | `--specs --scope --actor --require-actor --cleanup-specs --dry-run --no-heartbeat --json` |
+| **Não existe** | `--max` |
+| Comportamento atual dispatcher | tenta `--max`, falha, retry bare `--json` |
+| P1 | chamar só flags reais; se `max_seeds>0`, effect note `seed_batch_cap_not_supported_by_cli` + still one seed invoke; **não** inventar semântica |
+
+### 60.3 `atlas:task next`
+
+| Campo | Disco |
+|---|---|
+| Signature | `atlas:task {action : next\|report\|…}` |
+| Call atual | `Artisan::call('atlas:task', ['action'=>'next', '--json'=>true])` — **válido** |
+| Cap | só com `--run-worker-once` + live autonomos |
+
+### 60.4 P4 preflight (R36)
+
+```bash
+# 1) branch + no merge
+git branch --show-current   # main
+# 2) R33 must be green in tests
+# 3) memory headroom for brain comprehension (OOM 128MB observed) — raise php memory_limit for the one-shot or document blocked_ops
+# 4) choose scope (default autonomous); confirm registry resolves
+php artisan atlas:brain:next autonomous --json   # operator-approved one-shot; may write docs/ledger
+# 5) optional: fleet autonomos on only if sustained claim desired (not required for one-shot DONE)
+php artisan atlas:agents:status
+```
+
+One-shot P4 **não** exige fleet Autônomos 24/7 ON; exige um receipt AAEOS `--live --autonomos` com effect classificado `mutated` de verdade.
+
+## 61. Dimension provenance table (live revalidation)
+
+Revalidado via `atlas:aaeos:scorecard --json` e `atlas:aaeos:certify --json` nesta rodada plan:
+
+| Dimension | Standalone scorecard | Certify inject/hint | Scan-backed? | P0 fate |
+|---|---:|---:|---|---|
+| `thesis_clarity` | 9.5 const | (via projector) | no | `assessment_only` / exclude measured |
+| `elite_same_bar` | 9.5 const | | structural intent | hard boolean gate, not 9.5 |
+| `control_plane` | **9.2 const** | | no | remove numeric fantasy |
+| `operate_path_wiring` | **9.0 default** | **9.2 inject** | no | measured or unknown |
+| `spine_enforced` | **9.0 default** | **9.2 inject** | no | measured S1–S8 coverage |
+| `antifragile_loop` | **9.0 default** | **9.0 inject** | no | learning safety events |
+| `quarantine_clean` | 10 if imports=0 | | **yes** | keep as gate |
+| `density_live` / `aaeos_tree_pure` | 10 if pure | | **yes** | keep as gate |
+| `orphan_generated_tests_clean` | 10 if 0 | | **yes** | keep as gate |
+| `counters.cycles_total` | **0** | | echo only | ledger reader |
+| composite | **9.52** | **9.56** | mix | `legacy_assessment` only |
+| `god_sota` | **bool true** | | composite≥9 + purity | structural scope only |
+
+**Prova de inject (source):** `AtlasAaeosCertifyCommand` keys `operate_path_wiring=>9.2`, `spine_enforced=>9.2`, `antifragile_loop=>9.0`.
+
+## 62. CODEMAP + alias map disk anchors (R32 / R9)
+
+| Item | Path / fact |
+|---|---|
+| CODEMAP file | `app/Services/Ai/CODEMAP.md` (banner: intentionally incomplete) |
+| Daily cycle entry | `AaeosCycleRuntime::runCycle` — OK |
+| Source connectors row | legado `App\Services\Ai\Aaeos\Support\AtlasSourceConnectorsAndCaptureService` |
+| Canonical via CLASS_MAP | `App\Services\Ai\AutonomousEvolution\Brain\AtlasSourceConnectorsAndCaptureService` |
+| Alias registrar | `app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php` — **40** pairs; `register()` at file bottom |
+| P3 burn proof | 40 canonical resolve + 40 legacy non-resolve **after** map removal; Composer dump-autoload |
+
+## 63. DI / registration (sem AppServiceProvider magic)
+
+| Component | Binding atual | P0/P1 rule |
+|---|---|---|
+| `AaeosCycleRuntime` | constructor DI (adapters map + live gateway) | deepen; no service-locator new |
+| Live dispatchers | concrete classes resolved by gateway/runtime | P1: ModeExecutors map mode→executor |
+| Scorecard projector | `new` defaults in ctor for org/spine | measured reader injected; null ledger → unknown |
+| OutcomeRecorder | optional ledger; `app()` fallback | dry-run **must not** call ledger write |
+| New classes | `AaeosRunRequest`, `AaeosRunApplication`, `Measurement/*`, `Executors/*` | pure PSR-4; Laravel auto-wire; **no** new Provider unless interface binding required |
+| Forbidden | second container binding that forks muscle Brain/Task/Kernel | |
+
+## 64. Dry-run write surface inventory (P0 honesty target)
+
+| Call site | Today | P0 required |
+|---|---|---|
+| `AaeosCycleRuntime` sets `runtime_write_performed=true` always | lie | derive from actual writes |
+| `recordEvidence` skipped when `$dryRun` | OK path | keep; surface `skipped_dry_run` |
+| `AtlasAaeosRunCommand` → `$outcomes->record($receipt)` always | may write learning on halt even dry | if dry: force `learning.status=skipped_dry_run` and **zero** ledger calls |
+| `AtlasAaeosCycleCommand` same | same | same via shared application |
+| Predecessor dry JSON | `rwp=true` | prove new dry receipts flip to false |
+
+## 65. Schema / additive contract policy
+
+| Schema | Bump rule |
+|---|---|
+| `atlas.aaeos.cycle_receipt.v1` (runtime SCHEMA) | additive fields (§50) without version bump **only** if old keys preserved; document in receipt `schema_features: ['effect_level','side_effects',…]` |
+| Breaking rename/remove | bump to `v2` + dual-read one phase max |
+| Scorecard `atlas.aaeos.scorecard.v1` | add `measured` block; keep `dimensions` legacy labeled `assessment_only` until consumers migrate |
+| Learning `atlas.aaeos.learning_candidate.v1` | no auto_promote ever; status enum stable |
+| Evidence event types | reuse `AaeosCycleRecorded` / learning types; no parallel event store |
+
+## 66. P0 allowed paths freeze (production + tests)
+
+**Production (exact):** §52.1 list (unchanged).
+
+**Tests allowed in P0:**
+
+```text
+tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php
+tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php
+tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php
+tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php
+tests/Feature/Ai/Aaeos/AaeosLedgerMeasurementReaderTest.php
+tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php   # update asserts: no 9.2 inject
+tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php      # only if receipt shape forces
+tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php    # only if honesty fields force
+```
+
+**Docs/evidence allowed:** `docs/evidence/2026-07-23-aaeos-elite-deepening/**`, this MASTER, vocabulary only if scorecard semantics require one paragraph.
+
+**P0 must NOT fix R33** unless a failing honesty test forces a one-line characterization double — prefer red characterization of failure; **fix lands in P1**.
+
+## 67. Predecessor evidence census (R5)
+
+| Artifact | Path | Fact |
+|---|---|---|
+| Dev dry | `docs/evidence/2026-07-23-aaeos-operate/REAL-RUN-RECEIPTS/R1-dev-dry.json` | dry=true, live plan_only, effects=[], rwp=true |
+| Forge dry | `…/R2-forge-dry.json` | same pattern |
+| Autônomos dry | `…/R3-autonomos-dry.json` | same; **no** brain_next effect |
+| Elite Deepening pack | `docs/evidence/2026-07-23-aaeos-elite-deepening/` | LEDGER+SCOREBOARD only; no PHASE receipts yet |
+
+## 68. Anti-“already done” protocol (pétreo para agentes)
+
+1. Linhas / scorecard ~9.5 / certify ok / §44 `[x]` / v2 / v3 **nunca** significam Elite Deepening DONE.
+2. Se achar “o plano já está absoluto”, rode: §45 revalidation commands + R33 `rg brainNextArgs` + empty PHASE receipts → ainda `PLAN_ONLY`.
+3. Novo buraco ⇒ novo `R##` neste MASTER + LEDGER; **proibido** segundo plano-mestre.
+4. Código só após `EXECUTE P0` literal do operador.
+5. Após cada fase: hard gates §49 + receipt §55 + SCOREBOARD; composite diagnóstico opcional.
+
+---
+
+**Fim do MASTER Implementation Plan (MT) v4 — adversarial absolute, sem over-claim.**
 Próxima decisão humana: **EXECUTE P0 ou mais uma rodada absolute?**

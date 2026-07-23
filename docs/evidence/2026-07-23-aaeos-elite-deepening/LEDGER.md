@@ -1,97 +1,107 @@
 # AAEOS Elite Deepening — LEDGER
 
-**Plan (MT):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**v3 absolute audit** — §0–§58)
+**Plan (MT):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**v4 adversarial absolute** — §0–§68)
 **Opened:** 2026-07-23
-**Last plan audit:** 2026-07-23T20:33:50Z baseline
+**Last plan audit:** 2026-07-23 (v4) — disk revalidation + R33–R37
 **Branch rule:** local `main` only · scoped commits
 **Program state:** `PLAN_ONLY` · `elite_deepening_done=false` · P0–P4 not started
 
 ## Agenda iOS (oferta #1)
 
 **Prompt copiável:** `docs/prompts/atlas-aaeos-mt-improve-AGENDA-COPY.md`
-O v2 foi tratado como base. Esta rodada aprofundou o único MASTER e não executou código P0.
+v2 = base; v3 = absolute audit #1; **v4 = adversarial absolute** (v3 não era teto). Nenhum código P0.
 
 ## Cursor
 
 | Phase | Status | Notes |
 |---|---|---|
-| MT absolute audit (pré-P0) | **DONE_DOCS** | §45–§58 + factual corrections + anti-Goodhart |
-| P0 Honesty + port + measured scorecard | **NOT_STARTED** | Requires literal operator authorization `EXECUTE P0` |
-| P1 ModeExecutors + Autônomos parity + cockpit | not_started | R4 source wiring already exists; preserve it |
+| MT v3 absolute audit (pré-P0) | **SUPERSEDED_BY_V4** | §45–§58 retained; gaps remain |
+| MT v4 adversarial absolute | **DONE_DOCS** | R33 brain args; R34 false SUCCESS; R35 seed --max; R36 preflight; R37 exit/flags; §59–§68 |
+| P0 Honesty + port + measured scorecard | **NOT_STARTED** | Requires literal `EXECUTE P0` |
+| P1 ModeExecutors + Autônomos parity + **R33 fix** | not_started | Must not copy broken brainNextArgs |
 | P2 Kernel ports + spine + qualified axes | not_started | |
-| P3 Evidence-led Observe decision + alias burn | not_started | Registry is conditional on measured benefit |
-| P4 Real gauntlet + freeze v2 | not_started | One-shot live required; heartbeat is separate sustained ops |
+| P3 Evidence-led Observe decision + alias burn | not_started | 40-pair map at Compat path |
+| P4 Real gauntlet + freeze v2 | not_started | Blocked until R33/R34 closed |
 
-## Baseline revalidated (2026-07-23T20:33:50Z)
+## Baseline revalidated (v4 session)
 
 ```bash
 /opt/homebrew/bin/php artisan atlas:aaeos:certify --json
-# ok=true composite=9.56; injected hints: wiring=9.2 spine=9.2 antifragile=9.0
+# ok=true composite=9.56; inject: operate_path_wiring=9.2 spine_enforced=9.2 antifragile_loop=9.0
 
 /opt/homebrew/bin/php artisan atlas:aaeos:scorecard --json
-# composite=9.52 tree.pure=true imports=0 php_files=27 cycles_total=0
+# composite=9.52; dimensions operate/spine/antifragile default 9.0; control_plane 9.2 const
+# counters.cycles_total=0; aaeos_tree.pure=true; php_files=27
 
-/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php --no-coverage
-# 11 passed / 35 assertions
+find app/Services/Ai/Aaeos -type f -name '*.php' | wc -l   # 27
+find archive/app/Services/Ai/Aaeos/Quarantine -type f -name '*.php' | wc -l  # 306 / 131664 LOC
 
-find archive/app/Services/Ai/Aaeos/Quarantine -type f -name '*.php' -print0 | xargs -0 wc -l
-# 306 PHP / 131664 LOC
+# R33 proof
+php artisan atlas:brain:next --json
+# → Not enough arguments (missing: "scope")
+# Artisan::call(..., ['--scope'=>'autonomous']) → The "--scope" option does not exist.
+# Correct shape target: ['scope'=>'autonomous', '--json'=>true]
 ```
 
-Interpretation: certify proves current structural invariants. Neither `9.56` nor `9.52` is a measured Elite Deepening result.
+Interpretation: certify/scorecard prove predecessor structural fantasy numbers. R4 wire exists; **live brain call contract is broken (R33)**.
 
 ## Factual correction ledger
 
 | Fact | Disk truth | Proof level | Plan consequence |
 |---|---|---|---|
-| R4 Autônomos live | `AutonomosLiveDispatcher` calls `atlas:brain:next`; runtime defaults `run_brain_next=true` | `SOURCE_WIRED` | Closed as source gap; P4 still needs live effect receipt |
-| Quarantine | Physical archive exists: 306 PHP / 131,664 LOC; imports=0 | `VERIFIED_DISK` + scan | Archive DONE/HOLD; never reanimate or re-archive |
-| Certify hints | command injects `9.2`, `9.2`, `9.0` | source + live command | P0 removes hints and other score constants |
-| Standalone scorecard | 9.52 with zero cycles and static/default dimensions | live read-only command | `legacy_assessment`; measured composite remains null |
-| Dev/Forge live | pack/intake only; provider_calls=0 | source inspection | `effect_level=prepared`, not mutated |
-| Existing evidence | predecessor pack has only Dev/Forge/Autônomos dry receipts | evidence census | real operation remains open R5 |
+| R4 Autônomos live wire | `AutonomosLiveDispatcher` calls `atlas:brain:next`; `run_brain_next=true` default | `SOURCE_WIRED` | Closed as source gap only |
+| R33 brain args | positional `{scope}` required; dispatcher uses missing/`--scope` flag | `VERIFIED_RUNTIME` exception | P1 must fix; P4 blocked |
+| R34 exit-only success | brain:next `emit` defaults SUCCESS for `disabled` | source | classify payload.status |
+| R35 max_seeds | `atlas:brain:seed` has no `--max` | signature | honest seed effect |
+| Quarantine archive | 306 PHP / 131,664 LOC; imports=0 | `VERIFIED_DISK` | DONE/HOLD |
+| Certify hints | 9.2 / 9.2 / 9.0 inject | source + live | P0 remove |
+| Standalone defaults | operate/spine/antifragile **9.0** (not 9.2) | live scorecard | distinguish from certify |
+| Dry receipts predecessor | R1/R2/R3 dry; rwp=true; no brain_next effect | evidence files | R5 open |
+| §42 vs §34 | v3 commit list said “counter store” | plan bug | v4 fixed → ledger read model |
+| Alias map | 40 pairs in `app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php` | disk count | P3 path exact |
+| CODEMAP SourceConnectors | legacy FQCN under Aaeos\Support | CODEMAP.md | R32 |
 
-## Absolute audit close
+## Absolute audit close (v4)
 
-- MASTER extended from §44 to §58; no second master created.
-- R16–R32 added with owner, phase and falsifiable close condition.
-- Proof taxonomy separates planned/source/test/dry/live/real/sustained.
-- Counter JSON rejected; canonical Evidence Ledger read model selected.
-- Hard gates replace 9.0/9.4/waiver-DONE contradictions.
-- Dry-run write ambiguity, effect-level ambiguity, alias reachability, Observe preselection and dirty-main failure attribution are explicit.
-- C1–C4/R1–R32 now map to phase, proof/test and exact receipt; S6/S7 name real disk symbols.
-- Arbitrary `~6.3` planning score removed; priority is ordinal until measured data exists.
-- No production/test source, migration or archive file was changed; only existing focused tests and read-only commands were run. No live Autônomos effect was fired.
+- MASTER → §68; no second master.
+- R33–R37 added with owner/phase/falsifiable close.
+- “Byte-for-behavior” language removed for Autônomos (would preserve R33 bug).
+- CLI disk-truth matrix §59; brain contract §60; dimensions §61.
+- No production/test source changed this round; no live Autônomos AAEOS cycle fired as gauntlet.
 
 ## Open honest gaps before `EXECUTE P0`
 
-1. AOBG Code Intelligence was stale and automatic reindex returned nonzero; direct disk/live commands were used as authority.
-2. No real `brain_next.exit_code=0` receipt exists in the current Elite Deepening evidence pack.
-3. No runtime sample exists for a measured scorecard (`cycles_total=0`).
-4. P0 file-level implementation may need adjustment after red tests, but cannot expand outside §52.1 without plan amendment.
-5. Structural predecessor DONE remains separate from Elite Deepening `not_started`.
+1. R33–R37 still open in code (docs only closed the *specification* of the gap).
+2. No `brain_next` live effect receipt with valid args + success payload.
+3. `measured_composite` remains null (`cycles_total=0`).
+4. Code Intelligence / AOBG may be sparse; disk commands are authority for this plan.
+5. P0 must not silently expand into P1 R33 fix except characterization red tests.
+
+## Debate (agent collaboration note)
+
+Prior session treated v3 §45–§58 as “absolute done.” Adversarial re-audit found R33 (broken Artisan args) as a **program-critical** hole that would make P4 gauntlet fail forever if P1 “preserved” the bug. v4 elevates that over polish.
 
 ## Commands (daily, current baseline)
 
 ```bash
 php artisan atlas:aaeos:run "fix flaky login validation with proof" --json
-php artisan atlas:aaeos:run "AAEOS live brain-next proof" --autonomos --live --max-seeds=0 --json
+php artisan atlas:aaeos:run "AAEOS live brain-next proof" --autonomos --live --max-seeds=0 --scope=autonomous --json
+# ↑ today: still fails brain call until R33 fix maps --scope CLI option → positional scope arg
 php artisan atlas:aaeos:scorecard --json
 php artisan atlas:aaeos:certify --json
 php artisan atlas:cli:cockpit
 ```
 
-The live command above is a P4 execution command, not executed in this plan-only round.
-
 ## Changelog
 
 | Date | Change | Program effect |
 |---|---|---|
-| 2026-07-23 | v2 baseline opened | Plan existed; absolute audit still open |
-| 2026-07-23 | v3 §45–§58 + corrections R4/archive/certify + C/R proof map + exact S6/S7 + nonnumeric planning priority | Docs audit closed; P0 still not started |
+| 2026-07-23 | v2 baseline opened | Plan existed |
+| 2026-07-23 | v3 §45–§58 + R4/archive/certify | Docs audit #1; still incomplete |
+| 2026-07-23 | **v4** R33–R37 + §59–§68 + §42 fix + adversarial disk | Absolute depth ↑; P0 still not started |
 
 ## Related evidence (predecessors DONE in their declared scopes)
 
 - `docs/evidence/2026-07-23-aaeos-god-sota/`
-- `docs/evidence/2026-07-23-aaeos-operate/`
+- `docs/evidence/2026-07-23-aaeos-operate/` (dry receipts only)
 - `docs/evidence/2026-07-23-aaeos-hygiene/`
