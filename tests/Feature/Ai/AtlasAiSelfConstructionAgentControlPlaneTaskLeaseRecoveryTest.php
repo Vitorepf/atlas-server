@@ -430,7 +430,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
         $claim = $orchestrator->claimNext('agent-cli-recovery', ['ttl_seconds' => 60]);
         $packetId = 'cli-1';
         $leaseId = (string) $claim['lease_id'];
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
         $this->assertNotEmpty($leaseId);
+        $this->assertSame('claimed', data_get($queue->get($packetId), 'status'));
+        $this->assertSame('active', data_get($leases->get($leaseId), 'lease_status'));
 
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-15T10:10:00Z'));
 
@@ -447,6 +451,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
             'atlas.self_construction_agent_control_plane_task_lease_recovery_status.v1',
             $payload['schema_version'],
         );
+        $this->assertSame('read_only_agent_control_plane_task_lease_recovery_status', $payload['mode']);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertFalse((bool) $payload['execution_allowed']);
+        $this->assertFalse((bool) $payload['dispatch_allowed']);
+        $this->assertFalse((bool) $payload['ledger_write_allowed']);
         $this->assertSame('available', data_get($payload, 'agent_control_plane_task_lease_recovery_status.status'));
         $this->assertSame('operator-cli', data_get($payload, 'agent_control_plane_task_lease_recovery_status.actor'));
         $this->assertSame('manual_recovery_drill', data_get($payload, 'agent_control_plane_task_lease_recovery_status.reason'));
@@ -463,8 +472,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
         $this->assertSame('agent-cli-recovery', data_get($resumePacket, 'previous_agent_id'));
         $this->assertSame($leaseId, data_get($resumePacket, 'previous_lease_id'));
 
-        $queue = new AgentControlPlaneTaskPacketQueueRepository;
         $this->assertSame('claimable', $queue->get($packetId)['status']);
+        $this->assertSame('expired', data_get($leases->get($leaseId), 'lease_status'));
     }
 
     public function test_cli_status_requeues_released_packet_when_packet_filter_is_supplied(): void

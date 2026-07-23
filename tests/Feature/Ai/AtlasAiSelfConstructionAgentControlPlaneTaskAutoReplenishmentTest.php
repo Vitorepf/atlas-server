@@ -659,14 +659,25 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
 
     public function test_cli_status_replenishes_queue(): void
     {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $queueCountBefore = (int) $queue->registry()['total_count'];
+
         Artisan::call('atlas:ai:self-construction', [
             '--agent-control-plane-task-auto-replenishment-status' => true,
             '--actor' => 'cli-replenisher',
+            '--target-min-claimable-tasks' => 1,
+            '--max-new-tasks' => 1,
+            '--queue-tag' => ['cli_writer_status_contract_lane'],
             '--json' => true,
         ]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertSame('atlas.self_construction_agent_control_plane_task_auto_replenishment_status.v1', $payload['schema_version']);
+        $this->assertSame('read_only_agent_control_plane_task_auto_replenishment_status', $payload['mode']);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertFalse((bool) $payload['execution_allowed']);
+        $this->assertFalse((bool) $payload['dispatch_allowed']);
+        $this->assertFalse((bool) $payload['ledger_write_allowed']);
         $this->assertSame('available', data_get($payload, 'agent_control_plane_task_auto_replenishment_status.status'));
         $this->assertGreaterThanOrEqual(1, (int) data_get($payload, 'agent_control_plane_task_auto_replenishment_status.claimable_task_count_after'));
         $this->assertIsInt(data_get($payload, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_seed_count'));
@@ -677,6 +688,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertIsInt(data_get($payload, 'agent_control_plane_task_auto_replenishment_status.completion_audit_context_failed_count'));
         $this->assertIsArray(data_get($payload, 'agent_control_plane_task_auto_replenishment_status.completion_audit_context_failed_criteria'));
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_task_auto_replenishment_status.replenishment_plan_hash'));
+        $this->assertSame(1, data_get($payload, 'agent_control_plane_task_auto_replenishment_status.generated_task_count'));
+        $this->assertGreaterThan($queueCountBefore, (int) $queue->registry()['total_count']);
+        $records = $queue->list(['status' => 'claimable', 'tag' => 'cli_writer_status_contract_lane']);
+        $this->assertCount(1, $records);
+        $this->assertNotEmpty(data_get($records, '0.task_packet_id'));
+        $this->assertContains(
+            data_get($records, '0.task_packet_id'),
+            array_column((array) data_get($payload, 'agent_control_plane_task_auto_replenishment.generated_tasks', []), 'task_packet_id'),
+        );
     }
 
     public function test_cli_status_accepts_queue_tag_lane_isolation(): void

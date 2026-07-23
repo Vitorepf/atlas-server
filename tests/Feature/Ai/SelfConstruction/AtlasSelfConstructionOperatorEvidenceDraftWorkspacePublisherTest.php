@@ -207,6 +207,44 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         Storage::disk('local')->assertMissing('atlas/self-construction/operator-submissions/completion-receipt.json');
     }
 
+    public function test_readiness_status_hides_a_durable_draft_workspace_publish(): void
+    {
+        [$workspace] = $this->writeWorkspace($this->readyDrafts());
+        (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => $workspace,
+            'write_computed_operator_draft_hashes' => true,
+        ]);
+
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherStatus([
+            'operator_draft_workspace_path' => $workspace,
+            'publish_operator_draft_workspace' => true,
+        ]);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_operator_evidence_draft_workspace_publisher_status.v1', $status['schema_version']);
+        $this->assertSame('read_only_agent_control_plane_atlas_self_construction_operator_evidence_draft_workspace_publisher_status', $status['mode']);
+        $this->assertFalse((bool) $status['runtime_write_allowed']);
+        $this->assertFalse((bool) $status['execution_allowed']);
+        $this->assertFalse((bool) $status['dispatch_allowed']);
+        $this->assertFalse((bool) $status['ledger_write_allowed']);
+        $this->assertSame(
+            'operator_draft_workspace_published',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_draft_workspace_publisher_status.status'),
+        );
+        $this->assertSame(3, data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_draft_workspace_publisher_status.published_artifact_count'));
+        $this->assertSame(
+            Storage::disk('local')->get($workspace.'/runtime-promotion.json'),
+            Storage::disk('local')->get('atlas/self-construction/operator-submissions/runtime-promotion.json'),
+        );
+        $this->assertSame(
+            Storage::disk('local')->get($workspace.'/real-provider-smoke.json'),
+            Storage::disk('local')->get('atlas/self-construction/operator-submissions/real-provider-smoke.json'),
+        );
+        $this->assertSame(
+            Storage::disk('local')->get($workspace.'/completion-receipt.json'),
+            Storage::disk('local')->get('atlas/self-construction/operator-submissions/completion-receipt.json'),
+        );
+    }
+
     public function test_readiness_status_cli_quartet_and_capabilities_are_exposed(): void
     {
         [$workspace] = $this->writeWorkspace($this->readyDrafts());
