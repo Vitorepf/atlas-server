@@ -4,38 +4,38 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0192 preview storage-manifest verification closed
+phase: A1-SC-0176 one-shot writer preflight fail-closed closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: terminal bootstrap preview read-only verification boundary
-finding_id: A1-SC-0192
-action_op: snapshot complete queue and lease state instead of counts
+bucket: app/Services/Ai/SelfConstruction/Readiness
+focus: one-shot writer semantic preflight blocker boundary
+finding_id: A1-SC-0176
+action_op: fold every failed semantic preflight check into blocking reasons
 queue_index: 6
-last_commit: dee2fc923
+last_commit: 2f53e00e8
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php --filter=preview_read_only_verification_compares_complete_queue_and_lease_manifests
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopProbeRunnerTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
-  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTest.php
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php --filter=test_writer_preflight_exposes_missing_release_receipt_hash_as_a_blocker
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSection.php
+  /opt/homebrew/bin/php -l tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
+  vendor/bin/pint --test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionReleaseWriterSectionTest.php
   git diff --check
 before_after: |
-  red: preview read-only verification exposed only queue/lease counts and could not prove a same-count in-place state mutation absent.
-  green: queue registry plus queue and lease file manifests are hashed before and after the real public preview.
+  red: direct public preflight reported a missing release receipt hash in failed_preflight_checks but omitted it from blocking_reasons.
+  green: each failed semantic preflight check is a blocker, so status, human summary, and next slice all fail closed on it.
 stdout: |
-  red_characterization: FAIL 1 test before snapshot fields existed
-  runner_unit_plus_feature: PASS 37 tests, 183 assertions
-  php_lint: PASS source plus changed Feature test
+  red_characterization: FAIL 1 test, 2 assertions
+  focused_and_package: PASS 3 tests, 7 assertions
+  php_lint: PASS source plus changed Unit test
   source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
-  feature_pint: PASS
-  loc_check: probe_runner=1580
+  unit_pint: PASS
+  loc_check: release_writer_section=1392
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Preview characterization executes the real public preview and proves equality of the full state, registry, queue manifest, and lease manifest hashes.
+  Characterization executes the public readiness facade; it does not use reflection or a fabricated preflight payload.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  Strict Pint passes the changed Feature test. The source remains below 2k; no new class or helper was introduced.
+  Strict Pint passes the changed Unit test. The source remains below 2k; no new class or helper was introduced.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
@@ -1631,6 +1631,32 @@ boundary:
   - organizational re-home only; workspace certificates, fail-closed decisions, permission runtime payloads, provider policy, and worker gate ordering are unchanged
   - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
   - production consumers, focused feature/unit coverage, docs navigation, and CODEMAP name the Governance owner directly
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+```
+
+## Task 54 — A1-SC-0176 block failed one-shot writer preflight, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 2f53e00e8
+subject: "refactor(core): GOD-DEBULK block failed writer preflight"
+red:
+  result: "FAIL 1 test, 2 assertions: the real public preflight omitted release_receipt_hash_provided_not_ready from blocking_reasons."
+green:
+  behavior: "Every failed semantic preflight check now becomes a blocker; status, human summary, and next_required_slice use the same fail-closed blocker set."
+verification:
+  focused_unit: "PASS 1 test, 4 assertions"
+  writer_section_unit: "PASS 3 tests, 7 assertions"
+  php_lint: "PASS source and changed Unit test"
+  unit_pint: PASS
+  source_pint: "NOT GREEN: strict full-file Pint reports existing host formatting drift; no broad reformatting was applied"
+  diff_check: PASS
+  loc: "release_writer_section=1392 (<2000)"
+boundary:
+  - direct readiness facade invocation; no reflection, provider, dispatch, token, or runtime mutation
+  - restored the local ReadinessAgentControlPlaneSchemaProbe FQCN so the public preflight is executable after its owner rehome
 write_back:
   status: recorded_for_human_review
   auto_promoted: false
