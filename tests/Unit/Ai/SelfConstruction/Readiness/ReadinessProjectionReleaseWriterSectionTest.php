@@ -29,4 +29,21 @@ final class ReadinessProjectionReleaseWriterSectionTest extends TestCase
         $this->assertArrayHasKey('schema_version', $contract);
         $this->assertArrayHasKey('agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_contract_hash', $contract);
     }
+
+    public function test_writer_preflight_exposes_missing_release_receipt_hash_as_a_blocker(): void
+    {
+        $preflight = app(AtlasSelfConstructionReadinessService::class)
+            ->agentAutomaticDispatchSchedulerOneShotTickWriterPreflight();
+
+        $this->assertSame('blocked', $preflight['status']);
+        $this->assertContains(
+            'release_receipt_hash_provided_not_ready',
+            $preflight['agent_automatic_dispatch_scheduler_one_shot_tick_writer_preflight']['blocking_reasons']
+        );
+        $this->assertSame(
+            'repair_signed_one_shot_scheduler_tick_writer_preflight_blockers',
+            $preflight['agent_automatic_dispatch_scheduler_one_shot_tick_writer_preflight']['next_required_slice']
+        );
+        $this->assertStringContainsString('blocked', $preflight['human_summary']);
+    }
 }

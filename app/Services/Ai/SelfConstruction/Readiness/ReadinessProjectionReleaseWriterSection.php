@@ -268,7 +268,7 @@ final class ReadinessProjectionReleaseWriterSection
     /** @return array<string, bool> */
     private function agentControlPlaneRuntimeTables(): array
     {
-        return \App\Services\Ai\SelfConstruction\Support\ReadinessAgentControlPlaneSchemaProbe::tables();
+        return ReadinessAgentControlPlaneSchemaProbe::tables();
     }
 
     /** @return list<string> */
@@ -486,6 +486,13 @@ final class ReadinessProjectionReleaseWriterSection
             $preflightChecks,
             static fn (bool $passed): bool => ! $passed
         )));
+        $blockingReasons = array_values([
+            ...$blockingReasons,
+            ...array_map(
+                static fn (string $check): string => $check.'_not_ready',
+                $failedPreflightChecks
+            ),
+        ]);
 
         $preflight = [
             'status' => $blockingReasons === [] ? 'agent_automatic_dispatch_scheduler_one_shot_tick_writer_preflight_ready' : 'blocked',
