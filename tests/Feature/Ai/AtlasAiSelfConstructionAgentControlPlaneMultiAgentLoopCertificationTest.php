@@ -245,6 +245,19 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame('claimable', (string) data_get($queue->get($packetId), 'status'));
     }
 
+    public function test_direct_terminal_fleet_launch_plan_probe_builds_a_ready_lane_bound_runbook(): void
+    {
+        [$service] = $this->newStack();
+
+        $probe = $service->runTerminalFleetLaunchPlanProbe((string) Str::ulid(), 3);
+
+        $this->assertSame('available', (string) data_get($probe, 'status'));
+        $this->assertTrue((bool) data_get($probe, 'ready_path_verified'));
+        $this->assertTrue((bool) data_get($probe, 'lane_bound_commands_verified'));
+        $this->assertTrue((bool) data_get($probe, 'cycle_supervisor_launch_path_verified'));
+        $this->assertTrue((bool) data_get($probe, 'fleet_launch_runbook_ready_path_verified'));
+    }
+
     public function test_certification_exercises_terminal_worker_bootstrap_path(): void
     {
         $cert = $this->certify(['agent_count' => 3, 'cycles' => 1]);

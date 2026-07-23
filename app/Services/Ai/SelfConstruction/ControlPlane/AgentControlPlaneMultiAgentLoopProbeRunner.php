@@ -428,18 +428,33 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
         $seededPacketIds = [];
         $seedFailures = [];
         $namespace = self::SYNTHETIC_FILE_NAMESPACE.'/fleet_launch_plan_probe';
+        $profiles = [
+            [
+                'objective' => 'Validate queue-tag binding for fleet terminal launch commands',
+                'acceptance' => 'fleet_launch_command_lane_binding_verified',
+            ],
+            [
+                'objective' => 'Reconcile supervisor transition after fleet launch supply assessment',
+                'acceptance' => 'fleet_launch_supervisor_transition_verified',
+            ],
+            [
+                'objective' => 'Verify resumption runbook protects lane ownership after terminal interruption',
+                'acceptance' => 'fleet_launch_resumption_runbook_verified',
+            ],
+        ];
 
         for ($index = 0; $index < $probeTerminalCount; $index++) {
             $taskPacketId = sprintf('fleet_probe_%s_%d', $runId, $index);
             $allowedFile = sprintf('%s/%s_%d.php', $namespace, strtolower($runId), $index);
+            $profile = $profiles[$index % count($profiles)];
             $orchestration = $this->orchestrator->prepareAndEnqueue([
                 'task_packet' => [
                     'task_packet_id' => $taskPacketId,
-                    'objective' => sprintf('terminal fleet launch plan probe %d', $index),
+                    'objective' => $profile['objective'],
                     'operator_id' => 'multi-agent-loop-certification',
                     'allowed_files' => [$allowedFile],
                     'scope_in' => [$allowedFile],
-                    'acceptance_criteria' => ['fleet_launch_plan_probe_ok'],
+                    'acceptance_criteria' => [$profile['acceptance']],
                     'required_evidence' => ['fleet_launch_plan_checked'],
                     'risk_level' => 'low',
                     'rollback_strategy' => 'plan_only',
