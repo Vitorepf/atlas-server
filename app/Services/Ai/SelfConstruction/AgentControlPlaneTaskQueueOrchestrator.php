@@ -1061,14 +1061,15 @@ final class AgentControlPlaneTaskQueueOrchestrator
         return TaskQueue\AgentControlPlaneScopeRepairInputRebuilder::repairInputWithoutForbiddenTargets($packet, $forbiddenAllowed);
     }
 
-    /**
-     * Is there at least one claimable task held back ONLY by unmet dependencies? The serving uses this to tell a
-     * worker to WAIT (the ordered ladder is still flowing) instead of stopping as if the queue were drained.
-     */
+    /** Decide whether a worker must wait rather than declare a claimable queue dry. */
     public function hasDependencyGatedClaimableTasks(string $agentId = ''): bool
     {
+        if ((int) data_get($this->queue->registry(['status' => 'claimable'], true), 'entry_count', 0) > self::MAX_ANTI_FARM_CANDIDATES) {
+            return true;
+        }
+
         $cache = [];
-        foreach ($this->queue->list(['status' => 'claimable']) as $candidate) {
+        foreach ($this->queue->list(['status' => 'claimable', 'limit' => self::MAX_ANTI_FARM_CANDIDATES]) as $candidate) {
             // A task in this worker's give-back cooldown, or a probe, is NOT "the ladder advancing" — skip it
             // (same predicates the claim path uses) so neither can be misread as waiting-on-dependencies.
             if ($this->workerInGiveBackCooldown($candidate, $agentId) || $this->isCertificationProbe($candidate)) {

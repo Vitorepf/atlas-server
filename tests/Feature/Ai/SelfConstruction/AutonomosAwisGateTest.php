@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use RuntimeException;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
@@ -27,13 +28,13 @@ final class AutonomosAwisGateTest extends TestCase
         $this->envFile = sys_get_temp_dir().'/atlas-awis-gate-env-'.bin2hex(random_bytes(5)).'.env';
         file_put_contents($this->envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");
         AtlasLoopMasterSwitch::$envPathOverride = $this->envFile;
-        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::$envPathOverride = $this->envFile;
+        AtlasTaskServingSwitch::$envPathOverride = $this->envFile;
     }
 
     protected function tearDown(): void
     {
         AtlasLoopMasterSwitch::$envPathOverride = null;
-        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::$envPathOverride = null;
+        AtlasTaskServingSwitch::$envPathOverride = null;
         if ($this->envFile !== '') {
             @unlink($this->envFile);
         }
@@ -110,7 +111,7 @@ final class AutonomosAwisGateTest extends TestCase
         $result = (new AtlasTaskServingService($this->orchestrator(), awisGate: $gate))->next('worker-awis-ready');
 
         $this->assertNotSame('awis_execution_blocked', $result['status']);
-        $this->assertContains($result['status'], ['served', 'no_claimable_task', 'waiting_on_dependencies']);
+        $this->assertContains($result['status'], ['served', 'no_claimable_task', 'waiting_on_dependencies', 'queue_scan_limit_exceeded']);
     }
 
     public function test_serving_service_wires_awis_gate_service(): void

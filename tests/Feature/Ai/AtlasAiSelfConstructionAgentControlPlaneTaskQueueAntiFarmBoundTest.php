@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
@@ -250,6 +253,66 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame('forbidden_target_repair_scan_limit_exceeded', $receipt['reason']);
         $this->assertSame('forbidden_self_target_repair', $receipt['repair_path']);
         $this->assertSame(65, $receipt['repair']['blocked_count']);
+    }
+
+    public function test_dependency_wait_treats_an_unbounded_claimable_inventory_as_uncertain(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('dependency-wait-bound-'.$index);
+            $packet['objective'] = 'independent bounded dependency wait scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove dependency wait constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+        }
+
+        $waiting = $this->orchestrator()->hasDependencyGatedClaimableTasks('dependency-bound-worker');
+
+        $this->assertTrue($waiting);
+        $this->assertSame('claimable', data_get($queue->get('dependency-wait-bound-64'), 'status'));
+    }
+
+    public function test_serving_reports_the_unbounded_queue_before_dependency_wait_classification(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $prerequisiteId = 'dependency-serving-prerequisite';
+        $queue->enqueue($builder->build($this->input($prerequisiteId)));
+        $prerequisiteClaim = $this->orchestrator()->claimNext('dependency-serving-prerequisite-worker');
+        $this->assertSame('claimed', $prerequisiteClaim['event']);
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('dependency-serving-bound-'.$index);
+            $packet['objective'] = 'independent bounded dependency serving scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove dependency serving constraint '.$index];
+            $queue->enqueue($builder->build($packet), ['metadata' => ['depends_on' => [$prerequisiteId]]]);
+        }
+
+        $this->assertSame('claimed', data_get($queue->get($prerequisiteId), 'status'));
+        $this->assertSame([$prerequisiteId], data_get($queue->get('dependency-serving-bound-64'), 'metadata.depends_on'));
+
+        $gate = new class implements AwisExecutionGatePort
+        {
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return [
+                    'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
+                    'allowed' => true,
+                    'status' => 'ready',
+                    'mode' => $mode,
+                    'blockers' => [],
+                ];
+            }
+        };
+
+        $result = (new AtlasTaskServingService($this->orchestrator(), awisGate: $gate))->next('dependency-serving-bound-worker');
+
+        $this->assertSame('queue_scan_limit_exceeded', $result['status']);
+        $this->assertSame('queue_scan_limit_exceeded', $result['reason']);
+        $this->assertSame(64, $result['scan_limit']);
+        $this->assertSame(65, $result['minimum_claimable_count']);
+        $this->assertSame('claimable', data_get($queue->get('dependency-serving-bound-64'), 'status'));
     }
 
     /** @return array<string, mixed> */

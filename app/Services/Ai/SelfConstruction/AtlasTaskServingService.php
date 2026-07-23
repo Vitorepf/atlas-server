@@ -145,6 +145,17 @@ final class AtlasTaskServingService
             $claim = $this->orchestrator->claimNext($clientId, $filters);
 
             if ((string) ($claim['event'] ?? '') !== 'claimed') {
+                if ((string) ($claim['reason'] ?? '') === 'queue_scan_limit_exceeded') {
+                    return $this->served($clientId, $this->envelope('queue_scan_limit_exceeded', $clientId, null, [
+                        'reason' => 'queue_scan_limit_exceeded',
+                        'candidate_count' => (int) ($claim['candidate_count'] ?? 0),
+                        'minimum_claimable_count' => (int) ($claim['minimum_claimable_count'] ?? 0),
+                        'scan_limit' => (int) ($claim['scan_limit'] ?? 0),
+                        'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                        'escalation' => 'inspect_queue_scan_limit',
+                    ]));
+                }
+
                 // If we quarantined ≥1 doomed packet this call and the queue is now dry, the honest signal is
                 // `no_self_sufficient_task` (there WAS work, all of it unimplementable), not an empty queue.
                 if ($skip > 0) {
