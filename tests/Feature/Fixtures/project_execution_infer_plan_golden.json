@@ -1,0 +1,645 @@
+{
+    "study": {
+        "project_type": "study",
+        "desired_outcome": "Entender Estudar cálculo para a prova de investimento a ponto de explicar e aplicar sem travar.",
+        "minimum_viable_outcome": "Uma página de síntese com 3 conceitos, 3 exemplos e 1 próxima pergunta.",
+        "definition_of_done": "A síntese está registrada e existe uma ação de revisão.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "medium",
+        "avoidance_reason": "unknown",
+        "next_action": "Definir a primeira pergunta de estudo e estudar por 25 minutos",
+        "starter_step": "Abrir a fonte principal e escrever a pergunta no topo.",
+        "minimum_viable_action": "Ler por 10 minutos e registrar 3 bullets.",
+        "if_then_plan": "Se eu travar, reduzo para uma pergunta e um exemplo.",
+        "reward_hint": "Marcar uma síntese visível depois do bloco.",
+        "execution_mode": "study",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 62,
+        "process_steps": [
+            "Definir pergunta de estudo",
+            "Estudar bloco curto",
+            "Registrar síntese atômica",
+            "Aplicar em exemplo",
+            "Agendar revisão"
+        ],
+        "project_steps": [
+            {
+                "title": "Definir pergunta de estudo",
+                "description": "Escolher uma pergunta única para evitar estudo aberto demais.",
+                "expected_output": "Uma pergunta de estudo escrita em linguagem simples.",
+                "acceptance_criteria": "Existe uma pergunta que pode ser respondida em um bloco curto.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Estudar bloco curto",
+                "description": "Fazer um bloco de estudo com escopo fechado.",
+                "expected_output": "Três bullets com conceitos ou dúvidas úteis.",
+                "acceptance_criteria": "O bloco foi concluído sem tentar cobrir o assunto inteiro.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar síntese atômica",
+                "description": "Transformar o bloco em uma nota curta e reutilizável.",
+                "expected_output": "Uma síntese com tese, exemplo e dúvida aberta.",
+                "acceptance_criteria": "A síntese explica algo sem depender da fonte original.",
+                "estimated_minutes": 20,
+                "energy_required": "medium",
+                "friction_level": 50
+            },
+            {
+                "title": "Aplicar em exemplo",
+                "description": "Usar o que foi estudado em um exemplo concreto.",
+                "expected_output": "Um exemplo resolvido ou uma decisão prática.",
+                "acceptance_criteria": "O conhecimento saiu do resumo e virou uso.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 58
+            },
+            {
+                "title": "Agendar revisão",
+                "description": "Criar uma revisão curta para consolidar o aprendizado.",
+                "expected_output": "Próxima revisão registrada.",
+                "acceptance_criteria": "Existe uma data ou captura de revisão.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "technical": {
+        "project_type": "technical_build",
+        "desired_outcome": "Transformar Implementar backend da API do app iOS em uma entrega funcional e testável.",
+        "minimum_viable_outcome": "Um MVP pequeno, rodando, com próximo passo evidente.",
+        "definition_of_done": "O incremento foi implementado, testado e documentado.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "mixed",
+        "avoidance_reason": "too_large",
+        "next_action": "Definir o escopo mínimo e a próxima entrega executável",
+        "starter_step": "Abrir o repositório e escrever o menor escopo em 3 bullets.",
+        "minimum_viable_action": "Criar ou revisar um checklist técnico com o próximo commit.",
+        "if_then_plan": "Se o escopo crescer, volto para o menor incremento testável.",
+        "reward_hint": "Fechar com um commit, teste ou checklist verde.",
+        "execution_mode": "deep_work",
+        "estimated_minutes": 60,
+        "energy_required": "high",
+        "friction_level": 86,
+        "emotional_resistance": 64,
+        "clarity_level": 62,
+        "process_steps": [
+            "Definir resultado mínimo",
+            "Mapear stack e restrições",
+            "Implementar backend mínimo",
+            "Implementar frontend mínimo",
+            "Testar fluxo principal",
+            "Documentar próxima decisão"
+        ],
+        "project_steps": [
+            {
+                "title": "Definir resultado mínimo",
+                "description": "Escrever o menor comportamento que prova valor.",
+                "expected_output": "Escopo mínimo em até cinco bullets.",
+                "acceptance_criteria": "É possível testar o resultado sem construir o sistema inteiro.",
+                "estimated_minutes": 20,
+                "energy_required": "medium",
+                "friction_level": 45
+            },
+            {
+                "title": "Mapear stack e restrições",
+                "description": "Listar tecnologia, dados, APIs e riscos antes de codar.",
+                "expected_output": "Mapa curto de stack, restrições e riscos.",
+                "acceptance_criteria": "As decisões técnicas críticas estão explícitas.",
+                "estimated_minutes": 30,
+                "energy_required": "medium",
+                "friction_level": 52
+            },
+            {
+                "title": "Implementar backend mínimo",
+                "description": "Criar a menor base persistente/API necessária.",
+                "expected_output": "Endpoint, serviço ou persistência mínima funcionando.",
+                "acceptance_criteria": "Há teste ou verificação objetiva do backend.",
+                "estimated_minutes": 60,
+                "energy_required": "high",
+                "friction_level": 72
+            },
+            {
+                "title": "Implementar frontend mínimo",
+                "description": "Construir a menor interface que usa o backend.",
+                "expected_output": "Tela ou fluxo principal funcionando.",
+                "acceptance_criteria": "O usuário consegue executar o fluxo sem instrução externa.",
+                "estimated_minutes": 60,
+                "energy_required": "high",
+                "friction_level": 72
+            },
+            {
+                "title": "Testar fluxo principal",
+                "description": "Validar ponta a ponta e corrigir regressões óbvias.",
+                "expected_output": "Fluxo testado com resultado registrado.",
+                "acceptance_criteria": "A verificação cobre o caminho principal.",
+                "estimated_minutes": 35,
+                "energy_required": "medium",
+                "friction_level": 50
+            },
+            {
+                "title": "Documentar próxima decisão",
+                "description": "Registrar o que foi feito e a próxima escolha técnica.",
+                "expected_output": "Nota curta com decisão, evidência e próximo passo.",
+                "acceptance_criteria": "O projeto pode ser retomado sem reconstruir contexto.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 35
+            }
+        ]
+    },
+    "writing": {
+        "project_type": "writing",
+        "desired_outcome": "Dar forma executável a Escrever artigo e roteiro sobre foco.",
+        "minimum_viable_outcome": "Um rascunho bruto que possa ser editado.",
+        "definition_of_done": "Escrever artigo e roteiro sobre foco tem resultado, evidência e próximo destino definidos.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "medium",
+        "avoidance_reason": "unknown",
+        "next_action": "Criar um rascunho de 10 linhas com a tese principal",
+        "starter_step": "Abrir uma nota vazia e escrever a primeira frase ruim.",
+        "minimum_viable_action": "Criar um rascunho de 10 linhas com a tese principal",
+        "if_then_plan": "Se eu travar, escrevo a menor ação física possível e faço por 5 minutos.",
+        "reward_hint": "Registrar progresso concreto antes de abrir outro ciclo.",
+        "execution_mode": "quick_win",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 62,
+        "process_steps": [
+            "Clarificar Escrever artigo e roteiro sobre foco",
+            "Escolher próxima ação",
+            "Executar bloco curto",
+            "Registrar evidência"
+        ],
+        "project_steps": [
+            {
+                "title": "Clarificar Escrever artigo e roteiro sobre foco",
+                "description": "Definir resultado, limites e motivo.",
+                "expected_output": "Projeto explicado em poucas linhas.",
+                "acceptance_criteria": "O próximo passo não depende de pensar no projeto inteiro.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Escolher próxima ação",
+                "description": "Converter intenção em ação física e observável.",
+                "expected_output": "Uma ação única, rápida e sem ambiguidade.",
+                "acceptance_criteria": "A ação pode entrar na agenda.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Executar bloco curto",
+                "description": "Avançar sem tentar concluir tudo.",
+                "expected_output": "Um incremento concreto.",
+                "acceptance_criteria": "Há evidência de avanço.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar evidência",
+                "description": "Fechar o ciclo com resultado e próximo passo.",
+                "expected_output": "Registro do que mudou e do que vem depois.",
+                "acceptance_criteria": "O projeto pode ser retomado rapidamente.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "business": {
+        "project_type": "business",
+        "desired_outcome": "Converter Lançar produto Black Ink e gerar receita com cliente em uma decisão ou validação prática.",
+        "minimum_viable_outcome": "Um avanço visível em Lançar produto Black Ink e gerar receita com cliente, pequeno o suficiente para começar hoje.",
+        "definition_of_done": "A hipótese foi validada, descartada ou virou próxima decisão.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "high",
+        "energy_profile": "medium",
+        "avoidance_reason": "unknown",
+        "next_action": "Escrever a hipótese de valor e a próxima validação",
+        "starter_step": "Abrir o lugar de trabalho e escrever a primeira micro-ação.",
+        "minimum_viable_action": "Escrever a hipótese de valor e a próxima validação",
+        "if_then_plan": "Se eu travar, escrevo a menor ação física possível e faço por 5 minutos.",
+        "reward_hint": "Registrar progresso concreto antes de abrir outro ciclo.",
+        "execution_mode": "quick_win",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 62,
+        "process_steps": [
+            "Clarificar Lançar produto Black Ink e gerar receita com cliente",
+            "Escolher próxima ação",
+            "Executar bloco curto",
+            "Registrar evidência"
+        ],
+        "project_steps": [
+            {
+                "title": "Clarificar Lançar produto Black Ink e gerar receita com cliente",
+                "description": "Definir resultado, limites e motivo.",
+                "expected_output": "Projeto explicado em poucas linhas.",
+                "acceptance_criteria": "O próximo passo não depende de pensar no projeto inteiro.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Escolher próxima ação",
+                "description": "Converter intenção em ação física e observável.",
+                "expected_output": "Uma ação única, rápida e sem ambiguidade.",
+                "acceptance_criteria": "A ação pode entrar na agenda.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Executar bloco curto",
+                "description": "Avançar sem tentar concluir tudo.",
+                "expected_output": "Um incremento concreto.",
+                "acceptance_criteria": "Há evidência de avanço.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar evidência",
+                "description": "Fechar o ciclo com resultado e próximo passo.",
+                "expected_output": "Registro do que mudou e do que vem depois.",
+                "acceptance_criteria": "O projeto pode ser retomado rapidamente.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "health": {
+        "project_type": "health",
+        "desired_outcome": "Dar forma executável a Marcar exame médico e treino de sono.",
+        "minimum_viable_outcome": "Um avanço visível em Marcar exame médico e treino de sono, pequeno o suficiente para começar hoje.",
+        "definition_of_done": "Marcar exame médico e treino de sono tem resultado, evidência e próximo destino definidos.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "low",
+        "avoidance_reason": "unknown",
+        "next_action": "Registrar o estado atual e escolher a menor ação segura",
+        "starter_step": "Abrir o lugar de trabalho e escrever a primeira micro-ação.",
+        "minimum_viable_action": "Registrar o estado atual e escolher a menor ação segura",
+        "if_then_plan": "Se eu travar, escrevo a menor ação física possível e faço por 5 minutos.",
+        "reward_hint": "Registrar progresso concreto antes de abrir outro ciclo.",
+        "execution_mode": "quick_win",
+        "estimated_minutes": 15,
+        "energy_required": "low",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 62,
+        "process_steps": [
+            "Clarificar Marcar exame médico e treino de sono",
+            "Escolher próxima ação",
+            "Executar bloco curto",
+            "Registrar evidência"
+        ],
+        "project_steps": [
+            {
+                "title": "Clarificar Marcar exame médico e treino de sono",
+                "description": "Definir resultado, limites e motivo.",
+                "expected_output": "Projeto explicado em poucas linhas.",
+                "acceptance_criteria": "O próximo passo não depende de pensar no projeto inteiro.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Escolher próxima ação",
+                "description": "Converter intenção em ação física e observável.",
+                "expected_output": "Uma ação única, rápida e sem ambiguidade.",
+                "acceptance_criteria": "A ação pode entrar na agenda.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Executar bloco curto",
+                "description": "Avançar sem tentar concluir tudo.",
+                "expected_output": "Um incremento concreto.",
+                "acceptance_criteria": "Há evidência de avanço.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar evidência",
+                "description": "Fechar o ciclo com resultado e próximo passo.",
+                "expected_output": "Registro do que mudou e do que vem depois.",
+                "acceptance_criteria": "O projeto pode ser retomado rapidamente.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "tedious": {
+        "project_type": "tedious",
+        "desired_outcome": "Dar forma executável a Organizar e pagar burocracia chata.",
+        "minimum_viable_outcome": "Um avanço visível em Organizar e pagar burocracia chata, pequeno o suficiente para começar hoje.",
+        "definition_of_done": "Organizar e pagar burocracia chata tem resultado, evidência e próximo destino definidos.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "low",
+        "avoidance_reason": "boring",
+        "next_action": "Abrir o material e executar 10 minutos sem otimizar",
+        "starter_step": "Começar por 2 minutos sem organizar o ambiente inteiro.",
+        "minimum_viable_action": "Executar apenas o primeiro bloco de 10 minutos.",
+        "if_then_plan": "Se eu resistir, faço só 2 minutos e encerro com próximo passo escrito.",
+        "reward_hint": "Parar no tempo combinado e registrar que começou.",
+        "execution_mode": "tedious",
+        "estimated_minutes": 15,
+        "energy_required": "low",
+        "friction_level": 70,
+        "emotional_resistance": 64,
+        "clarity_level": 62,
+        "process_steps": [
+            "Reduzir escopo para 10 minutos",
+            "Preparar ambiente mínimo",
+            "Executar sem otimizar",
+            "Registrar próximo passo"
+        ],
+        "project_steps": [
+            {
+                "title": "Reduzir escopo para 10 minutos",
+                "description": "Cortar a tarefa para uma versão quase ridiculamente pequena.",
+                "expected_output": "Um primeiro bloco que cabe em 10 minutos.",
+                "acceptance_criteria": "A ação não exige motivação alta.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Preparar ambiente mínimo",
+                "description": "Abrir só o necessário para começar.",
+                "expected_output": "Ambiente aberto no ponto exato de execução.",
+                "acceptance_criteria": "Não houve organização paralela desnecessária.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 45
+            },
+            {
+                "title": "Executar sem otimizar",
+                "description": "Fazer o bloco combinado sem procurar a forma perfeita.",
+                "expected_output": "Primeiro avanço concreto produzido.",
+                "acceptance_criteria": "Existe evidência de começo, mesmo imperfeita.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 65
+            },
+            {
+                "title": "Registrar próximo passo",
+                "description": "Fechar o ciclo deixando a continuação clara.",
+                "expected_output": "Próxima ação registrada.",
+                "acceptance_criteria": "Retomar não exige decidir tudo de novo.",
+                "estimated_minutes": 5,
+                "energy_required": "low",
+                "friction_level": 25
+            }
+        ]
+    },
+    "personal_plain": {
+        "project_type": "personal",
+        "desired_outcome": "Dar forma executável a Resolver uma coisa qualquer.",
+        "minimum_viable_outcome": "Um avanço visível em Resolver uma coisa qualquer, pequeno o suficiente para começar hoje.",
+        "definition_of_done": "Resolver uma coisa qualquer tem resultado, evidência e próximo destino definidos.",
+        "why_now": null,
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "medium",
+        "avoidance_reason": "unknown",
+        "next_action": "Definir a menor próxima ação executável",
+        "starter_step": "Abrir o lugar de trabalho e escrever a primeira micro-ação.",
+        "minimum_viable_action": "Definir a menor próxima ação executável",
+        "if_then_plan": "Se eu travar, escrevo a menor ação física possível e faço por 5 minutos.",
+        "reward_hint": "Registrar progresso concreto antes de abrir outro ciclo.",
+        "execution_mode": "quick_win",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 48,
+        "process_steps": [
+            "Clarificar Resolver uma coisa qualquer",
+            "Escolher próxima ação",
+            "Executar bloco curto",
+            "Registrar evidência"
+        ],
+        "project_steps": [
+            {
+                "title": "Clarificar Resolver uma coisa qualquer",
+                "description": "Definir resultado, limites e motivo.",
+                "expected_output": "Projeto explicado em poucas linhas.",
+                "acceptance_criteria": "O próximo passo não depende de pensar no projeto inteiro.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Escolher próxima ação",
+                "description": "Converter intenção em ação física e observável.",
+                "expected_output": "Uma ação única, rápida e sem ambiguidade.",
+                "acceptance_criteria": "A ação pode entrar na agenda.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Executar bloco curto",
+                "description": "Avançar sem tentar concluir tudo.",
+                "expected_output": "Um incremento concreto.",
+                "acceptance_criteria": "Há evidência de avanço.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar evidência",
+                "description": "Fechar o ciclo com resultado e próximo passo.",
+                "expected_output": "Registro do que mudou e do que vem depois.",
+                "acceptance_criteria": "O projeto pode ser retomado rapidamente.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "explicit_data": {
+        "project_type": "personal",
+        "desired_outcome": "Decisão registrada",
+        "minimum_viable_outcome": "Um avanço visível em Decidir o rumo crítico, pequeno o suficiente para começar hoje.",
+        "definition_of_done": "Decidir o rumo crítico tem resultado, evidência e próximo destino definidos.",
+        "why_now": "Prazo urgente hoje",
+        "deadline_at": "2026-08-01T00:00:00Z",
+        "deadline_kind": "desired",
+        "priority": "high",
+        "energy_profile": "medium",
+        "avoidance_reason": "unknown",
+        "next_action": "Listar opções e escolher",
+        "starter_step": "Abrir o lugar de trabalho e escrever a primeira micro-ação.",
+        "minimum_viable_action": "Listar opções e escolher",
+        "if_then_plan": "Se eu travar, escrevo a menor ação física possível e faço por 5 minutos.",
+        "reward_hint": "Registrar progresso concreto antes de abrir outro ciclo.",
+        "execution_mode": "decision",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 45,
+        "emotional_resistance": 42,
+        "clarity_level": 76,
+        "process_steps": [
+            "Clarificar Decidir o rumo crítico",
+            "Escolher próxima ação",
+            "Executar bloco curto",
+            "Registrar evidência"
+        ],
+        "project_steps": [
+            {
+                "title": "Clarificar Decidir o rumo crítico",
+                "description": "Definir resultado, limites e motivo.",
+                "expected_output": "Projeto explicado em poucas linhas.",
+                "acceptance_criteria": "O próximo passo não depende de pensar no projeto inteiro.",
+                "estimated_minutes": 15,
+                "energy_required": "low",
+                "friction_level": 40
+            },
+            {
+                "title": "Escolher próxima ação",
+                "description": "Converter intenção em ação física e observável.",
+                "expected_output": "Uma ação única, rápida e sem ambiguidade.",
+                "acceptance_criteria": "A ação pode entrar na agenda.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Executar bloco curto",
+                "description": "Avançar sem tentar concluir tudo.",
+                "expected_output": "Um incremento concreto.",
+                "acceptance_criteria": "Há evidência de avanço.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar evidência",
+                "description": "Fechar o ciclo com resultado e próximo passo.",
+                "expected_output": "Registro do que mudou e do que vem depois.",
+                "acceptance_criteria": "O projeto pode ser retomado rapidamente.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    },
+    "with_capture": {
+        "project_type": "study",
+        "desired_outcome": "Entender Revisar para a prova a ponto de explicar e aplicar sem travar.",
+        "minimum_viable_outcome": "Uma página de síntese com 3 conceitos, 3 exemplos e 1 próxima pergunta.",
+        "definition_of_done": "A síntese está registrada e existe uma ação de revisão.",
+        "why_now": "ansiedade com a prova difícil",
+        "deadline_at": null,
+        "deadline_kind": "none",
+        "priority": "normal",
+        "energy_profile": "medium",
+        "avoidance_reason": "scary",
+        "next_action": "Definir a primeira pergunta de estudo e estudar por 25 minutos",
+        "starter_step": "Abrir a fonte principal e escrever a pergunta no topo.",
+        "minimum_viable_action": "Ler por 10 minutos e registrar 3 bullets.",
+        "if_then_plan": "Se eu travar, reduzo para uma pergunta e um exemplo.",
+        "reward_hint": "Marcar uma síntese visível depois do bloco.",
+        "execution_mode": "study",
+        "estimated_minutes": 25,
+        "energy_required": "medium",
+        "friction_level": 78,
+        "emotional_resistance": 78,
+        "clarity_level": 62,
+        "process_steps": [
+            "Definir pergunta de estudo",
+            "Estudar bloco curto",
+            "Registrar síntese atômica",
+            "Aplicar em exemplo",
+            "Agendar revisão"
+        ],
+        "project_steps": [
+            {
+                "title": "Definir pergunta de estudo",
+                "description": "Escolher uma pergunta única para evitar estudo aberto demais.",
+                "expected_output": "Uma pergunta de estudo escrita em linguagem simples.",
+                "acceptance_criteria": "Existe uma pergunta que pode ser respondida em um bloco curto.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 35
+            },
+            {
+                "title": "Estudar bloco curto",
+                "description": "Fazer um bloco de estudo com escopo fechado.",
+                "expected_output": "Três bullets com conceitos ou dúvidas úteis.",
+                "acceptance_criteria": "O bloco foi concluído sem tentar cobrir o assunto inteiro.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 55
+            },
+            {
+                "title": "Registrar síntese atômica",
+                "description": "Transformar o bloco em uma nota curta e reutilizável.",
+                "expected_output": "Uma síntese com tese, exemplo e dúvida aberta.",
+                "acceptance_criteria": "A síntese explica algo sem depender da fonte original.",
+                "estimated_minutes": 20,
+                "energy_required": "medium",
+                "friction_level": 50
+            },
+            {
+                "title": "Aplicar em exemplo",
+                "description": "Usar o que foi estudado em um exemplo concreto.",
+                "expected_output": "Um exemplo resolvido ou uma decisão prática.",
+                "acceptance_criteria": "O conhecimento saiu do resumo e virou uso.",
+                "estimated_minutes": 25,
+                "energy_required": "medium",
+                "friction_level": 58
+            },
+            {
+                "title": "Agendar revisão",
+                "description": "Criar uma revisão curta para consolidar o aprendizado.",
+                "expected_output": "Próxima revisão registrada.",
+                "acceptance_criteria": "Existe uma data ou captura de revisão.",
+                "estimated_minutes": 10,
+                "energy_required": "low",
+                "friction_level": 30
+            }
+        ]
+    }
+}
