@@ -2,15 +2,17 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\AtlasAaelExecutionRollbackCommand;
 use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
-use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
-use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
-use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
+use App\Models\AtlasMemoryEntry;
+use App\Observers\AtlasMemoryRecallCacheObserver;
+use App\Services\Ai\AcosMaxNamespaceAlias;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
-use App\Services\Ai\Context\AiContextPackBuilder;
+use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
+use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiWorker;
@@ -26,16 +28,31 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
-use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
-use App\Services\Ai\AcosMaxNamespaceAlias;
-use App\Services\Ai\CognitiveNamespaceAlias;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
-use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
+use App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
+use App\Services\Ai\CognitiveNamespaceAlias;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compression\AtlasCcrStore;
@@ -47,24 +64,38 @@ use App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor;
 use App\Services\Ai\Compression\Compressors\TextCompressor;
 use App\Services\Ai\Compression\ContentRouter;
 use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
+use App\Services\Ai\Context\AiContextPackBuilder;
+use App\Services\Ai\Context\AtlasContextRuntime;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
+use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
+use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
+use App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
+use App\Services\Ai\Mcp\AtlasMcpTierService;
+use App\Services\Ai\Memory\MemoryPairwiseCosineScorer;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreDrillRunner;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreProofRunner;
 use App\Services\Ai\Memory\Substrate\PgDumpAtlasMemorySubstrateDumpRunner;
 use App\Services\Ai\Memory\Substrate\PgsqlAtlasMemorySubstrateRestoreDrillRunner;
 use App\Services\Ai\Memory\Substrate\PgsqlAtlasMemorySubstrateRestoreProofRunner;
-use App\Services\Ai\Mcp\AtlasMcpTierService;
+use App\Services\Ai\Memory\VectorMemoryPairwiseCosineScorer;
 use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
@@ -103,6 +134,14 @@ use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe;
+use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
+use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
+use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger;
+use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionDetector;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
 use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementAdversarialRecheck;
@@ -111,16 +150,11 @@ use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementReceiptLog;
 use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementRelevanceGate;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CyclePhpTierRunner;
-use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
-use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
-use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
-use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge;
@@ -171,7 +205,6 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
-use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -187,21 +220,21 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreDrillRunner::class, PgsqlAtlasMemorySubstrateRestoreDrillRunner::class);
         $this->app->bind(
-            \App\Services\Ai\Memory\MemoryPairwiseCosineScorer::class,
-            \App\Services\Ai\Memory\VectorMemoryPairwiseCosineScorer::class,
+            MemoryPairwiseCosineScorer::class,
+            VectorMemoryPairwiseCosineScorer::class,
         );
 
-        $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
-        $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
+        $this->app->singleton(AtlasContextRuntime::class);
+        $this->app->singleton(AtlasWatchdogCheckRegistry::class);
         $this->app->singleton(
-            \App\Services\Ai\Context\AtlasDeliveredPackLedger::class,
-            static fn () => \App\Services\Ai\Context\AtlasDeliveredPackLedger::fromConfig(),
+            AtlasDeliveredPackLedger::class,
+            static fn () => AtlasDeliveredPackLedger::fromConfig(),
         );
         $this->app->singleton(
-            \App\Services\Ai\Governance\GovernanceConsultSkipCounter::class,
-            static fn () => \App\Services\Ai\Governance\GovernanceConsultSkipCounter::fromConfig(),
+            GovernanceConsultSkipCounter::class,
+            static fn () => GovernanceConsultSkipCounter::fromConfig(),
         );
-        $this->app->scoped(\App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService::class);
+        $this->app->scoped(AtlasRetrievalEvaluationBenchmarkArenaService::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {
             if (! is_object($resolved)) {
@@ -209,21 +242,19 @@ class AppServiceProvider extends ServiceProvider
             }
             $class = $resolved::class;
             if (str_contains($class, 'Aaeos\\Generated\\') || str_contains($class, 'Aaeos\\Quarantine\\')) {
-                app(\App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate::class)->assertHotPathAllowed($class);
+                app(AeosGeneratedContractGate::class)->assertHotPathAllowed($class);
             }
         });
-
-
 
         // Maestro worker-fleet probe — reads live active leases from the task-serving lease repository
         // and maps them to the shape the probe expects (client_id, opened_at, released_at).
         // Active leases always have released_at=null (in-flight); completed leases are not surfaced here
         // since they are reaped on claim and no longer appear in activeLeases().
-        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
-            return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(
+        $this->app->singleton(AtlasMaestroWorkerFleetProbe::class, static function (): AtlasMaestroWorkerFleetProbe {
+            return new AtlasMaestroWorkerFleetProbe(
                 static function (): iterable {
-                    $leaseRepo = new \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository(
-                        \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::disk()
+                    $leaseRepo = new AgentControlPlaneClaimLeaseRepository(
+                        AtlasTaskServingStack::disk()
                     );
                     foreach ($leaseRepo->activeLeases() as $lease) {
                         yield [
@@ -237,29 +268,28 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Anti-Goodhart refusal panel — 3-voter adversarial panel consumed by AtlasLoopAntiGoodhartUnifiedRefusal::evaluate().
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel::class);
+        $this->app->singleton(AtlasLoopRefusalCriticPanel::class);
 
         // Maestro tiering surface — registry + mismatch ledger live under storage/atlas/maestro/.
-        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry {
-            return new \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry(storage_path('atlas/maestro/worker-tier-registry.json'));
+        $this->app->singleton(AtlasMaestroWorkerTierRegistry::class, static function (): AtlasMaestroWorkerTierRegistry {
+            return new AtlasMaestroWorkerTierRegistry(storage_path('atlas/maestro/worker-tier-registry.json'));
         });
-        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger {
-            return new \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger(storage_path('atlas/maestro/tier-mismatch-ledger.jsonl'));
+        $this->app->singleton(AtlasMaestroTierMismatchLedger::class, static function (): AtlasMaestroTierMismatchLedger {
+            return new AtlasMaestroTierMismatchLedger(storage_path('atlas/maestro/tier-mismatch-ledger.jsonl'));
         });
 
         $this->app->singleton(SkillBundleStore::class);
 
-
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
         // Force-load the command file so the in-file port interface + default impl are visible to PSR-4.
-        \class_exists(\App\Console\Commands\AtlasAaelExecutionRollbackCommand::class);
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool::class);
+        \class_exists(AtlasAaelExecutionRollbackCommand::class);
+        $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
 
         // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue
         // (isolated from the Agent Control Plane certification-probe pollution). See AtlasTaskServingStack.
         $this->app->bind(
-            \App\Services\Ai\SelfConstruction\AtlasTaskServingService::class,
-            fn () => \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::servingService(),
+            AtlasTaskServingService::class,
+            fn () => AtlasTaskServingStack::servingService(),
         );
 
         // Agent-governance control plane: the fleet-driver seam → the real pgrep/launchctl impl. Tests swap a
@@ -295,8 +325,8 @@ class AppServiceProvider extends ServiceProvider
         // swaps the runtime that fills the slot. Bound (not singleton): the adapter is
         // stateless/pure. Canonical consumers inject the contract, not the concrete.
         $this->app->bind(
-            \App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter::class,
-            \App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter::class,
+            WorkcellAdapter::class,
+            HermesWorkcellAdapter::class,
         );
         // R8 honest retrieval-precision harness: bind the semantic-retrieval
         // boundary to the REAL Python runtime client (tests inject a fake engine
@@ -428,8 +458,6 @@ class AppServiceProvider extends ServiceProvider
         // was deleted by cd018c6b3f; the interface has no live impl and only comment-refs remain
         // (GAP-17, ACDE-dead). Restore the impl if the trading/evolution loop is ever revived.
 
-
-
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
         // round-trip. Laravel does not auto-resolve CacheRepository
@@ -543,7 +571,7 @@ class AppServiceProvider extends ServiceProvider
                     // Defensive — AiWorker stays functional without the ledger.
                 }
                 try {
-                    $svc->setEliteExecutorKernel($app->make(\App\Services\Ai\EngineeringKernel\EliteExecutorKernel::class));
+                    $svc->setEliteExecutorKernel($app->make(EliteExecutorKernel::class));
                 } catch (\Throwable $e) {
                     // Defensive — worker proceeds without elite kernel seam.
                 }
@@ -1003,7 +1031,6 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-
         $this->app->singleton(AtlasAaelInFlightReceiptLedger::class, function () {
             $configured = config('atlas.aael.inflight.ledger_path');
             $path = is_string($configured) && $configured !== ''
@@ -1023,7 +1050,7 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
         $this->registerAcosWatchdogChecks();
 
-        \App\Models\AtlasMemoryEntry::observe(\App\Observers\AtlasMemoryRecallCacheObserver::class);
+        AtlasMemoryEntry::observe(AtlasMemoryRecallCacheObserver::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -1044,27 +1071,27 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerAcosWatchdogChecks(): void
     {
-        $registry = app(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
-        $health = app(\App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService::class);
+        $registry = app(AtlasWatchdogCheckRegistry::class);
+        $health = app(AtlasAcosWatchdogHealthService::class);
 
-        foreach (\App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck::makeAll($health) as $check) {
+        foreach (HealthReportWatchdogCheck::makeAll($health) as $check) {
             $registry->register($check);
         }
 
         foreach ([
-            \App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck::class,
+            CompactionRecoverySampleWatchdogCheck::class,
+            AobgLatencyWatchdogCheck::class,
+            SubstrateRestoreDrillWatchdogCheck::class,
+            OperatorLearningCaptureSchemaWatchdogCheck::class,
+            AcosDeadSeriesWatchdogCheck::class,
+            OperatorReviewDebtWatchdogCheck::class,
+            LocalModelIntegrityWatchdogCheck::class,
+            JointResourceBudgetWatchdogCheck::class,
+            DiskFreeWatchdogCheck::class,
+            EvidenceLedgerIntegrityWatchdogCheck::class,
+            ProviderBoundRedactionDriftWatchdogCheck::class,
+            DailyCanaryReplayByRefsWatchdogCheck::class,
+            AutonomyLadderAdversarialWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }

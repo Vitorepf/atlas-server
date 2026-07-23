@@ -1,14 +1,14 @@
 <?php
 
-use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopLearningAppendService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
-use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFrontierHarvestGovernanceRunner;
 use App\Services\Ai\AutonomousEvolution\Twin\AtlasLoopSimulableTwinOrchestrator;
+use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFrontierHarvestGovernanceRunner;
 
 return [
     'version' => env('ATLAS_VERSION'),
