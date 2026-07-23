@@ -1634,7 +1634,12 @@ final class ReadinessProjectionOsEvidenceSection
             'transition_allowed_from_external_claim',
             'self_programming_allowed_from_external_claim',
         ]);
-        $transition['transition_blocker_count'] = count((array) data_get($transition, 'blockers', []));
+        $transitionBlockers = array_values(array_unique(array_filter(
+            (array) data_get($transition, 'blockers', []),
+            static fn (mixed $blocker): bool => is_string($blocker) && trim($blocker) !== '',
+        )));
+        $transition['blockers'] = $transitionBlockers;
+        $transition['transition_blocker_count'] = count($transitionBlockers);
         $operatorOnlyHumanClosureBlockers = [
             'runtime_gap_matrix_all_runtime_y',
             'human_signed_os_complete_receipt_present',
@@ -1642,24 +1647,22 @@ final class ReadinessProjectionOsEvidenceSection
         $operatorOnlyRealProviderClosureBlockers = [
             'end_to_end_real_provider_smoke_green',
         ];
-        $operatorOnlyHumanBlockerSet = array_unique(array_merge(
-            array_intersect((array) data_get($transition, 'blockers', []), $operatorOnlyHumanClosureBlockers),
-            (bool) data_get($transition, 'self_construction_complete', false) ? [] : $operatorOnlyHumanClosureBlockers,
-        ));
         $transition['operator_only_human_blockers'] = array_values(array_filter(
             $operatorOnlyHumanClosureBlockers,
-            static fn (string $blocker): bool => in_array($blocker, $operatorOnlyHumanBlockerSet, true),
+            static fn (string $blocker): bool => in_array($blocker, $transitionBlockers, true),
         ));
         $transition['operator_only_human_blocker_count'] = count((array) data_get($transition, 'operator_only_human_blockers', []));
-        $operatorOnlyRealProviderBlockerSet = array_unique(array_merge(
-            array_intersect((array) data_get($transition, 'blockers', []), $operatorOnlyRealProviderClosureBlockers),
-            (bool) data_get($transition, 'self_construction_complete', false) ? [] : $operatorOnlyRealProviderClosureBlockers,
-        ));
         $transition['operator_only_real_provider_blockers'] = array_values(array_filter(
             $operatorOnlyRealProviderClosureBlockers,
-            static fn (string $blocker): bool => in_array($blocker, $operatorOnlyRealProviderBlockerSet, true),
+            static fn (string $blocker): bool => in_array($blocker, $transitionBlockers, true),
         ));
         $transition['operator_only_real_provider_blocker_count'] = count((array) data_get($transition, 'operator_only_real_provider_blockers', []));
+        $transition['technical_blockers'] = array_values(array_diff(
+            $transitionBlockers,
+            (array) data_get($transition, 'operator_only_human_blockers', []),
+            (array) data_get($transition, 'operator_only_real_provider_blockers', []),
+        ));
+        $transition['technical_blocker_count'] = count((array) data_get($transition, 'technical_blockers', []));
         $transition['current_required_operator_artifact'] = match (true) {
             in_array('runtime_gap_matrix_all_runtime_y', (array) data_get($transition, 'blockers', []), true) => 'runtime_promotion_receipt',
             in_array('end_to_end_real_provider_smoke_green', (array) data_get($transition, 'blockers', []), true) => 'real_provider_smoke',
@@ -1725,8 +1728,8 @@ final class ReadinessProjectionOsEvidenceSection
                 'human_blockers' => (array) data_get($transition, 'operator_only_human_blockers', []),
                 'real_provider_blocker_count' => (int) data_get($transition, 'operator_only_real_provider_blocker_count', 0),
                 'real_provider_blockers' => (array) data_get($transition, 'operator_only_real_provider_blockers', []),
-                'technical_blocker_count' => 0,
-                'technical_blockers' => [],
+                'technical_blocker_count' => (int) data_get($transition, 'technical_blocker_count', 0),
+                'technical_blockers' => (array) data_get($transition, 'technical_blockers', []),
                 'operator_only_human_blocker_count' => (int) data_get($transition, 'operator_only_human_blocker_count', 0),
                 'operator_only_human_blockers' => (array) data_get($transition, 'operator_only_human_blockers', []),
                 'operator_only_real_provider_blocker_count' => (int) data_get($transition, 'operator_only_real_provider_blocker_count', 0),

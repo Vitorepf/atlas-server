@@ -3,8 +3,8 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalCompletionReadinessGateService;
-use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Support\AtlasSelfProgrammingSafetyContractCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -400,6 +400,39 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['safety_contract_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['source_final_completion_readiness_gate_hash']);
+    }
+
+    public function test_self_programming_transition_keeps_technical_only_gate_blockers_technical(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfProgrammingOsTransitionReadinessStatus([
+                'completion_audit' => [
+                    'status' => 'incomplete',
+                    'failed_count' => 1,
+                    'failed_criteria' => ['technical_gate_drift'],
+                    'completion_allowed' => false,
+                    'completion_claim_allowed' => false,
+                    'criteria' => [[
+                        'id' => 'technical_gate_drift',
+                        'passed' => false,
+                        'requirement' => 'Technical gate evidence must match its current snapshot.',
+                        'evidence' => [],
+                    ]],
+                ],
+                'completion_evidence' => [],
+                'runtime_gap_matrix' => [],
+            ]);
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_programming_os_transition_readiness_status', []);
+
+        $this->assertContains('technical_gate_drift', (array) $summary['blockers']);
+        $this->assertSame(0, (int) $summary['human_blocker_count']);
+        $this->assertSame([], (array) $summary['human_blockers']);
+        $this->assertSame(0, (int) $summary['real_provider_blocker_count']);
+        $this->assertSame([], (array) $summary['real_provider_blockers']);
+        $this->assertContains('technical_gate_drift', (array) $summary['technical_blockers']);
+        $this->assertSame((array) $summary['blockers'], (array) $summary['technical_blockers']);
+        $this->assertSame('none', (string) $summary['current_required_operator_artifact']);
     }
 
     public function test_cli_exposes_self_programming_os_transition_readiness_quartet(): void
