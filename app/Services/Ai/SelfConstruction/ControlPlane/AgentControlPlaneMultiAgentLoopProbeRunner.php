@@ -961,10 +961,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             'queue' => ['priority' => 5, 'tags' => ['terminal_fleet_released_resume_probe', $queueTag]],
         ]);
 
-        $claim = $this->orchestrator->claimNext('terminal_fleet_released_resume_probe_'.$runId, [
-            'tag' => $queueTag,
-            'ttl_seconds' => 600,
-        ]);
+        $claim = $this->claimSyntheticFleetProbePacket(
+            $taskPacketId,
+            'terminal_fleet_released_resume_probe_'.$runId,
+            $queueTag,
+            600,
+        );
         $leaseId = (string) ($claim['lease_id'] ?? '');
         if ($leaseId !== '') {
             $this->orchestrator->releaseLease($leaseId, 'terminal_fleet_released_resume_probe_'.$runId, [
