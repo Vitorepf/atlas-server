@@ -114,6 +114,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $cycle = $cert['cycle_evidence'][0];
         $this->assertSame(4, (int) $cycle['completed_count']);
         $this->assertSame(4, (int) $cycle['queue_claim_binding_verified_count']);
+        $this->assertSame(4, (int) $cycle['structured_completion_evidence_valid_count']);
+        $this->assertSame(4, (int) $cycle['completion_evidence_files_within_scope_count']);
         $this->assertTrue((bool) $cycle['queue_claim_binding_all_verified']);
         $this->assertTrue((bool) $cert['invariants']['complete_dry_run_requires_queue_claim_binding']);
         $this->assertTrue((bool) data_get($cert, 'canonical_invariant_matrix.invariants.complete_dry_run_requires_queue_claim_binding.value'));
@@ -121,6 +123,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         foreach ($cycle['agents'] as $agent) {
             $this->assertTrue((bool) $agent['completed']);
             $this->assertTrue((bool) $agent['queue_claim_binding_verified']);
+            $this->assertSame('valid', (string) $agent['completion_evidence_validation_status']);
+            $this->assertTrue((bool) $agent['structured_completion_evidence_valid']);
+            $this->assertTrue((bool) $agent['completion_evidence_files_within_scope']);
             $this->assertSame('completed_dry_run', (string) $agent['completion_event']);
         }
     }

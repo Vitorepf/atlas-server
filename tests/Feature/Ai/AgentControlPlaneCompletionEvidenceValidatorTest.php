@@ -17,6 +17,8 @@ final class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
             'files_changed'         => ['app/Services/Foo.php'],
             'commands_run'          => ['./vendor/bin/phpunit tests/FooTest.php --no-progress'],
             'tests_or_gates_result' => 'pass',
+            'implementation_notes'  => 'The completion record names the concrete scope-bound verification.',
+            'capability_delta'      => 'The task packet can be settled only with scoped completion evidence.',
             'git_status_short'      => 'nothing to commit',
             'git_diff_check_result' => 'clean',
         ], $overrides);

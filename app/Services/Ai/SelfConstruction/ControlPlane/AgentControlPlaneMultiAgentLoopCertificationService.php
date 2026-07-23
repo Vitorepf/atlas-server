@@ -557,6 +557,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             if ((string) $agent['claim_event'] !== 'claimed') {
                 continue;
             }
+            $changedFile = (string) data_get($agent, 'write_set.0', 'synthetic/noop.php');
+            $continuationHash = $this->extractContinuationHash((string) $agent['task_packet_id']);
             $completionEvidence = [
                 'cycle_index' => $cycleIndex,
                 'packet_id' => (string) $agent['task_packet_id'],
@@ -564,9 +566,14 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'actor' => (string) $agent['agent_id'],
                 'agent_id' => (string) $agent['agent_id'],
                 'evidence_kind' => 'multi_agent_loop_certification_synthetic',
-                'files_changed' => [(string) data_get($agent, 'write_set.0', 'synthetic/noop.php')],
-                'commands_run' => ['multi_agent_loop_certification_synthetic_dry_run: passed'],
+                'files_changed' => [$changedFile],
+                'commands_run' => [sprintf('AgentControlPlaneTaskQueueOrchestrator::completeDryRun %s', $changedFile)],
                 'tests_or_gates_result' => 'passed',
+                'implementation_notes' => 'Certification executed the in-process completeDryRun transition for its synthetic claimed packet.',
+                'capability_delta' => 'Synthetic completion produced a queue-bound dry-run receipt without enabling runtime execution.',
+                'task_packet_created' => sprintf('prepared_and_enqueued:%s', (string) $agent['task_packet_id']),
+                'claim_lease_simulated' => sprintf('claimed:%s', (string) $agent['lease_id']),
+                'continuation_summary_planned' => $continuationHash,
                 'git_status_short' => 'synthetic certification storage-only dry-run',
                 'git_diff_check_result' => 'clean',
             ];

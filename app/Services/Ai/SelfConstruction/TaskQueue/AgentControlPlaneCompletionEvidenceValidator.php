@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TaskQueue;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Supply\AtlasLoopRefillerPayloadNormalizer;
+use App\Services\Ai\SelfConstruction\Leasing\AgentControlPlaneLeasePathCanonicalizer;
 
 /**
  * Completion-evidence validation and canonical hashing for the Agent Control
@@ -44,6 +45,8 @@ final class AgentControlPlaneCompletionEvidenceValidator
         $expectedLeaseId = (string) ($expectedBinding['lease_id'] ?? '');
         $expectedAgentId = (string) ($expectedBinding['agent_id'] ?? '');
         $allowedFiles = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($expectedBinding['allowed_files'] ?? []));
+        $leasePathCanonicalizer = new AgentControlPlaneLeasePathCanonicalizer;
+        $canonicalAllowedFiles = array_fill_keys($leasePathCanonicalizer->normalizeSet($allowedFiles), true);
         $evidenceTaskPacketId = trim((string) ($evidence['packet_id'] ?? $evidence['task_packet_id'] ?? ''));
         $evidenceLeaseId = trim((string) ($evidence['lease_id'] ?? ''));
         $evidenceActor = trim((string) ($evidence['actor'] ?? $evidence['agent_id'] ?? ''));
@@ -114,7 +117,10 @@ final class AgentControlPlaneCompletionEvidenceValidator
         }
         $filesChangedOutsideAllowedScope = $allowedFiles === []
             ? []
-            : array_values(array_diff($filesChanged, $allowedFiles));
+            : array_values(array_filter(
+                $filesChanged,
+                static fn (string $file): bool => ! isset($canonicalAllowedFiles[$leasePathCanonicalizer->normalizeSet([$file])[0] ?? '']),
+            ));
         if ($filesChanged !== [] && $allowedFiles === []) {
             $blockers[] = 'allowed_files_missing_for_completion_scope_check';
         } elseif ($filesChangedOutsideAllowedScope !== []) {
