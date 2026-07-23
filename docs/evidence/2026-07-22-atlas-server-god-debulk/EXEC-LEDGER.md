@@ -1981,7 +1981,7 @@ write_back:
 
 ```yaml
 status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
-commit: pending
+commit: 9ae71a2df
 subject: "refactor(core): GOD-DEBULK RootSingles Memory canonical rehome"
 red:
   result: "FAIL 1 test, 1 assertion before the namespace change: canonical MemoryGovernance\\AtlasMemoryPrivacyService provider-summary redaction contract was already red; the moved service diff is namespace-only."
@@ -2006,8 +2006,9 @@ boundary:
   - static scanner paths were updated only to preserve existing contracts after physical moves
   - legacy root resolution remains lazy and backward compatible through the shared alias map
 write_back:
-  status: pending_human_review
+  status: outcome_recorded_for_human_review
   context_pack_hash: "78b338497973e747d89dcdf3eb72f2e84e7fbec897261d1280fffaacb6d28a1c"
+  context_feedback: "NOT RECORDED: tool process terminated by signal 9; no retry attempted"
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
