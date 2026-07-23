@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;

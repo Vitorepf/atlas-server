@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Attachments\AiAttachmentIndexService;
 use App\Services\Ai\Context\RetrievalRankInput;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\Router\AiIntentRouter;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Skills\AiSkillStore;
@@ -12,6 +13,7 @@ use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
+use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;

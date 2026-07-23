@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Ai;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiTrace;
-use App\Services\Ai\AiInteractionSteeringService;
+use App\Services\Ai\ControlPlane\AiInteractionSteeringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

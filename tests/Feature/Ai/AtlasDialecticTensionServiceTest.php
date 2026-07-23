@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\AtlasDialecticTensionService;
+use App\Services\Ai\Context\AtlasDialecticTensionService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;

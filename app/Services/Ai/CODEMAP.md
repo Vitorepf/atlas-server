@@ -34,3 +34,11 @@ navigation during GOD-DEBULK, not a corpus-complete ownership map.
 | Project canonical YouTube knowledge | `App\Services\Ai\Knowledge\YoutubeCanonicalProjection::projectIngestion` |
 | Aggregate a multi-provider council trace | `App\Services\Ai\Arena\AiCouncilCoordinator::sync` |
 | Classify compaction loss before a write | `App\Services\Ai\Compaction\CompactionLossPolicy::classify` |
+| Compose a provider-safe context pack | `App\Services\Ai\Context\AiContextPackBuilder::build` |
+| Persist a provider input context snapshot | `App\Services\Ai\Context\AiContextSnapshotRecorder::record` |
+| Build recent conversation context | `App\Services\Ai\Context\AiConversationContextBuilder::build` |
+| Record a user or assistant conversation turn | `App\Services\Ai\Context\AiConversationRecorder::recordUserMessage` |
+| Mark unresolved memory tensions in provider context | `App\Services\Ai\Context\AtlasDialecticTensionService::tensionMarks` |
+| Carry the provider prompt contract | `App\Services\Ai\ValueObjects\AiPrompt::__construct` |
+| Steer an active AI interaction safely | `App\Services\Ai\ControlPlane\AiInteractionSteeringService::steer` |
+| Refresh an expired decision receipt before a provider call | `App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService::refreshExpiredBeforeProviderCall` |

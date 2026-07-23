@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Brain2;
 
 use App\Models\AiJob;
-use App\Services\Ai\AiDecisionReceiptRefreshService;
+use App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AtlasDecideService;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\MockObject\MockObject;

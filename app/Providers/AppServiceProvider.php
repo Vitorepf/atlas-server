@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiWorker;

@@ -18,10 +18,10 @@ use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
-use App\Services\Ai\AiContextPackBuilder;
-use App\Services\Ai\AiContextSnapshotRecorder;
-use App\Services\Ai\AiConversationContextBuilder;
-use App\Services\Ai\AiPrompt;
+use App\Services\Ai\Context\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextSnapshotRecorder;
+use App\Services\Ai\Context\AiConversationContextBuilder;
+use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasMemoryGovernanceService;
 use App\Services\Ai\AtlasMemoryLearningPromotionService;
@@ -519,7 +519,7 @@ class AtlasMemoryRegistryTest extends TestCase
             stack: ['laravel', 'php'],
             packageManager: 'composer',
             testCommands: ['php artisan test'],
-            importantFiles: ['app/Services/Ai/AiContextPackBuilder.php'],
+            importantFiles: ['app/Services/Ai/Context/AiContextPackBuilder.php'],
         ));
 
         $payload = (new EngineeringContextPackService($profiler, app(AtlasMemoryRegistryService::class)))->build(

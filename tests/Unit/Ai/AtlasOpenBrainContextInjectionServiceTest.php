@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\ControlPlane;
 
 use App\Models\AiJob;
 use App\Models\AiTrace;

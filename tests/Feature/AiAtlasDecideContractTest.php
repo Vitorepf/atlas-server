@@ -6,7 +6,7 @@ use App\Http\Resources\AiDecisionResource;
 use App\Models\AiDecision;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
-use App\Services\Ai\AiPrompt;
+use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\AtlasDecideService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;

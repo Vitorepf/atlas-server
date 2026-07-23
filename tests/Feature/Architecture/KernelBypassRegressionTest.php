@@ -48,7 +48,7 @@ PHP, function () use ($path): void {
 
 namespace App\Services\Ai\Surface;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 
 class ForbiddenSurfaceContextBypass
 {

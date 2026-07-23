@@ -1,13 +1,12 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Context;
 
 use App\Models\AiCompaction;
 use App\Models\AiMessage;
 use App\Models\AiProviderHandoff;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
-use App\Services\Ai\Context\ConversationContextInput;
 use Illuminate\Support\Str;
 
 class AiConversationContextBuilder

@@ -4753,7 +4753,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             ],
             'context_pack' => [
                 'canonical_owner' => 'docs/engineering-knowledge-base/memory/retrieval-and-context.md',
-                'owner_runtime' => 'app/Services/Ai/AiContextPackBuilder.php',
+                'owner_runtime' => 'app/Services/Ai/Context/AiContextPackBuilder.php',
                 'adapter_or_consumer' => 'app/Services/Ai/Programming/ProgrammingContextPackStore.php',
                 'owner_role' => 'base_context_pack_composition_memory_retrieval_privacy_and_prompt_context_contract',
                 'adapter_role' => 'programming_domain_persistence_and_replay_store_for_existing_context_pack_payloads',

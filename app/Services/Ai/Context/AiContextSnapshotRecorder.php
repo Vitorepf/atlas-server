@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Context;
 
 use App\Models\AiCompaction;
 use App\Models\AiContextSnapshot;
 use App\Models\AiProviderHandoff;
 use App\Models\AiSession;
 use App\Models\AiTrace;
+use App\Services\Ai\AtlasMemoryUsageService;
+use App\Services\Ai\ValueObjects\AiPrompt;
 
 class AiContextSnapshotRecorder
 {

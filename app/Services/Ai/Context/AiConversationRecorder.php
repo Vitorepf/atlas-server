@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Context;
 
 use App\Models\AiMessage;
 use App\Models\AiSession;

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
-use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Context\ValueObjects\ContextPackContract;

@@ -11,6 +11,7 @@ use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
 use App\Services\Ai\Context\AtlasContextRuntime;
+use App\Services\Ai\Context\AtlasDialecticTensionService;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;

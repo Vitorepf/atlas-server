@@ -10,7 +10,7 @@ use App\Models\AiSession;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
-use App\Services\Ai\AiConversationContextBuilder;
+use App\Services\Ai\Context\AiConversationContextBuilder;
 use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\Context\ConversationContextInput;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;

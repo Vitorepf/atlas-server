@@ -8,7 +8,7 @@ use App\Models\AiCompoundingMemory;
 use App\Models\AiJob;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;

@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Facades\Schema;

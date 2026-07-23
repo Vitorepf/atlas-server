@@ -20,7 +20,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\AiGatewayService;
-use App\Services\Ai\AiPrompt;
+use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\AiPromptBuilder;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;

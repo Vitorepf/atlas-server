@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Context;
 
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\Support\DatabaseTableAvailability;

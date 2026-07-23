@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Context;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;

@@ -32,7 +32,7 @@ class SloAudit
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
         $eventTypePath = app_path('Services/Ai/Kernel/Evidence/LedgerEventType.php');
         $decidePath = app_path('Services/Ai/AtlasDecideService.php');
-        $contextPath = app_path('Services/Ai/AiContextPackBuilder.php');
+        $contextPath = app_path('Services/Ai/Context/AiContextPackBuilder.php');
         $toolGatePath = app_path('Services/Tools/AtlasToolGateService.php');
         $workerPath = app_path('Services/Ai/AiWorker.php');
         $surfaceAdapterPath = app_path('Services/Ai/Surface/Adapters/BaseSurfaceAdapter.php');
@@ -91,7 +91,7 @@ class SloAudit
         }
 
         if (! str_contains($context, "slo->measure('context.compose'")) {
-            $violations[] = 'app/Services/Ai/AiContextPackBuilder.php: context pack composition must be instrumented with KernelSloProbe stage context.compose';
+            $violations[] = 'app/Services/Ai/Context/AiContextPackBuilder.php: context pack composition must be instrumented with KernelSloProbe stage context.compose';
         }
 
         if (! str_contains($toolGate, "slo->measure('gate.evaluate'")) {

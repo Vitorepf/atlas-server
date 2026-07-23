@@ -31,7 +31,7 @@ class InputContractAudit
     private function scanConversationContextInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Context/ConversationContextInput.php');
-        $builderPath = app_path('Services/Ai/AiConversationContextBuilder.php');
+        $builderPath = app_path('Services/Ai/Context/AiConversationContextBuilder.php');
         $testPath = base_path('tests/Unit/Ai/Context/ConversationContextInputTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
@@ -63,7 +63,7 @@ class InputContractAudit
             '$this->input->payloadTurnLimit()',
         ] as $token) {
             if (! str_contains($builder, $token)) {
-                $violations[] = "app/Services/Ai/AiConversationContextBuilder.php: conversation context builder must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Context/AiConversationContextBuilder.php: conversation context builder must use shared input contract [{$token}]";
             }
         }
 
@@ -159,7 +159,7 @@ class InputContractAudit
     private function scanSemanticContextInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Context/SemanticContextInput.php');
-        $builderPath = app_path('Services/Ai/AiContextPackBuilder.php');
+        $builderPath = app_path('Services/Ai/Context/AiContextPackBuilder.php');
         $testPath = base_path('tests/Unit/Ai/Context/SemanticContextInputTest.php');
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
@@ -191,7 +191,7 @@ class InputContractAudit
             '$this->semanticInput->contextExcerptChars()',
         ] as $token) {
             if (! str_contains($builder, $token)) {
-                $violations[] = "app/Services/Ai/AiContextPackBuilder.php: semantic context paths must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Context/AiContextPackBuilder.php: semantic context paths must use shared input contract [{$token}]";
             }
         }
 

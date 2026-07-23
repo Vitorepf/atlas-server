@@ -35,7 +35,7 @@ final class NoAiPromptBuilderDependencyTest extends TestCase
                 basename($file).' must never reference AiPromptBuilder (fast path bypass invariant).',
             );
             $this->assertStringNotContainsString(
-                'App\\Services\\Ai\\AiPrompt',
+                'App\\Services\\Ai\\ValueObjects\\AiPrompt',
                 $contents,
                 basename($file).' must never depend on legacy AiPrompt classes.',
             );

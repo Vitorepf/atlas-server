@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\AtlasDecide;
 
 use App\Models\AiJob;
+use App\Services\Ai\AtlasDecideService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 

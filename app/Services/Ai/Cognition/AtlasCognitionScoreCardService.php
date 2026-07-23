@@ -9,7 +9,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Aemor\AtlasAemorCertificationService;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
-use App\Services\Ai\AiDecisionReceiptRefreshService;
+use App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\AtlasDecide\AtlasCognitiveFunctionSwarmRouterService;

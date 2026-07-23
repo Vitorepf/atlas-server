@@ -28,7 +28,7 @@ class ContextAudit
     private function scanContextPackMemoryInputContract(): array
     {
         $inputPath = app_path('Services/Ai/Context/ContextPackMemoryInput.php');
-        $builderPath = app_path('Services/Ai/AiContextPackBuilder.php');
+        $builderPath = app_path('Services/Ai/Context/AiContextPackBuilder.php');
         $testPath = base_path('tests/Unit/Ai/Context/ContextPackMemoryInputTest.php');
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
@@ -72,7 +72,7 @@ class ContextAudit
             '$this->memoryInput->verbatimRecallItemChars($options[\'verbatim_recall_item_chars\'] ?? null)',
         ] as $token) {
             if (! str_contains($builder, $token)) {
-                $violations[] = "app/Services/Ai/AiContextPackBuilder.php: context pack memory paths must use shared input contract [{$token}]";
+                $violations[] = "app/Services/Ai/Context/AiContextPackBuilder.php: context pack memory paths must use shared input contract [{$token}]";
             }
         }
 
@@ -178,7 +178,7 @@ class ContextAudit
     {
         $violations = [];
         $routerPath = app_path('Services/Ai/Context/ContextRetrievalRouter.php');
-        $builderPath = app_path('Services/Ai/AiContextPackBuilder.php');
+        $builderPath = app_path('Services/Ai/Context/AiContextPackBuilder.php');
         $packPath = app_path('Services/Ai/ValueObjects/AiContextPack.php');
         $testPath = base_path('tests/Unit/Ai/Context/ContextRetrievalRouterTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
@@ -210,7 +210,7 @@ class ContextAudit
             '\'retrieval\' => $retrievalPlan',
         ] as $token) {
             if (! str_contains($builder, $token)) {
-                $violations[] = "app/Services/Ai/AiContextPackBuilder.php: Context Builder must attach AP-101 retrieval plan [{$token}]";
+                $violations[] = "app/Services/Ai/Context/AiContextPackBuilder.php: Context Builder must attach AP-101 retrieval plan [{$token}]";
             }
         }
 

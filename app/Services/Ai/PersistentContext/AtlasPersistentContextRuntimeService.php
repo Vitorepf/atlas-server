@@ -5,7 +5,7 @@ namespace App\Services\Ai\PersistentContext;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasPersistentContextPack;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;

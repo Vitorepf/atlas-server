@@ -1,16 +1,17 @@
 <?php
 
-namespace App\Services\Ai;
+namespace App\Services\Ai\Context;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
-use App\Services\Ai\Context\AtlasContextIdRemapService;
-use App\Services\Ai\Context\ContextPackMemoryInput;
-use App\Services\Ai\Context\ContextRetrievalRouter;
+use App\Services\Ai\AtlasMemoryContextComposer;
+use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
-use App\Services\Ai\Context\SemanticContextInput;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\Support\DatabaseTableAvailability;

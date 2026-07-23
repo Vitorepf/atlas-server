@@ -13,9 +13,16 @@ final class RootSinglesLegacyAliases
 {
     /** @var array<class-string, class-string> */
     private const CLASS_MAP = [
+        'App\\Services\\Ai\\AiContextPackBuilder' => 'App\\Services\\Ai\\Context\\AiContextPackBuilder',
+        'App\\Services\\Ai\\AiContextSnapshotRecorder' => 'App\\Services\\Ai\\Context\\AiContextSnapshotRecorder',
+        'App\\Services\\Ai\\AiConversationContextBuilder' => 'App\\Services\\Ai\\Context\\AiConversationContextBuilder',
+        'App\\Services\\Ai\\AiConversationRecorder' => 'App\\Services\\Ai\\Context\\AiConversationRecorder',
+        'App\\Services\\Ai\\AiDecisionReceiptRefreshService' => 'App\\Services\\Ai\\AtlasDecide\\AiDecisionReceiptRefreshService',
         'App\\Services\\Ai\\AiCouncilCoordinator' => 'App\\Services\\Ai\\Arena\\AiCouncilCoordinator',
         'App\\Services\\Ai\\AiExecutionPresentationState' => 'App\\Services\\Ai\\HumanSurface\\AiExecutionPresentationState',
+        'App\\Services\\Ai\\AiInteractionSteeringService' => 'App\\Services\\Ai\\ControlPlane\\AiInteractionSteeringService',
         'App\\Services\\Ai\\AiIntentRouter' => 'App\\Services\\Ai\\Router\\AiIntentRouter',
+        'App\\Services\\Ai\\AiPrompt' => 'App\\Services\\Ai\\ValueObjects\\AiPrompt',
         'App\\Services\\Ai\\AiSessionManager' => 'App\\Services\\Ai\\ConversationOps\\AiSessionManager',
         'App\\Services\\Ai\\AiSessionStateService' => 'App\\Services\\Ai\\ConversationOps\\AiSessionStateService',
         'App\\Services\\Ai\\AiThreadDeletionService' => 'App\\Services\\Ai\\ConversationOps\\AiThreadDeletionService',
@@ -32,6 +39,7 @@ final class RootSinglesLegacyAliases
         'App\\Services\\Ai\\AiTraceArtifactsProjection' => 'App\\Services\\Ai\\Instrumentation\\AiTraceArtifactsProjection',
         'App\\Services\\Ai\\AiTraceEngineeringReviewProjection' => 'App\\Services\\Ai\\Instrumentation\\AiTraceEngineeringReviewProjection',
         'App\\Services\\Ai\\AiWorkerLogger' => 'App\\Services\\Ai\\Instrumentation\\AiWorkerLogger',
+        'App\\Services\\Ai\\AtlasDialecticTensionService' => 'App\\Services\\Ai\\Context\\AtlasDialecticTensionService',
         'App\\Services\\Ai\\AtlasFinalResponseSanitizer' => 'App\\Services\\Ai\\Surface\\AtlasFinalResponseSanitizer',
         'App\\Services\\Ai\\AtlasProviderProjectionAuditPurgePolicy' => 'App\\Services\\Ai\\Instrumentation\\AtlasProviderProjectionAuditPurgePolicy',
         'App\\Services\\Ai\\AtlasProviderProjectionAuditService' => 'App\\Services\\Ai\\Instrumentation\\AtlasProviderProjectionAuditService',

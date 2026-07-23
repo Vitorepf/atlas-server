@@ -2,12 +2,19 @@
 
 namespace Tests\Unit\Ai;
 
+use App\Services\Ai\AiContextPackBuilder as LegacyAiContextPackBuilder;
+use App\Services\Ai\AiContextSnapshotRecorder as LegacyAiContextSnapshotRecorder;
+use App\Services\Ai\AiConversationContextBuilder as LegacyAiConversationContextBuilder;
+use App\Services\Ai\AiConversationRecorder as LegacyAiConversationRecorder;
 use App\Services\Ai\AiCouncilCoordinator as LegacyAiCouncilCoordinator;
+use App\Services\Ai\AiDecisionReceiptRefreshService as LegacyAiDecisionReceiptRefreshService;
 use App\Services\Ai\AiExecutionPresentationState as LegacyAiExecutionPresentationState;
 use App\Services\Ai\AiIntentRouter as LegacyAiIntentRouter;
+use App\Services\Ai\AiInteractionSteeringService as LegacyAiInteractionSteeringService;
 use App\Services\Ai\AiPermissionDecision as LegacyAiPermissionDecision;
 use App\Services\Ai\AiPermissionEngine as LegacyAiPermissionEngine;
 use App\Services\Ai\AiPermissionEngineSupport as LegacyAiPermissionEngineSupport;
+use App\Services\Ai\AiPrompt as LegacyAiPrompt;
 use App\Services\Ai\AiQualityActionService as LegacyAiQualityActionService;
 use App\Services\Ai\AiQualityEvaluator as LegacyAiQualityEvaluator;
 use App\Services\Ai\AiSessionManager as LegacyAiSessionManager;
@@ -24,12 +31,20 @@ use App\Services\Ai\AiWorkerLogger as LegacyAiWorkerLogger;
 use App\Services\Ai\Analysis\AiQualityActionService as CanonicalAiQualityActionService;
 use App\Services\Ai\Analysis\AiQualityEvaluator as CanonicalAiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator as CanonicalAiCouncilCoordinator;
+use App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService as CanonicalAiDecisionReceiptRefreshService;
+use App\Services\Ai\AtlasDialecticTensionService as LegacyAtlasDialecticTensionService;
 use App\Services\Ai\AtlasFinalResponseSanitizer as LegacyAtlasFinalResponseSanitizer;
 use App\Services\Ai\AtlasProviderProjectionAuditPurgePolicy as LegacyAtlasProviderProjectionAuditPurgePolicy;
 use App\Services\Ai\AtlasProviderProjectionAuditService as LegacyAtlasProviderProjectionAuditService;
 use App\Services\Ai\AtlasProviderProjectionService as LegacyAtlasProviderProjectionService;
 use App\Services\Ai\Compaction\CompactionLossPolicy as CanonicalCompactionLossPolicy;
 use App\Services\Ai\CompactionLossPolicy as LegacyCompactionLossPolicy;
+use App\Services\Ai\Context\AiContextPackBuilder as CanonicalAiContextPackBuilder;
+use App\Services\Ai\Context\AiContextSnapshotRecorder as CanonicalAiContextSnapshotRecorder;
+use App\Services\Ai\Context\AiConversationContextBuilder as CanonicalAiConversationContextBuilder;
+use App\Services\Ai\Context\AiConversationRecorder as CanonicalAiConversationRecorder;
+use App\Services\Ai\Context\AtlasDialecticTensionService as CanonicalAtlasDialecticTensionService;
+use App\Services\Ai\ControlPlane\AiInteractionSteeringService as CanonicalAiInteractionSteeringService;
 use App\Services\Ai\ConversationOps\AiSessionManager as CanonicalAiSessionManager;
 use App\Services\Ai\ConversationOps\AiSessionStateService as CanonicalAiSessionStateService;
 use App\Services\Ai\ConversationOps\AiThreadDeletionService as CanonicalAiThreadDeletionService;
@@ -52,6 +67,7 @@ use App\Services\Ai\Skills\AiSkillStore as CanonicalAiSkillStore;
 use App\Services\Ai\Streaming\AiStreamRecorder as CanonicalAiStreamRecorder;
 use App\Services\Ai\Surface\AiSurfaceHandoffService as CanonicalAiSurfaceHandoffService;
 use App\Services\Ai\Surface\AtlasFinalResponseSanitizer as CanonicalAtlasFinalResponseSanitizer;
+use App\Services\Ai\ValueObjects\AiPrompt as CanonicalAiPrompt;
 use App\Services\Ai\YoutubeCanonicalProjection as LegacyYoutubeCanonicalProjection;
 use App\Services\Ai\YouTubeKnowledgeIngestionService as LegacyYouTubeKnowledgeIngestionService;
 use Tests\TestCase;
@@ -79,6 +95,34 @@ final class RootSinglesKnowledgeCompatibilityTest extends TestCase
         $policy = app(CanonicalCompactionLossPolicy::class);
 
         self::assertInstanceOf(LegacyCompactionLossPolicy::class, $policy);
+    }
+
+    public function test_context_control_plane_and_decision_services_resolve_from_canonical_namespaces_with_legacy_aliases(): void
+    {
+        self::assertTrue(class_exists(CanonicalAiContextPackBuilder::class));
+        self::assertTrue(class_exists(LegacyAiContextPackBuilder::class));
+        self::assertTrue(is_a(CanonicalAiContextPackBuilder::class, LegacyAiContextPackBuilder::class, true));
+        self::assertTrue(class_exists(CanonicalAiContextSnapshotRecorder::class));
+        self::assertTrue(class_exists(LegacyAiContextSnapshotRecorder::class));
+        self::assertTrue(is_a(CanonicalAiContextSnapshotRecorder::class, LegacyAiContextSnapshotRecorder::class, true));
+        self::assertTrue(class_exists(CanonicalAiConversationContextBuilder::class));
+        self::assertTrue(class_exists(LegacyAiConversationContextBuilder::class));
+        self::assertTrue(is_a(CanonicalAiConversationContextBuilder::class, LegacyAiConversationContextBuilder::class, true));
+        self::assertTrue(class_exists(CanonicalAiConversationRecorder::class));
+        self::assertTrue(class_exists(LegacyAiConversationRecorder::class));
+        self::assertTrue(is_a(CanonicalAiConversationRecorder::class, LegacyAiConversationRecorder::class, true));
+        self::assertTrue(class_exists(CanonicalAtlasDialecticTensionService::class));
+        self::assertTrue(class_exists(LegacyAtlasDialecticTensionService::class));
+        self::assertTrue(is_a(CanonicalAtlasDialecticTensionService::class, LegacyAtlasDialecticTensionService::class, true));
+        self::assertTrue(class_exists(CanonicalAiPrompt::class));
+        self::assertTrue(class_exists(LegacyAiPrompt::class));
+        self::assertTrue(is_a(CanonicalAiPrompt::class, LegacyAiPrompt::class, true));
+        self::assertTrue(class_exists(CanonicalAiInteractionSteeringService::class));
+        self::assertTrue(class_exists(LegacyAiInteractionSteeringService::class));
+        self::assertTrue(is_a(CanonicalAiInteractionSteeringService::class, LegacyAiInteractionSteeringService::class, true));
+        self::assertTrue(class_exists(CanonicalAiDecisionReceiptRefreshService::class));
+        self::assertTrue(class_exists(LegacyAiDecisionReceiptRefreshService::class));
+        self::assertTrue(is_a(CanonicalAiDecisionReceiptRefreshService::class, LegacyAiDecisionReceiptRefreshService::class, true));
     }
 
     public function test_intent_router_resolves_from_its_canonical_namespace_with_a_legacy_alias(): void

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;

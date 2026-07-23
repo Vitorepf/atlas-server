@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\Router;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AiPromptBuilder;
 use App\Services\Ai\Router\AiIntentRouter;
 use App\Services\Ai\Search\SessionSearchService;

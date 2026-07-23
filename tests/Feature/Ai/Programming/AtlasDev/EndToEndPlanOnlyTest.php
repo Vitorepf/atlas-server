@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev;
 
-use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
 use App\Services\Ai\EngineeringKernel\Spec\DivergenceStatus;
