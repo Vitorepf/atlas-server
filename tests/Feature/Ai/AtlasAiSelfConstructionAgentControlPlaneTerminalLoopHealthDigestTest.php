@@ -628,6 +628,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         );
         $this->assertSame('completed_dry_run', $completion['event']);
 
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('rollup-launchable'), 'queue' => ['tags' => ['lane-rollup']]]);
+
         $digest = $this->service()->digest([
             'actor' => 'operator-rollup',
             'target_min_claimable_tasks' => 1,
@@ -646,6 +648,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame('review_evidence', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_complete_from_supervisor'));
+        $this->assertSame('fleet_launch_plan_ready', data_get($digest, 'terminal_loop_fleet_launch_plan.status'));
+        $this->assertSame('fleet_operator_handoff_review_evidence', data_get($digest, 'terminal_loop_fleet_operator_handoff.status'));
+        $this->assertSame('review_completed_dry_run_evidence', data_get($digest, 'terminal_loop_fleet_operator_handoff.next_operator_action'));
+        $this->assertSame(data_get($digest, 'terminal_loop_cycle_supervisor.next_command'), data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'));
     }
 
     public function test_fleet_evidence_rollup_rejects_an_internally_inconsistent_completion_receipt(): void

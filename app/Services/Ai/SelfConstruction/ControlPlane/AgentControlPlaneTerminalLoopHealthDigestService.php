@@ -673,6 +673,10 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             $status = 'fleet_operator_handoff_recover_before_loop';
             $nextAction = 'recover_orphaned_or_expired_task_leases';
             $primaryCommand = (string) data_get($resumeRollup, 'recoverable_task_summaries.0.recover_command', $commands['inspect_or_recover_leases']);
+        } elseif ($evidenceReady) {
+            $status = 'fleet_operator_handoff_review_evidence';
+            $nextAction = 'review_completed_dry_run_evidence';
+            $primaryCommand = $commands['terminal_loop_health_digest'];
         } elseif ($shouldReplenish) {
             $status = 'fleet_operator_handoff_replenish_before_launch';
             $nextAction = 'replenish_task_supply_then_recheck_digest';
@@ -681,10 +685,6 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             $status = 'fleet_operator_handoff_launch_workers';
             $nextAction = 'start_recommended_terminal_workers';
             $primaryCommand = (string) data_get($launchPlan, 'copy_paste_terminal_commands.0', $commands['execute_bootstrap']);
-        } elseif ($evidenceReady) {
-            $status = 'fleet_operator_handoff_review_evidence';
-            $nextAction = 'review_completed_dry_run_evidence';
-            $primaryCommand = $commands['terminal_loop_health_digest'];
         } else {
             $status = 'fleet_operator_handoff_wait_or_inspect';
             $nextAction = 'rerun_health_digest_or_inspect_queue_and_leases';
@@ -698,10 +698,10 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'primary_command' => $primaryCommand,
             'ordered_operator_sequence' => array_values(array_filter([
                 $resumeAttention ? 'recover_before_any_new_claim' : null,
+                $evidenceReady ? 'review_completed_dry_run_evidence' : null,
                 $shouldReplenish ? 'replenish_to_target_supply' : null,
                 'rerun_terminal_loop_health_digest',
                 $launchReady ? 'start_recommended_terminal_workers' : null,
-                $evidenceReady ? 'review_completed_dry_run_evidence' : null,
             ])),
             'source_statuses' => [
                 'fleet_launch_plan_status' => (string) ($launchPlan['status'] ?? ''),
