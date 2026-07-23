@@ -2392,5 +2392,33 @@ write_back:
   status: recorded_for_human_review
   context_feedback: recorded
   auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 77 — A1-SC-0009..0016 execute Review/Merge alias corpus, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 4df6fe3b8
+subject: "test(core): GOD-DEBULK execute review merge aliases"
+red:
+  result: "The first data-provider attempt ran zero aliases under this PHPUnit version and failed with ArgumentCountError; no behavior claim was made from that false coverage."
+green:
+  behavior: "An explicit native data provider executes all 109 public agentReviewMerge aliases through both the extracted Section and the legacy facade, without reflection-only coverage."
+verification:
+  focused_feature: "PASS 109 tests, 981 assertions, 20.07s"
+  php_lint: "PASS changed Feature test"
+  pint: "PASS changed Feature test"
+  diff_check: PASS
+  loc: "feature_test=153 (<800 hot limit)"
+boundary:
+  - every case invokes the real Section method and the real facade delegation with empty options
+  - each envelope must retain schema_version and status, keep execution/dispatch/ledger authority false, and agree through the compatibility facade
+  - no Review/Merge source behavior, split, command route, provider call, dispatch, token spend, or persistence changed
+  - the s0 structural split remains governed by the approved blueprint and is intentionally not attempted in this test-only slice
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
   merged_to_main_by_aobg: false
 ```
