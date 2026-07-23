@@ -44,6 +44,33 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
         $this->assertSame(6, (int) $cycle['claimable_before_claim']);
     }
 
+    public function test_real_worker_cannot_claim_a_certification_packet(): void
+    {
+        [, $orchestrator, $queue] = $this->newStack();
+        $packetId = 'certification-probe-'.Str::lower((string) Str::ulid());
+        $cycleTag = 'multi_agent_loop_certification_'.Str::lower((string) Str::ulid()).'_cycle_0';
+
+        $prepared = $orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $packetId,
+                'objective' => 'Keep certification packets out of real worker serving',
+                'operator_id' => 'multi-agent-loop-certification',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/__multi_agent_loop_certification_synthetic__/guard.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/__multi_agent_loop_certification_synthetic__/guard.php'],
+                'acceptance_criteria' => ['real_worker_must_not_claim_certification_packet'],
+                'required_evidence' => ['certification_guard_verified'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'plan_only',
+            ],
+            'queue' => ['tags' => ['multi_agent_loop_certification', $cycleTag]],
+        ]);
+        $claim = $orchestrator->claimNext('real-worker', ['tag' => $cycleTag]);
+
+        $this->assertSame('prepared_and_enqueued', (string) $prepared['event']);
+        $this->assertSame('no_claimable_task', (string) $claim['event']);
+        $this->assertSame('claimable', (string) data_get($queue->get($packetId), 'status'));
+    }
+
     public function test_lease_ids_are_unique_across_agents(): void
     {
         $cert = $this->certify(['agent_count' => 6, 'cycles' => 1]);

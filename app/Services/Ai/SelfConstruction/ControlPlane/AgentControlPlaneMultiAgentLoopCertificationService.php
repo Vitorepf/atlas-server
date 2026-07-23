@@ -435,7 +435,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
 
         for ($i = 0; $i < $agentCount; $i++) {
             $agentId = sprintf('agent_%s_c%d_a%d', $runId, $cycleIndex, $i);
-            $claim = $this->orchestrator->claimNext($agentId, ['tag' => $cycleTag]);
+            $claim = $this->claimCertificationPacket((string) ($seededPacketIds[$i] ?? ''), $agentId, $cycleTag);
             $event = (string) ($claim['event'] ?? '');
             if ($event !== 'claimed') {
                 $perAgent[] = [
@@ -673,6 +673,56 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'cross_agent_completion_rejected' => $crossAgentCompletionRejected,
             'cross_agent_completion_evidence' => $crossAgentCompletionEvidence,
             'recovery' => $recovery,
+        ];
+    }
+
+    /**
+     * Certification owns this synthetic claim path. It intentionally does not
+     * weaken the real-worker probe guard in AgentControlPlaneTaskQueueOrchestrator.
+     *
+     * @return array<string, mixed>
+     */
+    private function claimCertificationPacket(string $taskPacketId, string $agentId, string $cycleTag): array
+    {
+        $record = $taskPacketId === '' ? null : $this->queue->get($taskPacketId);
+        if ($record === null || (string) ($record['status'] ?? '') !== 'claimable' || ! in_array($cycleTag, (array) ($record['tags'] ?? []), true)) {
+            return ['event' => 'no_claimable_task', 'reason' => 'certification_packet_not_claimable'];
+        }
+
+        $scopeLock = [
+            'write_set' => (array) data_get($record, 'task_packet.normalized_scope.allowed_files', []),
+            'read_set' => (array) data_get($record, 'task_packet.normalized_scope.scope_in', []),
+            'scope_lock_plan_hash' => (string) data_get($record, 'metadata.scope_lock_hash', ''),
+        ];
+        $claim = $this->leases->claim($taskPacketId, $agentId, $scopeLock, ['ttl_seconds' => 1800]);
+        if ((string) ($claim['status'] ?? '') !== 'ok') {
+            return ['event' => 'no_claimable_task', 'reason' => (string) ($claim['reason'] ?? 'certification_lease_unavailable')];
+        }
+
+        $leaseId = (string) ($claim['lease_id'] ?? '');
+        $swap = $this->queue->compareAndSwapStatus($taskPacketId, 'claimable', 'claimed', [
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+        ]);
+        if (($swap['swapped'] ?? false) !== true) {
+            $this->leases->release($leaseId, $agentId, ['reason' => 'certification_queue_status_moved']);
+
+            return ['event' => 'no_claimable_task', 'reason' => 'certification_queue_status_moved'];
+        }
+
+        $this->queue->appendReceipt($taskPacketId, [
+            'receipt_kind' => 'claim_acquired_by_certification',
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+        ]);
+
+        return [
+            'event' => 'claimed',
+            'queue_entry' => $record,
+            'lease' => $claim['lease'] ?? null,
+            'lease_id' => $leaseId,
+            'task_packet_id' => $taskPacketId,
+            'agent_id' => $agentId,
         ];
     }
 
