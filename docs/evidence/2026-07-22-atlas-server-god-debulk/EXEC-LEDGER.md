@@ -2045,3 +2045,14 @@ write_back:
   auto_promoted: false
   merged_to_main_by_aobg: false
 ```
+
+### Task 64 write-back addendum
+
+```yaml
+status: recorded_for_human_review
+context_feedback: "persisted provider-safe feedback; measured=false, utility=35, missing canonical_doc/test/code sources; review required"
+outcome_id: god-debulk-rootsingles-policy-2026-07-22
+outcome_status: recorded
+auto_promoted: false
+merged_to_main_by_aobg: false
+```
