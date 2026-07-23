@@ -3629,3 +3629,44 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 116 — bound dependency wait inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0108
+commit: a4033975b
+subject: "refactor(core): GOD-DEBULK bound dependency wait"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+  - tests/Feature/Ai/SelfConstruction/AutonomosAwisGateTest.php
+red:
+  commands:
+    - /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_dependency_wait_treats_an_unbounded_claimable_inventory_as_uncertain --no-coverage
+    - /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_serving_reports_the_unbounded_queue_before_dependency_wait_classification --no-coverage
+  result: "The public predicate returned false after scanning 65 clean claimable packets. After that guard was introduced, a real active prerequisite plus 65 real dependent packets made public next() report waiting_on_dependencies even though claimNext() had already returned queue_scan_limit_exceeded."
+green:
+  behavior: "The dependency-wait predicate reads only the registry summary above 64 and conservatively prevents an empty-queue conclusion. The serving surface intercepts the claim block before dependency classification and emits queue_scan_limit_exceeded with the exact candidate count, minimum count, scan limit, retry, and inspection escalation."
+verification:
+  characterization: "PASS 2 tests, 10 assertions: direct public dependency-wait behavior plus a real serving call with a real active prerequisite lease, 65 dependent packets, and an explicit ready AWIS port."
+  package_suite: "PASS 127 tests, 594 assertions when run serially: bounded anti-farm Feature, scope repair, repair self-heal, AWIS gate, and Feature/Unit orchestrator suites."
+  awis_contract: "PASS 4 tests, 15 assertions. The certified-workspace contract now admits queue_scan_limit_exceeded as a valid non-AWIS result rather than mislabeling it as an AWIS failure."
+  php_lint: "PASS all four touched PHP files."
+  pint: "PASS both touched Feature tests; NOT GREEN only for inherited whole-file formatting drift in AtlasTaskServingService and AgentControlPlaneTaskQueueOrchestrator. No broad host reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1985 LOC; serving_service=1607 LOC; focused Feature tests=331/126 LOC; all <2000 and tests <800."
+boundary:
+  - "The new serving acceptance executes the actual public next() path, real queue/lease state, and the normal claim guard. The only injected seam is the documented AWIS port, set to ready so the test reaches task serving rather than pretending AWIS did not exist."
+  - "The oversized path neither reads candidate payloads for dependency classification nor reports a fabricated dependency state; it returns the existing exact scan-limit receipt."
+  - "No dependent packet, lease, provider, dispatch, token, completion, or runtime-execution mutation occurs after the scan-limit block."
+residual:
+  - "A1-SC-0108 remains partially open: cooldown-related scans require a separate real characterization and bounded-index ownership."
+next_cursor: "Characterize the cooldown scan through its public worker-serving entrypoint; preserve the explicit queue-scan envelope and all current bounds."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-116-dependency-wait-a4033975b
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
