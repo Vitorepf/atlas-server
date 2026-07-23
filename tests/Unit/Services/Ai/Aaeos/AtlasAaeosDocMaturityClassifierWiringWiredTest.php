@@ -43,7 +43,7 @@ final class AtlasAaeosDocMaturityClassifierWiringWiredTest extends TestCase
         ]));
 
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', [
+        $exit = $kernel->call('atlas:aeos:department-status', [
             '--doc-maturity' => $this->sectionsFile,
             '--json' => true,
         ]);
@@ -59,7 +59,7 @@ final class AtlasAaeosDocMaturityClassifierWiringWiredTest extends TestCase
     public function test_department_status_command_omits_doc_maturity_without_option(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', ['--json' => true]);
+        $exit = $kernel->call('atlas:aeos:department-status', ['--json' => true]);
         $out = $kernel->output();
 
         $this->assertSame(0, $exit, $out);

@@ -319,7 +319,7 @@ doc real, sem exemcao), `asymptote_complete=false` (a bussola, sempre), e
 - test: `AtlasDocumentationRealityCompletenessTest`
 
 Drift do doc deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-completeness --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-completeness --json`.
 
 ## Riscos
 

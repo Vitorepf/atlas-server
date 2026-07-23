@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityAntibodyProposerService;
 use App\Services\Engineering\AtlasDocumentationRealityBidirectionalReconciliationService;
 use App\Services\Engineering\AtlasDocumentationRealityCausalSelfModelService;
@@ -458,7 +458,7 @@ final class AtlasDocumentationRealityFlowTest extends TestCase
         $this->mock(EngineeringDocumentationHealthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('report')->andReturn(['blocking' => [], 'legacy_debt' => []]);
         });
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('driftForFrontmatter')->andReturn(['drift' => false]);
         });
 

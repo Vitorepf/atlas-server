@@ -22,7 +22,7 @@ final class AtlasAaeosAcosSimplifyCycleCommand extends Command
 {
     public const SCHEMA = 'atlas.aaeos_acos.simplify_cycle.cli.v1';
 
-    protected $signature = 'atlas:aaeos-acos:simplify-cycle
+    protected $signature = 'atlas:acos:simplify-cycle
         {action=plan : plan|status|prompts}
         {--dry-run=1 : 1=plan only (default); 0 reserved for future execute}
         {--php=php : php binary for emitted commands}
@@ -31,7 +31,7 @@ final class AtlasAaeosAcosSimplifyCycleCommand extends Command
         {--replenish-target=5 : top-up target when queue is dry}
         {--json : machine-readable JSON}';
 
-    protected $description = 'AAEOS+ACOS elite simplify lane — plan one Autônomos tick (brain→seed→prompts).';
+    protected $description = 'AAEOS+ACOS elite simplify lane — plan one Autônomos tick (brain→seed→prompts). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(
         AtlasAaeosAcosSimplifyCyclePlanner $planner,

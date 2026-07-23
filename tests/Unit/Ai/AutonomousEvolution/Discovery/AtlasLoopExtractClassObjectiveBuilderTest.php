@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopExtractClassObjectiveBuilder;
 use Tests\TestCase;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
 
 /**
  * Pins the extract-class task contract: a refactor_* task (revert-recheck exempt) carrying BOTH
@@ -17,9 +18,9 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
     public function test_builds_a_structural_extract_class_contract(): void
     {
         $spec = (new AtlasLoopExtractClassObjectiveBuilder())->build(
-            'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php',
+            'app/Services/Ai/Aaeos/AtlasThresholdLadderNormalizer.php',
             'tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php',
-            'AtlasAaeosThresholdLadderNormalizer::normalize',
+            'AtlasThresholdLadderNormalizer::normalize',
             17,
         );
 
@@ -35,7 +36,7 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
 
         // Provider may edit the TARGET and CREATE the new class — nothing else.
         $this->assertSame(
-            ['app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php', $newPath],
+            ['app/Services/Ai/Aaeos/AtlasThresholdLadderNormalizer.php', $newPath],
             $acc['allowed_globs'],
         );
         // The sibling test is FROZEN (the loop can never edit its own behavior anchor).
@@ -52,7 +53,7 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
 
         // Objective names the exact new path + the worst method (so the provider stays in scope).
         $this->assertStringContainsString($newPath, $spec['objective']);
-        $this->assertStringContainsString('AtlasAaeosThresholdLadderNormalizer::normalize', $spec['objective']);
+        $this->assertStringContainsString('AtlasThresholdLadderNormalizer::normalize', $spec['objective']);
         $this->assertNotSame('', $spec['acceptance_hash']);
     }
 
@@ -92,9 +93,9 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
 
         // A step-2 build threads the numbered name through path, class, namespace and objective.
         $spec = $b->build(
-            'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php',
+            'app/Services/Ai/Aaeos/AtlasThresholdLadderNormalizer.php',
             'tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php',
-            'AtlasAaeosThresholdLadderNormalizer::normalize',
+            'AtlasThresholdLadderNormalizer::normalize',
             17,
             null,
             2,
@@ -102,16 +103,16 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
         $newPath2 = 'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerSupport2.php';
         $this->assertSame($newPath2, $spec['payload']['extract_class_new_path']);
         $this->assertSame(
-            ['app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php', $newPath2],
+            ['app/Services/Ai/Aaeos/AtlasThresholdLadderNormalizer.php', $newPath2],
             $spec['payload']['acceptance']['allowed_globs'],
         );
         $this->assertStringContainsString('final class AtlasAaeosThresholdLadderNormalizerSupport2', $spec['objective']);
 
         // Distinct steps yield distinct acceptance hashes (so the corpus never dedups two chain links).
         $spec1 = $b->build(
-            'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php',
+            'app/Services/Ai/Aaeos/AtlasThresholdLadderNormalizer.php',
             'tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php',
-            'AtlasAaeosThresholdLadderNormalizer::normalize',
+            'AtlasThresholdLadderNormalizer::normalize',
             17,
             null,
             1,

@@ -14,7 +14,7 @@ use Symfony\Component\Process\Process;
  * M keystone · Outcome metric ledger for the Atlas 24h loop.
  *
  * Measures whether a merged cycle's DECLARED outcome actually moved, via a REAL
- * existing command (e.g. `php artisan atlas:aaeos:maturity --json`, a test-count
+ * existing command (e.g. `php artisan atlas:aeos:maturity --json`, a test-count
  * command, or existing telemetry). It NEVER invents a metric and NEVER asks a
  * provider — the only input is a reproducible local command whose numeric output
  * is parsed deterministically.

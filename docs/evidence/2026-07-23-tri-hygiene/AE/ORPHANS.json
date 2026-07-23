@@ -1,0 +1,62 @@
+[
+  {
+    "loc": 405,
+    "class": "AtlasLoopBacklogAutoFeederServiceSupport",
+    "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederServiceSupport.php",
+    "internal": 1
+  },
+  {
+    "loc": 220,
+    "class": "AtlasLoopNodeInterfaceVerifierSupport",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopNodeInterfaceVerifierSupport.php",
+    "internal": 1
+  },
+  {
+    "loc": 200,
+    "class": "AtlasLoopMultiFileRefactorSynthesizerSupport",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopMultiFileRefactorSynthesizerSupport.php",
+    "internal": 1
+  },
+  {
+    "loc": 152,
+    "class": "AtlasLoopBlastRadiusReaderSupport",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBlastRadiusReaderSupport.php",
+    "internal": 1
+  },
+  {
+    "loc": 125,
+    "class": "AtlasLoopRefillerPriorityDecider",
+    "path": "app/Services/Ai/AutonomousEvolution/Consolidation/AtlasLoopRefillerPriorityDecider.php",
+    "internal": 1
+  },
+  {
+    "loc": 125,
+    "class": "AtlasLoopFrameworkRefactorSynthesizerSupport",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopFrameworkRefactorSynthesizerSupport.php",
+    "internal": 1
+  },
+  {
+    "loc": 87,
+    "class": "AtlasLoopRefillerCoveragePortfolioGate",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/Supply/AtlasLoopRefillerCoveragePortfolioGate.php",
+    "internal": 1
+  },
+  {
+    "loc": 73,
+    "class": "AtlasLoopAdversarialCritic",
+    "path": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopAdversarialCritic.php",
+    "internal": 1
+  },
+  {
+    "loc": 47,
+    "class": "AtlasLoopIdeaDraftingRubric",
+    "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopIdeaDraftingRubric.php",
+    "internal": 1
+  },
+  {
+    "loc": 37,
+    "class": "AtlasAutonomosMasterSwitch",
+    "path": "app/Services/Ai/AutonomousEvolution/AtlasAutonomosMasterSwitch.php",
+    "internal": 1
+  }
+]

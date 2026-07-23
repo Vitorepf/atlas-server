@@ -25,8 +25,8 @@ use Illuminate\Support\Facades\Log;
  *   --interval=<seconds> : sleep between iterations when --loop (default 5).
  *
  * Examples:
- *   php artisan atlas:aaeos:deferred-worker --once --max=32 --json
- *   php artisan atlas:aaeos:deferred-worker --loop --interval=2
+ *   php artisan atlas:aeos:deferred-worker --once --max=32 --json
+ *   php artisan atlas:aeos:deferred-worker --loop --interval=2
  *
  * Future: a follow-up AP can replace this logger-only worker with one that
  * invokes Spec OS / Work Splitter / Decision Receipt v2 runtime synchronously
@@ -34,14 +34,14 @@ use Illuminate\Support\Facades\Log;
  */
 final class AtlasAaeosDeferredWorkerCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:deferred-worker
+    protected $signature = 'atlas:aeos:deferred-worker
         {--once : drain a single batch and exit}
         {--loop : run continuously with --interval sleep between batches}
         {--max=16 : maximum records claimed per batch}
         {--interval=5 : seconds between iterations when --loop}
         {--json : machine-readable JSON output}';
 
-    protected $description = 'Drain AAEOS deferred phase queue produced by the HTTP facade (AP-696..AP-699).';
+    protected $description = 'Drain AAEOS deferred phase queue produced by the HTTP facade (AP-696..AP-699). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AaeosDeferredPhaseDispatcherService $dispatcher): int
     {

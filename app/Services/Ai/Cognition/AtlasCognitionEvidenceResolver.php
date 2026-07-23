@@ -39,7 +39,7 @@ use Throwable;
  *   - pipeline_status=ready (per service_class FQN): the owner doc's declared test
  *     ref (or the <Short>Test naming convention) has a REAL, FRESH GREEN-RUN RECEIPT
  *     (AtlasCapabilityTestExecutionService::hasGreenReceipt), keyed on the OWNER DOC id
- *     exactly as atlas:aaeos:verify-tests recorded it, with freshness hashes from
+ *     exactly as atlas:aeos:verify-tests recorded it, with freshness hashes from
  *     AtlasImplementationTruthService::freshnessHashes (cheap — hashes a few
  *     files, NEVER runs a test). A test symbol that exists but has no green receipt
  *     computes to PARTIAL (existence_only_unrun), mirroring the truth service.
@@ -47,7 +47,7 @@ use Throwable;
  * LOAD-SAFE: resolving a status only READS the shared code-intel index (loaded once
  * via the ADRS resolver's existing shared-index + 512MB memory floor — reused, never
  * a second load) and READS receipt rows. NO PHPUnit spawn here; the expensive real
- * runs stay in the opt-in atlas:aaeos:verify-tests command.
+ * runs stay in the opt-in atlas:aeos:verify-tests command.
  *
  * DEGRADE-SAFE: a blind index (resolve returns nothing) or an absent receipts table
  * yields an honest non-ready status (building/partial), NEVER a false ready.

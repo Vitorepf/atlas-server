@@ -8,7 +8,7 @@ implementation_state: proposal_no_runtime
 authority_class: proposal
 category: agentic-engineering
 priority: 99
-summary: Proposta canonica (aprovada pelo operador, ainda nao implementada) para elevar a documentacao AAEOS a Lei navegavel e verificada por maquina. Inverte a posse do implementation_state (deixa de ser auto-declarado em prosa e passa a ser computado do indice de codigo via atlas:aaeos:maturity), da a qualquer IA um owner-doc resolver deterministico (atlas:docs:locate) e converte o docs-health de vermelho-perpetuo em trava verde-alcancavel via baseline freeze + ratchet. As referencias abaixo foram verificadas como dependencias/targets de analise, nao como runtime entregue. Nao e runtime; e o plano que a implementacao seguira.
+summary: Proposta canonica (aprovada pelo operador, ainda nao implementada) para elevar a documentacao AAEOS a Lei navegavel e verificada por maquina. Inverte a posse do implementation_state (deixa de ser auto-declarado em prosa e passa a ser computado do indice de codigo via atlas:aeos:maturity), da a qualquer IA um owner-doc resolver deterministico (atlas:docs:locate) e converte o docs-health de vermelho-perpetuo em trava verde-alcancavel via baseline freeze + ratchet. As referencias abaixo foram verificadas como dependencias/targets de analise, nao como runtime entregue. Nao e runtime; e o plano que a implementacao seguira.
 owner: operator (Vitor)
 risk_level: medium
 tags:
@@ -79,7 +79,7 @@ evidence:
 analysis_refs:
   - symbol: EngineeringDocumentationHealthService
   - symbol: AtlasAaeosImplementationTruthService
-  - command: atlas:aaeos:maturity
+  - command: atlas:aeos:maturity
   - test: AtlasAaeosImplementationTruthServiceTest
   - receipt: docs/engineering-knowledge-base/.governance/docs-health-baseline.json
 required_tests:
@@ -105,7 +105,7 @@ Esta proposta **define o plano e os contratos-alvo** (schemas, comandos, gates) 
 ```text
 atlas-ai-knowledge-governance-system            (autoridade de governanca de conhecimento)
   +-- atlas-aaeos-documentation-as-law-proposal  (este doc: o plano)
-        +-- atlas:aaeos:maturity     (a ESPINHA: implementation_state computado)
+        +-- atlas:aeos:maturity     (a ESPINHA: implementation_state computado)
         +-- atlas:docs:locate        (R1/R2: owner-doc resolver)
         +-- docs-health baseline+ratchet (R5: Lei verde-alcancavel)
   flows_to -> atlas-aaeos-l7-convergence-roadmap (a Fase 0 do L7 ja pedia o instrumento de maturidade)
@@ -119,13 +119,13 @@ atlas-ai-knowledge-governance-system            (autoridade de governanca de con
 |---|---|---|---|---|
 | **R1** | Saber onde tudo esta | Owner-Doc Resolver (read-model sobre 3 tabelas existentes) | tabela `atlas_docs_authority_graph` | `atlas:docs:locate <needle>` (advisory; `--strict`) |
 | **R2** | Onde coisa nova vai | Dobrado no R1: regra `--strict` "novo `*os*.md` precisa de parent" | (sem tabela nova) | `atlas:docs:locate --strict` |
-| **R4** | Implementado vs. nao (verdade de maquina) | **`implementation_state` computado do indice — a ESPINHA** | enum 3-tier + `evidence_refs[]` + ledger JSON | `atlas:aaeos:maturity` + gate "verified sem prova = block" |
+| **R4** | Implementado vs. nao (verdade de maquina) | **`implementation_state` computado do indice — a ESPINHA** | enum 3-tier + `evidence_refs[]` + ledger JSON | `atlas:aeos:maturity` + gate "verified sem prova = block" |
 | **R3** | Nunca errar por falta de contexto | Adiado ate R4 existir (check `depends_on_state` reusa R4) | (reusa frontmatter R4) | (futuro) |
 | **R5** | Lei que nao vira ruido | Baseline freeze + ratchet de severidade + projecao auto-heal | `.governance/docs-health-baseline.json` | `docs-health-baseline --freeze` + `docs-health --enforce` |
 
 ### A espinha unica
 
-**`atlas:aaeos:maturity`** — o ledger que computa `implementation_state` do indice de codigo. Ataca a patologia-raiz: hoje a IA **escreve a matriz de maturidade E a le para decidir o que construir** (corrige a propria prova, sem instrumento — `atlas:aaeos:maturity` e `atlas:aaeos:quality-bar` **nao existem**, confirmado). Invertendo a posse — o doc nao *declara* estado, ele *reivindica* `evidence_refs` e o comando **computa** o tier resolvendo cada ref — a unica forma de subir um estado e **fazer um ref resolver** (shipar codigo/teste/merge). R1 diz *onde* algo mora; **R4 diz se aquilo e real**.
+**`atlas:aeos:maturity`** — o ledger que computa `implementation_state` do indice de codigo. Ataca a patologia-raiz: hoje a IA **escreve a matriz de maturidade E a le para decidir o que construir** (corrige a propria prova, sem instrumento — `atlas:aeos:maturity` e `atlas:aaeos:quality-bar` **nao existem**, confirmado). Invertendo a posse — o doc nao *declara* estado, ele *reivindica* `evidence_refs` e o comando **computa** o tier resolvendo cada ref — a unica forma de subir um estado e **fazer um ref resolver** (shipar codigo/teste/merge). R1 diz *onde* algo mora; **R4 diz se aquilo e real**.
 
 ### Schemas-alvo
 
@@ -136,7 +136,7 @@ atlas-ai-knowledge-governance-system            (autoridade de governanca de con
 ### Criterio de "virou Lei" (tudo verdade de maquina)
 
 1. `docs-health = green` ou `debt_holding`, e **blocking**: `blocking_count=0` e `legacy_debt` so decresce (`monotonic_decrease_only` nunca quebrado).
-2. **0 drift declarado-vs-computado**: `atlas:aaeos:maturity --json` retorna `drift:false` em todo doc.
+2. **0 drift declarado-vs-computado**: `atlas:aeos:maturity --json` retorna `drift:false` em todo doc.
 3. Todo claim `verified` tem >=1 proof ref que resolve (simbolo + teste verde + merge-receipt). Zero `verified` fantasma.
 4. `atlas:docs:locate <topic>` resolve em **1 passo** com confidence alta; `place-feature`/`bootstrap` consomem o resolver; `$map` hardcoded deletado.
 5. **0 orfaos** entre os novos (regra `--strict` nunca bypassada num merge).
@@ -150,7 +150,7 @@ A ordem reflete a convergencia dos dois criticos: **R5-freeze -> R1 -> R4**, com
 ```text
 R5 baseline freeze (verde-alcancavel)        <- desbloqueia: sem isso o gate do R4 herda o vermelho e e ignorado
    -> R1 atlas:docs:locate (deleta o $map)   <- carrega owner_implementation_state -> semeia o R4
-      -> R4 atlas:aaeos:maturity (a espinha)  <- computa estado; gate bloqueia over-claim; entra no loop runner
+      -> R4 atlas:aeos:maturity (a espinha)  <- computa estado; gate bloqueia over-claim; entra no loop runner
          -> R2 = a flag --strict do R1
          -> R3 (depends_on_state) + de-sprawl  <- so depois que R4 provar valor
 ```
@@ -178,8 +178,8 @@ R5 baseline freeze (verde-alcancavel)        <- desbloqueia: sem isso o gate do 
 - **Integracao que DELETA divida:** `AtlasFeaturePlacementService::ownerDocs()` (L348) e `duplicateCandidates()` (L431) — o `$map` hardcoded + scan O(repo) — passam a delegar para `locate()`.
 - **Gate:** advisory; `keyword_fallback` sempre retorna best-effort -> `unmapped` impossivel. **R2** = `--strict` (diff que adiciona `*os*.md` sem parent -> exit≠0).
 
-### Passo 3 — R4 `atlas:aaeos:maturity` (MED; a ESPINHA)
-- **Comando:** `atlas:aaeos:maturity --json [--capability=X] [--strict]`, backed por `AtlasAaeosImplementationTruthService` que **delega ao `EngineeringCodeIntelligenceService` existente** (`symbols()`, `module()->doc_links`, `contextRefs()`) + readers de teste/merge. Reusa o padrao never-fabricate do `MetricLedgerService` (check nao-rodado nunca e pass; ref ausente -> tier mais baixo). Deleta o `const DEPARTMENTS` circular do `AtlasAaeosDepartmentMaturityService`.
+### Passo 3 — R4 `atlas:aeos:maturity` (MED; a ESPINHA)
+- **Comando:** `atlas:aeos:maturity --json [--capability=X] [--strict]`, backed por `AtlasAaeosImplementationTruthService` que **delega ao `EngineeringCodeIntelligenceService` existente** (`symbols()`, `module()->doc_links`, `contextRefs()`) + readers de teste/merge. Reusa o padrao never-fabricate do `MetricLedgerService` (check nao-rodado nunca e pass; ref ausente -> tier mais baixo). Deleta o `const DEPARTMENTS` circular do `AtlasAaeosDepartmentMaturityService`.
 - **Frontmatter:** `implementation_state` (o CLAIM) + `evidence_refs[]` (`{kind: symbol|route|command|test|receipt, ref}`). **Sem write-back** — o computed vive no ledger JSON.
 - **Gate (uma regra):** `drift = rank(claim) > rank(computed)`. Over-claim = **block**; under-claim = warning. Registrado na governanca **e adicionado ao gate-set do `Reliable24hLoopRunnerService`**.
 
@@ -204,7 +204,7 @@ Seams load-bearing **verificados direto na fonte nesta sessao**:
 - `app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/MetricLedgerService.php` — padrao never-fabricate (R4) e o ratchet (R5).
 - `app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php` — gate-set do loop **sem docs-health hoje** (confirmado).
 - `php artisan atlas:engineering:knowledge docs-health --json` — taxonomia de violacoes (114 canonical / 8 oversized / 9 frontmatter / 10 warnings).
-- Confirmado ausente: comando `atlas:aaeos:maturity`.
+- Confirmado ausente: comando `atlas:aeos:maturity`.
 
 ## Riscos
 
@@ -217,10 +217,10 @@ Seams load-bearing **verificados direto na fonte nesta sessao**:
 
 **Antes (hoje):** um doc declara `implementation_state: runtime_verified` em prosa; nenhum gate checa; a IA le isso e constroi em cima de uma capability que nao existe.
 
-**Depois (R4):** o doc reivindica `evidence_refs: [{kind: command, ref: atlas:aaeos:maturity}, {kind: test, ref: AtlasAaeosImplementationTruthServiceTest}]`. `atlas:aaeos:maturity --capability=X` resolve cada ref contra o indice: comando existe? teste verde? merge-receipt? Se um nao resolve, `computed_state=partial`, `drift=true` (claim `verified` > computed `partial`) -> **gate bloqueia**. A unica forma de o doc ficar `verified` e o ref resolver — isto e, shipar o codigo/teste/merge.
+**Depois (R4):** o doc reivindica `evidence_refs: [{kind: command, ref: atlas:aeos:maturity}, {kind: test, ref: AtlasAaeosImplementationTruthServiceTest}]`. `atlas:aeos:maturity --capability=X` resolve cada ref contra o indice: comando existe? teste verde? merge-receipt? Se um nao resolve, `computed_state=partial`, `drift=true` (claim `verified` > computed `partial`) -> **gate bloqueia**. A unica forma de o doc ficar `verified` e o ref resolver — isto e, shipar o codigo/teste/merge.
 
 ## Proximas Acoes
 
 - **Passo 1 (R5 baseline freeze + ratchet + projecao auto-regen)** — LOW effort, zero deps, desbloqueador. Construir antes de tudo: senao o gate do R4 herda o vermelho-perpetuo.
-- Depois R1 (`atlas:docs:locate` + deletar o `$map`) -> R4 (`atlas:aaeos:maturity` + gate) -> R2 (ja como `--strict`) -> R3/de-sprawl.
+- Depois R1 (`atlas:docs:locate` + deletar o `$map`) -> R4 (`atlas:aeos:maturity` + gate) -> R2 (ja como `--strict`) -> R3/de-sprawl.
 - Antes de codar: rodar `atlas:ai:session-bootstrap` e `atlas:ai:place-feature` para confirmar placement dos 2 comandos novos e do artefato `.governance/`.

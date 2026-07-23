@@ -24,7 +24,7 @@ use Tests\TestCase;
  * past PHP's 30s/128M web limits and fatal'd.
  *
  * The fix collapses that N -> 1 with a per-instance fast path plus a shared cache, keyed by the
- * docs corpus — the SAME proven pattern as AtlasAaeosImplementationEvidenceResolver. The two
+ * docs corpus — the SAME proven pattern as AtlasImplementationEvidenceResolver. The two
  * services tune the SHARED tier differently and this test pins each one's actual contract:
  *   - EngineeringDocumentationHealthService::report() shares REQUEST-SCOPED (container `scoped`,
  *     reset between requests by forgetScopedInstances), so a NEW request recomputes once.

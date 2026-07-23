@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 /**
  * Runtime surface for the AAEOS Cross-Department Choreography state machine —
- * the command the canonical doc names (atlas:aaeos:choreography-status). Without
+ * the command the canonical doc names (atlas:aeos:choreography-status). Without
  * args it prints the handoff kinds + veto rules; with --veto / --repair-iteration
  * it evaluates a real transition.
  *
@@ -15,12 +15,12 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosChoreographyStatusCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:choreography-status
+    protected $signature = 'atlas:aeos:choreography-status
         {--veto= : Evaluate a veto raised by a department (security|architect|review|operator)}
         {--repair-iteration= : Evaluate the repair-loop decision at this iteration}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Inspect and evaluate the AAEOS cross-department choreography (veto/repair/handoff) runtime.';
+    protected $description = 'Inspect and evaluate the AAEOS cross-department choreography (veto/repair/handoff) runtime. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasCrossDepartmentChoreographyService $choreography): int
     {

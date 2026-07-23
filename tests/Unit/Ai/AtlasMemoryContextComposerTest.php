@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Memory\AtlasMemoryContextComposer;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Drift guard: the composer's recall score MUST stay byte-for-byte equal to the single
- * source of truth, App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer. Before
+ * source of truth, App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer. Before
  * consolidation the registry/verbatim/semantic formula was inlined here AND mirrored in the
  * scorer; this test pins them to one implementation so they can never silently diverge.
  */

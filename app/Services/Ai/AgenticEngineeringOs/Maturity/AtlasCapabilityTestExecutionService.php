@@ -15,7 +15,7 @@ use Throwable;
  * B3 / criterion C2 — RUNS a capability's named test FOR REAL and records a
  * GREEN-RUN RECEIPT. This is the EXPENSIVE, OPT-IN half of "verified means a real
  * green run": it spawns a PHPUnit process (seconds per test), so it runs ONLY from
- * the `atlas:aaeos:verify-tests` command — NEVER on a maturity read.
+ * the `atlas:aeos:verify-tests` command — NEVER on a maturity read.
  *
  * Honest-by-construction: a run is GREEN only when the process exits 0 AND at least
  * one test actually executed. A `--filter` that matches nothing prints
@@ -109,7 +109,7 @@ class AtlasCapabilityTestExecutionService
      *   - A receipt with a NULL stored hash predates freshness tracking and makes no
      *     freshness CLAIM: it is grandfathered (still green) so legacy receipts and the
      *     existing proof flow keep working; the DROP is enforced for any receipt that DOES
-     *     carry a hash. Re-running atlas:aaeos:verify-tests stamps fresh hashes on every row.
+     *     carry a hash. Re-running atlas:aeos:verify-tests stamps fresh hashes on every row.
      *   - Both current hashes null (a caller with no freshness context) -> freshness is not
      *     applicable and the green scope alone decides (backward compatible).
      *

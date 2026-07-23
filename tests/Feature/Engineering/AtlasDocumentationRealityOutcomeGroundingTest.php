@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Engineering;
 
 use App\Models\AiOutcomeLink;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
 use Illuminate\Support\Facades\Schema;
 use Mockery\MockInterface;
@@ -224,7 +224,7 @@ final class AtlasDocumentationRealityOutcomeGroundingTest extends TestCase
     {
         Schema::dropIfExists('ai_outcome_links');
 
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('ledger')
                 ->once()
                 ->with('atlas-impl-doc')
@@ -245,7 +245,7 @@ final class AtlasDocumentationRealityOutcomeGroundingTest extends TestCase
      */
     private function stubLedger(array $ledger): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
             $mock->shouldReceive('ledger')->andReturn($ledger);
         });
     }
@@ -257,7 +257,7 @@ final class AtlasDocumentationRealityOutcomeGroundingTest extends TestCase
     private function ledgerWith(array ...$rows): array
     {
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => count($rows),
                 'drift_count' => count(array_filter($rows, static fn (array $r): bool => (bool) ($r['drift'] ?? false))),

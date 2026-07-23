@@ -156,7 +156,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
     {
         $cert = $this->certify(['agent_count' => 3, 'cycles' => 2]);
 
-        $this->assertSame('available', (string) $cert['status']);
+        $this->assertSame('available', (string) $cert['status'], json_encode([
+            'violations' => $cert['violations'] ?? [],
+            'invariants' => array_filter((array) ($cert['invariants'] ?? []), static fn (mixed $value): bool => $value !== true),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertTrue((bool) $cert['invariants_all_true']);
         $this->assertSame(0, (int) $cert['violation_count']);
         $this->assertTrue((bool) $cert['invariants']['terminal_loop_fleet_launch_runbook_present']);
@@ -208,9 +211,38 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
 
         $probe = $service->runTerminalBootstrapProbe((string) Str::ulid(), 2);
 
+        $this->assertSame('available', (string) data_get($probe, 'status'));
+        $this->assertSame(2, (int) data_get($probe, 'ready_count'));
+        $this->assertSame(2, (int) data_get($probe, 'completed_dry_run_count'));
         $this->assertSame('prepared_and_enqueued', data_get($probe, 'partial_supply_probe.orchestration_event'));
         $this->assertSame(0, (int) $queue->registry()['total_count']);
         $this->assertSame([], $leases->activeLeases());
+    }
+
+    public function test_real_worker_cannot_claim_a_terminal_bootstrap_probe_packet(): void
+    {
+        [, $orchestrator, $queue] = $this->newStack();
+        $packetId = 'terminal_bootstrap_probe_'.Str::lower((string) Str::ulid());
+        $probeTag = 'terminal_worker_bootstrap_probe_'.Str::lower((string) Str::ulid());
+        $prepared = $orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $packetId,
+                'objective' => 'Keep terminal bootstrap probe packets out of real worker serving',
+                'operator_id' => 'multi-agent-loop-certification',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/__terminal_worker_bootstrap_probe__/guard.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/__terminal_worker_bootstrap_probe__/guard.php'],
+                'acceptance_criteria' => ['real_worker_must_not_claim_terminal_bootstrap_probe_packet'],
+                'required_evidence' => ['terminal_bootstrap_probe_guard_verified'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'plan_only',
+            ],
+            'queue' => ['tags' => ['terminal_bootstrap_probe', $probeTag]],
+        ]);
+        $claim = $orchestrator->claimNext('real-worker', ['tag' => $probeTag]);
+
+        $this->assertSame('prepared_and_enqueued', (string) $prepared['event']);
+        $this->assertSame('no_claimable_task', (string) $claim['event']);
+        $this->assertSame('claimable', (string) data_get($queue->get($packetId), 'status'));
     }
 
     public function test_certification_exercises_terminal_worker_bootstrap_path(): void

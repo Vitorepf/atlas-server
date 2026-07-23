@@ -84,7 +84,7 @@ evidence:
   - docs/engineering-knowledge-base/self-construction/codex-review-chain-contract.md
 evidence_refs:
   - symbol: AtlasSelfConstructionReadinessService
-  - command: atlas:aaeos:codex-review-chain-contract
+  - command: atlas:review:codex-chain-contract
   - test: AtlasCodexReviewChainContractTest
 
 required_tests:

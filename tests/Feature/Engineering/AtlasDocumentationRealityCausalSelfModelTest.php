@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityBidirectionalReconciliationService;
 use App\Services\Engineering\AtlasDocumentationRealityCausalSelfModelService;
 use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
@@ -46,9 +46,9 @@ final class AtlasDocumentationRealityCausalSelfModelTest extends TestCase
         string $r2HeadlineConfidence = 'medium',
         bool $r2Throws = false,
     ): AtlasDocumentationRealityCausalSelfModelService {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledgerRows): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledgerRows): void {
             $mock->shouldReceive('ledger')->andReturn([
-                'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+                'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
                 'summary' => ['evaluated' => count($ledgerRows)],
                 'capabilities' => $ledgerRows,
             ]);
@@ -85,7 +85,7 @@ final class AtlasDocumentationRealityCausalSelfModelTest extends TestCase
     }
 
     /**
-     * A ledger row in the shape AtlasAaeosImplementationTruthService::ledger emits.
+     * A ledger row in the shape AtlasImplementationTruthService::ledger emits.
      *
      * @param  array<int,array{kind:string,ref:string,resolved:bool}>  $evidence
      * @return array<string,mixed>
@@ -401,7 +401,7 @@ final class AtlasDocumentationRealityCausalSelfModelTest extends TestCase
     {
         // When the capability truth ledger cannot be read (throws), the model must NOT
         // fabricate a cause: it degrades to available=false with a calibrated note.
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('ledger')->andThrow(new \RuntimeException('index unavailable'));
         });
         $this->mock(AtlasDocumentationRealityOutcomeGroundingService::class, function (MockInterface $mock): void {

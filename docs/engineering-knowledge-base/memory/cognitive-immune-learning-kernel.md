@@ -85,7 +85,7 @@ evidence:
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
 evidence_refs:
   - symbol: AtlasMemoryCognitiveImmuneLearningKernelService
-  - command: atlas:aaeos:memory-cognitive-immune-learning-kernel
+  - command: atlas:memory:cognitive-immune-kernel
   - test: AtlasMemoryCognitiveImmuneLearningKernelTest
 
 required_tests:

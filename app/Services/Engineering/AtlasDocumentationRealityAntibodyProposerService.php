@@ -275,7 +275,7 @@ class AtlasDocumentationRealityAntibodyProposerService
     {
         return match ($detectorKind) {
             'frontmatter_rule' => 'docs-health frontmatter validation (atlas:engineering:knowledge docs-health)',
-            'drift_rule' => 'the maturity/drift ledger (atlas:aaeos:maturity)',
+            'drift_rule' => 'the maturity/drift ledger (atlas:aeos:maturity)',
             'static_scan' => 'the static-analysis / architecture-validate layer (atlas:ai:architecture-validate)',
             default => 'the failing gate that let the escape through (a new assertion in the existing gate)',
         };

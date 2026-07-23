@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
  * phpunit.xml), so `php artisan test` / the default PHPUnit run NEVER collects it and
  * its deliberately-failing method never reddens the suite.
  *
- * AtlasAaeosVerifiedRequiresGreenRunTest drives AtlasAaeosTestExecutionService at this
+ * AtlasAaeosVerifiedRequiresGreenRunTest drives AtlasCapabilityTestExecutionService at this
  * file BY PATH (+ --filter) to prove, with a REAL PHPUnit subprocess, that:
  *   - a genuinely PASSING test produces passed=true  (green receipt) and
  *   - a genuinely FAILING test produces passed=false (no green receipt).

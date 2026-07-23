@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  * a receipt row (passed / tests_run / exit_code / commit_stamp / output_tail). Re-runs
  * are idempotent (update in place).
  *
- * This is NOT run on a maturity read — `atlas:aaeos:maturity` stays cheap and READS the
+ * This is NOT run on a maturity read — `atlas:aeos:maturity` stays cheap and READS the
  * receipts this command writes. Cost: one PHPUnit process per named test (seconds each),
  * so run it deliberately for the capability you are promoting to `verified`.
  *
@@ -24,11 +24,11 @@ use Illuminate\Support\Str;
  */
 class AtlasAaeosVerifyTestsCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:verify-tests
+    protected $signature = 'atlas:aeos:verify-tests
         {--capability= : Restrict to a single doc id/slug or path substring (recommended — running ALL is expensive)}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Run the named test(s) of capabilities for REAL and record GREEN-RUN RECEIPTS that gate the verified tier.';
+    protected $description = 'Run the named test(s) of capabilities for REAL and record GREEN-RUN RECEIPTS that gate the verified tier. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(
         AtlasImplementationTruthService $truth,
@@ -125,7 +125,7 @@ class AtlasAaeosVerifyTestsCommand extends Command
         );
 
         if ($green > 0) {
-            $this->info("{$green} test(s) ran GREEN — those capabilities now have a green-run receipt and may reach the verified tier in atlas:aaeos:maturity.");
+            $this->info("{$green} test(s) ran GREEN — those capabilities now have a green-run receipt and may reach the verified tier in atlas:aeos:maturity.");
         }
         if ($failed > 0) {
             $this->warn("{$failed} test(s) did NOT run green — those capabilities stay partial (existence-only is not enough). Fix the test or the claim.");

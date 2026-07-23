@@ -18,13 +18,13 @@ use Illuminate\Support\Str;
  */
 class AtlasAaeosMaturityCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:maturity
+    protected $signature = 'atlas:aeos:maturity
         {--capability= : Restrict to a single doc id/slug or path substring}
         {--coverage : Report corpus-wide doc<->runtime coverage instead of the per-doc ledger}
         {--strict : Exit non-zero when any doc over-claims (claimed rank > computed rank)}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Compute machine-verified implementation_state for docs declaring evidence_refs, from the code intelligence index.';
+    protected $description = 'Compute machine-verified implementation_state for docs declaring evidence_refs, from the code intelligence index. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasImplementationTruthService $truth, AtlasDebugRootCauseService $rootCause): int
     {

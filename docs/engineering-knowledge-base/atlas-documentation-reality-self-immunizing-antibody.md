@@ -296,7 +296,7 @@ receipt resolvendo, exatamente como qualquer bloco do Atlas.
 ```text
 - falha que escapou: "predictive simulator returned clean on a degraded index"
     -> anticorpo: reproducing_test_outline (RED antes do fix) + proposed_detector
-       (drift_rule no atlas:aaeos:maturity) + status proposed_requires_human_review
+       (drift_rule no atlas:aeos:maturity) + status proposed_requires_human_review
     -> nada criado/escrito/instalado; humano escreve o teste reprodutor primeiro
 - proposeRecent sem tabela de capsulas
     -> degraded:true, antibodies:[], reason no_failure_capsules; nada fabricado

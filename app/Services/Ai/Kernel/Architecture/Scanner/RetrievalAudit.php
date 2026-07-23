@@ -110,7 +110,9 @@ class RetrievalAudit
     private function scanRetrievalRequiredSourceAvailabilityContract(): array
     {
         $violations = [];
-        $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
+        // Pin relocated under GOD-DEBULK D3 (2026-07-22): the AP-103 retrieval-source-availability
+        // family moved VERBATIM into RetrievalPlanSection; invariant unchanged, only the file moved.
+        $servicePath = app_path('Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php');
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
@@ -125,11 +127,11 @@ class RetrievalAudit
             "'required_unavailable_sources' => array_values(array_keys(array_filter",
             'private function evidenceReplayCount(array $contextRefs, array $contextPack): int',
             'private function graphRetrievalCount(array $contextRefs, array $contextPack): int',
-            'private function retrievalPlanWarnings(array $retrievalPlan): array',
+            'public function retrievalPlanWarnings(array $retrievalPlan): array',
             "'retrieval_required_source_unavailable'",
         ] as $token) {
             if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: AP-103 required retrieval source availability gate is incomplete [{$token}]";
+                $violations[] = "app/Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php: AP-103 required retrieval source availability gate is incomplete [{$token}]";
             }
         }
 
@@ -163,10 +165,16 @@ class RetrievalAudit
     private function scanRetrievalReviewSignalNextActionContract(): array
     {
         $violations = [];
+        // Pin relocated under GOD-DEBULK D3 (2026-07-22): the retrieval review-signal PRODUCERS
+        // moved VERBATIM into RetrievalPlanSection; nextActions (the review_signal -> operator-action
+        // CONSUMER) stays on the façade. Invariant unchanged — each token is still required
+        // textually in its real new home, and the check still fails if any producer/consumer is removed.
+        $sectionPath = app_path('Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php');
         $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
+        $section = File::exists($sectionPath) ? File::get($sectionPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -177,12 +185,19 @@ class RetrievalAudit
             'private function retrievalRecommendedAction(array $sources): string',
             "'status' => 'blocking'",
             "'recommended_action' => \$this->retrievalRecommendedAction(\$requiredUnavailable)",
+        ] as $token) {
+            if (! str_contains($section, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php: AP-104 retrieval review_signal contract is incomplete [{$token}]";
+            }
+        }
+
+        foreach ([
             'private function nextActions(array $warnings, array $summary = []): array',
             "data_get(\$summary, 'retrieval_plan.review_signal.recommended_action')",
             'Refresh evidence replay or attach trace/envelope evidence before retrying.',
         ] as $token) {
             if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: AP-104 retrieval review_signal/next_actions contract is incomplete [{$token}]";
+                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: AP-104 retrieval next_actions contract is incomplete [{$token}]";
             }
         }
 

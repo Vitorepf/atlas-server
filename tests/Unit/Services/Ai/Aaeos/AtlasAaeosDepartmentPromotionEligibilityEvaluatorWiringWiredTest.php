@@ -11,7 +11,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluatorWiringWiredTest ext
 {
     public function test_department_status_command_includes_promotion_eligibility(): void
     {
-        Artisan::call('atlas:aaeos:department-status', ['--json' => true]);
+        Artisan::call('atlas:aeos:department-status', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayHasKey('promotion_eligibility', $payload);
@@ -24,7 +24,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluatorWiringWiredTest ext
 
     public function test_each_department_promotion_result_carries_evaluator_schema_and_verdict(): void
     {
-        Artisan::call('atlas:aaeos:department-status', ['--json' => true]);
+        Artisan::call('atlas:aeos:department-status', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
         $product = $payload['promotion_eligibility']['departments']['product'];

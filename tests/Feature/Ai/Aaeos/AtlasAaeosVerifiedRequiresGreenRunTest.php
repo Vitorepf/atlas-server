@@ -45,7 +45,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         // Seed the index so the capability's refs RESOLVE (existence-only): a real
         // class symbol, a CLI command (wiring), and a *Test* symbol (existence match).
         $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService', 'class-1');
-        $this->seedSymbol('cli_command', 'atlas:aaeos:maturity', 'cmd-1');
+        $this->seedSymbol('cli_command', 'atlas:aeos:maturity', 'cmd-1');
         $this->seedSymbol(
             'test_method',
             'Tests\\Unit\\Ai\\Aaeos\\'.self::TEST_REF.'::test_under_claim_is_not_drift',
@@ -80,7 +80,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         $this->assertFalse($result['resolved']['test_green']);
         $this->assertSame('existence_only_unrun', $result['test_resolution']);
         $this->assertContains(
-            'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)',
+            'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aeos:verify-tests)',
             $result['unmet_evidence'],
         );
 
@@ -255,7 +255,7 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
             'runtime_verified',
             [
                 ['kind' => 'symbol', 'ref' => 'AtlasImplementationTruthService'],
-                ['kind' => 'command', 'ref' => 'atlas:aaeos:maturity'],
+                ['kind' => 'command', 'ref' => 'atlas:aeos:maturity'],
                 ['kind' => 'test', 'ref' => self::TEST_REF],
                 // A present receipt file (this very test file) satisfies the receipt kind.
                 ['kind' => 'receipt', 'ref' => 'tests/Feature/Ai/Aaeos/AtlasAaeosVerifiedRequiresGreenRunTest.php'],

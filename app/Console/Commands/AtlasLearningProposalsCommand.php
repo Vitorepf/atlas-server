@@ -21,9 +21,9 @@ use Throwable;
  */
 final class AtlasLearningProposalsCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:learning-proposals {--json : Machine-readable JSON output}';
+    protected $signature = 'atlas:learning:proposals-decision {--json : Machine-readable JSON output}';
 
-    protected $description = 'Decide learning-proposal rules: evidence-gated admission, weak-signal hold, justification/risk/action output, and the critical-change no-auto-apply review gate.';
+    protected $description = 'Decide learning-proposal rules: evidence-gated admission, weak-signal hold, justification/risk/action output, and the critical-change no-auto-apply review gate. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasLearningProposalDecisionService $service): int
     {

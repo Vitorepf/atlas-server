@@ -11,7 +11,7 @@ final class AtlasAaeosAcosSimplifyCycleCommandTest extends TestCase
 {
     public function test_plan_emits_json_with_elite_contract_and_steps(): void
     {
-        $exit = Artisan::call('atlas:aaeos-acos:simplify-cycle', [
+        $exit = Artisan::call('atlas:acos:simplify-cycle', [
             'action' => 'plan',
             '--json' => true,
             '--dry-run' => '1',
@@ -29,7 +29,7 @@ final class AtlasAaeosAcosSimplifyCycleCommandTest extends TestCase
 
     public function test_prompts_action_lists_external_worker_steps(): void
     {
-        $exit = Artisan::call('atlas:aaeos-acos:simplify-cycle', [
+        $exit = Artisan::call('atlas:acos:simplify-cycle', [
             'action' => 'prompts',
             '--json' => true,
         ]);

@@ -57,7 +57,10 @@ class AtlasAiProductCertificationService
 
     public const PATH_CANON_TYPES = 'packages/atlas-rich-input-canon/src/types.ts';
 
-    public const PATH_MOBILE_CANON_IMPORT = 'atlas-app/lib/api/client.ts';
+    // ponytail: tracks the atlas-ai client surface. The R2 runbook split it out of the
+    // monolithic client.ts into atlasAi.ts (client.ts now re-exports it via `export * from
+    // './atlasAi'`). Repoint if that surface moves again.
+    public const PATH_MOBILE_CANON_IMPORT = 'atlas-app/lib/api/atlasAi.ts';
 
     public const PATH_MOBILE_RICH_INPUT_BARREL = 'atlas-app/lib/richInput/sourceManifest.ts';
 

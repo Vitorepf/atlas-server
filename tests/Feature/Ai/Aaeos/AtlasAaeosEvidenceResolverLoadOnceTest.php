@@ -42,7 +42,7 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
         $this->seedSymbol('class', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('method', 'App\\Services\\Ai\\Aaeos\\AtlasImplementationTruthService::compute', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('route', 'POST /ai/interactions', 'routes/api.php', signature: 'POST /ai/interactions');
-        $this->seedSymbol('cli_command', 'atlas:aaeos:maturity', 'app/Console/Commands/Aaeos/MaturityCommand.php');
+        $this->seedSymbol('cli_command', 'atlas:aeos:maturity', 'app/Console/Commands/Aaeos/MaturityCommand.php');
         $this->seedSymbol('migration_table', 'atlas_aaeos_test_run_receipts', 'database/migrations/x.php');
         $this->seedSymbol('test_method', 'Tests\\Unit\\Ai\\Aaeos\\AtlasAaeosImplementationTruthServiceTest::test_partial_requires_symbol_plus_wiring', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
         $this->seedSymbol('class', 'Tests\\Unit\\Ai\\Aaeos\\AtlasAaeosImplementationTruthServiceTest', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
@@ -76,7 +76,7 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
             $resolver->resolve('symbol', 'AtlasImplementationTruthService::compute');
             $resolver->resolve('symbol', 'DefinitelyNotIndexed'.$i); // unresolved path too
             $resolver->resolve('route', '/ai/interactions');
-            $resolver->resolve('command', 'atlas:aaeos:maturity');
+            $resolver->resolve('command', 'atlas:aeos:maturity');
             $resolver->resolve('migration', 'atlas_aaeos_test_run_receipts');
             $resolver->resolve('test', 'AtlasAaeosImplementationTruthServiceTest');
             $resolver->resolveSymbolFilePaths('AtlasImplementationTruthService');
@@ -152,7 +152,7 @@ final class AtlasAaeosEvidenceResolverLoadOnceTest extends TestCase
 
         // route / command / migration resolve by substring of name or signature.
         $this->assertTrue($resolver->resolve('route', '/ai/interactions')['resolved']);
-        $this->assertTrue($resolver->resolve('command', 'atlas:aaeos:maturity')['resolved']);
+        $this->assertTrue($resolver->resolve('command', 'atlas:aeos:maturity')['resolved']);
         $this->assertTrue($resolver->resolve('migration', 'atlas_aaeos_test_run_receipts')['resolved']);
 
         // test existence (a *Test* symbol containing the ref).

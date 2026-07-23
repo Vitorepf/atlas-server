@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -291,7 +291,7 @@ final class AtlasDocumentationRealityDriftGuardTest extends TestCase
      */
     private function stubLedger(array $ledger): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
             $mock->shouldReceive('ledger')->andReturn($ledger);
         });
     }
@@ -307,7 +307,7 @@ final class AtlasDocumentationRealityDriftGuardTest extends TestCase
         $drift = count(array_filter($rows, static fn (array $r): bool => ($r['drift'] ?? false) === true));
 
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => count($rows),
                 'drift_count' => $drift,

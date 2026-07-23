@@ -66,10 +66,10 @@ governs:
   - atlas_ai.aaeos.cross_department
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-cross-department-choreography.md
-implementation_state: partial
+implementation_state: spec
 evidence_refs:
   - symbol: AtlasCrossDepartmentChoreographyService
-  - command: atlas:aaeos:choreography-status
+  - command: atlas:aeos:choreography-status
   - test: AtlasCrossDepartmentChoreographyServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -183,7 +183,7 @@ Department Contract (T1.2), Mission Control Cockpit (T1.5).
 
 ## Evidencias
 
-Comando: `atlas:aaeos:choreography-status --intent=<id> --json`.
+Comando: `atlas:aeos:choreography-status --intent=<id> --json`.
 
 ## Riscos
 

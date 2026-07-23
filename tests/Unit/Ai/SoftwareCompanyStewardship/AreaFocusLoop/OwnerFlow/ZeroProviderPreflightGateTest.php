@@ -95,7 +95,7 @@ final class ZeroProviderPreflightGateTest extends TestCase
         // layers (app/Services, config) — admitted ONLY because the operator authorized the slice.
         // The merge governor downstream still enforces validation-green + changed⊆allowed + bounded.
         $files = [
-            'app/Services/Ai/Aaeos/AtlasAaeosPhaseRouterService.php',
+            'app/Services/Ai/Aaeos/AtlasPhaseRouterService.php',
             'app/Services/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeService.php',
             'config/atlas.php',
             'tests/Unit/Ai/Aaeos/AtlasAaeosPhaseRouterServiceTest.php',

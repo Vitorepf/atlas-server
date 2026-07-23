@@ -159,7 +159,7 @@ Somente os slices S83-S165 extraidos do backlog canônico. O objetivo e tornar a
 
 ## Exemplos
 
-- Uma promocao governada L7 -> L8 so e admitida quando o gate correspondente computa runtime real (drift=0 via `atlas:aaeos:maturity`); claim sem evidence e bloqueado.
+- Uma promocao governada L7 -> L8 so e admitida quando o gate correspondente computa runtime real (drift=0 via `atlas:aeos:maturity`); claim sem evidence e bloqueado.
 
 ## Proximas Acoes
 

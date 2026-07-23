@@ -104,7 +104,7 @@ Não é o Loop/ACDE morto. Não declara soberania zero-operador.
 ## Fluxo
 
 ```text
-atlas:aaeos-acos:simplify-cycle plan
+atlas:acos:simplify-cycle plan
   → brain:next aaeos_acos
   → brain:seed (dry → real)
   → replenish se fila seca (sem proxy)
@@ -122,7 +122,7 @@ atlas:aaeos-acos:simplify-cycle plan
 ## Exemplos
 
 ```bash
-php artisan atlas:aaeos-acos:simplify-cycle plan --json
+php artisan atlas:acos:simplify-cycle plan --json
 php artisan atlas:brain:next aaeos_acos --json
 php artisan atlas:brain:worker-prompt --scope=aaeos_acos
 ```

@@ -21,7 +21,7 @@ use Illuminate\Console\Command;
  *   atlas:aaeos:runbook            — show the 17-phase canonical runbook
  *   atlas:aaeos:phase-handoff      — emit and validate an atlas.aaeos.phase.v1 envelope
  *   atlas:aaeos:phase-skip         — record a justified phase skip with receipt
- *   atlas:aaeos:department-status  — show department catalogue + canon-field coverage
+ *   atlas:aeos:department-status  — show department catalogue + canon-field coverage
  *   atlas:aaeos:cockpit            — render mission-control cockpit snapshot
  *   atlas:aaeos:universal-gates    — evaluate the 15 universal gates from a signals JSON file
  *
@@ -805,7 +805,7 @@ final class AtlasAaeosCommand extends Command
                             {--b780-aaeos-department-floors-contract= : JSON file (any object) to observe aaeos/department floors}
         {--json : Machine-readable JSON output}';
 
-    protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
+    protected $description = '[ADVANCED ONLY — not daily; see atlas-cli-daily-map] Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
 
     public function handle(
         DepartmentContractRuntime $departments,

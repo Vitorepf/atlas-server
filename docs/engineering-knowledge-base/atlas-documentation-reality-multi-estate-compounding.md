@@ -287,7 +287,7 @@ transmissao real entre maquinas/projetos sao deliberadamente fora de escopo — 
 - test: `AtlasDocumentationRealityMultiEstateCompoundingTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-multi-estate-compounding --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-multi-estate-compounding --json`.
 
 ## Riscos
 

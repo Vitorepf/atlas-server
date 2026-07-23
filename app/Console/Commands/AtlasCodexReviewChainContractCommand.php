@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Codex Review Chain Contract CLI.
  *
- *   php artisan atlas:aaeos:codex-review-chain-contract [--json]
+ *   php artisan atlas:review:codex-chain-contract [--json]
  *
  * Read-only, deterministic surface for the non-executing review/signature/
  * merge-action chain that runs after the five-packet implementation flow reaches
@@ -31,9 +31,9 @@ use Throwable;
  */
 class AtlasCodexReviewChainContractCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:codex-review-chain-contract {--json : machine-readable JSON output (default true)}';
+    protected $signature = 'atlas:review:codex-chain-contract {--json : machine-readable JSON output (default true)}';
 
-    protected $description = 'Atlas self-construction · codex review chain contract — read-only review/signature/merge-action chain that approves, signs and merges nothing.';
+    protected $description = 'Atlas self-construction · codex review chain contract — read-only review/signature/merge-action chain that approves, signs and merges nothing. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasSelfConstructionReadinessService $service): int
     {

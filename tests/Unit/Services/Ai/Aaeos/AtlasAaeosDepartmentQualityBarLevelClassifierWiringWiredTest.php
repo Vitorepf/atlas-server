@@ -12,7 +12,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifierWiringWiredTest extends
     public function test_department_status_command_exposes_quality_bar_level_classification(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', ['--json' => true]);
+        $exit = $kernel->call('atlas:aeos:department-status', ['--json' => true]);
         $out = $kernel->output();
 
         $this->assertSame(0, $exit, $out);

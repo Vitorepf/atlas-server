@@ -250,7 +250,7 @@ class AtlasDocumentationRealityReflectiveStatusService
                 'A high coverage number means the claims made are backed; it does NOT mean every capability that SHOULD be claimed has a doc.',
                 $coverageReadable ? null : 'The coverage read model was unavailable this run, so confidence is low rather than asserted.',
             ])),
-            evidenceRef: 'AtlasImplementationTruthService::coverage (atlas:aaeos:maturity)',
+            evidenceRef: 'AtlasImplementationTruthService::coverage (atlas:aeos:maturity)',
         );
 
         return $claims;

@@ -37,7 +37,7 @@ final class AtlasVetoPropagationWatchdogWiringWiredTest extends TestCase
         ]));
 
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', [
+        $exit = $kernel->call('atlas:aeos:department-status', [
             '--veto-events' => $this->eventsFile,
             '--json' => true,
         ]);
@@ -58,7 +58,7 @@ final class AtlasVetoPropagationWatchdogWiringWiredTest extends TestCase
     public function test_department_status_command_omits_veto_propagation_without_option(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', ['--json' => true]);
+        $exit = $kernel->call('atlas:aeos:department-status', ['--json' => true]);
         $out = $kernel->output();
 
         $this->assertSame(0, $exit, $out);

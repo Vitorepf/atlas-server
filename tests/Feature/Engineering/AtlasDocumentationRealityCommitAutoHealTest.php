@@ -6,7 +6,7 @@ namespace Tests\Feature\Engineering;
 
 use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityAutoHealService;
 use App\Services\Engineering\AtlasDocumentationRealityWriteGateService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
@@ -31,7 +31,7 @@ use Tests\TestCase;
  *
  * EVERY behavioral write lands in a SANDBOX (a throwaway temp git repo + temp docs). The
  * honest state is computed from the STAGED doc's frontmatter against a seeded sqlite :memory:
- * code index — the REAL, un-mocked AtlasAaeosImplementationTruthService — so the target is
+ * code index — the REAL, un-mocked AtlasImplementationTruthService — so the target is
  * genuinely ledger-derived. The real .git/hooks and the real docs/ tree are read-only here.
  *
  * sqlite :memory:, NO RefreshDatabase. setUp runs the two real migrations' up() (code
@@ -203,7 +203,7 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
         $this->writeDoc($relA, 'verified', ['symbol: GhostA', 'test: GhostATest']);
 
         // DOC B => computes 'partial' (symbol + wiring resolve; test ghost, no green receipt).
-        $this->seedSymbolWithFile('class', 'App\\Real\\PartialImpl', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbolWithFile('class', 'App\\Real\\PartialImpl', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('cli_command', 'atlas:partial:cmd');
         $relB = 'docs/engineering-knowledge-base/atlas-over-claimer-b.md';
         $this->writeDoc($relB, 'verified', ['symbol: PartialImpl', 'command: atlas:partial:cmd', 'test: GhostBTest']);
@@ -244,7 +244,7 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
 
         // Real indexed symbol + wiring + a real indexed test class file (so existence + file
         // resolve) — the only thing missing for verified is a GREEN receipt.
-        $this->seedSymbolWithFile('class', 'App\\Real\\DocBImpl', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbolWithFile('class', 'App\\Real\\DocBImpl', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('cli_command', 'atlas:docb:cmd');
         $this->seedSymbolWithFile('class', 'Tests\\Unit\\Real\\DocBGreenRunTest', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
 
@@ -303,7 +303,7 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
         $this->requireGit();
 
         // Claims partial; symbol + wiring resolve => computed partial => honest.
-        $this->seedSymbolWithFile('class', 'App\\Real\\HonestImpl', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbolWithFile('class', 'App\\Real\\HonestImpl', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('cli_command', 'atlas:honest:cmd');
 
         $rel = 'docs/engineering-knowledge-base/atlas-honest.md';
@@ -327,7 +327,7 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
         $this->requireGit();
 
         // Claims spec; symbol + wiring resolve => computed partial (under-claim).
-        $this->seedSymbolWithFile('class', 'App\\Real\\UnderImpl', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbolWithFile('class', 'App\\Real\\UnderImpl', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('cli_command', 'atlas:under:cmd');
 
         $rel = 'docs/engineering-knowledge-base/atlas-under.md';
@@ -357,7 +357,7 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
         //   no refs            => spec
         //   symbol+wiring      => partial
         //   symbol+wiring+green=> verified
-        $this->seedSymbolWithFile('class', 'App\\Real\\MatrixImpl', 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php');
+        $this->seedSymbolWithFile('class', 'App\\Real\\MatrixImpl', 'app/Services/Ai/Aaeos/AtlasImplementationTruthService.php');
         $this->seedSymbol('cli_command', 'atlas:matrix:cmd');
         $this->seedSymbolWithFile('class', 'Tests\\Unit\\Real\\MatrixGreenTest', 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php');
 
@@ -801,9 +801,9 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
         );
     }
 
-    private function service(): AtlasAaeosImplementationTruthService
+    private function service(): AtlasImplementationTruthService
     {
-        return app(AtlasAaeosImplementationTruthService::class);
+        return app(AtlasImplementationTruthService::class);
     }
 
     /**

@@ -52,7 +52,7 @@ evidence:
   - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
 evidence_refs:
   - symbol: AtlasLearningProposalsService
-  - command: atlas:aaeos:learning-proposals
+  - command: atlas:learning:proposals-decision
   - test: AtlasLearningProposalsTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json

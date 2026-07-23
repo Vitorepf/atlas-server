@@ -268,7 +268,7 @@ existe) e o compounding multi-estate (O3) sao deliberadamente fora de escopo.
 - test: `AtlasDocumentationRealityIntentAdvisoryTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-intent-coformation --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-intent-coformation --json`.
 
 ## Riscos
 

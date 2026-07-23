@@ -80,7 +80,7 @@ evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-signed-final-receipt-contract.md
 evidence_refs:
   - symbol: AtlasSelfConstructionReadinessService
-  - command: atlas:aaeos:codex-review-chain-contract
+  - command: atlas:review:codex-chain-contract
   - test: AtlasCodexReviewChainContractTest
 
 required_tests:

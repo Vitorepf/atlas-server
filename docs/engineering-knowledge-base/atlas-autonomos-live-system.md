@@ -132,13 +132,13 @@ Nao inclui: religar ACDE/`atlas:loop:*`, mass-delete por prefixo, auto-merge.
 php artisan atlas:brain:next --json
 php artisan atlas:brain:seed --json
 php artisan atlas:task next --json
-php artisan atlas:aaeos-acos:simplify-cycle plan --json
+php artisan atlas:acos:simplify-cycle plan --json
 php artisan atlas:brain:next aaeos_acos --json
 ```
 
 ## Lane AAEOS+ACOS (defatoração elite)
 
-Scope `aaeos_acos` + `atlas:aaeos-acos:simplify-cycle` — mutação só em AAEOS/ACOS com Contrato Elite
+Scope `aaeos_acos` + `atlas:acos:simplify-cycle` — mutação só em AAEOS/ACOS com Contrato Elite
 (shrink + consumers + anti-proxy). Doc: `atlas-aaeos-acos-elite-simplify-lane.md`. Schedule default OFF.
 
 ## Proximas Acoes

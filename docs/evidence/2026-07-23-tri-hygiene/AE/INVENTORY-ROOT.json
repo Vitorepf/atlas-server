@@ -1,0 +1,1867 @@
+[
+  {
+    "class": "AtlasAaelLoopExecutionBridge",
+    "file": "AtlasAaelLoopExecutionBridge.php",
+    "loc": 274,
+    "external": 8,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAaelCommand.php",
+      "tests/Unit/Services/Ai/AutonomousEvolution/AtlasLoopArmedCoverageReporterWiringWiredTest.php",
+      "tests/Feature/Loop/AtlasAaelExecutionDriftAuditorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasAutonomosMasterSwitch",
+    "file": "AtlasAutonomosMasterSwitch.php",
+    "loc": 37,
+    "external": 0,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_INTERNAL",
+    "external_sample": []
+  },
+  {
+    "class": "AtlasAutonomousEvolutionCertificationService",
+    "file": "AtlasAutonomousEvolutionCertificationService.php",
+    "loc": 286,
+    "external": 6,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAaelCertifyCommand.php",
+      "tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationServiceTest.php",
+      "app/Services/Ai/Product/AtlasAiProductCertificationService.php"
+    ]
+  },
+  {
+    "class": "AtlasAutonomousEvolutionLoopService",
+    "file": "AtlasAutonomousEvolutionLoopService.php",
+    "loc": 915,
+    "external": 13,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAaelCommand.php",
+      "tests/Unit/Services/Ai/AutonomousEvolution/AtlasLoopArmedCoverageReporterWiringWiredTest.php",
+      "tests/Feature/Loop/AtlasAaelCommandBridgeExecuteTest.php"
+    ]
+  },
+  {
+    "class": "AtlasEvolutionFrozenJudge",
+    "file": "AtlasEvolutionFrozenJudge.php",
+    "loc": 930,
+    "external": 52,
+    "internal": 23,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "app/Console/Commands/AtlasFinanceStrategyEvolveCommand.php",
+      "tests/Feature/Loop/AtlasLoopReproveMinimalPathTest.php"
+    ]
+  },
+  {
+    "class": "AtlasEvolutionLoopRunner",
+    "file": "AtlasEvolutionLoopRunner.php",
+    "loc": 719,
+    "external": 9,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasAaelExecutionDriftAuditorTest.php",
+      "tests/Feature/Loop/AtlasLoopQualityPersistenceTest.php",
+      "tests/Feature/Loop/AtlasAaelExecutionPlanProverTest.php"
+    ]
+  },
+  {
+    "class": "AtlasEvolutionTaskGenerator",
+    "file": "AtlasEvolutionTaskGenerator.php",
+    "loc": 397,
+    "external": 24,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorLaneTest.php",
+      "tests/Feature/Loop/AtlasLoopCoverageDeficitRefillTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAbstainAndAsk",
+    "file": "AtlasLoopAbstainAndAsk.php",
+    "loc": 94,
+    "external": 5,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOriginationGrindPayloadTest.php",
+      "tests/Feature/Loop/AtlasLoopWiringMaterialGraderTest.php",
+      "tests/Feature/Loop/AtlasLoopAbstainAndAskTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAdversarialVerifierPool",
+    "file": "AtlasLoopAdversarialVerifierPool.php",
+    "loc": 261,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAdversarialVerifierPoolTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAmbitionLeapProposer",
+    "file": "AtlasLoopAmbitionLeapProposer.php",
+    "loc": 126,
+    "external": 3,
+    "internal": 2,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAmbitionLeapProposerTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFrontierGapModelTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/Brain/AtlasBrainEvolutionLevelClassifierTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAntiFarmFloor",
+    "file": "AtlasLoopAntiFarmFloor.php",
+    "loc": 81,
+    "external": 2,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopAntiFarmFloorTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/Discovery/AtlasLoopWiredAcceptanceProductionCallerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAntiGoodhartUnifiedRefusal",
+    "file": "AtlasLoopAntiGoodhartUnifiedRefusal.php",
+    "loc": 224,
+    "external": 5,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopRefusalCriticPanelTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAntiGoodhartUnifiedRefusalTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopArchitectPhaseGate",
+    "file": "AtlasLoopArchitectPhaseGate.php",
+    "loc": 161,
+    "external": 3,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopArchitectPhaseGateTest.php",
+      "tests/Feature/Loop/AtlasLoopRecursiveSelfImprovementGateTest.php",
+      "tests/Feature/Loop/AtlasLoopArchitectPhasePetreoTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopArmedCoverageReporter",
+    "file": "AtlasLoopArmedCoverageReporter.php",
+    "loc": 94,
+    "external": 3,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAaelCommand.php",
+      "tests/Unit/Services/Ai/AutonomousEvolution/AtlasLoopArmedCoverageReporterWiringWiredTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopArmedCoverageReporterTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAtomParaphraseAudit",
+    "file": "AtlasLoopAtomParaphraseAudit.php",
+    "loc": 83,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAtomParaphraseAuditTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAttemptLedger",
+    "file": "AtlasLoopAttemptLedger.php",
+    "loc": 110,
+    "external": 2,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAttemptLedgerTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopHardCaseHarnessTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAutoArchitectureProposalService",
+    "file": "AtlasLoopAutoArchitectureProposalService.php",
+    "loc": 698,
+    "external": 0,
+    "internal": 3,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": []
+  },
+  {
+    "class": "AtlasLoopAutoMergeService",
+    "file": "AtlasLoopAutoMergeService.php",
+    "loc": 1676,
+    "external": 32,
+    "internal": 9,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopFixForwardTest.php",
+      "tests/Feature/Loop/AtlasLoopConfidenceSampleFeederTest.php",
+      "tests/Feature/Loop/AtlasLoopOriginationProducerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopAutonomousConductor",
+    "file": "AtlasLoopAutonomousConductor.php",
+    "loc": 146,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopConductorEscalationWiringTest.php",
+      "tests/Feature/Loop/AtlasLoopRejectionDimensionRoutingTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAutonomousConductorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopBacklogAutoFeederService",
+    "file": "AtlasLoopBacklogAutoFeederService.php",
+    "loc": 81,
+    "external": 4,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopQualityPersistenceTest.php",
+      "tests/Feature/Loop/AtlasLoopCoverageGapFeederTest.php",
+      "tests/Feature/Loop/AtlasLoopCoverageDeficitRefillTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopBacklogAutoFeederServiceSupport",
+    "file": "AtlasLoopBacklogAutoFeederServiceSupport.php",
+    "loc": 405,
+    "external": 0,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_INTERNAL",
+    "external_sample": []
+  },
+  {
+    "class": "AtlasLoopBacklogManifestService",
+    "file": "AtlasLoopBacklogManifestService.php",
+    "loc": 135,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopBacklogManifestServiceTest.php",
+      "tests/Unit/Ai/Brain2/AtlasLoopBacklogManifestServiceHardeningTest.php",
+      "app/Services/Ai/Programming/AtlasDevBeatTestReportService.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopBehavioralEquivalenceGate",
+    "file": "AtlasLoopBehavioralEquivalenceGate.php",
+    "loc": 47,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopBehavioralEquivalenceGateTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopBroaderRegressionGate",
+    "file": "AtlasLoopBroaderRegressionGate.php",
+    "loc": 418,
+    "external": 5,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "app/Models/AtlasLoopTestCoverageEdge.php",
+      "tests/Feature/Loop/AtlasLoopMaterializerSandboxFloorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCalibratedConfidenceGate",
+    "file": "AtlasLoopCalibratedConfidenceGate.php",
+    "loc": 179,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCalibratedConfidenceGateTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCapabilityTrendService",
+    "file": "AtlasLoopCapabilityTrendService.php",
+    "loc": 152,
+    "external": 4,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCompoundingClosedLoopTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCapabilityTrendServiceTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCapabilityTrendTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopChangedSymbolCoverageCensus",
+    "file": "AtlasLoopChangedSymbolCoverageCensus.php",
+    "loc": 243,
+    "external": 3,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopChangedSymbolCoverageCensusTest.php",
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopSymbolExercisedTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCharacterizationTestVerifier",
+    "file": "AtlasLoopCharacterizationTestVerifier.php",
+    "loc": 124,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCharacterizationTestVerifierTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopClarificationRouter",
+    "file": "AtlasLoopClarificationRouter.php",
+    "loc": 45,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopClarificationRoutingTest.php",
+      "app/Models/AtlasLoopClarificationRequest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCompletenessGate",
+    "file": "AtlasLoopCompletenessGate.php",
+    "loc": 75,
+    "external": 2,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCompletenessGateTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopComprehensionOriginator",
+    "file": "AtlasLoopComprehensionOriginator.php",
+    "loc": 248,
+    "external": 6,
+    "internal": 4,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopComprehensionOriginatorTest.php",
+      "tests/Feature/Loop/AtlasLoopOriginationPipelineTest.php",
+      "tests/Feature/Ai/MaestroDialogueCommandTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopConfidenceCalibrator",
+    "file": "AtlasLoopConfidenceCalibrator.php",
+    "loc": 124,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Models/AtlasLoopConfidenceSample.php",
+      "tests/Feature/Loop/AtlasEvolutionTaskGeneratorTestTargetGuardTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopConfidenceCalibratorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopContractGapScanner",
+    "file": "AtlasLoopContractGapScanner.php",
+    "loc": 148,
+    "external": 2,
+    "internal": 2,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Console/Commands/AtlasBrainContractGapsCommand.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopContractGapScannerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCortexRoleTokenSemanticDisambiguator",
+    "file": "AtlasLoopCortexRoleTokenSemanticDisambiguator.php",
+    "loc": 115,
+    "external": 2,
+    "internal": 1,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Services/Ai/SelfConstruction/TaskServing/AtlasTaskBrainReplenisher.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCortexRoleTokenSemanticDisambiguatorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCrossFileConsumerGateService",
+    "file": "AtlasLoopCrossFileConsumerGateService.php",
+    "loc": 597,
+    "external": 7,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProjectionObligationContractsTest.php",
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCrossLeverageRegistry",
+    "file": "AtlasLoopCrossLeverageRegistry.php",
+    "loc": 97,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCrossLeverageRegistryTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCrossModelTriangulator",
+    "file": "AtlasLoopCrossModelTriangulator.php",
+    "loc": 263,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopCrossModelTriangulatorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCrossTypeLeverageSelector",
+    "file": "AtlasLoopCrossTypeLeverageSelector.php",
+    "loc": 50,
+    "external": 4,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOriginationOnStarvationWiringTest.php",
+      "tests/Feature/Loop/AtlasLoopCrossTypeLeverageSelectorTest.php",
+      "tests/Feature/Loop/AtlasLoopLeverageDroppedCandidatesDigestTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopCycleGitContract",
+    "file": "AtlasLoopCycleGitContract.php",
+    "loc": 372,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCycleGitContractTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDbResilience",
+    "file": "AtlasLoopDbResilience.php",
+    "loc": 232,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCampaignSupervisorTest.php",
+      "tests/Unit/Loop/AtlasLoopDbResilienceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeadCodeProducer",
+    "file": "AtlasLoopDeadCodeProducer.php",
+    "loc": 149,
+    "external": 1,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopDeadCodeProducerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDecompositionOutcomeRecorder",
+    "file": "AtlasLoopDecompositionOutcomeRecorder.php",
+    "loc": 169,
+    "external": 4,
+    "internal": 10,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopDecompositionOutcomeLedgerTest.php",
+      "tests/Feature/Loop/AtlasLoopInLaneExtractCorpusTest.php",
+      "app/Models/AtlasLoopDecompositionOutcome.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDecompositionShapePrior",
+    "file": "AtlasLoopDecompositionShapePrior.php",
+    "loc": 70,
+    "external": 2,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Models/AtlasLoopDecompositionOutcome.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopDecompositionShapePriorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeliveryConfidenceModel",
+    "file": "AtlasLoopDeliveryConfidenceModel.php",
+    "loc": 115,
+    "external": 2,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopDeliveryConfidenceModelTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeliveryContractRecorder",
+    "file": "AtlasLoopDeliveryContractRecorder.php",
+    "loc": 226,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopDeliveryContractRecorderTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeliveryDimensionResolver",
+    "file": "AtlasLoopDeliveryDimensionResolver.php",
+    "loc": 52,
+    "external": 1,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopDeliveryDimensionResolverTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeliveryQualityScore",
+    "file": "AtlasLoopDeliveryQualityScore.php",
+    "loc": 229,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopDeliveryQualityScoreTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopDeterministicDeadCodeWorkType",
+    "file": "AtlasLoopDeterministicDeadCodeWorkType.php",
+    "loc": 139,
+    "external": 1,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopDeterministicDeadCodeWorkTypeTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopEarnedAutonomyDecisionTrace",
+    "file": "AtlasLoopEarnedAutonomyDecisionTrace.php",
+    "loc": 103,
+    "external": 3,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopEarnedAutonomyTraceWiringTest.php",
+      "tests/Feature/Loop/AtlasLoopEarnedAutonomyObserveOnlyTest.php",
+      "app/Services/Ai/Foundry/Rsi/RsiSelfImprovementProposalGate.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopEscalationLadder",
+    "file": "AtlasLoopEscalationLadder.php",
+    "loc": 71,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopEscalationLadderTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopExplorerStrategyBanditService",
+    "file": "AtlasLoopExplorerStrategyBanditService.php",
+    "loc": 563,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopBanditCompoundKeyTest.php",
+      "tests/Feature/Loop/AtlasLoopPerTargetVerdictTest.php",
+      "tests/Feature/Loop/AtlasLoopBanditComplexityTierTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFeatureCompletenessResolver",
+    "file": "AtlasLoopFeatureCompletenessResolver.php",
+    "loc": 219,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFeatureCompletenessResolverTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFeatureSequencePlanner",
+    "file": "AtlasLoopFeatureSequencePlanner.php",
+    "loc": 86,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFeatureSequencePlannerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFeatureSequenceWalker",
+    "file": "AtlasLoopFeatureSequenceWalker.php",
+    "loc": 59,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFeatureSequenceWalkerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFleetGovernor",
+    "file": "AtlasLoopFleetGovernor.php",
+    "loc": 59,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopFleetGovernorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFrontierGapModel",
+    "file": "AtlasLoopFrontierGapModel.php",
+    "loc": 236,
+    "external": 2,
+    "internal": 2,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Unit/Ai/SelfConstruction/GovernedTargets/AtlasTaskPropertyGatedTargetPolicyTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFrontierGapModelTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFrozenTestSourceRenderer",
+    "file": "AtlasLoopFrozenTestSourceRenderer.php",
+    "loc": 296,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFrozenTestSourceRendererTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopFunnelService",
+    "file": "AtlasLoopFunnelService.php",
+    "loc": 191,
+    "external": 2,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopFunnelAndPathRewriteTest.php",
+      "tests/Unit/Ai/Obra/ProviderObraNodeDeliveryTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopGateWorkspaceProvisioner",
+    "file": "AtlasLoopGateWorkspaceProvisioner.php",
+    "loc": 135,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopGateWorkspaceProvisionerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopGoodhartReceiptLedger",
+    "file": "AtlasLoopGoodhartReceiptLedger.php",
+    "loc": 131,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/EngineeringKernel/JsonlReceiptStoreBatchTwoParityTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopGoodhartReceiptLedgerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopHardCaseHarness",
+    "file": "AtlasLoopHardCaseHarness.php",
+    "loc": 217,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopHardCaseHarnessTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopHarnessGuard",
+    "file": "AtlasLoopHarnessGuard.php",
+    "loc": 417,
+    "external": 139,
+    "internal": 31,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "app/Console/Commands/AtlasBrainSeedCommand.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorLaneTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopHeldOutDeltaCertifier",
+    "file": "AtlasLoopHeldOutDeltaCertifier.php",
+    "loc": 158,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopHeldOutDeltaCertifierTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopHermeticCommandEnvironment",
+    "file": "AtlasLoopHermeticCommandEnvironment.php",
+    "loc": 175,
+    "external": 2,
+    "internal": 14,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopComprehensionGroundingWiringTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopHermeticCommandEnvironmentTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopIdeaDraftingRubric",
+    "file": "AtlasLoopIdeaDraftingRubric.php",
+    "loc": 47,
+    "external": 0,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_INTERNAL",
+    "external_sample": []
+  },
+  {
+    "class": "AtlasLoopImpactReceiptService",
+    "file": "AtlasLoopImpactReceiptService.php",
+    "loc": 331,
+    "external": 2,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAcosDeltaSeriesCommand.php",
+      "app/Console/Commands/AtlasAcosDeltaCommand.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopIntelligenceOverlay",
+    "file": "AtlasLoopIntelligenceOverlay.php",
+    "loc": 418,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntelligenceOverlayTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopIntentVerifierFactory",
+    "file": "AtlasLoopIntentVerifierFactory.php",
+    "loc": 842,
+    "external": 2,
+    "internal": 9,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntentVerifierFactoryTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFrozenTestSourceRendererTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopJObjective",
+    "file": "AtlasLoopJObjective.php",
+    "loc": 99,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopJObjectiveTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopJudgeConsensusGate",
+    "file": "AtlasLoopJudgeConsensusGate.php",
+    "loc": 142,
+    "external": 3,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopJudgeConsensusGateTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopLearningAppendService",
+    "file": "AtlasLoopLearningAppendService.php",
+    "loc": 123,
+    "external": 1,
+    "internal": 2,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopLearningAppendServiceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopLeverImpactMeter",
+    "file": "AtlasLoopLeverImpactMeter.php",
+    "loc": 179,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/V3/AtlasLoopV3MetaLeverRecommenderTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopLeverImpactMeterTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopLeverageSelector",
+    "file": "AtlasLoopLeverageSelector.php",
+    "loc": 145,
+    "external": 6,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCrossTypeLeverageSelectorTest.php",
+      "tests/Feature/Loop/AtlasLoopLeverageDroppedCandidatesDigestTest.php",
+      "tests/Feature/Loop/AtlasLoopLeverageSelectorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopLossObserverService",
+    "file": "AtlasLoopLossObserverService.php",
+    "loc": 323,
+    "external": 1,
+    "internal": 3,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionToolGapBridgeService.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMasterSwitch",
+    "file": "AtlasLoopMasterSwitch.php",
+    "loc": 123,
+    "external": 67,
+    "internal": 6,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Console/Commands/AtlasTaskMaestroPriorityCommand.php",
+      "app/Console/Commands/AtlasAiSessionBootstrapCommand.php",
+      "app/Console/Commands/AtlasAgentsOffCommand.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMetaHarnessAbLiftService",
+    "file": "AtlasLoopMetaHarnessAbLiftService.php",
+    "loc": 233,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopMetaHarnessIntentTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopMetaHarnessAbLiftServiceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMetricHarness",
+    "file": "AtlasLoopMetricHarness.php",
+    "loc": 203,
+    "external": 4,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopNetDiffCertJudgeTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopHeldOutDeltaCertifierTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopModelFloorReceiptLedger",
+    "file": "AtlasLoopModelFloorReceiptLedger.php",
+    "loc": 167,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopModelFloorReceiptLedgerTest.php",
+      "tests/Unit/Ai/EngineeringKernel/JsonlReceiptStoreConsolidationTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopModelProjectionCritic",
+    "file": "AtlasLoopModelProjectionCritic.php",
+    "loc": 202,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProjectionWorkerLensedCritiqueTest.php",
+      "tests/Feature/Loop/AtlasLoopModelProjectionCriticTest.php",
+      "tests/Feature/Loop/AtlasLoopArchitectPhasePetreoTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMorningDigestService",
+    "file": "AtlasLoopMorningDigestService.php",
+    "loc": 695,
+    "external": 9,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorProduceToParkTest.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorRoutingTest.php",
+      "tests/Feature/Loop/AtlasLoopLeverageDroppedCandidatesDigestTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMultiRepoMergeAuthority",
+    "file": "AtlasLoopMultiRepoMergeAuthority.php",
+    "loc": 195,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopMultiRepoMergeAuthorityTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMultiSiteWiringPlanner",
+    "file": "AtlasLoopMultiSiteWiringPlanner.php",
+    "loc": 96,
+    "external": 3,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAaelCommand.php",
+      "tests/Feature/Loop/AtlasAaelCommandWiringPlanTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopMultiSiteWiringPlannerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMutationAdequacyGateService",
+    "file": "AtlasLoopMutationAdequacyGateService.php",
+    "loc": 897,
+    "external": 3,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php",
+      "app/Providers/AppServiceProvider.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopMutationOperators",
+    "file": "AtlasLoopMutationOperators.php",
+    "loc": 246,
+    "external": 6,
+    "internal": 10,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopExtraMutationOperatorsTest.php",
+      "tests/Feature/Loop/AtlasLoopModelProjectionCriticTest.php",
+      "tests/Feature/Loop/Constitution/AtlasLoopFrozenMutationOperatorsTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopNetDiffCertCollector",
+    "file": "AtlasLoopNetDiffCertCollector.php",
+    "loc": 154,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopNetDiffCertCollectorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopNetDiffCertJudge",
+    "file": "AtlasLoopNetDiffCertJudge.php",
+    "loc": 178,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopNetDiffCertJudgeTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopNetDiffCertReceiptLedger",
+    "file": "AtlasLoopNetDiffCertReceiptLedger.php",
+    "loc": 153,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopNetDiffCertReceiptLedgerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopNetDirectionGuard",
+    "file": "AtlasLoopNetDirectionGuard.php",
+    "loc": 122,
+    "external": 4,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Architecture/AtlasLoopAdvisoryFirewallTest.php",
+      "tests/Feature/Loop/AtlasLoopObraAutoMergeAntiFarmFloorTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopObjectiveDivergence",
+    "file": "AtlasLoopObjectiveDivergence.php",
+    "loc": 102,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopObjectiveDivergenceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopObraAutoMergeService",
+    "file": "AtlasLoopObraAutoMergeService.php",
+    "loc": 467,
+    "external": 4,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopObraAutoMergeAntiFarmFloorTest.php",
+      "tests/Feature/Architecture/AtlasLoopAdvisoryFirewallTest.php",
+      "tests/Feature/Loop/AtlasLoopObraAutoMergeServiceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopObraBridgeService",
+    "file": "AtlasLoopObraBridgeService.php",
+    "loc": 684,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorRoutingTest.php",
+      "tests/Feature/Loop/AtlasLoopObraAutoEscalationTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopObraExecutionAdapter",
+    "file": "AtlasLoopObraExecutionAdapter.php",
+    "loc": 1232,
+    "external": 18,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopObraAggregateDropRoutingTest.php",
+      "tests/Feature/Loop/AtlasLoopObraNetDiffCertificationTest.php",
+      "tests/Feature/Loop/AtlasLoopObraExecutionAdapterEarnedRedTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopObservabilityDigest",
+    "file": "AtlasLoopObservabilityDigest.php",
+    "loc": 82,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopObservabilityDigestTest.php",
+      "tests/Unit/Ai/Brain2/AtlasLoopObservabilityDigestHardeningTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOperatorReviewMobilePublisher",
+    "file": "AtlasLoopOperatorReviewMobilePublisher.php",
+    "loc": 187,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/MobileGatewayTest.php",
+      "app/Services/Ai/SelfConstruction/AtlasTaskLandingReviewPublisher.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOperatorReviewQueueService",
+    "file": "AtlasLoopOperatorReviewQueueService.php",
+    "loc": 216,
+    "external": 2,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Services/Ai/Mobile/InboxActionRegistry.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopOperatorReviewQueueServiceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOriginationDeliveryBridge",
+    "file": "AtlasLoopOriginationDeliveryBridge.php",
+    "loc": 91,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOrphanWiringRedGrindablePacketTest.php",
+      "tests/Feature/Loop/AtlasLoopOriginationDeliveryBridgeTest.php",
+      "app/Providers/AppServiceProvider.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOriginationOutcomeRecorder",
+    "file": "AtlasLoopOriginationOutcomeRecorder.php",
+    "loc": 142,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOriginationOutcomeTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOriginationPipeline",
+    "file": "AtlasLoopOriginationPipeline.php",
+    "loc": 863,
+    "external": 11,
+    "internal": 5,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "app/Console/Commands/AtlasBrainQueuedTargetsCommand.php",
+      "app/Console/Commands/AtlasBrainNextCommand.php",
+      "tests/Feature/Loop/AtlasLoopLeverageFirstOriginationTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOriginationProducer",
+    "file": "AtlasLoopOriginationProducer.php",
+    "loc": 171,
+    "external": 2,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOriginationProducerTest.php",
+      "tests/Feature/Loop/AtlasLoopOriginationOutcomeTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOrphanWiringExecutionAdapter",
+    "file": "AtlasLoopOrphanWiringExecutionAdapter.php",
+    "loc": 98,
+    "external": 3,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOrphanWiringAuthoringEngineTest.php",
+      "tests/Feature/Loop/AtlasLoopOrphanWiringExecutionAdapterTest.php",
+      "tests/Feature/Loop/AtlasLoopOrphanWiringExecutionAdapterStagedWiringTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopOrphanWiringRouteHandler",
+    "file": "AtlasLoopOrphanWiringRouteHandler.php",
+    "loc": 67,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopOrphanWiringRouteHandlerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProjectionEngine",
+    "file": "AtlasLoopProjectionEngine.php",
+    "loc": 252,
+    "external": 6,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopModelProjectionCriticTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php",
+      "tests/Feature/Loop/AtlasLoopProjectionStageLiveTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProjectionObligationContracts",
+    "file": "AtlasLoopProjectionObligationContracts.php",
+    "loc": 89,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProjectionObligationContractsTest.php",
+      "tests/Feature/Loop/AtlasLoopArchitectPhasePetreoTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProjectionOutcomeLedger",
+    "file": "AtlasLoopProjectionOutcomeLedger.php",
+    "loc": 110,
+    "external": 2,
+    "internal": 2,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProjectionOutcomeLedgerTest.php",
+      "app/Services/Ai/SelfConstruction/Maestro/ProviderLearning/AtlasMaestroProviderPerformanceLedger.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProposalDiffReconstructor",
+    "file": "AtlasLoopProposalDiffReconstructor.php",
+    "loc": 72,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProposalDiffReconstructorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProposalMaterializer",
+    "file": "AtlasLoopProposalMaterializer.php",
+    "loc": 405,
+    "external": 5,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Architecture/AtlasLoopAdvisoryFirewallTest.php",
+      "tests/Feature/Loop/AtlasLoopFunnelAndPathRewriteTest.php",
+      "tests/Feature/Ai/AtlasCloneDirWiperVectorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProposalOutOfProcessVerifier",
+    "file": "AtlasLoopProposalOutOfProcessVerifier.php",
+    "loc": 453,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProposalOutOfProcessVerifierTest.php",
+      "app/Providers/AppServiceProvider.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProposalPromotionGate",
+    "file": "AtlasLoopProposalPromotionGate.php",
+    "loc": 392,
+    "external": 6,
+    "internal": 5,
+    "keeplist": true,
+    "verdict": "KEEP_LIVE",
+    "external_sample": [
+      "tests/Feature/MobileGatewayTest.php",
+      "tests/Feature/Architecture/AtlasLoopAdvisoryFirewallTest.php",
+      "tests/Feature/Loop/AtlasLoopReproveHashAssertTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProviderCircuitBreaker",
+    "file": "AtlasLoopProviderCircuitBreaker.php",
+    "loc": 122,
+    "external": 2,
+    "internal": 5,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopProviderCircuitBreakerTest.php",
+      "tests/Feature/Ai/AtlasTaskAdaptiveCliTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProviderContextOptimizer",
+    "file": "AtlasLoopProviderContextOptimizer.php",
+    "loc": 514,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderContextOptimizerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProviderEffortPolicy",
+    "file": "AtlasLoopProviderEffortPolicy.php",
+    "loc": 87,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Feature/Ai/AtlasLoopCampaignSupervisorTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderEffortPolicyTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProviderHealthProbe",
+    "file": "AtlasLoopProviderHealthProbe.php",
+    "loc": 186,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderHealthProbeTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderSwapPolicyTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopProviderRouter",
+    "file": "AtlasLoopProviderRouter.php",
+    "loc": 78,
+    "external": 3,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAdversarialVerifierPoolTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderContextOptimizerTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopProviderRouterTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopQualityGrader",
+    "file": "AtlasLoopQualityGrader.php",
+    "loc": 231,
+    "external": 3,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/Constitution/AtlasLoopCertProbeTest.php",
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopQualityGraderTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRealWorkScorecardService",
+    "file": "AtlasLoopRealWorkScorecardService.php",
+    "loc": 758,
+    "external": 3,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCoverageDeficitRefillTest.php",
+      "tests/Feature/Loop/AtlasLoopDeadCodeProducerTest.php",
+      "tests/Feature/Loop/AtlasLoopProjectionStageLiveTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRecursiveSelfImprovementGate",
+    "file": "AtlasLoopRecursiveSelfImprovementGate.php",
+    "loc": 81,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopRecursiveSelfImprovementGateTest.php",
+      "app/Services/Ai/Foundry/Rsi/RsiSelfImprovementProposalGate.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRedReasonGate",
+    "file": "AtlasLoopRedReasonGate.php",
+    "loc": 104,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopExternalResearchWiringTest.php",
+      "tests/Feature/Loop/AtlasLoopRedReasonGateTest.php",
+      "tests/Feature/Loop/Discovery/AtlasLoopResearchAuthoringWiringTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRefactorObraL410ProofService",
+    "file": "AtlasLoopRefactorObraL410ProofService.php",
+    "loc": 190,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopRefactorObraL410ProofServiceTest.php",
+      "tests/Feature/Loop/AtlasLoopPlannedNewFileCensusTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRefusalCriticPanel",
+    "file": "AtlasLoopRefusalCriticPanel.php",
+    "loc": 157,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopRefusalCriticPanelTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopRejectionDimensionRouter",
+    "file": "AtlasLoopRejectionDimensionRouter.php",
+    "loc": 74,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopRejectionDimensionRoutingTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopResearchContract",
+    "file": "AtlasLoopResearchContract.php",
+    "loc": 139,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopResearchContractTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopResearchOriginatorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopResourceGate",
+    "file": "AtlasLoopResourceGate.php",
+    "loc": 242,
+    "external": 8,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopScenarioWaveDispatcherTest.php",
+      "tests/Feature/Loop/AtlasLoopCampaignSupervisorTest.php",
+      "tests/Feature/Loop/AtlasLoopWorkerPoolTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopScenarioProviderPortfolio",
+    "file": "AtlasLoopScenarioProviderPortfolio.php",
+    "loc": 111,
+    "external": 3,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopTaskDecompositionAmplifierTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopScenarioProviderPortfolioTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopSemanticImplementationCertifier",
+    "file": "AtlasLoopSemanticImplementationCertifier.php",
+    "loc": 1116,
+    "external": 9,
+    "internal": 7,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopStructuralDropCertifierTest.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileComplexityJudgeTest.php",
+      "tests/Feature/Loop/Constitution/AtlasLoopCertChainClosureTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopSoakReportService",
+    "file": "AtlasLoopSoakReportService.php",
+    "loc": 522,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopL7SelfMergeMoatTest.php",
+      "tests/Feature/Loop/AtlasLoopSoakReportTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopStandaloneWorkspaceMaterializer",
+    "file": "AtlasLoopStandaloneWorkspaceMaterializer.php",
+    "loc": 73,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopStandaloneWorkspaceMaterializerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopSubstrateReceiptLedger",
+    "file": "AtlasLoopSubstrateReceiptLedger.php",
+    "loc": 134,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Providers/AppServiceProvider.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTaskDecompositionAmplifier",
+    "file": "AtlasLoopTaskDecompositionAmplifier.php",
+    "loc": 333,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopTaskDecompositionAmplifierTest.php",
+      "app/Providers/AppServiceProvider.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTaskGrinder",
+    "file": "AtlasLoopTaskGrinder.php",
+    "loc": 1266,
+    "external": 19,
+    "internal": 6,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopCampaignSupervisorTest.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileExecutionWiringTest.php",
+      "tests/Feature/Loop/AtlasLoopMultiFileRefactorProduceToParkTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTaxa2DialOverlayService",
+    "file": "AtlasLoopTaxa2DialOverlayService.php",
+    "loc": 415,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/Brain2/AtlasLoopTaxa2DialOverlayServiceHardeningTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopTaxa2DialOverlayServiceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTierPromotionChainService",
+    "file": "AtlasLoopTierPromotionChainService.php",
+    "loc": 241,
+    "external": 8,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Console/Commands/AtlasAutonomyStatusCommand.php",
+      "app/Console/Commands/AtlasAutonomyPromoteCommand.php",
+      "tests/Unit/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluatorTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTransferGate",
+    "file": "AtlasLoopTransferGate.php",
+    "loc": 69,
+    "external": 3,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopGroundingVetoTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasEvolutionLoopRunnerTransferGateTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopTransferGateTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopTransientDbException",
+    "file": "AtlasLoopTransientDbException.php",
+    "loc": 18,
+    "external": 1,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Loop/AtlasLoopDbResilienceTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopUnusedImportWorkType",
+    "file": "AtlasLoopUnusedImportWorkType.php",
+    "loc": 140,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopDeadCodeProducerTest.php",
+      "tests/Feature/Loop/AtlasLoopUnusedImportWorkTypeTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopUtilityGradeService",
+    "file": "AtlasLoopUtilityGradeService.php",
+    "loc": 586,
+    "external": 6,
+    "internal": 7,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopUtilityGradeRefactorNonTrivialTest.php",
+      "tests/Feature/Loop/AtlasLoopUtilityGradeBehaviorDeltaTest.php",
+      "tests/Feature/Loop/AtlasLoopHarnessGuardTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopVerificationAtomNormalizer",
+    "file": "AtlasLoopVerificationAtomNormalizer.php",
+    "loc": 387,
+    "external": 2,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Services/Ai/Runtime/AiToolGitDiffSupport.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopVerificationAtomNormalizerHardeningTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopWeeklyAgendaProposalService",
+    "file": "AtlasLoopWeeklyAgendaProposalService.php",
+    "loc": 772,
+    "external": 2,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopWeeklyAgendaProposalTest.php",
+      "app/Services/Ai/Programming/AtlasWeeklyEngineeringReportService.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopWiringIntentLedger",
+    "file": "AtlasLoopWiringIntentLedger.php",
+    "loc": 84,
+    "external": 1,
+    "internal": 2,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopWiringIntentLedgerTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopWorkTypeContract",
+    "file": "AtlasLoopWorkTypeContract.php",
+    "loc": 102,
+    "external": 2,
+    "internal": 3,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopArchitectPhasePetreoTest.php",
+      "tests/Feature/Loop/AtlasLoopWorkTypeContractTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopWorkspaceMaterializer",
+    "file": "AtlasLoopWorkspaceMaterializer.php",
+    "loc": 110,
+    "external": 4,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopMaterializerCrossProviderScopeTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializerTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopFrozenTestSourceRendererTest.php"
+    ]
+  },
+  {
+    "class": "AtlasLoopWorkspaceMaterializerSupport2",
+    "file": "AtlasLoopWorkspaceMaterializerSupport2.php",
+    "loc": 188,
+    "external": 3,
+    "internal": 4,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "tests/Feature/Loop/AtlasLoopMaterializerSandboxFloorTest.php",
+      "tests/Feature/Docs/LoopSelfModificationSafetyCanonicalDocTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializerSupport2Test.php"
+    ]
+  },
+  {
+    "class": "AtlasUnifiedLoopOrchestrator",
+    "file": "AtlasUnifiedLoopOrchestrator.php",
+    "loc": 650,
+    "external": 3,
+    "internal": 1,
+    "keeplist": false,
+    "verdict": "KEEP_EXTERNAL",
+    "external_sample": [
+      "app/Services/Ai/SelfConstruction/TaskServing/AtlasTaskBrainReplenisher.php",
+      "tests/Feature/Ai/AtlasTaskBrainReplenisherTest.php",
+      "tests/Unit/Ai/AutonomousEvolution/AtlasUnifiedLoopOrchestratorHeartbeatTest.php"
+    ]
+  }
+]

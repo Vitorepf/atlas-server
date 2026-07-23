@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Cognition;
 
 use App\Models\AtlasAaeosTestRunReceipt;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Support\Facades\Schema;
@@ -140,13 +140,13 @@ class AtlasCognitionScoreCardEvidenceResolutionTest extends TestCase
      * AtlasCognitionEvidenceResolver::resolvePipelineStatus() delegates to actually
      * flips with seeded evidence in :memory:. Seeding a fresh green receipt makes
      * hasGreenReceipt() true; deleting the row makes it false. This is the real
-     * evidence flip (no stub), keyed exactly as atlas:aaeos:verify-tests writes it.
+     * evidence flip (no stub), keyed exactly as atlas:aeos:verify-tests writes it.
      */
     public function test_real_green_receipt_gate_flips_with_seeded_evidence(): void
     {
         $this->migrateReceiptsTable();
 
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
         $capabilityId = 'doc.cognition.swarm-conductor';
         $testRef = 'AtlasSwarmConductorServiceTest';
 
@@ -205,7 +205,7 @@ class AtlasCognitionScoreCardEvidenceResolutionTest extends TestCase
     {
         Schema::dropIfExists('atlas_aaeos_test_run_receipts');
 
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
         $this->assertFalse($execution->hasGreenReceipt('any.capability', 'AnyTest'));
     }
 

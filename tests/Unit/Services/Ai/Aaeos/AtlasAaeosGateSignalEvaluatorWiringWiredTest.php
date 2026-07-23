@@ -39,7 +39,7 @@ final class AtlasAaeosGateSignalEvaluatorWiringWiredTest extends TestCase
         ]));
 
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', [
+        $exit = $kernel->call('atlas:aeos:department-status', [
             '--phase-gates' => $this->phaseGatesFile,
             '--json' => true,
         ]);
@@ -56,7 +56,7 @@ final class AtlasAaeosGateSignalEvaluatorWiringWiredTest extends TestCase
     public function test_department_status_command_omits_phase_gates_without_option(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
-        $exit = $kernel->call('atlas:aaeos:department-status', ['--json' => true]);
+        $exit = $kernel->call('atlas:aeos:department-status', ['--json' => true]);
         $out = $kernel->output();
 
         $this->assertSame(0, $exit, $out);

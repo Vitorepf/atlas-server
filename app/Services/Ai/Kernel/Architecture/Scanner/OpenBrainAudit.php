@@ -108,25 +108,38 @@ class OpenBrainAudit
     private function scanOpenBrainRetrievalPlanSummaryContract(): array
     {
         $violations = [];
+        // Pin relocated under GOD-DEBULK D3 (2026-07-22): the AP-102 retrieval-plan SUMMARY BUILDER
+        // moved VERBATIM into RetrievalPlanSection; the façade still ASSEMBLES it into the summary
+        // ('retrieval_plan' => $retrievalPlan) and renders the prompt header ('- retrieval_plan: mode=').
+        // Invariant unchanged — every token is still required textually in its real new home.
+        $sectionPath = app_path('Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php');
         $servicePath = app_path('Services/Ai/AtlasOpenBrainContextInjectionService.php');
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
+        $section = File::exists($sectionPath) ? File::get($sectionPath) : '';
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
         foreach ([
-            "'retrieval_plan' => \$retrievalPlan",
-            'private function retrievalPlanSummary(array $retrievalPlan, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): ?array',
+            'public function retrievalPlanSummary(array $retrievalPlan, array $contextRefs, array $knowledgeRefs, array $codeRefs, array $contextPack): ?array',
             "'selected_sources' => array_values(array_map",
             "'required_sources' => array_values(array_map",
             "'max_context_refs' => data_get(\$retrievalPlan, 'budgets.max_context_refs')",
             "'provider_safe_only' => (bool) data_get(\$retrievalPlan, 'policy.provider_safe_only', true)",
+        ] as $token) {
+            if (! str_contains($section, $token)) {
+                $violations[] = "app/Services/Ai/OpenBrainContextInjection/RetrievalPlanSection.php: Open Brain must summarize AP-101 retrieval plan for audit [{$token}]";
+            }
+        }
+
+        foreach ([
+            "'retrieval_plan' => \$retrievalPlan",
             "'- retrieval_plan: mode='",
         ] as $token) {
             if (! str_contains($service, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: Open Brain must summarize AP-101 retrieval plan for audit and prompt header [{$token}]";
+                $violations[] = "app/Services/Ai/AtlasOpenBrainContextInjectionService.php: Open Brain must assemble AP-101 retrieval plan into summary and prompt header [{$token}]";
             }
         }
 

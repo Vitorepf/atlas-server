@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * A row proves the capability's test ACTUALLY RAN and whether it passed — the
  * evidence the truth service requires before a capability may reach `verified`.
- * Written only by `atlas:aaeos:verify-tests`; read by AtlasImplementationTruthService.
+ * Written only by `atlas:aeos:verify-tests`; read by AtlasImplementationTruthService.
  *
  * @see database/migrations/2026_06_02_090000_create_atlas_aaeos_test_run_receipts_table.php
  */

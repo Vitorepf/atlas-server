@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
 use App\Services\Engineering\AtlasDocumentationRealityReflectiveStatusService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
@@ -54,7 +54,7 @@ final class AtlasDocumentationRealityReflectiveStatusTest extends TestCase
         ];
         $outcomeSummary ??= ['outcome_grounded_count' => 0, 'outcome_signal_source_available' => false];
 
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($coverage): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($coverage): void {
             $mock->shouldReceive('coverage')->andReturn($coverage);
         });
         $this->mock(AtlasDocumentationRealityOutcomeGroundingService::class, function (MockInterface $mock) use ($outcomeSummary): void {
@@ -207,7 +207,7 @@ final class AtlasDocumentationRealityReflectiveStatusTest extends TestCase
         // When coverage cannot be read (throws), the service must NOT assert a number:
         // it degrades to low confidence on the coverage claim and the headline declares
         // the degradation as a blind spot.
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('coverage')->andThrow(new \RuntimeException('index unavailable'));
         });
         $this->mock(AtlasDocumentationRealityOutcomeGroundingService::class, function (MockInterface $mock): void {

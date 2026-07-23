@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityCompletenessService;
 use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
 use App\Services\Engineering\AtlasDocumentationRealityReflectiveStatusService;
@@ -72,7 +72,7 @@ final class AtlasDocumentationRealityCompletenessTest extends TestCase
      */
     private function service(array $driftDocs = [], bool $linfComplete = false, int $grounded = 0): AtlasDocumentationRealityCompletenessService
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($driftDocs): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($driftDocs): void {
             $mock->shouldReceive('ledger')->andReturn($this->ledger($driftDocs));
         });
         $this->mock(AtlasDocumentationRealityReflectiveStatusService::class, function (MockInterface $mock) use ($linfComplete): void {

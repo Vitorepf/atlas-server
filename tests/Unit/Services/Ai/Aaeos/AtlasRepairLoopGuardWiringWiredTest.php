@@ -9,14 +9,14 @@ use Tests\TestCase;
 
 /**
  * Proves AtlasRepairLoopGuard is wired into a real call path: the
- * atlas:aaeos:department-status command now guards an optional repair-loop iteration. It is no
+ * atlas:aeos:department-status command now guards an optional repair-loop iteration. It is no
  * longer an orphan.
  */
 final class AtlasRepairLoopGuardWiringWiredTest extends TestCase
 {
     public function test_repair_iteration_option_surfaces_guard_decision(): void
     {
-        Artisan::call('atlas:aaeos:department-status', [
+        Artisan::call('atlas:aeos:department-status', [
             '--repair-iteration' => '0',
             '--json' => true,
         ]);
@@ -31,7 +31,7 @@ final class AtlasRepairLoopGuardWiringWiredTest extends TestCase
 
     public function test_fourth_iteration_escalates(): void
     {
-        Artisan::call('atlas:aaeos:department-status', [
+        Artisan::call('atlas:aeos:department-status', [
             '--repair-iteration' => '3',
             '--json' => true,
         ]);
@@ -43,7 +43,7 @@ final class AtlasRepairLoopGuardWiringWiredTest extends TestCase
 
     public function test_no_repair_iteration_option_omits_guard_section(): void
     {
-        Artisan::call('atlas:aaeos:department-status', ['--json' => true]);
+        Artisan::call('atlas:aeos:department-status', ['--json' => true]);
         $decoded = json_decode(Artisan::output(), true);
 
         $this->assertIsArray($decoded);

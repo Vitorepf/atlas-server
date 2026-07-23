@@ -76,10 +76,10 @@ governs:
   - atlas_ai.aaeos.department_contract
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-department-contract.md
-implementation_state: partial
+implementation_state: spec
 evidence_refs:
   - symbol: AtlasAaeosDepartmentRegistryService
-  - command: atlas:aaeos:department-registry
+  - command: atlas:aeos:department-registry
   - test: AtlasAaeosDepartmentRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -107,7 +107,7 @@ observability_signals:
   - aaeos_department_contract_count
   - aaeos_department_orphan_count
 next_actions:
-  - Implementar `AtlasAaeosDepartmentRegistryService` que carrega contratos deste doc e expoe `atlas:aaeos:department-status --json`.
+  - Implementar `AtlasAaeosDepartmentRegistryService` que carrega contratos deste doc e expoe `atlas:aeos:department-status --json`.
   - Validar via docs-health v2 que cada `target_department` em `intent_classification.v1` aponta para departamento aqui declarado.
 ---
 # Atlas Agentic Engineering OS Department Contract
@@ -523,7 +523,7 @@ Declaradas em frontmatter. Resumo: depende de `atlas-agentic-engineering-os`, `a
 ## Evidencias
 
 - Doc canonico
-- Comando esperado: `php artisan atlas:aaeos:department-status --json` lista todos os departamentos com schema preenchido vs servico runtime.
+- Comando esperado: `php artisan atlas:aeos:department-status --json` lista todos os departamentos com schema preenchido vs servico runtime.
 
 ## Riscos
 
@@ -546,6 +546,6 @@ Os 11 departamentos preenchidos acima sao os exemplos canonicos. Adicionar novo 
 ## Proximas Acoes
 
 1. Criar `AtlasAaeosDepartmentRegistryService` que carrega contratos deste doc.
-2. Implementar `php artisan atlas:aaeos:department-status --json`.
+2. Implementar `php artisan atlas:aeos:department-status --json`.
 3. Adicionar gate docs-health: `aaeos-department-schema-complete` que valida 12 campos por departamento.
 4. Validar via T3.3 quality bar matrix que cada gate declarado em `gates:` tem execucao runtime.

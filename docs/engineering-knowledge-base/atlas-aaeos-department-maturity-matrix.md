@@ -5,7 +5,7 @@ title: Atlas AAEOS Department Maturity Matrix
 status: active
 category: atlas-ai
 priority: 101
-summary: Matriz canonica que registra para cada um dos 11 departamentos do AAEOS o nivel de maturidade atual (L0-L7), evidencia que prova, blockers para proximo nivel, owner, ultima evaluation e proximas acoes. Atualizada via `php artisan atlas:aaeos:maturity --json`.
+summary: Matriz canonica que registra para cada um dos 11 departamentos do AAEOS o nivel de maturidade atual (L0-L7), evidencia que prova, blockers para proximo nivel, owner, ultima evaluation e proximas acoes. Atualizada via `php artisan atlas:aeos:maturity --json`.
 tags:
   - atlas-ai
   - department-maturity
@@ -67,10 +67,10 @@ governs:
   - atlas_ai.aaeos.department_maturity
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md
-implementation_state: partial
+implementation_state: spec
 evidence_refs:
   - symbol: AtlasAaeosDepartmentMaturityService
-  - command: atlas:aaeos:department-status
+  - command: atlas:aeos:department-status
   - test: AtlasAaeosDepartmentMaturityServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -91,7 +91,7 @@ observability_signals:
   - dept_maturity_avg
   - dept_blocker_count_total
 next_actions:
-  - Rodar ciclo de re-avaliacao com `php artisan atlas:aaeos:maturity --json` (comando ja existe, verificado 2026-07-05 em app/Console/Commands/AtlasAaeosMaturityCommand.php; niveis nao re-medidos desde 2026-05-26).
+  - Rodar ciclo de re-avaliacao com `php artisan atlas:aeos:maturity --json` (comando ja existe, verificado 2026-07-05 em app/Console/Commands/AtlasAaeosMaturityCommand.php; niveis nao re-medidos desde 2026-05-26).
 ---
 # Atlas AAEOS Department Maturity Matrix
 
@@ -153,7 +153,7 @@ Refresh factual (campanha Documentacao Canonica Verdadeira). O snapshot 2026-05-
 - Obra #5 (2026-07-05): CertifierClassificationLedger com 66 certifiers classificados — 2 A_DELIVERY / 35 B_STATE / 10 C_PARKED / 19 D_ISOLATED, recontados no arquivo em 2026-07-05 (60d436bba8) — e juizes de entrega Obra/ForgeObra sob o piso soberano em modo observe-first (92abe2bc52, 6f3c327dda; default `observe` confirmado no config do ForgeObraCertificationService).
 - Limpeza-bruta 2026-07-05 (liquido -86.048 linhas): nenhuma classe listada em `repo_paths`/`evidence_refs` deste doc foi deletada — todas verificadas existentes em 2026-07-05.
 
-NAO re-avaliado neste refresh: todos os niveis L0-L7 da matriz dependem de medicao runtime via `atlas:aaeos:maturity`, que NAO foi re-rodada aqui — por isso a coluna "Last eval" continua 2026-05-26 e nenhuma celula de nivel mudou. Blockers das linhas product, architect, research, debug, review, qa, security, delivery e memory: nao re-avaliados. Pela propria regra deste doc (drift de evidencia >30 dias bloqueia roteamento), a matriz esta em drift desde 2026-06-25 ate a proxima evaluation.
+NAO re-avaliado neste refresh: todos os niveis L0-L7 da matriz dependem de medicao runtime via `atlas:aeos:maturity`, que NAO foi re-rodada aqui — por isso a coluna "Last eval" continua 2026-05-26 e nenhuma celula de nivel mudou. Blockers das linhas product, architect, research, debug, review, qa, security, delivery e memory: nao re-avaliados. Pela propria regra deste doc (drift de evidencia >30 dias bloqueia roteamento), a matriz esta em drift desde 2026-06-25 ate a proxima evaluation.
 
 ## Fluxo
 
@@ -174,7 +174,7 @@ flowchart LR
 
 ## Escopo de Implementacao
 
-`AtlasAaeosDepartmentMaturityService`, comando `atlas:aaeos:maturity --json`. Ambos existem (verificado 2026-07-05: `app/Services/Ai/Aaeos/AtlasAaeosDepartmentMaturityService.php` e `app/Console/Commands/AtlasAaeosMaturityCommand.php`; ha tambem `atlas:aaeos:department-status` em `app/Console/Commands/AtlasAaeosDepartmentStatusCommand.php`).
+`AtlasAaeosDepartmentMaturityService`, comando `atlas:aeos:maturity --json`. Ambos existem (verificado 2026-07-05: `app/Services/Ai/Aaeos/AtlasAaeosDepartmentMaturityService.php` e `app/Console/Commands/AtlasAaeosMaturityCommand.php`; ha tambem `atlas:aeos:department-status` em `app/Console/Commands/AtlasAaeosDepartmentStatusCommand.php`).
 
 ## Dependencias
 
@@ -200,6 +200,6 @@ Forge esta L4: 5 Obras consecutivas verdes; promocao L5 bloqueada por merge revi
 
 ## Proximas Acoes
 
-1. Rodar ciclo de re-avaliacao com `php artisan atlas:aaeos:maturity --json` — o comando ja existe (verificado 2026-07-05, `app/Console/Commands/AtlasAaeosMaturityCommand.php`); os niveis nao sao re-medidos desde 2026-05-26.
+1. Rodar ciclo de re-avaliacao com `php artisan atlas:aeos:maturity --json` — o comando ja existe (verificado 2026-07-05, `app/Console/Commands/AtlasAaeosMaturityCommand.php`); os niveis nao sao re-medidos desde 2026-05-26.
 2. Update mensal.
 3. Integrar com cockpit.

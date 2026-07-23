@@ -279,7 +279,7 @@ cego declarado no headline.
 - test: `AtlasDocumentationRealityReflectiveStatusTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-reflective-status-fragment --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-reflective-status-fragment --json`.
 
 ## Riscos
 

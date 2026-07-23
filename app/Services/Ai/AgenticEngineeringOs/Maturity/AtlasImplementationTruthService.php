@@ -31,7 +31,7 @@ use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
  * has NO recorded GREEN run for the capability does NOT reach verified — it computes
  * to `partial` with test_resolution='existence_only_unrun'. The only thing that makes
  * a test count toward verified is a GREEN-RUN RECEIPT (AtlasCapabilityTestExecutionService),
- * written by the opt-in `atlas:aaeos:verify-tests` command. Degrade-safe: if the
+ * written by the opt-in `atlas:aeos:verify-tests` command. Degrade-safe: if the
  * receipts table is absent, no capability is verified-by-existence (fails to partial).
  *
  * @see docs/engineering-knowledge-base/atlas-aaeos-documentation-as-law-proposal.md
@@ -133,7 +133,7 @@ class AtlasImplementationTruthService
     public const FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL = 'needs >=1 resolved route or command for partial';
     public const FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL = 'needs >=1 resolved symbol (class/method) for partial';
     public const FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED = 'needs >=1 resolved test for verified';
-    public const FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_ = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
+    public const FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_ = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aeos:verify-tests)';
     public const FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED = 'needs >=1 resolved receipt (evidence file) for verified';
     public const INT_2 = 2;
 
@@ -153,7 +153,7 @@ class AtlasImplementationTruthService
     /**
      * Scan canonical docs that declare evidence_refs and compute the capability
      * truth ledger: per-doc computed state + over-claim drift, plus a summary.
-     * Shared by the atlas:aaeos:maturity command and the governance drift gate.
+     * Shared by the atlas:aeos:maturity command and the governance drift gate.
      *
      * @return array<string,mixed>
      */
@@ -309,7 +309,7 @@ class AtlasImplementationTruthService
 
     /**
      * The test refs each capability DECLARED (kind: test), with the owner doc and the
-     * resolver's existence match. This is what `atlas:aaeos:verify-tests` iterates to
+     * resolver's existence match. This is what `atlas:aeos:verify-tests` iterates to
      * decide which named tests to actually RUN. Honors the same id/slug/path filter as
      * ledger(). `index_resolved` reflects whether the test symbol even exists (a ref the
      * index cannot resolve will never run green and is surfaced honestly).
@@ -478,7 +478,7 @@ class AtlasImplementationTruthService
 
     /**
      * B3 freshness (criterion C2) — the CURRENT content hashes for a capability, used by
-     * `atlas:aaeos:verify-tests` to STAMP a fresh receipt the instant it records a green
+     * `atlas:aeos:verify-tests` to STAMP a fresh receipt the instant it records a green
      * run, so the stored hashes equal the live files at record time. The SAME computation
      * is used on every maturity read (compute()) to detect drift — store-time and
      * read-time use one code path, so a freshly recorded receipt reads as fresh and any

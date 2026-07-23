@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Atlas Memory Cognitive Immune And Learning Kernel CLI.
  *
- *   php artisan atlas:aaeos:memory-cognitive-immune-learning-kernel
+ *   php artisan atlas:memory:cognitive-immune-kernel
  *     [--class=strategic_insight_candidate] [--scope=session] [--json]
  *
  * Read-only, deterministic. Classifies an Input Class and runs the G0..G8
@@ -22,12 +22,12 @@ use Throwable;
  */
 class AtlasMemoryCognitiveImmuneLearningKernelCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:memory-cognitive-immune-learning-kernel
+    protected $signature = 'atlas:memory:cognitive-immune-kernel
         {--class=strategic_insight_candidate : Input Class to classify}
         {--scope=session : candidate scope (global|workspace|project|task|domain|session|policy)}
         {--json : machine-readable JSON output (default true)}';
 
-    protected $description = 'Atlas Memory · cognitive immune gate (Input Class classify, G0-G8 promotion ladder, quarantine default, non-negotiable rules).';
+    protected $description = 'Atlas Memory · cognitive immune gate (Input Class classify, G0-G8 promotion ladder, quarantine default, non-negotiable rules). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasMemoryCognitiveImmuneLearningKernelService $service): int
     {

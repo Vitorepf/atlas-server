@@ -12,7 +12,7 @@ final class AtlasAaeosAcosLaneScopeTest extends TestCase
     public function test_infer_returns_slug_when_all_production_files_in_lane(): void
     {
         $slug = AtlasAaeosAcosLaneScope::inferFromAllowedFiles([
-            'app/Services/Ai/Aaeos/AtlasAaeosQualityBarService.php',
+            'app/Services/Ai/Aaeos/AtlasDepartmentQualityBarService.php',
             'app/Services/Ai/Cognition/AtlasAcosWindowGatesService.php',
             'tests/Unit/Ai/Aaeos/SomethingTest.php',
         ]);

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use Illuminate\Support\Facades\Artisan;
@@ -17,7 +17,7 @@ final class AtlasCognitionRemintTouchedCommandTest extends TestCase
 {
     public function test_paths_map_to_owner_docs_and_remint_only_affected_deduped_capabilities(): void
     {
-        $truth = new class extends AtlasAaeosImplementationTruthService
+        $truth = new class extends AtlasImplementationTruthService
         {
             public function __construct() {}
 
@@ -77,7 +77,7 @@ final class AtlasCognitionRemintTouchedCommandTest extends TestCase
                 ];
             }
         };
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             /** @var list<array{capability_id:string,test_ref:string}> */
             public array $calls = [];
@@ -92,9 +92,9 @@ final class AtlasCognitionRemintTouchedCommandTest extends TestCase
             }
         };
 
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
         $this->app->instance(AtlasCognitionEvidenceResolver::class, $resolver);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
 
         $out = new BufferedOutput;
         $exit = Artisan::call('atlas:cognition:remint-touched', [

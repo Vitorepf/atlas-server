@@ -92,7 +92,7 @@ final class FoundrySemanticGapFinderPipelineTest extends TestCase
                 'metric_id' => 'service_maturity',
                 'baseline' => 0.0,
                 'target_delta' => 1.0,
-                'measure_command' => 'php artisan atlas:aaeos:maturity --json',
+                'measure_command' => 'php artisan atlas:aeos:maturity --json',
                 'metric_json_path' => 'metric',
             ],
         ];
@@ -120,7 +120,7 @@ final class FoundrySemanticGapFinderPipelineTest extends TestCase
         self::assertArrayHasKey('outcome_contract', $finding);
         self::assertSame('service_maturity', $finding['outcome_contract']['metric_id']);
         self::assertSame(1.0, $finding['outcome_contract']['target_delta']);
-        self::assertSame('php artisan atlas:aaeos:maturity --json', $finding['outcome_contract']['measure_command']);
+        self::assertSame('php artisan atlas:aeos:maturity --json', $finding['outcome_contract']['measure_command']);
 
         // Carries an evidence anchor: doc path:line AND the missing runtime ref.
         self::assertContains('doc_anchor:docs/engineering-knowledge-base/atlas-axis-n-fleet-live-pilar2-foundry.md:42', $finding['evidence_refs']);
@@ -151,7 +151,7 @@ final class FoundrySemanticGapFinderPipelineTest extends TestCase
                         'metric_id' => 'service_maturity',
                         'baseline' => 0.0,
                         'target_delta' => 1.0,
-                        'measure_command' => 'php artisan atlas:aaeos:maturity --json',
+                        'measure_command' => 'php artisan atlas:aeos:maturity --json',
                     ],
                 ],
             ],

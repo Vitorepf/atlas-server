@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityCodeContractProposerService;
 use App\Services\Semantic\FrontmatterParser;
 use Illuminate\Support\Facades\Schema;
@@ -288,7 +288,7 @@ final class AtlasDocumentationRealityCodeContractProposalsTest extends TestCase
 
     public function test_propose_for_doc_passes_the_capability_filter_to_the_ledger(): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('ledger')
                 ->once()
                 ->with('atlas-ahead-doc')
@@ -311,7 +311,7 @@ final class AtlasDocumentationRealityCodeContractProposalsTest extends TestCase
         // truth service (and the absent-table index-health check is trusted, not queried).
         $this->stubLedger($this->ledgerWith([$this->partialDocWithUnresolvedTestRef()]));
 
-        $service = new class(app(AtlasAaeosImplementationTruthService::class), app(FrontmatterParser::class)) extends AtlasDocumentationRealityCodeContractProposerService
+        $service = new class(app(AtlasImplementationTruthService::class), app(FrontmatterParser::class)) extends AtlasDocumentationRealityCodeContractProposerService
         {
             protected function contractItemFor(array $ref): array
             {
@@ -336,7 +336,7 @@ final class AtlasDocumentationRealityCodeContractProposalsTest extends TestCase
         // crossed from DESCRIPTION into writing/generation — the guard must throw.
         $this->stubLedger($this->ledgerWith([$this->partialDocWithUnresolvedTestRef()]));
 
-        $service = new class(app(AtlasAaeosImplementationTruthService::class), app(FrontmatterParser::class)) extends AtlasDocumentationRealityCodeContractProposerService
+        $service = new class(app(AtlasImplementationTruthService::class), app(FrontmatterParser::class)) extends AtlasDocumentationRealityCodeContractProposerService
         {
             protected function contractItemFor(array $ref): array
             {
@@ -365,7 +365,7 @@ final class AtlasDocumentationRealityCodeContractProposalsTest extends TestCase
      */
     private function stubLedger(array $ledger): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
             $mock->shouldReceive('ledger')->andReturn($ledger);
         });
     }
@@ -379,7 +379,7 @@ final class AtlasDocumentationRealityCodeContractProposalsTest extends TestCase
     private function ledgerWith(array $rows): array
     {
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => count($rows),
                 'drift_count' => 0,

@@ -339,7 +339,7 @@ propoe manufaturar dado externo. Nenhum outro fragmento e construido aqui.
 - test: `AtlasDocumentationRealitySelfImprovementModelingTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-self-improvement-modeling-fragment --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-self-improvement-modeling-fragment --json`.
 
 ## Riscos
 

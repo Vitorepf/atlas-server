@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityWriteGateService;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Mockery\MockInterface;
@@ -268,7 +268,7 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
      */
     private function stubTruth(): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('driftForFrontmatter')->andReturnUsing(function (string $state, $refs): array {
                 $claims = in_array($state, ['verified', 'partial'], true);
                 $resolves = false;

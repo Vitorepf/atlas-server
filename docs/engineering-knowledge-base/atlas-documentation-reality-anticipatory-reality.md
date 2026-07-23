@@ -38,7 +38,7 @@ decisions:
 maintenance:
   - Manter abaixo de 520 linhas.
   - Revisar quando ASTR, AAEOS implementation-truth ou o grafo de autoridade mudarem.
-  - Rodar docs-health, docs-authority-audit e atlas:aaeos:maturity apos alteracoes.
+  - Rodar docs-health, docs-authority-audit e atlas:aeos:maturity apos alteracoes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-generative-leap.md
   - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
@@ -82,7 +82,7 @@ forbidden_changes:
   - Declarar verified sem teste e receipt que resolvem no indice.
 required_tests:
   - "php artisan atlas:software-twin simulate --kind=doc --graph-id=atlas-documentation-reality-system --json --strict"
-  - "php artisan atlas:aaeos:maturity --capability=atlas-documentation-reality-anticipatory-reality --json"
+  - "php artisan atlas:aeos:maturity --capability=atlas-documentation-reality-anticipatory-reality --json"
   - "php artisan test --filter=AtlasSoftwareTwinPredictiveSimulatorTest"
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-anticipatory-reality.md
@@ -221,7 +221,7 @@ A evidencia resolve no indice de codigo: o simbolo
 `AtlasSoftwareTwinRuntimeService`, o comando `atlas:software-twin` e o teste
 `AtlasSoftwareTwinPredictiveSimulatorTest`. O estado declarado e **partial**
 porque simbolo e comando resolvem; a promocao a verified exige teste e receipt
-resolvendo, com drift zero no `atlas:aaeos:maturity`.
+resolvendo, com drift zero no `atlas:aeos:maturity`.
 
 ## Riscos
 

@@ -358,7 +358,7 @@ Ledger) sao deliberadamente fora de escopo: este fluxo so os **compoe e mostra**
 - test: `AtlasDocumentationRealityFlowTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-flow --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-flow --json`.
 
 ## Riscos
 

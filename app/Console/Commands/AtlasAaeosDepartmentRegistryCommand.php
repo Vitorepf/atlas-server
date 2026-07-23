@@ -15,11 +15,11 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosDepartmentRegistryCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:department-registry
+    protected $signature = 'atlas:aeos:department-registry
         {--registry= : JSON list of department contracts to validate}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Inspect and validate the AAEOS department registry (atlas.aaeos.department.v1).';
+    protected $description = 'Inspect and validate the AAEOS department registry (atlas.aaeos.department.v1). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(AtlasDepartmentRegistryService $registry): int
     {

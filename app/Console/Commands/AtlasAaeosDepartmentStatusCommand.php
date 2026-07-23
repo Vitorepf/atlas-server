@@ -28,7 +28,7 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosDepartmentStatusCommand extends Command
 {
-    protected $signature = 'atlas:aaeos:department-status
+    protected $signature = 'atlas:aeos:department-status
         {--quality-bar : Include the quality-bar breach signal emission}
         {--claim-file= : Path to a JSON completion claim to validate against the Definition of Done}
         {--repair-iteration= : Current repair-loop iteration to guard (max-3 contract before escalation)}
@@ -38,7 +38,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         {--cognitive-immune-input= : Path to a JSON {text, metadata} capture to classify through the cognitive immune input router}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
+    protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
     public function handle(
         AtlasDepartmentMaturityService $maturity,

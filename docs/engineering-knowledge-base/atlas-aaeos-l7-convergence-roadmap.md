@@ -135,7 +135,7 @@ A Autonomy Ladder tem **8 niveis canonicos**. Subir e a definicao operacional de
 
 - **So o esqueleto AAEOS e `solid_runtime`.** Todo o resto core (Dev, Forge, HTTP path, gates, Mission Control, Stewardship 24h) e `partial_runtime`; os 149 leap slices sao `backlog_only_no_runtime`.
 - **O loop esta Tier-0 (scan-only).** `autonomy_tier_active` esta **hardcoded em 0**. *"Sem S49 o loop fica scan-only e nada executa."*
-- **O Atlas nao consegue medir o proprio nivel.** Os comandos `atlas:aaeos:maturity --json` e `atlas:aaeos:quality-bar --json` **nao existem** (estao em next_actions). O motor da ladder (`AtlasAutonomyLadderRuntimeService`) tambem nao foi construido ("Escopo de Implementacao").
+- **O Atlas nao consegue medir o proprio nivel.** Os comandos `atlas:aeos:maturity --json` e `atlas:aaeos:quality-bar --json` **nao existem** (estao em next_actions). O motor da ladder (`AtlasAutonomyLadderRuntimeService`) tambem nao foi construido ("Escopo de Implementacao").
 - **Auditoria de codigo (memory, 31/05):** ~80% wired / ~38% delivers; Forge prod path = fixture.
 
 **Conclusao:** o runtime real esta **efetivamente abaixo do L1** — nao executa nem o slice autonomo de 1-3 arquivos sem o recibo do operador (S49). A distancia ate L7 e grande em degraus, mas **concentrada em poucos blockers de execucao**.
@@ -190,7 +190,7 @@ Legenda: 🟢 executa · 🟡 parcial wired · 🟠 spec sobre servico existente
 
 1. **S49 — Autonomy Tier Promotion.** Recibo `operator_decision_receipt.v1` assinado sobe `autonomy_tier_active` de 0->1 por area; kill-switch derruba para 0 instantaneo. *RAIZ DE EXECUCAO; nada executa sem este recibo.* `[src=atlas-aaeos-loop-evolution-backlog.md:S49]`
 2. **Motor da ladder.** Construir `AtlasAutonomyLadderRuntimeService` + `AtlasAutonomyMetricsAggregator` + `AtlasAutonomyDemoteWatchdog` (hoje "Escopo de Implementacao"). `[src=atlas-autonomy-ladder-promotion-runbook.md]`
-3. **Instrumentacao de nivel.** Implementar `atlas:aaeos:maturity --json` e `atlas:aaeos:quality-bar --json` + telemetria por departamento. Sem medir, nenhuma promocao e provavel. **Design detalhado deste instrumento (implementation_state computado do indice) em `atlas-aaeos-documentation-as-law-proposal`.** `[src=atlas-aaeos-department-maturity-matrix.md / atlas-aaeos-department-quality-bar-matrix.md]`
+3. **Instrumentacao de nivel.** Implementar `atlas:aeos:maturity --json` e `atlas:aaeos:quality-bar --json` + telemetria por departamento. Sem medir, nenhuma promocao e provavel. **Design detalhado deste instrumento (implementation_state computado do indice) em `atlas-aaeos-documentation-as-law-proposal`.** `[src=atlas-aaeos-department-maturity-matrix.md / atlas-aaeos-department-quality-bar-matrix.md]`
 4. **Ponte de decisao (kernels puros, baixo risco, paralelos):** S301 (= S49, decide promocao sem efeito colateral) e S302 (= S50, gate execute/fixture_only/blocked). `[src=atlas-aaeos-factory-runtime-bridge-backlog.md:S301,S302]`
 
 **Gate da fase:** recibo de tier assinado existe; ladder service responde promote/demote; comando de maturidade retorna JSON real.
@@ -289,7 +289,7 @@ Legenda: 🟢 executa · 🟡 parcial wired · 🟠 spec sobre servico existente
 
 Servicos/comandos a construir, agrupados por fase (o backlog atomico que os alimenta vive nos docs linkados):
 
-- **Fase 0:** `AtlasAutonomyLadderRuntimeService`, `AtlasAutonomyMetricsAggregator`, `AtlasAutonomyDemoteWatchdog`; comandos `atlas:aaeos:maturity --json`, `atlas:aaeos:quality-bar --json`; slices S49, S301, S302.
+- **Fase 0:** `AtlasAutonomyLadderRuntimeService`, `AtlasAutonomyMetricsAggregator`, `AtlasAutonomyDemoteWatchdog`; comandos `atlas:aeos:maturity --json`, `atlas:aaeos:quality-bar --json`; slices S49, S301, S302.
 - **Fase 1:** wiring de `AtlasForgeProviderInvocationService` execute mode; slices S50, S39, S55.
 - **Fase 2:** AP-790 hardening, AP-805; slices S40, S261-S266, S161-S180.
 - **Fase 3:** slices S56-S59, S307-S311; gate `rsi_meta_judge`.

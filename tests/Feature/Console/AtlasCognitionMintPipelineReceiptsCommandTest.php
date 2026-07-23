@@ -6,8 +6,8 @@ namespace Tests\Feature\Console;
 
 use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Support\Facades\Artisan;
@@ -38,7 +38,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
     public function test_orchestration_runs_only_resolved_refs_respects_limit_and_counts_green(): void
     {
         // Fake truth: 3 capabilities, uma com ref não-resolvida (deve ser pulada).
-        $truth = new class extends AtlasAaeosImplementationTruthService
+        $truth = new class extends AtlasImplementationTruthService
         {
             public function __construct()
             {
@@ -60,7 +60,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
         };
 
         // Fake execution: AlphaTest verde, GammaTest vermelho — sem PHPUnit real.
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             public int $calls = 0;
 
@@ -90,8 +90,8 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             }
         };
 
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
 
         $out = new BufferedOutput;
         $exit = Artisan::call('atlas:cognition:mint-pipeline-receipts', ['--limit' => 5, '--json' => true], $out);
@@ -107,7 +107,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
 
     public function test_limit_bounds_the_pass(): void
     {
-        $truth = new class extends AtlasAaeosImplementationTruthService
+        $truth = new class extends AtlasImplementationTruthService
         {
             public function __construct()
             {
@@ -128,7 +128,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
                 return ['test_file_hash' => null, 'impl_files_hash' => null];
             }
         };
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             public int $calls = 0;
 
@@ -154,8 +154,8 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
                 ];
             }
         };
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
 
         Artisan::call('atlas:cognition:mint-pipeline-receipts', ['--limit' => 3]);
 
@@ -164,7 +164,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
 
     public function test_born_stale_seal_rejects_green_in_summary_and_returns_non_zero_exit(): void
     {
-        $truth = new class extends AtlasAaeosImplementationTruthService
+        $truth = new class extends AtlasImplementationTruthService
         {
             public function __construct()
             {
@@ -183,7 +183,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             }
         };
 
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             public function __construct()
             {
@@ -206,8 +206,8 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             }
         };
 
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
 
         $out = new BufferedOutput;
         $exit = Artisan::call('atlas:cognition:mint-pipeline-receipts', ['--limit' => 1, '--json' => true], $out);
@@ -242,7 +242,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             ];
         }
 
-        $truth = new class($caps) extends AtlasAaeosImplementationTruthService
+        $truth = new class($caps) extends AtlasImplementationTruthService
         {
             public function __construct(private readonly array $caps) {}
 
@@ -265,7 +265,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
                 return isset($this->caps[$serviceClass]) ? [$this->caps[$serviceClass]['capability_id']] : [];
             }
         };
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             public int $calls = 0;
 
@@ -303,8 +303,8 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             }
         };
 
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
         $this->app->instance(AtlasCognitionScoreCardService::class, $scorecard);
         $this->app->instance(AtlasCognitionEvidenceResolver::class, $resolver);
 
@@ -333,7 +333,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             'evidence_refs' => [['kind' => 'symbol', 'ref' => 'Pip05BoundService']],
             'test_refs' => [['ref' => 'Pip05BoundServiceTest', 'index_resolved' => true, 'matched' => 'Pip05BoundServiceTest', 'file_path' => $testRel]],
         ];
-        $truth = new class($cap) extends AtlasAaeosImplementationTruthService
+        $truth = new class($cap) extends AtlasImplementationTruthService
         {
             public function __construct(private readonly array $cap) {}
 
@@ -356,7 +356,7 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
                 return $serviceClass === $this->service ? [$this->cap['capability_id']] : [];
             }
         };
-        $execution = new class extends AtlasAaeosTestExecutionService
+        $execution = new class extends AtlasCapabilityTestExecutionService
         {
             public int $calls = 0;
 
@@ -391,8 +391,8 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
             }
         };
 
-        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
-        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasCapabilityTestExecutionService::class, $execution);
         $this->app->instance(AtlasCognitionScoreCardService::class, $scorecard);
         $this->app->instance(AtlasCognitionEvidenceResolver::class, $resolver);
 
@@ -438,13 +438,13 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
         ]);
 
         $evidenceRefs = [['kind' => 'symbol', 'ref' => 'PIP02SealProof']];
-        $truth = new AtlasAaeosImplementationTruthService(
-            new \App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver,
+        $truth = new AtlasImplementationTruthService(
+            new \App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceResolver,
             new \App\Services\Semantic\CanonicalDocsFrontmatterParser,
-            new AtlasAaeosTestExecutionService,
+            new AtlasCapabilityTestExecutionService,
         );
         $hashes = $truth->freshnessHashes($evidenceRefs, 'PIP02SealProofTest');
-        $execution = new AtlasAaeosTestExecutionService;
+        $execution = new AtlasCapabilityTestExecutionService;
 
         AtlasAaeosTestRunReceipt::query()->create([
             'capability_id' => 'pip02.seal-proof',

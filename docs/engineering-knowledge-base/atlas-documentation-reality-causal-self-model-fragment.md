@@ -299,7 +299,7 @@ escopo** — e um fragmento posterior da mesma assintota.
 - test: `AtlasDocumentationRealityCausalSelfModelTest`
 
 Drift do doc filho deve ser `false` em
-`atlas:aaeos:maturity --capability=atlas-documentation-reality-causal-self-model-fragment --json`.
+`atlas:aeos:maturity --capability=atlas-documentation-reality-causal-self-model-fragment --json`.
 
 ## Riscos
 

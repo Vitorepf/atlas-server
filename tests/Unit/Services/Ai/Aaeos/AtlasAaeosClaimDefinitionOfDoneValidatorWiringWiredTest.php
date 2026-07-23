@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 /**
  * Proves AtlasClaimDefinitionOfDoneValidator is wired into a real call path: the
- * atlas:aaeos:department-status command now validates an optional completion claim file
+ * atlas:aeos:department-status command now validates an optional completion claim file
  * against the Definition of Done. It is no longer an orphan.
  */
 final class AtlasAaeosClaimDefinitionOfDoneValidatorWiringWiredTest extends TestCase
@@ -29,7 +29,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidatorWiringWiredTest extends Test
         $this->claimFile = sys_get_temp_dir().'/atlas_dod_claim_'.bin2hex(random_bytes(6)).'.json';
         file_put_contents($this->claimFile, (string) json_encode($claim));
 
-        Artisan::call('atlas:aaeos:department-status', [
+        Artisan::call('atlas:aeos:department-status', [
             '--claim-file' => $this->claimFile,
             '--json' => true,
         ]);
@@ -68,7 +68,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidatorWiringWiredTest extends Test
 
     public function test_no_claim_file_omits_claim_validation(): void
     {
-        Artisan::call('atlas:aaeos:department-status', ['--json' => true]);
+        Artisan::call('atlas:aeos:department-status', ['--json' => true]);
         $decoded = json_decode(Artisan::output(), true);
 
         $this->assertIsArray($decoded);

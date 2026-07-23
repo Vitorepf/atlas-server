@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
- * Proves AtlasDebugRootCauseService is wired into a real call path: atlas:aaeos:maturity now
+ * Proves AtlasDebugRootCauseService is wired into a real call path: atlas:aeos:maturity now
  * surfaces a root-cause read whenever the ledger reports over-claim drift. It is no longer an
  * orphan.
  */
@@ -24,7 +24,7 @@ final class AtlasDebugRootCauseServiceWiringWiredTest extends TestCase
         ]);
         $this->app->instance(AtlasImplementationTruthService::class, $truth);
 
-        Artisan::call('atlas:aaeos:maturity', ['--json' => true]);
+        Artisan::call('atlas:aeos:maturity', ['--json' => true]);
         $decoded = json_decode(Artisan::output(), true);
 
         $this->assertIsArray($decoded);
@@ -42,7 +42,7 @@ final class AtlasDebugRootCauseServiceWiringWiredTest extends TestCase
         ]);
         $this->app->instance(AtlasImplementationTruthService::class, $truth);
 
-        Artisan::call('atlas:aaeos:maturity', ['--json' => true]);
+        Artisan::call('atlas:aeos:maturity', ['--json' => true]);
         $decoded = json_decode(Artisan::output(), true);
 
         $this->assertIsArray($decoded);

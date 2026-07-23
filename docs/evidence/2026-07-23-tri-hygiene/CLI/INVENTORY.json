@@ -1,0 +1,5570 @@
+{
+  "total": 926,
+  "by_bucket": {
+    "other": 806,
+    "autonomos_live": 66,
+    "dev_forge_daily": 38,
+    "aaeos_control_daily": 4,
+    "aaeos_god_cli": 1,
+    "aaeos_rename_candidate": 10,
+    "daily_cockpit": 1
+  },
+  "commands": [
+    {
+      "signature_name": "atlas:aael",
+      "loc": 123,
+      "file": "AtlasAaelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:certify",
+      "loc": 32,
+      "file": "AtlasAaelCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:debug",
+      "loc": 263,
+      "file": "AtlasAaelExecutionDebuggerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:depth",
+      "loc": 165,
+      "file": "AtlasAaelExecutionDepthCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:inflight",
+      "loc": 165,
+      "file": "AtlasAaelInFlightCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:inspect",
+      "loc": 136,
+      "file": "AtlasAaelDeepInspectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:parallel",
+      "loc": 232,
+      "file": "AtlasAaelParallelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:rollback",
+      "loc": 252,
+      "file": "AtlasAaelExecutionRollbackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aael:trace",
+      "loc": 242,
+      "file": "AtlasAaelTraceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aaeos",
+      "loc": 1837,
+      "file": "AtlasAaeosCommand.php",
+      "bucket": "aaeos_god_cli"
+    },
+    {
+      "signature_name": "atlas:aaeos-acos:simplify-cycle",
+      "loc": 136,
+      "file": "AtlasAaeosAcosSimplifyCycleCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:certify",
+      "loc": 97,
+      "file": "AtlasAaeosCertifyCommand.php",
+      "bucket": "aaeos_control_daily"
+    },
+    {
+      "signature_name": "atlas:aaeos:choreography-status",
+      "loc": 69,
+      "file": "AtlasAaeosChoreographyStatusCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:codex-review-chain-contract",
+      "loc": 88,
+      "file": "AtlasCodexReviewChainContractCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:cycle",
+      "loc": 65,
+      "file": "AtlasAaeosCycleCommand.php",
+      "bucket": "aaeos_control_daily"
+    },
+    {
+      "signature_name": "atlas:aaeos:deferred-worker",
+      "loc": 101,
+      "file": "AtlasAaeosDeferredWorkerCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:department-registry",
+      "loc": 67,
+      "file": "AtlasAaeosDepartmentRegistryCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:department-status",
+      "loc": 325,
+      "file": "AtlasAaeosDepartmentStatusCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:learning-proposals",
+      "loc": 91,
+      "file": "AtlasLearningProposalsCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:maturity",
+      "loc": 117,
+      "file": "AtlasAaeosMaturityCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:memory-cognitive-immune-learning-kernel",
+      "loc": 78,
+      "file": "AtlasMemoryCognitiveImmuneLearningKernelCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aaeos:run",
+      "loc": 121,
+      "file": "AtlasAaeosRunCommand.php",
+      "bucket": "aaeos_control_daily"
+    },
+    {
+      "signature_name": "atlas:aaeos:scorecard",
+      "loc": 38,
+      "file": "AtlasAaeosScorecardCommand.php",
+      "bucket": "aaeos_control_daily"
+    },
+    {
+      "signature_name": "atlas:aaeos:verify-tests",
+      "loc": 144,
+      "file": "AtlasAaeosVerifyTestsCommand.php",
+      "bucket": "aaeos_rename_candidate"
+    },
+    {
+      "signature_name": "atlas:aars",
+      "loc": 59,
+      "file": "AtlasAarsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aars:certify",
+      "loc": 32,
+      "file": "AtlasAarsCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acmf:schema-evolution",
+      "loc": 72,
+      "file": "AtlasAcmfSchemaEvolutionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:adv-reproof",
+      "loc": 143,
+      "file": "AtlasAcosAdvReproofCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:cockpit",
+      "loc": 51,
+      "file": "AtlasAcosCockpitCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:consolidation-guard",
+      "loc": 52,
+      "file": "AtlasConsolidationGuardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:delta",
+      "loc": 182,
+      "file": "AtlasAcosDeltaCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:delta-attribution",
+      "loc": 23,
+      "file": "AtlasAcosDeltaAttributionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:delta-series",
+      "loc": 436,
+      "file": "AtlasAcosDeltaSeriesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:delta-series-v2",
+      "loc": 331,
+      "file": "AtlasAcosDeltaSeriesV2Command.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:freeze",
+      "loc": 291,
+      "file": "AtlasAcosFreezeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:frontier-status",
+      "loc": 54,
+      "file": "AtlasFrontierStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:m-series",
+      "loc": 416,
+      "file": "AtlasAcosMSeriesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:obra-retro",
+      "loc": 40,
+      "file": "AtlasAcosObraRetroCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:operational-volume",
+      "loc": 49,
+      "file": "AtlasOperationalVolumeCheckCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:rec06-breakers",
+      "loc": 56,
+      "file": "AtlasAcosRec06BreakersCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:rollback-triggers",
+      "loc": 51,
+      "file": "AtlasAcosRollbackTriggerCheckCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:teto10-review-digest",
+      "loc": 89,
+      "file": "AtlasAcosTeto10ReviewDigestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:verified-share",
+      "loc": 40,
+      "file": "AtlasAcosVerifiedShareCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acos:window-gates",
+      "loc": 44,
+      "file": "AtlasAcosWindowGatesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:acp:reap-leases",
+      "loc": 98,
+      "file": "AtlasAgentControlPlaneReapLeasesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aedpds:certify",
+      "loc": 26,
+      "file": "Ai/Product/AtlasAedpdsCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aedpds:gate",
+      "loc": 54,
+      "file": "Ai/Product/AtlasAedpdsGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aedpds:inspect",
+      "loc": 22,
+      "file": "Ai/Product/AtlasAedpdsInspectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aedpds:select",
+      "loc": 31,
+      "file": "Ai/Product/AtlasAedpdsSelectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor",
+      "loc": 89,
+      "file": "AtlasAemorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:certify",
+      "loc": 34,
+      "file": "AtlasAemorCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:close-outcome",
+      "loc": 40,
+      "file": "AtlasAemorCloseOutcomeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:control-plane",
+      "loc": 22,
+      "file": "AtlasAemorControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:distill",
+      "loc": 27,
+      "file": "AtlasAemorDistillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:episode-open",
+      "loc": 35,
+      "file": "AtlasAemorEpisodeOpenCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:judgment",
+      "loc": 30,
+      "file": "AtlasAemorJudgmentCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:judgment-certify",
+      "loc": 35,
+      "file": "AtlasAemorJudgmentCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:memory-audit",
+      "loc": 22,
+      "file": "AtlasAemorMemoryAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:memory-conflicts",
+      "loc": 33,
+      "file": "AtlasAemorMemoryConflictsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:observe",
+      "loc": 29,
+      "file": "AtlasAemorObserveCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:readiness",
+      "loc": 28,
+      "file": "AtlasAemorReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:replay",
+      "loc": 22,
+      "file": "AtlasAemorReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aemor:risk-predict",
+      "loc": 35,
+      "file": "AtlasAemorRiskPredictCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agent-execution:lane-provider-plan",
+      "loc": 70,
+      "file": "AtlasAgentExecutionLaneProviderPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agentic-workcell",
+      "loc": 68,
+      "file": "AtlasAgenticWorkcellCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agentic-workcell:certify",
+      "loc": 30,
+      "file": "AtlasAgenticWorkcellCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agents:off",
+      "loc": 74,
+      "file": "AtlasAgentsOffCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agents:on",
+      "loc": 87,
+      "file": "AtlasAgentsOnCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agents:reconcile",
+      "loc": 45,
+      "file": "AtlasAgentsReconcileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:agents:status",
+      "loc": 77,
+      "file": "AtlasAgentsStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:abstraction-ladder",
+      "loc": 53,
+      "file": "AtlasAiAbstractionLadderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:agent-behavior-report",
+      "loc": 113,
+      "file": "AtlasAiAgentBehaviorReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:apply-learning",
+      "loc": 73,
+      "file": "AtlasApplyLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:approval",
+      "loc": 213,
+      "file": "AtlasAiApprovalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:architecture-operations",
+      "loc": 66,
+      "file": "AtlasAiArchitectureOperationsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:architecture-readiness",
+      "loc": 60,
+      "file": "AtlasAiArchitectureReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:architecture-validate",
+      "loc": 486,
+      "file": "AtlasAiArchitectureValidateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:auto-apply-safe",
+      "loc": 59,
+      "file": "AtlasAiAutoApplySafeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:automation-domain",
+      "loc": 217,
+      "file": "AtlasAiAutomationDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:autonomous-engineering",
+      "loc": 69,
+      "file": "AtlasAiAutonomousEngineeringCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:bootstrap-skills",
+      "loc": 26,
+      "file": "AiBootstrapSkillsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:capture-inbox-pipeline-backfill-contracts",
+      "loc": 41,
+      "file": "AtlasAiCaptureInboxPipelineBackfillContractsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:capture-inbox-pipeline-report",
+      "loc": 61,
+      "file": "AtlasAiCaptureInboxPipelineReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:capture-quality-audit",
+      "loc": 131,
+      "file": "AtlasAiCaptureQualityAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:chat",
+      "loc": 1463,
+      "file": "AiChatCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:co-recall-composition",
+      "loc": 50,
+      "file": "AtlasAiCoRecallCompositionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:compounding",
+      "loc": 153,
+      "file": "AtlasAiCompoundingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:control-plane",
+      "loc": 255,
+      "file": "AtlasAiControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:cost-calibrate",
+      "loc": 52,
+      "file": "AtlasCostCalibrateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:counterfactual-lift",
+      "loc": 23,
+      "file": "AtlasAiCounterfactualLiftCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:cyber-domain",
+      "loc": 278,
+      "file": "AtlasAiCyberDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:decide",
+      "loc": 423,
+      "file": "AtlasAiDecideCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:decision-receipt-report",
+      "loc": 84,
+      "file": "AtlasAiDecisionReceiptReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:docs-authority-audit",
+      "loc": 52,
+      "file": "AtlasDocumentationAuthorityAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:docs-split-plan",
+      "loc": 60,
+      "file": "AtlasAiDocsSplitPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:doctor",
+      "loc": 111,
+      "file": "AiDoctorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:domain-runtime",
+      "loc": 336,
+      "file": "AtlasAiDomainRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:domains",
+      "loc": 115,
+      "file": "AtlasAiDomainsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:dynamic-compute-market",
+      "loc": 97,
+      "file": "AtlasAiDynamicComputeMarketCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:engine:backfill",
+      "loc": 186,
+      "file": "AiReportEngineBackfillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:engine:run",
+      "loc": 244,
+      "file": "AiReportEngineRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:enqueue",
+      "loc": 39,
+      "file": "AiEnqueueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:evidence",
+      "loc": 354,
+      "file": "AtlasAiEvidenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:external-graph-harness",
+      "loc": 199,
+      "file": "AtlasAiExternalGraphHarnessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:finance-domain",
+      "loc": 179,
+      "file": "AtlasAiFinanceDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:health",
+      "loc": 28,
+      "file": "AiHealthCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:hyperflow",
+      "loc": 68,
+      "file": "AtlasAiHyperflowCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:hyperflow-specialists",
+      "loc": 88,
+      "file": "AtlasAiHyperflowSpecialistsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:inbox-action-report",
+      "loc": 324,
+      "file": "AtlasAiInboxActionReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:kernel-pipeline-report",
+      "loc": 123,
+      "file": "AtlasAiKernelPipelineReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:learn-project",
+      "loc": 77,
+      "file": "AtlasLearnProjectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:learning",
+      "loc": 136,
+      "file": "AtlasAiLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:learning-curriculum",
+      "loc": 48,
+      "file": "AtlasAiLearningCurriculumCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:learning-generalization",
+      "loc": 59,
+      "file": "AtlasAiLearningGeneralizationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:learning-recall-lift",
+      "loc": 56,
+      "file": "AtlasAiLearningRecallLiftCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:ledger",
+      "loc": 147,
+      "file": "AtlasAiLedgerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:ledger-backfill-traces",
+      "loc": 203,
+      "file": "AtlasAiLedgerBackfillTracesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:ledger-project",
+      "loc": 83,
+      "file": "AtlasAiLedgerProjectionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:lesson-dedup-calibration",
+      "loc": 23,
+      "file": "AtlasAiLessonDedupCalibrationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:lesson-half-life",
+      "loc": 23,
+      "file": "AtlasAiLessonHalfLifeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:lesson-quality",
+      "loc": 50,
+      "file": "AtlasAiLessonQualityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:lesson-type-yield",
+      "loc": 50,
+      "file": "AtlasAiLessonTypeYieldCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:local-rag-benchmark",
+      "loc": 1280,
+      "file": "AtlasAiLocalRagBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:local-rag-readiness",
+      "loc": 37,
+      "file": "AtlasAiLocalRagReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:long-running-work-declare-baseline",
+      "loc": 273,
+      "file": "AtlasAiLongRunningWorkDeclareBaselineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:long-running-work-report",
+      "loc": 148,
+      "file": "AtlasAiLongRunningWorkReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing-domain",
+      "loc": 229,
+      "file": "AtlasAiMarketingDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:advise",
+      "loc": 169,
+      "file": "AtlasAiMarketingAdviseCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:amplify",
+      "loc": 84,
+      "file": "AtlasAiMarketingAmplifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:audit",
+      "loc": 118,
+      "file": "AtlasAiMarketingAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:audit-vsl",
+      "loc": 79,
+      "file": "AtlasAiMarketingAuditVslCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:battle",
+      "loc": 105,
+      "file": "AtlasAiMarketingBattleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:bridge-page",
+      "loc": 219,
+      "file": "AtlasAiMarketingBridgePageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:brief",
+      "loc": 97,
+      "file": "AtlasAiMarketingBriefCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:campaign",
+      "loc": 114,
+      "file": "AtlasAiMarketingCampaignCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:compose-funnel",
+      "loc": 58,
+      "file": "AtlasAiMarketingComposeFunnelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:continuity",
+      "loc": 73,
+      "file": "AtlasAiMarketingContinuityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:diagnose",
+      "loc": 91,
+      "file": "AtlasAiMarketingDiagnoseCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:dossier",
+      "loc": 100,
+      "file": "AtlasAiMarketingDossierCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:funnel",
+      "loc": 79,
+      "file": "AtlasAiMarketingFunnelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:import-outcomes",
+      "loc": 130,
+      "file": "AtlasAiMarketingImportOutcomesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:keyword-moat",
+      "loc": 64,
+      "file": "AtlasAiMarketingKeywordMoatCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:keyword-os",
+      "loc": 148,
+      "file": "AtlasAiMarketingKeywordOsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:keyword-scale",
+      "loc": 58,
+      "file": "AtlasAiMarketingKeywordScaleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:keyword-verdict",
+      "loc": 77,
+      "file": "AtlasAiMarketingKeywordVerdictCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:keywords",
+      "loc": 91,
+      "file": "AtlasAiMarketingKeywordsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:mine-patterns",
+      "loc": 63,
+      "file": "AtlasAiMarketingMinePatternsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:orchestrate",
+      "loc": 65,
+      "file": "AtlasAiMarketingOrchestrateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:record-outcome",
+      "loc": 73,
+      "file": "AtlasAiMarketingRecordOutcomeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:scout",
+      "loc": 73,
+      "file": "AtlasAiMarketingScoutCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:spy",
+      "loc": 77,
+      "file": "AtlasAiMarketingSpyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:vsl",
+      "loc": 215,
+      "file": "AtlasAiMarketingVslCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:vsl-page",
+      "loc": 135,
+      "file": "AtlasAiMarketingVslPageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:marketing:weights",
+      "loc": 57,
+      "file": "AtlasAiMarketingWeightsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:memory-forget",
+      "loc": 78,
+      "file": "AtlasAiMemoryForgetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:metrics:snapshot-refresh",
+      "loc": 74,
+      "file": "AiMetricSnapshotRefreshCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:mine-held-evidence",
+      "loc": 42,
+      "file": "AtlasMineHeldEvidenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:mission",
+      "loc": 277,
+      "file": "AtlasAiMissionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:mission-foundation",
+      "loc": 437,
+      "file": "AtlasAiMissionFoundationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:operations-domain",
+      "loc": 191,
+      "file": "AtlasAiOperationsDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:operator-comprehend",
+      "loc": 170,
+      "file": "AtlasOperatorComprehendCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:operator-patterns",
+      "loc": 105,
+      "file": "AtlasOperatorPatternsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:operator-profile",
+      "loc": 130,
+      "file": "AtlasOperatorProfileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:operator-skill",
+      "loc": 165,
+      "file": "AtlasOperatorSkillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:performance:smoke",
+      "loc": 350,
+      "file": "AiPerformanceSmokeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:personal-development-domain",
+      "loc": 194,
+      "file": "AtlasAiPersonalDevelopmentDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:pipeline",
+      "loc": 107,
+      "file": "AtlasAiPipelineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:place-feature",
+      "loc": 98,
+      "file": "AtlasAiPlaceFeatureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:policy",
+      "loc": 240,
+      "file": "AtlasAiPolicyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:proactive-layer-report",
+      "loc": 55,
+      "file": "AtlasAiProactiveLayerReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:procedural-skill-promoter",
+      "loc": 45,
+      "file": "AtlasAiProceduralSkillPromoterCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:product-certify",
+      "loc": 99,
+      "file": "Ai/Product/AtlasAiProductCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:programming-adapter",
+      "loc": 143,
+      "file": "AtlasAiProgrammingAdapterCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:programming-runtime",
+      "loc": 81,
+      "file": "AtlasAiProgrammingRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:programming-runtime-control-plane",
+      "loc": 128,
+      "file": "AtlasAiProgrammingRuntimeControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:programming-runtime-telemetry",
+      "loc": 164,
+      "file": "AtlasAiProgrammingRuntimeTelemetryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:provider-performance",
+      "loc": 116,
+      "file": "AtlasAiProviderPerformanceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:provider-release-review",
+      "loc": 73,
+      "file": "AtlasAiProviderReleaseReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:provider-release-sources",
+      "loc": 92,
+      "file": "AtlasAiProviderReleaseSourcesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:qualitative-levels",
+      "loc": 49,
+      "file": "AtlasAiQualitativeLevelsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:quality:backfill",
+      "loc": 163,
+      "file": "AiQualityBackfillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:real-engineering-kernel",
+      "loc": 97,
+      "file": "AtlasAiRealEngineeringKernelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:recommendations:measure",
+      "loc": 51,
+      "file": "AiRecommendationMeasureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:repair",
+      "loc": 186,
+      "file": "AtlasAiRepairCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:repair-report",
+      "loc": 99,
+      "file": "AtlasAiRepairReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:research-domain",
+      "loc": 220,
+      "file": "AtlasAiResearchDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:router-runtime",
+      "loc": 332,
+      "file": "AtlasAiRouterRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:runtime-boundary",
+      "loc": 37,
+      "file": "AtlasAiRuntimeBoundaryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:runtime-readiness",
+      "loc": 96,
+      "file": "AtlasAiRuntimeReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:runtime-release-gate",
+      "loc": 101,
+      "file": "AtlasAiRuntimeReleaseGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:runtime-ux-certify",
+      "loc": 73,
+      "file": "Ai/Product/AtlasAiRuntimeUxCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:codex",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionCodexCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:control-plane",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:core",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionCoreCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:dispatch",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionDispatchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:dispatch-planner",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionDispatchPlannerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:merge-review",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionMergeReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:provider",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionProviderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:runtime",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:shell-placeholder",
+      "loc": 45,
+      "file": "AtlasAiSelfConstructionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:status",
+      "loc": 106,
+      "file": "AtlasAiSelfConstructionStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-construction:validation",
+      "loc": 36,
+      "file": "AtlasAiSelfConstructionValidationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-improve",
+      "loc": 277,
+      "file": "AtlasAiSelfImproveCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:self-improvement-schedule-report",
+      "loc": 133,
+      "file": "AtlasAiSelfImprovementScheduleReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:session-bootstrap",
+      "loc": 229,
+      "file": "AtlasAiSessionBootstrapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:slo",
+      "loc": 115,
+      "file": "AtlasAiSloCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:strategic-decision",
+      "loc": 75,
+      "file": "AtlasAiStrategicDecisionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:strategy-domain",
+      "loc": 261,
+      "file": "AtlasAiStrategyDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:structure-mother-audit",
+      "loc": 154,
+      "file": "AtlasAiStructureMotherAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:task-orchestration-backfill-receipts",
+      "loc": 224,
+      "file": "AtlasAiTaskOrchestrationBackfillReceiptsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:task-orchestration-report",
+      "loc": 56,
+      "file": "AtlasAiTaskOrchestrationReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:telemetry:cost-rates",
+      "loc": 328,
+      "file": "AiTelemetryCostRatesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:telemetry:health",
+      "loc": 63,
+      "file": "AiTelemetryHealthCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:telemetry:performance-report",
+      "loc": 189,
+      "file": "AiTelemetryPerformanceReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:telemetry:rollup",
+      "loc": 61,
+      "file": "AiTelemetryRollupCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:tool-action-runtime-report",
+      "loc": 59,
+      "file": "AtlasAiToolActionRuntimeReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:tool-runtime",
+      "loc": 366,
+      "file": "AtlasAiToolRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:trust-ladder",
+      "loc": 61,
+      "file": "AtlasTrustLadderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:voice",
+      "loc": 1214,
+      "file": "AtlasAiVoiceRealtimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:weekly-memory-digest",
+      "loc": 160,
+      "file": "AtlasAiWeeklyMemoryDigestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ai:work",
+      "loc": 77,
+      "file": "AiWorkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:akif:ocr",
+      "loc": 76,
+      "file": "AtlasAkifOcrCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:capture-session",
+      "loc": 94,
+      "file": "AtlasAobgCaptureSessionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:file-context",
+      "loc": 85,
+      "file": "AtlasAobgFileContextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:guard",
+      "loc": 102,
+      "file": "AtlasAobgGuardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:guard-hitrate",
+      "loc": 209,
+      "file": "AtlasAobgGuardHitRateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:mark-session-echo",
+      "loc": 112,
+      "file": "AtlasAobgMarkSessionEchoCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:propose-learning",
+      "loc": 93,
+      "file": "AtlasAobgProposeLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:record-outcome",
+      "loc": 100,
+      "file": "AtlasAobgRecordOutcomeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:semantic-lift",
+      "loc": 51,
+      "file": "AtlasAobgSemanticRetrievalLiftCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aobg:workspace",
+      "loc": 155,
+      "file": "AtlasAobgWorkspaceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:api:describe",
+      "loc": 127,
+      "file": "AtlasApiDescribeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:api:perf",
+      "loc": 142,
+      "file": "AtlasApiPerfCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:arena:drain",
+      "loc": 331,
+      "file": "AtlasArenaDrainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:gateway-consult",
+      "loc": 65,
+      "file": "AtlasDecideGatewayConsultCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:live-feedback",
+      "loc": 149,
+      "file": "AtlasDecideLiveFeedbackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:lookahead",
+      "loc": 69,
+      "file": "AtlasDecideLookaheadCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:meta-learning",
+      "loc": 102,
+      "file": "AtlasDecideMetaLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:meta-learning:activate",
+      "loc": 116,
+      "file": "AtlasDecideMetaLearningActivateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:meta-learning:deactivate",
+      "loc": 85,
+      "file": "AtlasDecideMetaLearningDeactivateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:meta-learning:reset",
+      "loc": 74,
+      "file": "AtlasDecideMetaLearningResetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:atlas-decide:routing-table",
+      "loc": 43,
+      "file": "AtlasDecideRoutingTableCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aucri:optimize-audit",
+      "loc": 43,
+      "file": "AtlasAucriOptimizeAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aucri:token-quality-canaries",
+      "loc": 35,
+      "file": "AtlasAucriTokenQualityCanarySetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:backfill-temporal",
+      "loc": 53,
+      "file": "AtlasAurgBackfillTemporalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:edges-asof",
+      "loc": 58,
+      "file": "AtlasAurgEdgesAsOfCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:ingest",
+      "loc": 133,
+      "file": "AtlasAurgIngestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:query",
+      "loc": 122,
+      "file": "AtlasAurgQueryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:status",
+      "loc": 107,
+      "file": "AtlasAurgStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:temporal",
+      "loc": 57,
+      "file": "AtlasAurgTemporalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:temporal:record",
+      "loc": 80,
+      "file": "AtlasAurgTemporalRecordCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aurg:temporal:verify",
+      "loc": 33,
+      "file": "AtlasAurgTemporalVerifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomos:auto-apply-preflight",
+      "loc": 55,
+      "file": "AtlasAutonomosAutoApplyPreflightCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomos:preflight",
+      "loc": 52,
+      "file": "AtlasAutonomosPreflightCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomous-change-orchestrator",
+      "loc": 67,
+      "file": "AtlasAutonomousChangeOrchestratorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomy:admit",
+      "loc": 69,
+      "file": "AtlasAutonomyAdmissionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomy:ladder",
+      "loc": 117,
+      "file": "AtlasAutonomyLadderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomy:promote",
+      "loc": 63,
+      "file": "AtlasAutonomyPromoteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:autonomy:status",
+      "loc": 54,
+      "file": "AtlasAutonomyStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aver",
+      "loc": 79,
+      "file": "AtlasAverCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aver:certify",
+      "loc": 32,
+      "file": "AtlasAverCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aweos",
+      "loc": 66,
+      "file": "AtlasAweosCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:aweos:certify",
+      "loc": 30,
+      "file": "AtlasAweosCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:bdd",
+      "loc": 93,
+      "file": "AtlasBddCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:blast-radius",
+      "loc": 102,
+      "file": "AtlasBlastRadiusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:blog:editorial-plan",
+      "loc": 248,
+      "file": "AtlasBlogEditorialPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:brain:audit",
+      "loc": 76,
+      "file": "AtlasBrainAuditCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:catalog",
+      "loc": 90,
+      "file": "AtlasBrainCatalogCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:contract-gaps",
+      "loc": 60,
+      "file": "AtlasBrainContractGapsCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:cycle-capsule",
+      "loc": 92,
+      "file": "AtlasBrainCycleCapsuleCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:findings",
+      "loc": 69,
+      "file": "AtlasBrainFindingsCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:frontier-ingest",
+      "loc": 166,
+      "file": "AtlasBrainFrontierIngestCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:health-doctor",
+      "loc": 424,
+      "file": "AtlasBrainHealthDoctorCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:history",
+      "loc": 65,
+      "file": "AtlasBrainHistoryCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:metrics",
+      "loc": 142,
+      "file": "AtlasBrainMetricsCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:next",
+      "loc": 598,
+      "file": "AtlasBrainNextCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:path-yield",
+      "loc": 92,
+      "file": "AtlasBrainPathYieldCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:perception",
+      "loc": 38,
+      "file": "AtlasBrainPerceptionCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:plan",
+      "loc": 91,
+      "file": "AtlasBrainPlanCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:predicted-impact",
+      "loc": 23,
+      "file": "AtlasBrainPredictedImpactCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:provenance",
+      "loc": 54,
+      "file": "AtlasBrainProvenanceCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:queued-targets",
+      "loc": 244,
+      "file": "AtlasBrainQueuedTargetsCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:rehydrate-memory",
+      "loc": 177,
+      "file": "AtlasBrainRehydrateMemoryCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:replay",
+      "loc": 129,
+      "file": "AtlasBrainReplayCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:scopes",
+      "loc": 34,
+      "file": "AtlasBrainScopesCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:seed",
+      "loc": 443,
+      "file": "AtlasBrainSeedCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:snapshot",
+      "loc": 77,
+      "file": "AtlasBrainSnapshotCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:state",
+      "loc": 917,
+      "file": "AtlasBrainStateCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:summary",
+      "loc": 128,
+      "file": "AtlasBrainSummaryCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:trend",
+      "loc": 78,
+      "file": "AtlasBrainTrendCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brain:worker-prompt",
+      "loc": 185,
+      "file": "AtlasBrainWorkerPromptCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:brief",
+      "loc": 70,
+      "file": "AtlasBriefCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cartography:truth-guard",
+      "loc": 79,
+      "file": "AtlasCartographyTruthGuardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:bootstrap",
+      "loc": 714,
+      "file": "AtlasCliBootstrapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:checkpoint",
+      "loc": 148,
+      "file": "AtlasCliCheckpointCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:cockpit",
+      "loc": 354,
+      "file": "AtlasCliCockpitCommand.php",
+      "bucket": "daily_cockpit"
+    },
+    {
+      "signature_name": "atlas:cli:compare",
+      "loc": 50,
+      "file": "AtlasCliCompareCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:completion",
+      "loc": 76,
+      "file": "AtlasCliCompletionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:continue",
+      "loc": 178,
+      "file": "AtlasCliContinueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:dashboard",
+      "loc": 191,
+      "file": "AtlasCliDashboardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:dev",
+      "loc": 1378,
+      "file": "AtlasCliDevCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:cli:dev:plan",
+      "loc": 239,
+      "file": "AtlasCliDevPlanCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:cli:doctor",
+      "loc": 86,
+      "file": "AtlasCliDoctorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:dogfood",
+      "loc": 171,
+      "file": "AtlasCliDogfoodCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:final",
+      "loc": 272,
+      "file": "AtlasCliFinalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:fix",
+      "loc": 51,
+      "file": "AtlasCliFixCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:help",
+      "loc": 447,
+      "file": "AtlasCliHelpCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:inbox",
+      "loc": 390,
+      "file": "AtlasCliInboxCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:install",
+      "loc": 75,
+      "file": "AtlasCliInstallCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:interrupt",
+      "loc": 119,
+      "file": "AtlasCliInterruptCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:memory",
+      "loc": 313,
+      "file": "AtlasCliMemoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:mobile",
+      "loc": 463,
+      "file": "AtlasCliMobileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:permissions",
+      "loc": 202,
+      "file": "AtlasCliPermissionsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:providers",
+      "loc": 58,
+      "file": "AtlasCliProvidersCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:quality",
+      "loc": 88,
+      "file": "AtlasCliQualityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:release",
+      "loc": 327,
+      "file": "AtlasCliReleaseCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:rollback",
+      "loc": 110,
+      "file": "AtlasCliRollbackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:schedule",
+      "loc": 283,
+      "file": "AtlasCliScheduleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:setup",
+      "loc": 126,
+      "file": "AtlasCliSetupCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:skills",
+      "loc": 257,
+      "file": "AtlasCliSkillsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:start",
+      "loc": 257,
+      "file": "AtlasCliStartCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:state",
+      "loc": 217,
+      "file": "AtlasCliStateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:trace",
+      "loc": 268,
+      "file": "AtlasCliTraceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:tui",
+      "loc": 508,
+      "file": "AtlasCliTuiCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:update",
+      "loc": 117,
+      "file": "AtlasCliUpdateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cli:version",
+      "loc": 50,
+      "file": "AtlasCliVersionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code-graph:build",
+      "loc": 187,
+      "file": "AtlasCodeGraphBuildCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code-graph:index-all",
+      "loc": 218,
+      "file": "AtlasCodeGraphIndexAllCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code-graph:lsp",
+      "loc": 107,
+      "file": "AtlasCodeGraphLspCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code-graph:pipeline",
+      "loc": 143,
+      "file": "AtlasCodeGraphPipelineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code-reality",
+      "loc": 152,
+      "file": "AtlasCodeRealityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code:deadcode-check",
+      "loc": 153,
+      "file": "AtlasCodeDeadCodeCheckCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code:enterprise-certify",
+      "loc": 71,
+      "file": "AtlasCodeEnterpriseCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code:forge-fast-path",
+      "loc": 118,
+      "file": "AtlasCodeForgeFastPathCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:code:forge-fast-path-status",
+      "loc": 131,
+      "file": "AtlasCodeForgeFastPathStatusCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:code:forge-intake",
+      "loc": 164,
+      "file": "AtlasCodeForgeWorkIntakeCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:code:forge-review",
+      "loc": 172,
+      "file": "AtlasCodeForgeReviewCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:code:forge-ux",
+      "loc": 97,
+      "file": "AtlasCodeForgeUxOrchestratorCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:code:obra-command-center",
+      "loc": 113,
+      "file": "AtlasCodeObraCommandCenterCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:code:scan",
+      "loc": 36,
+      "file": "AtlasCodeScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:acos-long-horizon-gate",
+      "loc": 72,
+      "file": "AtlasAcosLongHorizonGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:evolution-score",
+      "loc": 42,
+      "file": "AtlasCognitionEvolutionScoreCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:mint-pipeline-receipts",
+      "loc": 427,
+      "file": "AtlasCognitionMintPipelineReceiptsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:predictive-code-intelligence-gate",
+      "loc": 72,
+      "file": "AtlasPredictiveCodeIntelligenceGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:remint-touched",
+      "loc": 205,
+      "file": "AtlasCognitionRemintTouchedCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:scorecard",
+      "loc": 66,
+      "file": "AtlasCognitionScorecardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:scorecard:verify-claims",
+      "loc": 333,
+      "file": "AtlasCognitionVerifyClaimsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognition:scorecard:watchdog",
+      "loc": 32,
+      "file": "AtlasCognitionScorecardWatchdogCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognitive-function",
+      "loc": 54,
+      "file": "AtlasCognitiveFunctionAtlasCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cognitive-function:decompose",
+      "loc": 46,
+      "file": "AtlasCognitiveFunctionDecomposeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compaction:certify",
+      "loc": 635,
+      "file": "AtlasCompactionCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compaction:recovery-sample",
+      "loc": 40,
+      "file": "AtlasCompactionRecoverySampleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compaction:soak-watch",
+      "loc": 32,
+      "file": "AtlasCompactionSoakWatchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compounding:antifragility-metric",
+      "loc": 35,
+      "file": "AtlasAntifragilityMetricCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compounding:fixed-n-capability-dollar-gate",
+      "loc": 75,
+      "file": "AtlasFixedNCapabilityDollarGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compounding:harvest-obra-lessons",
+      "loc": 70,
+      "file": "AtlasCompoundingHarvestObraLessonsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compounding:level8",
+      "loc": 55,
+      "file": "AtlasCompoundingLevel8Command.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:compounding:review-lessons",
+      "loc": 324,
+      "file": "AtlasCompoundingReviewLessonsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:constitutional:kernel",
+      "loc": 196,
+      "file": "AtlasConstitutionalKernelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:constitutional:vault",
+      "loc": 83,
+      "file": "AtlasConstitutionalVaultCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context-intelligence:certify",
+      "loc": 38,
+      "file": "AtlasContextIntelligenceCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context-pack",
+      "loc": 120,
+      "file": "AtlasContextPackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:agentic-rag",
+      "loc": 45,
+      "file": "AtlasAgenticRagFrameworkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:cache-warm",
+      "loc": 50,
+      "file": "AtlasContextCacheCompilerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:cognitive-memory",
+      "loc": 47,
+      "file": "AtlasCognitiveMemoryFabricCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:compile",
+      "loc": 45,
+      "file": "AtlasContextCompilerRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:evaluate-retrieval",
+      "loc": 41,
+      "file": "AtlasRetrievalEvaluationBenchmarkArenaCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:execution-cooccurrence",
+      "loc": 38,
+      "file": "AtlasExecutionContextCooccurrenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:feedback-auto",
+      "loc": 433,
+      "file": "AtlasContextFeedbackAutoCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:feedback-health",
+      "loc": 33,
+      "file": "AtlasContextFeedbackHealthCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:freshness-quality",
+      "loc": 47,
+      "file": "AtlasContextFreshnessQualityGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:golden-counterfactual",
+      "loc": 43,
+      "file": "AtlasGoldenCounterfactualReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:graph-retrieval",
+      "loc": 57,
+      "file": "AtlasGraphRetrievalNetworkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:hybrid-retrieval",
+      "loc": 45,
+      "file": "AtlasHybridRetrievalInfrastructureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:knowledge-ingestion",
+      "loc": 51,
+      "file": "AtlasKnowledgeIngestionFabricCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:latency",
+      "loc": 52,
+      "file": "AtlasContextLatencyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:observability",
+      "loc": 45,
+      "file": "AtlasContextObservabilityPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:pareto-frontier",
+      "loc": 38,
+      "file": "AtlasContextParetoFrontierCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:policy-trend",
+      "loc": 337,
+      "file": "AtlasContextPolicyTrendCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:privacy-trust",
+      "loc": 47,
+      "file": "AtlasRetrievalPrivacyTrustLayerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:purge-spurious-memory-noise",
+      "loc": 38,
+      "file": "AtlasContextPurgeSpuriousMemoryNoiseCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:python-data",
+      "loc": 53,
+      "file": "AtlasPythonDataRetrievalRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:quality-certify",
+      "loc": 49,
+      "file": "AtlasContextQualityCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:rank",
+      "loc": 66,
+      "file": "AtlasContextRankingSystemCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:ranking-hints",
+      "loc": 90,
+      "file": "AtlasContextRankingHintsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:reality-graph",
+      "loc": 44,
+      "file": "AtlasUnifiedRealityGraphCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:retrieval-budget",
+      "loc": 50,
+      "file": "AtlasRetrievalCostLatencyGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:retrieval-feedback",
+      "loc": 106,
+      "file": "AtlasRetrievalFeedbackLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:semantic-foundation",
+      "loc": 69,
+      "file": "AtlasSemanticEmbeddingFoundationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:sufficiency-calibration",
+      "loc": 67,
+      "file": "AtlasContextSufficiencyCalibrationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:token-economy",
+      "loc": 66,
+      "file": "AtlasTokenEconomyRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:context:token-economy:input",
+      "loc": 49,
+      "file": "AtlasTokenEconomyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:conversation-ops:certify",
+      "loc": 38,
+      "file": "AtlasConversationOpsCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cross-domain:analytics",
+      "loc": 184,
+      "file": "AtlasCrossDomainAnalyticsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cross-domain:bridge",
+      "loc": 84,
+      "file": "AtlasCrossDomainBridgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cross-domain:graph-build",
+      "loc": 103,
+      "file": "AtlasCrossDomainGraphBuildCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cross-domain:list-decisions",
+      "loc": 29,
+      "file": "AtlasCrossDomainListDecisionsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:cross-domain:topology",
+      "loc": 31,
+      "file": "AtlasCrossDomainTopologyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ctx",
+      "loc": 260,
+      "file": "AtlasCodeGraphContextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:db:explain",
+      "loc": 25,
+      "file": "AtlasDbExplainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:db:review",
+      "loc": 55,
+      "file": "AtlasDbReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:decide:replay-divergence",
+      "loc": 56,
+      "file": "AtlasDecideReplayDivergenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:decide:self-model",
+      "loc": 61,
+      "file": "AtlasDecideSelfModelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:dev:beat-test",
+      "loc": 85,
+      "file": "AtlasDevBeatTestReportCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:capsule-backfill",
+      "loc": 79,
+      "file": "AtlasDevCapsuleBackfillCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:debug:smoke",
+      "loc": 137,
+      "file": "AtlasDevSmokeCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:acceptance",
+      "loc": 43,
+      "file": "AtlasDevDesktopAcceptanceCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:certify",
+      "loc": 47,
+      "file": "AtlasDevDesktopCertifyCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:efficiency-evidence",
+      "loc": 208,
+      "file": "AtlasDevDesktopEfficiencyEvidenceCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:enable",
+      "loc": 131,
+      "file": "AtlasDevDesktopEnableCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:goal-audit",
+      "loc": 217,
+      "file": "AtlasDevDesktopGoalAuditCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:desktop:real-smoke",
+      "loc": 357,
+      "file": "AtlasDevDesktopRealSmokeCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:exemplar-index",
+      "loc": 89,
+      "file": "AtlasDevExemplarIndexCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:minimax-worker:run",
+      "loc": 88,
+      "file": "AtlasDevMinimaxWorkerRunCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:readiness",
+      "loc": 45,
+      "file": "AtlasDevReadinessCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:run-certify",
+      "loc": 92,
+      "file": "AtlasDevRunCertifyCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:run-snapshot",
+      "loc": 44,
+      "file": "AtlasDevRunSnapshotCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:run-worker",
+      "loc": 252,
+      "file": "AtlasDevRunWorkerCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:runtime-flows",
+      "loc": 35,
+      "file": "AtlasDevRuntimeFlowsCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:senior-loop:audit",
+      "loc": 115,
+      "file": "AtlasDevSeniorLoopAuditCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:dev:senior-loop:run",
+      "loc": 235,
+      "file": "AtlasDevSeniorLoopRunCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:docs:lint-file",
+      "loc": 59,
+      "file": "AtlasDocsLintFileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:docs:locate",
+      "loc": 104,
+      "file": "AtlasDocsLocateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:docs:reality-check-file",
+      "loc": 147,
+      "file": "AtlasDocsRealityCheckFileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality",
+      "loc": 110,
+      "file": "AtlasDocumentationRealityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-antibody-proposals",
+      "loc": 75,
+      "file": "AtlasDocumentationRealityAntibodyProposalsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-auto-heal",
+      "loc": 106,
+      "file": "AtlasDocumentationRealityAutoHealCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-bidirectional-reconcile",
+      "loc": 131,
+      "file": "AtlasDocumentationRealityBidirectionalReconcileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-causal-self-model",
+      "loc": 116,
+      "file": "AtlasDocumentationRealityCausalSelfModelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-code-contract-proposals",
+      "loc": 92,
+      "file": "AtlasDocumentationRealityCodeContractProposalsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-completeness",
+      "loc": 93,
+      "file": "AtlasDocumentationRealityCompletenessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-flow",
+      "loc": 112,
+      "file": "AtlasDocumentationRealityFlowCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-intent-advisory",
+      "loc": 108,
+      "file": "AtlasDocumentationRealityIntentAdvisoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-multi-estate",
+      "loc": 113,
+      "file": "AtlasDocumentationRealityMultiEstateCompoundingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-outcome-grounding",
+      "loc": 92,
+      "file": "AtlasDocumentationRealityOutcomeGroundingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-reflective-status",
+      "loc": 79,
+      "file": "AtlasDocumentationRealityReflectiveStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-repair-proposals",
+      "loc": 81,
+      "file": "AtlasDocumentationRealityRepairProposalsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-self-improvement-modeling",
+      "loc": 112,
+      "file": "AtlasDocumentationRealitySelfImprovementModelingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation-reality-write-gate",
+      "loc": 315,
+      "file": "AtlasDocumentationRealityWriteGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:documentation:enforce",
+      "loc": 63,
+      "file": "AtlasDocumentationEnforcementCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:domain:analyze",
+      "loc": 121,
+      "file": "AtlasDomainAnalyzeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:dreyfus",
+      "loc": 177,
+      "file": "AtlasDreyfusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:efficiency",
+      "loc": 68,
+      "file": "AtlasQualityPreservingEfficiencyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:elite:compaction",
+      "loc": 361,
+      "file": "AtlasEliteCompactionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:api-contract",
+      "loc": 89,
+      "file": "AtlasEngineeringApiContractCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark",
+      "loc": 278,
+      "file": "AtlasEngineeringBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark:calibrate",
+      "loc": 118,
+      "file": "AtlasEngineeringBenchmarkCalibrateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark:claude-fair",
+      "loc": 1118,
+      "file": "AtlasEngineeringBenchmarkFairCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark:replay-manifest",
+      "loc": 65,
+      "file": "AtlasEngineeringBenchmarkReplayManifestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark:report",
+      "loc": 145,
+      "file": "AtlasEngineeringBenchmarkReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:benchmark:seed",
+      "loc": 454,
+      "file": "AtlasEngineeringBenchmarkSeedCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:deliver",
+      "loc": 91,
+      "file": "AtlasEngineeringDeliverCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:docker-cleanup",
+      "loc": 78,
+      "file": "AtlasEngineeringDockerCleanupCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:end-to-end-scorecard",
+      "loc": 524,
+      "file": "AtlasEngineeringEndToEndScorecardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:enforce-readiness",
+      "loc": 34,
+      "file": "AtlasEngineeringEnforceReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:harnessability:calibrate",
+      "loc": 47,
+      "file": "AtlasEngineeringHarnessabilityCalibrateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:knowledge",
+      "loc": 706,
+      "file": "AtlasEngineeringKnowledgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:m-scorecard",
+      "loc": 149,
+      "file": "AtlasEngineeringMScorecardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:quality-foundry-manifests",
+      "loc": 58,
+      "file": "AtlasEngineeringQualityFoundryManifestsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:quality-foundry-readiness",
+      "loc": 41,
+      "file": "AtlasEngineeringQualityFoundryReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:quality-scan",
+      "loc": 103,
+      "file": "AtlasEngineeringQualityScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:refactor-census",
+      "loc": 60,
+      "file": "AtlasEngineeringRefactorCensusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:replay",
+      "loc": 232,
+      "file": "AtlasEngineeringReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:run",
+      "loc": 176,
+      "file": "AtlasEngineeringRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:sbom",
+      "loc": 87,
+      "file": "AtlasEngineeringSbomCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:security-scan",
+      "loc": 98,
+      "file": "AtlasEngineeringSecurityScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:visual-baseline",
+      "loc": 374,
+      "file": "AtlasEngineeringVisualBaselineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:visual-driver",
+      "loc": 369,
+      "file": "AtlasEngineeringVisualDriverCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:engineering:visual-smoke",
+      "loc": 1046,
+      "file": "AtlasEngineeringVisualSmokeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:evolucao",
+      "loc": 207,
+      "file": "AtlasEvolucaoCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:amplifier-economics",
+      "loc": 91,
+      "file": "AtlasExternalBrainAmplifierEconomicsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:autonomy-governor",
+      "loc": 113,
+      "file": "AtlasExternalBrainAutonomyGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:autonomy-replay",
+      "loc": 119,
+      "file": "AtlasExternalBrainAutonomyReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:capability-proof-map",
+      "loc": 186,
+      "file": "AtlasExternalBrainCapabilityProofMapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:control-plane",
+      "loc": 147,
+      "file": "AtlasExternalBrainControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:control-plane-convergence",
+      "loc": 98,
+      "file": "AtlasExternalBrainControlPlaneConvergenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:domain-map",
+      "loc": 147,
+      "file": "AtlasExternalBrainDomainMapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:final-readiness",
+      "loc": 151,
+      "file": "AtlasExternalBrainFinalReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:gap-closure",
+      "loc": 73,
+      "file": "AtlasExternalBrainGapClosureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:knowledge-freshness",
+      "loc": 103,
+      "file": "AtlasExternalBrainKnowledgeFreshnessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:learning-completeness",
+      "loc": 101,
+      "file": "AtlasExternalBrainLearningCompletenessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:maturity-gap",
+      "loc": 88,
+      "file": "AtlasExternalBrainMaturityGapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:model-amplifier",
+      "loc": 86,
+      "file": "AtlasExternalBrainModelAmplifierCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:originator-coverage",
+      "loc": 129,
+      "file": "AtlasExternalBrainOriginatorCoverageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:originator-quality",
+      "loc": 359,
+      "file": "AtlasExternalBrainOriginatorQualityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:originator-stop-pivot",
+      "loc": 124,
+      "file": "AtlasExternalBrainOriginatorStopPivotCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:post-commit-learning",
+      "loc": 115,
+      "file": "AtlasExternalBrainPostCommitLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:proposal-arena",
+      "loc": 109,
+      "file": "AtlasExternalBrainProposalArenaCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:provider-independence",
+      "loc": 91,
+      "file": "AtlasExternalBrainProviderIndependenceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:queue-pressure",
+      "loc": 141,
+      "file": "AtlasExternalBrainQueuePressureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:regression-repair",
+      "loc": 122,
+      "file": "AtlasExternalBrainRegressionRepairCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:research-to-task",
+      "loc": 131,
+      "file": "AtlasExternalBrainResearchToTaskCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:simplification-burndown",
+      "loc": 140,
+      "file": "AtlasExternalBrainSimplificationBurnDownCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:simplification-governor",
+      "loc": 113,
+      "file": "AtlasExternalBrainSimplificationGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:strategy-loop",
+      "loc": 156,
+      "file": "AtlasExternalBrainStrategyLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:task-graph-orchestrator",
+      "loc": 104,
+      "file": "AtlasExternalBrainTaskGraphOrchestratorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:task-graph-wave",
+      "loc": 97,
+      "file": "AtlasExternalBrainTaskGraphWaveCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:external-brain:unified-control-plane",
+      "loc": 94,
+      "file": "AtlasExternalBrainUnifiedControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:fable:final-capture",
+      "loc": 151,
+      "file": "AtlasFableFinalCaptureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:fable:final-report",
+      "loc": 119,
+      "file": "AtlasFableFinalReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:fable:weekly-report",
+      "loc": 103,
+      "file": "AtlasFableWeeklyReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:failure",
+      "loc": 294,
+      "file": "AtlasFailureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:failure:auto-feed",
+      "loc": 64,
+      "file": "AtlasFailureAutoFeedCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:failure:weekly-red-snapshot",
+      "loc": 104,
+      "file": "AtlasFailureWeeklyRedSnapshotCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:paper-trade",
+      "loc": 159,
+      "file": "AtlasFinancePaperTradeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:poly-arb",
+      "loc": 768,
+      "file": "AtlasFinancePolyArbCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:poly-exec",
+      "loc": 1649,
+      "file": "AtlasFinancePolyExecCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:poly-implication",
+      "loc": 391,
+      "file": "AtlasFinancePolyImplicationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:poly-shadow",
+      "loc": 336,
+      "file": "AtlasFinancePolyShadowCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:spot-exec",
+      "loc": 173,
+      "file": "AtlasFinanceSpotExecCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-adversarial-audit",
+      "loc": 45,
+      "file": "AtlasFinanceStrategyAdversarialAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-backtest",
+      "loc": 196,
+      "file": "AtlasFinanceStrategyBacktestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-campaign-runner",
+      "loc": 267,
+      "file": "AtlasFinanceStrategyCampaignRunnerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-confirmation-next",
+      "loc": 52,
+      "file": "AtlasFinanceStrategyConfirmationNextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-evolve",
+      "loc": 435,
+      "file": "AtlasFinanceStrategyEvolveCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-loop",
+      "loc": 148,
+      "file": "AtlasFinanceStrategyLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-loop-audit",
+      "loc": 58,
+      "file": "AtlasFinanceStrategyLoopAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-plan-completion-audit",
+      "loc": 53,
+      "file": "AtlasFinanceStrategyPlanCompletionAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-scientific-readiness-audit",
+      "loc": 53,
+      "file": "AtlasFinanceStrategyScientificReadinessAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:finance:strategy-search",
+      "loc": 1761,
+      "file": "AtlasFinanceStrategySearchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:flywheel:funnel",
+      "loc": 53,
+      "file": "AtlasFlywheelFunnelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:flywheel:learning-latency",
+      "loc": 23,
+      "file": "AtlasFlywheelLearningLatencyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:flywheel:loops",
+      "loc": 23,
+      "file": "AtlasFlywheelLoopsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:forge:continuum-certify",
+      "loc": 142,
+      "file": "AtlasForgeContinuumCertifyCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:kanban-dispatch",
+      "loc": 124,
+      "file": "AtlasForgeKanbanDispatchCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:l4-10-proof",
+      "loc": 98,
+      "file": "AtlasForgeMultiNodeL410ProofCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:live-execute",
+      "loc": 103,
+      "file": "AtlasForgeLiveExecuteCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:parallel-durable",
+      "loc": 131,
+      "file": "AtlasForgeParallelDurableCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:provider-capacity",
+      "loc": 156,
+      "file": "AtlasForgeProviderCapacityCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:provider-failure-record",
+      "loc": 202,
+      "file": "AtlasForgeProviderFailureRecordCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:provider-invoke",
+      "loc": 181,
+      "file": "AtlasForgeProviderInvokeCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:provider-topology",
+      "loc": 35,
+      "file": "AtlasForgeProviderTopologyCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:reap-leases",
+      "loc": 34,
+      "file": "AtlasForgeLeaseReapCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:runtime-certify",
+      "loc": 95,
+      "file": "AtlasForgeRuntimeCertifyCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:runtime-dispatch",
+      "loc": 117,
+      "file": "AtlasForgeRuntimeDispatchCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:forge:supervise",
+      "loc": 37,
+      "file": "AtlasForgeSupervisorCommand.php",
+      "bucket": "dev_forge_daily"
+    },
+    {
+      "signature_name": "atlas:foundry:harvest",
+      "loc": 50,
+      "file": "AtlasFoundryHarvestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:foundry:verify",
+      "loc": 69,
+      "file": "AtlasFoundryVerifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:adapters",
+      "loc": 42,
+      "file": "AtlasFrontendFrameworkAdapterCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:assets",
+      "loc": 39,
+      "file": "AtlasFrontendAssetPackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:benchmark",
+      "loc": 30,
+      "file": "AtlasFrontendBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:blueprint",
+      "loc": 56,
+      "file": "AtlasFrontendBlueprintCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:bridge",
+      "loc": 45,
+      "file": "AtlasFrontendBrowserBridgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:certify",
+      "loc": 34,
+      "file": "AtlasFrontendDesignRuntimeCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:company-profile",
+      "loc": 39,
+      "file": "AtlasFrontendCompanyDesignProfileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:control-plane",
+      "loc": 66,
+      "file": "AtlasFrontendControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:design-dossier",
+      "loc": 42,
+      "file": "AtlasFrontendDesignDossierCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:design-system-drift",
+      "loc": 39,
+      "file": "AtlasFrontendDesignSystemDriftCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:detect",
+      "loc": 32,
+      "file": "AtlasFrontendAntiSlopDetectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:directions",
+      "loc": 37,
+      "file": "AtlasFrontendDesignDirectionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:enterprise-bootstrap",
+      "loc": 66,
+      "file": "AtlasFrontendEnterpriseBootstrapCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:evidence",
+      "loc": 40,
+      "file": "AtlasFrontendEvidencePackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:evidence-kit",
+      "loc": 60,
+      "file": "AtlasFrontendEvidenceKitCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:gate",
+      "loc": 63,
+      "file": "AtlasFrontendExecutionGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:gauntlet",
+      "loc": 60,
+      "file": "AtlasFrontendGauntletCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:handoff",
+      "loc": 48,
+      "file": "AtlasFrontendDeliveryHandoffCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:intake",
+      "loc": 32,
+      "file": "AtlasFrontendRepoIntakeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:inventory",
+      "loc": 42,
+      "file": "AtlasFrontendDesignSystemInventoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:live",
+      "loc": 109,
+      "file": "AtlasFrontendLiveSourcePatchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:onboard",
+      "loc": 61,
+      "file": "AtlasFrontendCompanyRepoOnboardingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:outcomes",
+      "loc": 54,
+      "file": "AtlasFrontendOutcomeMemoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:plan",
+      "loc": 39,
+      "file": "AtlasFrontendDesignRuntimePlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:portfolio",
+      "loc": 40,
+      "file": "AtlasFrontendCompanyPortfolioCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:private-benchmark-plan",
+      "loc": 38,
+      "file": "AtlasFrontendPrivateBenchmarkProofPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:proof",
+      "loc": 68,
+      "file": "AtlasFrontendProductProofCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:provider-packet",
+      "loc": 60,
+      "file": "AtlasFrontendProviderInstructionPacketCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:publish",
+      "loc": 55,
+      "file": "AtlasFrontendPublicationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:quality-budget",
+      "loc": 42,
+      "file": "AtlasFrontendQualityBudgetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:relay",
+      "loc": 45,
+      "file": "AtlasFrontendLivePreviewRelayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:repair-plan",
+      "loc": 70,
+      "file": "AtlasFrontendRepairPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:replay",
+      "loc": 96,
+      "file": "AtlasFrontendRivalReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:review",
+      "loc": 39,
+      "file": "AtlasFrontendDesignReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:rubric",
+      "loc": 28,
+      "file": "AtlasFrontendCompetitiveRubricCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:run-certify",
+      "loc": 50,
+      "file": "AtlasFrontendRunCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:runbook",
+      "loc": 60,
+      "file": "AtlasFrontendExecutionRunbookCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:scenarios",
+      "loc": 50,
+      "file": "AtlasFrontendScenarioMatrixCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:selected-workspace",
+      "loc": 52,
+      "file": "AtlasFrontendSelectedWorkspaceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:skill-pack",
+      "loc": 52,
+      "file": "AtlasFrontendSkillPackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:spec",
+      "loc": 51,
+      "file": "AtlasFrontendTaskSpecCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:visual-quality",
+      "loc": 39,
+      "file": "AtlasFrontendVisualQualityGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:work-order",
+      "loc": 60,
+      "file": "AtlasFrontendWorkOrderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:frontend:world-best-plan",
+      "loc": 44,
+      "file": "AtlasFrontendWorldBestProofPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:gateway:preflight",
+      "loc": 82,
+      "file": "AtlasGatewayPreflightCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:golden",
+      "loc": 152,
+      "file": "AtlasGoldenCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:governance:amendments",
+      "loc": 38,
+      "file": "AtlasGovernanceAmendmentsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:governance:change-class-trust-release-gate",
+      "loc": 85,
+      "file": "AtlasChangeClassTrustReleaseGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:harness",
+      "loc": 110,
+      "file": "AtlasHarnessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:health:repair",
+      "loc": 83,
+      "file": "HealthRepairCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:hermes:capabilities",
+      "loc": 284,
+      "file": "AtlasHermesCapabilitiesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:hermes:kanban",
+      "loc": 208,
+      "file": "AtlasHermesKanbanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:hermes:ops",
+      "loc": 151,
+      "file": "AtlasHermesOpsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:hermes:workcell",
+      "loc": 319,
+      "file": "AtlasHermesMeshCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:host",
+      "loc": 245,
+      "file": "AtlasHostCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:host-agent:work",
+      "loc": 65,
+      "file": "AtlasHostAgentWorkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:immune:calibration",
+      "loc": 35,
+      "file": "AtlasImmuneCalibrationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:immune:verify-lineage",
+      "loc": 62,
+      "file": "AtlasImmuneVerifyLineageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:initiatives",
+      "loc": 147,
+      "file": "AtlasInitiativesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:insight",
+      "loc": 52,
+      "file": "AtlasInsightCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:insight:watch",
+      "loc": 25,
+      "file": "AtlasInsightWatchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:intelligence:rollout-promote",
+      "loc": 314,
+      "file": "AtlasIntelligenceRolloutPromoteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:land",
+      "loc": 123,
+      "file": "AtlasLandCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:learning:mutation",
+      "loc": 101,
+      "file": "AtlasLearningMutationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:ledger:replay",
+      "loc": 102,
+      "file": "AtlasLedgerReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:local-agent:ingest",
+      "loc": 73,
+      "file": "AtlasLocalAgentMemoryIngestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:local-verification:run",
+      "loc": 62,
+      "file": "AtlasLocalVerificationEngineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:attention-queue",
+      "loc": 50,
+      "file": "AtlasLongHorizonAttentionQueueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:causal-graph",
+      "loc": 87,
+      "file": "AtlasLongHorizonCausalGraphCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:continuity-certify",
+      "loc": 109,
+      "file": "AtlasLongHorizonContinuityCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:continuity-pack",
+      "loc": 94,
+      "file": "AtlasLongHorizonContinuityPackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:cross-week-recall-lift-gate",
+      "loc": 106,
+      "file": "AtlasLongHorizonCrossWeekRecallLiftGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:obra-review",
+      "loc": 43,
+      "file": "AtlasLongHorizonObraReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:replay-manifest",
+      "loc": 250,
+      "file": "AtlasLongHorizonReplayManifestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:strategic-forgetting",
+      "loc": 59,
+      "file": "AtlasLongHorizonStrategicForgettingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:long-horizon:world-model",
+      "loc": 50,
+      "file": "AtlasLongHorizonWorldModelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:maestro:dialogue",
+      "loc": 231,
+      "file": "AtlasMaestroDialogueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:measure:dual-read",
+      "loc": 125,
+      "file": "AtlasMeasureDualReadCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:add",
+      "loc": 169,
+      "file": "AtlasMemoryAddCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:audit",
+      "loc": 67,
+      "file": "AtlasMemoryAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:backfill-metadata",
+      "loc": 215,
+      "file": "AtlasMemoryBackfillMetadataCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:capture-candidates",
+      "loc": 100,
+      "file": "AtlasMemoryCaptureCandidatesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:concentration-v2",
+      "loc": 54,
+      "file": "AtlasMemoryConcentrationV2Command.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:consolidation-scan",
+      "loc": 57,
+      "file": "AtlasMemoryConsolidationScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:curate",
+      "loc": 152,
+      "file": "AtlasMemoryCurateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:embed-backfill",
+      "loc": 294,
+      "file": "AtlasMemoryEmbedBackfillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:feedback",
+      "loc": 154,
+      "file": "AtlasMemoryFeedbackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:feedback-implicit",
+      "loc": 252,
+      "file": "AtlasMemoryFeedbackImplicitCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:govern",
+      "loc": 110,
+      "file": "AtlasMemoryGovernanceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:growth-report",
+      "loc": 74,
+      "file": "AtlasMemoryGrowthReportCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:judge",
+      "loc": 174,
+      "file": "AtlasMemoryJudgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:kb-embedding-coverage",
+      "loc": 45,
+      "file": "AtlasMemoryKbEmbeddingCoverageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:list",
+      "loc": 165,
+      "file": "AtlasMemoryListCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:maintain",
+      "loc": 102,
+      "file": "AtlasMemoryMaintenanceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:privacy",
+      "loc": 290,
+      "file": "AtlasMemoryPrivacyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:projection",
+      "loc": 362,
+      "file": "AtlasMemoryProjectionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:quality",
+      "loc": 202,
+      "file": "AtlasMemoryQualityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:recall",
+      "loc": 111,
+      "file": "AtlasMemoryRecallCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:relations",
+      "loc": 321,
+      "file": "AtlasMemoryRelationsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:review-queue",
+      "loc": 106,
+      "file": "AtlasMemoryReviewQueueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:seed-core",
+      "loc": 225,
+      "file": "AtlasMemorySeedCoreCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:substrate-snapshot",
+      "loc": 59,
+      "file": "AtlasMemorySubstrateSnapshotCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:temporal-backfill",
+      "loc": 168,
+      "file": "AtlasMemoryTemporalBackfillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:temporal-quality",
+      "loc": 75,
+      "file": "AtlasMemoryTemporalQualityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:memory:verbatim",
+      "loc": 391,
+      "file": "AtlasMemoryVerbatimCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:mission:deliver",
+      "loc": 96,
+      "file": "AtlasMissionDeliverCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:mission:e2e",
+      "loc": 27,
+      "file": "AtlasMissionE2eRateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:native:constitution-heal",
+      "loc": 64,
+      "file": "AtlasNativeConstitutionHealCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:native:constitution-scan",
+      "loc": 63,
+      "file": "AtlasNativeConstitutionScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:night-shift:area-focus",
+      "loc": 110,
+      "file": "AtlasNightShiftAreaFocusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:night-shift:area-focus-certify",
+      "loc": 66,
+      "file": "AtlasAreaFocusCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:night-shift:area-focus-cycle",
+      "loc": 159,
+      "file": "AtlasNightShiftAreaFocusCycleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:night-shift:area-focus-operate",
+      "loc": 85,
+      "file": "AtlasNightShiftAreaFocusOperateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:nightly:counterfactuals",
+      "loc": 75,
+      "file": "AtlasNightlyCounterfactualsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:current",
+      "loc": 83,
+      "file": "AtlasObraCurrentCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:deliver",
+      "loc": 235,
+      "file": "AtlasObraDeliverCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:enqueue-work-order",
+      "loc": 91,
+      "file": "AtlasObraEnqueueWorkOrderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:plan",
+      "loc": 143,
+      "file": "AtlasObraPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:replay",
+      "loc": 91,
+      "file": "AtlasObraReplayCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:run",
+      "loc": 171,
+      "file": "AtlasObraRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:status",
+      "loc": 178,
+      "file": "AtlasObraStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:obra:work-order",
+      "loc": 213,
+      "file": "AtlasObraWorkOrderCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:open-brain:context",
+      "loc": 102,
+      "file": "AtlasOpenBrainContextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:open-brain:expand-context",
+      "loc": 64,
+      "file": "AtlasOpenBrainExpandContextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:open-brain:mcp",
+      "loc": 272,
+      "file": "AtlasOpenBrainMcpCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:open-brain:surface-review",
+      "loc": 44,
+      "file": "AtlasOpenBrainSurfaceReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:open-brain:tool-usage",
+      "loc": 111,
+      "file": "AtlasOpenBrainToolUsageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:operator-approval-history",
+      "loc": 28,
+      "file": "AtlasOperatorApprovalHistoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:operator-learning",
+      "loc": 165,
+      "file": "AtlasOperatorLearningCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:operator-profile",
+      "loc": 186,
+      "file": "AtlasOperatorProfileContextCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:organism:actuate",
+      "loc": 101,
+      "file": "AtlasOrganismActuateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:organism:commission",
+      "loc": 141,
+      "file": "AtlasOrganismCommissionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:organism:status",
+      "loc": 215,
+      "file": "AtlasOrganismStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:patamar4:activate-flags",
+      "loc": 139,
+      "file": "AtlasPatamar4ActivateFlagsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:patamar4:run-loop-once",
+      "loc": 148,
+      "file": "AtlasPatamar4RunLoopOnceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:patamar4:self-construct-f4-gaps",
+      "loc": 92,
+      "file": "AtlasPatamar4SelfConstructF4GapsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:patamar4:status",
+      "loc": 68,
+      "file": "AtlasPatamar4StatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:pattern",
+      "loc": 139,
+      "file": "AtlasPatternCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:persistent-context",
+      "loc": 66,
+      "file": "AtlasPersistentContextRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:persistent-context:certify",
+      "loc": 38,
+      "file": "AtlasPersistentContextCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:plan-execution:certify",
+      "loc": 75,
+      "file": "AtlasPlanExecutionCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:plan-execution:decompose",
+      "loc": 58,
+      "file": "AtlasPlanExecutionDecomposeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:plan-execution:e2e",
+      "loc": 76,
+      "file": "AtlasPlanExecutionE2eCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:plan-execution:run",
+      "loc": 163,
+      "file": "AtlasPlanExecutionRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:plan-execution:track",
+      "loc": 56,
+      "file": "AtlasPlanExecutionTrackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:playbook",
+      "loc": 242,
+      "file": "AtlasProceduralPlaybookCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:power-helper",
+      "loc": 63,
+      "file": "AtlasPowerHelperCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:predict",
+      "loc": 119,
+      "file": "AtlasPredictCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:pregate",
+      "loc": 120,
+      "file": "AtlasPregateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:pressure:guard",
+      "loc": 122,
+      "file": "AtlasPressureGuardCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:pressure:preland",
+      "loc": 115,
+      "file": "AtlasPressurePreLandCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:pressure:status",
+      "loc": 109,
+      "file": "AtlasPressureStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:certify",
+      "loc": 40,
+      "file": "Ai/Product/AtlasProductDeliveryCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:control-plane",
+      "loc": 72,
+      "file": "Ai/Product/AtlasProductDeliveryControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:doctrine-fitness",
+      "loc": 40,
+      "file": "Ai/Product/AtlasProductDeliveryDoctrineFitnessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:outcome",
+      "loc": 136,
+      "file": "Ai/Product/AtlasProductDeliveryOutcomeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:patch-request",
+      "loc": 106,
+      "file": "Ai/Product/AtlasProductDeliveryPatchRequestCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:plan",
+      "loc": 67,
+      "file": "Ai/Product/AtlasProductDeliveryPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:policy-optimizer",
+      "loc": 43,
+      "file": "Ai/Product/AtlasProductDeliveryPolicyOptimizerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:primitives",
+      "loc": 71,
+      "file": "Ai/Product/AtlasProductExecutionPrimitivesCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:provider-memory",
+      "loc": 42,
+      "file": "Ai/Product/AtlasProductDeliveryProviderMemoryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:release-gate",
+      "loc": 80,
+      "file": "Ai/Product/AtlasProductReleaseGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:repair-execute",
+      "loc": 204,
+      "file": "Ai/Product/AtlasProductDeliveryRepairExecuteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:repair-plan",
+      "loc": 71,
+      "file": "Ai/Product/AtlasProductDeliveryRepairPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:replay-lab",
+      "loc": 45,
+      "file": "Ai/Product/AtlasProductDeliveryReplayLabCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-delivery:risk-govern",
+      "loc": 93,
+      "file": "Ai/Product/AtlasProductDeliveryRiskGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-proof:challenge",
+      "loc": 89,
+      "file": "Ai/Product/AtlasProductProofChallengeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-truth:compile",
+      "loc": 42,
+      "file": "Ai/Product/AtlasProductTruthCompileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:product-twin:simulate",
+      "loc": 43,
+      "file": "Ai/Product/AtlasProductTwinSimulateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:productive-failure",
+      "loc": 103,
+      "file": "AtlasProductiveFailureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:adaptive-control-plane",
+      "loc": 122,
+      "file": "AtlasProgrammingAdaptiveControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:benchmark-readiness",
+      "loc": 68,
+      "file": "AtlasProgrammingBenchmarkReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:cartography",
+      "loc": 62,
+      "file": "AtlasProgrammingCartographyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:complete",
+      "loc": 90,
+      "file": "AtlasProgrammingCompleteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:completion-audit",
+      "loc": 109,
+      "file": "AtlasProgrammingCompletionAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:console",
+      "loc": 131,
+      "file": "AtlasProgrammingConsoleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:dev-forge-flow-certify",
+      "loc": 52,
+      "file": "AtlasProgrammingDevForgeFlowCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:final-certify",
+      "loc": 98,
+      "file": "AtlasProgrammingFinalCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:hierarchical-control",
+      "loc": 74,
+      "file": "AtlasProgrammingHierarchicalControlCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:intake",
+      "loc": 77,
+      "file": "AtlasProgrammingIntakeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:patch-verifier-benchmark",
+      "loc": 32,
+      "file": "AtlasProgrammingPatchVerifierBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:plan",
+      "loc": 173,
+      "file": "AtlasProgrammingPlanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:pre-benchmark-readiness",
+      "loc": 41,
+      "file": "AtlasProgrammingPreBenchmarkReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:receipt",
+      "loc": 173,
+      "file": "AtlasProgrammingReceiptCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:repair-loop-benchmark",
+      "loc": 34,
+      "file": "AtlasProgrammingRepairLoopBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:resume",
+      "loc": 61,
+      "file": "AtlasProgrammingResumeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:retrieval-benchmark",
+      "loc": 40,
+      "file": "AtlasProgrammingRetrievalBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:spec",
+      "loc": 143,
+      "file": "AtlasProgrammingSpecCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:spec-compile",
+      "loc": 84,
+      "file": "AtlasProgrammingSpecCompileCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:status",
+      "loc": 117,
+      "file": "AtlasProgrammingStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:test-impact-benchmark",
+      "loc": 33,
+      "file": "AtlasProgrammingTestImpactBenchmarkCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:programming:verify",
+      "loc": 90,
+      "file": "AtlasProgrammingVerifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:project:blueprint:create",
+      "loc": 25,
+      "file": "AtlasProjectBlueprintCreateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:project:blueprint:freeze",
+      "loc": 51,
+      "file": "AtlasProjectBlueprintFreezeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:project:blueprint:prepare",
+      "loc": 56,
+      "file": "AtlasProjectBlueprintPrepareCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:project:blueprint:validate",
+      "loc": 25,
+      "file": "AtlasProjectBlueprintValidateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:project:tasks:generate",
+      "loc": 52,
+      "file": "AtlasProjectTasksGenerateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:promotions",
+      "loc": 75,
+      "file": "AtlasPromotionsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:proof:status",
+      "loc": 51,
+      "file": "AtlasProofStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:proposal",
+      "loc": 51,
+      "file": "AtlasProposalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:proposal:scan",
+      "loc": 34,
+      "file": "AtlasProposalScanCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:provider:coverage",
+      "loc": 74,
+      "file": "AtlasProviderCoverageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:qa",
+      "loc": 67,
+      "file": "AtlasQaCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rebalance",
+      "loc": 102,
+      "file": "AtlasAutoRebalanceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:reconciliation",
+      "loc": 74,
+      "file": "AtlasReconciliationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:refactor:bench",
+      "loc": 86,
+      "file": "AtlasRefactorBenchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:repair:playbook",
+      "loc": 48,
+      "file": "AtlasRepairPlaybookCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:review:deep",
+      "loc": 228,
+      "file": "AtlasReviewDeepCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rivals",
+      "loc": 1240,
+      "file": "AtlasRivalsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rize:inspect",
+      "loc": 63,
+      "file": "RizeInspectCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rize:sync",
+      "loc": 55,
+      "file": "RizeSyncCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rollback:cascade",
+      "loc": 70,
+      "file": "AtlasRollbackCascadeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:rsi:component-value-per-token",
+      "loc": 54,
+      "file": "AtlasRsiComponentValuePerTokenCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:runtime",
+      "loc": 350,
+      "file": "AtlasRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:runtime-efficiency",
+      "loc": 74,
+      "file": "AtlasRuntimeEfficiencyGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:runtime-efficiency:certify",
+      "loc": 34,
+      "file": "AtlasRuntimeEfficiencyGovernorCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scaffold:promote",
+      "loc": 79,
+      "file": "AtlasScaffoldPromoteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scaffold:stage",
+      "loc": 69,
+      "file": "AtlasScaffoldStageCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:ensure-launchd",
+      "loc": 220,
+      "file": "AtlasSchedulerEnsureLaunchdCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:heartbeat",
+      "loc": 40,
+      "file": "AtlasSchedulerHeartbeatCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:install-launchd",
+      "loc": 162,
+      "file": "AtlasSchedulerInstallLaunchdCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:install-watchdog",
+      "loc": 256,
+      "file": "AtlasSchedulerInstallWatchdogCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:status",
+      "loc": 46,
+      "file": "AtlasSchedulerStatusCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:scheduler:tick",
+      "loc": 77,
+      "file": "AtlasSchedulerTickCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:sdd:run",
+      "loc": 111,
+      "file": "AtlasSddRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construct",
+      "loc": 216,
+      "file": "AtlasSelfConstructCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:approve-proposal",
+      "loc": 76,
+      "file": "AtlasSelfConstructionApproveProposalCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:architecture-council",
+      "loc": 156,
+      "file": "AtlasSelfConstructionArchitectureCouncilCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:atlas-native-completion",
+      "loc": 182,
+      "file": "AtlasSelfConstructionAtlasNativeCompletionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:autonomy-level",
+      "loc": 265,
+      "file": "AtlasSelfConstructionAutonomyLevelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:autonomy-stop-go",
+      "loc": 76,
+      "file": "AtlasSelfConstructionAutonomyStopGoCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:autopoiesis",
+      "loc": 192,
+      "file": "AtlasSelfConstructionAutopoiesisCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:closure-execution-pack",
+      "loc": 35,
+      "file": "AtlasSelfConstructionClosureExecutionPackCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:completion-autonomy",
+      "loc": 186,
+      "file": "AtlasSelfConstructionCompletionAutonomyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:compounding",
+      "loc": 178,
+      "file": "AtlasSelfConstructionCompoundingCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:continuous-runtime",
+      "loc": 349,
+      "file": "AtlasSelfConstructionContinuousRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:control-plane",
+      "loc": 252,
+      "file": "AtlasSelfConstructionControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:cortex",
+      "loc": 142,
+      "file": "AtlasSelfConstructionCortexCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:detect-gaps",
+      "loc": 38,
+      "file": "AtlasSelfConstructionDetectGapsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:final-completion-gate",
+      "loc": 35,
+      "file": "AtlasSelfConstructionFinalCompletionGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:final-smoke",
+      "loc": 200,
+      "file": "AtlasSelfConstructionFinalArchitectureSmokeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:goal-value",
+      "loc": 123,
+      "file": "AtlasSelfConstructionGoalValueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:knowledge-sync",
+      "loc": 143,
+      "file": "AtlasSelfConstructionKnowledgeSyncCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:learning-transfer",
+      "loc": 148,
+      "file": "AtlasSelfConstructionLearningTransferCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:list-proposals",
+      "loc": 41,
+      "file": "AtlasSelfConstructionListProposalsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:merge-governor",
+      "loc": 266,
+      "file": "AtlasSelfConstructionMergeGovernorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:native-implementation",
+      "loc": 232,
+      "file": "AtlasSelfConstructionNativeImplementationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:native-implementation-release",
+      "loc": 126,
+      "file": "AtlasSelfConstructionNativeImplementationReleaseCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:native-replenisher",
+      "loc": 166,
+      "file": "AtlasSelfConstructionNativeReplenisherCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:operator-interface",
+      "loc": 179,
+      "file": "AtlasSelfConstructionOperatorInterfaceCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:promote",
+      "loc": 55,
+      "file": "AtlasSelfConstructionPromoteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:propose-subsystem",
+      "loc": 85,
+      "file": "AtlasSelfConstructionProposeSubsystemCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:receipts",
+      "loc": 200,
+      "file": "AtlasSelfConstructionReceiptsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:runtime",
+      "loc": 220,
+      "file": "AtlasSelfConstructionAutonomousRuntimeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:runtime-daemon",
+      "loc": 306,
+      "file": "AtlasSelfConstructionRuntimeDaemonCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:runtime-promotion-endgame",
+      "loc": 35,
+      "file": "AtlasSelfConstructionRuntimePromotionEndgameCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:runtime-soak",
+      "loc": 145,
+      "file": "AtlasSelfConstructionRuntimeSoakCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:strategy-council",
+      "loc": 152,
+      "file": "AtlasSelfConstructionStrategyCouncilCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:tool-gap-bridge",
+      "loc": 93,
+      "file": "AtlasSelfConstructionToolGapBridgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:verification-court",
+      "loc": 187,
+      "file": "AtlasSelfConstructionVerificationCourtCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-construction:workers",
+      "loc": 163,
+      "file": "AtlasSelfConstructionWorkersCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-diagnostic",
+      "loc": 23,
+      "file": "AtlasSelfDiagnosticCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-directed-evolution",
+      "loc": 174,
+      "file": "AtlasSelfDirectedEvolutionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:activate-forge",
+      "loc": 184,
+      "file": "AtlasSelfImprovementActivateForgeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:activation-cockpit",
+      "loc": 125,
+      "file": "AtlasSelfImprovementActivationCockpitCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:before-after",
+      "loc": 116,
+      "file": "AtlasSelfImprovementBeforeAfterCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:closed-loop",
+      "loc": 91,
+      "file": "AtlasSelfImprovementClosedLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:invariant-lock",
+      "loc": 93,
+      "file": "AtlasSelfImprovementInvariantLockCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:maturity-score",
+      "loc": 100,
+      "file": "AtlasSelfImprovementMaturityScoreCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:measure-result",
+      "loc": 156,
+      "file": "AtlasSelfImprovementMeasureResultCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:next-cycle",
+      "loc": 97,
+      "file": "AtlasSelfImprovementNextCycleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:proposal-backlog",
+      "loc": 226,
+      "file": "AtlasSelfImprovementProposalBacklogCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:proposal-gate",
+      "loc": 118,
+      "file": "AtlasSelfImprovementProposalGateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:regression-sentinel",
+      "loc": 204,
+      "file": "AtlasSelfImprovementRegressionSentinelCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:self-improvement:trust-ledger",
+      "loc": 143,
+      "file": "AtlasSelfImprovementTrustLedgerCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:activate",
+      "loc": 28,
+      "file": "SemanticActivateCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:bootstrap",
+      "loc": 24,
+      "file": "SemanticBootstrapVaultCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:curation-review",
+      "loc": 180,
+      "file": "SemanticCurationReviewCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:embedding-info",
+      "loc": 36,
+      "file": "AtlasSemanticEmbeddingInfoCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:govern",
+      "loc": 24,
+      "file": "SemanticGovernCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:index",
+      "loc": 25,
+      "file": "SemanticIndexCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:jina-v3-dual-read",
+      "loc": 55,
+      "file": "AtlasSemanticJinaV3DualReadCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:semantic:propose",
+      "loc": 23,
+      "file": "SemanticProposeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:skills:evolve",
+      "loc": 59,
+      "file": "AtlasSkillEvolutionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship",
+      "loc": 3910,
+      "file": "AtlasSoftwareCompanyStewardshipCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:ap786-cycle",
+      "loc": 139,
+      "file": "AtlasAp786RealCycleCertificationCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:area-focus-certify",
+      "loc": 71,
+      "file": "AtlasAreaFocusLoopCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:area-focus-decision",
+      "loc": 80,
+      "file": "AtlasAreaFocusDecisionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:area-focus-handoff",
+      "loc": 90,
+      "file": "AtlasAreaFocusHandoffCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:area-focus-materialize-obra",
+      "loc": 95,
+      "file": "AtlasAreaFocusForgeMaterializeObraCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:autonomous-evolution-session",
+      "loc": 287,
+      "file": "AtlasSoftwareCompanyAutonomousEvolutionSessionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:certify-24h-loop",
+      "loc": 78,
+      "file": "AtlasCertify24hLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:first-live-branch-proof",
+      "loc": 62,
+      "file": "AtlasSoftwareCompanyFirstLiveBranchProofCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:integration-lane",
+      "loc": 62,
+      "file": "AtlasSoftwareCompanyIntegrationLaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:integration-lane-promote",
+      "loc": 69,
+      "file": "AtlasSoftwareCompanyIntegrationLanePromoteCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:l7-l10-queue",
+      "loc": 107,
+      "file": "AtlasAaeosL7L10QueueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:live-cycle-audit",
+      "loc": 70,
+      "file": "AtlasSoftwareCompanyLiveCycleAuditCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:priority-engine",
+      "loc": 89,
+      "file": "AtlasSoftwareCompanyPriorityEngineCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-company-stewardship:reliable-24h-loop",
+      "loc": 226,
+      "file": "AtlasSoftwareCompanyReliable24hLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-twin",
+      "loc": 119,
+      "file": "AtlasSoftwareTwinCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:software-twin-verified-evolution:certify",
+      "loc": 35,
+      "file": "AtlasSoftwareTwinVerifiedEvolutionCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:spec:critique",
+      "loc": 62,
+      "file": "AtlasSpecCritiqueCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:srl",
+      "loc": 108,
+      "file": "AtlasSRLCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:strategic-os",
+      "loc": 145,
+      "file": "AtlasStrategicOperatingSystemCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:strategic-reality",
+      "loc": 49,
+      "file": "AtlasStrategicRealityCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:strategic-reality:certify",
+      "loc": 34,
+      "file": "AtlasStrategicRealityCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:strategic-reality:control-plane",
+      "loc": 31,
+      "file": "AtlasStrategicRealityControlPlaneCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:study",
+      "loc": 58,
+      "file": "AtlasStudyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:substrate:restore-drill",
+      "loc": 47,
+      "file": "AtlasMemorySubstrateRestoreDrillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:surface:constelacao-positions",
+      "loc": 35,
+      "file": "AtlasConstelacaoPositionsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:swarm",
+      "loc": 102,
+      "file": "AtlasSwarmCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:swarm:conduct",
+      "loc": 155,
+      "file": "AtlasSwarmConductCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:swarm:execute",
+      "loc": 117,
+      "file": "AtlasSwarmExecutorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:swarm:execute-arm",
+      "loc": 78,
+      "file": "AtlasSwarmExecuteArmCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:swarm:topology-auto-compose",
+      "loc": 66,
+      "file": "AtlasSwarmTopologyAutoComposeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:system-structure",
+      "loc": 128,
+      "file": "AtlasSystemStructureCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:task",
+      "loc": 451,
+      "file": "AtlasTaskCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:authoring-council",
+      "loc": 64,
+      "file": "AtlasTaskAuthoringCouncilCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:blocked-respec-plan",
+      "loc": 192,
+      "file": "AtlasTaskBlockedRespecPlanCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:enqueue",
+      "loc": 155,
+      "file": "AtlasTaskEnqueueCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:farm-audit",
+      "loc": 43,
+      "file": "AtlasTaskFarmAuditCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:governance-dossier",
+      "loc": 40,
+      "file": "AtlasTaskGovernanceDossierCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:health",
+      "loc": 77,
+      "file": "AtlasTaskHealthCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro-health",
+      "loc": 238,
+      "file": "AtlasTaskHealthHistogramCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro-multiprovider",
+      "loc": 161,
+      "file": "AtlasTaskMaestroMultiProviderCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro-projection",
+      "loc": 227,
+      "file": "AtlasTaskMaestroProjectionCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro-semantic-audit",
+      "loc": 148,
+      "file": "AtlasTaskMaestroSemanticAuditCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:bid",
+      "loc": 223,
+      "file": "AtlasTaskMaestroBidCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:cost",
+      "loc": 192,
+      "file": "AtlasTaskMaestroCostCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:decay",
+      "loc": 202,
+      "file": "AtlasTaskMaestroDecayCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:fairness",
+      "loc": 157,
+      "file": "AtlasTaskMaestroFairnessCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:prefs",
+      "loc": 132,
+      "file": "AtlasTaskMaestroPrefsCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:priority",
+      "loc": 315,
+      "file": "AtlasTaskMaestroPriorityCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:provenance",
+      "loc": 187,
+      "file": "AtlasTaskMaestroProvenanceCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:provider-perf",
+      "loc": 159,
+      "file": "AtlasTaskMaestroProviderPerfCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:retry",
+      "loc": 238,
+      "file": "AtlasTaskMaestroRetryCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:schema",
+      "loc": 239,
+      "file": "AtlasTaskMaestroSchemaCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:maestro:workers",
+      "loc": 190,
+      "file": "AtlasTaskMaestroWorkersCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:project-lane-runtime-plan",
+      "loc": 165,
+      "file": "AtlasProjectLaneRuntimePlanCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:project-lanes",
+      "loc": 146,
+      "file": "AtlasProjectLaneStewardshipCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:property-gate-preflight",
+      "loc": 109,
+      "file": "AtlasTaskPropertyGatePreflightCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:quality",
+      "loc": 176,
+      "file": "AtlasTaskQualityCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:reindex",
+      "loc": 43,
+      "file": "AtlasTaskReindexCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:repair-blocked",
+      "loc": 141,
+      "file": "AtlasTaskRepairBlockedCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:replenish",
+      "loc": 128,
+      "file": "AtlasTaskReplenishCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:retire",
+      "loc": 149,
+      "file": "AtlasTaskRetireCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:revert",
+      "loc": 62,
+      "file": "AtlasTaskRevertCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:review:decide",
+      "loc": 137,
+      "file": "AtlasTaskReviewDecideCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:review:deep",
+      "loc": 72,
+      "file": "AtlasTaskLandingDeepReviewCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:review:publish",
+      "loc": 56,
+      "file": "AtlasTaskLandingReviewPublishCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:seed-gov-lanes",
+      "loc": 182,
+      "file": "AtlasTaskSeedGovLanesCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:self-heal",
+      "loc": 130,
+      "file": "AtlasTaskQueueSelfHealCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:servable-heartbeat",
+      "loc": 124,
+      "file": "AtlasTaskServableHeartbeatCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:serving",
+      "loc": 74,
+      "file": "AtlasTaskServingSwitchCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:swarm-proof",
+      "loc": 375,
+      "file": "AtlasTaskSwarmProofCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:sweep-malformed",
+      "loc": 50,
+      "file": "AtlasTaskSweepMalformedCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:task:worker-prompt",
+      "loc": 94,
+      "file": "AtlasTaskWorkerPromptCommand.php",
+      "bucket": "autonomos_live"
+    },
+    {
+      "signature_name": "atlas:temporary-domain",
+      "loc": 95,
+      "file": "AtlasTemporaryDomainCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos-i4",
+      "loc": 83,
+      "file": "AtlasTeosI4Command.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:counterfactual:branch",
+      "loc": 81,
+      "file": "AtlasTeosCounterfactualBranchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:counterfactual:recommend",
+      "loc": 43,
+      "file": "AtlasTeosCounterfactualRecommendCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:final-certify",
+      "loc": 46,
+      "file": "AtlasTeosFinalCertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:i2-certify",
+      "loc": 70,
+      "file": "AtlasTeosIncrement2CertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:readiness",
+      "loc": 101,
+      "file": "AtlasTeosReadinessCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teos:runtime-smoke",
+      "loc": 45,
+      "file": "AtlasTeosRuntimeSmokeCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:test:cached",
+      "loc": 111,
+      "file": "AtlasTestCachedCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:test:impacted",
+      "loc": 75,
+      "file": "AtlasTestImpactedCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:teto:n-capture-drill",
+      "loc": 46,
+      "file": "AtlasTetoNCaptureDrillCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:tools",
+      "loc": 727,
+      "file": "AtlasToolsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:trust-budget",
+      "loc": 128,
+      "file": "AtlasTrustBudgetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:universal-reality-cartography",
+      "loc": 113,
+      "file": "AtlasUniversalRealityCartographyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:valor",
+      "loc": 107,
+      "file": "AtlasValorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vault",
+      "loc": 365,
+      "file": "AtlasVaultCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:venture",
+      "loc": 610,
+      "file": "AtlasVentureFoundryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:verified-context-execution",
+      "loc": 87,
+      "file": "AtlasVerifiedContextExecutionLoopCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:verified-evolution",
+      "loc": 72,
+      "file": "AtlasVerifiedEvolutionCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:doctor",
+      "loc": 578,
+      "file": "AtlasVoxDoctorCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:dogfood-summary",
+      "loc": 90,
+      "file": "AtlasVoxDogfoodSummaryCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:quality-bench",
+      "loc": 146,
+      "file": "AtlasVoxQualityBenchCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:v5-certify",
+      "loc": 113,
+      "file": "AtlasVoxV5CertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:v6-8-certify",
+      "loc": 86,
+      "file": "AtlasVoxV68CertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:vox:v6-certify",
+      "loc": 193,
+      "file": "AtlasVoxV6CertifyCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:watchdog:run",
+      "loc": 35,
+      "file": "AtlasWatchdogRunCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:windows",
+      "loc": 98,
+      "file": "AtlasAcosWindowsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:worked-example",
+      "loc": 359,
+      "file": "AtlasWorkedExampleCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:working-set",
+      "loc": 67,
+      "file": "AtlasWorkingSetCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:workspace-artifacts",
+      "loc": 326,
+      "file": "AtlasWorkspaceArtifactsCommand.php",
+      "bucket": "other"
+    },
+    {
+      "signature_name": "atlas:workspace-intelligence",
+      "loc": 287,
+      "file": "AtlasWorkspaceIntelligenceCommand.php",
+      "bucket": "other"
+    }
+  ]
+}

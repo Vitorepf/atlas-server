@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityBidirectionalReconciliationService;
 use App\Services\Engineering\AtlasDocumentationRealityRepairProposerService;
 use Mockery\MockInterface;
@@ -295,7 +295,7 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
                 ->with('atlas-under-claim-doc')
                 ->andReturn($this->repairEnvelope([]));
         });
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('ledger')
                 ->once()
                 ->with('atlas-under-claim-doc')
@@ -329,7 +329,7 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
      */
     private function stubLedger(array $ledger): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
             $mock->shouldReceive('ledger')->andReturn($ledger);
         });
     }
@@ -455,7 +455,7 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
         $drift = count(array_filter($rows, static fn (array $r): bool => ($r['drift'] ?? false) === true));
 
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => count($rows),
                 'drift_count' => $drift,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Engineering\AtlasSoftwareTwinRuntimeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

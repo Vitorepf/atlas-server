@@ -11,7 +11,7 @@ use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
 /**
  * Resolves a single doc-declared evidence_ref against the real Code Intelligence
  * index (atlas_engineering_code_symbols). This is the resolution half of R4
- * (atlas:aaeos:maturity): a doc does not DECLARE that something is implemented;
+ * (atlas:aeos:maturity): a doc does not DECLARE that something is implemented;
  * it CLAIMS evidence_refs, and this resolver checks whether each ref actually
  * exists in indexed code. Never fabricates: a ref that does not resolve returns
  * resolved=false, never an assumed pass.

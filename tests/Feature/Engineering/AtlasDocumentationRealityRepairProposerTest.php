@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engineering;
 
-use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityRepairProposerService;
 use Illuminate\Support\Facades\Schema;
 use Mockery\MockInterface;
@@ -145,7 +145,7 @@ final class AtlasDocumentationRealityRepairProposerTest extends TestCase
 
     public function test_propose_for_doc_passes_the_capability_filter_to_the_ledger(): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('ledger')
                 ->once()
                 ->with('atlas-over-claim-doc')
@@ -164,7 +164,7 @@ final class AtlasDocumentationRealityRepairProposerTest extends TestCase
      */
     private function stubLedger(array $ledger): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
+        $this->mock(AtlasImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
             $mock->shouldReceive('ledger')->andReturn($ledger);
         });
     }
@@ -178,7 +178,7 @@ final class AtlasDocumentationRealityRepairProposerTest extends TestCase
     private function overClaimLedger(): array
     {
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => 2,
                 'drift_count' => 1,
@@ -224,7 +224,7 @@ final class AtlasDocumentationRealityRepairProposerTest extends TestCase
     private function cleanLedger(): array
     {
         return [
-            'schema_version' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'schema_version' => AtlasImplementationTruthService::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => 1,
                 'drift_count' => 0,
