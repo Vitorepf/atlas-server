@@ -34,7 +34,6 @@ use Throwable;
  */
 trait SessionPlanBacklogSection
 {
-//__GODDEBULK_SPAN_START__
 
     // ------------------------------------------------------------------
     // Session invocation (wraps AP-786, never reimplements it)
@@ -1256,5 +1255,4 @@ trait SessionPlanBacklogSection
         ];
     }
 
-//__GODDEBULK_SPAN_END__
 }

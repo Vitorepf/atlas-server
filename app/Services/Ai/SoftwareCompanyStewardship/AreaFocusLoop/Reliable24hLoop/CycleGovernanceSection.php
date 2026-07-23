@@ -34,7 +34,6 @@ use Throwable;
  */
 trait CycleGovernanceSection
 {
-//__GODDEBULK_SPAN_START__
     /**
      * @param  array<string,mixed>  $input
      */
@@ -823,5 +822,4 @@ trait CycleGovernanceSection
         AreaFocusAppendOnlyJsonlRecorder::append($path, $receipt);
     }
 
-//__GODDEBULK_SPAN_END__
 }

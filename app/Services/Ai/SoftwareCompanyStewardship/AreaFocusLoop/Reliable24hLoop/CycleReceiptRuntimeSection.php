@@ -34,7 +34,6 @@ use Throwable;
  */
 trait CycleReceiptRuntimeSection
 {
-//__GODDEBULK_SPAN_START__
     /**
      * @param  array<string,mixed>  $sessionReport
      * @param  array<string,mixed>  $cycle
@@ -997,5 +996,4 @@ trait CycleReceiptRuntimeSection
 
         return $copy;
     }
-//__GODDEBULK_SPAN_END__
 }
