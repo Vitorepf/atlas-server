@@ -726,14 +726,17 @@ final class ReadinessProjectionReleaseWriterSection
         $template = (array) data_get($templatePayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template', []);
         $releaseScope = (array) data_get($template, 'release_scope', []);
         $templateHash = (string) data_get($templatePayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template_hash');
+        $templateReady = data_get($templatePayload, 'status') === 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template_ready';
+        $templateBlockingReasons = (array) data_get($template, 'blocking_reasons', []);
 
         $receiptDraft = [
-            'status' => 'unsigned_release_receipt_draft_ready',
+            'status' => $templateReady ? 'unsigned_release_receipt_draft_ready' : 'blocked',
             'release_receipt_draft_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-RELEASE-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
             'parent_program' => 'Atlas Self-Construction OS',
             'submodule' => 'Atlas Agent Control Plane',
             'source_release_template_hash' => $templateHash,
             'source_preflight_status' => data_get($template, 'source_preflight_status'),
+            'blocking_reasons' => $templateBlockingReasons,
             'receipt_decision' => [
                 'decision' => 'approve_scheduler_claim_and_receipt_once',
                 'scope_hash' => $this->stableHash($releaseScope),
@@ -823,12 +826,14 @@ final class ReadinessProjectionReleaseWriterSection
                 'invoke_provider_adapter',
                 'spend_provider_tokens',
             ],
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_release_receipt_validation_preflight',
+            'next_required_slice' => $templateReady
+                ? 'activate_signed_one_shot_scheduler_tick_release_receipt_validation_preflight'
+                : 'repair_signed_one_shot_scheduler_tick_release_receipt_draft_preflight_blockers',
         ];
 
         return [
             'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft.v1',
-            'status' => 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft_ready',
+            'status' => (string) $receiptDraft['status'],
             'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -850,7 +855,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft_does_not_start_providers',
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft_does_not_enable_self_programming',
             ],
-            'human_summary' => 'Automatic dispatch scheduler one-shot tick release receipt draft is ready as an unsigned, non-persisted receipt draft; it does not accept signatures, mutate runtime or start providers.',
+            'human_summary' => $templateReady
+                ? 'Automatic dispatch scheduler one-shot tick release receipt draft is ready as an unsigned, non-persisted receipt draft; it does not accept signatures, mutate runtime or start providers.'
+                : 'Automatic dispatch scheduler one-shot tick release receipt draft is blocked until the source release template preflight is ready.',
         ];
     }
 
@@ -868,6 +875,8 @@ final class ReadinessProjectionReleaseWriterSection
         $provider = (string) data_get($preflight, 'selected_candidate.provider', '');
         $dispatchEnvelopeHash = (string) data_get($preflight, 'dispatch_envelope.dispatch_envelope_hash', '');
         $sourcePreflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_writer_preflight_hash');
+        $preflightReady = data_get($preflightPayload, 'status') === 'agent_automatic_dispatch_scheduler_one_shot_tick_writer_preflight_ready';
+        $preflightBlockingReasons = (array) data_get($preflight, 'blocking_reasons', []);
 
         $requiredEvidence = [
             'one_shot_tick_writer_contract_hash',
@@ -880,12 +889,13 @@ final class ReadinessProjectionReleaseWriterSection
         ];
 
         $template = [
-            'status' => 'unsigned_release_template_ready',
+            'status' => $preflightReady ? 'unsigned_release_template_ready' : 'blocked',
             'release_template_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-RELEASE-TEMPLATE-SELF-CONSTRUCTION-0001',
             'parent_program' => 'Atlas Self-Construction OS',
             'submodule' => 'Atlas Agent Control Plane',
             'source_preflight_status' => data_get($preflightPayload, 'status'),
             'source_preflight_hash' => $sourcePreflightHash,
+            'blocking_reasons' => $preflightBlockingReasons,
             'source_contract_hash' => data_get($preflight, 'source_contract_hash'),
             'source_dry_run_tick_hash' => data_get($preflight, 'source_dry_run_tick_hash'),
             'release_scope' => [
@@ -957,12 +967,14 @@ final class ReadinessProjectionReleaseWriterSection
                 'invoke_provider_adapter',
                 'spend_provider_tokens',
             ],
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_release_receipt_draft',
+            'next_required_slice' => $preflightReady
+                ? 'activate_signed_one_shot_scheduler_tick_release_receipt_draft'
+                : 'repair_signed_one_shot_scheduler_tick_release_template_preflight_blockers',
         ];
 
         return [
             'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_release_template.v1',
-            'status' => 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template_ready',
+            'status' => (string) $template['status'],
             'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_release_template',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -984,7 +996,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template_does_not_start_providers',
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_template_does_not_enable_self_programming',
             ],
-            'human_summary' => 'Automatic dispatch scheduler one-shot tick release template is ready as an unsigned, non-persisted template; it does not accept signatures, mutate runtime or start providers.',
+            'human_summary' => $preflightReady
+                ? 'Automatic dispatch scheduler one-shot tick release template is ready as an unsigned, non-persisted template; it does not accept signatures, mutate runtime or start providers.'
+                : 'Automatic dispatch scheduler one-shot tick release template is blocked until the writer preflight is ready.',
         ];
     }
 
@@ -998,14 +1012,17 @@ final class ReadinessProjectionReleaseWriterSection
         $preflightPayload = $this->agentAutomaticDispatchSchedulerOneShotTickReleaseReceiptValidationPreflight($options);
         $preflight = (array) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_validation_preflight', []);
         $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_validation_preflight_hash');
+        $preflightReady = data_get($preflightPayload, 'status') === 'release_receipt_validation_preflight_ready';
+        $preflightBlockingReasons = (array) data_get($preflight, 'blocking_reasons', []);
 
         $contract = [
-            'status' => 'release_receipt_persistence_contract_ready',
+            'status' => $preflightReady ? 'release_receipt_persistence_contract_ready' : 'blocked',
             'contract_id' => 'AGENT-AUTOMATIC-DISPATCH-SCHEDULER-ONE-SHOT-TICK-RELEASE-RECEIPT-PERSISTENCE-CONTRACT-SELF-CONSTRUCTION-0001',
             'parent_program' => 'Atlas Self-Construction OS',
             'submodule' => 'Atlas Agent Control Plane',
             'source_validation_preflight_status' => data_get($preflightPayload, 'status'),
             'source_validation_preflight_hash' => $preflightHash,
+            'blocking_reasons' => $preflightBlockingReasons,
             'contract_method' => 'persistOneShotSchedulerTickReleaseReceiptAfterValidation',
             'contract_scope' => [
                 'max_release_receipts_per_tick' => 1,
@@ -1089,12 +1106,14 @@ final class ReadinessProjectionReleaseWriterSection
                 'invoke_provider_adapter',
                 'spend_provider_tokens',
             ],
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_preflight',
+            'next_required_slice' => $preflightReady
+                ? 'activate_signed_one_shot_scheduler_tick_release_receipt_persistence_writer_preflight'
+                : 'repair_signed_one_shot_scheduler_tick_release_receipt_persistence_contract_preflight_blockers',
         ];
 
         return [
             'schema_version' => 'atlas.self_construction_agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract.v1',
-            'status' => 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract_ready',
+            'status' => (string) $contract['status'],
             'mode' => 'read_only_agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -1115,7 +1134,9 @@ final class ReadinessProjectionReleaseWriterSection
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract_does_not_start_providers',
                 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract_does_not_enable_self_programming',
             ],
-            'human_summary' => 'Automatic dispatch scheduler one-shot tick release receipt persistence contract is ready as a read-only contract; it defines future persistence without writing release receipts or starting providers.',
+            'human_summary' => $preflightReady
+                ? 'Automatic dispatch scheduler one-shot tick release receipt persistence contract is ready as a read-only contract; it defines future persistence without writing release receipts or starting providers.'
+                : 'Automatic dispatch scheduler one-shot tick release receipt persistence contract is blocked until validation preflight is ready.',
         ];
     }
 

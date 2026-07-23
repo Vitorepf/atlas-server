@@ -46,4 +46,29 @@ final class ReadinessProjectionReleaseWriterSectionTest extends TestCase
         );
         $this->assertStringContainsString('blocked', $preflight['human_summary']);
     }
+
+    public function test_downstream_release_envelopes_block_when_their_source_preflight_is_blocked(): void
+    {
+        $readiness = app(AtlasSelfConstructionReadinessService::class);
+
+        $releaseTemplate = $readiness->agentAutomaticDispatchSchedulerOneShotTickReleaseTemplate();
+        $receiptDraft = $readiness->agentAutomaticDispatchSchedulerOneShotTickReleaseReceiptDraft();
+        $persistenceContract = $readiness->agentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceContract();
+
+        $this->assertSame('blocked', $releaseTemplate['status']);
+        $this->assertSame(
+            'repair_signed_one_shot_scheduler_tick_release_template_preflight_blockers',
+            $releaseTemplate['agent_automatic_dispatch_scheduler_one_shot_tick_release_template']['next_required_slice']
+        );
+        $this->assertSame('blocked', $receiptDraft['status']);
+        $this->assertSame(
+            'repair_signed_one_shot_scheduler_tick_release_receipt_draft_preflight_blockers',
+            $receiptDraft['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_draft']['next_required_slice']
+        );
+        $this->assertSame('blocked', $persistenceContract['status']);
+        $this->assertSame(
+            'repair_signed_one_shot_scheduler_tick_release_receipt_persistence_contract_preflight_blockers',
+            $persistenceContract['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_contract']['next_required_slice']
+        );
+    }
 }
