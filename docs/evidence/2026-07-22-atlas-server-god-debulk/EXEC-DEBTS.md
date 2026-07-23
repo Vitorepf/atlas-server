@@ -11,11 +11,10 @@ wave: A1
 bucket: app/Services/Ai/SelfConstruction
 anti_trap: ignore_AIP_RES_selfconstruction_dispatcher
 p0_tooling_status: complete
-current_focus: A1-SC-0001..0008 (TEST committed; BUGFIX_PLAN next for status/write authority and fail-closed defaults)
+current_focus: A1-SC-0001..0008 (BUGFIX_PLAN committed; next child-plan task is the remaining status mutation matrix)
 claimed_paths:
   - tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
-  - docs/superpowers/plans/2026-07-22-god-debulk-wave-a1-selfconstruction.md
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
 ```
 
@@ -54,8 +53,12 @@ claimed_paths:
      public non-preview bootstrap status now has a focused characterization
      fixture that freezes its outer schema/default flags, hashes, returned IDs,
      and durable queue/lease effects.
-   - BUGFIX_PLAN next: read-only vs mutate authority and fail-closed defaults
-     before any structural split.
+   - BUGFIX_PLAN complete (`0abf48022`): child plan Task 6 constrains every
+     writer-backed status to a read-only projector plus an explicit runtime
+     command, records persisted-ID/idempotency proof, and makes missing
+     merge-review authority fields fail closed.
+   - BUGFIX next: child plan Task 6.1 completes the remaining status mutation
+     matrix before any runtime reroute.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):

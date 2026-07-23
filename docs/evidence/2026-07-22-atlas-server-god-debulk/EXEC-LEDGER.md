@@ -2256,3 +2256,25 @@ write_back:
   auto_promoted: false
   merged_to_main_by_aobg: false
 ```
+
+## Task 72 — A1-SC plan truthful status authority, 2026-07-22
+
+```yaml
+status: PLANNED_AND_REVIEWED
+commit: 0abf48022
+subject: "docs(core): GOD-DEBULK A1-SC plan status authority repair"
+verification:
+  status_surface_count: "230 public *Status methods under Readiness"
+  permissive_defaults: "observed only in merge-review status: promotion_allowed=true and completion_claim_allowed=true"
+  plan_quality: "PASS placeholder scan and diff check"
+  review: "PASS after adding all writer families, exact persisted-state replay proof, field-bound violations, and <=800 LOC gates"
+boundary:
+  - no production source or runtime behavior changed
+  - the child plan requires read-only projectors and named writers with actual persisted IDs and replay-safe idempotency
+  - direct edits to the oversized facade and mother command remain outside the density rule; Task 6.1 is the next executable test slice
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+next: "A1-SC Task 6.1 remaining status mutation matrix"
+merged_to_main_by_aobg: false
+```
