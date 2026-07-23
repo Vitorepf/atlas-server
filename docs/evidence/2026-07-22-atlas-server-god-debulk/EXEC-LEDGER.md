@@ -1885,6 +1885,52 @@ auto_promoted: false
 merged_to_main_by_aobg: false
 ```
 
+## Task 62 — RootSinglesRehome Context, ValueObjects, ControlPlane and AtlasDecide, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+blueprint: RootSinglesRehome / groups Context + ValueObjects + ControlPlane + AtlasDecide
+commit: 3d5da02eb
+subject: "refactor(core): GOD-DEBULK RootSingles Context rehome"
+scope:
+  - app/Services/Ai/Context/AiContextPackBuilder.php, AiContextSnapshotRecorder.php, AiConversationContextBuilder.php, AiConversationRecorder.php, and AtlasDialecticTensionService.php
+  - app/Services/Ai/ValueObjects/AiPrompt.php
+  - app/Services/Ai/ControlPlane/AiInteractionSteeringService.php
+  - app/Services/Ai/AtlasDecide/AiDecisionReceiptRefreshService.php
+  - canonical runtime/consumer imports, architecture scanner and code-reality paths, one-cycle aliases, compatibility coverage, and AI CODEMAP
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Unit/Ai/RootSinglesKnowledgeCompatibilityTest.php --filter=test_context_control_plane_and_decision_services_resolve_from_canonical_namespaces_with_legacy_aliases --no-coverage
+  result: "FAIL 1 test, 1 assertion: canonical App\\Services\\Ai\\Context\\AiContextPackBuilder was not resolvable before the re-home."
+green:
+  behavior: "Five context owners, AiPrompt, interaction steering, and decision-receipt refresh now have their canonical namespaces. Retired root FQCNs remain lazy composer-loaded aliases for queued and deployed compatibility."
+  characterization: "Compatibility proves canonical and retired class loading plus each alias relationship. Focused coverage exercises conversation-window assembly, provider-handoff context, tension marks, decision-receipt hardening, interaction steering, context/prompt construction, and Atlas Decide contracts through canonical imports."
+verification:
+  root_compatibility: "PASS 12 tests, 86 assertions (serial and ParaTest parallel)."
+  focused_context_suite: "PASS 13 tests, 52 assertions (conversation context, dialectic tension, provider handoff receipt, and decision-receipt refresh hardening)."
+  consumer_contracts: "PASS selected steering, prompt-builder, persistent-context, Atlas Decide, engineering-harness, architecture-bypass, and code-reality suites; both selected commands exited 0."
+  composer: "PASS dump-autoload -o and validate --no-check-publish; dump reports unrelated existing PSR-4 warnings."
+  php_lint: "PASS all selected package PHP paths."
+  root_sweep: "PASS: old root source paths are absent. Remaining old root FQCN references are limited to the explicit compatibility aliases and their compatibility test imports."
+  phpstan: "NOT GREEN: 96 Eloquent/model-property and resolver type diagnostics in moved owners. No suppression, baseline, or unrelated model change was added; this gate is not used as proof."
+  pint: "Root compatibility passes strict Pint. Strict selected-file Pint is NOT GREEN for existing full-file formatting drift across large consumer and owner files; no broad reformat was applied."
+  codemap: "PASS god-debulk-codemap-verify (targets=35)."
+  density_guard: "PASS current audit: >5k=11, >2k=45. Moved owners total 1,625 LOC; largest is Context/AiContextPackBuilder.php at 764 LOC."
+  broader_memory_registry: "NOT GREEN: 60 passed, 3 failed. The failures are at unmodified assertions for the /opt/homebrew/bin/php prompt expectation and absent MCP inventory entries; not used as proof."
+  architecture_gate: "NOT GREEN globally: static scan reports Surface context_pack and AtlasOpenBrainMcp evidence-ledger violations; documentation health also fails. Neither target belongs to this slice, and the gate is not used as proof."
+  diff_check: PASS
+boundary:
+  - organizational re-home only; context retrieval, privacy, snapshot writes, conversation transactions, dialectic semantics, prompt payload, steering state, receipt refresh, and HTTP behavior are unchanged
+  - RootSinglesLegacyAliases is a dated one-cycle compatibility adapter, not a second implementation
+  - production consumers, static scanner paths, focused coverage, and CODEMAP name the canonical owners directly
+write_back:
+  status: recorded_for_human_review
+  context_feedback: "persisted provider-safe feedback; measured=false, utility=20, missing canonical_doc/test/code sources; review required"
+  outcome_id: god-debulk-rootsingles-context-controlplane-decide-2026-07-22
+  outcome_status: recorded
+  auto_promoted: false
+  merged_to_main_by_aobg: false
+```
+
 ## Task 60 — RootSinglesRehome Instrumentation, 2026-07-22
 
 ```yaml
