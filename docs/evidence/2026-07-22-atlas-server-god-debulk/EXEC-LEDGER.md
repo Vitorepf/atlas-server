@@ -2422,3 +2422,33 @@ write_back:
   auto_promoted: false
   merged_to_main_by_aobg: false
 ```
+
+## Task 78 — A1-SC Task 6.2 runtime-truth hardening, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_BASELINE_RED
+commit: ae4f3923f
+subject: "fix(core): harden control plane runtime truth"
+red:
+  result: "Independent review found two P1 gaps after Task 6.2: oversized queue snapshots could self-heal, and five named writers could claim a write without durable IDs/replay proof. The publisher additionally lacked a persistent replay receipt."
+green:
+  behavior: "All status registry reads are explicitly non-healing; named writers report false without durable artifacts, otherwise return verified IDs plus an idempotency key and replay from durable evidence. Publisher replay verifies all three destination files and its own runtime receipt."
+verification:
+  focused_status_runtime: "PASS 5 tests, 69 assertions"
+  focused_publisher_runtime: "PASS 1 test, 12 assertions"
+  php_lint: "PASS all five changed production files and both changed Feature tests"
+  pint: "PASS AgentControlPlaneRuntime and both changed Feature tests; the pre-existing full-file formatting violations in ClaimLeaseRepository remain outside the hunk"
+  diff_check: PASS
+  review: "PASS; independent reviewer found no remaining P0/P1 after the publisher replay proof"
+  loc: "agent_control_plane_runtime=501; control_plane_status_projector=147 (both <800 hot limit)"
+  adjacent_baseline: "NOT GREEN: the prescribed four legacy Feature files retain their established unrelated failures, including the missing publisher CLI option; no legacy route was changed."
+boundary:
+  - read-only queue and lease registry loads never self-heal oversized data
+  - terminal bootstrap, queue enqueue/claim, replenishment, recovery, and publisher runtimes declare a write only after durable artifact verification
+  - queue-backed operations persist idempotency receipts on their task packets; publisher persists a dedicated runtime receipt only after all published paths exist
+  - no provider call, dispatch, token spend, ledger write, self-programming, or completion authority is enabled
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```

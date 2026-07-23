@@ -70,6 +70,10 @@ claimed_paths:
    - BUGFIX Task 6.2 complete (`371b5a553`): bounded read projector and named
      runtime owners now prove persisted packet/lease IDs plus no-write replay
      before legacy routing changes.
+   - BUGFIX Task 6.2 hardening complete (`ae4f3923f`): queue and lease
+     snapshots stay read-only even when oversized registries would normally
+     self-heal; every named writer now reports durable IDs/idempotency only
+     after verification, and the publisher has a durable replay receipt.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
