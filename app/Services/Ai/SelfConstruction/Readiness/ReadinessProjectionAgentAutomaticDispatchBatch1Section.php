@@ -2774,9 +2774,9 @@ final class ReadinessProjectionAgentAutomaticDispatchBatch1Section
         $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_preflight_hash');
 
         $allowedFiles = [
-            'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php',
+            'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php',
             'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvokerTest.php',
-            'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+            'app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php',
             'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
             'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
             'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
