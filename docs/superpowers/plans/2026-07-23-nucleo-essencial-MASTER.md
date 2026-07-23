@@ -137,3 +137,28 @@ W6 → último
 ```
 
 **Perguntas abertas ao operador:** (1) W3.1 Holding: fundir p/ tabela (novo default) ou ainda quer avaliar deleção após a closure real? (2) W2c GAP-09/10: ligar os bridges ou deletar? (3) W5.1 trust-gate do TerminalHookRunner: aplicar sobre o WIP não-commitado da outra frente?
+
+---
+
+## STATUS DE EXECUÇÃO (atualizado fim da sessão 23/07)
+
+**Entregue (17 commits meus, main sempre boot-verde 1062):**
+- W0 fix: main quebrada (BlogEditorial) restaurada; lixo raiz removido.
+- W0.5: bombas de wiring cd018 defusadas (ASP + config); teste RED→green.
+- W1: 81 classes ACDE + 129 testes.
+- W2a: 14 conselhos dormentes.
+- W2/2-CC: componente-conexo AE — 90 classes líquidas (4 restauradas por regressão do gap promoted-property).
+- W2c: **202 organs ExternalBrain unwired (−103k)**.
+- W2d: tests/Archive (−17k).
+- W2e: 7 cerimônia NativeImpl · W2f: 3 Simplification · W2g: 27 Maestro.
+- Fixes: hard-keep RefillerSupplyLaneCoordinator un-broken; regressão Wave-2-CC (4 classes); 2× wrong-provenance (revertido).
+
+**Ferramenta reutilizável:** `deadcode_cc.py` (componente-conexo, ref-detection correta) + restore-fixpoint. Lições em `docs/evidence/2026-07-23-nucleo-essencial/DEBTS.md` D6 + memória `deadcode-connected-component-tool`.
+
+**BLOQUEADO / precisa decisão do operador (não executável autonomamente com segurança):**
+- **Godfiles restantes** (Readiness 10.5k + os que a sessão paralela Codex está splitando): colisão de working-tree. Esperar a sessão paralela terminar.
+- **SelfConstruction live-core** (TaskServing→commit, ControlPlane, TaskQuality gates): varrer com CC exige tratar o core como target — arriscado com sessão paralela ativa. Fazer só com a paralela parada.
+- **D1 trading-loop bomba** (`atlas:finance:strategy-evolve` quebrado por cd018): restaurar-vs-redesenhar — decisão sua.
+- **D4/D7 reversíveis**: cluster ACDE (resolvido em W2-CC) e ExternalBrain 202 são restauráveis via git se alguma capacidade for desejada.
+
+**Estado app/:** 6897→6520 arquivos, 1.666M→1.585M LOC. Godfiles>2000: 5→1. AE cadáver 338→139, ExternalBrain 379→177.
