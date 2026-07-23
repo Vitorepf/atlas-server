@@ -2566,3 +2566,32 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 83 — A1-SC-0055 bind DispatchProvider ControlPlane capabilities, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 6cd8ff0ad
+subject: "refactor(core): GOD-DEBULK bind Dispatch Provider owners"
+red:
+  result: "FAIL 1 test, 3 assertions after removing the seven imports: provider_adapter_registry readiness was false because the short name resolved inside Readiness instead of ControlPlane."
+green:
+  behavior: "The projection now resolves all seven current ControlPlane capability owners. Its real direct Section and public facade agree; the clean test database remains correctly blocked by absent runtime tables."
+verification:
+  focused_feature: "PASS 1 test, 13 assertions"
+  php_lint: "PASS DispatchProvider source and Feature test"
+  pint: "PASS Feature test; NOT GREEN for pre-existing full-file DispatchProvider violations outside the seven-import hunk (including recorded unused-import debt)"
+  diff_check: PASS
+  density: "DispatchProvider remains the inherited 4,302 LOC monster; seven imports add no method/density and no structural split was attempted without an approved blueprint. Feature test=68 LOC (<800 hot limit)."
+commit_scope: "PASS: git commit --only recorded exactly DispatchProvider source plus its focused Feature test."
+boundary:
+  - executes the policy, all six capability preflights, release-authorization persistence status, and the public compatibility facade; no reflection-only method inventory remains
+  - each capability must resolve its typed ControlPlane class; missing-name blockers are rejected explicitly
+  - the policy stays execution_allowed=false and dispatch_allowed=false, and does not treat absent test runtime tables as ready
+  - no provider call, adapter call, provider start, token spend, persistence, dispatch, or ledger write is enabled
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
