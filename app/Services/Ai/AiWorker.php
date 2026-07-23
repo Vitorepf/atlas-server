@@ -66,10 +66,12 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\Ai\AiWorkerSupport\MacBackgroundReadinessSection;
+use App\Services\Ai\AiWorkerSupport\PermissionSteerSection;
+use App\Services\Ai\AiWorkerSupport\ProgrammingRepairSupportSection;
 
 class AiWorker
 {
-    private const MAC_BACKGROUND_RETRY_DELAY_SECONDS = 300;
 
     /**
      * Opt-in seam (Patamar 4 · ADML closed feedback loop). Wired by
@@ -102,6 +104,12 @@ class AiWorker
     {
         $this->liveOutcomeFeedback = $svc;
     }
+
+    private readonly MacBackgroundReadinessSection $macBackgroundReadiness;
+
+    private readonly PermissionSteerSection $permissionSteer;
+
+    private readonly ProgrammingRepairSupportSection $programmingRepairSupport;
 
     public function __construct(
         private readonly AiProviderManager $providers,
@@ -143,7 +151,11 @@ class AiWorker
         private readonly MissionCertificationService $missionCertification,
         private readonly MissionEvidenceAdapter $missionEvidenceAdapter,
         private readonly HermesMeshJobRunner $meshJobRunner,
-    ) {}
+    ) {
+        $this->macBackgroundReadiness = new MacBackgroundReadinessSection($this->logger, $this->macAgent);
+        $this->permissionSteer = new PermissionSteerSection($this->finalResponses, $this->states);
+        $this->programmingRepairSupport = new ProgrammingRepairSupportSection;
+    }
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
     {
@@ -977,84 +989,7 @@ class AiWorker
 
     private function deferForMacBackgroundReadinessIfNeeded(AiJob $job, string $workerId): bool
     {
-        if (! $defer = $this->macBackgroundReadinessDefer($job)) {
-            return false;
-        }
-
-        $metadata = array_merge($job->metadata ?? [], [
-            'mac_background_readiness' => $defer,
-        ]);
-
-        $job->update([
-            'available_at' => now()->addSeconds(self::MAC_BACKGROUND_RETRY_DELAY_SECONDS),
-            'metadata' => $metadata,
-        ]);
-        $job->trace?->update([
-            'status' => 'queued',
-            'metadata' => array_merge($job->trace->metadata ?? [], [
-                'mac_background_readiness' => $defer,
-            ]),
-        ]);
-
-        $this->logger->event(
-            eventType: 'job_deferred',
-            message: 'AI background job deferred until Mac Agent readiness is satisfied.',
-            severity: 'warning',
-            provider: $job->provider,
-            job: $job,
-            metadata: $defer,
-            workerId: $workerId,
-        );
-
-        return true;
-    }
-
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function macBackgroundReadinessDefer(AiJob $job): ?array
-    {
-        if (! $this->requiresMacBackgroundReadiness($job)) {
-            return null;
-        }
-
-        $status = $this->macAgent->status(refresh: true);
-        $readiness = (array) ($status['readiness'] ?? []);
-
-        if (($readiness['ready_for_background_jobs'] ?? false) === true) {
-            return null;
-        }
-
-        return [
-            'schema_version' => 1,
-            'status' => 'deferred',
-            'reason' => 'mac_background_not_ready',
-            'retry_after_seconds' => self::MAC_BACKGROUND_RETRY_DELAY_SECONDS,
-            'checked_at' => now()->toJSON(),
-            'readiness' => [
-                'overall' => $readiness['overall'] ?? 'unknown',
-                'ready_for_remote' => (bool) ($readiness['ready_for_remote'] ?? false),
-                'ready_for_scheduled_wake' => (bool) ($readiness['ready_for_scheduled_wake'] ?? false),
-                'ready_for_background_jobs' => (bool) ($readiness['ready_for_background_jobs'] ?? false),
-                'power_ready_for_background_jobs' => (bool) ($readiness['power_ready_for_background_jobs'] ?? false),
-                'blockers' => $readiness['blockers'] ?? [],
-                'warnings' => $readiness['warnings'] ?? [],
-            ],
-        ];
-    }
-
-    private function requiresMacBackgroundReadiness(AiJob $job): bool
-    {
-        $traceSource = (string) ($job->trace?->source_type ?? '');
-        $payload = $job->payload ?? [];
-
-        if ($traceSource === 'scheduled') {
-            return true;
-        }
-
-        return in_array((string) data_get($payload, 'atlas_workflow_mode'), ['scheduled', 'background'], true)
-            || in_array((string) data_get($payload, 'app_surface'), ['atlas_cli_schedule', 'scheduled', 'background'], true)
-            || (bool) data_get($payload, 'scheduled_task.id');
+        return $this->macBackgroundReadiness->deferForMacBackgroundReadinessIfNeeded($job, $workerId);
     }
 
     private function recoverStaleProcessingJobs(string $workerId): void
@@ -1446,38 +1381,14 @@ class AiWorker
         ], fn (mixed $value): bool => $value !== null && $value !== []);
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     private function programmingProviderGateContract(AiJob $job): array
     {
-        return $this->firstArray([
-            data_get($job->payload, 'programming_policy_contracts.gates'),
-            data_get($job->metadata, 'programming_policy_contracts.gates'),
-            data_get($job->payload, 'programming_message_plan.policy_contracts.gates'),
-            data_get($job->payload, 'programming_message_plan.policy_profile.policy_contracts.gates'),
-            data_get($job->payload, 'programming_message_plan.policy_profile.effective_policy.operational_contracts.gates'),
-            data_get($job->payload, 'programming_dispatch.policy_contracts.gates'),
-            data_get($job->trace?->metadata, 'programming_policy_contracts.gates'),
-            data_get($job->trace?->metadata, 'programming_dispatch.policy_contracts.gates'),
-        ]);
+        return $this->programmingRepairSupport->programmingProviderGateContract($job);
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     private function programmingProviderToolContract(AiJob $job): array
     {
-        return $this->firstArray([
-            data_get($job->payload, 'programming_policy_contracts.tools'),
-            data_get($job->metadata, 'programming_policy_contracts.tools'),
-            data_get($job->payload, 'programming_message_plan.policy_contracts.tools'),
-            data_get($job->payload, 'programming_message_plan.policy_profile.policy_contracts.tools'),
-            data_get($job->payload, 'programming_message_plan.policy_profile.effective_policy.operational_contracts.tools'),
-            data_get($job->payload, 'programming_dispatch.policy_contracts.tools'),
-            data_get($job->trace?->metadata, 'programming_policy_contracts.tools'),
-            data_get($job->trace?->metadata, 'programming_dispatch.policy_contracts.tools'),
-        ]);
+        return $this->programmingRepairSupport->programmingProviderToolContract($job);
     }
 
     private function handleNativeProgrammingRepair(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, ?string $responseHash, string $workerId): ?AiJob
@@ -1680,81 +1591,24 @@ class AiWorker
         return null;
     }
 
-    /**
-     * @param  array<string,mixed>  $repair
-     * @param  array<string,mixed>  $messagePlan
-     * @return array<string,mixed>
-     */
     private function programmingRepairGateContract(AiJob $job, array $repair, array $messagePlan): array
     {
-        return $this->firstArray([
-            data_get($repair, 'gate_contract'),
-            data_get($messagePlan, 'execution_profile.gate_contract'),
-            data_get($messagePlan, 'policy_contracts.gates'),
-            data_get($messagePlan, 'policy_profile.policy_contracts.gates'),
-            data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts.gates'),
-            data_get($job->payload, 'programming_dispatch.policy_contracts.gates'),
-        ]);
+        return $this->programmingRepairSupport->programmingRepairGateContract($job, $repair, $messagePlan);
     }
 
-    /**
-     * @param  array<string,mixed>  $repair
-     * @param  array<string,mixed>  $messagePlan
-     * @return array<string,mixed>
-     */
     private function programmingRepairToolContract(AiJob $job, array $repair, array $messagePlan): array
     {
-        return $this->firstArray([
-            data_get($repair, 'tool_contract'),
-            data_get($messagePlan, 'execution_profile.tool_contract'),
-            data_get($messagePlan, 'policy_contracts.tools'),
-            data_get($messagePlan, 'policy_profile.policy_contracts.tools'),
-            data_get($messagePlan, 'policy_profile.effective_policy.operational_contracts.tools'),
-            data_get($job->payload, 'programming_dispatch.policy_contracts.tools'),
-        ]);
+        return $this->programmingRepairSupport->programmingRepairToolContract($job, $repair, $messagePlan);
     }
 
-    /**
-     * @param  array<string,mixed>  $gateContract
-     */
     private function programmingRepairGateRequiresEvidence(array $gateContract): bool
     {
-        $minimum = strtolower(trim((string) ($gateContract['minimum_gate'] ?? '')));
-
-        return (bool) ($gateContract['evidence_required'] ?? false)
-            || in_array($minimum, ['strict', 'release'], true);
+        return $this->programmingRepairSupport->programmingRepairGateRequiresEvidence($gateContract);
     }
 
-    /**
-     * @param  array<string,mixed>  $toolContract
-     */
     private function programmingRepairAllowsWorkspaceWrite(array $toolContract): bool
     {
-        if ($toolContract === []) {
-            return true;
-        }
-
-        $mode = strtolower(trim((string) ($toolContract['mode'] ?? '')));
-        if ($mode === 'read_only') {
-            return false;
-        }
-
-        return (bool) ($toolContract['workspace_write'] ?? in_array($mode, ['workspace_write', 'harness'], true));
-    }
-
-    /**
-     * @param  array<int,mixed>  $candidates
-     * @return array<string,mixed>
-     */
-    private function firstArray(array $candidates): array
-    {
-        foreach ($candidates as $candidate) {
-            if (is_array($candidate) && $candidate !== []) {
-                return $candidate;
-            }
-        }
-
-        return [];
+        return $this->programmingRepairSupport->programmingRepairAllowsWorkspaceWrite($toolContract);
     }
 
     /**
@@ -1802,78 +1656,22 @@ class AiWorker
 
     private function programmingRepairWorkspace(AiJob $job): ?string
     {
-        $workspace = data_get($job->payload, 'workspace_context.repo_root')
-            ?: data_get($job->payload, 'workspace_context.workspace')
-            ?: data_get($job->payload, 'programming_message_plan.workspace');
-
-        if (! is_string($workspace) || trim($workspace) === '') {
-            return null;
-        }
-
-        return realpath($workspace) ?: $workspace;
+        return $this->programmingRepairSupport->programmingRepairWorkspace($job);
     }
 
     private function programmingRepairTestCommand(AiJob $job): ?string
     {
-        $command = data_get($job->payload, 'dev_execution_plan.operator_options.harness_overrides.test_command');
-
-        return is_string($command) && trim($command) !== '' ? trim($command) : null;
+        return $this->programmingRepairSupport->programmingRepairTestCommand($job);
     }
 
     private function programmingRepairQualityWorsened(string $currentStatus, mixed $previousStatus): bool
     {
-        if (! is_string($previousStatus) || trim($previousStatus) === '') {
-            return false;
-        }
-
-        return $this->programmingRepairStatusRank($currentStatus) < $this->programmingRepairStatusRank($previousStatus);
+        return $this->programmingRepairSupport->programmingRepairQualityWorsened($currentStatus, $previousStatus);
     }
 
-    private function programmingRepairStatusRank(string $status): int
-    {
-        return match ($status) {
-            'passed' => 4,
-            'needs_review' => 3,
-            'failed' => 2,
-            'blocked' => 1,
-            default => 0,
-        };
-    }
-
-    /**
-     * @param  array<string,mixed>  $quality
-     * @param  array<string,mixed>  $extra
-     * @return array<string,mixed>
-     */
     private function programmingRepairLedgerPayload(array $quality, array $extra = []): array
     {
-        return array_merge([
-            'quality_status' => $quality['status'] ?? null,
-            'quality_score' => $quality['score'] ?? null,
-            'quality_decision' => $quality['decision'] ?? null,
-            'diff_hash' => $quality['diff_hash'] ?? null,
-            'test_command_hash' => is_string($quality['test_command'] ?? null) && $quality['test_command'] !== ''
-                ? hash('sha256', $quality['test_command'])
-                : null,
-            'evidence_hash' => hash('sha256', json_encode($this->programmingRepairEvidenceProjection($quality), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
-        ], $extra);
-    }
-
-    /**
-     * @param  array<string,mixed>  $quality
-     * @return array<string,mixed>
-     */
-    private function programmingRepairEvidenceProjection(array $quality): array
-    {
-        return [
-            'status' => $quality['status'] ?? null,
-            'score' => $quality['score'] ?? null,
-            'decision' => $quality['decision'] ?? null,
-            'diff_hash' => $quality['diff_hash'] ?? null,
-            'test_status' => data_get($quality, 'tests.status'),
-            'lint_status' => data_get($quality, 'lint.status'),
-            'typecheck_status' => data_get($quality, 'typecheck.status'),
-        ];
+        return $this->programmingRepairSupport->programmingRepairLedgerPayload($quality, $extra);
     }
 
     /**
@@ -2072,45 +1870,17 @@ class AiWorker
 
     private function nativeProgrammingRepairFailureDomain(string $qualityStatus): FailureDomain
     {
-        return match ($qualityStatus) {
-            'failed', 'needs_review', 'blocked' => FailureDomain::GateFailed,
-            default => FailureDomain::OutputInvalid,
-        };
+        return $this->programmingRepairSupport->nativeProgrammingRepairFailureDomain($qualityStatus);
     }
 
-    /**
-     * @param  array<string,mixed>  $quality
-     * @return array<int,string>
-     */
     private function nativeProgrammingRepairEvidenceRefs(AiJob $job, AiJobAttempt $attempt, array $quality): array
     {
-        return array_values(array_filter([
-            $job->trace_id ? 'trace://'.$job->trace_id : null,
-            'ai-job://'.$job->id,
-            'ai-attempt://'.$attempt->id,
-            is_string($quality['diff_hash'] ?? null) && $quality['diff_hash'] !== ''
-                ? 'diff-hash://'.$quality['diff_hash']
-                : null,
-        ]));
+        return $this->programmingRepairSupport->nativeProgrammingRepairEvidenceRefs($job, $attempt, $quality);
     }
 
-    /**
-     * @param  array<string,mixed>  $repairUpdates
-     * @param  array<string,mixed>  $quality
-     * @return array<int,array<string,mixed>>
-     */
     private function programmingRepairHistory(AiJob $job, array $repairUpdates, array $quality): array
     {
-        $history = (array) data_get($job->payload, 'programming_repair_history', []);
-        $currentIteration = (int) ($repairUpdates['current_iteration'] ?? data_get($job->payload, 'programming_repair.current_iteration', 1));
-        $history[] = [
-            'iteration' => max(1, $currentIteration),
-            'status' => $quality['status'] ?? null,
-            'diff_hash' => $quality['diff_hash'] ?? null,
-            'recorded_at' => now()->toJSON(),
-        ];
-
-        return array_values(array_slice($history, -10));
+        return $this->programmingRepairSupport->programmingRepairHistory($job, $repairUpdates, $quality);
     }
 
     private function ensureJobModelIdentity(AiJob $job, string $providerKey): AiJob
@@ -2716,125 +2486,27 @@ class AiWorker
 
     private function sanitizeProviderResultForOperator(AiProviderResult $result): AiProviderResult
     {
-        if ($result->output === '') {
-            return $result;
-        }
-
-        [$output, $sanitization] = $this->finalResponses->sanitize($result->output);
-        if (($sanitization['changed'] ?? false) !== true) {
-            return $result;
-        }
-
-        return new AiProviderResult(
-            ok: $result->ok,
-            output: $output,
-            command: $result->command,
-            exitCode: $result->exitCode,
-            durationMs: $result->durationMs,
-            stdout: $result->stdout,
-            stderr: $result->stderr,
-            errorCode: $result->errorCode,
-            errorMessage: $result->errorMessage,
-            metadata: array_merge($result->metadata, [
-                'final_response_sanitization' => $sanitization,
-            ]),
-        );
+        return $this->permissionSteer->sanitizeProviderResultForOperator($result);
     }
 
     private function applyPermissionRuntime(AiJob $job, AiPermissionDecision $permission): AiJob
     {
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $toolPermissions = is_array(data_get($payload, 'tool_permissions'))
-            ? data_get($payload, 'tool_permissions')
-            : [];
-        $payload['tool_permissions'] = array_merge($toolPermissions, $permission->runtimePayload());
-
-        $job->forceFill(['payload' => $payload])->save();
-
-        return $job->refresh()->load('trace');
+        return $this->permissionSteer->applyPermissionRuntime($job, $permission);
     }
 
     private function applyPendingSteer(AiJob $job): AiJob
     {
-        $trace = $job->trace ?: $job->trace()->first();
-        $thread = $trace?->thread()->first();
-        $session = $trace?->session()->first();
-
-        if (! $trace || ! $thread) {
-            return $job;
-        }
-
-        $steer = $this->states->consumePendingSteer($thread, $session);
-        if (! is_string($steer) || trim($steer) === '') {
-            return $job;
-        }
-
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $metadata = is_array($job->metadata) ? $job->metadata : [];
-        $steerPayload = [
-            'content' => Str::limit(trim($steer), 4000, '...'),
-            'injected_at' => now()->toJSON(),
-            'source' => 'ai_session_state.pending_steer',
-        ];
-
-        $job->update([
-            'prompt' => $this->promptWithPendingSteer($job->prompt, $steerPayload['content']),
-            'payload' => array_merge($payload, [
-                'pending_steer' => $steerPayload,
-            ]),
-            'metadata' => array_merge($metadata, [
-                'pending_steer_injected' => true,
-                'pending_steer_injected_at' => $steerPayload['injected_at'],
-            ]),
-        ]);
-
-        $trace->update([
-            'metadata' => array_merge($trace->metadata ?? [], [
-                'pending_steer' => [
-                    'injected' => true,
-                    'injected_at' => $steerPayload['injected_at'],
-                ],
-            ]),
-        ]);
-
-        return $job->refresh()->load('trace');
-    }
-
-    private function promptWithPendingSteer(string $prompt, string $steer): string
-    {
-        return rtrim($prompt)."\n\n# Pedido adicional do operador\n\n[STEER] {$steer}\n";
+        return $this->permissionSteer->applyPendingSteer($job);
     }
 
     private function withPermissionMetadata(AiProviderResult $result, AiPermissionDecision $permission): AiProviderResult
     {
-        return new AiProviderResult(
-            ok: $result->ok,
-            output: $result->output,
-            command: $result->command,
-            exitCode: $result->exitCode,
-            durationMs: $result->durationMs,
-            stdout: $result->stdout,
-            stderr: $result->stderr,
-            errorCode: $result->errorCode,
-            errorMessage: $result->errorMessage,
-            metadata: array_merge($result->metadata, ['permission' => $permission->toArray()]),
-        );
+        return $this->permissionSteer->withPermissionMetadata($result, $permission);
     }
 
     private function withPowerSessionMetadata(AiProviderResult $result, string $powerSessionId): AiProviderResult
     {
-        return new AiProviderResult(
-            ok: $result->ok,
-            output: $result->output,
-            command: $result->command,
-            exitCode: $result->exitCode,
-            durationMs: $result->durationMs,
-            stdout: $result->stdout,
-            stderr: $result->stderr,
-            errorCode: $result->errorCode,
-            errorMessage: $result->errorMessage,
-            metadata: array_merge($result->metadata, ['power_session_id' => $powerSessionId]),
-        );
+        return $this->permissionSteer->withPowerSessionMetadata($result, $powerSessionId);
     }
 
     private function emitStreamEvent(
