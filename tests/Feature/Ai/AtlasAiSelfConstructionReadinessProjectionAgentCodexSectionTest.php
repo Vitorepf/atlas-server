@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection;
 use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -36,55 +37,22 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
         $this->assertSame($expected, ReadinessHash::stable($payload), 'ReadinessHash::stable must be deterministic');
     }
 
-    public function test_all_171_agent_codex_methods_exist_on_section(): void
-    {
-        // Use reflection to count actual unique public methods on the section.
-        $ref = new \ReflectionClass(ReadinessProjectionAgentCodexSection::class);
-        $publicMethods = array_filter(
-            $ref->getMethods(\ReflectionMethod::IS_PUBLIC),
-            fn (\ReflectionMethod $m): bool => str_starts_with($m->getName(), 'agentCodex')
-        );
-        $this->assertGreaterThanOrEqual(
-            171,
-            count($publicMethods),
-            'Section must expose at least 171 agentCodex* public methods'
-        );
-
-        // Verify at least the first few well-known methods exist on the class.
-        foreach ([
-            'agentCodexProviderExecutionContractTemplate',
-            'agentCodexRealInvokerPostStartOperatorStartHandoffBuilderImplementationPacket',
-        ] as $name) {
-            $this->assertTrue(
-                method_exists(ReadinessProjectionAgentCodexSection::class, $name),
-                "ReadinessProjectionAgentCodexSection::{$name} must exist"
-            );
-        }
-    }
-
-    public function test_runtime_service_delegates_to_section(): void
+    #[DataProvider('agentCodexAliases')]
+    public function test_every_agent_codex_alias_executes_through_the_production_facade(string $method): void
     {
         $runtime = app(AtlasSelfConstructionReadinessService::class);
-        // Spot-check a few key delegators exist on the runtime.
-        foreach ([
-            'agentCodexProviderExecutionContractTemplate',
-            'agentCodexRealInvokerPostStartOperatorStartHandoffBuilderImplementationPacket',
-        ] as $method) {
-            $this->assertTrue(
-                method_exists($runtime, $method),
-                "AtlasSelfConstructionReadinessService::{$method} must exist as a delegator"
-            );
-        }
+        $payload = $runtime->{$method}([]);
+
+        $this->assertIsArray($payload);
+        $this->assertNotSame('', (string) data_get($payload, 'schema_version'));
+        $this->assertNotSame('', (string) data_get($payload, 'status'));
+        $this->assertFalse((bool) data_get($payload, 'execution_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'dispatch_allowed'));
     }
 
-    public function test_section_can_be_resolved_via_runtime_lazy_resolver(): void
+    public function test_agent_codex_alias_corpus_contains_the_expected_171_real_calls(): void
     {
-        $runtime = app(AtlasSelfConstructionReadinessService::class);
-        $ref = new \ReflectionMethod($runtime, 'agentCodexSection');
-        $ref->setAccessible(true);
-        $section = $ref->invoke($runtime);
-
-        $this->assertInstanceOf(ReadinessProjectionAgentCodexSection::class, $section);
+        $this->assertCount(171, self::agentCodexAliases());
     }
 
     public function test_liveness_monitor_preflight_reaches_read_only_storage_readiness(): void
@@ -220,5 +188,20 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
             $this->assertFalse($envelope['execution_allowed']);
             $this->assertFalse($envelope['dispatch_allowed']);
         }
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function agentCodexAliases(): array
+    {
+        $methods = array_values(array_filter(
+            get_class_methods(ReadinessProjectionAgentCodexSection::class),
+            static fn (string $method): bool => str_starts_with($method, 'agentCodex'),
+        ));
+        sort($methods);
+
+        return array_combine($methods, array_map(
+            static fn (string $method): array => [$method],
+            $methods,
+        ));
     }
 }
