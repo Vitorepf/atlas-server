@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
+use App\Services\Ai\SelfConstruction\FinalOperatorClosureCorridor;
 use App\Services\Ai\SelfConstruction\Support\FinalOperatorClosureCorridorHashSupport;
 use App\Services\Ai\SelfConstruction\Support\FinalOperatorEvidenceSubmissionEnvelopeBuilder;
 use Carbon\CarbonImmutable;

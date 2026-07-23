@@ -1,4 +1,1 @@
-[
-    "astropy/io/fits/fitsrec.py",
-    "astropy/io/fits/tests/test_checksum.py"
-]
+["astropy/io/ascii/qdp.py", "astropy/io/ascii/tests/test_qdp.py"]

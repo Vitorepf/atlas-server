@@ -429,6 +429,73 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotContains('--yolo', $result->command);
     }
 
+    /**
+     * Terminal Dev forces cli_oneshot=true, but hermes -z has no --image flag
+     * (buildOneShotCommand drops it). Vision must fall back to chat --image.
+     */
+    public function test_hermes_oneshot_with_image_attachments_falls_back_to_chat_image(): void
+    {
+        $binary = $this->fakeHermesBinary();
+        $image = $this->attachmentFixtureRoot.'/terminal-clipboard.png';
+        File::put($image, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='));
+        $resolved = realpath($image) ?: $image;
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+
+        $job = $this->job([
+            'hermes' => [
+                'source' => 'atlas_terminal',
+                'cli_oneshot' => true,
+            ],
+            'attachments' => [
+                'images' => [
+                    ['path' => $image, 'mime' => 'image/png'],
+                ],
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'descreva a imagem');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('chat', $result->command);
+        $this->assertContains('--query', $result->command);
+        $this->assertContains('--image', $result->command);
+        $this->assertSame($resolved, $result->command[array_search('--image', $result->command, true) + 1]);
+        $this->assertNotContains('-z', $result->command);
+        // Mission envelope must not claim vision=false when images are attached.
+        $this->assertTrue((bool) data_get($job->payload, 'hermes.capabilities.vision'));
+    }
+
+    public function test_hermes_oneshot_without_images_still_uses_z(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+
+        $job = $this->job([
+            'hermes' => [
+                'source' => 'atlas_terminal',
+                'cli_oneshot' => true,
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'pong');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('-z', $result->command);
+        $this->assertNotContains('--image', $result->command);
+    }
+
     public function test_hermes_memory_adapter_persists_candidates_for_atlas_review(): void
     {
         Schema::dropIfExists('ai_memory_deltas');

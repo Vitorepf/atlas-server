@@ -202,6 +202,52 @@ case "$cmd" in
     shift || true
     exec_chat_prompt_with_workspace --stream --no-skill-prompt -- "$@"
     ;;
+  terminal|term|agent)
+    shift || true
+    # Rust TUI only for interactive empty launch (TTY, no oneshot args).
+    # Flags like --json/--stdio/positional prompt always use PHP AAP runtime.
+    use_tui=1
+    if [ -n "${ATLAS_TERMINAL_FORCE_PHP:-}" ]; then
+      use_tui=0
+    fi
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+      use_tui=0
+    fi
+    for arg in "$@"; do
+      case "$arg" in
+        --json|--stdio|--once|--hermes-dry|--help|-h)
+          use_tui=0
+          ;;
+        --timeout|--timeout=*|--provider|--provider=*|--workspace|--workspace=*|--resume|--resume=*|--plan|--yolo|--permission|--permission=*|--profile|--profile=*)
+          ;;
+        -*)
+          ;;
+        *)
+          # positional prompt => oneshot PHP path
+          use_tui=0
+          ;;
+      esac
+    done
+    if [ "$use_tui" = 1 ]; then
+      for candidate in \
+        "${ATLAS_TERM_BIN:-}" \
+        "$ROOT/../atlas-terminal/target/release/atlas-term" \
+        "$ROOT/../atlas-terminal/target/debug/atlas-term"
+      do
+        if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+          export ATLAS_SERVER_ROOT="$ROOT"
+          export ATLAS_PHP_BIN="${ATLAS_PHP_BIN:-$PHP_BIN}"
+          exec "$candidate" "$@"
+        fi
+      done
+      if command -v atlas-term >/dev/null 2>&1; then
+        export ATLAS_SERVER_ROOT="$ROOT"
+        export ATLAS_PHP_BIN="${ATLAS_PHP_BIN:-$PHP_BIN}"
+        exec atlas-term "$@"
+      fi
+    fi
+    exec_artisan_with_workspace atlas:terminal "$@"
+    ;;
   dev)
     shift || true
     exec_artisan_with_workspace atlas:cli:dev "$@"

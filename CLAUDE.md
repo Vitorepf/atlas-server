@@ -70,7 +70,12 @@ Adicionar abaixo. Atlas preserva todo o bloco entre os marcadores.
 Estes quatro blocos vivem no umbrella `Atlas/CLAUDE.md`, que **sempre carrega como ancestral deste workspace** (Claude Code lê o CLAUDE.md de todos os diretórios-pai). Ficavam duplicados aqui — ~40 linhas idênticas carregadas 2× por turno. Editar a tese **só no umbrella**; aqui ficam apenas notas server-specific. Como o bloco Manual Notes fica fora do checksum, este enxugamento sobrevive a toda re-projeção (`atlas memory projection`).
 
 ### Elite executors (Defatoração Elite)
-Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra). Diferença = operador presente + escala/duração — nunca "Dev = fast patch". ACDE `atlas:loop:*` hard-deleted; use `atlas:brain:*` / `atlas:task:*`.
+Dev · Forge · Autônomos = três executores de engenharia elite (**mesma barra L0–L5**).
+Diferença = presença humana no loop de eng + escala/duração + origem — nunca "Dev = fast patch", nunca "Autônomos = qualidade pior".
+- **Dev:** humano na intenção; sessão
+- **Forge:** humano só plano/soberania; obra multi-packet
+- **Autônomos:** zero no loop; `atlas:brain:*` → `atlas:task:*`; default 24/7
+Owner: `docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md`. ACDE `atlas:loop:*` morto.
 <!-- atlas:manual:end -->
 
 <!-- atlas:aobg:auto-bootstrap:start -->

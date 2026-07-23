@@ -115,6 +115,17 @@ Estrategia → charter de sessao (`atlas-terminal-work-charter.md`) → gaps no 
 3. Census reuse-first do que ja existe.
 4. Fechar gaps de review/CLI sem construir shell.
 
+## Amendment 2026-07-23 — L2a Terminal Dev (operador)
+
+**must_build_own_shell=false** continues to mean: do **not** build an IDE casca
+(file-tree product, inline editor as moat).
+
+**Allowed and required:** **Atlas Terminal Dev** = multi-turn **agent session TUI**
+(Grok-class programming surface) as **L2a**. Providers remain L1 muscle. Brain
+remains L3 in atlas-server. See `atlas-terminal-dev-product.md` and AAP v0.
+
+Hermes is **not** the default path for Terminal Dev until hang P3 is closed.
+
 ## Regras para IA
 
 - Nao propor shell propria.

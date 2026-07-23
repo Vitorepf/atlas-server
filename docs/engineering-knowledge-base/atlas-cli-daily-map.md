@@ -56,3 +56,7 @@ summary: "Mapa mental da superfície CLI (~926 commands). Diário = Dev/Forge/Au
 - **AAEOS** = org control plane (run/cycle/certify)
 - **AEOS / aeos** = maturity/gates/observe
 - **Autônomos** = brain + task (não `atlas:loop`)
+
+## Terminal Dev (2026-07-23)
+
+Primary agent session: `atlas terminal` / `atlas:terminal` — see `atlas-terminal-dev-product.md`. `atlas dev` remains efficient oneshot. `atlas:cli:tui` is review cockpit, not the agent.

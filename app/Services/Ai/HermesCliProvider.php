@@ -90,6 +90,10 @@ class HermesCliProvider implements AiProvider
             $prompt = $this->promptWithFileAttachmentAccess($prompt, $fileAttachments);
         }
 
+        // Multimodal: mission envelope defaults vision=false and is injected into the
+        // prompt. Hermes then refuses to "see" images. Auto-enable when we have paths.
+        $this->enableVisionCapabilityWhenImagesPresent($job);
+
         $mission = $this->missions->build($job, $prompt, $provider, [
             'configured_binary' => $binary,
             'configured_args_hash' => hash('sha256', json_encode($args, JSON_THROW_ON_ERROR)),
@@ -396,7 +400,9 @@ class HermesCliProvider implements AiProvider
      *
      * Scope (fail-safe, smallest blast radius):
      *   - resume/continue requested  → false (session continuity needs `chat`);
-     *   - explicit `hermes.cli_oneshot` payload bool → honored verbatim;
+     *   - image attachments present  → false (vision only via `chat --image`;
+     *     top-level `-z` has no `--image` flag, and buildOneShotCommand drops it);
+     *   - explicit `hermes.cli_oneshot` payload bool → honored (except images above);
      *   - Forge provider invocation  → `…cli_oneshot_for_forge` (default ON);
      *   - any other CLI caller       → `…cli_oneshot` (default OFF, `chat` as before).
      *
@@ -408,6 +414,12 @@ class HermesCliProvider implements AiProvider
         // session handling; never one-shot a resume/continue request.
         if ($this->cleanString(data_get($job->payload, 'hermes.resume')) !== null
             || data_get($job->payload, 'hermes.continue') !== null) {
+            return false;
+        }
+
+        // Multimodal: hermes only accepts --image on `chat`. One-shot drops it.
+        // Overrides explicit cli_oneshot=true (Terminal Dev paste path).
+        if ($this->jobHasImageAttachments($job)) {
             return false;
         }
 
@@ -423,6 +435,74 @@ class HermesCliProvider implements AiProvider
 
         return (bool) ($provider['cli_oneshot']
             ?? config('atlas.ai.providers.hermes_cli.cli_oneshot', false));
+    }
+
+    /**
+     * True when the job carries resolvable image paths that would be passed as
+     * `--image` (direct attachments.images or rendered PDF/office page images).
+     */
+    private function jobHasImageAttachments(AiJob $job): bool
+    {
+        $images = data_get($job->payload, 'attachments.images', []);
+        $images = is_array($images) ? $images : [];
+        foreach ($images as $image) {
+            $path = $this->attachmentPath(is_array($image) ? ($image['path'] ?? null) : null);
+            if ($path !== null) {
+                return true;
+            }
+        }
+
+        $pageLimit = max(0, (int) config('atlas.attachments.pdf.vision_page_limit', 12));
+        if ($pageLimit <= 0) {
+            return false;
+        }
+
+        $files = data_get($job->payload, 'attachments.files', []);
+        $files = is_array($files) ? $files : [];
+        $seen = 0;
+        foreach ($files as $file) {
+            if (! is_array($file)) {
+                continue;
+            }
+            $pages = is_array($file['pdf_rendered_pages'] ?? null)
+                ? $file['pdf_rendered_pages']
+                : (is_array($file['office_rendered_pages'] ?? null) ? $file['office_rendered_pages'] : []);
+            foreach ($pages as $page) {
+                $path = $this->attachmentPath(is_array($page) ? ($page['path'] ?? null) : null);
+                if ($path !== null) {
+                    return true;
+                }
+                $seen++;
+                if ($seen >= $pageLimit) {
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * When the job carries image attachments, stamp hermes.capabilities.vision=true
+     * so the executive mission envelope does not claim vision=false (which makes
+     * Hermes deny pasted images even if --image is on the argv).
+     */
+    private function enableVisionCapabilityWhenImagesPresent(AiJob $job): void
+    {
+        if (! $this->jobHasImageAttachments($job)) {
+            return;
+        }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $hermes = is_array($payload['hermes'] ?? null) ? $payload['hermes'] : [];
+        $caps = is_array($hermes['capabilities'] ?? null) ? $hermes['capabilities'] : [];
+        if (($caps['vision'] ?? null) === true) {
+            return;
+        }
+        $caps['vision'] = true;
+        $hermes['capabilities'] = $caps;
+        $payload['hermes'] = $hermes;
+        $job->payload = $payload;
     }
 
     /**

@@ -35,6 +35,15 @@ trait RunsCliProcesses
         $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), $processEnv);
         $process->setInput($input);
         $process->setTimeout($timeoutSeconds > 0 ? $timeoutSeconds : null);
+        // Prefer a dedicated process group so timeout/reap can SIGTERM/SIGKILL the tree
+        // (hermes -z orphans were a known P3 hang class).
+        if (\method_exists($process, 'setOptions')) {
+            try {
+                $process->setOptions(['create_new_process_group' => true]);
+            } catch (\Throwable) {
+                // Option unsupported on this Symfony/OS combo — reap still pkill -P.
+            }
+        }
         $stdout = '';
         $stderr = '';
         $earlyErrorCode = null;
@@ -209,12 +218,36 @@ trait RunsCliProcesses
 
     protected function reapCliProcess(Process $process): void
     {
+        $pid = $process->getPid();
+
         try {
             if ($process->isRunning()) {
-                $process->stop(1, 15);
+                // Hermes (and other CLI muscles) spawn grandchildren. Best-effort:
+                // signal the process group, then the pid, then pkill children, then stop().
+                if (is_int($pid) && $pid > 1 && \function_exists('posix_kill')) {
+                    @\posix_kill(-$pid, \SIGTERM);
+                    @\posix_kill($pid, \SIGTERM);
+                }
+                $process->stop(1, \SIGTERM);
             }
         } catch (\Throwable) {
             // Best-effort cleanup; callers still need to return the provider error.
+        }
+
+        try {
+            if ($process->isRunning()) {
+                if (is_int($pid) && $pid > 1) {
+                    if (\function_exists('posix_kill')) {
+                        @\posix_kill(-$pid, \SIGKILL);
+                        @\posix_kill($pid, \SIGKILL);
+                    }
+                    // Kill direct children that detached from the group (common with hermes -z).
+                    @\exec('pkill -KILL -P '.\escapeshellarg((string) $pid).' 2>/dev/null');
+                }
+                $process->stop(0, \SIGKILL);
+            }
+        } catch (\Throwable) {
+            // ignore
         }
 
         try {
