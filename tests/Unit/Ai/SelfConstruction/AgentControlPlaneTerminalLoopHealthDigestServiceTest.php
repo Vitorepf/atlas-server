@@ -240,6 +240,22 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertNotEmpty($state['supply_explanation']);
     }
 
+    public function test_terminal_task_count_respects_requested_queue_tags(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        foreach (['lane-a', 'lane-b'] as $lane) {
+            $queue->enqueue([
+                'task_packet_id' => 'completed-'.$lane,
+                'task_packet_hash' => hash('sha256', 'completed-'.$lane),
+                'status' => 'completed_dry_run',
+            ], ['tags' => [$lane]]);
+        }
+
+        $digest = $this->service()->digest(['queue_tags' => ['lane-a']]);
+
+        $this->assertSame(1, $digest['queue_health']['terminal_task_count']);
+    }
+
     public function test_pull_now_state_does_not_include_wait_fields(): void
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;

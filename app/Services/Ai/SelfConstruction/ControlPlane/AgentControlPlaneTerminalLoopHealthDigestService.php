@@ -104,7 +104,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         );
         $recoverableCount = $recoverableExpiredCount + $recoverableOrphanCount + $recoverableReleasedCount;
         $blockedCount = $this->countQueueRecords($queue, 'blocked', $queueTags);
-        $terminalCount = (int) ($statusCounts['completed_dry_run'] ?? 0) + (int) ($statusCounts['cancelled'] ?? 0);
+        $terminalCount = $this->countQueueRecords($queue, 'completed_dry_run', $queueTags)
+            + $this->countQueueRecords($queue, 'cancelled', $queueTags);
         $hiddenClaimableOutsideRequestedTags = $queueTags === []
             ? 0
             : max(0, $unfilteredClaimableCount - $claimableCount);
