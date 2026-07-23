@@ -16,6 +16,10 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\Support\JsonFileStore;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowDiagnosticsSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowIntentSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowPreflightSignalsSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowReportSection;
 
 /**
  * AP-786 full owner-runtime flow executor.
@@ -90,6 +94,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     private readonly ZeroProviderPreflightGate $preflightGate;
 
+    private readonly Ap786OwnerFlowIntentSection $intentBuilder;
+
+    private readonly Ap786OwnerFlowPreflightSignalsSection $preflightSignals;
+
+    private readonly Ap786OwnerFlowReportSection $reporting;
+
+    private readonly Ap786OwnerFlowDiagnosticsSection $diagnostics;
+
     public function __construct(
         private readonly OwnerQueueReleaseGate $release,
         private readonly StewardshipOutcomeProjector $outcome,
@@ -107,6 +119,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $this->repairValidation = $repairValidation ?? new ShellRepairValidationRunner;
         $this->repairFeedback = $repairFeedback ?? new RepairAgentFeedbackContextBuilderService;
         $this->preflightGate = $preflightGate ?? new ZeroProviderPreflightGate;
+        $this->intentBuilder = new Ap786OwnerFlowIntentSection;
+        $this->preflightSignals = new Ap786OwnerFlowPreflightSignalsSection;
+        $this->reporting = new Ap786OwnerFlowReportSection;
+        $this->diagnostics = new Ap786OwnerFlowDiagnosticsSection($this->intentBuilder);
     }
 
     /**
@@ -957,24 +973,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         ];
     }
 
-    /**
-     * A real scoped diff: at least one changed file, all within allowed scope.
-     *
-     * @param  list<string>  $changedFiles
-     * @param  list<string>  $allowedFiles
-     */
     private function diffTouchesAllowedScope(array $changedFiles, array $allowedFiles): bool
     {
-        if ($changedFiles === []) {
-            return false;
-        }
-        foreach ($changedFiles as $file) {
-            if (! in_array($file, $allowedFiles, true)) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->reporting->diffTouchesAllowedScope($changedFiles, $allowedFiles);
     }
 
     /**
@@ -1201,145 +1202,19 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         return 'senior_loop_execution_not_passed';
     }
 
-    /**
-     * Honest terminal report for a repair short-circuit (repeated-repair or
-     * review-lock). It records evidence through AP-750 so the cycle is auditable
-     * and surfaces the precise blocker the runner uses to advance.
-     *
-     * @param  list<array<string,mixed>>  $steps
-     * @param  array<string,mixed>  $repairAttempt
-     * @param  array<string,mixed>  $ownerResult
-     * @return array<string,mixed>
-     */
     private function repairShortCircuitReport(string $shortCircuit, string $owner, array $steps, array $repairAttempt, array $ownerResult): array
     {
-        [$blocker, $reason] = $shortCircuit === self::STATUS_REPEATED_REPAIR_NO_PROGRESS
-            ? [
-                'owner_runtime_repeated_repair_no_progress',
-                'The repair agent re-emitted a diff already tried this cycle ('.(string) ($repairAttempt['repeated_diff_hash'] ?? '').'); stopped before another provider call. Advance to a different finding or change scope.',
-            ]
-            : [
-                'owner_runtime_review_locked',
-                sprintf(
-                    'Slice failed repair %d times (ceiling %d); review-locked so the loop advances to the next finding. Last error: %s.',
-                    max(0, (int) ($repairAttempt['repair_failure_count'] ?? self::REPAIR_REVIEW_LOCK_THRESHOLD)),
-                    self::REPAIR_REVIEW_LOCK_THRESHOLD,
-                    (string) ($repairAttempt['last_error_summary'] ?? 'senior_loop_execution_not_passed'),
-                ),
-            ];
-
-        return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'ap_contract' => 'AP-786',
-            'status' => $shortCircuit,
-            'owner' => $owner,
-            'uses_full_owner_runtime_chain' => true,
-            'provider_router_used' => false,
-            'provider_invoked' => (bool) ($repairAttempt['provider_invoked_any_attempt'] ?? false)
-                || AreaFocusScalarNormalizer::nonNegativeInt($repairAttempt['provider_calls_total'] ?? 0) > 0
-                || (bool) ($ownerResult['provider_invoked'] ?? data_get($ownerResult, 'runtime_invocation.provider_invoked', false)),
-            'provider_calls_total' => max(
-                AreaFocusScalarNormalizer::nonNegativeInt($repairAttempt['provider_calls_total'] ?? 0),
-                $this->ownerCliProviderCalls($ownerResult),
-            ),
-            'merge_allowed' => false,
-            'reason' => $blocker,
-            'owner_result' => $ownerResult,
-            'steps' => $steps,
-            'repair_attempt' => $repairAttempt,
-            'blockers' => [$blocker],
-            'blocker_details' => [[
-                'blocker' => $blocker,
-                'reason' => $reason,
-            ]],
-            'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
-        ];
+        return $this->reporting->repairShortCircuitReport($shortCircuit, $owner, $steps, $repairAttempt, $ownerResult);
     }
 
-    /**
-     * A provider process can time out after writing a valid scoped diff and
-     * after the senior loop has already captured passing scope/verification
-     * evidence. In that narrow case, keep the evidence honest but do not throw
-     * away the completed patch solely because the provider failed to exit.
-     *
-     * @param  array<string,mixed>  $ownerResult
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $changedFiles
-     * @return array<string,mixed>
-     */
     private function validatedTimeoutSalvage(string $owner, array $ownerResult, array $allowedFiles, array $changedFiles): array
     {
-        $timedOut = (bool) data_get($ownerResult, 'runtime_invocation.command_result.timed_out', false);
-        $providerErrors = AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
-        $providerTimedOut = $timedOut || in_array('timeout', $providerErrors, true);
-
-        $scopePassed = $this->evidenceGatePassed($ownerResult, 'scope_guard')
-            || (string) data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.scope_guard_status', '') === 'passed';
-        $verificationPassed = $this->evidenceGatePassed($ownerResult, 'verification')
-            || (string) data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.verification_status', '') === 'passed';
-
-        $changedWithinScope = $changedFiles !== [];
-        foreach ($changedFiles as $file) {
-            if (! in_array($file, $allowedFiles, true)) {
-                $changedWithinScope = false;
-                break;
-            }
-        }
-
-        $salvaged = $owner === 'atlas_dev'
-            && $providerTimedOut
-            && $changedWithinScope
-            && $scopePassed
-            && $verificationPassed;
-
-        return [
-            'salvaged' => $salvaged,
-            'reason' => $salvaged ? 'provider_timed_out_after_validated_scoped_diff' : '',
-            'provider_timed_out' => $providerTimedOut,
-            'scope_guard_passed' => $scopePassed,
-            'verification_passed' => $verificationPassed,
-            'changed_files_within_allowed_scope' => $changedWithinScope,
-            'changed_file_count' => count($changedFiles),
-        ];
+        return $this->reporting->validatedTimeoutSalvage($owner, $ownerResult, $allowedFiles, $changedFiles);
     }
 
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     * @param  array<string,mixed>  $salvage
-     * @return array<string,mixed>
-     */
     private function withValidatedTimeoutSalvage(array $ownerResult, array $salvage): array
     {
-        $ownerResult['result_status'] = 'completed';
-        $ownerResult['status'] = 'completed';
-        $ownerResult['completion_state'] = 'passed';
-        $ownerResult['summary'] = 'Atlas owner runtime produced a scoped diff with passing verification before the provider process timed out.';
-        $ownerResult['validated_timeout_salvage'] = $salvage;
-        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', 'passed');
-        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_status', 'completed');
-        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', []);
-        data_set($ownerResult, 'runtime_invocation.senior_loop.run_summary.status', 'completed');
-        data_set($ownerResult, 'runtime_invocation.senior_loop.run_summary.completion_state', 'passed');
-
-        return $ownerResult;
-    }
-
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     */
-    private function evidenceGatePassed(array $ownerResult, string $gate): bool
-    {
-        foreach ((array) ($ownerResult['test_results'] ?? data_get($ownerResult, 'evidence_pack.test_results', [])) as $result) {
-            if (! is_array($result)) {
-                continue;
-            }
-            if ((string) ($result['gate'] ?? '') === $gate && (string) ($result['status'] ?? '') === 'passed') {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->reporting->withValidatedTimeoutSalvage($ownerResult, $salvage);
     }
 
     /**
@@ -1503,300 +1378,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         return max(60, min(300, $timeout));
     }
 
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     * @return list<string>
-     */
     private function ownerRuntimeFailureDiagnostics(array $ownerResult, array $command = []): array
     {
-        $diagnostics = [];
-        $completion = (string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '');
-        if ($completion !== '') {
-            $diagnostics[] = 'completion_state='.$this->safeCliValue($completion);
-        }
-
-        $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
-        if ($debugReason !== '') {
-            $diagnostics[] = 'debug_reason='.$this->safeCliValue($debugReason);
-        }
-
-        foreach ([
-            'scope_guard_status' => 'runtime_invocation.senior_loop.run_summary.scope_guard_status',
-            'verification_status' => 'runtime_invocation.senior_loop.run_summary.verification_status',
-            'verification_receipt_hash' => 'runtime_invocation.senior_loop.run_summary.verification_receipt_hash',
-            'persisted_ref' => 'runtime_invocation.senior_loop.persisted_ref',
-            'error_ledger_ref' => 'runtime_invocation.senior_loop.learning.error_ledger_ref',
-        ] as $label => $path) {
-            $value = (string) data_get($ownerResult, $path, '');
-            if ($value !== '') {
-                $diagnostics[] = $label.'='.$this->safeCliValue($value);
-            }
-        }
-
-        $failureRefs = [];
-        foreach ((array) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', []) as $capsule) {
-            if (is_array($capsule) && (string) ($capsule['ref'] ?? '') !== '') {
-                $failureRefs[] = $this->safeCliValue((string) $capsule['ref']);
-            }
-        }
-        if ($failureRefs !== []) {
-            $diagnostics[] = 'failure_capsules='.implode(',', array_slice(AreaFocusStringListNormalizer::uniqueStringValues($failureRefs), 0, 3));
-        }
-        foreach ($this->failureCapsuleDiagnostics($ownerResult, $command) as $capsuleDiagnostic) {
-            $diagnostics[] = $capsuleDiagnostic;
-        }
-
-        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
-        if ($changedFiles !== []) {
-            $diagnostics[] = 'changed_files='.implode(',', array_map(
-                fn (string $file): string => $this->safeCliValue($file),
-                array_slice($changedFiles, 0, 5),
-            ));
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($diagnostics);
+        return $this->diagnostics->ownerRuntimeFailureDiagnostics($ownerResult, $command);
     }
 
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     * @param  list<string>  $command
-     * @return list<string>
-     */
-    private function failureCapsuleDiagnostics(array $ownerResult, array $command): array
-    {
-        $workspace = $this->workspaceFromCommand($command);
-        if ($workspace === '') {
-            return [];
-        }
-
-        $diagnostics = [];
-        foreach ((array) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', []) as $capsule) {
-            if (! is_array($capsule)) {
-                continue;
-            }
-            $ref = trim((string) ($capsule['ref'] ?? ''));
-            if ($ref === '' || str_contains($ref, '..') || str_starts_with($ref, '/')) {
-                continue;
-            }
-            $path = $workspace.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'atlas-dev'.DIRECTORY_SEPARATOR.$ref;
-            if (! is_file($path)) {
-                continue;
-            }
-            $payload = JsonFileStore::readArray($path);
-            if (! is_array($payload)) {
-                continue;
-            }
-            foreach ([
-                'failing_test' => 'failing_test',
-                'primary_error' => 'primary_error_excerpt',
-                'failure_signature' => 'failure_signature',
-            ] as $label => $key) {
-                $value = trim((string) ($payload[$key] ?? ''));
-                if ($value !== '') {
-                    $diagnostics[] = $label.'='.$this->safeCliValue($value);
-                }
-            }
-            $verificationLog = $this->failureCapsuleVerificationLogExcerpt($payload, $workspace);
-            if ($verificationLog !== '') {
-                $diagnostics[] = 'verification_log='.$this->safeCliValue($verificationLog);
-            }
-            if (count($diagnostics) >= 6) {
-                break;
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($diagnostics);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function failureCapsuleVerificationLogExcerpt(array $payload, string $workspace): string
-    {
-        foreach ($this->failureLogPaths($payload) as $candidate) {
-            $path = $this->resolveWorkspaceLogPath($workspace, $candidate);
-            if ($path === '') {
-                continue;
-            }
-
-            $excerpt = $this->verificationLogExcerptFromFile($path);
-            if ($excerpt !== '') {
-                return $excerpt;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return list<string>
-     */
-    private function failureLogPaths(array $payload): array
-    {
-        $paths = [];
-        foreach (['output_path', 'full_error_log_path', 'error_log_path', 'test_log_path'] as $key) {
-            $value = trim((string) ($payload[$key] ?? ''));
-            if ($value !== '') {
-                $paths[] = $value;
-            }
-        }
-
-        foreach (['primary_error_excerpt', 'primary_error', 'error'] as $key) {
-            $value = (string) ($payload[$key] ?? '');
-            if ($value === '') {
-                continue;
-            }
-            if (preg_match_all('/(?:output_path|full_error_log_path|error_log_path|test_log_path)=([^\\s)]+)/', $value, $matches) > 0) {
-                foreach ($matches[1] ?? [] as $match) {
-                    $paths[] = trim((string) $match, " \t\n\r\0\x0B'\"");
-                }
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter($paths, static fn (string $path): bool => $path !== ''));
-    }
-
-    private function resolveWorkspaceLogPath(string $workspace, string $candidate): string
-    {
-        if ($candidate === '' || str_contains($candidate, "\0")) {
-            return '';
-        }
-
-        $workspaceRoot = realpath($workspace);
-        if ($workspaceRoot === false) {
-            return '';
-        }
-
-        $paths = str_starts_with($candidate, DIRECTORY_SEPARATOR)
-            ? [$candidate]
-            : [
-                $workspace.DIRECTORY_SEPARATOR.$candidate,
-                $workspace.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'atlas-dev'.DIRECTORY_SEPARATOR.$candidate,
-            ];
-
-        foreach ($paths as $path) {
-            $real = realpath($path);
-            if ($real === false || ! is_file($real)) {
-                continue;
-            }
-            if ($real !== $workspaceRoot && ! str_starts_with($real, $workspaceRoot.DIRECTORY_SEPARATOR)) {
-                continue;
-            }
-
-            return $real;
-        }
-
-        return '';
-    }
-
-    private function verificationLogExcerptFromFile(string $path): string
-    {
-        $contents = $this->readFilePrefix($path, 65536);
-        if ($contents === '') {
-            return '';
-        }
-
-        $strings = [];
-        $decoded = json_decode($contents, true);
-        if (is_array($decoded)) {
-            $this->collectLogStrings($decoded, $strings);
-        } else {
-            $strings[] = $contents;
-        }
-
-        return $this->selectVerificationLogExcerpt($strings);
-    }
-
-    private function readFilePrefix(string $path, int $bytes): string
-    {
-        $handle = @fopen($path, 'rb');
-        if (! is_resource($handle)) {
-            return '';
-        }
-
-        try {
-            return (string) fread($handle, $bytes);
-        } finally {
-            fclose($handle);
-        }
-    }
-
-    /**
-     * @param  array<mixed>  $payload
-     * @param  list<string>  $strings
-     */
-    private function collectLogStrings(array $payload, array &$strings): void
-    {
-        foreach ($payload as $value) {
-            if (count($strings) >= 40) {
-                return;
-            }
-            if (is_string($value) && trim($value) !== '') {
-                $strings[] = $value;
-
-                continue;
-            }
-            if (is_array($value)) {
-                $this->collectLogStrings($value, $strings);
-            }
-        }
-    }
-
-    /**
-     * @param  list<string>  $strings
-     */
-    private function selectVerificationLogExcerpt(array $strings): string
-    {
-        $lines = [];
-        foreach ($strings as $string) {
-            $clean = (string) preg_replace('/\e\[[0-9;]*m/', '', $string);
-            foreach (preg_split('/\r\n|\r|\n/', $clean) ?: [] as $line) {
-                $line = trim((string) $line);
-                if ($line !== '') {
-                    $lines[] = $line;
-                }
-            }
-        }
-
-        foreach ($lines as $line) {
-            if (preg_match('/psr-4|autoload|class .*not found|fatal error|parse error|exception|error|failed/i', $line) === 1) {
-                return $line;
-            }
-        }
-
-        return $lines[0] ?? '';
-    }
-
-    /** @param list<string> $command */
-    private function workspaceFromCommand(array $command): string
-    {
-        foreach ($command as $part) {
-            if (! is_string($part) || ! str_starts_with($part, '--workspace=')) {
-                continue;
-            }
-            $workspace = trim(substr($part, strlen('--workspace=')));
-            if ($workspace !== '' && is_dir($workspace)) {
-                return $workspace;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Build an AP-765-compatible execution_result from the AP-759 owner_result
-     * so AP-786 can emit Product Mode / Inbox evidence before any merge attempt.
-     *
-     * @param  array<string,mixed>  $ownerResult
-     * @param  array<string,mixed>  $consumption
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $command
-     * @param  list<array<string,mixed>>  $steps
-     * @param  list<string>  $blockers
-     * @param  array<string,mixed>  $repairAttempt
-     * @return array<string,mixed>
-     */
     private function executionResult(
         array $ownerResult,
         array $consumption,
@@ -1812,945 +1398,81 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         array $repairAttempt,
         array $validatedTimeoutSalvage = [],
     ): array {
-        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
-        $tests = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
-        $testResults = is_array($ownerResult['test_results'] ?? null) ? $ownerResult['test_results'] : (array) data_get($ownerResult, 'evidence_pack.test_results', []);
-        $completionState = (string) ($ownerResult['completion_state'] ?? data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''));
-        $status = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? 'partial');
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.ap786_owner_flow_execution_result.v1',
-            'execution_id' => (string) ($ownerResult['result_id'] ?? ''),
-            'owner' => $owner,
-            'result_status' => $status,
-            'completion_state' => $completionState !== '' ? $completionState : ($status === 'completed' ? 'passed' : 'failed'),
-            'summary' => (string) ($ownerResult['summary'] ?? data_get($ownerResult, 'evidence_pack.summary', 'Atlas owner runtime ran an allowlisted command inside the AP-756 sandbox via AP-759.')),
-            // AP-765 inbox richness: carry the real finding identity so the inbox
-            // shows WHAT was found / WHY it matters instead of generic boilerplate.
-            'finding_title' => (string) ($finding['title'] ?? ''),
-            'finding_kind' => (string) ($finding['kind'] ?? ''),
-            'finding_why_it_matters' => (string) ($finding['why_it_matters'] ?? $finding['value_reason'] ?? ''),
-            'finding_detail' => (string) ($finding['detail'] ?? ''),
-            'finding_id' => (string) ($finding['finding_id'] ?? ''),
-            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
-            'handoff_id' => 'AP-786:'.(string) ($consumption['consumption_id'] ?? ''),
-            'sandbox_id' => (string) data_get($consumption, 'sandbox_binding.sandbox_id', ''),
-            'branch_ref' => (string) data_get($consumption, 'sandbox_binding.branch_name', ''),
-            'worktree_path' => $worktree,
-            'changed_files' => $changedFiles,
-            'tests' => $tests !== [] ? $tests : ['atlas:dev:senior-loop:run (AP-759 owner command)'],
-            'validation_commands' => [implode(' ', array_map(static fn ($p): string => (string) $p, $command))],
-            'test_results' => $testResults,
-            'evidence_pack' => is_array($ownerResult['evidence_pack'] ?? null) ? $ownerResult['evidence_pack'] : [
-                'summary' => 'AP-759 owner runtime command receipt.',
-                'changed_files' => $changedFiles,
-                'tests' => $tests,
-            ],
-            'risks' => AreaFocusStringListNormalizer::trimmedStrings($ownerResult['risks'] ?? []),
-            'rollback' => (string) ($ownerResult['rollback'] ?? 'Discard the isolated AP-756 branch/worktree; no merge was performed.'),
-            'runtime_execution_started' => true,
-            'uses_full_owner_runtime_chain' => true,
-            'provider_router_used' => false,
-            'owner_sandbox_run_id' => $ownerSandboxRunId,
-            'real_execution_bridge' => [
-                'schema_version' => self::REAL_EXECUTION_BRIDGE_SCHEMA,
-                'ap790_backlog_item' => self::AP790_BACKLOG_OWNER_RUNTIME_REAL_EXECUTION_BRIDGE,
-                'owner_chain_ap_contracts' => $this->ownerChainApContracts($steps),
-                'dispatch_kind' => $dispatchKind,
-                'plan_only' => $planOnly,
-                'repair_attempt' => $repairAttempt,
-                'validated_timeout_salvage' => $validatedTimeoutSalvage,
-                'blockers' => $blockers,
-            ],
-            'provider_invoked' => (bool) ($ownerResult['provider_invoked'] ?? false),
-            'merge_performed' => false,
-            'deploy_performed' => false,
-            'external_push_performed' => false,
-            'secret_access' => false,
-            'destructive_change' => false,
-        ];
+        return $this->reporting->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command, $ownerSandboxRunId, $dispatchKind, $planOnly, $steps, $blockers, $repairAttempt, $validatedTimeoutSalvage);
     }
 
-    /**
-     * @param  list<array<string,mixed>>  $steps
-     * @return list<string>
-     */
-    private function ownerChainApContracts(array $steps): array
-    {
-        $contracts = [];
-        foreach ($steps as $step) {
-            if (! is_array($step)) {
-                continue;
-            }
-            $ap = trim((string) ($step['ap_contract'] ?? ''));
-            if ($ap !== '' && ! in_array($ap, $contracts, true)) {
-                $contracts[] = $ap;
-            }
-        }
-
-        return $contracts;
-    }
-
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     * @param  array<string,mixed>  $repairAttempt
-     * @return array{blockers:list<string>,details:list<array<string,string>>}
-     */
     private function ownerRuntimeBlockerReport(array $ownerResult, bool $forgePlanned, bool $completed, array $repairAttempt = []): array
     {
-        if ($completed) {
-            return ['blockers' => [], 'details' => []];
-        }
-        if ($forgePlanned) {
-            return [
-                'blockers' => ['forge_runtime_dispatch_planned_only'],
-                'details' => [[
-                    'blocker' => 'forge_runtime_dispatch_planned_only',
-                    'reason' => 'Forge runtime-dispatch produced a governed plan only; re-run with live Obra authority or switch owner to atlas_dev for executable patches.',
-                ]],
-            ];
-        }
-
-        $blockers = [];
-        $details = [];
-        $commandResult = is_array(data_get($ownerResult, 'runtime_invocation.command_result'))
-            ? data_get($ownerResult, 'runtime_invocation.command_result')
-            : [];
-        $resultStatus = strtolower(trim((string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '')));
-        $completion = strtolower(trim((string) ($commandResult['owner_cli_completion_state'] ?? '')));
-        $providerCalls = $this->ownerCliProviderCalls($ownerResult);
-        $minimaxCodexReview = is_array($ownerResult['minimax_codex_review'] ?? null)
-            ? $ownerResult['minimax_codex_review']
-            : [];
-        $providerProofCalls = $providerCalls
-            + AreaFocusScalarNormalizer::nonNegativeInt($minimaxCodexReview['reviewed_provider_calls'] ?? 0)
-            + AreaFocusScalarNormalizer::nonNegativeInt($minimaxCodexReview['review_provider_calls'] ?? 0);
-        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
-        $routingDecision = strtolower(trim((string) data_get(
-            $ownerResult,
-            'runtime_invocation.senior_loop.routing_decision',
-            data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.routing_decision', ''),
-        )));
-        $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
-        $providerErrors = AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
-        $commandTimedOut = (bool) ($commandResult['timed_out'] ?? false);
-
-        if ($completion === 'no_patch_needed') {
-            if ($providerProofCalls === 0 || $changedFiles === []) {
-                $blockers[] = 'owner_runtime_no_patch_needed_without_proof';
-                $details[] = [
-                    'blocker' => 'owner_runtime_no_patch_needed_without_proof',
-                    'reason' => 'Atlas Dev returned no_patch_needed without provider proof or sandbox diff; edit an allowed file or cite file:line plus passing focused test output.',
-                ];
-            } else {
-                $blockers[] = 'owner_runtime_no_patch_needed';
-                $details[] = [
-                    'blocker' => 'owner_runtime_no_patch_needed',
-                    'reason' => 'Provider claimed no_patch_needed despite execution; prove the exact acceptance criterion with file:line evidence and passing focused tests.',
-                ];
-            }
-        }
-
-        // Bug #2: file changes with zero provider calls = deterministic scaffold
-        // without real execution. Surface the precise, honest blocker so the
-        // cycle is never mistaken for a real implement attempt. It is NOT a
-        // permanent blocker — the finding is retried on a later cycle.
-        if ($providerProofCalls === 0 && $changedFiles !== [] && ! $commandTimedOut) {
-            $blockers[] = 'owner_runtime_scaffold_without_provider';
-            $details[] = [
-                'blocker' => 'owner_runtime_scaffold_without_provider',
-                'reason' => 'Owner runtime produced changed files with zero provider calls — deterministic scaffold, not a real execution. A cycle that intends to implement MUST invoke a real provider and produce a real patch/evidence; this scaffold is rejected (no merge) and the finding is retried.',
-            ];
-        }
-
-        if ($commandTimedOut || in_array('timeout', $providerErrors, true)) {
-            $blockers[] = 'owner_runtime_provider_timeout';
-            $details[] = [
-                'blocker' => 'owner_runtime_provider_timeout',
-                'reason' => 'Owner provider invocation timed out before producing a mergeable diff; retry with a larger provider timeout or reroute through AtlasDecide failover.',
-            ];
-        }
-
-        // Provider unavailable / rate-limited: the provider never produced a
-        // verdict for environmental reasons. These are TRANSIENT (honest retry
-        // window), never permanent quarantine — the finding is retried.
-        if (in_array('unavailable', $providerErrors, true) || in_array('provider_unavailable', $providerErrors, true)) {
-            $blockers[] = 'owner_runtime_provider_unavailable';
-            $details[] = [
-                'blocker' => 'owner_runtime_provider_unavailable',
-                'reason' => 'Owner provider was unavailable; no real execution occurred. Transient — the finding is retried on a later cycle, never permanently quarantined.',
-            ];
-        }
-        if (in_array('rate_limited', $providerErrors, true) || in_array('rate_limit', $providerErrors, true)) {
-            $blockers[] = 'owner_runtime_provider_rate_limited';
-            $details[] = [
-                'blocker' => 'owner_runtime_provider_rate_limited',
-                'reason' => 'Owner provider was rate-limited; no real execution occurred. Transient — the finding is retried on a later cycle, never permanently quarantined.',
-            ];
-        }
-
-        if ($completion === 'failed' || (string) ($commandResult['owner_cli_status'] ?? '') === 'failed') {
-            $details[] = [
-                'blocker' => 'owner_runtime_senior_loop_failed',
-                'reason' => $debugReason !== ''
-                    ? $debugReason
-                    : 'Senior loop failed verification or scope; inspect verification_receipt and scope_guard in the AP-759 stdout JSON.',
-            ];
-        }
-
-        if ($resultStatus !== '' && $resultStatus !== 'completed' && $completion === '' && $blockers === []) {
-            $blockers[] = 'owner_runtime_result_failed';
-            $details[] = [
-                'blocker' => 'owner_runtime_result_failed',
-                'reason' => 'Owner runtime returned result_status='.$resultStatus.' without machine-readable owner_cli_blockers; AP-759 must expose completion_state/blockers or the candidate is quarantined instead of being retried blindly.',
-            ];
-        }
-
-        foreach (AreaFocusStringListNormalizer::trimmedStrings($commandResult['owner_cli_blockers'] ?? []) as $blocker) {
-            $mapped = match ($blocker) {
-                'senior_loop_execution_not_passed' => 'owner_runtime_senior_loop_execution_not_passed',
-                'routing_not_executable' => 'owner_runtime_routing_not_executable',
-                'scope_violation' => 'owner_runtime_scope_violation',
-                default => 'owner_runtime_'.$blocker,
-            };
-            $blockers[] = $mapped;
-            $exitCode = $blocker === 'senior_loop_execution_not_passed'
-                ? ($commandResult['exit_code'] ?? null)
-                : null;
-            $stderrExcerpt = $blocker === 'senior_loop_execution_not_passed'
-                ? trim((string) ($commandResult['stderr_excerpt'] ?? ''))
-                : '';
-            $details[] = [
-                'blocker' => $mapped,
-                'reason' => match ($blocker) {
-                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused worktree validation command.'
-                        .($exitCode !== null ? ' (exit_code='.$exitCode.')' : '')
-                        .($stderrExcerpt !== '' ? ' stderr: '.mb_substr($stderrExcerpt, 0, 500) : ''),
-                    'routing_not_executable' => $routingDecision !== ''
-                        ? 'Atlas Dev routing blocked execution (routing_decision='.$routingDecision.'); keep the task as a scoped repair with allowed_files and avoid forge-preview trigger phrases in the owner intent.'
-                        : 'Atlas Dev routing blocked execution; keep the task as a scoped repair inside allowed_files only.',
-                    'scope_violation' => 'Patch touched paths outside allowed_files; restrict edits to the declared allowed_files list.',
-                    default => 'Owner CLI reported blocker '.$blocker.'; inspect AP-759 command_result stdout JSON.',
-                },
-            ];
-        }
-
-        if ($completion === 'scope_violation' && ! in_array('owner_runtime_scope_violation', $blockers, true)) {
-            $blockers[] = 'owner_runtime_scope_violation';
-            $details[] = [
-                'blocker' => 'owner_runtime_scope_violation',
-                'reason' => 'Completion state scope_violation indicates edits outside allowed_files; restrict changes to the declared scope.',
-            ];
-        }
-
-        if (($repairAttempt['retried'] ?? false) === true) {
-            $firstDiagnostics = AreaFocusStringListNormalizer::trimmedStrings($repairAttempt['first_diagnostics'] ?? []);
-            $blockers[] = 'owner_runtime_senior_loop_repair_exhausted';
-            $details[] = [
-                'blocker' => 'owner_runtime_senior_loop_repair_exhausted',
-                'reason' => sprintf(
-                    'AP-786 retried senior-loop once after scoped diff (first_run=%s status=%s provider_calls=%d, repair_run=%s status=%s); first diagnostics: %s.',
-                    (string) ($repairAttempt['first_owner_sandbox_run_id'] ?? ''),
-                    (string) ($repairAttempt['first_result_status'] ?? ''),
-                    AreaFocusScalarNormalizer::nonNegativeInt($repairAttempt['first_provider_calls'] ?? 0),
-                    (string) ($repairAttempt['repair_owner_sandbox_run_id'] ?? ''),
-                    (string) ($repairAttempt['repair_result_status'] ?? ''),
-                    $firstDiagnostics !== [] ? implode('; ', $firstDiagnostics) : 'none',
-                ),
-            ];
-        }
-
-        $blockers = AreaFocusStringListNormalizer::uniqueStringValues($blockers !== [] ? $blockers : ['owner_runtime_result_not_completed']);
-        if ($details === [] && $blockers !== []) {
-            $details[] = [
-                'blocker' => $blockers[0],
-                'reason' => 'Owner runtime did not complete with mergeable evidence; review changed_files and test_results on the AP-759 owner_result.',
-            ];
-        }
-
-        return ['blockers' => $blockers, 'details' => $details];
+        return $this->reporting->ownerRuntimeBlockerReport($ownerResult, $forgePlanned, $completed, $repairAttempt);
     }
 
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $validationCommands
-     */
     private function buildOwnerIntent(array $finding, array $allowedFiles, array $validationCommands, string $worktree): string
     {
-        $title = trim((string) ($finding['title'] ?? ''));
-        $detail = trim((string) ($finding['detail'] ?? $finding['why_it_matters'] ?? ''));
-        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
-        $tests = $this->testsRequiredForHandoff($finding, $allowedFiles);
-        $acceptance = $this->acceptanceForHandoff($finding);
-        $scopeFiles = $allowedFiles !== [] ? $allowedFiles : AreaFocusStringListNormalizer::trimmedStrings($finding['affected_files'] ?? []);
-        $primaryTest = $this->primaryTestPath($tests, $validationCommands);
-        $patchMandate = $this->patchMandate($primaryTest, $scopeFiles, $worktree);
-
-        $segments = array_filter([
-            'Implement the smallest correct scoped repair now inside allowed_files only.',
-            'PATCH_MANDATE: '.$patchMandate,
-            $tests !== [] ? 'TESTS_REQUIRED: '.implode(', ', $tests) : null,
-            $title !== '' ? 'OBJECTIVE: '.$title : null,
-            $detail !== '' ? 'WHY: '.$detail : null,
-            $nextAction !== '' ? 'NEXT: '.$nextAction : null,
-            $scopeFiles !== [] ? 'ALLOWED_FILES: '.implode(', ', $scopeFiles) : null,
-            $acceptance !== [] ? 'ACCEPTANCE: '.implode(' | ', array_slice($acceptance, 0, 3)) : null,
-            'Must edit an allowed file or cite exact proof (file:line plus passing focused test output).',
-            'no_patch_needed is invalid unless the focused test already proves this exact improvement.',
-        ], static fn (?string $line): bool => is_string($line) && trim($line) !== '');
-
-        $intent = $this->sanitizeIntentForExecutableRouting(implode(' ', $segments));
-
-        return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 2400);
-    }
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return list<string>
-     */
-    private function testsRequiredForHandoff(array $finding, array $allowedFiles): array
-    {
-        $tests = AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', []));
-        foreach ($allowedFiles as $file) {
-            if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
-                $tests[] = $file;
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
-    }
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @return list<string>
-     */
-    private function acceptanceForHandoff(array $finding): array
-    {
-        $acceptance = AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.acceptance', []));
-        if ($acceptance !== []) {
-            return $acceptance;
-        }
-
-        $title = trim((string) ($finding['title'] ?? ''));
-
-        return $title !== '' ? ['Given the selected finding, '.$title.' is implemented and proven by the focused test.'] : [];
-    }
-
-    /**
-     * @param  list<string>  $tests
-     * @param  list<string>  $validationCommands
-     */
-    private function primaryTestPath(array $tests, array $validationCommands): string
-    {
-        foreach ($tests as $test) {
-            if (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
-                return $test;
-            }
-        }
-
-        foreach ($validationCommands as $command) {
-            if (preg_match('/php artisan test\s+(\S+\.php)/', $command, $matches) === 1) {
-                return (string) $matches[1];
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @param  list<string>  $scopeFiles
-     */
-    private function patchMandate(string $primaryTest, array $scopeFiles, string $worktree): string
-    {
-        if ($primaryTest !== '' && ! $this->testFileExists($primaryTest, $worktree)) {
-            return 'CREATE focused test '.$primaryTest.' with a failing assertion that proves the gap, then implement the minimal runtime fix in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').'.';
-        }
-        if ($primaryTest !== '') {
-            return 'HARDEN '.$primaryTest.' with a specific assertion that fails before the fix and passes after the minimal change in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').'.';
-        }
-
-        return 'Apply a minimal code change in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').' and prove it with the declared validation_command.';
-    }
-
-    private function testFileExists(string $relativePath, string $worktree): bool
-    {
-        $candidates = [];
-        if ($worktree !== '') {
-            $candidates[] = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relativePath, '/');
-        }
-        if (function_exists('base_path')) {
-            $candidates[] = base_path($relativePath);
-        }
-
-        foreach ($candidates as $path) {
-            if (is_file($path)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->intentBuilder->buildOwnerIntent($finding, $allowedFiles, $validationCommands, $worktree);
     }
 
     private function sanitizeIntentForExecutableRouting(string $intent): string
     {
-        $intent = (string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $intent);
-        $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
-        $replacements = [
-            '/\bforge promotion preview\b/i' => 'factory runtime preview',
-            '/\bmulti-?agent\b/i' => 'governed workcell',
-            '/\batlas dev\s*\/\s*forge flow\b/i' => 'AAEOS software-development flow',
-            '/\bdev\s*\/\s*forge flow\b/i' => 'software-development flow',
-            '/\batlas dev and forge flow\b/i' => 'AAEOS software-development flow',
-            '/\bdev and forge flow\b/i' => 'software-development flow',
-            '/\bforge obra\b/i' => 'factory obra',
-            '/\bobra de\b/i' => 'factory work packet',
-            '/\bwhole system\b/i' => 'scoped factory module',
-            '/\bentire codebase\b/i' => 'scoped codebase slice',
-            '/\bprovider[-_\s]+auth[-_\s]+mode\b/i' => 'provider readiness mode',
-            '/\bprovider[-_\s]+auth(?:entication|orization)?\b/i' => 'provider readiness',
-            '/\batlas forge\b/i' => 'atlas factory runtime',
-            '/\bforge runtime\b/i' => 'factory runtime',
-            '/\bforge\b/i' => 'factory',
-            '/\bcouncil\b/i' => 'review group',
-            '/authorization:\s*bearer\s+[A-Za-z0-9._-]*/i' => 'authorization redacted',
-            '/\bbearer\s+ey[A-Za-z0-9._-]*/i' => 'bearer token redacted',
-            '/\bsk-ant-[A-Za-z0-9._-]*/i' => 'provider token redacted',
-            '/\b[A-Z0-9_]*API[_ -]?KEY[A-Z0-9_]*\b/i' => 'provider token name redacted',
-            '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'provider token name redacted',
-            '/\bpassword\s*=\s*[^\s,;]+/i' => 'password redacted',
-            '/\bsecret\s*=\s*[^\s,;]+/i' => 'secret redacted',
-            '/\bprivate_key\b/i' => 'private key label redacted',
-            '/(^|[\s,;:])\.env($|[\s,;:.])/i' => '$1environment configuration file$2',
-        ];
-        foreach ($replacements as $pattern => $replacement) {
-            $intent = (string) preg_replace($pattern, $replacement, $intent);
-        }
-
-        return trim($intent);
+        return $this->intentBuilder->sanitizeIntentForExecutableRouting($intent);
     }
 
     private function providerSafeRepairIntent(string $intent): string
     {
-        return mb_substr($this->sanitizeIntentForExecutableRouting($intent), 0, 2400);
+        return $this->intentBuilder->providerSafeRepairIntent($intent);
     }
 
-    private function artisanPath(string $worktree = ''): string
-    {
-        $worktreeArtisan = $worktree !== ''
-            ? rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'artisan'
-            : '';
-        if ($worktreeArtisan !== '' && is_file($worktreeArtisan)) {
-            return $worktreeArtisan;
-        }
-
-        return function_exists('base_path') ? base_path('artisan') : 'artisan';
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $validationCommands
-     * @return list<string>
-     */
     private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands, string $provider, string $model, int $providerTimeout = 600): array
     {
-        $command = [
-            PHP_BINARY,
-            $this->artisanPath($worktree),
-            'atlas:dev:senior-loop:run',
-            '--workspace='.$worktree,
-            '--intent='.$intent,
-            '--surface-id=atlas_cli_dev',
-            '--flow-origin=atlas_ai_router',
-            '--operator-explicit',
-            '--provider-choice='.$provider,
-            '--composer-model='.$model,
-            '--provider-timeout-seconds='.max(60, min(1200, $providerTimeout)),
-            '--json',
-        ];
-
-        foreach ($allowedFiles as $file) {
-            $file = $this->safeCliValue($file);
-            if ($file !== '') {
-                $command[] = '--allowed-file='.$file;
-            }
-        }
-
-        foreach ($validationCommands as $validationCommand) {
-            $validationCommand = $this->safeCliValue($this->worktreeValidationCommand($validationCommand));
-            if ($validationCommand !== '') {
-                $command[] = '--validation-command='.$validationCommand;
-            }
-        }
-
-        return $command;
+        return $this->intentBuilder->atlasDevCommand($worktree, $intent, $allowedFiles, $validationCommands, $provider, $model, $providerTimeout);
     }
 
-    /**
-     * Build a minimax-worker command for atlas_dev when provider=minimax_m27_cli.
-     * Uses 'atlas:dev:minimax-worker:run' (allowlisted in AP-759) and passes the
-     * same finding/allowed-files/validation-commands/worktree args that the
-     * senior-loop receives, without the Cursor-specific --workspace= path shape.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $validationCommands
-     * @return list<string>
-     */
-    /**
-     * Test-authoring deliverability signal for the pre-flight gate. A finding is test-authoring
-     * only when the finding itself is pure coverage/test work AND its allowed files pair a
-     * *Test.php with exactly one non-test PHP subject. Runtime bugfix slices also commonly pair
-     * a service with its focused test; treating those as pure test authoring starves factory_max
-     * of useful runtime work. When the subject already EXISTS in the worktree, read it to count
-     * constructor dependencies and LOC so the gate can refuse to spend a provider call on a
-     * subject neither provider can test in one shot. A subject that does NOT exist yet (brand-new
-     * class created with its test) is the proven-deliverable path: is_test_authoring=true,
-     * subject_exists=false → never blocked.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return array{is_test_authoring:bool,subject_exists:bool,subject_constructor_deps:int,subject_loc:int,subject_path:string}
-     */
     private function testAuthoringSubjectSignal(array $finding, array $allowedFiles, string $worktree): array
     {
-        $none = ['is_test_authoring' => false, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0, 'subject_path' => ''];
-        if (! $this->isPureTestAuthoringFinding($finding)) {
-            return $none;
-        }
-
-        $files = AreaFocusStringListNormalizer::trimmedStrings($allowedFiles);
-        $tests = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, 'Test.php')));
-        $subjects = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.php') && ! str_ends_with($f, 'Test.php')));
-        if ($tests === [] || count($subjects) !== 1) {
-            return $none; // not a clean single-subject test-authoring shape
-        }
-        $subjectRel = $subjects[0];
-        $worktree = rtrim($worktree, '/');
-        $abs = $worktree !== '' ? $worktree.'/'.ltrim($subjectRel, '/') : '';
-        if ($abs === '' || ! is_file($abs)) {
-            // Subject does not exist yet → brand-new class created together with its test.
-            return ['is_test_authoring' => true, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0, 'subject_path' => $subjectRel];
-        }
-        $code = (string) @file_get_contents($abs);
-
-        return [
-            'is_test_authoring' => true,
-            'subject_exists' => true,
-            'subject_constructor_deps' => $this->constructorParamCount($code),
-            'subject_loc' => substr_count($code, "\n") + 1,
-            'subject_path' => $subjectRel,
-        ];
+        return $this->preflightSignals->testAuthoringSubjectSignal($finding, $allowedFiles, $worktree);
     }
 
-    /** @param array<string,mixed> $finding */
-    private function isPureTestAuthoringFinding(array $finding): bool
-    {
-        $kind = strtolower(trim((string) ($finding['kind'] ?? '')));
-        if (in_array($kind, ['test', 'tests', 'coverage', 'missing_test'], true)) {
-            return true;
-        }
-
-        $originType = strtolower(trim((string) ($finding['origin_type'] ?? '')));
-        if ($originType === 'missing_test' || str_ends_with($originType, '_test')) {
-            return true;
-        }
-
-        $reason = strtolower(trim((string) ($finding['autonomous_execution_reason'] ?? '')));
-        $title = strtolower(trim((string) ($finding['title'] ?? '')));
-
-        return str_contains($reason, 'missing_test')
-            || str_contains($title, 'missing test')
-            || str_contains($title, 'focused unit coverage')
-            || str_contains($title, 'regression coverage');
-    }
-
-    /**
-     * Runtime-mutation deliverability signal for the zero-provider gate. It is
-     * intentionally conservative: a huge existing service is not a safe autonomous
-     * provider target unless a structured anchor narrows the edit to a method/symbol.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return array{is_runtime_mutation:bool,existing_product_files:list<array{file:string,loc:int}>,max_existing_product_loc:int,explicit_narrow_anchor:bool}
-     */
     private function runtimeMutationSurfaceSignal(array $finding, array $allowedFiles, string $worktree): array
     {
-        $none = [
-            'is_runtime_mutation' => false,
-            'existing_product_files' => [],
-            'max_existing_product_loc' => 0,
-            'explicit_narrow_anchor' => false,
-            'requires_structured_anchor' => false,
-            'structured_anchor_reason' => '',
-        ];
-        if ($this->isPureTestAuthoringFinding($finding)) {
-            return $none;
-        }
-
-        $worktree = rtrim($worktree, '/');
-        $existing = [];
-        $maxLoc = 0;
-        foreach (AreaFocusStringListNormalizer::trimmedStrings($allowedFiles) as $file) {
-            if (! str_ends_with($file, '.php') || str_ends_with($file, 'Test.php')) {
-                continue;
-            }
-            $abs = $worktree !== '' ? $worktree.'/'.ltrim($file, '/') : '';
-            if ($abs === '' || ! is_file($abs)) {
-                continue;
-            }
-
-            $code = (string) @file_get_contents($abs);
-            $loc = substr_count($code, "\n") + 1;
-            $existing[] = ['file' => $file, 'loc' => $loc];
-            $maxLoc = max($maxLoc, $loc);
-        }
-
-        if ($existing === []) {
-            return $none;
-        }
-
-        return [
-            'is_runtime_mutation' => true,
-            'existing_product_files' => $existing,
-            'max_existing_product_loc' => $maxLoc,
-            'explicit_narrow_anchor' => $this->hasStructuredNarrowAnchor($finding),
-            'requires_structured_anchor' => $this->existingRuntimeMutationRequiresStructuredAnchor($finding),
-            'structured_anchor_reason' => $this->existingRuntimeMutationStructuredAnchorReason($finding),
-        ];
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function hasStructuredNarrowAnchor(array $finding): bool
-    {
-        $paths = [
-            'target_method',
-            'target_symbol',
-            'method_anchor',
-            'symbol_anchor',
-            'line_anchor',
-            'surgical_anchor',
-            'mutation_anchor',
-            'self_construction_packet.target_method',
-            'self_construction_packet.target_symbol',
-            'self_construction_packet.method_anchor',
-            'self_construction_packet.surgical_anchor',
-            'self_construction_packet.task_packet.target_method',
-            'self_construction_packet.task_packet.target_symbol',
-            'self_construction_packet.task_packet.surgical_anchor',
-            'self_construction_packet.task_packet.continuation_context.target_method',
-            'self_construction_packet.task_packet.continuation_context.target_symbol',
-        ];
-
-        foreach ($paths as $path) {
-            $value = data_get($finding, $path);
-            if (is_string($value) && $this->isConcreteNarrowAnchor($path, $value)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isConcreteNarrowAnchor(string $path, string $value): bool
-    {
-        $value = trim($value);
-        if ($value === '') {
-            return false;
-        }
-
-        if (in_array($path, [
-            'target_method',
-            'method_anchor',
-            'line_anchor',
-            'self_construction_packet.target_method',
-            'self_construction_packet.method_anchor',
-            'self_construction_packet.task_packet.target_method',
-            'self_construction_packet.task_packet.continuation_context.target_method',
-        ], true)) {
-            return true;
-        }
-
-        if (str_contains($path, 'target_symbol') || str_contains($path, 'symbol_anchor')) {
-            return $this->looksLikeConcreteSymbol($value);
-        }
-
-        if (str_contains($path, 'surgical_anchor') || str_contains($path, 'mutation_anchor')) {
-            if (preg_match('/(?:^|[;\s])(?:target_)?method\s*:\s*[^;\s]+/i', $value) === 1
-                || preg_match('/(?:^|[;\s])line(?:_anchor)?\s*:\s*\d+/i', $value) === 1) {
-                return true;
-            }
-            if (preg_match('/(?:^|[;\s])(?:target_)?symbol\s*:\s*([^;]+)/i', $value, $match) === 1) {
-                return $this->looksLikeConcreteSymbol(trim((string) $match[1]));
-            }
-        }
-
-        return false;
-    }
-
-    private function looksLikeConcreteSymbol(string $value): bool
-    {
-        $value = trim($value);
-        if ($value === '' || str_starts_with($value, 'runtime_signal:')) {
-            return false;
-        }
-
-        return str_contains($value, '::')
-            || str_contains($value, '->')
-            || preg_match('/\A[A-Za-z_][A-Za-z0-9_]*\([^)]*\)\z/', $value) === 1
-            || preg_match('/\A[A-Za-z_][A-Za-z0-9_]*\z/', $value) === 1;
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function existingRuntimeMutationRequiresStructuredAnchor(array $finding): bool
-    {
-        return $this->existingRuntimeMutationStructuredAnchorReason($finding) !== '';
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function existingRuntimeMutationStructuredAnchorReason(array $finding): string
-    {
-        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
-            return 'self_construction_admission_packet';
-        }
-        if ((string) ($finding['active_slice_kind'] ?? '') === 'self_construction_packet') {
-            return 'self_construction_packet';
-        }
-        if (is_array($finding['self_construction_packet'] ?? null)) {
-            return 'self_construction_packet';
-        }
-
-        return '';
-    }
-
-    /** Count the parameters of the class __construct signature (0 when none/absent). */
-    private function constructorParamCount(string $code): int
-    {
-        if (preg_match('/function\s+__construct\s*\(/i', $code, $m, PREG_OFFSET_CAPTURE) !== 1) {
-            return 0;
-        }
-        $start = (int) $m[0][1] + strlen($m[0][0]);
-        $len = strlen($code);
-        $depth = 1;
-        $params = '';
-        for ($i = $start; $i < $len && $depth > 0; $i++) {
-            $ch = $code[$i];
-            if ($ch === '(') {
-                $depth++;
-            } elseif ($ch === ')') {
-                $depth--;
-                if ($depth === 0) {
-                    break;
-                }
-            }
-            $params .= $ch;
-        }
-        $params = trim($params);
-        if ($params === '') {
-            return 0;
-        }
-        $count = 1;
-        $d = 0;
-        $plen = strlen($params);
-        for ($i = 0; $i < $plen; $i++) {
-            $c = $params[$i];
-            if ($c === '(' || $c === '[' || $c === '<') {
-                $d++;
-            } elseif ($c === ')' || $c === ']' || $c === '>') {
-                $d--;
-            } elseif ($c === ',' && $d === 0) {
-                $count++;
-            }
-        }
-
-        return $count;
+        return $this->preflightSignals->runtimeMutationSurfaceSignal($finding, $allowedFiles, $worktree);
     }
 
     private function atlasMinimaxWorkerCommand(string $worktree, array $finding, array $allowedFiles, array $validationCommands): array
     {
-        // Aligns with the real atlas:dev:minimax-worker:run signature: it has NO --json
-        // flag (it always emits JSON), takes ONE comma-separated --allowed-files, and ONE
-        // JSON-array --validation-commands. The command is executed as an argv array via
-        // Symfony Process (no shell), so JSON payloads are passed RAW — running them through
-        // safeCliValue truncated the finding JSON at 240 chars (invalid_finding_json) and
-        // split allowed-files/validation-commands into per-item flags the worker ignored.
-        $command = [
-            PHP_BINARY,
-            $this->artisanPath($worktree),
-            'atlas:dev:minimax-worker:run',
-            '--repo-root='.$worktree,
-            '--worktree='.$worktree,
-            // Explicitly arm the bounded repair loop. A single MiniMax syntax/validation
-            // error must get repair attempts before the cycle is failed — never a
-            // blocked-without-repair (which wastes the provider spend already made).
-            '--max-repairs=2',
-        ];
-
-        $findingJson = $finding !== [] ? json_encode($finding, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';
-        if ($findingJson !== '' && $findingJson !== false) {
-            $command[] = '--finding-json='.$findingJson;
-        }
-
-        $files = AreaFocusStringListNormalizer::trimmedStrings($allowedFiles);
-        if ($files !== []) {
-            $command[] = '--allowed-files='.implode(',', $files);
-        }
-
-        $worktreeValidation = AreaFocusStringListNormalizer::trimmedStrings(
-            array_map(fn (string $c): string => $this->worktreeValidationCommand($c), $validationCommands),
-        );
-        if ($worktreeValidation !== []) {
-            $validationJson = json_encode($worktreeValidation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if ($validationJson !== false) {
-                $command[] = '--validation-commands='.$validationJson;
-            }
-        }
-
-        return $command;
+        return $this->intentBuilder->atlasMinimaxWorkerCommand($worktree, $finding, $allowedFiles, $validationCommands);
     }
 
-    private function worktreeValidationCommand(string $command): string
-    {
-        $command = trim($command);
-        if (preg_match('/^php artisan test\s+(\S+\.php)$/', $command, $matches) === 1) {
-            return './vendor/bin/phpunit --configuration=phpunit.xml '.(string) $matches[1];
-        }
-
-        return $command;
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
     private function providerChoice(array $input): string
     {
-        return AreaFocusProviderNormalizer::providerId(
-            (string) ($input['provider'] ?? $input['provider_choice'] ?? 'cursor_cli'),
-            'cursor_cli',
-        );
+        return $this->intentBuilder->providerChoice($input);
     }
 
-    /**
-     * @param  array<string,mixed>  $input
-     */
     private function modelFamily(array $input, string $provider): string
     {
-        $model = trim((string) ($input['model'] ?? $input['model_family'] ?? ''));
-        if ($model !== '') {
-            return $model;
-        }
-
-        if ($provider === 'minimax_m27_cli') {
-            return $model !== '' ? $model : 'MiniMax-M3';
-        }
-
-        if ($provider === 'codex_cli') {
-            $configured = function_exists('config') ? config('atlas.ai.providers.codex_cli.model') : null;
-
-            return is_string($configured) && trim($configured) !== ''
-                ? trim($configured)
-                : 'gpt-5.3-codex-spark';
-        }
-
-        return $provider === 'cursor_cli' ? 'composer-2.5-fast' : 'sonnet';
+        return $this->intentBuilder->modelFamily($input, $provider);
     }
 
-    private function safeCliValue(string $value): string
-    {
-        $value = trim((string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $value));
-        $value = (string) preg_replace('/\s+/', ' ', $value);
-
-        return mb_substr($value, 0, 240);
-    }
-
-    /**
-     * @param  array<string,mixed>  $extra
-     * @return array<string,mixed>
-     */
     private function blocked(string $reason, string $owner, array $steps, array $extra = []): array
     {
-        return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'ap_contract' => 'AP-786',
-            'status' => self::STATUS_BLOCKED,
-            'owner' => $owner,
-            'uses_full_owner_runtime_chain' => $steps !== [],
-            'provider_router_used' => false,
-            'merge_allowed' => false,
-            'reason' => $reason,
-            'blockers' => [$reason],
-            'steps' => $steps,
-            'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
-        ] + $extra;
+        return $this->reporting->blocked($reason, $owner, $steps, $extra);
     }
 
-    /**
-     * Honest terminal report for a zero-provider pre-flight skip. No provider was
-     * invoked, no merge is allowed, and the cycle is flagged NOT token-spending so
-     * the loop's merges/token-spending-cycles metric excludes it.
-     *
-     * @param  list<array<string,mixed>>  $steps
-     * @param  array<string,mixed>  $preflightGate
-     * @return array<string,mixed>
-     */
     private function preflightSkipped(string $owner, array $steps, array $preflightGate): array
     {
-        $blockers = AreaFocusStringListNormalizer::trimmedStrings($preflightGate['blockers'] ?? []);
-
-        return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'ap_contract' => 'AP-786',
-            'status' => self::STATUS_PREFLIGHT_SKIPPED,
-            'owner' => $owner,
-            'uses_full_owner_runtime_chain' => false,
-            'provider_router_used' => false,
-            'provider_invoked' => false,
-            // Metric: a pre-flight skip is a cheap, non-token-spending cycle. The
-            // loop divides merges by token-spending cycles; this must be excluded.
-            'token_spending_cycle' => false,
-            'preflight_gate' => $preflightGate,
-            'merge_allowed' => false,
-            'reason' => $blockers[0] ?? 'preflight_not_admitted',
-            'blockers' => $blockers,
-            'steps' => $steps,
-            'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
-        ];
+        return $this->reporting->preflightSkipped($owner, $steps, $preflightGate);
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     private function step(string $ap, string $name, string $status): array
     {
-        return ['ap_contract' => $ap, 'step' => $name, 'status' => (string) $status];
+        return $this->reporting->step($ap, $name, $status);
     }
 
-    /**
-     * @param  array<string,mixed>  $ownerResult
-     */
     private function ownerCliProviderCalls(array $ownerResult): int
     {
-        return AreaFocusScalarNormalizer::nonNegativeInt(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
+        return $this->reporting->ownerCliProviderCalls($ownerResult);
     }
 
-    /**
-     * @return array<string,bool|string>
-     */
     private function claimPolicy(): array
     {
-        return [
-            'mode' => 'full_atlas_owner_runtime_flow',
-            'provider_router_invoked' => false,
-            'direct_provider_driver_used' => false,
-            'owner_command_runs_only_via_ap759' => true,
-            'merges' => false,
-            'deploys' => false,
-            'external_push' => false,
-            'secret_access' => false,
-            'operator_review_required' => true,
-        ];
+        return $this->reporting->claimPolicy();
     }
 }
