@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -133,6 +135,47 @@ final class ReadinessStatusMutationCharacterizationTest extends TestCase
         $after = $disk->allFiles(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX);
 
         $this->assertNotSame($before, $after, 'claim-next persists a claim (and fallback-enqueues when the lane is empty)');
+    }
+
+    public function test_claim_lease_runtime_status_mutates_and_reports_the_write_truthfully(): void
+    {
+        $disk = Storage::disk('local');
+        $registryPath = AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH;
+        $this->assertFalse($disk->exists($registryPath), 'faked disk starts without a lease registry');
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-claim-lease-runtime-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['runtime_write_allowed']);
+        $this->assertTrue((bool) $payload['runtime_write_performed']);
+        $this->assertSame('mutating_agent_control_plane_claim_lease_runtime_status', $payload['mode']);
+        $this->assertFalse((bool) $payload['execution_allowed']);
+        $this->assertFalse((bool) $payload['dispatch_allowed']);
+        $this->assertFalse((bool) $payload['ledger_write_allowed']);
+        $this->assertSame('available', data_get($payload, 'agent_control_plane_claim_lease_runtime_status.status'));
+
+        // activeLeases() -> expireLeasesInternal() -> collectExpirations() ends in an
+        // UNCONDITIONAL saveRegistry(): asking for claim/lease status writes the registry
+        // even when there are zero leases to expire.
+        $this->assertTrue($disk->exists($registryPath), 'the status route rewrites the lease registry');
+    }
+
+    public function test_one_shot_worker_packet_status_stays_read_only(): void
+    {
+        $disk = Storage::disk('local');
+        $before = $disk->allFiles();
+
+        // No MotherCommand flag exists for this route; call the service surface directly.
+        $payload = app(AtlasSelfConstructionReadinessService::class)->agentControlPlaneOneShotWorkerPacketStatus([]);
+
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+        $this->assertArrayNotHasKey('runtime_write_performed', $payload);
+        $this->assertSame('read_only_agent_control_plane_one_shot_worker_packet_status', $payload['mode']);
+        $this->assertSame($before, $disk->allFiles(), 'one-shot worker packet status must not write');
     }
 
     public function test_preview_bootstrap_status_stays_read_only(): void

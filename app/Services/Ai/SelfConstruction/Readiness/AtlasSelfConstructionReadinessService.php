@@ -25097,6 +25097,13 @@ public function releasePacket(array $options = []): array
             'runtime_safety' => $repo->runtimeFlags(),
         ];
 
+        // A1-SC-0003 (Fase 2 characterization): this status route ALWAYS writes.
+        // activeLeases() runs expireLeasesInternal() whose collectExpirations()
+        // ends in an unconditional saveRegistry() (plus lease-file writes and
+        // expiry receipts when leases are stale), and isAvailable() writes a
+        // .health probe file. The envelope must not claim read_only.
+        // ponytail: truth-flag only; re-point to the repository's read-only
+        // registry() snapshot when the ControlPlane Projector/Runtime split lands.
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'claim_lease_runtime',
             label: 'Claim/Lease Runtime',
@@ -25108,6 +25115,7 @@ public function releasePacket(array $options = []): array
                 'lease_repository_available' => (bool) $payload['lease_repository_available'],
                 'default_ttl_seconds' => (int) $payload['default_ttl_seconds'],
             ],
+            runtimeWritePerformed: true,
         );
     }
 
