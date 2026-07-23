@@ -19,6 +19,11 @@ use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentIntegrat
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLaneOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycleExecutorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentRepairPlannerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FactoryMaxSelectionSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FactorySeedCatalogSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FlowContractSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ProviderDiffQualitySection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\WorkcellSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
@@ -109,24 +114,24 @@ final class AutonomousEvolutionSessionService
     public const FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID = 'factory_max_ap790_candidate_starvation_recovery';
 
     /** @var list<string> */
-    private const STARVATION_META_REJECTION_REASONS = [
+    public const STARVATION_META_REJECTION_REASONS = [
         'terminal_locked_existing_failure',
         'terminal_unlock_candidate_locked',
     ];
 
-    private const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
+    public const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
 
     public const PROVIDER_DIFF_QUALITY_BLOCKER = 'provider_diff_quality_gate_failed';
 
     private const MAX_SESSION_JSONL_LINE_BYTES = 1048576;
 
-    private const DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST = 220;
+    public const DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST = 220;
 
-    private const DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST = 80;
+    public const DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST = 80;
 
-    private const DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST = 80;
+    public const DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST = 80;
 
-    private const DIFF_QUALITY_DELETION_RATIO_FLOOR = 3.0;
+    public const DIFF_QUALITY_DELETION_RATIO_FLOOR = 3.0;
 
     /** @var list<string> */
     private const FACTORY_MAX_RUNTIME_PREFIXES = [
@@ -155,12 +160,12 @@ final class AutonomousEvolutionSessionService
     ];
 
     /** @var list<string> */
-    private const FACTORY_MAX_SAFE_STRUCTURAL_ORIGIN_TYPES = [
+    public const FACTORY_MAX_SAFE_STRUCTURAL_ORIGIN_TYPES = [
         'missing_test',
     ];
 
     /** @var list<string> */
-    private const FACTORY_MAX_STRUCTURAL_RUNTIME_GAP_KINDS = [
+    public const FACTORY_MAX_STRUCTURAL_RUNTIME_GAP_KINDS = [
         'partial_runtime',
         'spec_runtime_gap',
     ];
@@ -222,7 +227,7 @@ final class AutonomousEvolutionSessionService
     ];
 
     /** @var list<string> */
-    private const REQUIRED_FULL_OWNER_FLOW_APS = [
+    public const REQUIRED_FULL_OWNER_FLOW_APS = [
         'AP-747',
         'AP-756',
         'AP-757',
@@ -233,7 +238,7 @@ final class AutonomousEvolutionSessionService
     ];
 
     /** @var list<string> */
-    private const REQUIRED_ROBUST_FLOW_CAPABILITIES = [
+    public const REQUIRED_ROBUST_FLOW_CAPABILITIES = [
         'native_obra_or_work_packet',
         'self_directed_spec_or_sdd_packet',
         'tdd_test_contract',
@@ -252,12 +257,12 @@ final class AutonomousEvolutionSessionService
 
     public function __construct(
         private readonly AreaFocusDeepFindingEngineService $deepScan,
-        private readonly StewardshipPriorityRanker $priorityEngine,
+        public readonly StewardshipPriorityRanker $priorityEngine,
         private readonly AreaFocusBranchSandboxMaterializer $materializer,
         private readonly AtlasForgeProviderInvocationDriverRouter $providerRouter,
         private readonly StewardshipRuntimeResultProjector $resultBridge,
         private readonly StewardshipBranchMergeGovernor $mergeGovernor,
-        private readonly Ap786RobustForgeQualityContractService $robustContract,
+        public readonly Ap786RobustForgeQualityContractService $robustContract,
         private readonly Ap786OwnerFlowRunner $ownerFlow,
     ) {}
 
@@ -284,10 +289,265 @@ final class AutonomousEvolutionSessionService
 
     private ?StewardshipIntegrationLaneService $integrationLane = null;
 
+    private ?WorkcellSection $workcell = null;
+
+    private ?ProviderDiffQualitySection $providerDiffQuality = null;
+
+    private ?FactorySeedCatalogSection $factorySeedCatalog = null;
+
+    private ?FlowContractSection $flowContract = null;
+
+    private ?FactoryMaxSelectionSection $factoryMaxSelection = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService;
+    }
+
+    /** AP-801/AP-806 workcell + AP-795 substrate section (GOD-DEBULK split; lazily constructed). */
+    private function workcell(): WorkcellSection
+    {
+        return $this->workcell ??= new WorkcellSection($this);
+    }
+
+    /**
+     * GOD-DEBULK split delegators: the workcell judge/slice/validation projections
+     * live in {@see WorkcellSection}; these thin forwarders preserve the historical
+     * private method surface the AP-806 gate and its reflection-based tests bind to.
+     *
+     * @param  array<string,mixed>  $cycleLike
+     * @param  array<string,mixed>  $input
+     * @return array{engaged:bool,accept:bool,status:string,workcell:array<string,mixed>|null}
+     */
+    private function workcellMergeGate(array $cycleLike, array $input): array
+    {
+        return $this->workcell()->workcellMergeGate($cycleLike, $input);
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>|null
+     */
+    private function workcellSliceFromCycle(array $cycle): ?array
+    {
+        return $this->workcell()->workcellSliceFromCycle($cycle);
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function workcellValidationFromCycle(array $cycle): array
+    {
+        return $this->workcell()->workcellValidationFromCycle($cycle);
+    }
+
+    /** Provider diff-quality gate section (GOD-DEBULK split; lazily constructed). */
+    private function providerDiffQuality(): ProviderDiffQualitySection
+    {
+        return $this->providerDiffQuality ??= new ProviderDiffQualitySection($this);
+    }
+
+    /** Factory-max seed catalog section (GOD-DEBULK split; lazily constructed). */
+    private function factorySeedCatalog(): FactorySeedCatalogSection
+    {
+        return $this->factorySeedCatalog ??= new FactorySeedCatalogSection($this);
+    }
+
+    /** Owner-flow contract section (GOD-DEBULK split; lazily constructed). */
+    private function flowContract(): FlowContractSection
+    {
+        return $this->flowContract ??= new FlowContractSection($this);
+    }
+
+    /** Factory-max candidate selection section (GOD-DEBULK split; lazily constructed). */
+    private function factoryMaxSelection(): FactoryMaxSelectionSection
+    {
+        return $this->factoryMaxSelection ??= new FactoryMaxSelectionSection($this);
+    }
+
+    /**
+     * GOD-DEBULK split delegators: factory-max candidate origination lives in
+     * {@see FactoryMaxSelectionSection}; these thin forwarders preserve the historical
+     * private method surface the selection/cycle orchestration binds to. The AP-806
+     * honest-stop predicate isFactoryMaxStarvationRecoveryFinding stays on this facade.
+     *
+     * @param  list<array<string,mixed>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function factoryMaxStarvationRecoveryCandidate(array $rejections): array
+    {
+        return $this->factoryMaxSelection()->factoryMaxStarvationRecoveryCandidate($rejections);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function factoryMaxSelectionRefillReceipt(array $rejections): array
+    {
+        return $this->factoryMaxSelection()->factoryMaxSelectionRefillReceipt($rejections);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function terminalBacklogRankContext(array $rejections): array
+    {
+        return $this->factoryMaxSelection()->terminalBacklogRankContext($rejections);
+    }
+
+    /**
+     * @param  list<string>  $forgeInputs
+     * @param  list<string>  $reviewLocked
+     * @param  list<string>  $terminalLocked
+     * @param  list<string>  $candidateKeys
+     * @param  list<array<string,mixed>>  $rejections
+     * @param  array<string,mixed>  $selectionRefill
+     * @param  array<string,mixed>  $priority
+     * @return array<string,mixed>|null
+     */
+    private function tryFactoryMaxTerminalBacklogReplenishmentSelection(
+        string $areaId,
+        array $forgeInputs,
+        string $scopeProfile,
+        array $reviewLocked,
+        array $terminalLocked,
+        array $candidateKeys,
+        array $rejections,
+        array $selectionRefill,
+        array $priority,
+    ): ?array {
+        return $this->factoryMaxSelection()->tryFactoryMaxTerminalBacklogReplenishmentSelection($areaId, $forgeInputs, $scopeProfile, $reviewLocked, $terminalLocked, $candidateKeys, $rejections, $selectionRefill, $priority);
+    }
+
+    /**
+     * @param  array<string,mixed>  $priority
+     * @return list<array<string,mixed>>
+     */
+    private function factoryMaxPriorityBacklogCandidates(array $priority): array
+    {
+        return $this->factoryMaxSelection()->factoryMaxPriorityBacklogCandidates($priority);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rejections
+     * @return list<array<string,mixed>>
+     */
+    private function factoryMaxTerminalBacklogUnlockCandidates(array $rejections): array
+    {
+        return $this->factoryMaxSelection()->factoryMaxTerminalBacklogUnlockCandidates($rejections);
+    }
+
+    /** @param  array<string,mixed>  $finding */
+    private function isFactoryMaxTerminalBacklogUnlockFinding(array $finding): bool
+    {
+        return $this->factoryMaxSelection()->isFactoryMaxTerminalBacklogUnlockFinding($finding);
+    }
+
+    /** @param  array<string,mixed>  $finding */
+    private function isForgeAuthorityReadinessCandidate(array $finding): bool
+    {
+        return $this->factoryMaxSelection()->isForgeAuthorityReadinessCandidate($finding);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
+    {
+        return $this->factoryMaxSelection()->promoteSafeFactoryFinding($finding, $scopeProfile);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $findings
+     */
+    private function scanHasStructuralRuntimeGapBacklog(array $findings): bool
+    {
+        return $this->factoryMaxSelection()->scanHasStructuralRuntimeGapBacklog($findings);
+    }
+
+    /** @param  array<string,mixed>  $finding */
+    private function isStructuralRuntimeGapFinding(array $finding): bool
+    {
+        return $this->factoryMaxSelection()->isStructuralRuntimeGapFinding($finding);
+    }
+
+    /**
+     * GOD-DEBULK split delegators: the owner-flow contract projections live in
+     * {@see FlowContractSection}; these thin forwarders preserve the historical
+     * private method surface the cycle orchestration binds to.
+     *
+     * @return array<string,mixed>
+     */
+    private function flowIntegrityGate(string $owner, bool $allowDirectProviderDriver): array
+    {
+        return $this->flowContract()->flowIntegrityGate($owner, $allowDirectProviderDriver);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>
+     */
+    private function robustFlowContract(string $areaId, string $focus, array $finding, array $allowedFiles, string $owner, array $validationCommands): array
+    {
+        return $this->flowContract()->robustFlowContract($areaId, $focus, $finding, $allowedFiles, $owner, $validationCommands);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function diagnosticRobustFlowContractSkipped(array $finding, array $allowedFiles, string $owner): array
+    {
+        return $this->flowContract()->diagnosticRobustFlowContractSkipped($finding, $allowedFiles, $owner);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    public function testsRequiredForFinding(array $finding, array $allowedFiles): array
+    {
+        return $this->flowContract()->testsRequiredForFinding($finding, $allowedFiles);
+    }
+
+    /**
+     * @param  list<string>  $inputCommands
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
+    {
+        return $this->flowContract()->ownerValidationCommands($inputCommands, $finding, $allowedFiles);
+    }
+
+    private function worktreeSafeValidationCommand(string $command): string
+    {
+        return $this->flowContract()->worktreeSafeValidationCommand($command);
+    }
+
+    /**
+     * GOD-DEBULK split delegator: the diff-quality gate lives in
+     * {@see ProviderDiffQualitySection}; this thin forwarder preserves the historical
+     * private method surface the owner-flow gate and its reflection-based tests bind to.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding, string $scopeProfile): array
+    {
+        return $this->providerDiffQuality()->providerDiffQualityGate($worktree, $changedFiles, $allowedFiles, $finding, $scopeProfile);
     }
 
     /** M keystone: outcome metric ledger (pure; lazily constructed). */
@@ -399,7 +659,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** AP-795 provider port (pure normalizer; lazily constructed). */
-    private function agentProviderPort(): AgentExecutionProviderPortService
+    public function agentProviderPort(): AgentExecutionProviderPortService
     {
         return $this->agentProviderPort ??= new AgentExecutionProviderPortService;
     }
@@ -409,7 +669,7 @@ final class AutonomousEvolutionSessionService
      * is redirected for tests, the agent-execution store follows it so unit tests
      * never write to real storage.
      */
-    private function agentSessionStore(): AgentExecutionSessionStoreService
+    public function agentSessionStore(): AgentExecutionSessionStoreService
     {
         if ($this->agentSessionStore === null) {
             $store = new AgentExecutionSessionStoreService($this->agentProviderPort());
@@ -431,7 +691,7 @@ final class AutonomousEvolutionSessionService
      * AP-801 multi-agent workcell executor (lazily constructed). When the session
      * storage is redirected for tests, the workcell's session store follows it.
      */
-    private function multiAgentWorkcell(): MultiAgentLiveCycleExecutorService
+    public function multiAgentWorkcell(): MultiAgentLiveCycleExecutorService
     {
         if ($this->multiAgentWorkcell === null) {
             $service = function_exists('app')
@@ -473,460 +733,6 @@ final class AutonomousEvolutionSessionService
         }
 
         return $this->adversarialProofPanel;
-    }
-
-    /**
-     * AP-801 · When the multi-agent workcell flag is on, project each executed
-     * cycle through MultiAgentLiveCycleExecutorService (lanes + judge + repair +
-     * certification). Purely additive and defensive: it composes the cycle's real
-     * owner-runtime facts, never invokes a provider, and never alters the existing
-     * cycle/owner-flow path. Flag off => this is a no-op and the cycle is unchanged.
-     *
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function attachMultiAgentWorkcell(array $payload): array
-    {
-        try {
-            $sessionId = (string) ($payload['session_id'] ?? '');
-            $areaId = (string) ($payload['area_id'] ?? '');
-            $focus = (string) ($payload['focus'] ?? '');
-            $executor = $this->multiAgentWorkcell();
-
-            $cycles = AreaFocusLoopPayloadNormalizer::listOfArrays($payload['cycles'] ?? []);
-            $summaries = [];
-            foreach ($cycles as $i => $cycle) {
-                // AP-806: the pre-merge judge gate already ran the workcell for this
-                // cycle (merged or judge-blocked). Reuse that real result — never
-                // re-run the lanes — so the summary matches the verdict that gated
-                // the merge.
-                $gated = $cycle['multi_agent_workcell'] ?? null;
-                if (is_array($gated) && array_key_exists('judge_decision', $gated)) {
-                    $summaries[] = [
-                        'cycle_id' => (string) ($gated['cycle_id'] ?? ''),
-                        'status' => (string) ($gated['status'] ?? ''),
-                        'lane_count' => (int) ($gated['lane_count'] ?? 0),
-                        'provider_invoked' => (bool) ($gated['provider_invoked'] ?? false),
-                        'judge_status' => (string) data_get($gated, 'judge_decision.status', ''),
-                        'merge_eligible' => (bool) ($gated['merge_eligible'] ?? false),
-                        'production_certified' => (bool) ($gated['production_certified'] ?? false),
-                    ];
-
-                    continue;
-                }
-
-                $execute = $this->cycleHadRealProviderInvocation($cycle);
-
-                // The workcell projects EXECUTED cycles (a real owner-runtime result
-                // exists). For dry-run / pre-provider-blocked cycles there is nothing
-                // to compose; mark it honestly instead of slicing a thin summary.
-                if (! $execute) {
-                    $cycles[$i]['multi_agent_workcell'] = [
-                        'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
-                        'ap_contract' => 'AP-801',
-                        'status' => 'not_executed',
-                        'reason' => 'cycle did not run an owner-runtime provider; no multi-agent composition.',
-                    ];
-                    $summaries[] = [
-                        'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
-                        'status' => 'not_executed',
-                        'lane_count' => 0,
-                        'provider_invoked' => false,
-                        'judge_status' => '',
-                        'merge_eligible' => false,
-                        'production_certified' => false,
-                    ];
-
-                    continue;
-                }
-
-                $workcell = $executor->execute([
-                    'execute' => $execute,
-                    'area_id' => $areaId,
-                    'focus' => $focus,
-                    'session_id' => $sessionId,
-                    'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
-                    'scope_profile' => (string) ($cycle['scope_profile'] ?? $payload['scope_profile'] ?? 'balanced'),
-                    'finding' => is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [],
-                    'slice_plan' => is_array($cycle['finding_slice_plan'] ?? null) ? $cycle['finding_slice_plan'] : null,
-                    'executable_slice' => $execute ? $this->workcellSliceFromCycle($cycle) : null,
-                    'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycle['allowed_files'] ?? []),
-                    'owner_runtime_result' => $execute ? $this->workcellOwnerRuntimeFromCycle($cycle) : null,
-                ]);
-
-                $cycles[$i]['multi_agent_workcell'] = $workcell;
-                $summaries[] = [
-                    'cycle_id' => (string) ($workcell['cycle_id'] ?? ''),
-                    'status' => (string) ($workcell['status'] ?? ''),
-                    'lane_count' => (int) ($workcell['lane_count'] ?? 0),
-                    'provider_invoked' => (bool) ($workcell['provider_invoked'] ?? false),
-                    'judge_status' => (string) data_get($workcell, 'judge_decision.status', ''),
-                    'merge_eligible' => (bool) ($workcell['merge_eligible'] ?? false),
-                    'production_certified' => (bool) ($workcell['production_certified'] ?? false),
-                ];
-            }
-
-            $payload['cycles'] = $cycles;
-            $payload['multi_agent_workcell'] = [
-                'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
-                'ap_contract' => 'AP-801',
-                'enabled' => true,
-                'cycle_count' => count($summaries),
-                'cycles' => $summaries,
-            ];
-        } catch (Throwable $e) {
-            $payload['multi_agent_workcell'] = [
-                'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
-                'ap_contract' => 'AP-801',
-                'enabled' => true,
-                'status' => 'workcell_projection_unavailable',
-                'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
-            ];
-        }
-
-        return $payload;
-    }
-
-    /**
-     * AP-806 · HARD pre-merge integration-judge gate. When the multi-agent
-     * workcell is engaged, the AP-801 workcell (lanes + AP-797 integration judge)
-     * is run on the EXECUTED, committed cycle BEFORE the merge, and the judge
-     * verdict becomes a precondition for merging: a cycle the judge did not ACCEPT
-     * (repair_required / rejected / operator_review / blocked) must NOT merge — its
-     * evidence/inbox are still emitted for audit. This closes the proven
-     * false-success path where a merge landed while the judge said repair_required
-     * (AP-790 ledger cycles 251-254, 259). The workcell never invokes a provider,
-     * so the gate adds zero provider cost; on any workcell error it fails CLOSED
-     * (no merge) so an uncertifiable cycle can never slip through.
-     *
-     * @param  array<string,mixed>  $cycleLike  executed + committed cycle facts
-     * @param  array<string,mixed>  $input
-     * @return array{engaged:bool,accept:bool,status:string,workcell:array<string,mixed>|null}
-     */
-    private function workcellMergeGate(array $cycleLike, array $input): array
-    {
-        $on = (bool) ($input['multi_agent_workcell']
-            ?? config('atlas.software_company_stewardship.multi_agent_workcell', false));
-        if (! $on || ! $this->cycleHadRealProviderInvocation($cycleLike)) {
-            // Flag off, or no real execution to certify => no gate (the executed-cycle
-            // gates upstream already blocked anything that did not run a provider).
-            return ['engaged' => false, 'accept' => true, 'status' => '', 'workcell' => null];
-        }
-
-        try {
-            $workcell = $this->multiAgentWorkcell()->execute([
-                'execute' => true,
-                'area_id' => (string) ($input['area_id'] ?? ''),
-                'focus' => (string) ($input['focus'] ?? self::DEFAULT_FOCUS),
-                'session_id' => (string) ($cycleLike['cycle_id'] ?? ''),
-                'cycle_id' => (string) ($cycleLike['cycle_id'] ?? ''),
-                'scope_profile' => (string) ($cycleLike['scope_profile'] ?? 'balanced'),
-                'finding' => is_array($cycleLike['selected_finding'] ?? null) ? $cycleLike['selected_finding'] : [],
-                'slice_plan' => is_array($cycleLike['finding_slice_plan'] ?? null) ? $cycleLike['finding_slice_plan'] : null,
-                'executable_slice' => $this->workcellSliceFromCycle($cycleLike),
-                'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycleLike['allowed_files'] ?? []),
-                'owner_runtime_result' => $this->workcellOwnerRuntimeFromCycle($cycleLike),
-            ]);
-        } catch (Throwable $e) {
-            // Fail closed: an uncertifiable cycle never merges.
-            return [
-                'engaged' => true,
-                'accept' => false,
-                'status' => 'workcell_unavailable',
-                'workcell' => [
-                    'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
-                    'ap_contract' => 'AP-801',
-                    'enabled' => true,
-                    'status' => 'workcell_gate_unavailable',
-                    'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
-                ],
-            ];
-        }
-
-        return [
-            'engaged' => true,
-            'accept' => (bool) ($workcell['merge_eligible'] ?? false),
-            'status' => (string) data_get($workcell, 'judge_decision.status', ''),
-            'workcell' => $workcell,
-        ];
-    }
-
-    /**
-     * Build a bounded executable slice from an executed cycle so the workcell can
-     * judge the produced diff. Reuses the cycle's own scope (allowed files) and
-     * validation; never widens scope.
-     *
-     * @param  array<string,mixed>  $cycle
-     * @return array<string,mixed>|null
-     */
-    private function workcellSliceFromCycle(array $cycle): ?array
-    {
-        $plannedSlices = AreaFocusLoopPayloadNormalizer::listOfArrays(data_get($cycle, 'finding_slice_plan.slices', []));
-        if ($plannedSlices !== []) {
-            $activeSliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
-            if ($activeSliceId !== '') {
-                foreach ($plannedSlices as $slice) {
-                    if ((string) ($slice['slice_id'] ?? '') === $activeSliceId) {
-                        return $slice;
-                    }
-                }
-            }
-
-            return $plannedSlices[0];
-        }
-
-        $allowed = AreaFocusStringListNormalizer::coercedStringValues($cycle['allowed_files'] ?? []);
-        $changed = $this->workcellChangedFilesFromCycle($cycle);
-        $allowed = $allowed !== [] ? $allowed : $changed;
-        if ($allowed === []) {
-            return null;
-        }
-        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
-        $validationCommands = AreaFocusStringListNormalizer::coercedStringValues(data_get($cycle, 'validation.commands', []));
-
-        return [
-            'slice_id' => 'mas_'.substr(MissionCanonicalHash::sha256([$cycle['cycle_id'] ?? '', $allowed]), 0, 16),
-            'sequence' => 1,
-            'owner' => (string) ($cycle['owner'] ?? 'atlas_dev'),
-            'risk_level' => (string) ($finding['severity'] ?? 'medium') ?: 'medium',
-            'objective' => (string) ($finding['title'] ?? 'Bounded stewardship slice'),
-            'allowed_files' => $allowed,
-            'forbidden_files' => self::FORBIDDEN_PATHS,
-            'expected_diff_shape' => $this->workcellDiffShape($changed),
-            'validation_commands' => $validationCommands !== [] ? $validationCommands : ['git diff --check'],
-            'evidence_obligations' => ['test_results', 'changed_files'],
-            'merge_policy' => 'review_required',
-            'max_runtime_seconds' => 900,
-            'retry_policy' => ['max_attempts' => 1],
-        ];
-    }
-
-    /**
-     * @param  list<string>  $changed
-     */
-    private function workcellDiffShape(array $changed): string
-    {
-        if ($changed === []) {
-            return 'service_and_test';
-        }
-        $allTests = true;
-        foreach ($changed as $file) {
-            if (! str_contains($file, 'tests/') && ! str_ends_with($file, 'Test.php')) {
-                $allTests = false;
-                break;
-            }
-        }
-
-        return $allTests ? 'test_only' : 'service_and_test';
-    }
-
-    /**
-     * @param  array<string,mixed>  $cycle
-     * @return list<string>
-     */
-    private function workcellChangedFilesFromCycle(array $cycle): array
-    {
-        $changed = AreaFocusStringListNormalizer::coercedStringValues($cycle['changed_files'] ?? []);
-        if ($changed !== []) {
-            return AreaFocusStringListNormalizer::uniqueStringValues($changed);
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(
-            (array) data_get($cycle, 'owner_flow.execution_result.changed_files', []),
-            'is_string',
-        ));
-    }
-
-    /**
-     * Project the executed cycle's real owner-flow/provider facts into the
-     * owner_runtime_result shape the workcell composes. This is the cycle's own
-     * result, not a new provider call.
-     *
-     * @param  array<string,mixed>  $cycle
-     * @return array<string,mixed>
-     */
-    /**
-     * Did this cycle run a REAL provider invocation? The default AP-786 owner-flow
-     * path runs the provider inside the AP-747->AP-750 chain and reports it as
-     * `owner_flow.provider_invoked` (true only for a real, non-deterministic owner
-     * result); the cycle's top-level `provider_called` stays false there because
-     * the runner never calls a provider directly. The legacy direct-provider path
-     * sets `provider_called`. Honoring both — and never a deterministic/simulated
-     * result — is what lets the AP-801 workcell compose real cycles. The AP-800
-     * certification inside the workcell still independently gates production.
-     *
-     * @param  array<string,mixed>  $cycle
-     */
-    private function cycleHadRealProviderInvocation(array $cycle): bool
-    {
-        if (($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true) {
-            return true;
-        }
-
-        return data_get($cycle, 'owner_flow.provider_invoked') === true
-            && data_get($cycle, 'owner_flow.provider_router_used') !== true;
-    }
-
-    /**
-     * Derive the REAL validation result for the AP-801 workcell/judge from an
-     * AP-786 owner-flow cycle. The legacy direct-provider path fills
-     * $cycle['validation']; the owner-flow path does NOT — its validation
-     * authority is the merge governor (run_validation=true; it only reaches
-     * merged / review_required / auto_merge_eligible AFTER validation passes) plus
-     * the senior-loop verification. Without this the judge received passed=null and
-     * returned a FALSE repair_required on cycles that actually validated and merged.
-     *
-     * It NEVER fabricates a pass: a real merge / governor-validation-pass /
-     * verification-pass sets passed=true; a validation_failed signal sets false;
-     * truly unknown stays null (so the judge still withholds, honestly).
-     *
-     * @param  array<string,mixed>  $cycle
-     * @return array<string,mixed>
-     */
-    private function workcellValidationFromCycle(array $cycle): array
-    {
-        $explicit = is_array($cycle['validation'] ?? null) ? $cycle['validation'] : [];
-        $commands = array_values(array_filter(
-            (array) ($explicit['commands'] ?? data_get($cycle, 'merge_governance.validation.commands', [])),
-            'is_string',
-        ));
-        $base = ['ran' => true, 'commands' => $commands, 'results' => array_values((array) ($explicit['results'] ?? []))];
-
-        // 1) Explicit validation result (legacy direct-provider path).
-        if (array_key_exists('passed', $explicit)) {
-            return $base + ['passed' => (bool) $explicit['passed'], 'source' => 'cycle_validation'];
-        }
-        // 2) A real merge means the merge governor ran validation and it passed.
-        if (($cycle['merge_performed'] ?? false) === true) {
-            return $base + ['passed' => true, 'source' => 'merge_governor_validated_and_merged'];
-        }
-        // 3) Merge governor's own recorded validation result.
-        $mgValidation = data_get($cycle, 'merge_governance.validation', null);
-        if (is_array($mgValidation) && array_key_exists('passed', $mgValidation)) {
-            return $base + ['passed' => (bool) $mgValidation['passed'], 'source' => 'merge_governor_validation'];
-        }
-        // 4) Clean, validated diff the governor withheld only for review.
-        if (in_array((string) data_get($cycle, 'merge_governance.status', ''), ['review_required', 'auto_merge_eligible'], true)) {
-            return $base + ['passed' => true, 'source' => 'merge_governor_validated_review_withheld'];
-        }
-        // 5) Owner-flow senior-loop verification.
-        $verification = (string) data_get($cycle, 'owner_flow.execution_result.verification_status', data_get($cycle, 'owner_flow.verification_status', ''));
-        if ($verification === 'passed') {
-            return $base + ['passed' => true, 'source' => 'owner_flow_verification'];
-        }
-        if ($verification !== '') {
-            return $base + ['passed' => false, 'source' => 'owner_flow_verification'];
-        }
-        // 6) Explicit validation-failure blocker.
-        if (in_array('validation_failed', AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []), true)) {
-            return $base + ['passed' => false, 'source' => 'cycle_blocker_validation_failed'];
-        }
-
-        // 7) Unknown — never fabricate a pass.
-        return ['ran' => false, 'passed' => null, 'commands' => $commands, 'results' => [], 'source' => 'unknown'];
-    }
-
-    private function workcellOwnerRuntimeFromCycle(array $cycle): array
-    {
-        $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
-        $changedFiles = $this->workcellChangedFilesFromCycle($cycle);
-        $validation = $this->workcellValidationFromCycle($cycle);
-        $evidenceRefs = array_values(array_filter([
-            ...array_map(static fn (string $ref): array => ['kind' => 'owner_receipt', 'ref' => $ref], array_values(array_filter([
-                (string) ($cycle['result_bridge_id'] ?? ''),
-                (string) ($cycle['inbox_item_id'] ?? ''),
-            ], static fn (string $v): bool => $v !== ''))),
-            $changedFiles !== [] ? ['kind' => 'changed_files', 'ref' => 'cycle:'.(string) ($cycle['cycle_id'] ?? '').':changed-files'] : null,
-            ($validation['ran'] ?? false) === true ? ['kind' => 'test_results', 'ref' => 'cycle:'.(string) ($cycle['cycle_id'] ?? '').':validation'] : null,
-        ], static fn (mixed $ref): bool => is_array($ref) && ($ref['ref'] ?? '') !== ''));
-
-        return [
-            'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
-            'model' => (string) data_get($cycle, 'provider_result.model', ''),
-            'provider_invoked' => $this->cycleHadRealProviderInvocation($cycle),
-            'provider_authority' => $usesOwnerChain ? 'atlas_decide' : '',
-            'auth_mode' => 'local_account',
-            'changed_files' => $changedFiles,
-            'diff_shape' => $this->workcellDiffShape($changedFiles),
-            'validation' => $validation,
-            'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
-            'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
-            'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
-            'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
-            'evidence_refs' => $evidenceRefs,
-            'owner_runtime_chain' => $usesOwnerChain ? 'AP-747->AP-748->AP-749->AP-758->AP-759->AP-750' : '',
-            'merge_governance' => is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [],
-        ];
-    }
-
-    /**
-     * AP-795/AP-793 · Project each cycle's already-present provider facts through
-     * the provider port and, when recording, into the durable session store.
-     *
-     * Purely additive and defensive: it never mutates the existing cycle/receipt
-     * structure, never invokes a provider, and is wrapped so a substrate failure
-     * can never break the AP-786 session. Persistence is idempotent
-     * (session_hash) so re-runs are safe.
-     *
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function attachAgentExecutionSubstrate(array $payload, bool $record): array
-    {
-        try {
-            $port = $this->agentProviderPort();
-            $sessionId = (string) ($payload['session_id'] ?? '');
-            $areaId = (string) ($payload['area_id'] ?? '');
-            $focus = (string) ($payload['focus'] ?? '');
-
-            $ports = [];
-            foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($payload['cycles'] ?? []) as $cycle) {
-                $facts = $port->normalize(['cycle' => $cycle]);
-                $cycleId = (string) ($cycle['cycle_id'] ?? '');
-                $ports[] = [
-                    'cycle_id' => $cycleId,
-                    'provider_id' => $facts['provider_id'],
-                    'model_family' => $facts['model_family'],
-                    'invocation_state' => $facts['invocation_state'],
-                    'provider_invoked' => $facts['provider_invoked'],
-                    'auth_mode' => $facts['auth_mode'],
-                    'port_status' => $facts['port_status'],
-                    'port_hash' => $facts['port_hash'],
-                ];
-
-                if ($record) {
-                    $this->agentSessionStore()->record([
-                        'provider_port' => $facts,
-                        'cycle_id' => $cycleId,
-                        'session_id' => $sessionId,
-                        'area_id' => $areaId,
-                        'focus' => $focus,
-                        'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
-                    ]);
-                }
-            }
-
-            $payload['agent_execution'] = [
-                'schema_version' => 'atlas.agent_execution.session_summary.v1',
-                'substrate_contract' => 'AP-793',
-                'ap_contract' => 'AP-795',
-                'provider_port_schema' => AgentExecutionProviderPortService::SCHEMA,
-                'session_store_schema' => AgentExecutionSessionStoreService::SCHEMA,
-                'persisted' => $record,
-                'cycle_count' => count($ports),
-                'ports' => $ports,
-            ];
-        } catch (Throwable $e) {
-            $payload['agent_execution'] = [
-                'schema_version' => 'atlas.agent_execution.session_summary.v1',
-                'substrate_contract' => 'AP-793',
-                'ap_contract' => 'AP-795',
-                'status' => 'substrate_projection_unavailable',
-                'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
-            ];
-        }
-
-        return $payload;
     }
 
     public function setCandidateQuarantineForTesting(?AreaFocusCandidateQuarantineService $service): void
@@ -1429,13 +1235,13 @@ final class AutonomousEvolutionSessionService
         // AP-795/AP-793: preserve the provider facts already in each cycle receipt
         // through the agent execution provider port + durable session store. This
         // never invokes a provider; it only normalizes and (when recording) appends.
-        $payload = $this->attachAgentExecutionSubstrate($payload, $record);
+        $payload = $this->workcell()->attachAgentExecutionSubstrate($payload, $record);
 
         // AP-801: when the multi-agent workcell flag is on, project each executed
         // cycle through the lane workcell (context_scout -> ... -> judge), composing
         // the cycle's real owner-runtime facts. Off by default => old flow unchanged.
         if ($multiAgentWorkcell) {
-            $payload = $this->attachMultiAgentWorkcell($payload);
+            $payload = $this->workcell()->attachMultiAgentWorkcell($payload);
         }
 
         return $record ? $this->record($areaId, $payload) : $payload + ['session_storage_status' => 'projected'];
@@ -1981,7 +1787,7 @@ final class AutonomousEvolutionSessionService
             $candidates[] = $finding;
         }
         if ($scopeProfile === self::SCOPE_FACTORY_MAX) {
-            foreach ($this->factoryMaxSeedCandidates() as $finding) {
+            foreach ($this->factorySeedCatalog()->factoryMaxSeedCandidates() as $finding) {
                 $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
                 if ($this->findingIsReviewLocked($finding, $candidateKeys)) {
                     $rejections[] = [
@@ -2347,576 +2153,6 @@ final class AutonomousEvolutionSessionService
         ];
     }
 
-    private function factoryMaxStarvationRecoveryCandidate(array $rejections): array
-    {
-        $context = $this->starvationExhaustionStateContext($rejections);
-        $reasons = $context['reasons'];
-        $rejectedIds = $context['rejected_ids'];
-        $stateHash = $context['state_hash'];
-        $blockingReasons = $this->terminalBacklogRejectionReasons($rejections);
-        $runtimeHash = $this->factoryRuntimeVersionHash([
-            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
-        ]);
-        $findingId = self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash.'_rv_'.$runtimeHash;
-
-        $detail = 'The AP-790 long loop exhausted executable factory candidates while high-value backlog remained blocked by governance or authority. Improve AP-786 selection refill so the loop converts that state into a bounded next action instead of repeating empty selection.';
-
-        $finding = $this->factorySeed(
-            'ap790_candidate_starvation_recovery_'.$stateHash,
-            'Recover AP-790 from empty executable candidate selection · '.$stateHash.' · rv '.$runtimeHash,
-            $detail.' Rejection reason count: '.count($blockingReasons).'. Rejection state hash: '.$stateHash.'.',
-            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-            'AutonomousEvolutionSessionServiceTest.php',
-            'atlas_dev',
-            'bug',
-        );
-        $finding['autonomous_selection_refill'] = true;
-        $finding['finding_id'] = $findingId;
-        $finding['spec_seed']['candidate_id'] = $findingId;
-        $versionedHash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $findingId]);
-        $finding['finding_hash'] = $versionedHash;
-        $finding['spec_seed']['candidate_hash'] = $versionedHash;
-        $finding['origin_type'] = 'ap790_candidate_starvation_recovery';
-        $finding['starvation_state_hash'] = $stateHash;
-        $finding['runtime_version_hash'] = $runtimeHash;
-        $finding['starvation_rejection_reasons'] = $reasons;
-        $finding['starvation_rejected_ids'] = array_slice($rejectedIds, 0, 24);
-        $finding['spec_seed']['state_hash'] = $stateHash;
-
-        return $finding;
-    }
-
-    /**
-     * Recovery candidates must be able to re-enter after the factory runtime has
-     * changed. A prior terminal lock for the same starvation state should not
-     * block a materially newer selector implementation.
-     *
-     * @param  list<string>  $relativeFiles
-     */
-    private function factoryRuntimeVersionHash(array $relativeFiles): string
-    {
-        $parts = [];
-        foreach ($relativeFiles as $relativeFile) {
-            $path = base_path($relativeFile);
-            $parts[$relativeFile] = is_file($path)
-                ? hash('sha256', (string) file_get_contents($path))
-                : 'missing';
-        }
-
-        return substr(MissionCanonicalHash::sha256($parts), 0, 10);
-    }
-
-    /**
-     * @param  list<string>  $relativeFiles
-     */
-    private function versionedFactoryItemId(string $baseId, array $relativeFiles): string
-    {
-        return $baseId.'_rv_'.$this->factoryRuntimeVersionHash($relativeFiles);
-    }
-
-    /**
-     * @param  list<array<string,string>>  $rejections
-     * @return array<string,mixed>
-     */
-    private function factoryMaxSelectionRefillReceipt(array $rejections): array
-    {
-        $context = $this->starvationExhaustionStateContext($rejections);
-        $rejectedIds = $context['rejected_ids'];
-        $stateHash = $context['state_hash'];
-        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
-        $runtimeHash = $this->factoryRuntimeVersionHash([
-            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
-        ]);
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.ap786_selection_refill.v1',
-            'strategy' => 'ap790_candidate_starvation_recovery',
-            'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
-            'recovery_finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash.'_rv_'.$runtimeHash,
-            'starvation_state_hash' => $stateHash,
-            'runtime_version_hash' => $runtimeHash,
-            'rejection_reason_count' => count($terminalReasons),
-            'rejection_reasons' => $terminalReasons,
-            'rejected_finding_count' => count($rejectedIds),
-            'terminal_backlog_state_hash' => $stateHash,
-            'terminal_backlog_rejection_reasons' => $terminalReasons,
-            'terminal_backlog_rejection_reason_count' => count($terminalReasons),
-            'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
-        ];
-    }
-
-    /**
-     * @param  list<array<string,string>>  $rejections
-     * @return list<string>
-     */
-    private function terminalBacklogRejectionReasons(array $rejections): array
-    {
-        $reasons = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
-            static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
-            $rejections,
-        )));
-        sort($reasons);
-
-        return $reasons;
-    }
-
-    /**
-     * @param  list<array<string,string>>  $rejections
-     * @return array{terminal_backlog_state_hash:string,terminal_backlog_rejection_reasons:list<string>}
-     */
-    private function terminalBacklogRankContext(array $rejections): array
-    {
-        $context = $this->starvationExhaustionStateContext($rejections);
-        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
-
-        return [
-            'terminal_backlog_state_hash' => $context['state_hash'],
-            'terminal_backlog_rejection_reasons' => $terminalReasons,
-        ];
-    }
-
-    /**
-     * @param  array<string,true>  $reviewLocked
-     * @param  array<string,true>  $terminalLocked
-     * @param  array<string,true>  $candidateKeys
-     * @param  list<array<string,string>>  $rejections
-     * @param  array<string,mixed>  $selectionRefill
-     * @param  array<string,mixed>  $priority
-     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}|null
-     */
-    private function tryFactoryMaxTerminalBacklogReplenishmentSelection(
-        string $areaId,
-        array $forgeInputs,
-        string $scopeProfile,
-        array $reviewLocked,
-        array $terminalLocked,
-        array $candidateKeys,
-        array $rejections,
-        array $selectionRefill,
-        array $priority,
-    ): ?array {
-        $replenishmentPriority = $this->priorityEngine->rank([
-            'area_id' => $areaId,
-            'focus' => self::DEFAULT_FOCUS,
-            'candidates' => [],
-            'scope_profile' => $scopeProfile,
-            'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-        ] + $this->terminalBacklogRankContext($rejections));
-
-        $replenishmentCandidates = $this->factoryMaxPriorityBacklogCandidates($replenishmentPriority);
-        foreach ($this->terminalBacklogReplenishmentFallbackItems() as $fallbackItem) {
-            $fallbackCandidate = $this->factoryMaxPriorityBacklogCandidate($fallbackItem);
-            if ($fallbackCandidate !== null) {
-                $fallbackId = (string) ($fallbackCandidate['finding_id'] ?? '');
-                $candidateIds = array_map(
-                    static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''),
-                    $replenishmentCandidates,
-                );
-                if ($fallbackId !== '' && ! in_array($fallbackId, $candidateIds, true)) {
-                    $replenishmentCandidates[] = $fallbackCandidate;
-                }
-            }
-        }
-
-        foreach ($replenishmentCandidates as $replenishmentCandidate) {
-            if ($this->findingIsReviewLocked($replenishmentCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
-                $rejections[] = [
-                    'finding_id' => (string) ($replenishmentCandidate['finding_id'] ?? ''),
-                    'title' => (string) ($replenishmentCandidate['title'] ?? ''),
-                    'reason' => 'terminal_unlock_candidate_locked',
-                ];
-
-                continue;
-            }
-
-            $rankedPriority = $this->priorityEngine->rank([
-                'area_id' => $areaId,
-                'focus' => self::DEFAULT_FOCUS,
-                'candidates' => [$replenishmentCandidate],
-                'scope_profile' => $scopeProfile,
-                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-            ] + $this->terminalBacklogRankContext($rejections));
-
-            return [
-                'finding' => $replenishmentCandidate,
-                'priority_report' => $rankedPriority,
-                'selection_rejections' => $rejections,
-                'selection_refill' => $selectionRefill + [
-                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                    'terminal_backlog_replenishment' => true,
-                ],
-            ];
-        }
-
-        $timeoutRecovery = $this->factoryMaxTerminalRuntimeRecoveryCandidate($rejections, $terminalLocked);
-        if (! $this->findingIsReviewLocked($timeoutRecovery, $reviewLocked + $terminalLocked + $candidateKeys)) {
-            $rankedPriority = $this->priorityEngine->rank([
-                'area_id' => $areaId,
-                'focus' => self::DEFAULT_FOCUS,
-                'candidates' => [$timeoutRecovery],
-                'scope_profile' => $scopeProfile,
-                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-            ] + $this->terminalBacklogRankContext($rejections));
-
-            return [
-                'finding' => $timeoutRecovery,
-                'priority_report' => $rankedPriority,
-                'selection_rejections' => $rejections,
-                'selection_refill' => $selectionRefill + [
-                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                    'terminal_backlog_replenishment' => true,
-                    'terminal_runtime_recovery' => true,
-                ],
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * Final bounded fallback after the normal starvation, terminal-unlock and
-     * replenishment ladders are exhausted. This targets the owner runtime that
-     * actually timed out, so the next cycle improves timeout/fallback behavior
-     * instead of looping forever on empty candidate selection.
-     *
-     * @param  list<array<string,string>>  $rejections
-     * @param  array<string,true>  $terminalLocked
-     * @return array<string,mixed>
-     */
-    private function factoryMaxTerminalRuntimeRecoveryCandidate(array $rejections, array $terminalLocked): array
-    {
-        $context = $this->starvationExhaustionStateContext($rejections);
-        $runtimeHash = $this->factoryRuntimeVersionHash([
-            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
-            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php',
-        ]);
-        $terminalHash = substr(MissionCanonicalHash::sha256(array_keys($terminalLocked)), 0, 8);
-        $id = 'ap786_owner_runtime_timeout_recovery_'.$context['state_hash'].'_'.$terminalHash.'_rv_'.$runtimeHash;
-
-        $finding = $this->factorySeed(
-            $id,
-            'Recover owner runtime provider timeout after terminal AP-790 starvation · '.$context['state_hash'].' · '.$terminalHash,
-            'The AP-790 loop exhausted selection, terminal-unlock and replenishment candidates, then owner-runtime execution timed out. Improve AP-786 owner flow timeout diagnostics, fallback routing or retry behavior so provider timeouts become bounded recoverable work instead of ending the 24h loop.',
-            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
-            'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
-            'atlas_dev',
-            'bug',
-        );
-        $finding['origin_type'] = 'ap790_terminal_runtime_recovery';
-        $finding['terminal_backlog_state_hash'] = $context['state_hash'];
-        $finding['terminal_runtime_recovery_hash'] = $terminalHash;
-        $finding['runtime_version_hash'] = $runtimeHash;
-        $finding['spec_seed']['state_hash'] = $context['state_hash'];
-        $finding['spec_seed']['acceptance'][] = 'Provider timeout or senior-loop repair exhaustion becomes a bounded recoverable condition and AP-790 can select a fresh next action.';
-
-        return $finding;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function terminalBacklogReplenishmentFallbackItems(): array
-    {
-        return [
-            [
-                'item_id' => $this->versionedFactoryItemId(
-                    'terminal_backlog_replenish_merge_queue',
-                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php'],
-                ),
-                'item_type' => 'merge_queue',
-                'lane' => 'now',
-                'completion_status' => 'pending',
-                'final_priority_score' => 990,
-            ],
-            [
-                'item_id' => $this->versionedFactoryItemId(
-                    'terminal_backlog_replenish_deep_scan',
-                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php'],
-                ),
-                'item_type' => 'deep_scan',
-                'lane' => 'now',
-                'completion_status' => 'pending',
-                'final_priority_score' => 980,
-            ],
-            [
-                'item_id' => $this->versionedFactoryItemId(
-                    'terminal_backlog_replenish_priority_backlog',
-                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php'],
-                ),
-                'item_type' => 'priority_backlog',
-                'lane' => 'now',
-                'completion_status' => 'pending',
-                'final_priority_score' => 970,
-            ],
-        ];
-    }
-
-    /**
-     * @param  list<array<string,string>>  $rejections
-     * @return list<array<string,string>>
-     */
-    private function starvationExhaustionRejections(array $rejections): array
-    {
-        return array_values(array_filter(
-            $rejections,
-            function (array $rejection): bool {
-                $findingId = (string) ($rejection['finding_id'] ?? '');
-                $reason = (string) ($rejection['reason'] ?? '');
-
-                if (str_starts_with($findingId, self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID)) {
-                    return false;
-                }
-                if ($this->isFactoryMaxTerminalBacklogUnlockFindingId($findingId)) {
-                    return false;
-                }
-                if (in_array($reason, self::STARVATION_META_REJECTION_REASONS, true)) {
-                    return false;
-                }
-
-                return true;
-            },
-        ));
-    }
-
-    private function isFactoryMaxTerminalBacklogUnlockFindingId(string $findingId): bool
-    {
-        return str_starts_with($findingId, 'factory_max_ap790_terminal_backlog_unlock_')
-            || str_starts_with($findingId, 'factory_max_ap748_terminal_backlog_discovery_')
-            || str_starts_with($findingId, 'factory_max_ap785_terminal_backlog_rebalance_');
-    }
-
-    /**
-     * @param  list<array<string,string>>  $rejections
-     * @return array{reasons:list<string>,rejected_ids:list<string>,state_hash:string}
-     */
-    private function starvationExhaustionStateContext(array $rejections): array
-    {
-        $exhaustionRejections = $this->starvationExhaustionRejections($rejections);
-        $reasons = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
-            static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
-            $exhaustionRejections,
-        )));
-        sort($reasons);
-        $rejectedIds = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
-            static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
-            $exhaustionRejections,
-        )));
-        sort($rejectedIds);
-        $rejectedIds = array_slice($rejectedIds, 0, 24);
-        $stateHash = substr(MissionCanonicalHash::sha256([
-            'reasons' => $reasons,
-            'rejected_ids' => $rejectedIds,
-        ]), 0, 12);
-
-        return [
-            'reasons' => $reasons,
-            'rejected_ids' => $rejectedIds,
-            'state_hash' => $stateHash,
-        ];
-    }
-
-    /**
-     * AP-785 can still rank canonical high-impact backlog when AP-748 finds no
-     * executable item. The long loop must turn that ranked backlog into bounded
-     * owner-runtime work instead of stopping at no_candidate_with_allowed_files.
-     *
-     * @param  array<string,mixed>  $priority
-     * @return list<array<string,mixed>>
-     */
-    private function factoryMaxPriorityBacklogCandidates(array $priority): array
-    {
-        $ranked = AreaFocusLoopPayloadNormalizer::listOfArrays($priority['ranked_items'] ?? []);
-        if ($ranked === []) {
-            $ranked = AreaFocusLoopPayloadNormalizer::listOfArrays($priority['ranked_candidates'] ?? []);
-        }
-
-        $candidates = [];
-        foreach ($ranked as $item) {
-            $lane = strtolower((string) ($item['lane'] ?? ''));
-            $status = strtolower((string) ($item['completion_status'] ?? 'pending'));
-            if ($lane !== 'now' || $status === 'completed') {
-                continue;
-            }
-
-            $candidate = $this->factoryMaxPriorityBacklogCandidate($item);
-            if ($candidate === null) {
-                continue;
-            }
-            $candidates[] = $candidate;
-        }
-
-        return $candidates;
-    }
-
-    /**
-     * @param  array<string,mixed>  $item
-     * @return array<string,mixed>|null
-     */
-    private function factoryMaxPriorityBacklogCandidate(array $item): ?array
-    {
-        $id = strtolower((string) ($item['item_id'] ?? $item['candidate_id'] ?? $item['id'] ?? ''));
-        $type = strtolower((string) ($item['item_type'] ?? $item['type'] ?? ''));
-        $key = $id !== '' ? $id : $type;
-        if ($key === '') {
-            return null;
-        }
-
-        $seed = match (true) {
-            str_contains($key, 'owner_runtime') || str_contains($key, 'runtime_execution') => $this->factorySeed(
-                'ap790_priority_owner_runtime_real_execution_bridge',
-                'Materialize owner runtime real execution bridge backlog into AP-790 work',
-                'The priority engine ranks owner-runtime real execution as the highest pending factory unlock, but it has no executable files attached. Materialize it through AP-786 owner-flow diagnostics and tests so the loop can keep improving real owner execution instead of stopping at empty candidate selection.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
-                'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'continuous_24h') || str_contains($key, '24h_scheduler') || str_contains($key, 'scheduler') => $this->factorySeed(
-                'ap790_priority_continuous_24h_scheduler',
-                'Materialize continuous 24h scheduler backlog into AP-790 work',
-                'The priority engine ranks continuous 24h scheduler reliability as a pending factory unlock, but the backlog item has no executable files attached. Materialize it through Reliable24hLoopRunnerService so blocked, merged and recovered cycles remain observable and bounded.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
-                'Reliable24hLoopRunnerServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'product_mode') || str_contains($key, 'controls') || str_contains($key, 'receipt') => $this->factorySeed(
-                'ap790_priority_product_mode_controls_receipts',
-                'Materialize Product Mode controls and receipts backlog into AP-790 work',
-                'The priority engine ranks Product Mode controls and receipts as the next operator-safety unlock, but the backlog item has no executable files attached. Materialize it through ProductModeOperationalControlReceiptService so pause, kill-switch and autonomy decisions remain receipt-backed before longer unattended runs.',
-                'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeOperationalControlReceiptService.php',
-                'ProductModeOperationalControlReceiptServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'provider_routing') || str_contains($key, 'provider_optimization') || str_contains($key, 'atlas_decide') => $this->factorySeed(
-                'ap789_provider_routing_authority_bridge',
-                'Materialize provider routing authority bridge into AP-790 work',
-                'The priority engine ranks provider routing only after owner runtime, scheduler and Product Mode controls are real. Materialize the next safe step through ForgeLiveAuthorityBootstrapService so AP-790 can move toward AtlasDecide/Forge authority without direct provider routing, fake topology or unsandboxed mutation.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
-                'ForgeLiveAuthorityBootstrapServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'senior_loop') || str_contains($key, 'failed_gate') || str_contains($key, 'repair_after_authority') => $this->factorySeed(
-                'ap786_owner_senior_loop_repair_after_authority_blocker',
-                'Materialize owner senior loop repair after authority blocker',
-                'The AP-790 loop reached a real owner runtime blocker: owner_runtime_senior_loop_execution_not_passed. Materialize a repair in Ap786OwnerFlowExecutor so senior-loop failures become more actionable and the loop can keep advancing without hiding failed provider/verification attempts.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
-                'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'deep_scan') || str_contains($key, 'candidate_discovery') => $this->factorySeed(
-                'ap790_priority_terminal_backlog_replenish_deep_scan',
-                'Replenish deep-scan candidate discovery after terminal starvation',
-                'The 24h loop consumed merge-queue replenishment and still found no executable work. Materialize deeper AP-748 candidate discovery so AP-790 can keep surfacing fresh Atlas Dev and Forge runtime bottlenecks instead of stopping at no_candidate_with_allowed_files.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'priority_backlog') || str_contains($key, 'priority_engine') => $this->factorySeed(
-                'ap790_priority_terminal_backlog_replenish_priority_backlog',
-                'Replenish priority backlog generation after terminal starvation',
-                'The 24h loop consumed merge-queue and deep-scan replenishment without finding executable work. Materialize AP-785 priority backlog generation so AP-790 can keep producing high-return runtime candidates instead of exhausting the factory queue.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
-                'StewardshipPriorityEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            str_contains($key, 'terminal_backlog_replenish') || str_contains($key, 'merge_queue') => $this->factorySeed(
-                'ap790_priority_terminal_backlog_replenish_merge_queue',
-                'Replenish merge queue executable after terminal starvation',
-                'The 24h loop exhausted AP-786 terminal unlock ladder candidates. Materialize merge-queue replenishment so AP-790 can keep advancing with bounded Stewardship merge work instead of stopping at no_candidate_with_allowed_files.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php',
-                'StewardshipMergeQueueServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            default => null,
-        };
-
-        if ($seed === null) {
-            return null;
-        }
-
-        $seed['origin_type'] = 'priority_backlog_materialized';
-        $seed['priority_source'] = [
-            'schema_version' => 'atlas.software_company_stewardship.priority_backlog_source.v1',
-            'item_id' => $id,
-            'item_type' => $type,
-            'lane' => (string) ($item['lane'] ?? ''),
-            'final_priority_score' => $item['final_priority_score'] ?? null,
-        ];
-        $seed['evidence_refs'][] = 'ap785_priority_backlog:'.$key;
-        $seed['spec_seed']['evidence_refs'][] = 'ap785_priority_backlog:'.$key;
-        $seed['spec_seed']['acceptance'][] = 'The loop can select this priority-backed candidate when scanned findings and static seeds are exhausted.';
-
-        return $seed;
-    }
-
-    /**
-     * Terminal-locked starvation recovery means the loop has already tried to
-     * fix empty selection and the owner runtime could not finish it. The next
-     * professional move is to replenish the candidate factory itself through a
-     * small ordered ladder, not to keep selecting the same exhausted recovery.
-     *
-     * @param  list<array<string,string>>  $rejections
-     * @return list<array<string,mixed>>
-     */
-    private function factoryMaxTerminalBacklogUnlockCandidates(array $rejections): array
-    {
-        $context = $this->starvationExhaustionStateContext($rejections);
-        $stateHash = $context['state_hash'];
-        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
-        $reasonCount = count($terminalReasons);
-        $detailSuffix = ' Terminal backlog state hash: '.$stateHash.'. Rejection reason count: '.$reasonCount.'.';
-
-        $candidates = [
-            $this->factorySeed(
-                'ap790_terminal_backlog_unlock_'.$stateHash,
-                'Unlock AP-790 terminal candidate starvation · '.$stateHash,
-                'The 24h loop reached terminal-locked starvation recovery. Add bounded selection/backlog replenishment behavior so AP-786 can continue to a fresh, high-impact executable candidate instead of stopping at no_candidate_with_allowed_files.'.$detailSuffix,
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-                'AutonomousEvolutionSessionServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap748_terminal_backlog_discovery_'.$stateHash,
-                'Replenish AP-748 runtime candidate discovery after terminal starvation · '.$stateHash,
-                'The 24h loop exhausted AP-786 static and priority-backed candidates. Improve AP-748 deep finding discovery so factory_max scans surface fresh runtime bottlenecks in Atlas Dev and Forge instead of leaving AP-790 without executable work.'.$detailSuffix,
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap785_terminal_backlog_rebalance_'.$stateHash,
-                'Rebalance AP-785 priority backlog after terminal starvation · '.$stateHash,
-                'The 24h loop has no executable high-impact candidate after locks and terminal blockers. Improve AP-785 priority backlog materialization so owner runtime, Forge authority, scheduler, merge and provider-routing unlocks stay available as concrete executable candidates.'.$detailSuffix,
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
-                'StewardshipPriorityEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-        ];
-
-        foreach ($candidates as $index => $candidate) {
-            $candidates[$index]['origin_type'] = 'ap790_terminal_backlog_unlock';
-            $candidates[$index]['terminal_backlog_state_hash'] = $stateHash;
-            $candidates[$index]['terminal_backlog_rejection_reasons'] = $terminalReasons;
-            $candidates[$index]['terminal_backlog_rejected_ids'] = $context['rejected_ids'];
-            $candidates[$index]['spec_seed']['state_hash'] = $stateHash;
-            $candidates[$index]['spec_seed']['acceptance'][] = 'AP-790 no longer stops at no_candidate_with_allowed_files for this terminal backlog state.';
-        }
-
-        return $candidates;
-    }
-
     /** @param array<string,mixed> $finding */
     private function isFactoryMaxStarvationRecoveryFinding(array $finding): bool
     {
@@ -2924,633 +2160,8 @@ final class AutonomousEvolutionSessionService
             || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
     }
 
-    /** @param array<string,mixed> $finding */
-    private function isFactoryMaxTerminalBacklogUnlockFinding(array $finding): bool
-    {
-        if ((string) ($finding['origin_type'] ?? '') === 'ap790_terminal_backlog_unlock') {
-            return true;
-        }
-
-        $findingId = (string) ($finding['finding_id'] ?? '');
-
-        return str_starts_with($findingId, 'factory_max_ap790_terminal_backlog_unlock_')
-            || str_starts_with($findingId, 'factory_max_ap748_terminal_backlog_discovery_')
-            || str_starts_with($findingId, 'factory_max_ap785_terminal_backlog_rebalance_');
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function isForgeAuthorityReadinessCandidate(array $finding): bool
-    {
-        $originType = (string) ($finding['origin_type'] ?? '');
-        $findingId = (string) ($finding['finding_id'] ?? '');
-
-        return str_starts_with($originType, 'ap789_')
-            || str_starts_with($findingId, 'factory_max_ap789_');
-    }
-
-    /**
-     * AP-748 is read-only by design, so structural findings arrive as
-     * proposal-only. The 24h factory loop may still execute the narrow subset that
-     * is already safe: in-focus Atlas Dev missing-test findings over factory
-     * runtime files with an explicit expected test path.
-     *
-     * @param  array<string,mixed>  $finding
-     * @return array<string,mixed>
-     */
-    private function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
-    {
-        $finding = $this->promoteStructuralRuntimeGapFinding($finding, $scopeProfile);
-        if ($scopeProfile !== self::SCOPE_FACTORY_MAX || $this->findingAllowsAutonomousExecution($finding)) {
-            return $finding;
-        }
-        if (! $this->isSafeFactoryStructuralFinding($finding)) {
-            return $finding;
-        }
-
-        $allowedFiles = $this->allowedFiles($finding);
-        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
-        $title = trim((string) ($finding['title'] ?? ''));
-
-        $finding['auto_execution_allowed'] = true;
-        $finding['operator_review_required'] = false;
-        $finding['autonomous_execution_reason'] = 'factory_max_safe_structural_missing_test';
-        $finding['proposed_next_action'] = $this->safeFactoryNextAction($title, $allowedFiles, $testsRequired);
-
-        $specSeed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
-        $specSeed['proposal_only'] = false;
-        $specSeed['operator_review_required'] = false;
-        $specSeed['tests_required'] = $testsRequired;
-        $specSeed['acceptance'] = array_values(array_filter([
-            $title !== '' ? 'The owner runtime implements the selected missing-test finding: '.$title.'.' : '',
-            $testsRequired !== [] ? 'The focused test command passes: php artisan test '.$testsRequired[0].'.' : '',
-            'The implementation changes only the selected runtime/test allowed_files.',
-        ], static fn (string $line): bool => $line !== ''));
-        $finding['spec_seed'] = $specSeed;
-
-        return $finding;
-    }
-
-    /**
-     * AP-790: ingest high-impact AAEOS runtime gap matrix rows (partial_runtime /
-     * spec_runtime_gap) as executable factory-max candidates before routine
-     * missing-test maintenance.
-     *
-     * @param  array<string,mixed>  $finding
-     * @return array<string,mixed>
-     */
-    private function promoteStructuralRuntimeGapFinding(array $finding, string $scopeProfile): array
-    {
-        if ($scopeProfile !== self::SCOPE_FACTORY_MAX || ! $this->isStructuralRuntimeGapFinding($finding)) {
-            return $finding;
-        }
-
-        $allowedFiles = $this->allowedFiles($finding);
-        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
-        $title = trim((string) ($finding['title'] ?? ''));
-        $gapKind = $this->structuralRuntimeGapKind($finding);
-
-        $finding['auto_execution_allowed'] = true;
-        $finding['operator_review_required'] = false;
-        $finding['autonomous_execution_reason'] = 'factory_max_structural_runtime_gap_matrix';
-        $finding['proposed_next_action'] = sprintf(
-            'Close the AAEOS runtime gap matrix %s finding "%s": implement the bounded runtime/test change in allowed_files and prove it with the focused test.',
-            $gapKind,
-            $title !== '' ? $title : 'structural runtime gap',
-        );
-
-        $specSeed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
-        $specSeed['proposal_only'] = false;
-        $specSeed['operator_review_required'] = false;
-        $specSeed['gap_kind'] = $gapKind;
-        $specSeed['tests_required'] = $testsRequired;
-        $specSeed['acceptance'] = array_values(array_filter([
-            $title !== '' ? 'The owner runtime closes the structural runtime gap: '.$title.'.' : '',
-            $testsRequired !== [] ? 'The focused test command passes: php artisan test '.$testsRequired[0].'.' : '',
-            'AP-790 consumed this partial_runtime/spec_runtime_gap backlog item before routine maintenance.',
-        ], static fn (string $line): bool => $line !== ''));
-        $finding['spec_seed'] = $specSeed;
-
-        return $finding;
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $findings
-     */
-    private function scanHasStructuralRuntimeGapBacklog(array $findings): bool
-    {
-        foreach ($findings as $finding) {
-            if (is_array($finding) && $this->isStructuralRuntimeGapFinding($finding)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function isStructuralRuntimeGapFinding(array $finding): bool
-    {
-        return in_array($this->structuralRuntimeGapKind($finding), self::FACTORY_MAX_STRUCTURAL_RUNTIME_GAP_KINDS, true);
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function structuralRuntimeGapKind(array $finding): string
-    {
-        $gapKind = strtolower(trim((string) (
-            data_get($finding, 'spec_seed.gap_kind')
-            ?? data_get($finding, 'gap_kind')
-            ?? ''
-        )));
-        if ($gapKind !== '') {
-            return $gapKind;
-        }
-
-        if (strtolower((string) ($finding['origin'] ?? '')) !== 'runtime_gap_matrix') {
-            return '';
-        }
-
-        return strtolower(trim((string) ($finding['origin_type'] ?? '')));
-    }
-
-    /** @param array<string,mixed> $finding */
-    private function isSafeFactoryStructuralFinding(array $finding): bool
-    {
-        if ((string) ($finding['origin'] ?? '') !== 'structural_ap717') {
-            return false;
-        }
-        if (! in_array(strtolower((string) ($finding['origin_type'] ?? '')), self::FACTORY_MAX_SAFE_STRUCTURAL_ORIGIN_TYPES, true)) {
-            return false;
-        }
-        if ((bool) ($finding['in_focus'] ?? false) !== true || $this->owner($finding) !== 'atlas_dev') {
-            return false;
-        }
-        if (! in_array(strtolower((string) ($finding['severity'] ?? '')), ['low', 'medium'], true)) {
-            return false;
-        }
-        if (AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_docs'] ?? []) !== []) {
-            return false;
-        }
-
-        $allowedFiles = $this->allowedFiles($finding);
-        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
-
-        return $allowedFiles !== []
-            && $testsRequired !== []
-            && $this->touchesFactoryRuntime($allowedFiles);
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $testsRequired
-     */
-    private function safeFactoryNextAction(string $title, array $allowedFiles, array $testsRequired): string
-    {
-        $target = $allowedFiles[0] ?? 'selected runtime';
-        $test = $testsRequired[0] ?? 'focused test';
-
-        return sprintf(
-            'Implement the safe AP-717 missing-test finding "%s": add or harden %s for %s, keep the diff inside allowed_files, and prove it with php artisan test %s.',
-            $title !== '' ? $title : 'missing test',
-            $test,
-            $target,
-            $test,
-        );
-    }
-
-    /**
-     * AP-786 must not silently degrade into "provider + Atlas prompt". Until
-     * the native owner chain is wired for this session, direct driver execution
-     * is a legacy diagnostic path that requires an explicit caller opt-in.
-     *
-     * @return array<string,mixed>
-     */
-    private function flowIntegrityGate(string $owner, bool $allowDirectProviderDriver): array
-    {
-        // The default AP-786 execute path now routes through the real owner
-        // runtime chain (AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 ->
-        // AP-759 -> AP-750) via the Ap786OwnerFlowRunner. The direct provider
-        // driver only runs when the caller explicitly opts into the legacy
-        // diagnostic path.
-        $usesFullOwnerRuntimeChain = ! $allowDirectProviderDriver;
-        $directProviderDriverPath = $allowDirectProviderDriver;
-        $ok = $usesFullOwnerRuntimeChain || $allowDirectProviderDriver;
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.ap786_flow_integrity_gate.v1',
-            'ok' => $ok,
-            'owner' => $owner,
-            'uses_full_owner_runtime_chain' => $usesFullOwnerRuntimeChain,
-            'direct_provider_driver_path' => $directProviderDriverPath,
-            'direct_provider_driver_allowed' => $allowDirectProviderDriver,
-            'blocked_reason' => $ok ? null : 'full_atlas_forge_flow_required',
-            'required_chain' => self::REQUIRED_FULL_OWNER_FLOW_APS,
-            'required_robust_flow_capabilities' => self::REQUIRED_ROBUST_FLOW_CAPABILITIES,
-            'robust_flow_contract' => [
-                'schema' => Ap786RobustForgeQualityContractService::CONTRACT_SCHEMA,
-                'service' => Ap786RobustForgeQualityContractService::class,
-                'evaluates' => 'per-finding capability ok/missing/evidence_refs (ready|blocked) before provider execution',
-            ],
-            'forbidden_claim' => 'Do not claim full Atlas Forge or Atlas Dev execution when AP-786 is only invoking a provider driver with an Atlas-shaped prompt.',
-            'next_action' => $directProviderDriverPath
-                ? 'legacy_direct_provider_driver_path_explicitly_allowed'
-                : 'execute through the native Atlas owner runtime chain (AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 -> AP-759 -> AP-750) via Ap786OwnerFlowRunner before any merge.',
-        ];
-    }
-
-    /**
-     * Enforce the robust Forge quality contract on the default owner-flow path.
-     * This is intentionally evaluated before sandbox/provider/owner execution so
-     * AP-786 cannot spend a cycle without SDD/TDD/BDD, workcell, repair,
-     * evidence/replay and merge-governance proof.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $validationCommands
-     * @return array<string,mixed>
-     */
-    private function robustFlowContract(string $areaId, string $focus, array $finding, array $allowedFiles, string $owner, array $validationCommands): array
-    {
-        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
-        $acceptance = $this->acceptanceForFinding($finding);
-        $specId = (string) (data_get($finding, 'spec_seed.candidate_id') ?: ($finding['finding_id'] ?? ''));
-        $decisionReceiptId = 'AP-786:'.(string) ($finding['finding_id'] ?? substr(MissionCanonicalHash::sha256($finding), 0, 12));
-
-        return $this->robustContract->build([
-            'area_id' => $areaId,
-            'focus' => $focus,
-            'owner' => $owner,
-            'selected_finding' => $finding,
-            'allowed_files' => $allowedFiles,
-            'validation_commands' => $validationCommands !== [] ? $validationCommands : ['git diff --check'],
-            'sdd_packet' => [
-                'spec_id' => $specId,
-                'objective' => (string) ($finding['why_it_matters'] ?? $finding['detail'] ?? $finding['title'] ?? ''),
-                'scope' => (string) ($finding['title'] ?? 'AP-786 autonomous evolution work'),
-                'acceptance' => $acceptance,
-                'owner_docs' => AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.owner_doc_refs', [])),
-            ],
-            'tdd_contract' => [
-                'tests_required' => $testsRequired,
-                'focused_test' => $testsRequired[0] ?? '',
-                'test_first' => $testsRequired !== [],
-            ],
-            'bdd_contract' => [
-                'behavior_acceptance' => $acceptance,
-                'operator_visible_outcome' => (string) ($finding['why_it_matters'] ?? $finding['proposed_next_action'] ?? ''),
-            ],
-            'provider_topology' => [
-                'source' => 'atlas_decide',
-                'chosen_by_atlas_decide' => true,
-                'owner_runtime_authority' => 'AP-759',
-                'target_owner' => $owner,
-            ],
-            'workcell' => [
-                'context_scout' => 'AP-748 deep finding scan',
-                'architect' => 'Self-Directed Evolution spec seed / SDD packet',
-                'implementer' => 'AP-759 owner runtime command',
-                'reviewer' => 'AP-750 owner runtime result bridge',
-                'repair_agent' => 'Atlas Dev Senior Loop failure capsule',
-                'certifier' => 'AP-786/AP-769/AP-774 certification gates',
-            ],
-            'repair_policy' => [
-                'max_attempts' => 2,
-                'failed_gate_capsule_schema' => 'atlas.software_company_stewardship.ap786_failed_gate_capsule.v1',
-                'stop_conditions' => ['validation_still_failing', 'diff_outside_allowed_files', 'no_progress_between_attempts'],
-            ],
-            'evidence' => [
-                'decision_receipt_id' => $decisionReceiptId,
-                'evidence_ledger_ref' => 'AP-750:owner_runtime_result_bridge',
-                'ap750_result_bridge' => 'required_before_merge',
-                'replay_ref' => 'AP-786:autonomous_evolution_session_jsonl',
-                'programming_governance' => true,
-            ],
-            'merge_requirements' => [
-                'governed_by' => ['AP-769', 'AP-774'],
-            ],
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return array<string,mixed>
-     */
-    private function diagnosticRobustFlowContractSkipped(array $finding, array $allowedFiles, string $owner): array
-    {
-        return [
-            'schema_version' => Ap786RobustForgeQualityContractService::CONTRACT_SCHEMA,
-            'ap_contract' => 'AP-786',
-            'status' => 'diagnostic_skipped',
-            'owner' => $owner,
-            'selected_finding' => $this->findingSummary($finding),
-            'allowed_files' => $allowedFiles,
-            'blockers' => ['legacy_direct_provider_driver_diagnostic_path'],
-            'claim_policy' => [
-                'counts_as_full_atlas_forge_execution' => false,
-                'counts_as_robust_obra_forge_quality_flow' => false,
-            ],
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return list<string>
-     */
-    private function testsRequiredForFinding(array $finding, array $allowedFiles): array
-    {
-        $tests = AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.tests_required', []));
-        foreach ($allowedFiles as $file) {
-            if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
-                $tests[] = $file;
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
-    }
-
-    /**
-     * AP-786 is only useful when the owner runtime receives an executable proof
-     * contract. A generic `git diff --check` lets providers truthfully return
-     * no_patch_needed; thread the selected finding's focused tests into Atlas
-     * Dev so the provider sees a concrete patch target and verification gate.
-     *
-     * @param  list<string>  $inputCommands
-     * @param  array<string,mixed>  $finding
-     * @param  list<string>  $allowedFiles
-     * @return list<string>
-     */
-    private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
-    {
-        $commands = AreaFocusStringListNormalizer::preserveNonBlankStrings(array_map(
-            fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
-            $inputCommands,
-        ));
-
-        foreach ($this->testsRequiredForFinding($finding, $allowedFiles) as $test) {
-            $test = trim($test);
-            if ($test === '' || str_contains($test, "\n") || strlen($test) > 180) {
-                continue;
-            }
-            if (str_starts_with($test, 'php artisan test ')) {
-                $commands[] = $this->worktreeSafeValidationCommand($test);
-            } elseif (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
-                $commands[] = './vendor/bin/phpunit --configuration=phpunit.xml '.$test;
-            }
-        }
-
-        if (! in_array('git diff --check', $commands, true)) {
-            $commands[] = 'git diff --check';
-        }
-
-        return array_values(array_slice(array_unique($commands), 0, 4));
-    }
-
-    private function worktreeSafeValidationCommand(string $command): string
-    {
-        $command = trim($command);
-        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
-            $args = trim((string) ($matches[1] ?? ''));
-
-            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
-        }
-
-        return $command;
-    }
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @return list<string>
-     */
-    private function acceptanceForFinding(array $finding): array
-    {
-        $acceptance = AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.acceptance', []));
-        if ($acceptance !== []) {
-            return $acceptance;
-        }
-
-        $title = trim((string) ($finding['title'] ?? ''));
-        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
-
-        return array_values(array_filter([
-            $title !== '' ? 'Given the selected AP-786 finding, the owner runtime implements: '.$title : '',
-            $nextAction !== '' ? 'Operator can verify the result by the proposed next action: '.$nextAction : '',
-        ], static fn (string $line): bool => $line !== ''));
-    }
-
-    /**
-     * High-impact fallback work for the operator's core thesis: improve the
-     * software factory itself before spending cycles on downstream domains or
-     * low-leverage documentation/evidence cleanup.
-     *
-     * @return list<array<string,mixed>>
-     */
-    private function factoryMaxSeedCandidates(): array
-    {
-        return [
-            $this->factorySeed(
-                'ap789_forge_topology_dispatch_readiness',
-                'Repair AP-789 Forge live topology dispatch readiness',
-                'The 24h loop cannot execute high-impact Forge work while AP-789 reports forge_live_topology_unavailable. Improve the real readiness diagnostics or wiring around ForgeLiveAuthorityBootstrapService so the loop gets an actionable, bounded next step instead of starving candidate selection.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
-                'ForgeLiveAuthorityBootstrapServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap789_awis_workspace_handoff_readiness',
-                'Repair AP-789 AWIS workspace handoff readiness',
-                'The 24h loop cannot graduate into real Forge owner runtime while AP-789 reports workspace_handoff_pack_blocked or awis_handoff blockers. Improve the AWIS handoff readiness surface and tests so AP-790 can progress without fabricating authority.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
-                'ForgeLiveAuthorityBootstrapServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap790_runtime_gap_matrix_ingestion',
-                'Make AP-790 consume structural AAEOS runtime gap backlog before maintenance',
-                'Wire the autonomous loop selection policy to prefer high-impact partial_runtime/spec_runtime_gap items from the AAEOS runtime gap matrix before spending more cycles on routine missing-test maintenance.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-                'AutonomousEvolutionSessionServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap789_forge_authority_readiness',
-                'Improve AP-789 live authority readiness diagnostics',
-                'Make AP-789 live authority blockers more actionable so the 24h loop can graduate from Atlas Dev maintenance into real owner-runtime dispatch without fabricating authority.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
-                'ForgeLiveAuthorityBootstrapServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap792_loop_certification_runtime_realness',
-                'Harden 24h certification harness against partial-runtime false confidence',
-                'Strengthen the loop certification harness so it distinguishes small successful maintenance cycles from large Dev/Forge runtime cycles before any months-ready claim.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php',
-                'Loop24hCertificationHarnessServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap786_loop_hardening',
-                'Harden AP-786 autonomous evolution loop against wasted cycles',
-                'Make the autonomous loop better at choosing, executing, validating, merging and continuing without wasting provider calls.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-                'AutonomousEvolutionSessionServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap785_priority_power',
-                'Improve factory-max priority scoring for highest-return engineering work',
-                'Tune the priority engine so work that improves Atlas Dev, Forge, provider routing, sandboxing, validation and merge throughput dominates cosmetic or documentary work.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
-                'StewardshipPriorityEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap748_deep_scan_power',
-                'Expand deep finding engine to discover runtime bottlenecks in Atlas Dev and Forge',
-                'Increase the scanner ability to find real runtime gaps, missing tests, provider-routing risks and execution bottlenecks instead of low-leverage doc findings.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap717_missing_test_precision',
-                'Suppress AP-717 interface-only missing-test false positives',
-                'The 24h loop must not waste provider cycles on impossible or low-value missing-test findings for interfaces when the concrete implementation/service test already covers the runtime contract.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap756_sandbox_throughput',
-                'Harden branch sandbox materializer for faster safe autonomous cycles',
-                'Improve the isolated branch/worktree layer because every autonomous implementation cycle depends on reliable sandbox creation, cleanup and receipts.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
-                'AreaFocusBranchSandboxMaterializerServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap769_merge_throughput',
-                'Improve merge governor throughput without lowering safety',
-                'Reduce false blocks and strengthen evidence in the merge governor so safe changes land faster while risky changes remain isolated.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php',
-                'StewardshipBranchMergeGovernorServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'cursor_driver_reliability',
-                'Harden Cursor CLI driver for long autonomous factory runs',
-                'Provider invocation reliability directly controls factory throughput; improve prompt passing, scope checks, timeout evidence and account-driver safety.',
-                'app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php',
-                'AtlasForgeCursorCliDriverTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap786_owner_failure_specificity',
-                'Expose owner-runtime failure states as actionable AP-786 blockers',
-                'When the owner runtime returns no_patch_needed, senior_loop_execution_not_passed or routing_not_executable, AP-786 should surface the precise machine blocker instead of collapsing everything into owner_runtime_result_not_completed.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
-                'AutonomousEvolutionSessionServiceTest.php',
-                'atlas_dev',
-                'bug',
-            ),
-            $this->factorySeed(
-                'ap790_blocked_cycle_summary_test',
-                'Add focused unit coverage for AP-790 blocked-cycle summaries',
-                'Prove that the reliable 24h runner reports blocked cycles with exact blockers, cycle indexes and no merge claim so the operator can trust loop progress telemetry.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
-                'Reliable24hLoopRunnerServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap785_priority_state_test',
-                'Add focused unit coverage for AP-785 priority state awareness',
-                'Prove that factory priority ranking prefers high-return Atlas Dev and Forge execution work while preserving deterministic state-aware ordering.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
-                'StewardshipPriorityEngineServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap748_deep_scan_path_test',
-                'Add focused unit coverage for AP-748 deep-scan path precision',
-                'Prove that the deep finding engine emits actionable source and test paths for factory runtime work instead of routing low-leverage documentation-only findings.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap786_read_model_test',
-                'Add focused unit coverage for AP-786 session read model',
-                'Prove that the autonomous session read model projects recorded cycle receipts without executing providers, branches or merge operations.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php',
-                'AutonomousEvolutionSessionReadModelServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap791_receipt_integrity_test',
-                'Add focused unit coverage for AP-791 loop receipt integrity',
-                'Prove that loop receipt integrity keeps pre-merge inbox evidence mandatory and emits reviewable lifecycle receipts for completed, blocked and planned cycles.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousLoopReceiptIntegrityService.php',
-                'AutonomousLoopReceiptIntegrityServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap716_area_focus_read_model_test',
-                'Add focused unit coverage for AP-716 area focus read model',
-                'Prove that the area focus read model exposes actionable agentic engineering status without mutating repositories or bypassing owner routing.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php',
-                'AtlasAreaFocusLoopReadModelServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap790_blocked_cycle_mergeable_test',
-                'Add mergeable AP-790 blocked-cycle regression coverage',
-                'Add a focused regression test proving AP-790 records blocked-cycle blockers and remains safe to auto-merge when the diff is test-only.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
-                'Reliable24hLoopRunnerServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap748_interface_false_positive_test',
-                'Add AP-748 interface false-positive regression coverage',
-                'Add a focused regression test proving AP-748 does not promote interface-only missing-test findings when the concrete runtime already has coverage.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
-                'AreaFocusDeepFindingEngineServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-            $this->factorySeed(
-                'ap790_seen_finding_resume_test',
-                'Add AP-790 seen-finding resume regression coverage',
-                'Add a focused regression test proving AP-790 crash recovery forwards seen findings so the loop keeps moving instead of repeating completed work.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
-                'Reliable24hLoopRunnerServiceTest.php',
-                'atlas_dev',
-                'test',
-            ),
-        ];
-    }
-
     /** @return array<string,mixed> */
-    private function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind, string $severity = 'medium'): array
+    public function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind, string $severity = 'medium'): array
     {
         $hash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $id, $sourceFile, $testBasename]);
 
@@ -4020,7 +2631,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param array<string,mixed> $forgeInputs */
-    private function hasLiveForgeAuthority(array $forgeInputs): bool
+    public function hasLiveForgeAuthority(array $forgeInputs): bool
     {
         $obra = trim((string) ($forgeInputs['forge_obra'] ?? $forgeInputs['obra_id'] ?? ''));
         $topology = is_array($forgeInputs['forge_live_topology'] ?? null) ? $forgeInputs['forge_live_topology'] : [];
@@ -4035,7 +2646,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $finding
      * @return list<string>
      */
-    private function allowedFiles(array $finding): array
+    public function allowedFiles(array $finding): array
     {
         $files = array_merge(
             AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []),
@@ -5248,311 +3859,6 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * Provider output that is technically in-scope can still be operationally
-     * unsafe: a bounded task should not rewrite or delete a whole service without
-     * touching the focused test. This gate runs before committing the sandbox, so
-     * rejected provider output cannot become a branch commit or main merge.
-     *
-     * @param  list<string>  $changedFiles
-     * @param  list<string>  $allowedFiles
-     * @param  array<string,mixed>  $finding
-     * @return array<string,mixed>
-     */
-    private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding, string $scopeProfile): array
-    {
-        $changedFiles = AreaFocusStringListNormalizer::uniqueStringValues(array_filter($changedFiles, 'is_string'));
-        if ($changedFiles === []) {
-            return [
-                'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
-                'passed' => true,
-                'blockers' => [],
-                'reason' => 'no_diff_to_score',
-            ];
-        }
-
-        $numstat = $this->git($worktree, array_merge(['diff', '--numstat', '--'], $changedFiles));
-        if (! $numstat['ok']) {
-            return [
-                'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
-                'passed' => false,
-                'blockers' => [self::PROVIDER_DIFF_QUALITY_BLOCKER, 'diff_stats_unavailable'],
-                'reason' => 'diff_stats_unavailable',
-                'git' => $numstat,
-            ];
-        }
-
-        $stats = $this->withUntrackedChangedFileStats(
-            $worktree,
-            $changedFiles,
-            $this->parseDiffNumstat((string) $numstat['out']),
-        );
-        $testChanged = false;
-        $testChangedFiles = [];
-        $productInsertions = 0;
-        $productDeletions = 0;
-        $productChanged = [];
-        $largeDeletedFiles = [];
-        foreach ($stats as $row) {
-            $file = (string) ($row['file'] ?? '');
-            $insertions = (int) ($row['insertions'] ?? 0);
-            $deletions = (int) ($row['deletions'] ?? 0);
-            if ($this->isTestFile($file)) {
-                $testChanged = true;
-                $testChangedFiles[] = $file;
-
-                continue;
-            }
-            if ($this->isDocumentationFile($file)) {
-                continue;
-            }
-
-            $productChanged[] = $file;
-            $productInsertions += $insertions;
-            $productDeletions += $deletions;
-            if ($deletions >= self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST) {
-                $largeDeletedFiles[] = ['file' => $file, 'deletions' => $deletions];
-            }
-        }
-
-        $productLineDelta = $productInsertions + $productDeletions;
-        $reasons = [];
-        if ($scopeProfile === self::SCOPE_FACTORY_MAX
-            && $productChanged !== []
-            && $this->contractOnlyProductDiff($worktree, $productChanged)) {
-            $reasons[] = 'contract_only_diff_without_runtime_wiring';
-        }
-        if ($scopeProfile === self::SCOPE_FACTORY_MAX
-            && $productChanged !== []
-            && $this->contractBackedRuntimeDiffWithoutFocusedRuntimeTest($productChanged, $testChangedFiles)) {
-            $reasons[] = 'runtime_wiring_without_focused_runtime_test';
-        }
-        if ($productChanged !== [] && ! $testChanged) {
-            if ($productLineDelta >= self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST) {
-                $reasons[] = 'large_product_diff_without_test_update';
-            }
-            if ($productDeletions >= self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST) {
-                $reasons[] = 'large_product_deletion_without_test_update';
-            }
-            if ($largeDeletedFiles !== []) {
-                $reasons[] = 'large_single_file_deletion_without_test_update';
-            }
-            if ($productDeletions >= 30 && $productInsertions > 0 && ($productDeletions / max(1, $productInsertions)) >= self::DIFF_QUALITY_DELETION_RATIO_FLOOR) {
-                $reasons[] = 'deletion_heavy_product_diff_without_test_update';
-            }
-        }
-
-        $reasons = AreaFocusStringListNormalizer::uniqueStringValues($reasons);
-        $passed = $reasons === [];
-
-        return [
-            'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
-            'passed' => $passed,
-            'blockers' => $passed ? [] : AreaFocusStringListNormalizer::uniqueMergedStringValues([self::PROVIDER_DIFF_QUALITY_BLOCKER], $reasons),
-            'reason' => $passed ? 'diff_quality_acceptable' : $reasons[0],
-            'scope_profile' => $scopeProfile,
-            'finding_id' => (string) ($finding['finding_id'] ?? ''),
-            'changed_files' => $changedFiles,
-            'allowed_files' => $allowedFiles,
-            'stats' => $stats,
-            'summary' => [
-                'product_changed_files' => AreaFocusStringListNormalizer::uniqueStringValues($productChanged),
-                'test_changed' => $testChanged,
-                'test_changed_files' => AreaFocusStringListNormalizer::uniqueStringValues($testChangedFiles),
-                'product_insertions' => $productInsertions,
-                'product_deletions' => $productDeletions,
-                'product_line_delta' => $productLineDelta,
-                'large_deleted_files' => $largeDeletedFiles,
-            ],
-            'thresholds' => [
-                'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
-                'product_deletions_without_test' => self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST,
-                'single_file_deletions_without_test' => self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST,
-                'deletion_ratio_floor' => self::DIFF_QUALITY_DELETION_RATIO_FLOOR,
-            ],
-        ];
-    }
-
-    /**
-     * Contract-only diffs are progress theater in factory_max unless the same
-     * cycle wires a runtime/service source. A new `*Contract.php` plus reflection
-     * tests can be syntactically valid while leaving the factory no more capable.
-     *
-     * @param  list<string>  $productChanged
-     */
-    private function contractOnlyProductDiff(string $worktree, array $productChanged): bool
-    {
-        foreach ($productChanged as $file) {
-            if (! str_ends_with(basename($file), 'Contract.php')) {
-                return false;
-            }
-            if (! $this->isExecutableContractClassFile($worktree, $file)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isExecutableContractClassFile(string $worktree, string $file): bool
-    {
-        $path = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
-        if (! is_file($path)) {
-            return false;
-        }
-
-        $contents = (string) file_get_contents($path);
-        if (! preg_match('/\bfinal\s+class\s+\w+Contract\b/', $contents)) {
-            return false;
-        }
-        if (preg_match('/\binterface\s+\w+Contract\b|\babstract\s+class\b/', $contents) === 1) {
-            return false;
-        }
-
-        $methodSignals = [
-            'public function toArray(',
-            'public static function fromArray(',
-            'public static function defaults(',
-            'public function score(',
-            'public function validate(',
-            'public function classify(',
-        ];
-        $hasExecutableMethod = false;
-        foreach ($methodSignals as $signal) {
-            if (str_contains($contents, $signal)) {
-                $hasExecutableMethod = true;
-
-                break;
-            }
-        }
-        if (! $hasExecutableMethod) {
-            return false;
-        }
-
-        foreach (['return [', 'match (', 'if (', 'max(', 'min('] as $computedSignal) {
-            if (str_contains($contents, $computedSignal)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * AP-806 semantic contract slices are only useful when the provider wires a
-     * real runtime entrypoint and updates a focused runtime test in the same
-     * bounded diff. A contract test alone can prove shape while the service path
-     * remains unverified, which is exactly the low-yield branch pollution the
-     * factory_max loop must reject before commit.
-     *
-     * @param  list<string>  $productChanged
-     * @param  list<string>  $testChangedFiles
-     */
-    private function contractBackedRuntimeDiffWithoutFocusedRuntimeTest(array $productChanged, array $testChangedFiles): bool
-    {
-        $hasContractProduct = false;
-        $hasRuntimeProduct = false;
-        foreach ($productChanged as $file) {
-            if (str_ends_with(basename($file), 'Contract.php')) {
-                $hasContractProduct = true;
-
-                continue;
-            }
-            $hasRuntimeProduct = true;
-        }
-
-        if (! $hasContractProduct || ! $hasRuntimeProduct) {
-            return false;
-        }
-
-        foreach ($testChangedFiles as $file) {
-            if (! str_ends_with(basename($file), 'ContractTest.php')) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * `git diff --numstat` does not report untracked files. Provider outputs often
-     * create new files before AP-786 commits them, so the quality gate must score
-     * those files directly or new contract-only scaffolds look like an empty diff.
-     *
-     * @param  list<string>  $changedFiles
-     * @param  list<array{file:string,insertions:int,deletions:int,binary:bool}>  $stats
-     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
-     */
-    private function withUntrackedChangedFileStats(string $worktree, array $changedFiles, array $stats): array
-    {
-        $seen = [];
-        foreach ($stats as $row) {
-            $seen[(string) ($row['file'] ?? '')] = true;
-        }
-
-        foreach ($changedFiles as $file) {
-            if (isset($seen[$file])) {
-                continue;
-            }
-
-            $path = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
-            if (! is_file($path)) {
-                continue;
-            }
-
-            $contents = (string) file_get_contents($path);
-            $stats[] = [
-                'file' => $file,
-                'insertions' => $contents === '' ? 0 : substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1),
-                'deletions' => 0,
-                'binary' => false,
-            ];
-        }
-
-        return $stats;
-    }
-
-    /**
-     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
-     */
-    private function parseDiffNumstat(string $raw): array
-    {
-        $rows = [];
-        foreach (preg_split('/\R/', trim($raw)) ?: [] as $line) {
-            if ($line === '') {
-                continue;
-            }
-            $parts = preg_split('/\t+/', $line);
-            if (! is_array($parts) || count($parts) < 3) {
-                continue;
-            }
-            $binary = $parts[0] === '-' || $parts[1] === '-';
-            $file = (string) $parts[2];
-            if (str_contains($file, ' => ')) {
-                $file = (string) preg_replace('/.* => /', '', $file);
-                $file = trim($file, '{} ');
-            }
-            $rows[] = [
-                'file' => $file,
-                'insertions' => $binary ? 0 : max(0, (int) $parts[0]),
-                'deletions' => $binary ? 0 : max(0, (int) $parts[1]),
-                'binary' => $binary,
-            ];
-        }
-
-        return $rows;
-    }
-
-    private function isTestFile(string $file): bool
-    {
-        return str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php');
-    }
-
-    private function isDocumentationFile(string $file): bool
-    {
-        return str_starts_with($file, 'docs/') || preg_match('/\.(md|mdx|rst|txt)\z/i', $file) === 1;
-    }
-
-    /**
      * @param  list<string>  $allowedFiles
      * @param  array<string,mixed>  $finding
      * @return array<string,mixed>
@@ -5712,7 +4018,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param list<string> $files */
-    private function touchesFactoryRuntime(array $files): bool
+    public function touchesFactoryRuntime(array $files): bool
     {
         foreach ($files as $file) {
             if ($this->factoryRuntimeFile($file)) {
@@ -6266,7 +4572,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param array<string,true> $locked */
-    private function findingIsReviewLocked(array $finding, array $locked): bool
+    public function findingIsReviewLocked(array $finding, array $locked): bool
     {
         foreach ($this->findingKeys($finding) as $key) {
             if (isset($locked[$key])) {
@@ -6402,7 +4708,7 @@ final class AutonomousEvolutionSessionService
      * AP-786 only spends sandbox/provider budget on findings explicitly cleared
      * for autonomous execution (factory-max seeds, operator-authorized packets).
      */
-    private function findingAllowsAutonomousExecution(array $finding): bool
+    public function findingAllowsAutonomousExecution(array $finding): bool
     {
         if (($finding['auto_execution_allowed'] ?? false) !== true) {
             return false;
@@ -6579,7 +4885,7 @@ final class AutonomousEvolutionSessionService
     /**
      * @param  array<string,mixed>  $finding
      */
-    private function owner(array $finding): string
+    public function owner(array $finding): string
     {
         $owner = strtolower((string) ($finding['owner_candidate'] ?? data_get($finding, 'spec_seed.route_hint_owner', 'atlas_dev')));
 
@@ -6690,7 +4996,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $finding
      * @return array<string,mixed>
      */
-    private function findingSummary(array $finding): array
+    public function findingSummary(array $finding): array
     {
         return [
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -6790,7 +5096,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $args
      * @return array{ok:bool,exit_code:int|null,out:string,err:string}
      */
-    private function git(string $cwd, array $args, int $timeout = 60): array
+    public function git(string $cwd, array $args, int $timeout = 60): array
     {
         if (! is_dir($cwd)) {
             return [
