@@ -96,7 +96,14 @@ use Throwable;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
-
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\WorkspaceGitSupport;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\ProviderResultSupport;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\ResolverSupport;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\GovernanceSection;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\DeterministicPatchSection;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\ProviderExecutionSection;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\RepairProjectionSection;
+use App\Http\Controllers\AtlasDev\Support\PipelineRun\BestOfNSection;
 /**
  * Default HTTP-side {@see RunExecutor} that ties the core run-path services
  * end-to-end. Core (Pipeline/Gate/Provider) stays surface-agnostic; this
@@ -115,10 +122,40 @@ final class PipelineRunExecutor implements RunExecutor
 {
     public const POST_EXECUTION_UTILITY_FORMULA_VERSION = 'atlas.dev.post_execution_utility.v1';
 
+    private readonly PipelineRun\WorkspaceGitSupport $workspaceGit;
+    private readonly PipelineRun\ProviderResultSupport $providerResult;
+    private readonly PipelineRun\ResolverSupport $resolver;
+    private readonly PipelineRun\GovernanceSection $governance;
+    private readonly PipelineRun\DeterministicPatchSection $deterministicPatch;
+    private readonly PipelineRun\ProviderExecutionSection $providerExecution;
+    private readonly PipelineRun\RepairProjectionSection $repairProjection;
+    private readonly PipelineRun\BestOfNSection $bestOfN;
+
     public function __construct(
         private readonly Container $container,
         private readonly ReceiptStorage $storage,
-    ) {}
+    ) {
+        // Godfile split (GOD-DEBULK 2026-07-22): family sections wired as a DAG.
+        $this->workspaceGit = new PipelineRun\WorkspaceGitSupport();
+        $this->providerResult = new PipelineRun\ProviderResultSupport($storage);
+        $this->resolver = new PipelineRun\ResolverSupport($container, $this->workspaceGit);
+        $this->governance = new PipelineRun\GovernanceSection($container, $storage, $this->resolver);
+        $this->deterministicPatch = new PipelineRun\DeterministicPatchSection($this->providerResult);
+        $this->providerExecution = new PipelineRun\ProviderExecutionSection(
+            $this->workspaceGit,
+            $this->providerResult,
+            $this->resolver,
+            $this->governance,
+        );
+        $this->repairProjection = new PipelineRun\RepairProjectionSection($this->resolver);
+        $this->bestOfN = new PipelineRun\BestOfNSection(
+            $this->workspaceGit,
+            $this->providerResult,
+            $this->resolver,
+            $this->deterministicPatch,
+            $this->providerExecution,
+        );
+    }
 
     /**
      * COM-11 frozen post-execution utility formula v1.
@@ -181,15 +218,15 @@ final class PipelineRunExecutor implements RunExecutor
         // wasting a provider call on a run we cannot honestly attest.
         [$taskKind, $riskLevel] = $this->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
 
-        $awisEnforcement = $this->enforceAwisBeforeMutativeExecution(
+        $awisEnforcement = $this->governance->enforceAwisBeforeMutativeExecution(
             envelope: $envelope,
             taskContract: $taskContract,
         );
         if (($awisEnforcement['status'] ?? 'blocked') !== 'passed') {
-            return $this->blockedDueToAwis($awisEnforcement, $taskContract);
+            return $this->governance->blockedDueToAwis($awisEnforcement, $taskContract);
         }
 
-        $aucriEnforcement = $this->enforceAucriBeforeProvider(
+        $aucriEnforcement = $this->governance->enforceAucriBeforeProvider(
             envelope: $envelope,
             taskContract: $taskContract,
             promptProjection: $promptProjection,
@@ -198,19 +235,19 @@ final class PipelineRunExecutor implements RunExecutor
             taskKind: $taskKind,
         );
         if (($aucriEnforcement['status'] ?? 'blocked') !== 'passed') {
-            return $this->blockedDueToAucri($aucriEnforcement);
+            return $this->governance->blockedDueToAucri($aucriEnforcement);
         }
 
-        $commandRunner = $this->resolve(VerificationCommandRunner::class);
-        $deterministicCallResult = $this->deterministicFastPathEnabled()
-            ? $this->tryDeterministicPatch($envelope, $taskContract, $runId)
+        $commandRunner = $this->resolver->resolve(VerificationCommandRunner::class);
+        $deterministicCallResult = $this->deterministicPatch->deterministicFastPathEnabled()
+            ? $this->deterministicPatch->tryDeterministicPatch($envelope, $taskContract, $runId)
             : null;
 
         if ($commandRunner === null) {
-            return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
+            return $this->governance->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
 
-        $workspaceBaseline = $this->captureWorkspaceBaseline($envelope->workspace, $taskContract->allowedFiles);
+        $workspaceBaseline = $this->workspaceGit->captureWorkspaceBaseline($envelope->workspace, $taskContract->allowedFiles);
 
         // M2: Repair-to-green loop. When the verification gate fails,
         // re-invoke the SAME locked provider with failure context up to the cap.
@@ -278,9 +315,9 @@ final class PipelineRunExecutor implements RunExecutor
         // capture entirely; the post-gate block checks the same guard before
         // computing regressions.
         $regressionBaseline = null;
-        $e5Config = $this->resolveE5Config();
+        $e5Config = $this->resolver->resolveE5Config();
         if (! $e5Config->isOff()) {
-            $baselineService = $this->resolveRegressionBaselineService($commandRunner);
+            $baselineService = $this->resolver->resolveRegressionBaselineService($commandRunner);
             if ($baselineService !== null) {
                 $regressionBaseline = $baselineService->captureBaseline(
                     runId: $runId,
@@ -294,7 +331,7 @@ final class PipelineRunExecutor implements RunExecutor
         // E4: resolve the e4 elevation config once so the best-of-N path can
         // compare candidates and route the divergence verdict through the
         // sanctioned channels. off => byte-identical (no comparison, no flag).
-        $e4Config = $this->resolveE4Config();
+        $e4Config = $this->resolver->resolveE4Config();
 
         // M4: Best-of-N (MiniMax-only) on the default hermes path.
         //
@@ -333,7 +370,7 @@ final class PipelineRunExecutor implements RunExecutor
 
         $bestOfNran = false;
         if ($bestOfNEnabled) {
-            $bestOfNOutcome = $this->executeBestOfNHermes(
+            $bestOfNOutcome = $this->bestOfN->executeBestOfNHermes(
                 envelope: $envelope,
                 taskContract: $taskContract,
                 promptProjection: $promptProjection,
@@ -362,7 +399,7 @@ final class PipelineRunExecutor implements RunExecutor
             do {
                 if ($callResult === null) {
                     try {
-                        [$callResult, $iterCalls] = $this->executeLockedProvider(
+                        [$callResult, $iterCalls] = $this->providerExecution->executeLockedProvider(
                             envelope: $envelope,
                             taskContract: $taskContract,
                             promptProjection: $currentPromptProjection,
@@ -387,7 +424,7 @@ final class PipelineRunExecutor implements RunExecutor
                         // false passed). Hermes already catches internally
                         // (executeHermesProvider); this net covers the
                         // non-hermes drivers that propagate throws.
-                        $callResult = $this->blockedProviderCallResult(
+                        $callResult = $this->providerResult->blockedProviderCallResult(
                             runId: $promptProjection->runId,
                             provider: $taskContract->providerLock->provider,
                             modelFamily: $taskContract->providerLock->modelFamily,
@@ -408,7 +445,7 @@ final class PipelineRunExecutor implements RunExecutor
                     baseline: $workspaceBaseline['scope'],
                 );
 
-                $patchApplyResult = $this->applyPatchIfSafe(
+                $patchApplyResult = $this->deterministicPatch->applyPatchIfSafe(
                     diffResult: $diffResult,
                     scopeStatus: $scopeReceipt->status,
                     workspace: $envelope->workspace,
@@ -416,17 +453,17 @@ final class PipelineRunExecutor implements RunExecutor
                 );
                 $callResultForGates = $patchApplyResult->ok()
                     ? $callResult
-                    : $this->withProviderError($callResult, 'patch_apply_failed');
+                    : $this->providerResult->withProviderError($callResult, 'patch_apply_failed');
 
                 $verificationResult = $patchApplyResult->ok()
-                    ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
+                    ? (new VerificationGate($commandRunner, $this->providerResult->verificationReceiptStorage($runId)))->run(
                         taskContract: $taskContract,
                         callResult: $callResultForGates,
                         scopeReceipt: $scopeReceipt,
                         workspace: $envelope->workspace,
-                        codeGraph: $this->resolveCallerTestCodeGraph($scopeReceipt, $envelope->workspace),
+                        codeGraph: $this->resolver->resolveCallerTestCodeGraph($scopeReceipt, $envelope->workspace),
                     )
-                    : $this->verificationFailedDueToPatchApply($patchApplyResult);
+                    : $this->providerResult->verificationFailedDueToPatchApply($patchApplyResult);
 
                 // W1 repair-on-weak-green: a PASSED gate whose applied diff
                 // still carries placeholder markers (TODO/FIXME, ellipsis
@@ -444,7 +481,7 @@ final class PipelineRunExecutor implements RunExecutor
                 if ($repairCap > 0
                     && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
                     && $diffResult->hasPatch()
-                    && ! $this->resolveWeakOutputConfig()->isOff()
+                    && ! $this->resolver->resolveWeakOutputConfig()->isOff()
                 ) {
                     $weakGreenInspection = (new DevWeakOutputDetector)->inspectAppliedDiff((string) $diffResult->diff);
                     if ($weakGreenInspection['weak']) {
@@ -465,7 +502,7 @@ final class PipelineRunExecutor implements RunExecutor
                     && $repairCap > 0
                     && $diffResult->isNoPatchNeeded()
                     && in_array($taskKind, ['patch', 'repair', 'frontend', 'risky'], true)
-                    && ! $this->resolveWeakOutputConfig()->isOff()
+                    && ! $this->resolver->resolveWeakOutputConfig()->isOff()
                 ) {
                     $weakGreenSignals = [[
                         'id' => 'no_patch_on_write_task',
@@ -499,7 +536,7 @@ final class PipelineRunExecutor implements RunExecutor
                         static fn (array $s): string => $s['id'].' — '.$s['detail'],
                         $weakGreenSignals,
                     ))
-                    : $this->extractFailureExcerpt($verificationResult);
+                    : $this->repairProjection->extractFailureExcerpt($verificationResult);
                 $currentSignature = $hasher->signature('verification_gate', $failureExcerpt);
 
                 if ($taskContract->repairPolicy->abortOnSameSignatureTwice
@@ -541,7 +578,7 @@ final class PipelineRunExecutor implements RunExecutor
                 // NOT folded into $failureExcerpt — that would change the
                 // FailureSignatureHasher output and break the cap=3 anti-spin.
                 // The reason lives in its own dedicated prompt section.
-                $intentProbeReason = $this->resolveIntentProbeReasonForRepair(
+                $intentProbeReason = $this->repairProjection->resolveIntentProbeReasonForRepair(
                     $taskContract,
                     $diffResult,
                 );
@@ -563,7 +600,7 @@ final class PipelineRunExecutor implements RunExecutor
                     $weakOutputHint = 'signal='.(string) $weakGreenSignals[0]['id']
                         .': '.(string) $weakGreenSignals[0]['detail'];
                 }
-                $currentPromptProjection = $this->buildComposedRepairProjection(
+                $currentPromptProjection = $this->repairProjection->buildComposedRepairProjection(
                     promptProjection: $promptProjection,
                     taskContract: $taskContract,
                     verificationResult: $verificationResult,
@@ -579,14 +616,14 @@ final class PipelineRunExecutor implements RunExecutor
                 // Restore the pre-run operator baseline before re-invoking the
                 // provider. Never check out from HEAD here: allowed_files may
                 // already contain operator WIP that the retry loop does not own.
-                $restoreError = $this->revertWorkspaceChanges(
+                $restoreError = $this->workspaceGit->revertWorkspaceChanges(
                     $envelope->workspace,
                     $taskContract->allowedFiles,
                     $workspaceBaseline,
                 );
                 if ($restoreError !== null) {
                     $abortReason = 'workspace_baseline_restore_refused';
-                    $callResultForGates = $this->withProviderError(
+                    $callResultForGates = $this->providerResult->withProviderError(
                         $callResultForGates,
                         'workspace_baseline_restore_refused:'.$restoreError,
                     );
@@ -657,11 +694,11 @@ final class PipelineRunExecutor implements RunExecutor
             && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
             && $diffResult->hasPatch();
 
-        $e2Config = $this->resolveE2Config();
+        $e2Config = $this->resolver->resolveE2Config();
         if (! $e2Config->isOff() && ! $transformationWitnessed) {
-            $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
+            $intentNotTested = $this->governance->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $e2Config, [
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e2Config, [
                     IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
                 ]);
             }
@@ -716,14 +753,14 @@ final class PipelineRunExecutor implements RunExecutor
         // doutrina errada (lote real 03/07, B2: simplificação genuína com
         // suite verde hard-failou intent_likely_not_addressed). Diff presente
         // + gate verde é a testemunha, como no E2.
-        $e1Config = $this->resolveE1Config();
+        $e1Config = $this->resolver->resolveE1Config();
         if (! $e1Config->isOff() && ! $redToGreenWitnessed && ! $transformationWitnessed) {
             $intentMissing = (new IntentFalsificationProbe)->isIntentLikelyNotAddressed(
                 $taskContract,
                 $diffResult,
             );
             if ($intentMissing) {
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $e1Config, [
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e1Config, [
                     IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
                 ]);
             }
@@ -746,11 +783,11 @@ final class PipelineRunExecutor implements RunExecutor
         // are NOT re-checked here: ScopeGuard owns scope and the gate ran the
         // command for real. Like E1/E2/E3 this is provider-agnostic and also
         // covers the best-of-N winner path through the same post-gate block.
-        $weakOutputConfig = $this->resolveWeakOutputConfig();
+        $weakOutputConfig = $this->resolver->resolveWeakOutputConfig();
         if (! $weakOutputConfig->isOff() && $diffResult->hasPatch()) {
             $appliedDiffInspection = (new DevWeakOutputDetector)->inspectAppliedDiff((string) $diffResult->diff);
             if ($appliedDiffInspection['weak']) {
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $weakOutputConfig, [
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $weakOutputConfig, [
                     DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
                 ]);
 
@@ -817,11 +854,11 @@ final class PipelineRunExecutor implements RunExecutor
         // winner path through the same post-gate block (VAL-CROSS-015). A
         // patch with no touched test files (or a skipped result) is a
         // documented no-op (VAL-E3-008) — never a false fail.
-        $e3Config = $this->resolveE3Config();
+        $e3Config = $this->resolver->resolveE3Config();
         $mutationTestingResult = null;
         $mutationScoreVerdict = null;
         if (! $e3Config->isOff()) {
-            $adapter = $this->resolveMutationTestingAdapter($envelope->workspace);
+            $adapter = $this->resolver->resolveMutationTestingAdapter($envelope->workspace);
             $touchedFiles = array_map(
                 static fn (ScopeFileDiff $diff): string => $diff->path,
                 $scopeReceipt->observed->fileDiffs,
@@ -832,7 +869,7 @@ final class PipelineRunExecutor implements RunExecutor
             $verdict = $mutationScoreVerdict;
 
             if ($verdict->tripped) {
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $e3Config, $verdict->honestyFlags);
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e3Config, $verdict->honestyFlags);
             }
         }
 
@@ -863,7 +900,7 @@ final class PipelineRunExecutor implements RunExecutor
         // a property of the test results, not the provider) and covers the
         // best-of-N winner path through the same post-gate block.
         if (! $e5Config->isOff() && $regressionBaseline !== null) {
-            $baselineService = $this->resolveRegressionBaselineService($commandRunner);
+            $baselineService = $this->resolver->resolveRegressionBaselineService($commandRunner);
             if ($baselineService !== null) {
                 $regressionResult = $baselineService->buildResult(
                     baseline: $regressionBaseline,
@@ -873,7 +910,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $regressionVerdict = $regressionGate->evaluate($regressionResult);
 
                 if ($regressionVerdict->tripped) {
-                    $verificationResult = $this->routeElevationVerdict($verificationResult, $e5Config, $regressionVerdict->honestyFlags);
+                    $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e5Config, $regressionVerdict->honestyFlags);
                 }
             }
         }
@@ -944,7 +981,7 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $e4Config->isOff()
             && ! $redToGreenWitnessed
             && ! ($repairAttempt > 0 && $sawFailedGate && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED)) {
-            $shadowDiffService = $this->resolveShadowDiffService();
+            $shadowDiffService = $this->resolver->resolveShadowDiffService();
             if ($shadowDiffService !== null) {
                 // Gather the touched PHP files from the scope receipt. Only
                 // .php files are candidates (the extractor only parses PHP).
@@ -964,7 +1001,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $shadowVerdict = $shadowGate->evaluate($shadowResult);
 
                 if ($shadowVerdict->tripped) {
-                    $verificationResult = $this->routeElevationVerdict($verificationResult, $e4Config, $shadowVerdict->honestyFlags);
+                    $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e4Config, $shadowVerdict->honestyFlags);
                 }
             }
         }
@@ -1004,22 +1041,22 @@ final class PipelineRunExecutor implements RunExecutor
         // Like E1-E5, this runs for EVERY provider (the spec is a property
         // of the task, not the provider) and covers the best-of-N winner
         // path through the same post-gate block (VAL-CROSS-015).
-        $e6Config = $this->resolveE6Config();
+        $e6Config = $this->resolver->resolveE6Config();
         if (! $e6Config->isOff()) {
-            $e6Verdict = $this->evaluateSpecConstitution(
+            $e6Verdict = $this->governance->evaluateSpecConstitution(
                 runId: $runId,
                 scopeReceipt: $scopeReceipt,
-                satisfiedVerificationRefs: $this->satisfiedVerificationRefs($verificationResult),
+                satisfiedVerificationRefs: $this->resolver->satisfiedVerificationRefs($verificationResult),
             );
 
             if ($e6Verdict->isUnevaluable) {
                 // Honest ceiling (VAL-M2-033): an unevaluable spec-constitution
                 // check never silently greens. Advisory => honesty flag
                 // (-> needs_review); hard => STATUS_FAILED (-> failed).
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
             } elseif ($e6Verdict->tripped) {
                 // Spec/constitution violation (VAL-M2-021/022/024).
-                $verificationResult = $this->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
+                $verificationResult = $this->resolver->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
             }
             // else: no-op or pass — no flag, no STATUS_FAILED (byte-identical
             // to pre-E6 for this run on the E6 axis).
@@ -1063,7 +1100,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $criticService = $this->container->bound(ReviewIntelligenceService::class)
                     ? $this->container->make(ReviewIntelligenceService::class)
                     : new ReviewIntelligenceService;
-                $criticInput = $this->buildCriticInput(
+                $criticInput = $this->bestOfN->buildCriticInput(
                     runId: $runId,
                     scopeReceipt: $scopeReceipt,
                     taskContract: $taskContract,
@@ -1079,7 +1116,7 @@ final class PipelineRunExecutor implements RunExecutor
                 // detector degrades to the deterministic probe only
                 // (VAL-E1-011: judge is strictly doubt-additive, and a
                 // missing judge can never clear the deterministic flag).
-                $criticOptions = $this->resolveE1CriticOptions();
+                $criticOptions = $this->resolver->resolveE1CriticOptions();
                 $reviewReceipt = $criticService->analyse($criticInput, $criticOptions);
                 $criticAnalysed = true;
             } catch (\Throwable $e) {
@@ -1144,7 +1181,7 @@ final class PipelineRunExecutor implements RunExecutor
             }
         }
 
-        [$decision, $sovereignDevFloorReceipt] = $this->applySovereignDevFloor(
+        [$decision, $sovereignDevFloorReceipt] = $this->governance->applySovereignDevFloor(
             $decision,
             $verificationResult,
             $scopeReceipt,
@@ -1163,7 +1200,7 @@ final class PipelineRunExecutor implements RunExecutor
             scopeReceipt: $scopeReceipt,
             verificationResult: $verificationResult,
             completion: $decision,
-            contextPackHash: $this->contextPackHash($runId),
+            contextPackHash: $this->governance->contextPackHash($runId),
             taskKind: $taskKind,
             riskLevel: $riskLevel,
             modelLabel: $callResult->actualProvider.':'.$callResult->actualModelFamily,
@@ -1399,8 +1436,8 @@ final class PipelineRunExecutor implements RunExecutor
                     $outcomeStatus = $passed
                         ? 'passed'
                         : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'partial' : 'failed');
-                    $contextPackHash = $this->contextPackHash($runId);
-                    $budget = $this->contextPackBudgetForUtility($contextPackHash);
+                    $contextPackHash = $this->governance->contextPackHash($runId);
+                    $budget = $this->governance->contextPackBudgetForUtility($contextPackHash);
                     $utilityMeasurement = self::postExecutionUtilityMeasurement(
                         usedCount: count($used),
                         deliveredCount: count($delivered),
@@ -1477,2883 +1514,6 @@ final class PipelineRunExecutor implements RunExecutor
             // receipt names WHICH gate tripped and WHY.
             reasons: array_values($decision->reasons),
         );
-    }
-
-    /**
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeLockedProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-        ?string $hermesPromptOverride = null,
-    ): array {
-        if (! $promptProjection->isSendable()) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: $taskContract->providerLock->provider,
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'prompt_projection_not_sendable:'.implode(',', $promptProjection->qualityChecks->failedChecks()),
-                    stderr: 'Atlas Dev refused to dispatch provider because ProviderPromptProjection is not sendable.',
-                    providerSafe: false,
-                ),
-                0,
-            ];
-        }
-
-        return match ($taskContract->providerLock->provider) {
-            SonnetClaudeCliAdapter::PROVIDER => $this->executeClaudeProvider($envelope, $taskContract, $promptProjection),
-            AtlasForgeCodexCliInvocationDriver::PROVIDER => $this->executeCodexProvider($envelope, $taskContract, $promptProjection),
-            AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
-            AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
-            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection, $hermesPromptOverride),
-            default => [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: $taskContract->providerLock->provider,
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'unsupported_provider_lock:'.$taskContract->providerLock->provider,
-                    stderr: 'Atlas Dev has no runtime driver for provider_lock.provider='.$taskContract->providerLock->provider.'.',
-                ),
-                0,
-            ],
-        };
-    }
-
-    /**
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeClaudeProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-    ): array {
-        $gateway = $this->resolve(ClaudeCliGateway::class);
-        if (! $gateway instanceof ClaudeCliGateway) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: SonnetClaudeCliAdapter::PROVIDER,
-                    modelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
-                    error: 'claude_cli_gateway_unbound',
-                    stderr: 'Claude CLI gateway is not bound in the runtime container.',
-                ),
-                0,
-            ];
-        }
-
-        $adapter = new SonnetClaudeCliAdapter($gateway);
-
-        // SLICE 2 — the Dev claude path drives ClaudeCliGateway DIRECTLY, skipping
-        // AiProviderManager. Rather than run blind, consult the SHARED governance
-        // seam (same cost-guard + ADML the manager runs) before executing. It
-        // records this execution as CONSULTED (coverage rises) and, only when the
-        // operator flips enforce ON with a hard threshold, can block the spawn.
-        // Fail-open: no seam bound => proceeds exactly as today.
-        $consult = $this->resolve(ProviderGovernanceConsult::class);
-        if (is_object($consult) && method_exists($consult, 'consultBeforeSpawn')) {
-            $advisory = $consult->consultBeforeSpawn([
-                'provider' => SonnetClaudeCliAdapter::PROVIDER,
-                'surface' => ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
-                'executor' => 'dev',
-                'actor' => 'dev',
-                'prompt' => $promptProjection->renderedPromptText,
-                'kind' => 'atlas_dev_run',
-            ]);
-            if (($advisory['should_block'] ?? false) === true) {
-                return [
-                    $this->blockedProviderCallResult(
-                        runId: $promptProjection->runId,
-                        provider: SonnetClaudeCliAdapter::PROVIDER,
-                        modelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
-                        error: 'governance_cost_guard_block',
-                        stderr: 'Governance cost guard blocked spawn (enforce ON): '.(string) ($advisory['reason'] ?? 'cost_guard_hard_exceeded'),
-                    ),
-                    0,
-                ];
-            }
-        } else {
-            // MULTX-05 (partial, no enforce flip): the seam was resolved to null
-            // OR did not implement `consultBeforeSpawn`. Record the skip so the
-            // fail-open path stops being invisible; the flip observe→enforce is
-            // a separate governed slice (ELEV-26 window), NEVER done here.
-            $this->recordGovernanceConsultSkipped(
-                provider: SonnetClaudeCliAdapter::PROVIDER,
-                surface: ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
-                executor: 'dev',
-                reason: is_object($consult)
-                    ? GovernanceConsultSkipCounter::REASON_METHOD_MISSING
-                    : GovernanceConsultSkipCounter::REASON_SEAM_UNBOUND,
-            );
-        }
-
-        return [
-            $adapter->executeOneCall(
-                promptProjection: $promptProjection,
-                taskContract: $taskContract,
-                workspace: $envelope->workspace,
-                timeoutSeconds: $this->providerTimeoutSeconds($taskContract),
-            ),
-            1,
-        ];
-    }
-
-    /**
-     * Codex CLI is used as a governed workspace mutator for review/repair gates.
-     * Atlas derives the diff after Codex returns and still runs scope +
-     * verification before a completion claim can be promoted.
-     *
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeCodexProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-    ): array {
-        $driver = $this->resolveConcrete(AtlasForgeCodexCliInvocationDriver::class);
-        if (! $driver instanceof AtlasForgeCodexCliInvocationDriver) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: AtlasForgeCodexCliInvocationDriver::PROVIDER,
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'codex_cli_driver_unavailable',
-                    stderr: 'Codex CLI invocation driver could not be resolved.',
-                ),
-                0,
-            ];
-        }
-
-        $decisionReceiptId = 'atlas-dev:'.$promptProjection->runId.':'.$taskContract->taskContractHash;
-        $decisionReceiptHash = hash('sha256', implode('|', [
-            $promptProjection->runId,
-            $taskContract->taskContractHash,
-            $promptProjection->promptProjectionHash,
-            $taskContract->providerLock->provider,
-            $taskContract->providerLock->modelFamily,
-        ]));
-        $request = [
-            'model' => $taskContract->providerLock->modelFamily,
-            'prompt' => [
-                'schema_version' => 'atlas.dev.codex_cli.provider_request.v1',
-                'decision_receipt_id' => $decisionReceiptId,
-                'decision_receipt_hash' => $decisionReceiptHash,
-                'atlas_dev_contract' => [
-                    'run_id' => $promptProjection->runId,
-                    'task_contract_hash' => $taskContract->taskContractHash,
-                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
-                    'output_required' => 'review/repair current workspace diff; Atlas will derive git diff and run validation.',
-                ],
-                'scope_contract' => [
-                    'allowed_files' => array_values($taskContract->allowedFiles),
-                    'forbidden_files' => array_values($taskContract->forbiddenFiles),
-                    'max_files_changed' => $taskContract->maxFilesChanged,
-                ],
-                'rendered_prompt_text' => $promptProjection->renderedPromptText,
-            ],
-            'cwd' => $envelope->workspace,
-            'sandbox' => 'workspace-write',
-            'decision_receipt_id' => $decisionReceiptId,
-            'decision_receipt_hash' => $decisionReceiptHash,
-            'timeout_seconds' => $this->providerTimeoutSeconds($taskContract),
-            'max_output_chars' => $this->providerMaxOutputChars($taskContract),
-        ];
-
-        $result = $driver->invoke($request);
-        $providerCalled = (bool) ($result['provider_called'] ?? false);
-        $blockers = array_values(array_filter(array_map(
-            static fn (mixed $blocker): string => is_string($blocker) ? $blocker : '',
-            (array) ($result['blockers'] ?? []),
-        ), static fn (string $blocker): bool => $blocker !== ''));
-        $providerChangedFiles = $this->stringList((array) ($result['changed_files'] ?? []));
-        $scopeViolations = array_values(array_filter(
-            $providerChangedFiles,
-            fn (string $path): bool => ! $this->pathAllowed($path, $taskContract->allowedFiles),
-        ));
-        if ($scopeViolations !== []) {
-            $blockers[] = 'codex_cli_scope_violation:'.implode(',', $scopeViolations);
-        }
-
-        $exitCode = is_int($result['exit_code'] ?? null) ? (int) $result['exit_code'] : ($blockers === [] ? 0 : 1);
-        $errors = array_values(array_unique($blockers));
-        if ($errors === []) {
-            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
-            if (trim($stdout) === '') {
-                $stdout = "no_patch_needed: true\nreason: Codex CLI completed without a workspace diff in allowed_files.\n";
-            }
-        } else {
-            $stdout = "blocked: true\nquestion: Codex CLI runtime blocked: ".implode(',', $errors)."\n";
-        }
-
-        return [
-            ProviderCallResult::fromStdout(
-                runId: $promptProjection->runId,
-                actualProvider: AtlasForgeCodexCliInvocationDriver::PROVIDER,
-                actualModelFamily: $taskContract->providerLock->modelFamily,
-                exitStatus: $exitCode,
-                stdout: $stdout,
-                stderr: trim((string) ($result['stderr_excerpt'] ?? '')),
-                durationMs: is_int($result['duration_ms'] ?? null) ? (int) $result['duration_ms'] : 0,
-                tokensIn: null,
-                tokensOut: null,
-                costEstimateUsd: null,
-                providerSafe: true,
-                errors: $errors,
-            ),
-            $providerCalled ? 1 : 0,
-        ];
-    }
-
-    /**
-     * Cursor CLI is a governed workspace mutator: unlike the Claude adapter it
-     * edits the isolated worktree directly. We therefore convert the post-run
-     * git diff into the ProviderCallResult stdout and later skip re-applying it.
-     *
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeCursorProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-    ): array {
-        $driver = $this->resolveConcrete(AtlasForgeCursorCliInvocationDriver::class);
-        if (! $driver instanceof AtlasForgeCursorCliInvocationDriver) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: AtlasForgeCursorCliInvocationDriver::PROVIDER,
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'cursor_cli_driver_unavailable',
-                    stderr: 'Cursor CLI invocation driver could not be resolved.',
-                ),
-                0,
-            ];
-        }
-
-        $decisionReceiptId = 'atlas-dev:'.$promptProjection->runId.':'.$taskContract->taskContractHash;
-        $decisionReceiptHash = hash('sha256', implode('|', [
-            $promptProjection->runId,
-            $taskContract->taskContractHash,
-            $promptProjection->promptProjectionHash,
-            $taskContract->providerLock->provider,
-            $taskContract->providerLock->modelFamily,
-        ]));
-
-        $request = [
-            'model' => $taskContract->providerLock->modelFamily,
-            'prompt' => [
-                'schema_version' => 'atlas.dev.cursor_cli.provider_request.v1',
-                'decision_receipt_id' => $decisionReceiptId,
-                'decision_receipt_hash' => $decisionReceiptHash,
-                'atlas_dev_contract' => [
-                    'run_id' => $promptProjection->runId,
-                    'task_contract_hash' => $taskContract->taskContractHash,
-                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
-                    'output_required' => 'mutate only allowed files; Atlas will derive git diff and run validation.',
-                ],
-                'scope_contract' => [
-                    'allowed_files' => array_values($taskContract->allowedFiles),
-                    'forbidden_files' => array_values($taskContract->forbiddenFiles),
-                    'max_files_changed' => $taskContract->maxFilesChanged,
-                ],
-                'rendered_prompt_text' => $promptProjection->renderedPromptText,
-            ],
-            'cwd' => $envelope->workspace,
-            'decision_receipt_id' => $decisionReceiptId,
-            'decision_receipt_hash' => $decisionReceiptHash,
-            'timeout_seconds' => $this->providerTimeoutSeconds($taskContract),
-            'max_output_chars' => $this->providerMaxOutputChars($taskContract),
-        ];
-
-        $result = $driver->invoke($request);
-        $providerCalled = (bool) ($result['provider_called'] ?? false);
-        $blockers = array_values(array_filter(array_map(
-            static fn (mixed $blocker): string => is_string($blocker) ? $blocker : '',
-            (array) ($result['blockers'] ?? []),
-        ), static fn (string $blocker): bool => $blocker !== ''));
-        $scopeViolations = array_values(array_filter(array_map(
-            static fn (mixed $path): string => is_string($path) ? $path : '',
-            (array) ($result['scope_violations'] ?? []),
-        ), static fn (string $path): bool => $path !== ''));
-
-        $exitCode = is_int($result['exit_code'] ?? null) ? (int) $result['exit_code'] : ($blockers === [] ? 0 : 1);
-        $stdout = '';
-        $errors = $blockers;
-        if ($scopeViolations !== []) {
-            $errors[] = 'cursor_cli_scope_violations:'.implode(',', $scopeViolations);
-        }
-        if ($blockers === []) {
-            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
-            if (trim($stdout) === '') {
-                $stdout = "no_patch_needed: true\nreason: Cursor CLI completed without a workspace diff in allowed_files.\n";
-            }
-        } else {
-            $stdout = "blocked: true\nquestion: Cursor CLI runtime blocked: ".implode(',', $blockers)."\n";
-        }
-
-        return [
-            ProviderCallResult::fromStdout(
-                runId: $promptProjection->runId,
-                actualProvider: AtlasForgeCursorCliInvocationDriver::PROVIDER,
-                actualModelFamily: $taskContract->providerLock->modelFamily,
-                exitStatus: $exitCode,
-                stdout: $stdout,
-                stderr: trim((string) ($result['stderr_excerpt'] ?? '')),
-                durationMs: is_int($result['duration_ms'] ?? null) ? (int) $result['duration_ms'] : 0,
-                tokensIn: null,
-                tokensOut: null,
-                costEstimateUsd: null,
-                providerSafe: true,
-                errors: $errors,
-            ),
-            $providerCalled ? 1 : 0,
-        ];
-    }
-
-    /**
-     * MiniMax M3 — writes files directly into the workspace (like Cursor).
-     * The worker handles context compilation, invocation and repair loop.
-     * We derive the git diff after writes complete and surface it as stdout.
-     *
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeMinimaxProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-    ): array {
-        $worker = $this->resolveConcrete(AtlasMinimaxFirstWorkerService::class);
-        if (! $worker instanceof AtlasMinimaxFirstWorkerService) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'minimax_worker_unbound',
-                    stderr: 'AtlasMinimaxFirstWorkerService is not bound in the runtime container.',
-                ),
-                0,
-            ];
-        }
-
-        $finding = [
-            'title' => mb_substr($envelope->normalizedIntent, 0, 300),
-            'description' => mb_substr($promptProjection->renderedPromptText, 0, 2_000),
-            'spec_seed' => ['candidate_id' => $taskContract->taskId],
-        ];
-
-        $startMs = (int) (microtime(true) * 1_000);
-        $result = $worker->run([
-            'finding' => $finding,
-            'allowed_files' => array_values($taskContract->allowedFiles),
-            'validation_commands' => array_values($taskContract->validationCommands),
-            'worktree_path' => $envelope->workspace,
-            'repo_root' => $envelope->workspace,
-            'max_repairs' => $taskContract->repairPolicy->maxAttempts,
-        ]);
-        $durationMs = (int) (microtime(true) * 1_000) - $startMs;
-
-        $status = (string) ($result['status'] ?? 'blocked');
-        $tokensUsed = (int) ($result['run_summary']['provider_call']['tokens_used'] ?? 0);
-        $blockers = array_values(array_filter(array_map(
-            static fn (mixed $b): string => is_string($b) ? $b : '',
-            (array) ($result['blockers'] ?? []),
-        ), static fn (string $b): bool => $b !== ''));
-
-        if ($status !== 'completed') {
-            return [
-                ProviderCallResult::fromStdout(
-                    runId: $promptProjection->runId,
-                    actualProvider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
-                    actualModelFamily: $taskContract->providerLock->modelFamily,
-                    exitStatus: 1,
-                    stdout: '',
-                    stderr: 'MiniMax worker: '.implode('; ', $blockers ?: [$status]),
-                    durationMs: $durationMs,
-                    tokensIn: $tokensUsed,
-                    tokensOut: 0,
-                    costEstimateUsd: null,
-                    providerSafe: true,
-                    errors: $blockers ?: [$status],
-                ),
-                1,
-            ];
-        }
-
-        // Worker wrote files directly — derive diff like Cursor provider.
-        $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
-        if (trim($stdout) === '') {
-            $stdout = 'no_patch_needed: true
-reason: MiniMax worker completed without a workspace diff in allowed_files.
-';
-        }
-
-        return [
-            ProviderCallResult::fromStdout(
-                runId: $promptProjection->runId,
-                actualProvider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
-                actualModelFamily: $taskContract->providerLock->modelFamily,
-                exitStatus: 0,
-                stdout: $stdout,
-                stderr: '',
-                durationMs: $durationMs,
-                tokensIn: $tokensUsed,
-                tokensOut: 0,
-                costEstimateUsd: null,
-                providerSafe: true,
-            ),
-            1,
-        ];
-    }
-
-    /**
-     * Hermes CLI is the Atlas executive runtime governed through
-     * {@see HermesCliProvider}. Like Codex/Cursor/MiniMax it
-     * mutates the isolated workspace directly, so Atlas derives the post-run
-     * git diff and still runs scope + verification before any completion claim.
-     *
-     * The provider chooses its own cwd via
-     * {@see RunsCliProcesses::workdirForJob()}, which
-     * reads (in order) payload.tool_permissions.workspace, payload.workspace,
-     * then config('atlas.ai.workdir') — realpath()'d and required to be a dir.
-     * We therefore pin BOTH workspace keys to $envelope->workspace so Hermes
-     * edits the Dev worktree and not the global Atlas workdir.
-     *
-     * @return array{0:ProviderCallResult,1:int}
-     */
-    private function executeHermesProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-        ?string $promptOverride = null,
-    ): array {
-        $manager = app(AiProviderManager::class);
-
-        $provider = null;
-        try {
-            $provider = $manager->get('hermes_cli');
-        } catch (\Throwable) {
-            $provider = null;
-        }
-        if (! $provider instanceof AiProvider) {
-            return [
-                $this->blockedProviderCallResult(
-                    runId: $promptProjection->runId,
-                    provider: 'hermes_cli',
-                    modelFamily: $taskContract->providerLock->modelFamily,
-                    error: 'hermes_cli_provider_unavailable',
-                    stderr: 'Hermes CLI provider could not be resolved from AiProviderManager.',
-                ),
-                0,
-            ];
-        }
-
-        $timeoutSeconds = $this->providerTimeoutSeconds($taskContract);
-        $hermesOverrides = $this->atlasDevHermesOverrides($taskContract);
-
-        // M2: When a repair attempt overrides the prompt (failure context fed
-        // forward), use the override text instead of the original projection.
-        $promptText = $promptOverride ?? $promptProjection->renderedPromptText;
-
-        // workdirForJob() reads tool_permissions.workspace || workspace ||
-        // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
-        // worktree ($envelope->workspace) and edits files there.
-        $usageFile = tempnam(sys_get_temp_dir(), 'atlas-dev-hermes-');
-        $job = new AiJob([
-            'trace_id' => 'atlas-dev:'.$promptProjection->runId,
-            'kind' => 'atlas_dev_run',
-            'provider' => 'hermes_cli',
-            'model' => $this->hermesModelForContract($taskContract),
-            'prompt' => $promptText,
-            'input_text' => $promptText,
-            'timeout_seconds' => $timeoutSeconds,
-            'payload' => [
-                'workspace' => $envelope->workspace,
-                // mode 'danger' → HermesCliProvider passes --yolo so Hermes edits the
-                // isolated workspace AUTONOMOUSLY (a non-interactive run has no TTY to
-                // approve writes); ScopeGuard + verification gate the result downstream.
-                'tool_permissions' => HermesWorkspaceDefaults::toolPermissions($envelope->workspace),
-                'dev_execution_plan' => [
-                    'run_id' => $promptProjection->runId,
-                    'task_contract_hash' => $taskContract->taskContractHash,
-                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
-                ],
-                'hermes' => array_merge($hermesOverrides, array_filter([
-                    'usage_file' => is_string($usageFile) ? $usageFile : null,
-                ])),
-            ],
-        ]);
-
-        // Snapshot pré-run dos ignorados-proibidos (vendor/, caches): o
-        // detector pós-run reporta só o delta como mutação do provider.
-        $preIgnoredForbidden = $this->ignoredForbiddenSnapshot($envelope->workspace, $taskContract->forbiddenFiles);
-
-        $startMs = (int) (microtime(true) * 1_000);
-        try {
-            $result = $provider->run($job, $promptText);
-        } catch (\Throwable $e) {
-            if (is_string($usageFile)) {
-                @unlink($usageFile);
-            }
-
-            return [
-                ProviderCallResult::fromStdout(
-                    runId: $promptProjection->runId,
-                    actualProvider: 'hermes_cli',
-                    actualModelFamily: $taskContract->providerLock->modelFamily,
-                    exitStatus: 1,
-                    stdout: '',
-                    stderr: Str::limit($e->getMessage(), 500, '...'),
-                    durationMs: (int) (microtime(true) * 1_000) - $startMs,
-                    tokensIn: null,
-                    tokensOut: null,
-                    costEstimateUsd: null,
-                    providerSafe: true,
-                    errors: ['hermes_cli_invocation_threw'],
-                ),
-                1,
-            ];
-        }
-
-        $errors = $result->ok ? [] : array_values(array_filter([
-            is_string($result->errorCode) && $result->errorCode !== '' ? $result->errorCode : null,
-        ]));
-        $usage = (array) data_get($result->metadata, 'hermes_usage', []);
-        if (is_string($usageFile)) {
-            @unlink($usageFile);
-        }
-
-        // Hermes mutated the workspace directly — derive diff like the
-        // Codex/Cursor/MiniMax providers and let scope/verification gate it.
-        $providerChangedFiles = $errors === []
-            ? $this->stringList($this->changedFilePathsInWorkspace(
-                $envelope->workspace,
-                $taskContract->allowedFiles,
-                $taskContract->forbiddenFiles,
-                $preIgnoredForbidden,
-            ))
-            : [];
-        $scopeViolations = array_values(array_filter(
-            $providerChangedFiles,
-            fn (string $path): bool => ! $this->pathAllowed($path, $taskContract->allowedFiles),
-        ));
-        if ($scopeViolations !== []) {
-            $errors[] = 'hermes_cli_scope_violation:'.implode(',', $scopeViolations);
-        }
-
-        if ($errors === []) {
-            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
-            if (trim($stdout) === '') {
-                $stdout = "no_patch_needed: true\nreason: Hermes CLI completed without a workspace diff in allowed_files.\n";
-            }
-        } else {
-            $stdout = "blocked: true\nquestion: Hermes CLI runtime blocked: ".implode(',', $errors)."\n";
-        }
-
-        return [
-            ProviderCallResult::fromStdout(
-                runId: $promptProjection->runId,
-                actualProvider: 'hermes_cli',
-                actualModelFamily: $taskContract->providerLock->modelFamily,
-                exitStatus: $errors === [] ? 0 : 1,
-                stdout: $stdout,
-                stderr: '',
-                durationMs: (int) $result->durationMs,
-                tokensIn: is_numeric($usage['input_tokens'] ?? null)
-                    ? (int) $usage['input_tokens']
-                    : null,
-                tokensOut: is_numeric($usage['output_tokens'] ?? null)
-                    ? (int) $usage['output_tokens']
-                    : null,
-                costEstimateUsd: is_numeric($usage['estimated_cost_usd'] ?? null)
-                    ? (float) $usage['estimated_cost_usd']
-                    : 0.0,
-                providerSafe: true,
-                errors: array_values(array_unique($errors)),
-            ),
-            $result->ok ? 1 : 0,
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function atlasDevHermesOverrides(LightTaskContract $taskContract): array
-    {
-        $overrides = [];
-
-        $transport = strtolower(trim((string) config('atlas_dev.efficient.hermes_execution_transport', '')));
-        if (in_array($transport, ['cli', 'acp'], true)) {
-            $overrides['execution_transport'] = $transport;
-        }
-
-        // transporte cli = one-shot `hermes -z` DE VERDADE. Sem isto o provider
-        // caía em `hermes chat --max-turns 1 --query`: no repo real 1 turno só
-        // explora e nunca edita (fire test 03/07: toy passava por sorte — o
-        // one-shot com o MESMO prompt editou e validou; o chat devolvia
-        // no_patch_needed). O one-shot roda a missão completa e ignora
-        // max_turns por construção.
-        if ($transport === 'cli') {
-            $overrides['cli_oneshot'] = true;
-        }
-
-        $singleFileMaxTurns = (int) config('atlas_dev.efficient.hermes_single_file_max_turns', 0);
-        if (count($taskContract->allowedFiles) === 1 && $singleFileMaxTurns > 0) {
-            $overrides['max_turns'] = max(1, min(10, $singleFileMaxTurns));
-        }
-
-        return $overrides;
-    }
-
-    private function hermesModelForContract(LightTaskContract $taskContract): string
-    {
-        $model = trim($taskContract->providerLock->modelFamily);
-
-        return $model === '' || $model === 'hermes_cli_default'
-            ? HermesWorkspaceDefaults::model()
-            : $model;
-    }
-
-    /**
-     * M4: Best-of-N candidate generation + selection on the default hermes path.
-     *
-     * Generates N candidate diffs (N independent single-shot provider calls,
-     * each through the full M1 floor + gate), then selects the best PASSING
-     * candidate deterministically. REUSES executeLockedProvider + DiffParser +
-     * ScopeGuard + applyPatchIfSafe + VerificationGate per candidate (LIGAR —
-     * the existing gate machinery is the floor + gate each candidate must
-     * clear; we do NOT rebuild a per-candidate gate).
-     *
-     * Selection / tie-break (documented, deterministic): among candidates
-     * whose gate aggregateStatus === STATUS_PASSED, the LOWEST candidate
-     * index wins (first passing candidate in generation order). If NO
-     * candidate passes, the FIRST candidate's (failed) results are kept so
-     * the run reports non-completed honestly (no manufactured green).
-     *
-     * Tolerance: a candidate that throws during generation or fails the gate
-     * is RECORDED but does NOT abort the selection loop — the remaining
-     * candidates are still evaluated.
-     *
-     * Workspace handling: the hermes provider mutates the workspace directly,
-     * so between candidates the workspace is restored to the captured
-     * operator-owned baseline and each candidate's diff TEXT is captured.
-     * After selection, the workspace is restored once more and the WINNER's
-     * diff is re-applied (git apply) so the persisted diff hash equals the
-     * selected candidate's (VAL-M4-008).
-     *
-     * @return array{
-     *   callResult:ProviderCallResult,
-     *   diffResult:DiffParseResult,
-     *   scopeReceipt:ScopeGuardReceipt,
-     *   patchApplyResult:PatchApplyResult,
-     *   verificationResult:VerificationGateResult,
-     *   callResultForGates:ProviderCallResult,
-     *   providerCalls:int,
-     *   summary:array<string,mixed>,
-     * }
-     */
-    private function executeBestOfNHermes(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-        VerificationCommandRunner $commandRunner,
-        int $candidateCount,
-        array $workspaceBaseline,
-        ?RegressionBaselineCache $regressionBaseline = null,
-        ?ElevationConfig $e5Config = null,
-        ?ElevationConfig $e4Config = null,
-    ): array {
-        $candidates = [];
-        $providerCalls = 0;
-
-        // VAL-E5-013: when E5 is active, every candidate's regression is
-        // diffed against the SAME clean pre-patch baseline (captured once
-        // before the loop). We compute the per-candidate regression set here
-        // and include it in the summary as evidence. The baseline is shared
-        // (not recaptured per candidate); an earlier candidate's applied
-        // patch NEVER contaminates a later candidate's baseline because the
-        // cache is immutable and captured before any candidate runs.
-        $e5Active = $e5Config !== null
-            && ! $e5Config->isOff()
-            && $regressionBaseline !== null;
-
-        for ($i = 0; $i < $candidateCount; $i++) {
-            // Revert any prior candidate's workspace mutation before the next
-            // candidate runs, so each candidate's diff is independent.
-            if ($i > 0) {
-                $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
-                if ($restoreError !== null) {
-                    return $this->bestOfNWorkspaceRestoreFailed(
-                        envelope: $envelope,
-                        promptProjection: $promptProjection,
-                        taskContract: $taskContract,
-                        candidateCount: $candidateCount,
-                        candidates: $candidates,
-                        providerCalls: $providerCalls,
-                        regressionBaseline: $regressionBaseline,
-                        e5Active: $e5Active,
-                        reason: $restoreError,
-                    );
-                }
-            }
-
-            try {
-                [$callResult, $iterCalls] = $this->executeLockedProvider(
-                    envelope: $envelope,
-                    taskContract: $taskContract,
-                    promptProjection: $promptProjection,
-                );
-                $providerCalls += $iterCalls;
-            } catch (\Throwable $e) {
-                // A throwing candidate must not abort selection. Record it as
-                // a non-passing candidate and continue.
-                $candidates[] = [
-                    'index' => $i,
-                    'passed' => false,
-                    'error' => 'candidate_generation_threw:'.Str::limit($e->getMessage(), 200, '...'),
-                    'callResult' => null,
-                    'diffResult' => null,
-                    'scopeReceipt' => null,
-                    'patchApplyResult' => null,
-                    'verificationResult' => null,
-                    'callResultForGates' => null,
-                    'e5_regressions' => [],
-                ];
-                // Revert partial workspace mutation from the throwing candidate.
-                $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
-                if ($restoreError !== null) {
-                    return $this->bestOfNWorkspaceRestoreFailed(
-                        envelope: $envelope,
-                        promptProjection: $promptProjection,
-                        taskContract: $taskContract,
-                        candidateCount: $candidateCount,
-                        candidates: $candidates,
-                        providerCalls: $providerCalls,
-                        regressionBaseline: $regressionBaseline,
-                        e5Active: $e5Active,
-                        reason: $restoreError,
-                    );
-                }
-
-                continue;
-            }
-
-            $diffResult = (new DiffParser)->parse($callResult->stdout);
-            $scopeReceipt = (new ScopeGuard)->check(
-                envelope: $envelope,
-                taskContract: $taskContract,
-                diffResult: $diffResult,
-                baseline: $workspaceBaseline['scope'],
-            );
-            $patchApplyResult = $this->applyPatchIfSafe(
-                diffResult: $diffResult,
-                scopeStatus: $scopeReceipt->status,
-                workspace: $envelope->workspace,
-                callResult: $callResult,
-            );
-            $callResultForGates = $patchApplyResult->ok()
-                ? $callResult
-                : $this->withProviderError($callResult, 'patch_apply_failed');
-
-            $verificationResult = $patchApplyResult->ok()
-                ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($promptProjection->runId)))->run(
-                    taskContract: $taskContract,
-                    callResult: $callResultForGates,
-                    scopeReceipt: $scopeReceipt,
-                    workspace: $envelope->workspace,
-                    codeGraph: $this->resolveCallerTestCodeGraph($scopeReceipt, $envelope->workspace),
-                )
-                : $this->verificationFailedDueToPatchApply($patchApplyResult);
-
-            // Capture this candidate's workspace diff text (the hermes provider
-            // mutates the workspace; the canonical diff is workspace-derived).
-            $candidateDiffText = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
-
-            // VAL-E5-013: compute this candidate's regression set against the
-            // shared pre-patch baseline (captured once before the loop). This
-            // proves every candidate is diffed against the SAME clean baseline
-            // regardless of candidate order, and no candidate's applied patch
-            // contaminates a later candidate's baseline (the cache is immutable).
-            // The regression set is recorded for evidence; the verdict is
-            // applied to the WINNER through the post-gate E5 block.
-            $candidateRegressions = [];
-            if ($e5Active) {
-                $baselineService = $this->resolveRegressionBaselineService($commandRunner);
-                if ($baselineService !== null) {
-                    $candidateRegressions = $baselineService->computeRegressions(
-                        $regressionBaseline,
-                        $verificationResult->tests,
-                    );
-                }
-            }
-
-            $candidates[] = [
-                'index' => $i,
-                'passed' => $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED,
-                'error' => null,
-                'callResult' => $callResult,
-                'diffResult' => $diffResult,
-                'scopeReceipt' => $scopeReceipt,
-                'patchApplyResult' => $patchApplyResult,
-                'verificationResult' => $verificationResult,
-                'callResultForGates' => $callResultForGates,
-                'candidate_diff_text' => $candidateDiffText,
-                'e5_regressions' => $candidateRegressions,
-            ];
-        }
-
-        // Deterministic selection: first passing candidate (lowest index) wins.
-        $winner = null;
-        foreach ($candidates as $candidate) {
-            if ($candidate['passed']) {
-                $winner = $candidate;
-                break;
-            }
-        }
-
-        if ($winner === null) {
-            // No candidate passed: keep the FIRST candidate's results so the
-            // run reports non-completed honestly (anti-gaming: never
-            // manufacture green from all-red candidates).
-            $winner = $candidates[0] ?? null;
-        }
-
-        // Defensive: if no candidate was produced at all (should not happen
-        // with candidateCount >= 1), synthesize a blocked result.
-        if ($winner === null || $winner['callResult'] === null) {
-            $blocked = $this->blockedProviderCallResult(
-                runId: $promptProjection->runId,
-                provider: 'hermes_cli',
-                modelFamily: $taskContract->providerLock->modelFamily,
-                error: 'best_of_n_no_candidate_produced',
-                stderr: 'Best-of-N produced no candidate.',
-            );
-
-            return [
-                'callResult' => $blocked,
-                'diffResult' => DiffParseResult::invalid(['best_of_n_no_candidate_produced']),
-                'scopeReceipt' => (new ScopeGuard)->check(
-                    envelope: $envelope,
-                    taskContract: $taskContract,
-                    diffResult: DiffParseResult::invalid(['best_of_n_no_candidate_produced']),
-                    baseline: $workspaceBaseline['scope'],
-                ),
-                'patchApplyResult' => new PatchApplyResult(
-                    status: PatchApplyResult::STATUS_SKIPPED,
-                    exitCode: 0,
-                    durationMs: 0,
-                    stdout: '',
-                    stderr: '',
-                    reason: 'no_candidate',
-                ),
-                'verificationResult' => $this->verificationFailedDueToPatchApply(new PatchApplyResult(
-                    status: PatchApplyResult::STATUS_FAILED,
-                    exitCode: 1,
-                    durationMs: 0,
-                    stdout: '',
-                    stderr: 'No best-of-N candidate produced.',
-                    reason: 'no_candidate',
-                )),
-                'callResultForGates' => $blocked,
-                'providerCalls' => $providerCalls,
-                'summary' => $this->bestOfNSummary(
-                    candidateCount: $candidateCount,
-                    candidates: $candidates,
-                    winnerIndex: -1,
-                    regressionBaseline: $regressionBaseline,
-                    e5Active: $e5Active,
-                ),
-            ];
-        }
-
-        // Re-apply the winner's diff to the workspace so the persisted diff
-        // hash equals the selected candidate's (VAL-M4-008). The workspace was
-        // last mutated by the FINAL candidate; revert then re-apply winner.
-        $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
-        if ($restoreError !== null) {
-            return $this->bestOfNWorkspaceRestoreFailed(
-                envelope: $envelope,
-                promptProjection: $promptProjection,
-                taskContract: $taskContract,
-                candidateCount: $candidateCount,
-                candidates: $candidates,
-                providerCalls: $providerCalls,
-                regressionBaseline: $regressionBaseline,
-                e5Active: $e5Active,
-                reason: $restoreError,
-            );
-        }
-        $reapplyStderr = '';
-        $reapplyOk = $this->reapplyCandidateDiff(
-            workspace: $envelope->workspace,
-            diffText: $winner['candidate_diff_text'] ?? '',
-            callResult: $winner['callResult'],
-            taskContract: $taskContract,
-            stderrRef: $reapplyStderr,
-        );
-
-        // FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): if the
-        // winner has a non-empty diff and re-apply FAILED, the workspace does
-        // NOT match the selected winner. We MUST NOT return the winner's green
-        // metadata — that would report a GREEN completion whose actual
-        // workspace state differs from the selected winner's diff (fail-open
-        // correctness gap). Instead mirror the no-candidate-produced branch:
-        // a non-completed result with STATUS_FAILED patch_apply carrying the
-        // git apply stderr/reason, and verificationResult via
-        // verificationFailedDueToPatchApply(...) so aggregateStatus is
-        // non-passed. PRESERVE the empty-diff no-op case (the candidate made
-        // no workspace change -> reverted-clean state is correct), which
-        // reapplyCandidateDiff() reports as success.
-        $winnerDiffText = trim((string) ($winner['candidate_diff_text'] ?? ''));
-        if (! $reapplyOk && $winnerDiffText !== '') {
-            // Forense: persiste o diff exato que o git apply recusou (o run
-            // dev-1783066505769 perdeu a evidência — sem o patch não há como
-            // diagnosticar o "corrupt patch"). Best-effort, nunca falha o run.
-            try {
-                $forensic = storage_path('atlas-dev/receipts/'.$promptProjection->runId.'/best_of_n_winner_reapply_failed.patch');
-                if (is_dir(dirname($forensic))) {
-                    @file_put_contents($forensic, $winnerDiffText."\n\n--- git apply stderr ---\n".$reapplyStderr."\n");
-                }
-            } catch (\Throwable) {
-                // fail-open
-            }
-            $reapplyBlocked = $this->blockedProviderCallResult(
-                runId: $promptProjection->runId,
-                provider: 'hermes_cli',
-                modelFamily: $taskContract->providerLock->modelFamily,
-                error: 'winner_reapply_failed',
-                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
-            );
-            $reapplyPatchApply = new PatchApplyResult(
-                status: PatchApplyResult::STATUS_FAILED,
-                exitCode: 1,
-                durationMs: 0,
-                stdout: '',
-                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
-                reason: 'winner_reapply_failed',
-            );
-
-            return [
-                'callResult' => $reapplyBlocked,
-                'diffResult' => DiffParseResult::invalid(['winner_reapply_failed']),
-                'scopeReceipt' => (new ScopeGuard)->check(
-                    envelope: $envelope,
-                    taskContract: $taskContract,
-                    diffResult: DiffParseResult::invalid(['winner_reapply_failed']),
-                    baseline: $workspaceBaseline['scope'],
-                ),
-                'patchApplyResult' => $reapplyPatchApply,
-                'verificationResult' => $this->verificationFailedDueToPatchApply($reapplyPatchApply),
-                'callResultForGates' => $reapplyBlocked,
-                'providerCalls' => $providerCalls,
-                'summary' => $this->bestOfNSummary(
-                    candidateCount: $candidateCount,
-                    candidates: $candidates,
-                    winnerIndex: -1,
-                    regressionBaseline: $regressionBaseline,
-                    e5Active: $e5Active,
-                ),
-            ];
-        }
-
-        // Rebuild the winner's diff result from the now-applied winner diff so
-        // the persisted diff hash reflects the selected candidate exactly.
-        $winnerDiffResult = (new DiffParser)->parse($winner['callResult']->stdout);
-
-        // E4: DifferentialTestingService -- compare all N candidates and route
-        // the divergence verdict through the sanctioned channels.
-        //
-        // VAL-E4-001: agreeing candidates => high confidence, no flag, passed
-        // allowed. VAL-E4-002: divergent candidates => candidate_divergence
-        // flag carrying the divergent diffs as evidence. VAL-E4-003: advisory
-        // divergence => needs_review (never silently accepted). VAL-E4-010:
-        // off => byte-identical (no comparison, no flag); advisory => flag +
-        // needs_review; hard => STATUS_FAILED on divergence.
-        //
-        // The comparison runs AFTER the winner is selected and re-applied so
-        // the verdict applies to the WINNER's verificationResult (the one that
-        // flows through the shared post-gate block + CompletionStateGate).
-        // Channels (no third way): advisory => honesty flag only; hard =>
-        // STATUS_FAILED gate channel. Off => byte-identical no-op (the service
-        // is not even invoked).
-        $winnerVerificationResult = $winner['verificationResult'];
-        $e4SummaryData = null;
-        if ($e4Config !== null && ! $e4Config->isOff()) {
-            $diffService = $this->resolveDifferentialTestingService();
-            $diffResult4 = $diffService->compare($candidates);
-            $diffGate = new CandidateDivergenceGate($e4Config);
-            $e4Verdict = $diffGate->evaluate($diffResult4);
-
-            // Divergência TEXTUAL entre candidatos LLM é o estado NORMAL do
-            // best-of-N (dois refactors independentes nunca são byte-idênticos
-            // — fire test 03/07: todo N=2 real virava needs_review/failed, o
-            // amplificador nunca fechava passed). Quando o VENCEDOR passou a
-            // verificação completa, a divergência vira INFORMAÇÃO no summary
-            // (auditável, nunca silenciosa); o flag só derruba o run quando
-            // NENHUM candidato passou (divergência + falha geral = sinal real
-            // de instabilidade). Comparação byte-a-byte era doutrina do mundo
-            // determinístico.
-            $winnerPassed = $winnerVerificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED;
-            if ($e4Verdict->tripped && ! $winnerPassed) {
-                $winnerVerificationResult = $this->routeElevationVerdict(
-                    $winnerVerificationResult,
-                    $e4Config,
-                    $e4Verdict->honestyFlags,
-                );
-            }
-
-            // Build the E4 summary fragment for the best-of-N summary. On
-            // agreement or skip, the flag is null so the summary stays clean
-            // (no evidence keys), and only the boolean agreement indicator is
-            // added. On divergence, the flag + divergent diffs are carried.
-            $e4SummaryData = [
-                'agreed' => $diffResult4->agreed,
-                'divergent_diffs' => $e4Verdict->tripped
-                    ? array_map(
-                        static fn (array $d): array => [
-                            'index' => $d['index'],
-                            'diff' => mb_substr($d['diff'], 0, 2000),
-                        ],
-                        $e4Verdict->divergentDiffs,
-                    )
-                    : [],
-                'flag' => $e4Verdict->tripped
-                    ? $e4Verdict->honestyFlags[0] ?? null
-                    : null,
-            ];
-        }
-
-        return [
-            'callResult' => $winner['callResult'],
-            'diffResult' => $winnerDiffResult,
-            'scopeReceipt' => $winner['scopeReceipt'],
-            'patchApplyResult' => $winner['patchApplyResult'],
-            'verificationResult' => $winnerVerificationResult,
-            'callResultForGates' => $winner['callResultForGates'],
-            'providerCalls' => $providerCalls,
-            'summary' => $this->bestOfNSummary(
-                candidateCount: $candidateCount,
-                candidates: $candidates,
-                winnerIndex: $winner['passed'] ? $winner['index'] : -1,
-                regressionBaseline: $regressionBaseline,
-                e5Active: $e5Active,
-                e4Summary: $e4SummaryData,
-            ),
-        ];
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $candidates
-     * @return array{
-     *   callResult:ProviderCallResult,
-     *   diffResult:DiffParseResult,
-     *   scopeReceipt:ScopeGuardReceipt,
-     *   patchApplyResult:PatchApplyResult,
-     *   verificationResult:VerificationGateResult,
-     *   callResultForGates:ProviderCallResult,
-     *   providerCalls:int,
-     *   summary:array<string,mixed>,
-     * }
-     */
-    private function bestOfNWorkspaceRestoreFailed(
-        OperationEnvelope $envelope,
-        ProviderPromptProjection $promptProjection,
-        LightTaskContract $taskContract,
-        int $candidateCount,
-        array $candidates,
-        int $providerCalls,
-        ?RegressionBaselineCache $regressionBaseline,
-        bool $e5Active,
-        string $reason,
-    ): array {
-        $blocked = $this->blockedProviderCallResult(
-            runId: $promptProjection->runId,
-            provider: 'hermes_cli',
-            modelFamily: $taskContract->providerLock->modelFamily,
-            error: 'workspace_baseline_restore_refused',
-            stderr: 'Workspace baseline restore refused: '.$reason,
-        );
-        $patchApply = new PatchApplyResult(
-            status: PatchApplyResult::STATUS_FAILED,
-            exitCode: 1,
-            durationMs: 0,
-            stdout: '',
-            stderr: 'Workspace baseline restore refused: '.$reason,
-            reason: 'workspace_baseline_restore_refused',
-        );
-        $diffResult = DiffParseResult::invalid(['workspace_baseline_restore_refused']);
-
-        return [
-            'callResult' => $blocked,
-            'diffResult' => $diffResult,
-            'scopeReceipt' => (new ScopeGuard)->check(
-                envelope: $envelope,
-                taskContract: $taskContract,
-                diffResult: $diffResult,
-            ),
-            'patchApplyResult' => $patchApply,
-            'verificationResult' => $this->verificationFailedDueToPatchApply($patchApply),
-            'callResultForGates' => $blocked,
-            'providerCalls' => $providerCalls,
-            'summary' => $this->bestOfNSummary(
-                candidateCount: $candidateCount,
-                candidates: $candidates,
-                winnerIndex: -1,
-                regressionBaseline: $regressionBaseline,
-                e5Active: $e5Active,
-            ),
-        ];
-    }
-
-    /**
-     * Re-apply a captured candidate's workspace diff after the workspace was
-     * reverted. Hermes mutates the workspace directly, so the canonical diff
-     * is workspace-derived text; we re-apply it via `git apply` so the
-     * selected winner's diff is the one persisted.
-     *
-     * FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): the return
-     * value reports whether `git apply` succeeded. An empty (no-op) diff is
-     * treated as success — the reverted-clean workspace already matches a
-     * candidate that made no workspace change. A non-empty diff whose
-     * `git apply` fails (non-zero exit, e.g. context drift) returns false so
-     * the caller can refuse to persist a desynced winner's green metadata
-     * (anti-gaming: a workspace that does NOT match the selected winner must
-     * never report green). The captured stderr is exposed via the
-     * `$stderrRef` by-reference parameter for the caller's failure reason.
-     */
-    private function reapplyCandidateDiff(
-        string $workspace,
-        string $diffText,
-        ProviderCallResult $callResult,
-        LightTaskContract $taskContract,
-        string &$stderrRef = '',
-    ): bool {
-        $stderrRef = '';
-        if (! is_dir($workspace)) {
-            $stderrRef = 'reapply_workspace_missing';
-
-            return false;
-        }
-        $diffText = trim($diffText);
-        if ($diffText === '') {
-            // Nothing to re-apply; the candidate made no workspace change.
-            // The reverted (clean) workspace already matches this candidate,
-            // so this is a SUCCESS, not a failure.
-            return true;
-        }
-        $tmp = tempnam(sys_get_temp_dir(), 'atlas_bon_diff_');
-        if ($tmp === false) {
-            $stderrRef = 'reapply_tempnam_failed';
-
-            return false;
-        }
-        file_put_contents($tmp, $diffText."\n");
-        try {
-            // Escada de tolerância (fire test 03/07: winner real falhou
-            // "corrupt patch" no apply puro): --recount recomputa os
-            // contadores de hunk; --3way usa os blobs. Qualquer sucesso
-            // produz o MESMO conteúdo final do diff; falha total continua
-            // fail-closed (nunca green de workspace dessincronizado).
-            $lastError = '';
-            foreach ([
-                ['git', 'apply', '--whitespace=nowarn', $tmp],
-                ['git', 'apply', '--whitespace=nowarn', '--recount', $tmp],
-                ['git', 'apply', '--whitespace=nowarn', '--3way', $tmp],
-            ] as $argv) {
-                $process = new Process($argv, $workspace, null, null, 15.0);
-                $process->run();
-                if ($process->isSuccessful()) {
-                    return true;
-                }
-                $lastError = $process->getErrorOutput() !== ''
-                    ? $process->getErrorOutput()
-                    : 'git apply failed with exit code '.$process->getExitCode();
-            }
-            $stderrRef = $lastError;
-
-            return false;
-        } finally {
-            @unlink($tmp);
-        }
-    }
-
-    /**
-     * Build the honest best-of-N summary block for the provider call receipt.
-     *
-     * Carries the explicit intra-model-weaker-than-cross-engine annotation
-     * and makes NO equivalence/parity claim (VAL-M4-007).
-     *
-     * VAL-E5-013: when E5 is active, the summary carries the shared pre-patch
-     * baseline hash and per-candidate regression evidence, proving every
-     * candidate was diffed against the SAME clean baseline.
-     *
-     * VAL-E4-002: when E4 is active, the summary carries the candidate
-     * divergence verdict and the divergent diffs as evidence.
-     *
-     * @param  list<array<string,mixed>>  $candidates
-     * @param  ?array{agreed: bool, divergent_diffs: list<array{index: int, diff: string}>, flag: ?string}  $e4Summary
-     * @return array<string,mixed>
-     */
-    private function bestOfNSummary(
-        int $candidateCount,
-        array $candidates,
-        int $winnerIndex,
-        ?RegressionBaselineCache $regressionBaseline = null,
-        bool $e5Active = false,
-        ?array $e4Summary = null,
-    ): array {
-        $passing = array_values(array_filter(
-            $candidates,
-            static fn (array $c): bool => (bool) ($c['passed'] ?? false),
-        ));
-
-        $summary = [
-            'enabled' => true,
-            'candidate_count' => $candidateCount,
-            'passing_count' => count($passing),
-            'selected_candidate_index' => $winnerIndex,
-            'tie_break' => 'lowest_index_among_passing',
-            // HONEST ANNOTATION (VAL-M4-007): same-model best-of-N is weaker
-            // than cross-engine decorrelation. No equivalence/parity claim.
-            'intra_model_best_of_n_weaker_than_cross_engine' => true,
-            'provider_lock' => 'hermes_cli',
-            'model_family' => 'minimax-m3',
-        ];
-
-        // VAL-E5-013: include the shared baseline hash + per-candidate
-        // regression evidence when E5 is active. Every candidate references
-        // the same baseline hash, proving the baseline was not recaptured
-        // per candidate (no contamination).
-        if ($e5Active && $regressionBaseline !== null) {
-            $summary['e5_shared_baseline_hash'] = $regressionBaseline->contentHash;
-            $summary['e5_baseline_capture_order'] = $regressionBaseline->captureOrder;
-
-            $candidateEvidence = [];
-            foreach ($candidates as $candidate) {
-                $regressions = $candidate['e5_regressions'] ?? [];
-                $candidateEvidence[] = [
-                    'index' => $candidate['index'],
-                    'passed' => $candidate['passed'],
-                    'e5_baseline_hash' => $regressionBaseline->contentHash,
-                    'e5_regression_count' => count($regressions),
-                    'e5_regressions' => array_values($regressions),
-                ];
-            }
-            $summary['candidates'] = $candidateEvidence;
-        }
-
-        // VAL-E4-002: include the candidate divergence verdict + divergent
-        // diffs as evidence when E4 is active. On agreement or off-mode the
-        // $e4Summary is null so the summary stays byte-identical to pre-E4.
-        if ($e4Summary !== null) {
-            $summary['e4_candidate_agreed'] = $e4Summary['agreed'];
-            if ($e4Summary['flag'] !== null) {
-                $summary['e4_flag'] = $e4Summary['flag'];
-            }
-            if ($e4Summary['divergent_diffs'] !== []) {
-                $summary['e4_divergent_diffs'] = $e4Summary['divergent_diffs'];
-            }
-        }
-
-        return $summary;
-    }
-
-    /**
-     * M3: Build the input array for ReviewIntelligenceService::analyse().
-     *
-     * Feeds the diff (from $scopeReceipt->observed->fileDiffs) + test evidence
-     * + scope contract into the critic so it can detect heuristic-bounded
-     * defects that tests alone won't catch.
-     *
-     * @return array<string,mixed>
-     */
-    private function buildCriticInput(
-        string $runId,
-        ScopeGuardReceipt $scopeReceipt,
-        LightTaskContract $taskContract,
-        VerificationGateResult $verificationResult,
-        DiffParseResult $diffResult,
-        bool $intentWitnessed = false,
-    ): array {
-        // changed_files from the observed diff (canonical "what changed" source)
-        $changedFiles = array_map(
-            static fn (ScopeFileDiff $d): string => $d->path,
-            $scopeReceipt->observed->fileDiffs,
-        );
-
-        // diff_chunks derived from the parsed diff content
-        $diffChunks = [];
-        if ($diffResult->diff !== null && $diffResult->diff !== '') {
-            $diffChunks = $this->parseDiffIntoChunks($diffResult->diff);
-        }
-
-        // test_paths from the verification result (commands that ran)
-        // plus allowedFiles that look like test files (they serve as
-        // expected test coverage even when not in the diff).
-        $testPaths = array_values(array_filter(
-            array_map(static fn ($t): string => $t->command, $verificationResult->tests),
-            static fn (string $cmd): bool => str_contains($cmd, 'test') || str_contains($cmd, 'phpunit'),
-        ));
-        $testPaths = array_values(array_unique(array_merge(
-            $testPaths,
-            array_filter($taskContract->allowedFiles, static fn (string $f): bool => (bool) preg_match('/(^|\/)tests\//i', $f)),
-        )));
-
-        return [
-            'run_id' => $runId,
-            'changed_files' => $changedFiles,
-            'diff_chunks' => $diffChunks,
-            'test_paths' => $testPaths,
-            'allowed_files' => $taskContract->allowedFiles,
-            'forbidden_files' => $taskContract->forbiddenFiles,
-            'risk_rules' => [],
-            'evidence_refs' => [],
-            // E1: thread the E2-established intent basis so the critic's
-            // detectIntentFalsification() detector (merged into analyse())
-            // can assert the diff implements the intent verb(s) using the
-            // same IntentFalsificationProbe as the post-gate probe — single
-            // source of truth, no re-detection (VAL-CROSS-005). Absent for
-            // read-only paths (intentVerbs empty) so the detector stays
-            // silent and the critic is byte-identical to pre-E1 there.
-            // RED→GREEN WITNESS: quando o repair é comportamentalmente
-            // testemunhado (baseline vermelho → verificação verde), o intent
-            // FOI endereçado por prova de execução — verbs vazios usam o
-            // caminho silencioso documentado acima (detector mudo), evitando
-            // que o critic re-flague pelo mesmo probe heurístico que o
-            // executor já isentou.
-            'intent_basis' => [
-                'intent_verbs' => $intentWitnessed ? [] : array_values($taskContract->intentVerbs),
-                'intent_text' => $taskContract->intentText,
-                'diff' => $diffResult->diff ?? '',
-            ],
-        ];
-    }
-
-    /**
-     * M3: Parse a unified diff string into diff_chunks for the critic.
-     *
-     * Extracts file paths and hunk bodies from a standard unified diff.
-     * This is a best-effort heuristic parser; the critic handles missing
-     * or malformed chunks gracefully (they just reduce detection accuracy).
-     *
-     * @return list<array<string,mixed>>
-     */
-    private function parseDiffIntoChunks(string $diff): array
-    {
-        $chunks = [];
-        $lines = explode("\n", $diff);
-        $currentFile = null;
-        $currentBody = '';
-        $currentLine = null;
-
-        foreach ($lines as $line) {
-            if (preg_match('/^---\s+[ab]\/(.+)$/', $line, $m)) {
-                // --- a/file (old file) — note the new file name from +++ line
-                continue;
-            }
-            if (preg_match('/^\+\+\+\s+[ab]\/(.+)$/', $line, $m)) {
-                // Flush the previous file's chunk
-                if ($currentFile !== null && $currentBody !== '') {
-                    $chunks[] = [
-                        'file' => $currentFile,
-                        'body' => $currentBody,
-                        'line' => $currentLine,
-                    ];
-                }
-                $currentFile = $m[1];
-                $currentBody = '';
-                $currentLine = null;
-
-                continue;
-            }
-            if (preg_match('/^@@\s+-(\d+)/', $line, $m)) {
-                // Hunk header — flush the previous chunk
-                if ($currentFile !== null && $currentBody !== '') {
-                    $chunks[] = [
-                        'file' => $currentFile,
-                        'body' => $currentBody,
-                        'line' => $currentLine,
-                    ];
-                }
-                $currentLine = (int) $m[1];
-                $currentBody = '';
-
-                continue;
-            }
-            if ($currentFile !== null && ($line === '' || str_starts_with($line, '+') || str_starts_with($line, '-') || str_starts_with($line, ' '))) {
-                $currentBody .= $line."\n";
-            }
-        }
-
-        // Flush the last chunk
-        if ($currentFile !== null && $currentBody !== '') {
-            $chunks[] = [
-                'file' => $currentFile,
-                'body' => $currentBody,
-                'line' => $currentLine,
-            ];
-        }
-
-        return $chunks;
-    }
-
-    /**
-     * M2: Extract a failure excerpt from the verification gate result.
-     *
-     * Collects the output of all failing test runs into a single excerpt
-     * that can be fed into the next repair attempt's prompt and the
-     * FailureCapsule's primary_error_excerpt. The excerpt also feeds
-     * FailureSignatureHasher for same-signature-twice detection, so it
-     * is kept to command + exit_code (stable across volatile stdout).
-     * TestRun persists real stdout/stderr to disk at outputPath (see
-     * library/environment.md); enriching the excerpt with it would change
-     * the normalized failure signature, so per feature scope
-     * (misc-m2-reuse-repair-prompt-composer) that enrichment is out of
-     * scope unless RepairPromptComposer naturally surfaces it.
-     */
-    private function extractFailureExcerpt(VerificationGateResult $result): string
-    {
-        $failingTests = array_filter($result->tests, fn ($t) => ! $t->ok);
-        if ($failingTests === []) {
-            return 'Verification gate failed with no specific test output.';
-        }
-
-        $excerpts = [];
-        foreach ($failingTests as $test) {
-            $excerpts[] = "Command: {$test->command}\nExit code: {$test->exitCode}";
-        }
-
-        return implode("\n\n", $excerpts);
-    }
-
-    /**
-     * M2: Build the repair prompt for the hermes path by REUSING the armed
-     * RepairPromptComposer (library/do-not-rebuild.md) instead of a custom
-     * string concatenation.
-     *
-     * Flow:
-     *   1. Build a canonical FailureCapsule from the verification failure
-     *      via FailureCapsuleBuilder (normalizes the excerpt, computes the
-     *      deterministic failure_signature, decides retry/stop/escalate).
-     *   2. Compose the repair ProviderPromptProjection via
-     *      RepairPromptComposer::compose() — this inherits the prompt-enforced
-     *      stop conditions, operating rules and the Repair Capsule section
-     *      the custom buildHermesRepairPrompt() used to bypass (LIGAR
-     *      violation flagged by M2 scrutiny).
-     *   3. Wrap the composed rendered text with the REPAIR REQUIRED marker +
-     *      "Previous attempt failed" header so the failure-excerpt structure
-     *      VAL-M2-008 locks is preserved, while the composed body underneath
-     *      carries strictly richer guard-rail content.
-     *
-     * M1 (provider-agnostic): this returns a full {@see ProviderPromptProjection}
-     * (not a hermes-only prompt string) so the repair loop can re-invoke ANY
-     * locked provider through the same executeLockedProvider dispatch. The
-     * composed projection carries the Repair Capsule / Primary Error / Stop
-     * Conditions sections and does NOT assume hermes transport; Claude consumes
-     * it via SonnetClaudeCliAdapter, Codex/Cursor/Hermes via their invocation
-     * drivers — all read rendered_prompt_text from the projection.
-     *
-     * The loop's same-signature-twice detection in execute() continues to
-     * compare the FailureSignatureHasher signature of the raw failure
-     * excerpt; that signature equals the capsule's failure_signature
-     * (both go through hasher->normalize() then FailureCapsule::signatureOf).
-     *
-     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
-     * VAL-CROSS-006): when the E1 intent-falsification probe is active and
-     * the diff misses the intent, the probe reason is fed as a SEPARATE field
-     * ($intentProbeReason) and rendered in a DEDICATED `## Intent Not Yet
-     * Addressed` section. CRITICAL: $failureExcerpt is NEVER mutated by the
-     * probe reason — it feeds the FailureSignatureHasher for same-signature-
-     * twice anti-spin and must stay byte-identical regardless of the probe.
-     * The probe reason lives in its own prompt section so the regenerated
-     * attempt can act on it (convergence) without destabilizing the failure
-     * signature. When $intentProbeReason is '' (probe off, or intent
-     * addressed), the dedicated section is omitted entirely (conditional-empty
-     * pattern: byte-identical to the pre-feedback baseline).
-     */
-    private function buildComposedRepairProjection(
-        ProviderPromptProjection $promptProjection,
-        LightTaskContract $taskContract,
-        VerificationGateResult $verificationResult,
-        ScopeGuardReceipt $scopeReceipt,
-        DiffParseResult $diffResult,
-        string $failureExcerpt,
-        int $repairAttempt,
-        int $repairCap,
-        string $intentProbeReason = '',
-        string $weakOutputHint = '',
-    ): ProviderPromptProjection {
-        $firstFailing = null;
-        foreach ($verificationResult->tests as $test) {
-            if (! $test->ok) {
-                $firstFailing = $test;
-                break;
-            }
-        }
-
-        // The armed RepairPromptComposer enforces a run_id identity chain
-        // (projection == capsule == contract). In a real run these are
-        // consistent (the projection is built from the same envelope as the
-        // contract). We anchor on the contract's run_id (the authoritative
-        // identity that carries task_contract_hash) and build a projection
-        // view with that run_id so the composed service's invariant holds
-        // regardless of how the caller constructed the projection envelope.
-        $compositionProjection = $promptProjection;
-        if ($promptProjection->runId !== $taskContract->runId) {
-            $payload = $promptProjection->toCanonicalArray();
-            $payload['run_id'] = $taskContract->runId;
-            $compositionProjection = ProviderPromptProjection::fromArray($payload);
-        }
-
-        $capsuleBuilder = new FailureCapsuleBuilder(new FailureSignatureHasher);
-        $gate = 'verification_gate';
-        $capsule = $capsuleBuilder->buildInitial(
-            runId: $taskContract->runId,
-            taskContractHash: $taskContract->taskContractHash,
-            gate: $gate,
-            command: $firstFailing?->command,
-            exitCode: $firstFailing?->exitCode,
-            primaryErrorRaw: $failureExcerpt,
-            fullErrorLogPath: $firstFailing?->outputPath,
-            failingTest: $firstFailing?->command,
-            diffHash: $diffResult->diffHash(),
-            changedFiles: array_map(
-                static fn ($d): string => $d->path,
-                $scopeReceipt->observed->fileDiffs,
-            ),
-            policy: $taskContract->repairPolicy,
-        );
-
-        $composer = new RepairPromptComposer;
-        $repairProjection = $composer->compose(
-            original: $compositionProjection,
-            capsule: $capsule,
-            contract: $taskContract,
-            attemptIndex: $repairAttempt,
-            maxAttempts: max(1, $repairCap),
-        );
-
-        // The composed rendered text already carries [original prompt] +
-        // [# Repair Capsule] + [# Primary Error] + [# Stop Conditions]
-        // (strictly richer than the former custom version). Inject the
-        // REPAIR REQUIRED marker + "Previous attempt failed" header right
-        // before the Repair Capsule section so the failure-excerpt structure
-        // VAL-M2-008 locks is preserved, without duplicating the original
-        // prompt body.
-        //
-        // E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
-        // VAL-CROSS-006): the probe reason ($intentProbeReason) is rendered
-        // as a SEPARATE dedicated section right after the failure-excerpt
-        // marker, BEFORE the Repair Capsule. CRITICAL: it is NEVER folded
-        // into $failureExcerpt (which is hashed by FailureSignatureHasher
-        // for same-signature-twice anti-spin). When empty (probe off, or
-        // intent addressed), the section is omitted entirely so the prompt
-        // is byte-identical to the pre-feedback baseline (conditional-empty
-        // pattern, mirroring `## Known Failure Modes`).
-        $marker = "--- REPAIR REQUIRED ({$gate}) ---\n"
-            ."Previous attempt failed. Error output:\n{$failureExcerpt}\n";
-        $intentSection = $this->renderIntentProbeSection($intentProbeReason)
-            .$this->renderWeakOutputSection($weakOutputHint);
-        $composed = $repairProjection->renderedPromptText;
-        $capsuleHeader = '# Repair Capsule';
-        $capsulePos = strpos($composed, $capsuleHeader);
-        if ($capsulePos !== false) {
-            // M2-followup: restore the 20,000-char cap on the ORIGINAL prompt
-            // body (the pre-capsule portion). The prior custom
-            // buildHermesRepairPrompt() applied mb_substr(renderedPromptText,
-            // 0, 20_000); that cap survived ONLY in the defensive fallback
-            // branch below, NOT here. Apply it to the pre-capsule portion ONLY
-            // using mb_substr so the original-prompt body is bounded exactly as
-            // before, while the # Repair Capsule / # Primary Error /
-            // # Stop Conditions guard-rail sections (capsulePos onward) and the
-            // injected REPAIR REQUIRED marker are preserved IN FULL (never
-            // truncate the guard rails).
-            //
-            // The capsule header is ASCII, so mb_strpos yields the character
-            // offset matching the byte offset for the header boundary; using
-            // the character offset keeps mb_substr correct for multibyte
-            // pre-capsule bodies.
-            $capsuleCharPos = mb_strpos($composed, $capsuleHeader);
-            $cappedPreCapsule = mb_substr($composed, 0, min($capsuleCharPos, 20_000));
-
-            $finalText = $cappedPreCapsule
-                .$marker
-                .$intentSection
-                .substr($composed, $capsulePos);
-        } else {
-            // Fallback (defensive): append the marker + composed body tail if
-            // the capsule header was not found (composition contract changed).
-            $finalText = mb_substr($promptProjection->renderedPromptText, 0, 20_000)
-                ."\n\n".$marker
-                .$intentSection
-                .$composed;
-        }
-
-        // Rebuild the composed projection with the marker-injected rendered
-        // text and recomputed hashes, so every provider receives a valid,
-        // sendable ProviderPromptProjection (isSendable() requires a non-empty
-        // rendered_prompt_hash). The sections / quality checks / provider-safe
-        // flag are inherited verbatim from the composed projection; only the
-        // rendered text (and its two hashes) change. The marker injection is
-        // purely additive text — it never weakens the composer's guard rails.
-        return $this->rebuildProjectionWithRenderedText($repairProjection, $finalText);
-    }
-
-    /**
-     * Rebuild a {@see ProviderPromptProjection} with a new rendered_prompt_text
-     * and recomputed rendered_prompt_hash + prompt_projection_hash.
-     *
-     * Used by the repair loop to inject the REPAIR REQUIRED marker into the
-     * composed projection's rendered text without touching the sections,
-     * quality checks, or provider-safe flag the composer already established.
-     * The resulting projection is sendable (QualityChecks::allPassing() is
-     * inherited) so any locked provider's runtime driver accepts it.
-     */
-    private function rebuildProjectionWithRenderedText(
-        ProviderPromptProjection $projection,
-        string $renderedText,
-    ): ProviderPromptProjection {
-        $payload = $projection->toCanonicalArray();
-        $payload['rendered_prompt_text'] = $renderedText;
-        $payload['rendered_prompt_hash'] = hash('sha256', $renderedText);
-        // hash() excludes prompt_projection_hash from its own digest, so build
-        // a skeleton with a placeholder then recompute the canonical hash.
-        $payload['prompt_projection_hash'] = 'pending';
-        $skeleton = ProviderPromptProjection::fromArray($payload);
-        $payload['prompt_projection_hash'] = $skeleton->hash();
-
-        return ProviderPromptProjection::fromArray($payload);
-    }
-
-    /**
-     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
-     * VAL-CROSS-006): render the intent-probe reason as a DEDICATED prompt
-     * section, separate from $failureExcerpt.
-     *
-     * Conditional-empty pattern (mirrors `## Known Failure Modes`): when the
-     * reason is empty (probe off, or intent addressed), the section is
-     * omitted entirely so the rendered prompt is byte-identical to the
-     * pre-feedback baseline. When non-empty, the section carries the probe
-     * reason as a live input the regenerated attempt can act on (the verb
-     * set the diff failed to implement + the intent subject), positioned
-     * AFTER the REPAIR REQUIRED failure-excerpt marker and BEFORE the
-     * Repair Capsule so the failure-excerpt structure VAL-M2-008 locks is
-     * preserved while the probe feedback is strictly additive.
-     *
-     * CRITICAL: this section NEVER mutates $failureExcerpt. The reason lives
-     * in its own block so FailureSignatureHasher (which hashes only the
-     * excerpt) produces the same signature regardless of the probe — the
-     * cap=3 same-signature-twice anti-spin still fires on a genuinely stuck
-     * repair (VAL-E1-008).
-     */
-    /**
-     * Weak-output feedback ({@see DevWeakOutputDetector}): a dedicated repair-prompt
-     * section naming WHY the previous output was structurally weak (truncated diff,
-     * out-of-scope file, placeholder body, restated code) and what to re-emphasize.
-     * Conditional-empty: returns '' when there is no hint, so the composed prompt is
-     * byte-identical to the pre-detector baseline (mirrors the intent-probe section,
-     * and like it the hint is NEVER folded into the hashed failure excerpt).
-     */
-    private function renderWeakOutputSection(string $weakOutputHint): string
-    {
-        $hint = trim($weakOutputHint);
-        if ($hint === '') {
-            return '';
-        }
-
-        return "\n## Previous Output Was Structurally Weak\n"
-            .$hint."\n\n";
-    }
-
-    private function renderIntentProbeSection(string $intentProbeReason): string
-    {
-        $reason = trim($intentProbeReason);
-        if ($reason === '') {
-            // Conditional-empty: byte-identical to the pre-feedback baseline.
-            return "\n";
-        }
-
-        return "\n## Intent Not Yet Addressed\n"
-            .$reason."\n\n";
-    }
-
-    /**
-     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-013, VAL-CROSS-006):
-     * resolve the intent-probe reason to feed into the M2 repair prompt as a
-     * SEPARATE field (a live input the regenerated attempt can act on).
-     *
-     * Returns '' when:
-     *   - e1.mode is off (the probe is never consulted; byte-identical to
-     *     pre-E1, VAL-CROSS-010); OR
-     *   - the probe does NOT fire (the diff traceably implements the intent,
-     *     VAL-E1-005 — no reason to feed forward); OR
-     *   - the contract carries no recognized intent verb (nothing to probe).
-     *
-     * When non-empty, the reason references the unaddressed intent verbs and
-     * the intent subject so the next repair iteration knows WHAT to implement
-     * (convergence, VAL-E1-013). The reason is sourced from the
-     * E2-established basis (LightTaskContract::intentVerbs + intentText),
-     * model-irrelevant, and deterministic.
-     *
-     * The reason is NEVER folded into $failureExcerpt (which is hashed by
-     * FailureSignatureHasher for same-signature-twice anti-spin). It flows
-     * through its own dedicated prompt section via
-     * {@see renderIntentProbeSection()} so the failure signature stays
-     * byte-identical regardless of the probe (VAL-E1-007, VAL-E1-008).
-     */
-    private function resolveIntentProbeReasonForRepair(
-        LightTaskContract $taskContract,
-        DiffParseResult $diffResult,
-    ): string {
-        // off mode: byte-identical to pre-E1 (no probe, no reason).
-        if ($this->resolveE1Config()->isOff()) {
-            return '';
-        }
-
-        return (new IntentFalsificationProbe)->probeReason($taskContract, $diffResult);
-    }
-
-    /**
-     * Capture the operator-owned allowed-file baseline before any provider
-     * mutation. Retries restore to this snapshot, never to HEAD.
-     *
-     * @param  list<string>  $allowedFiles
-     * @return array{
-     *   scope: WorktreeBaseline,
-     *   entries: array<string,array<string,mixed>>
-     * }
-     */
-    private function captureWorkspaceBaseline(string $workspace, array $allowedFiles): array
-    {
-        $paths = $this->safeRelativePaths($allowedFiles);
-        if (! is_dir($workspace) || $paths === []) {
-            return ['scope' => WorktreeBaseline::clean(), 'entries' => []];
-        }
-
-        $status = $this->gitOutput($workspace, ['git', 'status', '--porcelain=v1', '--', ...$paths]);
-        $diff = $this->gitOutput($workspace, ['git', 'diff', '--no-ext-diff', '--binary', '--', ...$paths]);
-        $cachedDiff = $this->gitOutput($workspace, ['git', 'diff', '--cached', '--no-ext-diff', '--binary', '--', ...$paths]);
-        $diffHash = ($diff === '' && $cachedDiff === '')
-            ? null
-            : hash('sha256', $diff."\0".$cachedDiff);
-
-        $preExisting = array_map(
-            static fn (string $path): ScopePreExistingChange => new ScopePreExistingChange($path, true),
-            $this->pathsFromPorcelainStatus($status, $paths),
-        );
-
-        $entries = [];
-        foreach ($paths as $path) {
-            $entries[$path] = $this->captureWorkspaceBaselineEntry($workspace, $path);
-        }
-
-        return [
-            'scope' => new WorktreeBaseline(
-                gitStatusBefore: $status,
-                gitDiffBeforeHash: $diffHash,
-                preExistingChanges: $preExisting,
-            ),
-            'entries' => $entries,
-        ];
-    }
-
-    /**
-     * M2/M4: restore allowed files to the captured operator baseline before a
-     * retry/reapply. Returns a refusal reason instead of silently wiping when
-     * the current path shape is ambiguous.
-     *
-     * @param  list<string>  $allowedFiles
-     * @param  array{entries?: array<string,array<string,mixed>>}  $baseline
-     */
-    private function revertWorkspaceChanges(string $workspace, array $allowedFiles, array $baseline): ?string
-    {
-        if (! is_dir($workspace)) {
-            return null;
-        }
-
-        $paths = $this->safeRelativePaths($allowedFiles);
-        if ($paths === []) {
-            return null;
-        }
-
-        $entries = $baseline['entries'] ?? null;
-        if (! is_array($entries)) {
-            return 'baseline_missing';
-        }
-
-        foreach ($paths as $path) {
-            $entry = $entries[$path] ?? ['kind' => 'missing'];
-            $error = $this->restoreWorkspaceBaselineEntry($workspace, $path, $entry);
-            if ($error !== null) {
-                return $path.':'.$error;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  list<string>  $argv
-     */
-    private function gitOutput(string $workspace, array $argv): string
-    {
-        $process = new Process($argv, $workspace, null, null, 15.0);
-        $process->run();
-
-        return $process->isSuccessful() || $process->getExitCode() === 1
-            ? (string) $process->getOutput()
-            : '';
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     * @return list<string>
-     */
-    private function pathsFromPorcelainStatus(string $status, array $allowedFiles): array
-    {
-        $allowed = array_flip($allowedFiles);
-        $paths = [];
-        foreach (explode("\n", $status) as $line) {
-            if (strlen($line) < 4) {
-                continue;
-            }
-            $payload = trim(substr($line, 3));
-            foreach (str_contains($payload, ' -> ') ? explode(' -> ', $payload) : [$payload] as $path) {
-                $path = trim($path, "\" \t\n\r\0\x0B");
-                if (isset($allowed[$path])) {
-                    $paths[] = $path;
-                }
-            }
-        }
-
-        return array_values(array_unique($paths));
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function captureWorkspaceBaselineEntry(string $workspace, string $path): array
-    {
-        $absolute = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
-        if (is_link($absolute)) {
-            return [
-                'kind' => 'symlink',
-                'target' => (string) readlink($absolute),
-            ];
-        }
-        if (is_file($absolute)) {
-            return [
-                'kind' => 'file',
-                'contents' => (string) file_get_contents($absolute),
-                'mode' => @fileperms($absolute) !== false ? (@fileperms($absolute) & 0o777) : null,
-            ];
-        }
-        if (is_dir($absolute)) {
-            return ['kind' => 'directory'];
-        }
-
-        return ['kind' => 'missing'];
-    }
-
-    /**
-     * @param  array<string,mixed>  $entry
-     */
-    private function restoreWorkspaceBaselineEntry(string $workspace, string $path, array $entry): ?string
-    {
-        $absolute = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
-        $kind = (string) ($entry['kind'] ?? 'missing');
-
-        if ($kind === 'missing') {
-            return $this->removeFileLikePath($absolute) ? null : 'path_type_changed_to_directory';
-        }
-
-        if ($kind === 'directory') {
-            return is_dir($absolute) || @mkdir($absolute, 0o755, true) ? null : 'directory_restore_failed';
-        }
-
-        if (is_dir($absolute) && ! is_link($absolute)) {
-            return 'path_type_changed_to_directory';
-        }
-        if (! $this->ensureParentDirectory(dirname($absolute))) {
-            return 'parent_directory_restore_failed';
-        }
-        if (! $this->removeFileLikePath($absolute)) {
-            return 'path_type_changed_to_directory';
-        }
-
-        if ($kind === 'symlink') {
-            return @symlink((string) ($entry['target'] ?? ''), $absolute) ? null : 'symlink_restore_failed';
-        }
-
-        if ($kind === 'file') {
-            if (@file_put_contents($absolute, (string) ($entry['contents'] ?? ''), LOCK_EX) === false) {
-                return 'file_restore_failed';
-            }
-            if (is_int($entry['mode'] ?? null)) {
-                @chmod($absolute, (int) $entry['mode']);
-            }
-
-            return null;
-        }
-
-        return 'unknown_baseline_entry';
-    }
-
-    private function removeFileLikePath(string $absolute): bool
-    {
-        if (is_dir($absolute) && ! is_link($absolute)) {
-            return false;
-        }
-        if (file_exists($absolute) || is_link($absolute)) {
-            return @unlink($absolute);
-        }
-
-        return true;
-    }
-
-    private function ensureParentDirectory(string $directory): bool
-    {
-        return is_dir($directory) || @mkdir($directory, 0o755, true);
-    }
-
-    private function blockedProviderCallResult(
-        string $runId,
-        string $provider,
-        string $modelFamily,
-        string $error,
-        string $stderr,
-        bool $providerSafe = true,
-    ): ProviderCallResult {
-        return ProviderCallResult::fromStdout(
-            runId: $runId,
-            actualProvider: $provider !== '' ? $provider : 'unknown',
-            actualModelFamily: $modelFamily !== '' ? $modelFamily : 'unknown',
-            exitStatus: 1,
-            stdout: '',
-            stderr: $stderr,
-            durationMs: 0,
-            tokensIn: null,
-            tokensOut: null,
-            costEstimateUsd: null,
-            providerSafe: $providerSafe,
-            errors: [$error],
-        );
-    }
-
-    /**
-     * Changed (tracked, staged, untracked, and explicit ignored-forbidden)
-     * workspace paths, repo-relative, used to compute scope violations for
-     * providers (like Hermes) that mutate the worktree directly but do not
-     * return a structured changed-files list.
-     *
-     * Important: scope inspection must not pathspec regular untracked files to
-     * allowed_files. Otherwise a provider can create an out-of-scope file and
-     * still pass by also changing an allowed file. Staged files need their own
-     * cached diff because `git add` removes them from the untracked set. Ignored
-     * files are limited to explicit forbidden_files to avoid failing every real
-     * workspace that already has ignored local artifacts such as dependency
-     * folders or machine-local environment files.
-     *
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $forbiddenFiles
-     * @return list<string>
-     */
-    /**
-     * @param  array<string,string>|null  $preIgnoredForbidden  snapshot pré-provider de ignoredForbiddenSnapshot()
-     */
-    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles, array $forbiddenFiles = [], ?array $preIgnoredForbidden = null): array
-    {
-        if (! is_dir($workspace)) {
-            return [];
-        }
-
-        $paths = [];
-
-        foreach ([
-            ['git', 'diff', '--no-ext-diff', '--name-only'],
-            ['git', 'diff', '--cached', '--no-ext-diff', '--name-only'],
-        ] as $argv) {
-            $paths = array_merge($paths, $this->gitNameOnlyPaths($workspace, $argv));
-        }
-
-        // Untracked comuns: mesmo princípio pré/pós dos ignorados-proibidos —
-        // um untracked que JÁ EXISTIA antes do provider rodar (com a mesma
-        // assinatura) é estado do operador/run anterior, não mutação deste
-        // provider (matriz real 03/07: teste criado por um cenário anterior
-        // derrubava o cenário seguinte como scope violation). Untracked NOVO
-        // ou alterado continua contando (invariante do scope guard preservado).
-        $untracked = $this->gitNameOnlyPaths($workspace, ['git', 'ls-files', '--others', '--exclude-standard']);
-        if ($preIgnoredForbidden !== null) {
-            $untracked = array_values(array_filter(
-                $untracked,
-                function (string $path) use ($workspace, $preIgnoredForbidden): bool {
-                    $pre = $preIgnoredForbidden[$path] ?? null;
-
-                    return $pre === null || $pre !== $this->fileSignature($workspace.'/'.$path);
-                },
-            ));
-        }
-        $paths = array_merge($paths, $untracked);
-
-        $ignoredForbidden = $this->safeRelativePaths($forbiddenFiles);
-        if ($ignoredForbidden !== []) {
-            $argv = ['git', 'ls-files', '--others', '--ignored', '--exclude-standard', '--'];
-            array_push($argv, ...$ignoredForbidden);
-            $ignoredNow = $this->gitNameOnlyPaths($workspace, $argv);
-            // Só o DELTA contra o snapshot pré-provider conta como mutação:
-            // num repo real, vendor/ e caches (phpunit, storage/framework)
-            // PRÉ-EXISTEM ignorados — listá-los inteiros fazia todo run em
-            // repo real virar scope violation (achado do fire test 03/07 em
-            // worktree do atlas-server). Sem snapshot (caller legado), o
-            // comportamento antigo se mantém fail-closed.
-            if ($preIgnoredForbidden !== null) {
-                $ignoredNow = array_values(array_filter(
-                    $ignoredNow,
-                    function (string $path) use ($workspace, $preIgnoredForbidden): bool {
-                        // Caches efêmeros de test-runner nunca são mutação de
-                        // escopo: o provider RODA a validação (permitido pelo
-                        // prompt) e o phpunit atualiza o próprio cache.
-                        if ($this->isEphemeralInfraPath($path)) {
-                            return false;
-                        }
-                        $sig = $this->fileSignature($workspace.'/'.$path);
-
-                        return ($preIgnoredForbidden[$path] ?? null) !== $sig;
-                    },
-                ));
-            }
-            $paths = array_merge($paths, $ignoredNow);
-        }
-
-        return array_values(array_unique($paths));
-    }
-
-    /**
-     * Snapshot (path => assinatura size:mtime) dos arquivos ignorados que
-     * casam os padrões proibidos — capturado ANTES do provider rodar para o
-     * detector reportar só o que o provider realmente criou/alterou.
-     *
-     * @param  list<string>  $forbiddenFiles
-     * @return array<string,string>
-     */
-    private function ignoredForbiddenSnapshot(string $workspace, array $forbiddenFiles): array
-    {
-        if (! is_dir($workspace)) {
-            return [];
-        }
-        $ignoredForbidden = $this->safeRelativePaths($forbiddenFiles);
-        if ($ignoredForbidden === []) {
-            return [];
-        }
-
-        $argv = ['git', 'ls-files', '--others', '--ignored', '--exclude-standard', '--'];
-        array_push($argv, ...$ignoredForbidden);
-
-        $snapshot = [];
-        foreach ($this->gitNameOnlyPaths($workspace, $argv) as $path) {
-            $snapshot[$path] = $this->fileSignature($workspace.'/'.$path);
-        }
-        // Untracked comuns pré-existentes: mesma semântica delta (o detector
-        // pós-run só reporta untracked novo/alterado como mutação do provider).
-        foreach ($this->gitNameOnlyPaths($workspace, ['git', 'ls-files', '--others', '--exclude-standard']) as $path) {
-            $snapshot[$path] = $this->fileSignature($workspace.'/'.$path);
-        }
-
-        return $snapshot;
-    }
-
-    private function isEphemeralInfraPath(string $path): bool
-    {
-        return preg_match(
-            '#^storage/framework/|(^|/)\.phpunit\.(cache|result\.cache)|(^|/)phpunit-cache/|(^|/)node_modules/\.cache/#',
-            $path,
-        ) === 1;
-    }
-
-    private function fileSignature(string $absolutePath): string
-    {
-        $stat = @stat($absolutePath);
-        if ($stat === false) {
-            return 'missing';
-        }
-
-        return $stat['size'].':'.$stat['mtime'];
-    }
-
-    /**
-     * @param  list<string>  $argv
-     * @return list<string>
-     */
-    private function gitNameOnlyPaths(string $workspace, array $argv): array
-    {
-        $process = new Process($argv, $workspace, null, null, 15.0);
-        $process->run();
-        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (string $line): string => trim($line),
-            explode("\n", (string) $process->getOutput()),
-        ), static fn (string $path): bool => $path !== ''));
-    }
-
-    /**
-     * @param  list<string>  $paths
-     * @return list<string>
-     */
-    private function safeRelativePaths(array $paths): array
-    {
-        return array_values(array_filter(array_map(
-            static function (string $path): string {
-                $path = ltrim(trim($path), '/');
-
-                return $path !== '' && ! str_contains($path, '..') ? $path : '';
-            },
-            $paths,
-        ), static fn (string $path): bool => $path !== ''));
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     */
-    private function workspaceDiff(string $workspace, array $allowedFiles): string
-    {
-        if (! is_dir($workspace)) {
-            return '';
-        }
-
-        $paths = array_values(array_filter(array_map(
-            static fn (mixed $path): string => is_string($path) ? trim($path) : '',
-            $allowedFiles,
-        ), static fn (string $path): bool => $path !== '' && ! str_starts_with($path, '/') && ! str_contains($path, '..')));
-
-        $argv = ['git', 'diff', '--no-ext-diff', '--'];
-        array_push($argv, ...$paths);
-
-        $process = new Process($argv, $workspace, null, null, 15.0);
-        $process->run();
-        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
-            return '';
-        }
-
-        $diff = (string) $process->getOutput();
-        $diff .= $this->untrackedAllowedFilesDiff($workspace, $paths);
-
-        return $diff !== '' && ! str_ends_with($diff, "\n") ? $diff."\n" : $diff;
-    }
-
-    /**
-     * @param  array<mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     */
-    private function pathAllowed(string $path, array $allowedFiles): bool
-    {
-        $path = ltrim(trim($path), '/');
-        if ($path === '') {
-            return false;
-        }
-
-        return in_array($path, $allowedFiles, true);
-    }
-
-    /**
-     * git diff omits untracked files. Cursor-style workspace mutators often
-     * satisfy missing-test findings by creating a brand-new allowed test file,
-     * so Atlas must promote those files into a unified diff before parsing.
-     *
-     * @param  list<string>  $allowedFiles
-     */
-    private function untrackedAllowedFilesDiff(string $workspace, array $allowedFiles): string
-    {
-        if ($allowedFiles === []) {
-            return '';
-        }
-
-        $argv = ['git', 'ls-files', '--others', '--exclude-standard', '--'];
-        array_push($argv, ...$allowedFiles);
-
-        $process = new Process($argv, $workspace, null, null, 15.0);
-        $process->run();
-        if (! $process->isSuccessful()) {
-            return '';
-        }
-
-        $untracked = array_values(array_filter(array_map(
-            static fn (string $line): string => trim($line),
-            explode("\n", (string) $process->getOutput()),
-        ), static fn (string $path): bool => $path !== ''));
-
-        $diff = '';
-        foreach ($untracked as $path) {
-            if (! in_array($path, $allowedFiles, true)) {
-                continue;
-            }
-            $filePath = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
-            if (! is_file($filePath)) {
-                continue;
-            }
-            $fileDiff = new Process(['git', 'diff', '--no-index', '--', '/dev/null', $path], $workspace, null, null, 15.0);
-            $fileDiff->run();
-            $output = (string) $fileDiff->getOutput();
-            if ($output === '') {
-                continue;
-            }
-            $diff .= (str_ends_with($diff, "\n") || $diff === '' ? '' : "\n").$output;
-        }
-
-        return $diff;
-    }
-
-    private function tryDeterministicPatch(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        string $runId,
-    ): ?ProviderCallResult {
-        if ($taskContract->allowedFiles === [] || $taskContract->validationCommands === []) {
-            return null;
-        }
-
-        $candidates = [];
-        foreach ($taskContract->allowedFiles as $relativePath) {
-            if (str_starts_with($relativePath, '/') || str_contains($relativePath, '..')) {
-                continue;
-            }
-
-            $absolutePath = rtrim($envelope->workspace, '/').'/'.$relativePath;
-            if (! is_file($absolutePath)) {
-                continue;
-            }
-
-            $original = (string) file_get_contents($absolutePath);
-            $updated = $this->deterministicUpdatedContents($relativePath, $original, $envelope->normalizedIntent);
-            if ($updated === null || $updated === $original) {
-                continue;
-            }
-
-            $candidates[] = [$relativePath, $original, $updated];
-        }
-
-        if (count($candidates) !== 1) {
-            return null;
-        }
-
-        [$relativePath, $original, $updated] = $candidates[0];
-        $diff = $this->singleFileUnifiedDiff($relativePath, $original, $updated);
-        if ($diff === '') {
-            return null;
-        }
-
-        return ProviderCallResult::fromStdout(
-            runId: $runId,
-            actualProvider: 'atlas_deterministic',
-            actualModelFamily: 'atlas_dev_fast_path',
-            exitStatus: 0,
-            stdout: $diff,
-            stderr: '',
-            durationMs: 0,
-            tokensIn: 0,
-            tokensOut: 0,
-            costEstimateUsd: 0.0,
-            providerSafe: true,
-        );
-    }
-
-    private function deterministicFastPathEnabled(): bool
-    {
-        return (bool) config('atlas_dev.efficient.deterministic_fast_path_enabled', true);
-    }
-
-    private function deterministicUpdatedContents(string $relativePath, string $original, string $intent): ?string
-    {
-        $lower = strtolower($intent);
-        if (str_ends_with($relativePath, '.php') && str_contains($lower, 'hello atlas')) {
-            if (str_contains($original, 'helo atlas')) {
-                return str_replace('helo atlas', 'hello atlas', $original);
-            }
-
-            return preg_replace(
-                "/return\\s+(['\"])[^'\"]*\\1\\s*;/",
-                "return 'hello atlas';",
-                $original,
-                1,
-            ) ?: null;
-        }
-
-        if (preg_match('/\\.(?:css|html)\\z/i', $relativePath) === 1
-            && preg_match('/background(?:-color)?\\s+#([0-9a-f]{3,6})/i', $intent, $background)
-            && preg_match('/border-radius\\s+([0-9]+px)/i', $intent, $radius)) {
-            return $this->upsertPrimaryButtonStyles(
-                $original,
-                '#'.strtolower($background[1]),
-                strtolower($radius[1]),
-            );
-        }
-
-        if (str_ends_with($relativePath, '.blade.php')
-            && str_contains($lower, 'elevated')
-            && str_contains($original, 'class="status-card compact"')) {
-            return str_replace(
-                'class="status-card compact"',
-                'class="status-card compact elevated"',
-                $original,
-            );
-        }
-
-        return null;
-    }
-
-    private function upsertPrimaryButtonStyles(string $contents, string $background, string $radius): ?string
-    {
-        $pattern = '/(?P<head>\\.primary-button\\s*\\{)(?P<body>.*?)(?P<tail>\\})/s';
-        if (preg_match($pattern, $contents) !== 1) {
-            return null;
-        }
-
-        return preg_replace_callback($pattern, function (array $matches) use ($background, $radius): string {
-            $body = (string) $matches['body'];
-            $body = $this->upsertCssDeclaration($body, 'background', $background);
-            $body = $this->upsertCssDeclaration($body, 'border-radius', $radius);
-
-            return $matches['head'].$body.$matches['tail'];
-        }, $contents, 1) ?: null;
-    }
-
-    private function upsertCssDeclaration(string $body, string $property, string $value): string
-    {
-        if (preg_match('/(^|\\s)'.preg_quote($property, '/').'\\s*:/i', $body) === 1) {
-            return preg_replace(
-                '/'.preg_quote($property, '/').'\\s*:\\s*[^;]+;/i',
-                $property.': '.$value.';',
-                $body,
-                1,
-            ) ?? $body;
-        }
-
-        $indent = str_contains($body, "\n") ? '  ' : ' ';
-
-        return rtrim($body)."\n".$indent.$property.': '.$value.";\n";
-    }
-
-    private function singleFileUnifiedDiff(string $relativePath, string $original, string $updated): string
-    {
-        $oldPath = tempnam(sys_get_temp_dir(), 'atlas-dev-old-');
-        $newPath = tempnam(sys_get_temp_dir(), 'atlas-dev-new-');
-        if ($oldPath !== false && $newPath !== false) {
-            try {
-                file_put_contents($oldPath, $original);
-                file_put_contents($newPath, $updated);
-
-                $process = new Process([
-                    'diff',
-                    '-u',
-                    '--label',
-                    'a/'.$relativePath,
-                    '--label',
-                    'b/'.$relativePath,
-                    $oldPath,
-                    $newPath,
-                ]);
-                $process->run();
-                $diff = $process->getOutput();
-                if ($process->getExitCode() === 1 && $diff !== '') {
-                    return str_ends_with($diff, "\n") ? $diff : $diff."\n";
-                }
-            } finally {
-                @unlink($oldPath);
-                @unlink($newPath);
-            }
-        }
-
-        $oldLines = explode("\n", $original);
-        $newLines = explode("\n", $updated);
-        $oldHadTrailingNewline = str_ends_with($original, "\n");
-        $newHadTrailingNewline = str_ends_with($updated, "\n");
-        if ($oldHadTrailingNewline) {
-            array_pop($oldLines);
-        }
-        if ($newHadTrailingNewline) {
-            array_pop($newLines);
-        }
-
-        $diff = [
-            '--- a/'.$relativePath,
-            '+++ b/'.$relativePath,
-            sprintf('@@ -1,%d +1,%d @@', max(1, count($oldLines)), max(1, count($newLines))),
-        ];
-        $max = max(count($oldLines), count($newLines));
-        for ($i = 0; $i < $max; $i++) {
-            $old = $oldLines[$i] ?? null;
-            $new = $newLines[$i] ?? null;
-            if ($old !== null && $new !== null && $old === $new) {
-                $diff[] = ' '.$old;
-
-                continue;
-            }
-            if ($old !== null) {
-                $diff[] = '-'.$old;
-            }
-            if ($new !== null) {
-                $diff[] = '+'.$new;
-            }
-        }
-
-        return implode("\n", $diff)."\n";
-    }
-
-    private function applyPatchIfSafe(
-        DiffParseResult $diffResult,
-        string $scopeStatus,
-        string $workspace,
-        ProviderCallResult $callResult,
-    ): PatchApplyResult {
-        if (! $diffResult->hasPatch()) {
-            return new PatchApplyResult(
-                status: PatchApplyResult::STATUS_SKIPPED,
-                exitCode: 0,
-                durationMs: 0,
-                stdout: '',
-                stderr: '',
-                reason: 'no_patch',
-            );
-        }
-
-        if ($this->providerMutatedWorkspace($callResult)) {
-            return new PatchApplyResult(
-                status: PatchApplyResult::STATUS_SKIPPED,
-                exitCode: 0,
-                durationMs: 0,
-                stdout: '',
-                stderr: '',
-                reason: 'provider_mutated_workspace',
-            );
-        }
-
-        if ($scopeStatus !== ScopeGuardReceipt::STATUS_PASSED) {
-            return new PatchApplyResult(
-                status: PatchApplyResult::STATUS_FAILED,
-                exitCode: 1,
-                durationMs: 0,
-                stdout: '',
-                stderr: 'Patch application skipped because scope guard did not pass.',
-                reason: 'scope_guard_not_passed',
-            );
-        }
-
-        return (new PatchApplier)->apply($diffResult, $workspace, scope: ['run_id' => $callResult->runId]);
-    }
-
-    private function providerMutatedWorkspace(ProviderCallResult $callResult): bool
-    {
-        // Single source of truth shared with the prompt contract
-        // (ProviderPromptBuilder::adaptSectionsForProvider) so the way Atlas reads
-        // the result can never diverge from what the provider was told to do.
-        // {@see WorkspaceMutatingProviders}
-        return WorkspaceMutatingProviders::includes($callResult->actualProvider);
-    }
-
-    private function withProviderError(ProviderCallResult $result, string $error): ProviderCallResult
-    {
-        return new ProviderCallResult(
-            runId: $result->runId,
-            actualProvider: $result->actualProvider,
-            actualModelFamily: $result->actualModelFamily,
-            exitStatus: $result->exitStatus,
-            stdout: $result->stdout,
-            stderr: $result->stderr,
-            durationMs: $result->durationMs,
-            tokensIn: $result->tokensIn,
-            tokensOut: $result->tokensOut,
-            costEstimateUsd: $result->costEstimateUsd,
-            rawResponseHash: $result->rawResponseHash,
-            providerSafe: $result->providerSafe,
-            errors: array_values(array_unique([...$result->errors, $error])),
-        );
-    }
-
-    private function verificationFailedDueToPatchApply(PatchApplyResult $result): VerificationGateResult
-    {
-        return new VerificationGateResult(
-            tests: [],
-            gates: [
-                new GateOutcome(
-                    name: 'patch_apply_gate',
-                    status: GateOutcome::STATUS_FAILED,
-                    required: true,
-                    evidenceRef: 'patch_apply_result',
-                    fresh: true,
-                    waiverReason: null,
-                ),
-            ],
-            aggregateStatus: VerificationGateResult::STATUS_FAILED,
-            honestyFlags: ['patch_apply_failed:'.($result->reason ?? 'unknown')],
-            evidenceRefs: [],
-            profile: 'patch_apply',
-        );
-    }
-
-    private function verificationReceiptStorage(string $storageRunId): ReceiptStorageAdapter
-    {
-        $storage = $this->storage;
-
-        return new class($storage, $storageRunId) implements ReceiptStorageAdapter
-        {
-            public function __construct(
-                private readonly ReceiptStorage $storage,
-                private readonly string $storageRunId,
-            ) {}
-
-            public function writeTestLog(string $runId, int $index, string $output): string
-            {
-                $base = sprintf('test_log_%02d', max(1, $index));
-
-                return $this->storage->writeMonotonic($this->storageRunId, $base, [
-                    'schema_version' => 'atlas.dev.verification_test_log.v1',
-                    'run_id' => $this->storageRunId,
-                    'source_run_id' => $runId,
-                    'index' => max(1, $index),
-                    'output_hash' => hash('sha256', $output),
-                    'combined_output' => $output,
-                    'recorded_at' => gmdate('c'),
-                ])['path'];
-            }
-        };
-    }
-
-    private function resolve(string $abstract): ?object
-    {
-        if (! $this->container->bound($abstract)) {
-            return null;
-        }
-
-        try {
-            $resolved = $this->container->make($abstract);
-        } catch (BindingResolutionException) {
-            return null;
-        }
-
-        return is_object($resolved) ? $resolved : null;
-    }
-
-    private function resolveConcrete(string $abstract): ?object
-    {
-        try {
-            $resolved = $this->container->make($abstract);
-        } catch (BindingResolutionException) {
-            return null;
-        }
-
-        return is_object($resolved) ? $resolved : null;
-    }
-
-    /**
-     * MULTX-05 (partial, no enforce flip): record a fail-open governance skip.
-     *
-     * Provider-safe: no prompt, no context, no raw command — only surface,
-     * executor, provider and a pinned reason enum. Fail-open by construction:
-     * counter errors NEVER propagate.
-     */
-    private function recordGovernanceConsultSkipped(
-        string $provider,
-        string $surface,
-        string $executor,
-        string $reason,
-    ): void {
-        try {
-            $counter = $this->resolve(GovernanceConsultSkipCounter::class);
-            if (! $counter instanceof GovernanceConsultSkipCounter) {
-                $counter = GovernanceConsultSkipCounter::fromConfig();
-            }
-            $counter->record([
-                'surface' => $surface,
-                'executor' => $executor,
-                'provider' => $provider,
-                'reason' => $reason,
-            ]);
-        } catch (\Throwable) {
-            // Fail-open: the runtime path must never break for a bookkeeping miss.
-        }
-    }
-
-    private function blockedDueToUnwiredDrivers(
-        OperationEnvelope $envelope,
-        bool $gatewayMissing,
-        bool $commandRunnerMissing,
-        string $provider = 'claude_cli',
-        string $modelFamily = 'sonnet',
-    ): RunExecutionResult {
-        $reasons = [];
-        if ($gatewayMissing) {
-            $reasons[] = 'claude_cli_gateway_unbound';
-        }
-        if ($commandRunnerMissing) {
-            $reasons[] = 'verification_command_runner_unbound';
-        }
-
-        return new RunExecutionResult(
-            completionState: 'blocked',
-            scopeGuardStatus: 'skipped',
-            verificationStatus: 'skipped',
-            persistedReceiptPaths: [],
-            providerCallSummary: [
-                'provider' => $provider,
-                'model_family' => $modelFamily,
-                'provider_calls' => 0,
-                'exit_code' => 0,
-                'duration_ms' => 0,
-                'tokens_in' => null,
-                'tokens_out' => null,
-                'estimated_cost_usd' => null,
-                'error_codes' => $reasons,
-                'raw_response_hash' => null,
-                'stdout_bytes' => 0,
-                'stderr_bytes' => 0,
-            ],
-            diffParseSummary: null,
-        );
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function enforceAucriBeforeProvider(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-        ProviderPromptProjection $promptProjection,
-        string $runId,
-        string $riskLevel,
-        string $taskKind,
-    ): array {
-        $segments = [
-            [
-                'kind' => 'decision',
-                'ref' => 'atlas_dev:task_contract:'.$taskContract->taskContractHash,
-                'tokens' => 700,
-                'priority' => 1.0,
-                'must_keep' => true,
-                'content' => 'Atlas Dev task contract must govern provider execution.',
-            ],
-            [
-                'kind' => 'constraint',
-                'ref' => 'atlas_dev:scope:'.$envelope->workspaceHash,
-                'tokens' => 650,
-                'priority' => 0.98,
-                'must_keep' => true,
-                'content' => implode('|', [
-                    'max_files_changed='.$taskContract->maxFilesChanged,
-                    'allowed_files='.implode(',', $taskContract->allowedFiles),
-                    'blocked_actions='.implode(',', $taskContract->blockedActions),
-                ]),
-            ],
-            [
-                'kind' => 'evidence',
-                'ref' => 'atlas_dev:prompt_projection:'.$promptProjection->promptProjectionHash,
-                'tokens' => max(500, min(6000, (int) ceil(strlen($promptProjection->renderedPromptText) / 4))),
-                'priority' => 0.94,
-                'must_keep' => true,
-                'content' => $promptProjection->renderedPromptText,
-            ],
-        ];
-
-        $enforcement = app(AtlasContextRuntime::class)->certifyEnforcement([
-            'flow_id' => 'atlas_dev',
-            'domain' => 'programming',
-            'task_type' => $taskKind,
-            'risk_level' => $riskLevel,
-            'provider' => $taskContract->providerLock->provider,
-            'provider_target' => 'external',
-            'objective' => $envelope->normalizedIntent,
-            'rendered_prompt_text' => $promptProjection->renderedPromptText,
-            'source_refs' => [
-                ['ref' => 'operation_envelope:'.$envelope->envelopeHash],
-                ['ref' => 'task_contract:'.$taskContract->taskContractHash],
-                ['ref' => 'prompt_projection:'.$promptProjection->promptProjectionHash],
-            ],
-            'required_sources' => [
-                'operation_envelope:'.$envelope->envelopeHash,
-                'task_contract:'.$taskContract->taskContractHash,
-                'prompt_projection:'.$promptProjection->promptProjectionHash,
-            ],
-            'segments' => $segments,
-            'task' => 'execute_provider_patch',
-            'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
-        ]);
-
-        $this->storage->writeAtomic($runId, ArtifactNames::AUCRI_RUNTIME_ENFORCEMENT, $enforcement);
-
-        return $enforcement;
-    }
-
-    /**
-     * @return array{status:string,blockers?:list<string>,awis_execution_gate?:array<string,mixed>|null}
-     */
-    private function enforceAwisBeforeMutativeExecution(
-        OperationEnvelope $envelope,
-        LightTaskContract $taskContract,
-    ): array {
-        $task = $envelope->normalizedIntent !== ''
-            ? $envelope->normalizedIntent
-            : ($taskContract->intentText !== '' ? $taskContract->intentText : $taskContract->taskId);
-
-        try {
-            $awisGate = app(AwisExecutionGatePort::class)->gate(
-                workspace: $envelope->workspace,
-                mode: 'dev',
-                task: $task,
-            );
-        } catch (Throwable) {
-            return [
-                'status' => 'blocked',
-                'blockers' => ['awis_execution_gate_failed_closed'],
-                'awis_execution_gate' => [
-                    'allowed' => false,
-                    'status' => 'blocked',
-                    'mode' => 'dev',
-                    'error' => 'awis_execution_gate_exception',
-                ],
-            ];
-        }
-
-        if (! (bool) ($awisGate['allowed'] ?? false)) {
-            return [
-                'status' => 'blocked',
-                'blockers' => array_values((array) ($awisGate['blockers'] ?? ['awis_execution_gate_blocked'])),
-                'awis_execution_gate' => $awisGate,
-            ];
-        }
-
-        return [
-            'status' => 'passed',
-            'awis_execution_gate' => $awisGate,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $enforcement
-     */
-    private function blockedDueToAwis(array $enforcement, LightTaskContract $taskContract): RunExecutionResult
-    {
-        return new RunExecutionResult(
-            completionState: 'blocked',
-            scopeGuardStatus: 'skipped',
-            verificationStatus: 'skipped',
-            persistedReceiptPaths: [],
-            providerCallSummary: [
-                'provider' => $taskContract->providerLock->provider,
-                'model_family' => $taskContract->providerLock->modelFamily,
-                'provider_calls' => 0,
-                'exit_code' => 0,
-                'duration_ms' => 0,
-                'tokens_in' => null,
-                'tokens_out' => null,
-                'estimated_cost_usd' => null,
-                'error_codes' => array_values((array) ($enforcement['blockers'] ?? ['awis_execution_gate_blocked'])),
-                'raw_response_hash' => null,
-                'stdout_bytes' => 0,
-                'stderr_bytes' => 0,
-            ],
-            diffParseSummary: null,
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $enforcement
-     */
-    private function blockedDueToAucri(array $enforcement): RunExecutionResult
-    {
-        return new RunExecutionResult(
-            completionState: 'blocked',
-            scopeGuardStatus: 'skipped',
-            verificationStatus: 'skipped',
-            persistedReceiptPaths: [],
-            providerCallSummary: [
-                'provider' => 'claude_cli',
-                'model_family' => 'sonnet',
-                'provider_calls' => 0,
-                'exit_code' => 0,
-                'duration_ms' => 0,
-                'tokens_in' => null,
-                'tokens_out' => null,
-                'estimated_cost_usd' => null,
-                'error_codes' => array_values((array) ($enforcement['blockers'] ?? ['aucri_runtime_enforcement_blocked'])),
-                'raw_response_hash' => null,
-                'stdout_bytes' => 0,
-                'stderr_bytes' => 0,
-            ],
-            diffParseSummary: null,
-        );
-    }
-
-    private function contextPackHash(string $runId): string
-    {
-        $projection = $this->storage->read($runId, ArtifactNames::OPEN_BRAIN_PROJECTION);
-        if (is_array($projection) && isset($projection['context_pack_hash']) && is_string($projection['context_pack_hash']) && $projection['context_pack_hash'] !== '') {
-            return $projection['context_pack_hash'];
-        }
-
-        return 'atlas-dev:context_pack:unknown';
-    }
-
-    /**
-     * @return array{estimated_chars:?int,total_budget_chars:?int}
-     */
-    private function contextPackBudgetForUtility(string $contextPackHash): array
-    {
-        try {
-            $entry = AtlasDeliveredPackLedger::fromConfig()->lookup($contextPackHash);
-            $budgets = is_array($entry) ? (array) ($entry['budgets'] ?? []) : [];
-            $estimated = is_numeric($budgets['estimated_chars'] ?? null) ? (int) $budgets['estimated_chars'] : null;
-            $total = is_numeric($budgets['total_chars'] ?? null)
-                ? (int) $budgets['total_chars']
-                : (is_numeric($budgets['requested_total_chars'] ?? null) ? (int) $budgets['requested_total_chars'] : null);
-
-            return [
-                'estimated_chars' => $estimated !== null && $estimated > 0 ? $estimated : null,
-                'total_budget_chars' => $total !== null && $total > 0 ? $total : null,
-            ];
-        } catch (Throwable) {
-            return ['estimated_chars' => null, 'total_budget_chars' => null];
-        }
-    }
-
-    private function providerTimeoutSeconds(?LightTaskContract $taskContract = null): int
-    {
-        if ($taskContract?->providerLock->provider === 'hermes_cli') {
-            // Hermes is a heavy multi-turn executive runtime — give it the generous
-            // hermes_cli ceiling (config default 600s) rather than the short Dev default.
-            return max(1, (int) config('atlas.ai.providers.hermes_cli.timeout_seconds', 600));
-        }
-
-        if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
-            return max(1, (int) config('atlas.ai.providers.cursor_cli.timeout_seconds', 120));
-        }
-
-        if ($taskContract?->providerLock->provider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER) {
-            return max(1, (int) config('atlas.ai.providers.minimax_m27_cli.timeout_seconds', 300));
-        }
-
-        return max(1, (int) config('atlas_dev.provider.timeout_seconds', SonnetClaudeCliAdapter::DEFAULT_TIMEOUT_SECONDS));
-    }
-
-    private function providerMaxOutputChars(?LightTaskContract $taskContract = null): int
-    {
-        if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
-            return max(200, (int) config('atlas.ai.providers.cursor_cli.max_output_chars', 12000));
-        }
-
-        return 12000;
     }
 
     /**
@@ -4482,658 +1642,25 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
-     * E2: resolve the e2 elevation config. Reads the live config kernel when
-     * available (feature tests / production); otherwise degrades to the safe
-     * default (advisory) so plain-PHPunit unit tests never crash. Mirrors
-     * the resolution pattern used by SpecComposer and PromptSectionsMapper.
-     */
-    /**
-     * Route a TRIPPED elevation verdict through the two sanctioned channels
-     * (no third way, no silent green): hard => rebuild the gate result at
-     * STATUS_FAILED preserving the gathered tests/gates with the flag(s)
-     * retained for auditability; advisory => append the honesty flag(s) only
-     * (the CompletionStateGate downgrades PASSED -> needs_review via the
-     * passed-forbids-flags invariant). Callers invoke this ONLY when the
-     * verdict actually tripped and the config is not off — off stays a
-     * byte-identical no-op upstream. This is the single implementation of
-     * the rebuild pattern E1-E6 + W1 previously each copied inline.
+     * Thin delegating shim kept on the façade for reflection-based tests
+     * (RepairToGreenTest invokes it on the executor instance). Real
+     * implementation: {@see PipelineRun\WorkspaceGitSupport::revertWorkspaceChanges()}.
      *
-     * @param  list<string>  $flags
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,array{status:string,contents:string|null}>  $baseline
      */
-    private function routeElevationVerdict(
-        VerificationGateResult $verificationResult,
-        ElevationConfig $config,
-        array $flags,
-    ): VerificationGateResult {
-        if ($config->isHard()) {
-            return new VerificationGateResult(
-                tests: $verificationResult->tests,
-                gates: $verificationResult->gates,
-                aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                honestyFlags: $verificationResult->withHonestyFlags($flags)->honestyFlags,
-                evidenceRefs: $verificationResult->evidenceRefs,
-                profile: $verificationResult->profile,
-            );
-        }
-
-        return $verificationResult->withHonestyFlags($flags);
-    }
-
-    private function resolveE2Config(): ElevationConfig
+    private function revertWorkspaceChanges(string $workspace, array $allowedFiles, array $baseline): ?string
     {
-        try {
-            return ElevationConfig::fromConfig('e2');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e2', null);
-        }
+        return $this->workspaceGit->revertWorkspaceChanges($workspace, $allowedFiles, $baseline);
     }
 
     /**
-     * E1: resolve the e1 elevation config. Same resolution pattern as E2:
-     * reads the live config kernel when available, otherwise degrades to the
-     * safe default (advisory) so plain-PHPunit unit tests never crash.
-     */
-    private function resolveE1Config(): ElevationConfig
-    {
-        try {
-            return ElevationConfig::fromConfig('e1');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e1', null);
-        }
-    }
-
-    /**
-     * E3: resolve the e3 elevation config. Same resolution pattern as E1/E2:
-     * reads the live config kernel when available, otherwise degrades to the
-     * safe default (advisory) so plain-PHPunit unit tests never crash.
-     */
-    private function resolveE3Config(): ElevationConfig
-    {
-        try {
-            return ElevationConfig::fromConfig('e3');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e3', null);
-        }
-    }
-
-    /**
-     * W1: resolve the weak_output elevation config. Same resolution pattern
-     * as E1/E2/E3: reads the live config kernel when available, otherwise
-     * degrades to the safe default (advisory) so plain-PHPunit unit tests
-     * never crash.
-     */
-    private function resolveWeakOutputConfig(): ElevationConfig
-    {
-        try {
-            return ElevationConfig::fromConfig('weak_output');
-        } catch (\Throwable) {
-            return ElevationConfig::for('weak_output', null);
-        }
-    }
-
-    /**
-     * E5: resolve the e5 elevation config. Same resolution pattern as E1/E2/E3:
-     * reads the live config kernel when available, otherwise degrades to the
-     * safe default (advisory) so plain-PHPunit unit tests never crash.
-     */
-    private function resolveE5Config(): ElevationConfig
-    {
-        try {
-            return ElevationConfig::fromConfig('e5');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e5', null);
-        }
-    }
-
-    /**
-     * E4: resolve the e4 elevation config. Same resolution pattern as
-     * E1/E2/E3/E5: reads the live config kernel when available, otherwise
-     * degrades to the safe default (advisory) so plain-PHPunit unit tests
-     * never crash.
-     */
-    private function resolveE4Config(): ElevationConfig
-    {
-        try {
-            return ElevationConfig::fromConfig('e4');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e4', null);
-        }
-    }
-
-    /**
-     * E6: resolve the e6 elevation config. Same resolution pattern as
-     * E1/E2/E3/E4/E5: reads the live config kernel when available, otherwise
-     * degrades to the safe default (advisory) so plain-PHPunit unit tests
-     * never crash.
+     * Thin delegating shim kept on the façade for the structural pin in
+     * E6ConstitutionGateTest (method_exists on PipelineRunExecutor). Real
+     * implementation: {@see PipelineRun\ResolverSupport::resolveE6Config()}.
      */
     private function resolveE6Config(): ElevationConfig
     {
-        try {
-            return ElevationConfig::fromConfig('e6');
-        } catch (\Throwable) {
-            return ElevationConfig::for('e6', null);
-        }
-    }
-
-    /**
-     * E6: distill the verification commands the run actually executed AND
-     * passed. Returns the list of TestRun.command strings where ok===true.
-     * This is the honest executed-evidence source for the E6 behavioral AC
-     * verification_ref satisfaction check (VAL-M2-021): a behavioral AC's
-     * declared verification_ref must be among these commands for the
-     * criterion's obligation to be considered satisfied.
-     *
-     * @param  VerificationGateResult  $result  the verification gate result
-     *                                          carrying the executed TestRun
-     *                                          list.
-     * @return list<string>
-     */
-    private function satisfiedVerificationRefs(VerificationGateResult $result): array
-    {
-        $refs = [];
-        foreach ($result->tests as $test) {
-            if ($test->ok) {
-                $refs[] = $test->command;
-            }
-        }
-
-        return array_values(array_unique($refs));
-    }
-
-    /**
-     * E6: resolve the DifferentialTestingService the candidate-divergence
-     * gate consumes.
-     *
-     * Bound through the container via `atlas_dev.e4.differential_testing_service`
-     * so tests inject a fake {@see DifferentialTestingService} if needed. The
-     * binding is OPTIONAL: when unbound, a fresh instance is returned (the
-     * service has no constructor dependencies and is a pure comparison). This
-     * mirrors the `atlas_dev.e5.caller_test_selection_service` pattern.
-     */
-    private function resolveDifferentialTestingService(): DifferentialTestingService
-    {
-        if ($this->container->bound('atlas_dev.e4.differential_testing_service')) {
-            $bound = $this->container->make('atlas_dev.e4.differential_testing_service');
-            if ($bound instanceof DifferentialTestingService) {
-                return $bound;
-            }
-        }
-
-        return new DifferentialTestingService;
-    }
-
-    /**
-     * E4: resolve the ShadowDiffService the shadow-diff gate consumes.
-     *
-     * Bound through the container via `atlas_dev.e4.shadow_diff_service`
-     * so tests inject a fake {@see ShadowDiffService} (with a fake
-     * {@see ShadowDiffHarness}) without spawning real PHP subprocesses.
-     *
-     * The binding is OPTIONAL. When unbound, this method resolves the
-     * {@see ShadowDiffHarness} via the separate `atlas_dev.e4.shadow_diff_harness`
-     * binding (also optional; defaults to {@see PhpSubprocessShadowDiffHarness})
-     * and constructs a fresh ShadowDiffService with it. Returning null is
-     * reserved for environments where neither the service nor the harness can
-     * be constructed; in that case the post-gate block skips shadow-diff
-     * entirely (E4 degrades to off for that run). This mirrors the
-     * `atlas_dev.e5.regression_baseline_service` pattern so the frozen M1-M5
-     * tests (which pre-date E4 shadow-diff) stay byte-identical.
-     */
-    private function resolveShadowDiffService(): ?ShadowDiffService
-    {
-        if ($this->container->bound('atlas_dev.e4.shadow_diff_service')) {
-            $bound = $this->container->make('atlas_dev.e4.shadow_diff_service');
-            if ($bound instanceof ShadowDiffService) {
-                return $bound;
-            }
-        }
-
-        try {
-            $harness = $this->resolveShadowDiffHarness();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        return new ShadowDiffService($harness);
-    }
-
-    /**
-     * E4: resolve the ShadowDiffHarness the default ShadowDiffService uses.
-     *
-     * Bound through the container via `atlas_dev.e4.shadow_diff_harness` so
-     * tests inject a fake harness that returns scripted outputs. When unbound,
-     * a fresh {@see PhpSubprocessShadowDiffHarness} is returned (the production
-     * default that executes old vs new in a sandboxed PHP subprocess).
-     */
-    private function resolveShadowDiffHarness(): ShadowDiffHarness
-    {
-        if ($this->container->bound('atlas_dev.e4.shadow_diff_harness')) {
-            $bound = $this->container->make('atlas_dev.e4.shadow_diff_harness');
-            if ($bound instanceof ShadowDiffHarness) {
-                return $bound;
-            }
-        }
-
-        return new PhpSubprocessShadowDiffHarness;
-    }
-
-    /**
-     * E5: resolve the RegressionBaselineService the regression-baseline gate
-     * consumes.
-     *
-     * Bound through the container via `atlas_dev.e5.regression_baseline_service`
-     * so tests inject a fake {@see RegressionBaselineService} (with a fake
-     * RegressionBaselineRunner) without ever spawning real test subprocesses
-     * during baseline capture. The binding is OPTIONAL: when unbound, this
-     * returns null and the executor skips the baseline capture entirely
-     * (E5 degrades to off for that run). This guarantees the frozen M1-M5
-     * tests (which pre-date E5 and bind their own fake verification command
-     * runner) are byte-identical: the baseline service is only active when
-     * explicitly bound, so it never consumes the frozen tests' queued command
-     * results.
-     *
-     * Production deployments register the binding in a service provider,
-     * wrapping the resolved verification command runner in a
-     * VerificationRegressionBaselineRunner. The container binding convention
-     * mirrors `atlas_dev.e3.mutation_adapter` and `atlas_dev.e1.intent_judge`.
-     */
-    private function resolveRegressionBaselineService(?VerificationCommandRunner $commandRunner = null): ?RegressionBaselineService
-    {
-        if ($this->container->bound('atlas_dev.e5.regression_baseline_service')) {
-            $bound = $this->container->make('atlas_dev.e5.regression_baseline_service');
-            if ($bound instanceof RegressionBaselineService) {
-                return $bound;
-            }
-        }
-
-        // Produção: nada binda o serviço no container (só testes bindam), o
-        // que deixava E5 morto em runs vivos — baseline nunca capturado, gate
-        // hard sem efeito e a testemunha red→green sempre falsa. Com o command
-        // runner real em mãos, monta o wiring de produção documentado no
-        // VerificationRegressionBaselineRunner.
-        if ($commandRunner !== null) {
-            return new RegressionBaselineService(new VerificationRegressionBaselineRunner($commandRunner));
-        }
-
-        return null;
-    }
-
-    /**
-     * E5: resolve the CallerTestSelectionService the caller-test selection
-     * feature consumes.
-     *
-     * Bound through the container via `atlas_dev.e5.caller_test_selection_service`
-     * so tests inject a fake {@see CallerTestSelectionService} (or seed the
-     * real Code Intelligence tables) without side effects. The binding is
-     * OPTIONAL: when unbound, the executor uses a fresh
-     * {@see CallerTestSelectionService} instance (the service has no
-     * constructor dependencies and resolves the CodeGraph workspace identity
-     * via `app(...)` at call time). This mirrors the
-     * `atlas_dev.e3.mutation_adapter` / `atlas_dev.e1.intent_judge` pattern.
-     *
-     * VAL-E5-009: the service itself degrades safely when CI tables are
-     * absent (DatabaseTableAvailability::has() guard), so a fresh instance
-     * is always safe to call.
-     */
-    private function resolveCallerTestSelectionService(): CallerTestSelectionService
-    {
-        if ($this->container->bound('atlas_dev.e5.caller_test_selection_service')) {
-            $bound = $this->container->make('atlas_dev.e5.caller_test_selection_service');
-            if ($bound instanceof CallerTestSelectionService) {
-                return $bound;
-            }
-        }
-
-        return new CallerTestSelectionService;
-    }
-
-    /**
-     * E5: resolve the `$codeGraph` payload (with `related_tests`) for the
-     * verification gate's caller-test selection.
-     *
-     * VAL-E5-006/007/008: when E5 is enabled (not off), the service discovers
-     * tests of direct callers of changed symbols via the CodeGraph read-model
-     * and returns them as `$codeGraph['related_tests']`. The gate's floor
-     * then merges them into `selected_existing_tests` through the
-     * ProgrammingTestImpactAnalyzer (VAL-E5-008: through the analyzer, not a
-     * side channel), widening the verification floor so a patch that breaks
-     * a caller's test T_C runs T_C and surfaces the failure (VAL-E5-007).
-     *
-     * VAL-E5-009/VAL-E5-011/VAL-CROSS-010: when E5 is OFF, the codeGraph is
-     * empty (byte-identical to pre-E5: no caller expansion, conventional
-     * floor only). When the service degrades (CI tables absent), it returns
-     * an empty `related_tests` list (no crash, conventional fallback).
-     *
-     * The codeGraph is resolved PER GATE RUN from the scopeReceipt's observed
-     * changed files, so both the M2 repair loop and the best-of-N path
-     * expand the floor for each candidate against its own diff.
-     *
-     * @return array<string,mixed>
-     */
-    private function resolveCallerTestCodeGraph(ScopeGuardReceipt $scopeReceipt, string $workspace): array
-    {
-        $e5Config = $this->resolveE5Config();
-        if ($e5Config->isOff()) {
-            // Byte-identical to pre-E5: no caller expansion.
-            return [];
-        }
-
-        try {
-            $changedFiles = array_map(
-                static fn (ScopeFileDiff $diff): string => $diff->path,
-                $scopeReceipt->observed->fileDiffs,
-            );
-
-            return $this->resolveCallerTestSelectionService()->resolveCodeGraph(
-                changedFiles: $changedFiles,
-                workspace: $workspace,
-            );
-        } catch (\Throwable) {
-            // VAL-E5-009: safe degradation -- never crash the pipeline over
-            // caller-test resolution. Empty codeGraph => conventional floor.
-            return [];
-        }
-    }
-
-    /**
-     * E3: resolve the MutationTestingAdapter the mutation-score gate consumes.
-     *
-     * Bound through the container so tests inject a fake
-     * {@see MutationTestingAdapter} (with a FakeMutationCommandRunner) without
-     * ever spawning a real infection subprocess. When no binding exists the
-     * production Symfony-process-backed runner is used with the repo root as
-     * the workspace. The adapter is the SOLE caller of the scoped infection
-     * invocation; the executor only feeds it the touched files.
-     *
-     * The container binding convention is `atlas_dev.e3.mutation_adapter`
-     * (mirrors `atlas_dev.e1.intent_judge`). Resolved via
-     * `$this->container->bound(...) ? make(...) : new ...` so the binding is
-     * optional and degrades to a fresh adapter in production.
-     */
-    private function resolveMutationTestingAdapter(string $workspace = ''): MutationTestingAdapter
-    {
-        if ($this->container->bound('atlas_dev.e3.mutation_adapter')) {
-            $bound = $this->container->make('atlas_dev.e3.mutation_adapter');
-            if ($bound instanceof MutationTestingAdapter) {
-                return $bound;
-            }
-        }
-
-        // Infection roda no WORKSPACE do run (onde o diff vive), não no
-        // base_path() do servidor: em worktree o E3 media o repo errado —
-        // sem o patch — e falhava (mutation_run_failed em toda criação de
-        // teste da matriz real 03/07). Fallback antigo só sem workspace.
-        $repoRoot = $workspace !== '' && is_dir($workspace)
-            ? rtrim($workspace, '/')
-            : rtrim((string) ($this->workspaceRoot() ?? base_path()), '/');
-
-        return new MutationTestingAdapter(
-            commandRunner: new SymfonyMutationCommandRunner,
-            e3Config: $this->resolveE3Config(),
-            repoRoot: $repoRoot,
-        );
-    }
-
-    /**
-     * E3: best-effort resolution of the repo root for the scoped infection
-     * invocation. Falls back to base_path() (Laravel kernel) and finally to
-     * the CWD so plain-PHPunit contexts never crash. Returns null only when
-     * no resolution path is available.
-     */
-    private function workspaceRoot(): ?string
-    {
-        try {
-            return base_path();
-        } catch (\Throwable) {
-            return getcwd() ?: null;
-        }
-    }
-
-    /**
-     * E1: resolve the optional LLM-as-judge sub-layer options for the critic.
-     *
-     * The sub-flag lives at atlas_dev.elevations.e1.llm_judge (default OFF).
-     * When ON, the judge callable is resolved from the container binding
-     * `atlas_dev.e1.intent_judge` (if bound); tests bind a fake there. When
-     * OFF or no judge is bound, the options enable nothing and the critic
-     * behaves as the pure deterministic probe (byte-identical to pre-E1-judge).
-     *
-     * VAL-E1-011: the judge is strictly doubt-additive — even when enabled,
-     * it can only add doubt/escalate; the critic's detectIntentFalsification()
-     * ignores APPROVE/DOWNGRADE outcomes (the deterministic probe's verdict
-     * is the immovable floor).
-     *
-     * @return array{llm_judge: bool, judge: ?callable}
-     */
-    private function resolveE1CriticOptions(): array
-    {
-        $enabled = false;
-        try {
-            $enabled = (bool) config('atlas_dev.elevations.e1.llm_judge', false);
-        } catch (\Throwable) {
-            $enabled = false;
-        }
-
-        $judge = null;
-        if ($enabled) {
-            try {
-                $bound = $this->container->bound('atlas_dev.e1.intent_judge')
-                    ? $this->container->make('atlas_dev.e1.intent_judge')
-                    : null;
-                $judge = is_callable($bound) ? $bound : null;
-            } catch (\Throwable) {
-                $judge = null;
-            }
-        }
-
-        return [
-            'llm_judge' => $enabled,
-            'judge' => $judge,
-        ];
-    }
-
-    /**
-     * E2: probe whether the write task's intent is NOT backed by any
-     * behavioral AC with a real verification_ref. Reads the persisted
-     * MiniProgrammingSpec (the source of acceptanceCriteria) from storage.
-     * Returns true when the intent is untested (flag should fire); false
-     * when the intent is tested OR the task is not a write task (empty
-     * intent_text). When the spec is unreadable, a write task's intent is
-     * conservatively treated as not-tested (never silently green over an
-     * unevaluable intent).
-     */
-    private function probeIntentCoverage(string $runId, LightTaskContract $taskContract): bool
-    {
-        $miniSpec = null;
-        try {
-            $payload = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
-            if (is_array($payload)) {
-                $miniSpec = MiniProgrammingSpec::fromArray($payload);
-            }
-        } catch (\Throwable) {
-            // Degrade to "untested" for a write task (the probe will return
-            // true for a write task when miniSpec is null, mirroring safe
-            // degradation: never silently green over an unevaluable intent).
-        }
-
-        return (new IntentCoverageProbe)->isIntentNotTested($taskContract, $miniSpec);
-    }
-
-    /**
-     * E6: evaluate the diff's touched files against the task's
-     * MiniProgrammingSpec (the task's constitution). Loads the persisted
-     * spec from storage and runs the {@see SpecDrivenConstitutionGate}.
-     *
-     * Honest ceiling (VAL-M2-033): three distinct outcomes —
-     *   - Spec not persisted (storage->read returns null): no spec declared
-     *     => no-op verdict (VAL-M2-034). The gate is never invoked.
-     *   - Spec persisted but corrupt/unreadable (storage->read throws, or
-     *     fromArray throws): unevaluable verdict. The executor routes this
-     *     through the advisory/hard channels with the spec_unevaluable flag
-     *     (advisory => needs_review; hard => failed). Never a silent pass.
-     *   - Spec loaded and gate ran: the gate's verdict (no-op / pass /
-     *     tripped). If the gate itself throws, unevaluable (never a crash).
-     *
-     * @param  ScopeGuardReceipt  $scopeReceipt  the scope guard receipt
-     *                                           carrying the observed file diffs (touched file paths).
-     * @param  list<string>  $satisfiedVerificationRefs  the verification
-     *                                                   commands the run
-     *                                                   actually executed
-     *                                                   AND passed
-     *                                                   (TestRun.command
-     *                                                   where ok===true).
-     *                                                   Threaded from the
-     *                                                   call site so E6 can
-     *                                                   check behavioral AC
-     *                                                   verification_ref
-     *                                                   satisfaction
-     *                                                   (VAL-M2-021).
-     */
-    private function evaluateSpecConstitution(
-        string $runId,
-        ScopeGuardReceipt $scopeReceipt,
-        array $satisfiedVerificationRefs = [],
-    ): SpecConstitutionVerdict {
-        // Load the persisted MiniProgrammingSpec. storage->read returns null
-        // when the file does not exist (no spec declared => no-op, VAL-M2-
-        // 034) and throws when the file exists but is corrupt (unevaluable,
-        // VAL-M2-033).
-        try {
-            $payload = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
-        } catch (\Throwable $e) {
-            return SpecConstitutionVerdict::unevaluable(
-                'e6: mini_programming_spec could not be read: '.$e->getMessage(),
-            );
-        }
-
-        // No spec file persisted => no spec declared => no-op (VAL-M2-034).
-        if (! is_array($payload)) {
-            return SpecConstitutionVerdict::noOp();
-        }
-
-        // Parse the spec. If fromArray throws (corrupt structure), the spec
-        // is unevaluable (VAL-M2-033 honest ceiling — never a silent green).
-        try {
-            $miniSpec = MiniProgrammingSpec::fromArray($payload);
-        } catch (\Throwable $e) {
-            return SpecConstitutionVerdict::unevaluable(
-                'e6: mini_programming_spec could not be parsed: '.$e->getMessage(),
-            );
-        }
-
-        // Gather the touched file paths from the scope receipt (the
-        // authoritative source — what ScopeGuard observed in the workspace).
-        $touchedFilePaths = array_map(
-            static fn (ScopeFileDiff $diff): string => $diff->path,
-            $scopeReceipt->observed->fileDiffs,
-        );
-
-        // Run the gate. If the gate itself throws (unexpected), the check is
-        // unevaluable (VAL-M2-033 — never a crash, never a silent green).
-        try {
-            return (new SpecDrivenConstitutionGate)->evaluate(
-                $miniSpec,
-                $touchedFilePaths,
-                $satisfiedVerificationRefs,
-            );
-        } catch (\Throwable $e) {
-            return SpecConstitutionVerdict::unevaluable(
-                'e6: spec constitution evaluation errored: '.$e->getMessage(),
-            );
-        }
-    }
-
-    /**
-     * Obra 5 / DEV-04 — sovereign honesty floor over a completed Dev delivery.
-     * Observe-mode always records the verdict; enforce-mode downgrades passed completions
-     * the floor refuses to promote.
-     *
-     * @param  array<string,mixed>  $repairEvidence
-     * @return array{0:CompletionDecision,1:?array<string,mixed>}
-     */
-    private function applySovereignDevFloor(
-        CompletionDecision $decision,
-        VerificationGateResult $verificationResult,
-        ScopeGuardReceipt $scopeReceipt,
-        ?MutationTestingResult $mutationTestingResult,
-        ?MutationScoreVerdict $mutationScoreVerdict,
-        array $repairEvidence,
-        string $runId,
-    ): array {
-        $enforcing = (bool) config('atlas.programming.sovereign_floor_enforced', true);
-        $changedFiles = array_map(
-            static fn (ScopeFileDiff $diff): string => $diff->path,
-            $scopeReceipt->observed->fileDiffs,
-        );
-        $commands = [];
-        foreach ($verificationResult->tests as $test) {
-            $commands[] = $test->command;
-        }
-
-        $evidence = [
-            'changed_files' => $changedFiles,
-            'status' => $decision->status === CompletionSummary::STATUS_PASSED ? 'success' : 'failed',
-            'execution' => [
-                'commands' => $commands,
-                'claimed_status' => $verificationResult->aggregateStatus,
-                'tests_run' => count($verificationResult->tests),
-                'assertions_executed' => 0,
-                'selected_tests' => $commands,
-                'artifacts' => ['verification_receipt:'.$runId],
-            ],
-            'repair' => (int) ($repairEvidence['attempts'] ?? 0) > 0 ? $repairEvidence : [],
-        ];
-        if ($mutationScoreVerdict instanceof MutationScoreVerdict) {
-            $evidence['mutation_verdict'] = $mutationScoreVerdict;
-            $evidence['mutants_generated'] = (int) ($mutationTestingResult?->rawCounts['totalMutantsCount'] ?? 0);
-        }
-
-        try {
-            $adapter = $this->container->bound(AtlasDevGateAdapter::class)
-                ? $this->container->make(AtlasDevGateAdapter::class)
-                : new AtlasDevGateAdapter;
-            $verdict = $adapter->certifyDevDelivery($evidence, TrustLevel::Dev);
-        } catch (\Throwable $e) {
-            $receipt = [
-                'schema_version' => 'atlas.dev.sovereign_floor.v1',
-                'mode' => $enforcing ? 'enforce' : 'observe',
-                'promoted' => false,
-                'error' => $e->getMessage(),
-            ];
-
-            return [$decision, $receipt];
-        }
-
-        $receipt = [
-            'schema_version' => 'atlas.dev.sovereign_floor.v1',
-            'mode' => $enforcing ? 'enforce' : 'observe',
-            'promoted' => $verdict->promoted(),
-            'status' => $verdict->status,
-            'blockers' => $verdict->blockers,
-            'receipt_ref' => $verdict->receiptRef,
-        ];
-
-        if ($enforcing
-            && $decision->status === CompletionSummary::STATUS_PASSED
-            && ! $verdict->promoted()) {
-            $flags = array_values(array_unique(array_merge(
-                $decision->honestyFlags,
-                array_map(static fn (string $b): string => 'sovereign_floor:'.$b, $verdict->blockers),
-            )));
-            $decision = new CompletionDecision(
-                status: CompletionSummary::STATUS_NEEDS_REVIEW,
-                honestyFlags: $flags,
-                residualRisks: array_values(array_unique(array_merge(
-                    $decision->residualRisks,
-                    ['sovereign_floor_not_promoted'],
-                ))),
-                reasons: array_values(array_merge(
-                    $decision->reasons,
-                    ['sovereign_floor:delivery_not_promoted'],
-                )),
-            );
-        }
-
-        return [$decision, $receipt];
+        return $this->resolver->resolveE6Config();
     }
 }

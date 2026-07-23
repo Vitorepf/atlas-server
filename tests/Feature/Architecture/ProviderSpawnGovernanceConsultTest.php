@@ -19,7 +19,10 @@ class ProviderSpawnGovernanceConsultTest extends TestCase
      */
     private const GOVERNED_SPAWN_SITES = [
         'app/Services/Ai/Programming/AtlasForgeBaseCliInvocationDriver.php' => 'Forge CLI drivers (claude/codex/gemini/cursor)',
-        'app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php' => 'Dev claude lane (SymfonyClaudeCliGateway)',
+        // Pin relocated under GOD-DEBULK D3 (2026-07-22): executeClaudeProvider moved verbatim
+        // from PipelineRunExecutor.php into the ProviderExecutionSection family class; the
+        // consult-before-spawn invariant is unchanged, only the file location moved.
+        'app/Http/Controllers/AtlasDev/Support/PipelineRun/ProviderExecutionSection.php' => 'Dev claude lane (SymfonyClaudeCliGateway)',
         'app/Services/Engineering/EngineeringClaudeCodeBaselineRunnerService.php' => '3º pé do triplo claude (baseline runner)',
         'app/Services/Ai/Programming/ProviderRuntimeProcessFactory.php' => 'lane SDK (cursor/minimax/antigravity)',
     ];

@@ -442,11 +442,15 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
             ],
             [
                 'id' => 'pipeline_run_executor',
-                'path' => 'app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php',
+                // Marker relocated under GOD-DEBULK D3 (2026-07-22): the pipeline's direct
+                // Process spawns (git baseline/restore/diff) moved verbatim from the
+                // PipelineRunExecutor godfile into the PipelineRun/WorkspaceGitSupport
+                // family class; the boundary fingerprint follows the real call-site.
+                'path' => 'app/Http/Controllers/AtlasDev/Support/PipelineRun/WorkspaceGitSupport.php',
                 'classification' => 'legacy_pipeline_boundary',
                 'reason' => 'Legacy pipeline helper remains inventoried; Atlas Dev standard run is AWIS-gated.',
                 'required_markers' => [
-                    'PipelineRunExecutor',
+                    'WorkspaceGitSupport',
                     'new Process',
                     'diff',
                 ],
