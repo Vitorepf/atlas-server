@@ -101,4 +101,17 @@ final class ReadinessProjectionReleaseWriterSectionTest extends TestCase
             $preflight['agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight']['preflight_checks']['receipt_hash_unique_index_ready']
         );
     }
+
+    public function test_work_splitter_authorizes_the_canonical_readiness_service_path(): void
+    {
+        $splitter = app(AtlasSelfConstructionReadinessService::class)->workSplitter();
+        $readinessPacket = collect($splitter['split']['packets'])
+            ->firstWhere('packet_id', 'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004');
+
+        $this->assertSame(
+            ['app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php'],
+            $readinessPacket['allowed_files']
+        );
+        $this->assertFileExists(base_path($readinessPacket['allowed_files'][0]));
+    }
 }

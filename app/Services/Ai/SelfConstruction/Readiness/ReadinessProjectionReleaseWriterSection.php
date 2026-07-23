@@ -1416,7 +1416,7 @@ final class ReadinessProjectionReleaseWriterSection
                 'lane' => 'readiness_service',
                 'objective' => 'Implement read-only packet orchestration, scoped validation and readiness payloads.',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
+                    'app/Services/Ai/SelfConstruction/Readiness/AtlasSelfConstructionReadinessService.php',
                 ],
                 'forbidden_files' => $forbidden,
                 'depends_on' => [],
