@@ -20,7 +20,6 @@ final class QualityFoundryMutativeSurfaceStaticScanner
         '/EngineeringKernel/',
         '/SelfConstruction/Governance/',
         '/RealExecution/',
-        '/Foundry/Frontier/Outcome/',
         '/SelfConstruction/AtlasTaskScopedCommitter.php',
     ];
 

@@ -68,7 +68,6 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
             'app/Services/Ai/Programming/AtlasDev/Execution/EliteExecutorKernelDevAdapter.php',
             'app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php',
             'app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php',
-            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php',
         ];
         $files = [];
         foreach ($paths as $path) {

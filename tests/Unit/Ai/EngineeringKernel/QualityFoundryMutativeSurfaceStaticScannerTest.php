@@ -26,7 +26,6 @@ final class QualityFoundryMutativeSurfaceStaticScannerTest extends TestCase
         $result = (new QualityFoundryMutativeSurfaceStaticScanner)->scan([
             'app/Services/Ai/Surface/ReadOnly.php' => "<?php\n/** git commit and deploy are forbidden here. */\npublic function release(): void {}\nreturn 'git commit is forbidden here';",
             'app/Services/Ai/SelfConstruction/Governance/AtlasTaskMergeActuator.php' => "<?php\nexec('git revert --no-edit');",
-            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php' => "<?php\nnew \\Symfony\\Component\\Process\\Process(['git', 'revert']);",
         ]);
 
         self::assertSame('pass', $result['status']);
@@ -39,7 +38,6 @@ final class QualityFoundryMutativeSurfaceStaticScannerTest extends TestCase
         $paths = [
             'app/Services/Ai/EngineeringKernel/MergeActuator.php',
             'app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php',
-            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php',
             'app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryReadinessManifest.php',
         ];
         $files = [];
