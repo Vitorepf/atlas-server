@@ -5,13 +5,8 @@ namespace App\Providers;
 use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasAutonomosIntentResolverBindings;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityResolutionLedger;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
@@ -34,58 +29,39 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
-use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopNetDiffCertReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentIngest\AtlasLoopOperatorIntentSchemaRegistry;
-use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptSigner;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossModelTriangulator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopModelFloorReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalDiffReconstructor;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalOutOfProcessVerifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
-use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopReplenisherDocGapOracleCoverageSentinel;
-use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopReplenisherSiblingRoleCoherenceSentinel;
 use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServedQueueInspectorSweepSentinel;
 use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServingQueueDiskConformanceSentinel;
-use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopWave19SentinelWiringCanary;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
-use App\Services\Ai\AutonomousEvolution\Frozen\AtlasLoopFrozenContractReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBugReproductionLane;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCloneDetector;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCoverageDeficitSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopConstraintsBlockAssembler;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopHypothesisTreeProducer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaTreeAccessor;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopInsightBackpropService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkClassPriorService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSelectAdjuster;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter;
@@ -284,21 +260,6 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
-        // Refiller port (Consolidation) → Discovery refiller concrete. Breaks root↔Discovery cycle by
-        // letting root-adjacent consumers (e.g. AtlasLoopCampaignSupervisor) type-hint the port and
-        // resolve the live Discovery refiller through the container. The Collaborators wrapper is also
-        // bound so the port-driven path can resolve the root collaborators in one place.
-        $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerPort::class,
-            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller::class,
-        );
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators::class,
-            fn ($app): \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators => new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators(
-                $app->make(\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore::class),
-                $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopBackService::class),
-            ),
-        );
 
         // Refiller supply-lane registry — ordered, named map of supply lanes (decompose → dedup →
         // orphan_wiring → doc_gap). Order MUST match the canonical Refiller lane sequence so behavior
@@ -357,76 +318,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
 
-        // Task-class discovery registry — singleton, no constructor args required.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\TaskClassDiscovery\AtlasLoopTaskClassRegistry::class);
 
-        // Audit trail surface: Composer + Exporter + IntegrityVerifier + Replayer as singletons.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailComposer::class);
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailExporter::class);
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailIntegrityVerifier::class);
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer::class,
-            static function ($app): \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer {
-                $composer = $app->make(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailComposer::class);
-
-                return new \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer(
-                    static fn (\App\Services\Ai\AutonomousEvolution\AuditTrail\TimelineWindow $window) => $composer->compose($window),
-                );
-            },
-        );
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
-        // Cortex v+infinity universal contract — the portable interface every backend implements. The default
-        // binding is an inline adapter that delegates to AtlasLoopScopeComprehensionModelBuilder so the
-        // returned FACTS array is byte-identical to the existing model's toArray() output.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract::class, function ($app): \App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract {
-            return new class($app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder::class)) implements \App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract
-            {
-                public function __construct(private readonly \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder $builder) {}
-
-                public function comprehend(string $repoRoot, array $config): array
-                {
-                    // The per-repo cortex.yaml ships `scope_roots` (plural, list). The legacy callers pass
-                    // `scope_root` (singular). Accept either; first entry wins. Empty ⇒ scope == repo root.
-                    $scopeRoot = (string) ($config['scope_root'] ?? '');
-                    if ($scopeRoot === '' && isset($config['scope_roots']) && is_array($config['scope_roots']) && $config['scope_roots'] !== []) {
-                        $scopeRoot = (string) $config['scope_roots'][0];
-                    }
-                    if ($scopeRoot === '') {
-                        $scopeRoot = $repoRoot;
-                    }
-                    $opts = is_array($config['opts'] ?? null) ? $config['opts'] : [];
-                    if (isset($config['doc_roots']) && is_array($config['doc_roots']) && $config['doc_roots'] !== []) {
-                        $opts['docs_roots'] ??= $config['doc_roots'];
-                    }
-
-                    return $this->builder->build($repoRoot, $scopeRoot, $opts)->toArray();
-                }
-
-                public function contractSchemaId(): string
-                {
-                    return 'atlas.cortex.facts.v1';
-                }
-            };
-        });
-        // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
-        $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
-        // LOOP-CYCLE-NEST W1160 P1 — sub-cycle spawner (bounded nested cycles for ARCHITECT etc.).
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
-        // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
-        // W1210 P2 — Loop permission-gradient enforcer (single chokepoint above the pétreo sandbox floor).
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Permissions\AtlasLoopPermissionLevelEnforcer::class);
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
         // Force-load the command file so the in-file port interface + default impl are visible to PSR-4.
         \class_exists(\App\Console\Commands\AtlasAaelExecutionRollbackCommand::class);
         $this->app->singleton(
             \App\Console\Commands\AtlasAaelExecutionRollbackOperatorPort::class,
             \App\Console\Commands\AtlasAaelExecutionRollbackDefaultOperatorPort::class,
-        );
-        // W1170 — FACT confidence-bounds validator (default OFF, decoratable via interface).
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator::class,
         );
         $this->app->singleton(
             \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger::class,
@@ -440,44 +341,9 @@ class AppServiceProvider extends ServiceProvider
                 return new \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger($path, $enabled);
             },
         );
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorInterface::class,
-            function ($app) {
-                $base = $app->make(\App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator::class);
-                if (! (bool) config('atlas.loop.fact_confidence.ledger_enabled', false)) {
-                    return $base; // byte-identical OFF: identity wrapper, no decorator
-                }
-                $ledger = $app->make(\App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger::class);
-
-                return new \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorLedgerDecorator($base, $ledger);
-            },
-        );
-        // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
-        $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
-        // Quaternity intent-drift production adapters: atlas:loop:intent:drift resolves these two contracts.
-        // Bind them to the stream/file-backed production impls so the CLI runs without test fakes. The operator
-        // intent source REUSES the existing AtlasLoopOperatorIntentStreamReader (one ingest pipeline, not a
-        // second parser); both adapters autowire (the reader and the file path resolve from their own defaults).
-        $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopOperatorIntentSource::class,
-            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopIntentStreamOperatorIntentSource::class,
-        );
-        $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopAmbitionFacultyStore::class,
-            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopFileAmbitionFacultyStore::class,
-        );
-        // Cycle-receipt chain — singletons so the CLI + any callers share one signer.
-        $this->app->singleton(AtlasLoopCycleReceiptSigner::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
-        $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
-        $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopHardCaseHarness::class);
-        $this->app->singleton(
-            AtlasLoopFrozenContractReceiptLedger::class,
-            fn () => new AtlasLoopFrozenContractReceiptLedger(
-                (string) env('ATLAS_LOOP_FROZEN_CONTRACT_RECEIPT_LEDGER_PATH', '') ?: null,
-            ),
-        );
         // Floor-receipt audit substrate: one append-only, sha256-chained ledger proving the §0 floor
         // invariants held across cross-model triangulation events. Nullable-default ctor autowires to the
         // canonical storage path; pure I/O + hashing, so constructing it is free.
@@ -493,15 +359,6 @@ class AppServiceProvider extends ServiceProvider
             AtlasLoopScenarioProviderPortfolio::class,
             fn ($app) => new AtlasLoopScenarioProviderPortfolio(
                 rescue(fn () => $app->make(AtlasLoopTaskDecompositionAmplifier::class), null, false),
-            ),
-        );
-        $this->app->bind(
-            AtlasLoopProposalOutOfProcessVerifier::class,
-            fn ($app) => new AtlasLoopProposalOutOfProcessVerifier(
-                $app->make(AtlasLoopProposalDiffReconstructor::class),
-                $app->make(AtlasEngineeringHonestyGate::class),
-                $app->make(AtlasDeadCodeAnalyzer::class),
-                rescue(fn () => $app->make(AtlasLoopAdversarialVerifierPool::class), null, false),
             ),
         );
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
@@ -525,38 +382,6 @@ class AppServiceProvider extends ServiceProvider
             AtlasLoopBroaderRegressionGate::class,
         );
 
-        // Loop discovery wiring. Laravel does NOT auto-inject nullable-with-default
-        // constructor params (`?Type $x = null`), so AtlasLoopTargetDiscoveryService
-        // was silently running with evidence/backlog/wiredCallers ALL null — its own
-        // impact-ranking + backlog steering were inert, and the new wired-caller orphan
-        // gate would never fire. Bind it explicitly so the intended signals are live.
-        // Each dep is resolved defensively (rescue => null) to preserve the service's
-        // fail-open contract if any dependency cannot build.
-        // L6-1: the backlog intent source must receive the meta-harness self-improve leg
-        // (Laravel does NOT auto-inject `?Type $x = null`). Without this bind the
-        // "loop-proposes-harness" path is inert and the meta_harness A/B arm never fills.
-        // Defensive resolve preserves the fail-open contract.
-        $this->app->bind(
-            AtlasLoopBacklogIntentSource::class,
-            fn ($app) => new AtlasLoopBacklogIntentSource(
-                rescue(fn () => $app->make(AtlasLoopEvidenceSignalService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopMetaHarnessIntentSource::class), null, false),
-            ),
-        );
-        $this->app->bind(
-            AtlasLoopTargetDiscoveryService::class,
-            fn ($app) => new AtlasLoopTargetDiscoveryService(
-                $app->make(AtlasLoopTargetRepository::class),
-                rescue(fn () => $app->make(AtlasLoopEvidenceSignalService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopBacklogIntentSource::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopHarnessGuard::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopWiredCallerService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopSiblingTestResolver::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopCoverageDeficitSource::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopCloneDetector::class), null, false),
-            ),
-        );
         // ARBOR-GRAFT: the loop-back service is autowired (made, not bound), so its nullable tree deps
         // (idea-tree accessor, insight-backprop, failure-supply tree-producer) would all resolve to null —
         // leaving reflectTreeNode AND the failure-supply expansion DEAD in production regardless of flags
@@ -571,67 +396,6 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(AtlasLoopIdeaTreeAccessor::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopInsightBackpropService::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
-            ),
-        );
-        // GOVERNED REFACTOR (Phase 1): wire the refactor objective synthesizer + harness guard
-        // into the refiller (Laravel does NOT auto-inject `?Type $x = null`). Without this bind
-        // the refactor_objectives_enabled flag would be inert even when the operator flips it ON.
-        // Defensive resolve preserves the fail-open contract; flag-gated and default OFF.
-        $this->app->bind(
-            AtlasLoopQueueRefiller::class,
-            fn ($app) => new AtlasLoopQueueRefiller(
-                $app->make(AtlasLoopTargetDiscoveryService::class),
-                $app->make(AtlasLoopTargetRepository::class),
-                $app->make(AtlasEvolutionTaskGenerator::class),
-                $app->make(AtlasLoopBackService::class),
-                $app->make(AtlasLoopStore::class),
-                rescue(fn () => $app->make(AtlasLoopRefactorObjectiveSynthesizer::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopHarnessGuard::class), null, false),
-                // Arg 8 (frameworkRefactorSynthesizer) was previously omitted, relying on its null
-                // default (the refiller news one up lazily). It MUST be passed explicitly now that
-                // arg 9 (the obra cluster detector) exists — positional args cannot skip, so
-                // omitting 8 would land the detector in the framework-synthesizer slot and break
-                // the LIVE framework_refactor lane.
-                rescue(fn () => $app->make(AtlasLoopFrameworkRefactorSynthesizer::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopObraClusterDetectorService::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopWorkShapeRouter::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopMultiFileRefactorSynthesizer::class), null, false),
-                // Arg 12: the ungameable next-work decider. Bound WITHOUT a caller-resolver so it
-                // self-anchors to each campaign workspace per-call (the critical anti-gaming fix —
-                // callers must be grepped from the SAME tree the cyclomatic is read from, never
-                // base_path()). Default decision_priority_enabled is OFF (frozen per campaign).
-                rescue(fn () => $app->make(AtlasLoopNextWorkDecider::class), null, false),
-                // Arg 13 (ACDE M1): the work-class landing-rate prior. Injected so the DECIDE-front nudge is
-                // LIVE when atlas.loop.work_class_prior_enabled is armed (default OFF => the refiller's
-                // applyWorkClassPrior is a no-op => byte-identical). Read-only over the existing explorations
-                // ledger; fail-open so a DB-less context never de-prioritizes on no evidence.
-                rescue(fn () => $app->make(AtlasLoopWorkClassPriorService::class), null, false),
-                // Args 14-16 (ARBOR-GRAFT): the idea-tree advisory trio. Previously OMITTED, so the SELECT
-                // re-rank, the constraints-block assembly, and the hypothesis-tree materialization were DEAD
-                // in production even with their flags ON (Laravel does not auto-inject `?Type $x = null`).
-                // All three are read-only ADVISORY producers walled off from every gate by the firewall test;
-                // each is flag-gated default-OFF and fail-open, so binding them is byte-identical until the
-                // operator arms atlas.loop.select_adjust_enabled / constraints_block_enabled / idea_tree_enabled.
-                rescue(fn () => $app->make(AtlasLoopSelectAdjuster::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopConstraintsBlockAssembler::class), null, false),
-                rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
-                // Arg 17 (the rédea): the high-leverage objective producer. Flag-gated default-OFF
-                // (objective_producer_enabled) + fail-open inside refill(), so binding it is
-                // byte-identical until armed. MUST be passed explicitly (Laravel does not auto-inject
-                // `?Type $x = null`).
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer::class), null, false),
-                // §11.4 — the bug-fix reproduction lane (turns a runnable failure handle into a
-                // RED-required reproduce-then-fix objective). Flag-gated default-ON + fail-closed
-                // inside the lane, but on the live default path nothing stamps a failure handle into
-                // discovery signals yet, so binding it is byte-identical until a failure source feeds
-                // signals['failure_test_path']/['failure_command']. MUST be passed explicitly (Laravel
-                // does not auto-inject `?Type $x = null`).
-                rescue(fn () => $app->make(AtlasLoopBugReproductionLane::class), null, false),
-                null, // pipeline: preserve the refiller's lazy/default behavior.
-                null, // failureHandleHarvester: preserve the refiller's lazy/default behavior.
-                null, // complexTargetDecomposer: preserve the refiller's lazy/default behavior.
-                null, // researchTopicDeriver: preserve the refiller's lazy/default behavior.
-                rescue(fn () => $app->make(AtlasLoopOriginationDeliveryBridge::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
@@ -1408,11 +1172,8 @@ class AppServiceProvider extends ServiceProvider
         if (! (bool) config('atlas.loop.sentinels.wave19_enabled', false)) {
             return; // OFF ⇒ zero bindings, byte-identical no-op
         }
-        $this->app->singleton(AtlasLoopReplenisherSiblingRoleCoherenceSentinel::class);
         $this->app->singleton(AtlasLoopServedQueueInspectorSweepSentinel::class);
         $this->app->singleton(AtlasLoopServingQueueDiskConformanceSentinel::class);
-        $this->app->singleton(AtlasLoopReplenisherDocGapOracleCoverageSentinel::class);
-        $this->app->singleton(AtlasLoopWave19SentinelWiringCanary::class);
 
     }
 
@@ -1442,14 +1203,6 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(AtlasLoopSubCycleReceiptLedger::class, function () {
-            $configured = config('atlas.loop.nesting.receipt_ledger_path');
-            $path = is_string($configured) && $configured !== ''
-                ? $configured
-                : storage_path('app/atlas/loop/nesting/receipts.jsonl');
-
-            return new AtlasLoopSubCycleReceiptLedger($path);
-        });
 
         $this->app->singleton(AtlasAaelInFlightReceiptLedger::class, function () {
             $configured = config('atlas.aael.inflight.ledger_path');
@@ -1460,83 +1213,6 @@ class AppServiceProvider extends ServiceProvider
             return new AtlasAaelInFlightReceiptLedger($path);
         });
 
-        // Intent ambiguity resolver loop wiring. Data source (intents) is a callable bound under
-        // INTENTS_SOURCE_BINDING; tests / future producers override it. Default = no intents.
-        if (! $this->app->bound(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING)) {
-            $this->app->instance(
-                AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING,
-                static fn (): array => [],
-            );
-        }
-
-        $this->app->singleton(AtlasLoopIntentAmbiguityClarifierProposer::class);
-
-        $this->app->singleton(AtlasLoopIntentAmbiguityResolutionLedger::class, function ($app) {
-            $intentsSource = $app->make(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING);
-            $proposer = $app->make(AtlasLoopIntentAmbiguityClarifierProposer::class);
-            $path = (string) config(
-                'atlas.loop.intent_resolver.ledger_path',
-                storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),
-            );
-
-            $openSetPredicate = static function (string $questionHash) use ($intentsSource): bool {
-                foreach ((array) $intentsSource() as $intent) {
-                    foreach ((array) ($intent['ambiguities'] ?? []) as $a) {
-                        if ((string) ($a['question_hash'] ?? '') === $questionHash) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            };
-
-            $candidatesProvider = static function (string $questionHash) use ($intentsSource, $proposer): array {
-                foreach ((array) $intentsSource() as $intent) {
-                    foreach ((array) ($intent['ambiguities'] ?? []) as $a) {
-                        if ((string) ($a['question_hash'] ?? '') === $questionHash) {
-                            $packets = $proposer->propose($intent, [[
-                                'ambiguity_finding_id' => (string) ($a['ambiguity_finding_id'] ?? ''),
-                                'dimension' => (string) ($a['dimension'] ?? ''),
-                                'source_span' => (string) ($a['source_span'] ?? ''),
-                            ]], []);
-                            $packet = reset($packets);
-
-                            return is_array($packet) ? (array) ($packet['candidates'] ?? []) : [];
-                        }
-                    }
-                }
-
-                return [];
-            };
-
-            return new AtlasLoopIntentAmbiguityResolutionLedger($path, $openSetPredicate, $candidatesProvider);
-        });
-
-        $this->app->singleton(AtlasLoopIntentAmbiguityFollowUpScheduler::class, function ($app) {
-            $intentsSource = $app->make(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING);
-            $ledgerPath = (string) config(
-                'atlas.loop.intent_resolver.ledger_path',
-                storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),
-            );
-
-            $resolvedHashesSource = static function () use ($ledgerPath): array {
-                if (! is_file($ledgerPath)) {
-                    return [];
-                }
-                $out = [];
-                foreach ((array) file($ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-                    $row = json_decode((string) $line, true);
-                    if (is_array($row) && isset($row['question_hash'])) {
-                        $out[] = (string) $row['question_hash'];
-                    }
-                }
-
-                return $out;
-            };
-
-            return new AtlasLoopIntentAmbiguityFollowUpScheduler($intentsSource, $resolvedHashesSource);
-        });
     }
 
     /**
