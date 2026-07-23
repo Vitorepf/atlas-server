@@ -786,6 +786,8 @@ final class ReadinessProjectionAgentWakeupSection
                 'files_changed_within_allowed_scope' => (bool) ($evidenceValidation['files_changed_within_allowed_scope'] ?? false),
                 'files_changed_outside_allowed_scope' => (array) ($evidenceValidation['files_changed_outside_allowed_scope'] ?? []),
             ],
+            // A1-SC-0003: a persisted dry-run completion is a durable write — say so.
+            runtimeWritePerformed: $event === 'completed_dry_run',
         );
     }
 

@@ -545,6 +545,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $completion = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertSame('atlas.self_construction_agent_control_plane_task_queue_complete_dry_run_status.v1', $completion['schema_version']);
+        // A1-SC-0003 fix: a persisted dry-run completion is a durable write and the envelope says so.
+        $this->assertSame('mutating_agent_control_plane_task_queue_complete_dry_run_status', $completion['mode']);
+        $this->assertTrue((bool) $completion['runtime_write_allowed']);
+        $this->assertTrue((bool) $completion['runtime_write_performed']);
         $this->assertSame('completed_dry_run', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.status'));
         $this->assertSame('completed_dry_run', data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.event'));
         $this->assertTrue((bool) data_get($completion, 'agent_control_plane_task_queue_complete_dry_run.runtime_completion_persisted'));
