@@ -15,6 +15,7 @@ current_focus: A1-SC-0001..0008 (TEST committed; BUGFIX_PLAN next for status/wri
 claimed_paths:
   - tests/Feature/Ai/Kernel/KernelTriadF0CharacterizationTest.php
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-DEBTS.md
+  - docs/superpowers/plans/2026-07-22-god-debulk-wave-a1-selfconstruction.md
   - docs/evidence/2026-07-22-atlas-server-god-debulk/EXEC-LEDGER.md
 ```
 

@@ -1,6 +1,6 @@
 # GOD-DEBULK A1 — SelfConstruction readiness
 
-Status: active — Tasks 1 through 5 are complete; A1-SC-0001..0008 are queued.
+Status: active — Tasks 1 through 5 and A1-SC TEST characterization are complete; Task 6 records the status-authority implementation route.
 
 Source: `docs/evidence/2026-07-22-atlas-server-god-debulk/META-FINDINGS/A1--SelfConstruction.md`, finding `A1-SC-0019`; implementation order in `SelfConstructionReadiness.md` Phase 0.
 
@@ -238,3 +238,244 @@ ParaTest is green (5 tests, 36 assertions); syntax, 2k-LOC check (1,972 LOC),
 GOD-DEBULK guard, CODEMAP verifier and diff check pass. The section's existing
 dynamic `__call` pattern remains incompatible with standalone PHPStan analysis
 (27 pre-existing errors); no PHPStan suppression or facade change was added.
+
+## Task 6: A1-SC-0003/0004 status authority and fail-closed route
+
+Status: planned from characterization commit `01d67824c`.
+
+**Goal:** existing status entrypoints become genuinely side-effect free, named
+runtime commands report their durable work truthfully, and an absent
+merge-review authority value denies promotion/completion instead of allowing it.
+
+**Architecture:** Use the blueprint's bounded `ControlPlaneStatusProjector`
+and `AgentControlPlaneRuntime` owners, each below 800 LOC. The 29k readiness
+facade and 1.6k mother command are not eligible for direct edits under the
+hard density rule; an architect-supplied bounded compatibility seam must route
+the legacy flags before this plan changes their behavior.
+
+**Contracts:**
+
+- Existing `atlas.self_construction_agent_control_plane_*_status.v1` schemas
+  remain versioned status envelopes.
+- A status projection reports `runtime_write_performed=false` and leaves queue,
+  lease, and publisher storage snapshots unchanged.
+- A named runtime command reports `runtime_write_performed=true` only with the
+  persisted packet/lease/artifact IDs and an idempotency key from that command.
+- Missing `promotion_allowed` or `completion_claim_allowed` maps to `false`
+  plus a `missing_authority_field` violation.
+
+### Task 6.1: Freeze the remaining writer-backed status contracts
+
+**Files:**
+
+- Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest.php`
+- Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest.php`
+- Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php`
+- Modify: `tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php`
+
+- [ ] **Step 1: Write the writer-side-effect characterization for every listed family.**
+
+```php
+$queueBefore = (int) $queue->registry()['total_count'];
+$leasesBefore = count($leases->activeLeases());
+$payload = app(AtlasSelfConstructionReadinessService::class)->agentControlPlaneTerminalWorkerBootstrapStatus($options);
+
+$this->assertFalse((bool) $payload['runtime_write_allowed']);
+$this->assertTrue((bool) data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.runtime_claim_persisted'));
+$this->assertGreaterThan($queueBefore, (int) $queue->registry()['total_count']);
+$this->assertGreaterThan($leasesBefore, count($leases->activeLeases()));
+```
+
+- [ ] **Step 2: Record the pre-reroute baseline without treating it as green.**
+
+Run:
+
+```bash
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php --no-coverage --compact
+```
+
+Expected: each existing unrelated failure remains named separately; every new
+characterization assertion establishes the current writer status before reroute.
+
+### Task 6.2: Implement bounded read and write owners
+
+**Files:**
+
+- Create: `app/Services/Ai/SelfConstruction/ControlPlane/ControlPlaneStatusProjector.php`
+- Create: `app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneRuntime.php`
+- Create: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php`
+
+**Interfaces:**
+
+```php
+final class ControlPlaneStatusProjector
+{
+    /** @return array<string, mixed> */
+    public function projectTaskLeaseRecovery(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function projectTaskQueueOrchestrator(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function projectTaskQueueClaimNext(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function projectTaskAutoReplenishment(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function projectTerminalWorkerBootstrap(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function projectOperatorEvidenceDraftWorkspacePublisher(array $options = []): array;
+}
+
+final class AgentControlPlaneRuntime
+{
+    /** @return array<string, mixed> */
+    public function runTaskLeaseRecovery(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function runTaskQueueOrchestrator(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function runTaskQueueClaimNext(array $options = []): array;
+    /** @return array<string, mixed> */
+    public function runTaskAutoReplenishment(array $context = [], array $options = []): array;
+    /** @return array<string, mixed> */
+    public function runTerminalWorkerBootstrap(array $context = [], array $options = []): array;
+    /** @return array<string, mixed> */
+    public function runOperatorEvidenceDraftWorkspacePublisher(array $options = []): array;
+}
+```
+
+- [ ] **Step 1: Write the failing read-only projection test.**
+
+```php
+$before = $this->controlPlaneSnapshot();
+$payload = $projector->projectTerminalWorkerBootstrap(['queue_tags' => ['truthfulness']]);
+
+$this->assertFalse((bool) $payload['runtime_write_performed']);
+$this->assertSame($before, $this->controlPlaneSnapshot());
+```
+
+- [ ] **Step 2: Write the failing named-runtime test.**
+
+```php
+$queue = new AgentControlPlaneTaskPacketQueueRepository;
+$leases = new AgentControlPlaneClaimLeaseRepository;
+$payload = $runtime->runTerminalWorkerBootstrap($this->context(), [
+    'actor' => 'truthfulness-runtime',
+    'target_min_claimable_tasks' => 1,
+    'max_new_tasks' => 1,
+    'queue_tags' => ['truthfulness'],
+]);
+
+$this->assertTrue((bool) $payload['runtime_write_performed']);
+$this->assertNotEmpty($payload['persisted_artifact_ids']['task_packet_id']);
+$this->assertNotEmpty($payload['persisted_artifact_ids']['lease_id']);
+$this->assertNotEmpty($payload['idempotency_key']);
+
+$this->assertSame('claimed', data_get($queue->get($payload['persisted_artifact_ids']['task_packet_id']), 'status'));
+$this->assertSame($payload['persisted_artifact_ids']['task_packet_id'], data_get($leases->get($payload['persisted_artifact_ids']['lease_id']), 'task_packet_id'));
+$stateAfterFirstRun = [
+    'queue_registry' => $queue->registry(),
+    'active_leases' => $leases->activeLeases(),
+];
+$replay = $runtime->runTerminalWorkerBootstrap($this->context(), $payload['replay_options']);
+$this->assertFalse((bool) $replay['runtime_write_performed']);
+$this->assertSame($payload['idempotency_key'], $replay['idempotency_key']);
+$this->assertSame($payload['persisted_artifact_ids']['task_packet_id'], $replay['persisted_artifact_ids']['task_packet_id']);
+$this->assertSame($payload['persisted_artifact_ids']['lease_id'], $replay['persisted_artifact_ids']['lease_id']);
+$this->assertSame($stateAfterFirstRun, [
+    'queue_registry' => $queue->registry(),
+    'active_leases' => $leases->activeLeases(),
+]);
+```
+
+- [ ] **Step 3: Implement the two owners using the existing ControlPlane services.**
+
+`ControlPlaneStatusProjector` owns the six declared `project*` families, reads
+repository registries only, and sets every write/dispatch/provider/token/ledger
+authority field to `false`. `AgentControlPlaneRuntime` owns the matching six
+`run*` families, invokes the existing writer, derives persisted IDs from that
+writer's actual result, and returns replay options keyed by its idempotency key.
+It never synthesizes an ID or treats an idempotent replay as a new write.
+
+- [ ] **Step 4: Run the new focused tests.**
+
+Run:
+
+```bash
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php --no-coverage --compact
+```
+
+Expected: PASS with a zero-side-effect projection and a truthful named writer.
+
+### Task 6.3: Apply fail-closed merge-review authority
+
+**Files:**
+
+- Create: `app/Services/Ai/SelfConstruction/Readiness/ReadinessFailClosedPolicy.php`
+- Modify: architect-supplied bounded compatibility seam for merge-review status
+- Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php`
+
+**Interface:**
+
+```php
+final class ReadinessFailClosedPolicy
+{
+    /** @return array{promotion_allowed: bool, completion_claim_allowed: bool, authority_violations: list<array{code: string, field: string}>} */
+    public function mergeReviewAuthority(array $result): array;
+}
+```
+
+- [ ] **Step 1: Write the failing absent-authority regression.**
+
+```php
+$status = (new ReadinessFailClosedPolicy)->mergeReviewAuthority([]);
+
+$this->assertFalse((bool) $status['promotion_allowed']);
+$this->assertFalse((bool) $status['completion_claim_allowed']);
+$this->assertSame([
+    ['code' => 'missing_authority_field', 'field' => 'promotion_allowed'],
+    ['code' => 'missing_authority_field', 'field' => 'completion_claim_allowed'],
+], $status['authority_violations']);
+```
+
+- [ ] **Step 2: Implement false defaults and violation evidence.**
+
+The compatibility seam must use
+`data_get($result, 'promotion_allowed', false)` and
+`data_get($result, 'completion_claim_allowed', false)`, then append one
+`missing_authority_field` record for every absent source key.
+
+- [ ] **Step 3: Run the fail-closed regression.**
+
+Run:
+
+```bash
+/opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php --filter=missing_authority --no-coverage --compact
+```
+
+Expected: PASS; a ready-looking status string cannot grant an absent authority.
+
+### Task 6.4: Reroute legacy flags only through the bounded compatibility seam
+
+**Files:**
+
+- Modify: architect-supplied compatibility seam below 800 LOC
+- Modify: `app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php`
+- Modify: `tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php`
+
+- [ ] **Step 1: Route each legacy `*-status` flag to its projector and add a distinct `*-run` flag for the runtime owner.**
+
+- [ ] **Step 2: Assert a legacy status call leaves the stored snapshot unchanged and a `*-run` call returns persisted IDs.**
+
+- [ ] **Step 3: Run the finding acceptance and density gates.**
+
+```bash
+rg -n 'function .*Status' app/Services/Ai/SelfConstruction/Readiness | wc -l
+rg -n "promotion_allowed.*true|completion_claim_allowed.*true" app/Services/Ai/SelfConstruction/Readiness
+/opt/homebrew/bin/php artisan test --parallel tests/Feature/Ai/SelfConstruction tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest.php
+find app/Services/Ai/SelfConstruction/ControlPlane -name '*.php' -print0 | xargs -0 wc -l | awk '$1 > 2000 {print}'
+wc -l app/Services/Ai/SelfConstruction/ControlPlane/ControlPlaneStatusProjector.php app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneRuntime.php | awk '$1 > 800 {print}'
+bash scripts/god-debulk-guard.sh
+git diff --check
+```
+
+Expected: no targeted permissive true default remains; each new owner is below
+800 LOC (and therefore below 2,000 LOC); any unrelated baseline failure is
+recorded as red evidence.
