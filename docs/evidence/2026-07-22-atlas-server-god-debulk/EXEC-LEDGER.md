@@ -1977,42 +1977,6 @@ write_back:
   merged_to_main_by_aobg: false
 ```
 
-## Task 68 — RootSinglesRehome Memory and MemoryGovernance canonical namespaces, 2026-07-22
-
-```yaml
-status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
-commit: 9ae71a2df
-subject: "refactor(core): GOD-DEBULK RootSingles Memory canonical rehome"
-red:
-  result: "FAIL 1 test, 1 assertion before the namespace change: canonical MemoryGovernance\\AtlasMemoryPrivacyService provider-summary redaction contract was already red; the moved service diff is namespace-only."
-green:
-  behavior: "12 Memory and 5 MemoryGovernance root singles resolve from canonical namespaces, with lazy root aliases retained for legacy callers. All app/test imports, FQCN/path pins, CODEMAP rows, and architecture scanner paths now point to canonical locations."
-verification:
-  autoload: "PASS composer dump-autoload --no-interaction (generated 20046 classes; unrelated PSR-4 warnings emitted)"
-  compatibility_serial: "PASS 14 tests, 155 assertions"
-  compatibility_parallel: "PASS 14 tests, 155 assertions"
-  architecture_audit_feature: "PASS 6 tests, 128 assertions"
-  php_lint: "PASS all PHP files under Memory and MemoryGovernance"
-  codemap_and_guard: "PASS CODEMAP targets=58; GOD_DEBULK_GUARD_OK"
-  residual_sweep: "PASS: no old imports, FQCNs, or physical root paths in app/tests outside explicit compatibility aliases"
-  architecture_validate: "NOT GREEN baseline: 167/169 static APs; remaining AP2 Surface context_pack and AP15 OpenBrain evidence-ledger checks are outside this rehome; documentation health also red"
-  phpstan: "NOT GREEN baseline: 224 diagnostics across the existing Memory and MemoryGovernance trees; no suppressions added"
-  pint: "NOT GREEN only for existing full-file formatter drift in large hosts/scanner; no broad reformatting applied"
-  full_suite_parallel: "NOT GREEN / intentionally stopped at 20 percent (10797 of 52608) after broad pre-existing failures and errors; no namespace/autoload failure signature observed"
-  diff_check: PASS
-  loc: "godfiles_gt_5k=11; godfiles_gt_2k=43"
-boundary:
-  - pure namespace and path rehome: no class names or runtime behavior changed
-  - static scanner paths were updated only to preserve existing contracts after physical moves
-  - legacy root resolution remains lazy and backward compatible through the shared alias map
-write_back:
-  status: outcome_recorded_for_human_review
-  context_pack_hash: "78b338497973e747d89dcdf3eb72f2e84e7fbec897261d1280fffaacb6d28a1c"
-  context_feedback: "NOT RECORDED: tool process terminated by signal 9; no retry attempted"
-  auto_promoted: false
-merged_to_main_by_aobg: false
-```
-
 ## Task 63 — A1-SC-0127 classify actual transition blockers, 2026-07-22
 
 ```yaml
@@ -2211,4 +2175,30 @@ write_back:
   context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
+```
+
+## Task 69 — RootSinglesRehome Memory and MemoryGovernance canonical namespaces, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL_WITH_GLOBAL_BASELINE_RED
+commit: 9ae71a2df
+subject: "refactor(core): GOD-DEBULK RootSingles Memory canonical rehome"
+verification:
+  compatibility_serial: "PASS 14 tests, 155 assertions"
+  compatibility_parallel: "PASS 14 tests, 155 assertions"
+  architecture_audit_feature: "PASS 6 tests, 128 assertions"
+  php_lint: "PASS Memory and MemoryGovernance"
+  codemap_and_guard: "PASS targets=58; guard OK"
+  residual_sweep: "PASS app/tests old imports, FQCNs, and physical paths"
+  architecture_validate: "NOT GREEN baseline 167/169 APs: AP2/AP15 and documentation health remain outside this rehome"
+  phpstan: "NOT GREEN baseline 224 diagnostics; no suppressions"
+  full_suite_parallel: "NOT GREEN; stopped at 20 percent (10797/52608) after broad pre-existing failures/errors"
+boundary:
+  - 12 Memory and 5 MemoryGovernance root singles now use canonical namespaces with lazy root aliases for compatibility
+  - imports, FQCN/path pins, CODEMAP rows, and architecture scanner paths follow the physical moves without behavior changes
+write_back:
+  status: outcome_recorded_for_human_review
+  context_feedback: "NOT RECORDED: process signal 9"
+  auto_promoted: false
+merged_to_main_by_aobg: false
 ```
