@@ -682,21 +682,24 @@ final class AgentControlPlaneTaskQueueOrchestrator
         ];
     }
 
-    /**
-     * Operator maintenance: quarantine claimable packets that the serving front door would reject as not
-     * self-sufficient. This keeps workers from spending even a `next` call cleaning old malformed backlog.
-     *
-     * @return array<string, mixed>
-     */
+    /** Quarantine claimable packets the serving front door would reject as not self-sufficient. */
     public function sweepMalformedClaimableTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_sweep'): array
     {
         $inspector = new AtlasTaskPacketQualityInspector;
-        $limit = max(0, $limit);
+        $limit = $limit > 0 ? min($limit, self::MAX_ANTI_FARM_CANDIDATES) : self::MAX_ANTI_FARM_CANDIDATES;
+        $claimableCount = (int) data_get($this->queue->registry(['status' => 'claimable'], true), 'entry_count', 0);
+        if ($claimableCount > $limit) {
+            return [
+                'schema' => 'atlas.task_serving.malformed_sweep.v1', 'status' => 'blocked', 'reason' => 'malformed_sweep_scan_limit_exceeded',
+                'dry_run' => $dryRun, 'claimable_count' => $claimableCount, 'scan_limit' => $limit,
+                'inspected_claimable' => 0, 'blocked_count' => 0, 'would_block_count' => 0,
+                'blocked' => [], 'would_block' => [],
+            ];
+        }
         $inspected = 0;
         $blocked = [];
         $wouldBlock = [];
-
-        foreach ($this->queue->list(['status' => 'claimable']) as $candidate) {
+        foreach ($this->queue->list(['status' => 'claimable', 'limit' => $limit]) as $candidate) {
             if ($limit > 0 && count($blocked) + count($wouldBlock) >= $limit) {
                 break;
             }

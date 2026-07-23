@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRep
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
@@ -134,6 +135,49 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertFalse($snapshot['health_flags']['serving_jammed']);
         $this->assertSame('unknown', $snapshot['worker_drain_forecast']['queue_pressure']);
         $this->assertSame('inspect_servability_scan_limit', $snapshot['worker_drain_forecast']['replenish_recommendation']);
+    }
+
+    public function test_malformed_sweep_refuses_an_unbounded_claimable_inventory(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('malformed-sweep-bound-'.$index);
+            $packet['objective'] = 'independent bounded malformed sweep scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove isolated malformed sweep constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+        }
+
+        $sweep = $this->orchestrator()->sweepMalformedClaimableTasks(dryRun: true);
+
+        $this->assertSame('blocked', $sweep['status']);
+        $this->assertSame('malformed_sweep_scan_limit_exceeded', $sweep['reason']);
+        $this->assertSame(65, $sweep['claimable_count']);
+        $this->assertSame(64, $sweep['scan_limit']);
+        $this->assertSame(0, $sweep['inspected_claimable']);
+        $this->assertSame(0, $sweep['would_block_count']);
+    }
+
+    public function test_malformed_sweep_command_returns_failure_with_the_unbounded_inventory_receipt(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('malformed-sweep-command-bound-'.$index);
+            $packet['objective'] = 'independent malformed sweep command scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove malformed sweep command constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+        }
+
+        $exit = Artisan::call('atlas:task:sweep-malformed', ['--dry-run' => true, '--json' => true]);
+        $receipt = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertSame('malformed_sweep_scan_limit_exceeded', $receipt['reason']);
+        $this->assertSame(65, $receipt['claimable_count']);
     }
 
     /** @return array<string, mixed> */

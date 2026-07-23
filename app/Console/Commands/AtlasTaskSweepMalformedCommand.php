@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 class AtlasTaskSweepMalformedCommand extends Command
 {
     protected $signature = 'atlas:task:sweep-malformed
-        {--limit=0 : Maximum malformed packets to quarantine; 0 means no cap}
+        {--limit=0 : Maximum malformed packets to quarantine; 0 uses the safety window}
         {--dry-run : Inspect and report only}
         {--actor=task_sweep : actor label recorded in queue metadata/receipts}
         {--json : Print machine-readable JSON}';
@@ -32,7 +32,13 @@ class AtlasTaskSweepMalformedCommand extends Command
         if ($this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return self::SUCCESS;
+            return (string) ($result['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
+        }
+
+        if ((string) ($result['status'] ?? '') === 'blocked') {
+            $this->error('Malformed sweep blocked: '.(string) ($result['reason'] ?? 'unknown_reason'));
+
+            return self::FAILURE;
         }
 
         $this->line('');
