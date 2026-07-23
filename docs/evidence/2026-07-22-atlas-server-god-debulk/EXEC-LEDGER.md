@@ -4,41 +4,43 @@
 mission: atlas-server-god-debulk-execute
 mode: implement
 layout: docs/evidence/2026-07-22-atlas-server-god-debulk/LAYOUT.md
-phase: A1-SC-0154 digest handoff priority closed
+phase: A1-SC-0166 post-start status scope closed
 wave: A1
-bucket: app/Services/Ai/SelfConstruction/ControlPlane
-focus: make terminal operator handoff choose the same evidence-first action as the cycle supervisor
-finding_id: A1-SC-0154
-action_op: prioritize completed evidence review before replenishment or a still-available terminal launch
+bucket: app/Services/Ai/SelfConstruction/Readiness
+focus: scope every Codex post-start gate status to the requested run identity
+finding_id: A1-SC-0166
+action_op: filter observed and provider-run status queries by workspace, target, actor, session, packet, and receipt hash
 queue_index: 6
-last_commit: 1afa36f93
+last_commit: 9a68592a8
 godfiles_gt_2000_in_focus: 40
 commands: |
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php --filter=test_fleet_evidence_rollup_summarizes_completed_dry_run_evidence
-  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php --compact
-  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/AgentControlPlaneTerminalLoopHealthDigestServiceTest.php --compact
-  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php
-  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
-  vendor/bin/pint --test app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopHealthDigestService.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest.php
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --filter=test_post_start_statuses_scope_observed_and_provider_counts_to_the_requested_run_identity
+  /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php --compact
+  /opt/homebrew/bin/php artisan test tests/Unit/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSectionTest.php --compact
+  /opt/homebrew/bin/php -l app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php
+  /opt/homebrew/bin/php -l tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
+  vendor/bin/pint --test tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
+  vendor/bin/pint --test app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionPostStartGateStatusSection.php tests/Feature/Ai/AtlasAiSelfConstructionPostStartGateStatusScopeTest.php
   git diff --check
 before_after: |
-  red: a real fleet snapshot with completed evidence and an independently launch-ready packet emitted fleet_operator_handoff_launch_workers while its cycle supervisor emitted fleet_operator_handoff_review_evidence.
-  green: the same public digest emits fleet_operator_handoff_review_evidence and review_completed_dry_run_evidence first, while proving the launch plan remains fleet_launch_plan_ready.
+  red: all eight public status projections accepted a requested run identity yet reported seven globally matching rows; their latest projection could consequently disclose a newer unrelated run.
+  green: all eight projections report one observed run, one provider-start run, and the matching packet after workspace, target, actor, session, packet, and receipt hash filters are applied.
 stdout: |
-  red_characterization: FAIL 1 test, 15 assertions (expected fleet_operator_handoff_review_evidence, received fleet_operator_handoff_launch_workers)
-  focused: PASS 1 test, 18 assertions
-  terminal_digest_feature_file: NOT GREEN proof; 6 failed, 9 passed, 254 assertions in sequence. An unchanged no-evidence launch control also fails alone with expected ready, received action_required.
-  terminal_digest_unit_file: NOT GREEN proof; 2 failed, 17 passed, 62 assertions. Its failures report a claimable count of 2 instead of 1 and a missing cleanup storage directory.
+  red_characterization: FAIL 1 test, 1 assertion (expected 1 observed run, received 7)
+  focused: PASS 1 test, 24 assertions
+  new_feature_file: PASS 1 test, 24 assertions
+  existing_section_unit_file: PASS 2 tests, 5 assertions
   php_lint: PASS source plus changed Feature test
-  pint: NOT GREEN; existing full-file formatter violations in the source and test were left untouched outside this focused change
-  loc_check: agent_control_plane_terminal_loop_health_digest_service=1647
+  feature_pint: PASS
+  source_pint: NOT GREEN; existing source formatter violations (class_attributes_separation, fully_qualified_strict_types, unary_operator_spaces, no_unused_imports, not_operator_with_successor_space, ordered_imports) were left untouched outside this focused change
+  loc_check: readiness_projection_post_start_gate_status_section=1526
   diff_check: PASS
 notes: |
   until cancel; consume META-FINDINGS; never dump findings here
-  Characterization executes the real public terminal digest, supervisor and fleet handoff path with completed evidence plus an independently launch-ready packet; it does not use reflection or mocks.
-  The public handoff now uses the supervisor's evidence-first order: recover, evidence, replenish, rerun digest, launch. The green contract proves that this is priority alignment rather than suppressing launch capability.
+  Characterization executes each real public status method against persisted Agent Run rows; it does not use reflection or mocks.
+  A common private query scope applies only provided non-empty options. target is a persisted metadata target, receipt_hash is the Agent Run completion_evidence_hash, and all other scope fields map to their canonical Agent Run columns.
   Historical commit integrity: 820b04407 contains the verified A1-SC-0138 hunk plus 178 unrelated pre-staged external rename paths. It was preserved without reset/revert; all subsequent commits use pathspec isolation.
-  The source remains below 2k; no new class or helper was introduced. The non-green aggregate suites are not used as proof; their queue/fixture-isolation contradiction is recorded in EXEC-DEBTS.
+  The source remains below 2k; no new class or helper was introduced. The existing source formatting drift is not used as proof and was not broadened into a reformat.
   The broader certification Feature suite is NOT GREEN (10 failures) because its serving guard rejects the multi_agent_loop tags its own seed path creates; this pre-existing contradiction is recorded in EXEC-DEBTS and is outside A1-SC-0189.
   Historical label hold remains open: immutable content commit 52fd8598c has a test(core) subject despite its app diff; the canonical rule requires refactor(core), and all later app-diff cycles must use refactor(core).
 halt_conditions_hit:
@@ -2083,6 +2085,37 @@ boundary:
 write_back:
   status: recorded_for_human_review
   outcome_id: A1-SC-0154
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 66 — A1-SC-0166 scope post-start status runs, 2026-07-22
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 9a68592a8
+subject: "refactor(core): GOD-DEBULK scope post-start status runs"
+red:
+  result: "FAIL 1 test, 1 assertion: the executor-plan status reported 7 global observed rows when all six requested scope fields identify exactly 1 run."
+green:
+  behavior: "All eight public post-start gate statuses now apply the requested workspace, target, actor, session, packet, and receipt hash to both observed-run and provider-start counts, and to the latest observed projection."
+verification:
+  focused_feature: "PASS 1 test, 24 assertions"
+  new_feature_file: "PASS 1 test, 24 assertions"
+  existing_section_unit_file: "PASS 2 tests, 5 assertions"
+  php_lint: "PASS source and changed Feature test"
+  feature_pint: PASS
+  source_pint: "NOT GREEN only for existing full-file formatter violations outside this focused hunk; no broad reformatting applied"
+  diff_check: PASS
+  loc: "readiness_projection_post_start_gate_status_section=1526 (<2000)"
+boundary:
+  - executes all eight public status methods against persisted Agent Run rows; no reflection or mocks
+  - each status sees one matching run and six newer single-field intruders, covering workspace, target metadata, actor, session, packet, and completion-evidence receipt hash
+  - query-only status projections remain read-only: no provider call, dispatch, token spend, runtime activation, or durable write occurs outside test fixtures
+write_back:
+  status: recorded_for_human_review
+  outcome_id: A1-SC-0166
   context_feedback: recorded
   auto_promoted: false
   merged_to_main_by_aobg: false
