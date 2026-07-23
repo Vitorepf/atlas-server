@@ -3027,3 +3027,30 @@ boundary:
   - "The test invokes the public registry() path and captures only the real PHP deprecation from this repository; it does not call the lazy factory by reflection."
   - "No queue/lease record, provider, dispatch, token, execution, or evidence authority behavior changed."
 ```
+
+## Task 99 — restore canonical queue registry path, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: discovered queue registry path divergence
+commit: d0e08b6e4
+subject: "refactor(core): GOD-DEBULK restore canonical queue registry path"
+scope:
+  - app/Services/Ai/SelfConstruction/TaskQueue/TaskQueueRegistryIndexStore.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTest.php --filter=test_corrupt_registry_handled --no-coverage
+  result: "FAIL 1 test, 1 assertion: public registry() did not see malformed bytes written at AgentControlPlaneTaskPacketQueueRepository::REGISTRY_PATH."
+green:
+  behavior: "The extracted index store uses the queue repository's established registry path, so public registry() returns corrupt=true for malformed canonical registry bytes."
+verification:
+  focused_feature: "PASS 1 test, 1 assertion."
+  feature_file: "PASS 26 tests, 198 assertions."
+  unit_file: "PASS 10 tests, 28 assertions."
+  php_lint: "PASS index store."
+  pint: "NOT GREEN only for inherited whole-file source formatting outside the one-literal path correction; no broad reformatting was applied."
+  diff_check: PASS
+  density: "index store=297 LOC (<800)."
+boundary:
+  - "The proof writes malformed data and reads it through the public queue repository; it does not invoke the extracted store directly."
+  - "The correction restores the canonical durable registry address and grants no runtime, provider, dispatch, token, or completion authority."
+```
