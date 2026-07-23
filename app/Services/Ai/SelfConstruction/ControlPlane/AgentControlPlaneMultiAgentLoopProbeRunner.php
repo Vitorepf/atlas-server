@@ -232,8 +232,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
                     'agent_id' => $actor,
                     'evidence_kind' => 'terminal_worker_bootstrap_probe',
                     'files_changed' => (array) data_get($result, 'one_shot_worker_packet.lease.write_set', []),
-                    'commands_run' => ['terminal_worker_bootstrap_probe_complete_dry_run: passed'],
+                    'commands_run' => [
+                        'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=terminal_bootstrap_probe # verifies '.(string) data_get($result, 'one_shot_worker_packet.lease.write_set.0', ''),
+                    ],
                     'tests_or_gates_result' => 'passed',
+                    'implementation_notes' => 'Synthetic terminal bootstrap probe claimed one isolated packet and closed it by dry-run.',
+                    'capability_delta' => 'Proved the probe-owned terminal bootstrap lease can complete without enabling runtime execution.',
                     'git_status_short' => 'synthetic terminal bootstrap probe storage-only dry-run',
                     'git_diff_check_result' => 'clean',
                 ];
@@ -1220,7 +1224,7 @@ function runTerminalBootstrapPreviewProbe(AgentControlPlaneTerminalWorkerBootstr
         ];
         $this->queue->enqueue($packet, ['tags' => [$tag]]);
 
-        $result = $bootstrap->bootstrap([], [
+        $result = $bootstrap->bootstrap($this->terminalBootstrapContext($runId, 1), [
             'actor' => 'terminal_bootstrap_invalid_scope_'.$runId,
             'target_min_claimable_tasks' => 1,
             'max_new_tasks' => 0,

@@ -125,7 +125,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             $claimFilters['tag'] = $queueTags[0];
             $claimFilters['tags'] = $queueTags;
         }
-        $claim = $this->orchestrator->claimNext($actor, $claimFilters);
+        $claim = $this->claimNext($context, $actor, $claimFilters);
         if ((string) ($claim['event'] ?? '') === 'no_claimable_task' && (int) ($claim['candidate_count'] ?? 0) > 0 && $maxNew > 0) {
             $replenishment = $this->replenishment->replenish(array_replace_recursive($context, [
                 'terminal_bootstrap_probe' => [
@@ -141,7 +141,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
                 'queue_tags' => $queueTags,
             ]);
             $workerEligibility = $this->workerEligibilityGuard($queueTags);
-            $claim = $this->orchestrator->claimNext($actor, $claimFilters);
+            $claim = $this->claimNext($context, $actor, $claimFilters);
         }
         $claimEvent = (string) ($claim['event'] ?? 'unknown');
         $workerPacket = [];
@@ -645,6 +645,127 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         }
 
         return $this->queue->list($filters);
+    }
+
+    /**
+     * The terminal-bootstrap certification probe owns its synthetic claim path.
+     * Normal workers always continue through the orchestrator, where probe
+     * packets remain unservable by design.
+     *
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function claimNext(array $context, string $actor, array $filters): array
+    {
+        $queueTags = $this->stringList((array) ($filters['tags'] ?? []));
+        if (! $this->isTerminalBootstrapProbe($context, $queueTags)) {
+            return $this->orchestrator->claimNext($actor, $filters);
+        }
+
+        return $this->claimTerminalBootstrapProbePacket(
+            $actor,
+            $queueTags,
+            max(60, (int) ($filters['ttl_seconds'] ?? 1800)),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @param  list<string>  $queueTags
+     */
+    private function isTerminalBootstrapProbe(array $context, array $queueTags): bool
+    {
+        if (! (bool) data_get($context, 'terminal_bootstrap_probe.enabled', false)) {
+            return false;
+        }
+
+        foreach ($queueTags as $queueTag) {
+            if (str_starts_with($queueTag, 'terminal_worker_bootstrap_probe')
+                || str_starts_with($queueTag, 'terminal_bootstrap_invalid_scope_')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Claim only a packet explicitly created for the synthetic terminal
+     * bootstrap probe. This mirrors the certification-only lease/CAS protocol
+     * without opening the real-worker serving surface to probes.
+     *
+     * @param  list<string>  $queueTags
+     * @return array<string, mixed>
+     */
+    private function claimTerminalBootstrapProbePacket(string $actor, array $queueTags, int $ttlSeconds): array
+    {
+        $candidates = $this->claimableRecords($queueTags);
+        foreach ($candidates as $record) {
+            if (! $this->hasTerminalBootstrapProbeTag((array) ($record['tags'] ?? []))) {
+                continue;
+            }
+
+            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
+            if ($taskPacketId === '') {
+                continue;
+            }
+
+            $scopeLock = [
+                'write_set' => (array) data_get($record, 'task_packet.normalized_scope.allowed_files', []),
+                'read_set' => (array) data_get($record, 'task_packet.normalized_scope.scope_in', []),
+                'scope_lock_plan_hash' => (string) data_get($record, 'metadata.scope_lock_hash', ''),
+            ];
+            $claim = $this->leases->claim($taskPacketId, $actor, $scopeLock, ['ttl_seconds' => $ttlSeconds]);
+            if ((string) ($claim['status'] ?? '') !== 'ok') {
+                continue;
+            }
+
+            $leaseId = (string) ($claim['lease_id'] ?? '');
+            $swap = $this->queue->compareAndSwapStatus($taskPacketId, 'claimable', 'claimed', [
+                'lease_id' => $leaseId,
+                'agent_id' => $actor,
+            ]);
+            if (($swap['swapped'] ?? false) !== true) {
+                $this->leases->release($leaseId, $actor, ['reason' => 'terminal_bootstrap_probe_queue_status_moved']);
+
+                continue;
+            }
+
+            $this->queue->appendReceipt($taskPacketId, [
+                'receipt_kind' => 'claim_acquired_by_terminal_bootstrap_probe',
+                'lease_id' => $leaseId,
+                'agent_id' => $actor,
+            ]);
+
+            return [
+                'event' => 'claimed',
+                'queue_entry' => $record,
+                'lease' => $claim['lease'] ?? null,
+                'lease_id' => $leaseId,
+                'task_packet_id' => $taskPacketId,
+                'agent_id' => $actor,
+            ];
+        }
+
+        return [
+            'event' => 'no_claimable_task',
+            'reason' => 'terminal_bootstrap_probe_packet_not_claimable',
+            'candidate_count' => count($candidates),
+        ];
+    }
+
+    /** @param  list<string>  $tags */
+    private function hasTerminalBootstrapProbeTag(array $tags): bool
+    {
+        foreach ($tags as $tag) {
+            if ($tag === 'terminal_bootstrap_probe'
+                || str_starts_with($tag, 'terminal_bootstrap_invalid_scope_')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
