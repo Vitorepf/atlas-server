@@ -2595,3 +2595,32 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 84 — A1-SC-0085 bind closure-corridor hash support owner, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_AGGREGATE_HANG_DEBT
+commit: f6a1a195f
+subject: "refactor(core): GOD-DEBULK bind closure corridor hash owner"
+red:
+  result: "FAIL 1 test, 0 assertions: the real corridor stableHash bridge threw Class App\\Services\\Ai\\SelfConstruction\\NativeImplementation\\FinalOperatorClosureCorridorHashSupport not found."
+green:
+  behavior: "The corridor now resolves FinalOperatorClosureCorridorHashSupport from its current Support owner and its production stableHash path exactly matches that owner's canonical hash."
+verification:
+  focused_feature: "PASS 1 test, 1 assertion"
+  php_lint: "PASS corridor source and focused Feature test"
+  pint: "PASS focused Feature test; NOT GREEN for pre-existing full-file corridor formatting violations outside the one-import hunk"
+  diff_check: PASS
+  density: "corridor remains the inherited 2,103 LOC monster; one import adds no method/density and no structural split was attempted without an approved blueprint. Focused Feature test=30 LOC (<800 hot limit)."
+  aggregate_feature: "NOT GREEN/NOT TERMINATING: the existing public build test filter made no result after 30 seconds and was interrupted. The known aggregate corridor lifecycle/hang debt remains outside this hash-owner repair."
+commit_scope: "PASS: git commit --only recorded exactly corridor source plus its focused Feature test."
+boundary:
+  - the focused test executes the production private stableHash bridge directly, not a reflection-only inventory, then compares it to the typed Support owner
+  - no corridor build, publisher, provider, dispatch, token spend, completion promotion, persistence, or ledger operation is activated by the focused hash characterization
+  - this only restores the missing typed owner; the separate read-only corridor write-truth finding remains untouched
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
