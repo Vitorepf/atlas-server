@@ -2653,3 +2653,32 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 86 — A1-SC-0115 align operator-evidence canonical paths, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+commit: 87b49c972
+subject: "refactor(core): GOD-DEBULK align operator evidence paths"
+red:
+  result: "FAIL 1 test, 1 assertion: public build emitted canonical_submission_directory=storage/app/atlas/self-construction/operator-submissions while its persistence commands already used storage/app/private."
+green:
+  behavior: "The public persistence plan now derives its directory and every persisted-artifact canonical_submission_path from the single private canonical-path map used by the commands, loader, and publisher."
+verification:
+  focused_feature: "PASS 1 test, 2 assertions; executes the real public build() and freezes all three persisted-artifact paths."
+  public_regression: "PASS 1 test, 129 assertions: existing no-input public-readiness contract remains green."
+  php_lint: "PASS source and focused Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited full-file source formatting/import violations outside this seven-line deletion/two-line replacement."
+  diff_check: PASS
+  density: "submission-readiness source=1,853 LOC (<2,000); focused Feature test=35 LOC (<800 hot limit)."
+commit_scope: "PASS: git commit --only recorded exactly submission-readiness source plus its focused Feature test."
+boundary:
+  - the focused test enters the real public build() rather than inspecting private methods or reflection metadata
+  - Storage::fake('local') isolates the read-only build; no receipt persistence, provider call, dispatch, token spend, or completion promotion is requested
+  - only the emitted path truth changed; artifact ordering, verifier status, persistence flags, and command semantics are preserved
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
