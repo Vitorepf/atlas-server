@@ -3157,3 +3157,37 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 103 — isolate certification-owned synthetic claims, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_DOWNSTREAM_COMPLETION_RED
+finding: A1-SC-0187-adjacent-serving
+commit: c2c7d8648
+subject: "refactor(core): GOD-DEBULK isolate certification claims"
+scope:
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=test_six_agents_receive_six_distinct_tasks --no-coverage
+  result: "FAIL 1 test, 1 assertion: public certify() produced zero distinct tasks because the real-worker claim classifier correctly refused its tagged synthetic packets."
+green:
+  behavior: "Certification now claims only its own seeded packet IDs through the real lease repository and queue compare-and-swap. The normal AgentControlPlaneTaskQueueOrchestrator claimNext() path remains unchanged and rejects certification tags."
+verification:
+  characterization: "PASS 2 tests, 6 assertions: public certify() yields six distinct task IDs; a real worker executes claimNext() against a tagged packet and receives no_claimable_task while its record remains claimable."
+  certification_file: "NOT GREEN: 7 failed, 9 passed, 98 assertions. The prior 10-failure admission/serving state is reduced; remaining failures begin in completion-evidence settlement and separate terminal bootstrap probes."
+  php_lint: "PASS certification service and focused Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited whole-file source formatting drift, so no broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "certification_service=1249 LOC (<2000); Feature test=451 LOC (<800 hot limit)."
+boundary:
+  - "The positive contract invokes public certify(), real lease claim, queue compare-and-swap, and dry-run completion machinery; it does not reflect into the seed or claim helper."
+  - "The negative contract executes the ordinary public claimNext() classifier. It proves tagged certification packets are still excluded from real-worker serving; no global tag exception, provider call, dispatch, token spend, or runtime flag enablement was introduced."
+residual:
+  - "This change covers only main-cycle synthetic claims. Completion evidence still has an independent case-normalization compatibility failure, and terminal bootstrap/fleet probes still use their separately governed probe paths."
+next_cursor: "Characterize the first completion-evidence scope-normalization failure through public certify() before changing evidence validation or terminal-bootstrap probe behavior."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
