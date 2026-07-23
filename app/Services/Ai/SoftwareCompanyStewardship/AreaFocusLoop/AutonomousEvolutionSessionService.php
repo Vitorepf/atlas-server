@@ -23,6 +23,9 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FactorySeedCatalogSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\FlowContractSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ProviderDiffQualitySection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\ReviewReceiptSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SandboxSection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\SemanticSliceSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSession\WorkcellSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
@@ -258,7 +261,7 @@ final class AutonomousEvolutionSessionService
     public function __construct(
         private readonly AreaFocusDeepFindingEngineService $deepScan,
         public readonly StewardshipPriorityRanker $priorityEngine,
-        private readonly AreaFocusBranchSandboxMaterializer $materializer,
+        public readonly AreaFocusBranchSandboxMaterializer $materializer,
         private readonly AtlasForgeProviderInvocationDriverRouter $providerRouter,
         private readonly StewardshipRuntimeResultProjector $resultBridge,
         private readonly StewardshipBranchMergeGovernor $mergeGovernor,
@@ -298,6 +301,12 @@ final class AutonomousEvolutionSessionService
     private ?FlowContractSection $flowContract = null;
 
     private ?FactoryMaxSelectionSection $factoryMaxSelection = null;
+
+    private ?SemanticSliceSection $semanticSlice = null;
+
+    private ?SandboxSection $sandbox = null;
+
+    private ?ReviewReceiptSection $reviewReceipt = null;
 
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
@@ -365,6 +374,24 @@ final class AutonomousEvolutionSessionService
     private function factoryMaxSelection(): FactoryMaxSelectionSection
     {
         return $this->factoryMaxSelection ??= new FactoryMaxSelectionSection($this);
+    }
+
+    /** AP-806 semantic slice-progression section (GOD-DEBULK split; lazily constructed). */
+    private function semanticSlice(): SemanticSliceSection
+    {
+        return $this->semanticSlice ??= new SemanticSliceSection($this);
+    }
+
+    /** AP-726/AP-756 sandbox preflight + base-ref section (GOD-DEBULK split; lazily constructed). */
+    private function sandbox(): SandboxSection
+    {
+        return $this->sandbox ??= new SandboxSection($this);
+    }
+
+    /** AP-786 provider-fallback + retained-receipt review section (GOD-DEBULK split; lazily constructed). */
+    private function reviewReceipt(): ReviewReceiptSection
+    {
+        return $this->reviewReceipt ??= new ReviewReceiptSection($this);
     }
 
     /**
@@ -836,156 +863,45 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * AP-806: the first ordered SEMANTIC step of a decomposed finding (contract
-     * → skeleton → behavior). Null when the plan is a plain file-group slice (no
-     * semantic decomposition), so the existing path is unchanged.
-     *
-     * @param  array<string,mixed>  $slicePlan
-     * @return array<string,mixed>|null
-     */
-    /**
-     * AP-806 slice-progression: return the first PENDING semantic step — the first
-     * slice (in depends_on order) that has not already merged. Completed slice_ids
-     * are skipped so successive cycles advance contract -> skeleton -> first_behavior
-     * instead of re-doing step 1; a slice that FAILED (not in $completedSliceIds) is
-     * retried, never skipped, so ordering is never violated.
-     *
-     * @param  array<string,mixed>  $slicePlan
-     * @param  array<string,true>  $completedSliceIds
-     * @return array<string,mixed>|null
-     */
-    /**
-     * Whether the plan decomposed the finding into ordered SEMANTIC steps
-     * (contract/skeleton/first_behavior) — as opposed to a plain file_group split
-     * that carries no step progression.
+     * GOD-DEBULK split delegators: the AP-806 semantic slice-progression
+     * projections live in {@see SemanticSliceSection}; these thin forwarders
+     * preserve the historical private method surface the selection/cycle
+     * orchestration binds to. semanticContractSliceAlreadyMaterialized is now
+     * internal to that section (only firstSemanticSlice calls it).
      *
      * @param  array<string,mixed>  $slicePlan
      */
     private function planHasSemanticSlices(array $slicePlan): bool
     {
-        if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
-            return false;
-        }
-        foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
-            if (is_array($slice) && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->semanticSlice()->planHasSemanticSlices($slicePlan);
     }
 
+    /**
+     * @param  array<string,mixed>  $slicePlan
+     * @param  array<string,true>  $completedSliceIds
+     * @return array<string,mixed>|null
+     */
     private function firstSemanticSlice(array $slicePlan, array $completedSliceIds = []): ?array
     {
-        if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
-            return null;
-        }
-        foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
-            if (is_array($slice)
-                && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')
-                && ! isset($completedSliceIds[(string) ($slice['slice_id'] ?? '')])
-                && ! $this->semanticContractSliceAlreadyMaterialized($slice)) {
-                return $slice;
-            }
-        }
-
-        return null;
+        return $this->semanticSlice()->firstSemanticSlice($slicePlan, $completedSliceIds);
     }
 
     /**
-     * A contract slice may have been materialized by a previous guarded repair or
-     * manual salvage before the loop wrote a completed slice receipt. In that case
-     * re-running the same contract burns provider on already-present PSR-4 files;
-     * let the loop advance to the next semantic step and let validation catch any
-     * incomplete contract at the dependent slice.
-     *
-     * @param  array<string,mixed>  $slice
-     */
-    private function semanticContractSliceAlreadyMaterialized(array $slice): bool
-    {
-        if ((string) ($slice['decomposition'] ?? '') !== 'semantic_step:contract') {
-            return false;
-        }
-
-        $files = AreaFocusStringListNormalizer::preserveNonBlankStrings($slice['allowed_files'] ?? []);
-        $sourceFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'app/') && str_ends_with($file, '.php')));
-        $testFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'tests/') && str_ends_with($file, '.php')));
-        if ($sourceFiles === [] || $testFiles === []) {
-            return false;
-        }
-
-        foreach (array_merge($sourceFiles, $testFiles) as $file) {
-            $absolute = function_exists('base_path') ? base_path($file) : $file;
-            if (! is_file($absolute)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * AP-806 slice-progression: slice_ids the loop already MERGED (cycle_completed),
-     * read from the durable session record so the next cycle on the same parent
-     * finding advances to the next pending slice. Only merged slices count (a failed
-     * slice stays pending and is retried). Mirrors reviewLockedFindingKeys' scan.
-     *
      * @return array<string,true>
      */
     private function completedSemanticSliceIds(string $areaId): array
     {
-        $path = $this->recordPath($areaId);
-        if (! is_file($path)) {
-            return [];
-        }
-        $completed = [];
-        foreach ($this->sessionRecordLines($path) as $line) {
-            $record = json_decode($line, true);
-            if (! is_array($record)) {
-                continue;
-            }
-            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                if (! is_array($cycle)) {
-                    continue;
-                }
-                if ((string) ($cycle['final_status'] ?? '') !== 'cycle_completed') {
-                    continue;
-                }
-                $sliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
-                if ($sliceId !== '') {
-                    $completed[$sliceId] = true;
-                }
-            }
-        }
-
-        return $completed;
+        return $this->semanticSlice()->completedSemanticSliceIds($areaId);
     }
 
     /**
-     * Rewrite the finding the owner runtime sees so the provider implements ONLY
-     * this bounded step (not the whole roadmap item). Identity (finding_id/hash)
-     * is preserved; objective/scope are narrowed to the slice.
-     *
      * @param  array<string,mixed>  $finding
      * @param  array<string,mixed>  $slice
      * @return array<string,mixed>
      */
     private function applySemanticSliceToFinding(array $finding, array $slice): array
     {
-        $objective = trim((string) ($slice['objective'] ?? ''));
-        if ($objective === '') {
-            return $finding;
-        }
-        $kind = str_replace('semantic_step:', '', (string) ($slice['decomposition'] ?? ''));
-        $finding['title'] = sprintf('Bounded step %s (%s) — execute ONLY this step', (string) ($slice['sequence'] ?? 1), $kind ?: 'step');
-        $finding['detail'] = $objective;
-        $finding['why_it_matters'] = $objective;
-        $finding['proposed_next_action'] = '';
-        $finding['affected_files'] = AreaFocusStringListNormalizer::preserveNonBlankStrings($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
-        $finding['active_slice_id'] = (string) ($slice['slice_id'] ?? '');
-        $finding['active_slice_kind'] = $kind;
-
-        return $finding;
+        return $this->semanticSlice()->applySemanticSliceToFinding($finding, $slice);
     }
 
     public function setStorageDirForTesting(?string $path): void
@@ -2703,10 +2619,11 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * Build the AP-726 preflight/handoff ONCE so the same handoff_hash threads
-     * through AP-756 (sandbox materialization), AP-747 (release) and AP-757
-     * (sandbox binding inside AP-749). Both the sandbox materializer and the
-     * owner-flow executor must see the same handoff.
+     * GOD-DEBULK split delegators: the AP-726/AP-756 sandbox preflight + base-ref
+     * projections live in {@see SandboxSection}; these thin forwarders preserve the
+     * historical private method surface the cycle/merge orchestration binds to.
+     * safeSandboxBaseRef is now internal to that section (only sandboxBaseRefFromRepo
+     * calls it).
      *
      * @param  array<string,mixed>  $finding
      * @param  list<string>  $allowedFiles
@@ -2714,43 +2631,7 @@ final class AutonomousEvolutionSessionService
      */
     private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId, string $baseRef = 'main'): array
     {
-        $route = $owner === 'forge' ? AreaFocusDevForgeRouterService::ROUTE_FORGE : AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV;
-        $hash = substr(MissionCanonicalHash::sha256([$cycleId, $finding['finding_hash'] ?? '', $allowedFiles]), 0, 12);
-        $branchName = 'atlas/area-focus/'.$areaId.'/'.$route.'/'.$hash;
-        $workOrderId = 'ap786_wo_'.$hash;
-        $workOrderHash = 'sha256:'.MissionCanonicalHash::sha256([$workOrderId, $finding]);
-        $decisionId = 'ap786_decision_'.$hash;
-        $decisionHash = 'sha256:'.MissionCanonicalHash::sha256([$decisionId, 'session_operator_authorized']);
-        $handoffHash = 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $branchName, $workOrderHash, $decisionHash]);
-
-        return [
-            'schema_version' => AreaFocusBranchSandboxPreflightService::REPORT_SCHEMA,
-            'ap_contract' => 'AP-726',
-            'status' => AreaFocusBranchSandboxPreflightService::STATUS_READY,
-            'area_id' => $areaId,
-            'branch_plan' => [
-                'branch_name' => $branchName,
-                'base_ref_plan' => $baseRef !== '' ? $baseRef : 'main',
-                'allowed_files' => $allowedFiles,
-            ],
-            'handoff_packet' => [
-                'schema_version' => AreaFocusBranchSandboxPreflightService::HANDOFF_SCHEMA,
-                'area_id' => $areaId,
-                'route' => $route,
-                'target_owner' => $owner,
-                'work_order_id' => $workOrderId,
-                'work_order_hash' => $workOrderHash,
-                'finding_hash' => (string) ($finding['finding_hash'] ?? ''),
-                'decision_id' => $decisionId,
-                'decision_hash' => $decisionHash,
-                'title' => (string) ($finding['title'] ?? 'Autonomous evolution work'),
-                'risk_level' => (string) ($finding['severity'] ?? 'medium'),
-                'allowed_files' => $allowedFiles,
-                'allowed_paths' => $allowedFiles,
-                'handoff_hash' => $handoffHash,
-            ],
-            'preflight_hash' => 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $handoffHash]),
-        ];
+        return $this->sandbox()->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId, $baseRef);
     }
 
     /**
@@ -2758,60 +2639,12 @@ final class AutonomousEvolutionSessionService
      */
     private function sandboxBaseRefFromInput(array $input): string
     {
-        $ref = trim((string) ($input['sandbox_base_ref'] ?? ''));
-        if ($ref === '') {
-            return '';
-        }
-        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
-            return '';
-        }
-        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
-            return '';
-        }
-
-        return $ref;
+        return $this->sandbox()->sandboxBaseRefFromInput($input);
     }
 
     private function sandboxBaseRefFromRepo(string $repoRoot): string
     {
-        $repoRoot = trim($repoRoot);
-        if ($repoRoot === '' || ! is_dir($repoRoot)) {
-            return '';
-        }
-
-        try {
-            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoRoot);
-            $process->setTimeout(10);
-            $process->run();
-            if (! $process->isSuccessful()) {
-                return '';
-            }
-
-            $ref = $this->safeSandboxBaseRef($process->getOutput());
-            if (! str_starts_with($ref, 'atlas/loop-runner/')) {
-                return '';
-            }
-
-            return $ref;
-        } catch (Throwable) {
-            return '';
-        }
-    }
-
-    private function safeSandboxBaseRef(string $ref): string
-    {
-        $ref = trim($ref);
-        if ($ref === '') {
-            return '';
-        }
-        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
-            return '';
-        }
-        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
-            return '';
-        }
-
-        return $ref;
+        return $this->sandbox()->sandboxBaseRefFromRepo($repoRoot);
     }
 
     /**
@@ -2820,22 +2653,7 @@ final class AutonomousEvolutionSessionService
      */
     private function materializeSandbox(array $preflight, string $areaId, string $repoRoot, string $baseRef = 'main'): array
     {
-        $handoffHash = (string) data_get($preflight, 'handoff_packet.handoff_hash', '');
-
-        return $this->materializer->materialize([
-            'area_id' => $areaId,
-            'repo_root' => $repoRoot,
-            'base_ref' => $baseRef !== '' ? $baseRef : 'main',
-            'preflight_report' => $preflight,
-            'sandbox_receipt' => [
-                'decision' => 'materialize_sandbox',
-                'operator_actor' => 'ap786_autonomous_session',
-                'target_handoff_hash' => $handoffHash,
-                'rationale' => 'Operator authorized AP-786 autonomous evolution session for this area/focus.',
-            ],
-            'materialize_sandbox' => true,
-            'record_sandbox' => true,
-        ]);
+        return $this->sandbox()->materializeSandbox($preflight, $areaId, $repoRoot, $baseRef);
     }
 
     /**
@@ -4208,75 +4026,21 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * A stale provider lock protects the loop from repeating the same bad worker
-     * attempt. It must not permanently starve an operator-authored atomic plan
-     * slice after the branch/worktree was cleaned up and the operator routes the
-     * slice to a different provider. The exception is intentionally narrow: plan
-     * slices only, known provider-quality/runtime blockers, no live review
-     * artifact, and never for the same provider that already failed.
+     * GOD-DEBULK split delegators: the AP-786 provider-fallback + retained-receipt
+     * review helpers live in {@see ReviewReceiptSection}; these thin forwarders
+     * preserve the historical private method surface reviewLockedFindingKeys binds
+     * to (the review-lock HEAD and the AP-806 honest-stop stay on this facade). The
+     * remaining seven helpers are now internal to that section.
      *
      * @param  array<string,mixed>  $cycle
      * @param  list<string>  $blockers
      */
     private function providerFallbackMayRetryPlanSlice(array $cycle, array $blockers, string $repoRoot, string $provider): bool
     {
-        $requestedProvider = AreaFocusProviderNormalizer::providerId($provider, includeMinimaxM3: true);
-        if ($requestedProvider === '') {
-            return false;
-        }
-        $hasDiffQualityBlocker = $this->hasProviderDiffQualityBlocker($blockers);
-        if (! $hasDiffQualityBlocker && ! $this->hasProviderFallbackRuntimeRetryBlocker($blockers)) {
-            return false;
-        }
-        if (! $this->cycleLooksOperatorPlanSlice($cycle)) {
-            return false;
-        }
-        if ($this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
-            return false;
-        }
-
-        $previousProvider = $this->cycleProviderId($cycle);
-        if ($previousProvider === '') {
-            return $this->providerFallbackCanRetryUnknownLegacyProvider($requestedProvider);
-        }
-
-        return $previousProvider !== $requestedProvider;
-    }
-
-    private function providerFallbackCanRetryUnknownLegacyProvider(string $requestedProvider): bool
-    {
-        return in_array($requestedProvider, [
-            'claude_cli',
-            'codex_cli',
-            'gemini_cli',
-            'minimax_m3_cli',
-        ], true);
-    }
-
-    /** @param list<string> $blockers */
-    private function hasProviderFallbackRuntimeRetryBlocker(array $blockers): bool
-    {
-        foreach ([
-            'owner_runtime_repeated_repair_no_progress',
-            'owner_runtime_minimax_codex_review_not_passed',
-        ] as $blocker) {
-            if (in_array($blocker, $blockers, true)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->reviewReceipt()->providerFallbackMayRetryPlanSlice($cycle, $blockers, $repoRoot, $provider);
     }
 
     /**
-     * A pre-retention senior-loop failure can leave only an AP-759 owner run in
-     * the ledger while the Atlas Dev receipt directory was deleted with the
-     * sandbox. That historical state must not permanently starve an operator
-     * plan slice after receipt retention has been fixed. The unlock is narrow:
-     * plan slices only, no live review artifact, and only when the referenced
-     * Atlas Dev run cannot be audited in the retained receipt root. A fresh
-     * retry that fails again will persist receipts and become review-locked.
-     *
      * @param  array<string,mixed>  $cycle
      * @param  list<string>  $blockers
      */
@@ -4286,148 +4050,18 @@ final class AutonomousEvolutionSessionService
         array $blockers,
         string $repoRoot,
     ): bool {
-        if (! in_array('owner_runtime_senior_loop_execution_not_passed', $blockers, true)) {
-            return false;
-        }
-        if (! $this->cycleLooksOperatorPlanSlice($cycle)) {
-            return false;
-        }
-        if ($this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
-            return false;
-        }
-
-        $ownerRunIds = $this->cycleOwnerSandboxRunIds($cycle);
-        if ($ownerRunIds === []) {
-            return false;
-        }
-
-        $atlasDevRunIds = [];
-        foreach ($ownerRunIds as $ownerRunId) {
-            foreach ($this->ownerSandboxAtlasDevRunIds($areaId, $repoRoot, $ownerRunId) as $atlasDevRunId) {
-                $atlasDevRunIds[$atlasDevRunId] = true;
-            }
-        }
-
-        if ($atlasDevRunIds === []) {
-            return ! is_dir($this->retainedAtlasDevReceiptsRoot($repoRoot));
-        }
-
-        foreach (array_keys($atlasDevRunIds) as $atlasDevRunId) {
-            if (! $this->retainedAtlasDevReceiptRunExists($repoRoot, $atlasDevRunId)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $cycle
-     * @return list<string>
-     */
-    private function cycleOwnerSandboxRunIds(array $cycle): array
-    {
-        $ids = [];
-        foreach ([
-            data_get($cycle, 'loop_receipt.evidence_refs.owner_sandbox_run_id', ''),
-            data_get($cycle, 'evidence_refs.owner_sandbox_run_id', ''),
-            data_get($cycle, 'owner_flow.owner_sandbox_run_id', ''),
-        ] as $value) {
-            if (is_string($value) && preg_match('/^afrun_[A-Za-z0-9]+$/', $value) === 1) {
-                $ids[$value] = true;
-            }
-        }
-
-        return array_keys($ids);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function ownerSandboxAtlasDevRunIds(string $areaId, string $repoRoot, string $ownerRunId): array
-    {
-        $path = rtrim($repoRoot, DIRECTORY_SEPARATOR)
-            .DIRECTORY_SEPARATOR.'storage'
-            .DIRECTORY_SEPARATOR.'atlas'
-            .DIRECTORY_SEPARATOR.'software_company_stewardship'
-            .DIRECTORY_SEPARATOR.'owner_sandbox_runtime_runs'
-            .DIRECTORY_SEPARATOR.$areaId.'.jsonl';
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $ids = [];
-        foreach ($this->sessionRecordLines($path) as $line) {
-            if (! str_contains($line, $ownerRunId)) {
-                continue;
-            }
-            $record = json_decode($line, true);
-            if (! is_array($record) || (string) ($record['owner_sandbox_run_id'] ?? '') !== $ownerRunId) {
-                continue;
-            }
-            foreach ([
-                data_get($record, 'command_result.stdout_excerpt', ''),
-                data_get($record, 'owner_result.runtime_invocation.command_result.stdout_excerpt', ''),
-                data_get($record, 'owner_result.evidence_pack.stdout_excerpt', ''),
-            ] as $text) {
-                foreach ($this->atlasDevRunIdsInText((string) $text) as $runId) {
-                    $ids[$runId] = true;
-                }
-            }
-        }
-
-        return array_keys($ids);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function atlasDevRunIdsInText(string $text): array
-    {
-        if ($text === '') {
-            return [];
-        }
-
-        preg_match_all('/\b(dev-[0-9]{10,}-[A-Za-z0-9._-]+)\b/', $text, $matches);
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($matches[1] ?? []);
-    }
-
-    private function retainedAtlasDevReceiptRunExists(string $repoRoot, string $runId): bool
-    {
-        $dir = $this->retainedAtlasDevReceiptsRoot($repoRoot).DIRECTORY_SEPARATOR.$runId;
-        if (! is_dir($dir)) {
-            return false;
-        }
-
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry !== '.' && $entry !== '..' && str_ends_with($entry, '.json') && is_file($dir.DIRECTORY_SEPARATOR.$entry)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function retainedAtlasDevReceiptsRoot(string $repoRoot): string
-    {
-        return rtrim($repoRoot, DIRECTORY_SEPARATOR)
-            .DIRECTORY_SEPARATOR.'storage'
-            .DIRECTORY_SEPARATOR.'atlas'
-            .DIRECTORY_SEPARATOR.'software_company_stewardship'
-            .DIRECTORY_SEPARATOR.'owner_sandbox_runtime_runs'
-            .DIRECTORY_SEPARATOR.'atlas_dev_receipts';
+        return $this->reviewReceipt()->seniorLoopMissingRetainedReceiptsMayRetryPlanSlice($areaId, $cycle, $blockers, $repoRoot);
     }
 
     /** @param list<string> $blockers */
-    private function hasProviderDiffQualityBlocker(array $blockers): bool
+    public function hasProviderDiffQualityBlocker(array $blockers): bool
     {
         return in_array(self::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true)
             || in_array('owner_runtime_'.self::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true);
     }
 
     /** @param array<string,mixed> $cycle */
-    private function cycleLooksOperatorPlanSlice(array $cycle): bool
+    public function cycleLooksOperatorPlanSlice(array $cycle): bool
     {
         $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
         $findingId = (string) ($finding['finding_id'] ?? '');
@@ -4439,7 +4073,7 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param array<string,mixed> $cycle */
-    private function cycleProviderId(array $cycle): string
+    public function cycleProviderId(array $cycle): string
     {
         foreach ([
             $cycle['provider'] ?? '',
@@ -4516,9 +4150,12 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * Shared session-record line reader (public so GOD-DEBULK sections can read
+     * durable records via the parent back-reference).
+     *
      * @return \Generator<int,string>
      */
-    private function sessionRecordLines(string $path): \Generator
+    public function sessionRecordLines(string $path): \Generator
     {
         $handle = fopen($path, 'rb');
         if (! is_resource($handle)) {
@@ -4798,7 +4435,7 @@ final class AutonomousEvolutionSessionService
      *
      * @param  array<string,mixed>  $cycle
      */
-    private function cycleHasLiveReviewArtifact(string $repoRoot, array $cycle): bool
+    public function cycleHasLiveReviewArtifact(string $repoRoot, array $cycle): bool
     {
         $worktree = trim((string) ($cycle['worktree_path'] ?? ''));
         if ($worktree !== '' && is_dir($worktree)) {
