@@ -2757,7 +2757,7 @@ boundary:
   - "This is the observed OOM ingress only. The separate claim, servability, repair, and cooldown full-list paths remain open under A1-SC-0108 and are not represented as resolved."
 commit_scope: "PASS: git commit --only recorded exactly the orchestrator and its focused Feature test."
 write_back:
-  status: pending
+  status: recorded_for_human_review
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
