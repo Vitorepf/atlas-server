@@ -29,3 +29,9 @@ Scan `dangling_refs.py` sobre `app/`: **23 classes** importadas via `use App\…
 
 ## D3. Pré-existente fora de escopo
 - `config/auth.php` → `App\Models\User` inexistente (Atlas single-operator local sem web-auth; default Laravel nunca exercitado).
+
+## D4. Cluster ACDE quebrado por cd018 (decisão: deletar-cluster vs restaurar-deps)
+`AtlasLoopTaskGrinder` injeta (required) `AtlasLoopExplorerStrategyBanditService` + `?AtlasLoopObraExecutionAdapter`; `ObraExecutionAdapter`/`StrategyBandit`/`CampaignSupervisor`/`DeterministicDeadCodeWorkType` importam classes deletadas por cd018 → **cluster inteiro quebrado**, mas com ~30 testes Feature/Loop e intra-wiring. NÃO é dead-solto (deletar cascateia 30 testes + TaskGrinder). Resolução requer closure de componente-conexo: (a) provar o cluster inteiro inalcançável do vivo → deletar tudo (classes+testes) atômico, OU (b) restaurar os deps cd018 (ObraPlanningPromptComposer, WorkClassPriorService, ProviderSwapPolicy, TerritoryLadder, BehaviorDeltaComputer). Consumido só como config-label (executor_organ, nunca instanciado) + testes → forte candidato a (a).
+
+## D5. Resolvido: hard-keep RefillerSupplyLaneCoordinator un-broken
+Restaurados os 2 deps self-contained (`AtlasLoopOrphanWiringSupplyLane`, `AtlasLoopWorkShapeRouter`, zero cascade) que cd018 deletou. Config `simulation-twin` executor_organ pendente (era SimulableTwinOrchestrator, quebrado — repoint quando o cluster D4 for decidido).
