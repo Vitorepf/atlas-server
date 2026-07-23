@@ -650,7 +650,7 @@ boundary:
   - no command execution, persistence, provider call, token spend, signature, or completion promotion occurs in this read-only readiness path
   - duplicated registry consolidation and distinct stale storage-root hints remain outside this one-operation repair
 write_back:
-  status: pending
+  status: recorded_for_human_review
   auto_promoted: false
 ```
 
@@ -2729,6 +2729,35 @@ decision:
 write_back:
   status: recorded_for_human_review
   context_feedback: recorded
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 89 — A1-SC-0108 bound anti-farm admission scan, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_PARTIAL_FINDING
+commit: 49b3c879c
+subject: "refactor(core): GOD-DEBULK bound anti-farm queue scan"
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --no-coverage
+  result: "FAIL 1 test, 1 assertion: a real prepareAndEnqueue() with 65 claimable persisted packets returned prepared_and_enqueued instead of a typed admission block."
+green:
+  behavior: "The exact checkAntiFarmGates ingress reads only the small registry summary first. Above 64 claimable packets it returns prepare_blocked/anti_farm_queue_scan_limit_exceeded without loading task payloads; a same-ID replay still reaches the queue's idempotency path."
+verification:
+  characterization: "PASS 2 tests, 8 assertions: real queue repository packets plus real public prepareAndEnqueue() prove the over-cap block/no candidate write and the same-ID idempotent replay."
+  package_suite: "PASS 104 tests, 500 assertions: Unit + Feature orchestrator suites plus the focused Feature contract."
+  php_lint: "PASS source and focused Feature test."
+  pint: "PASS focused Feature test; NOT GREEN for inherited whole-file orchestrator formatting/import violations outside this bounded admission hunk."
+  diff_check: PASS
+  density: "orchestrator=1,996 LOC (<2,000); focused Feature test=78 LOC (<800 hot limit)."
+boundary:
+  - "The test enters the actual public prepareAndEnqueue() path after real repository seeding; it does not invoke checkAntiFarmGates by reflection."
+  - "Above the scan bound, admission fails closed before queue payload materialization; no candidate queue record, lease, provider call, token spend, dispatch, completion promotion, or ledger write occurs."
+  - "This is the observed OOM ingress only. The separate claim, servability, repair, and cooldown full-list paths remain open under A1-SC-0108 and are not represented as resolved."
+commit_scope: "PASS: git commit --only recorded exactly the orchestrator and its focused Feature test."
+write_back:
+  status: pending
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
