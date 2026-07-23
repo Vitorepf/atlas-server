@@ -615,20 +615,22 @@ final class AgentControlPlaneTaskQueueOrchestrator
         return ['decision' => 'serve', 'reason' => 'packet_passes_classification_checks'];
     }
 
-    /**
-     * SERVABILITY BREAKDOWN — the honest cross-cut the coordination-health panel embeds so health, the
-     * orchestrator, the service and the CLI all AGREE on how many claimable tasks can actually be pulled now.
-     * Reuses the SAME predicates the claim path uses (dependency classification, probe guard, executability),
-     * for a FRESH worker (the per-worker give-back cooldown is transient and excluded here). `servable_now` is
-     * the count a cold worker could claim this instant (the quality-gate quarantine still applies at claim).
-     *
-     * @return array<string, int>
-     */
+    /** Read-only servability facts for a fresh worker, using the claim path's predicates. */
     public function servabilityBreakdown(): array
     {
+        $registry = $this->queue->registry(['status' => 'claimable'], true);
+        $claimableCount = (int) ($registry['entry_count'] ?? 0);
+        if ($claimableCount > self::MAX_ANTI_FARM_CANDIDATES) {
+            return [
+                'status' => 'blocked', 'reason' => 'servability_queue_scan_limit_exceeded',
+                'claimable' => $claimableCount, 'servable_now' => null,
+                'waiting_on_inflight_deps' => null, 'scan_limit' => self::MAX_ANTI_FARM_CANDIDATES, 'inspected_claimable' => 0,
+            ];
+        }
+
         $cache = [];
         $inspector = new AtlasTaskPacketQualityInspector;
-        $claimable = $this->queue->list(['status' => 'claimable']);
+        $claimable = $this->queue->list(['status' => 'claimable', 'limit' => self::MAX_ANTI_FARM_CANDIDATES]);
         $servable = 0;
         $waitingInflight = 0;
         $blockedPrereq = 0;

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
@@ -83,6 +85,55 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame(65, $blocked['minimum_claimable_count']);
         $this->assertSame(64, $blocked['scan_limit']);
         $this->assertSame('claimable', data_get($queue->get('claim-bound-later'), 'status'));
+    }
+
+    public function test_servability_refuses_to_classify_an_unbounded_claimable_queue(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('servability-bound-'.$index);
+            $packet['objective'] = 'independent bounded servability scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove isolated servability constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+        }
+
+        $breakdown = $this->orchestrator()->servabilityBreakdown();
+
+        $this->assertSame('blocked', $breakdown['status']);
+        $this->assertSame('servability_queue_scan_limit_exceeded', $breakdown['reason']);
+        $this->assertSame(65, $breakdown['claimable']);
+        $this->assertSame(64, $breakdown['scan_limit']);
+        $this->assertSame(0, $breakdown['inspected_claimable']);
+        $this->assertNull($breakdown['servable_now']);
+        $this->assertNull($breakdown['waiting_on_inflight_deps']);
+    }
+
+    public function test_health_marks_an_unbounded_servability_inventory_as_unknown_not_jammed(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $packet = $this->input('health-servability-bound-'.$index);
+            $packet['objective'] = 'independent health servability scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove isolated health servability constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+        }
+
+        $snapshot = (new AtlasTaskCoordinationHealthService(
+            $queue,
+            new AgentControlPlaneClaimLeaseRepository,
+            orchestrator: $this->orchestrator(),
+        ))->snapshot();
+
+        $this->assertFalse($snapshot['healthy']);
+        $this->assertNull($snapshot['servable_now']);
+        $this->assertTrue($snapshot['health_flags']['servability_scan_limit_exceeded']);
+        $this->assertFalse($snapshot['health_flags']['serving_jammed']);
+        $this->assertSame('unknown', $snapshot['worker_drain_forecast']['queue_pressure']);
+        $this->assertSame('inspect_servability_scan_limit', $snapshot['worker_drain_forecast']['replenish_recommendation']);
     }
 
     /** @return array<string, mixed> */

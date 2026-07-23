@@ -78,17 +78,19 @@ final class AtlasTaskCoordinationHealthService
         // can NOT actually pull. The breakdown comes from the orchestrator's OWN claim predicate, so health,
         // the orchestrator, the service and the CLI agree on `servable_now` by construction (no reimplementation).
         $servable = $this->orchestratorObject()->servabilityBreakdown();
-        $servableNow = (int) ($servable['servable_now'] ?? 0);
-        $waitingInflight = (int) ($servable['waiting_on_inflight_deps'] ?? 0);
+        $servabilityKnown = (string) ($servable['status'] ?? 'available') === 'available';
+        $servableNow = $servabilityKnown ? (int) ($servable['servable_now'] ?? 0) : null;
+        $waitingInflight = $servabilityKnown ? (int) ($servable['waiting_on_inflight_deps'] ?? 0) : null;
 
         $flags = [
             'dry_queue' => $claimable === 0,
+            'servability_scan_limit_exceeded' => ! $servabilityKnown,
             // JAMMED: claimable tasks exist but NONE are servable and NONE are advancing (gated only by dead
             // prereqs / probes / non-executable) AND there is no recoverable backlog. The recoverable clause is
             // load-bearing: `claimNext` runs reapExpiredBeforeListing FIRST, re-admitting released/expired-lease/
             // orphan work to claimable — exactly what `recoverableTotal` counts — so that work is NOT a jam (the
             // next claim serves it). Without this clause a dead worker's released task read as a false DEGRADED.
-            'serving_jammed' => $claimable > 0 && $servableNow === 0 && $waitingInflight === 0 && $recoverableTotal === 0,
+            'serving_jammed' => $servabilityKnown && $claimable > 0 && $servableNow === 0 && $waitingInflight === 0 && $recoverableTotal === 0,
             'has_quarantined_packets' => $quarantined > 0,
             // RECOVERABLE clause: activeLeases() expires past-TTL leases BEFORE counting, so a past-TTL lease
             // whose queue record is still claimed is exactly the reaper-recoverable strand that claimNext
@@ -110,12 +112,14 @@ final class AtlasTaskCoordinationHealthService
         $healthy = ! $flags['lease_leak_detected']
             && ! $flags['r2_breach']
             && ! $flags['serving_jammed']
+            && $servabilityKnown
             && ! $flags['queue_disk_mismatch_detected'];
 
         // WORKER DRAIN FORECAST — fact-only: can the active muscles drain the queue soon?
-        $claimablePerWorker = $activeLeases > 0 ? (int) floor($servableNow / $activeLeases) : null;
-        $queuePressure = $activeLeases > 0 && $claimablePerWorker !== null && $claimablePerWorker < 3 ? 'high' : ($servableNow < 5 ? 'moderate' : 'low');
+        $claimablePerWorker = $servabilityKnown && $activeLeases > 0 ? (int) floor($servableNow / $activeLeases) : null;
+        $queuePressure = ! $servabilityKnown ? 'unknown' : ($activeLeases > 0 && $claimablePerWorker !== null && $claimablePerWorker < 3 ? 'high' : ($servableNow < 5 ? 'moderate' : 'low'));
         $replenishRecommendation = match (true) {
+            ! $servabilityKnown => 'inspect_servability_scan_limit',
             $activeLeases === 0 => 'no_active_workers',
             $servableNow === 0 => 'queue_dry_replenish_now',
             $claimablePerWorker !== null && $claimablePerWorker < 2 => 'replenish_urgently',
