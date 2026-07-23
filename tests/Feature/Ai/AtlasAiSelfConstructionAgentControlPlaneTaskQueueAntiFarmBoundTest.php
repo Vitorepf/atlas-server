@@ -228,6 +228,30 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame('blocked', data_get($queue->get('scope-repair-bound-64'), 'status'));
     }
 
+    public function test_repair_command_returns_failure_for_an_unbounded_blocked_inventory(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 65; $index++) {
+            $id = 'repair-command-bound-'.$index;
+            $packet = $this->input($id);
+            $packet['objective'] = 'independent bounded repair command scenario '.$index;
+            $packet['acceptance_criteria'] = ['prove repair command constraint '.$index];
+            $queue->enqueue($builder->build($packet));
+            $queue->updateStatus($id, 'blocked', ['reason' => 'fixture_blocked_for_bound_test']);
+        }
+
+        $exit = Artisan::call('atlas:task:repair-blocked', ['--dry-run' => true, '--json' => true]);
+        $receipt = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertSame('forbidden_target_repair_scan_limit_exceeded', $receipt['reason']);
+        $this->assertSame('forbidden_self_target_repair', $receipt['repair_path']);
+        $this->assertSame(65, $receipt['repair']['blocked_count']);
+    }
+
     /** @return array<string, mixed> */
     private function input(string $id): array
     {

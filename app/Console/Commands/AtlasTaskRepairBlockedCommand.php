@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
 class AtlasTaskRepairBlockedCommand extends Command
 {
     protected $signature = 'atlas:task:repair-blocked
-        {--limit=0 : Maximum blocked packets to repair; 0 means no cap}
+        {--limit=0 : Maximum blocked packets to repair; 0 uses the safety window}
         {--dry-run : Inspect and report only}
         {--actor=task_repair : actor label recorded in queue metadata/receipts}
         {--json : Print machine-readable JSON}';
@@ -33,7 +33,29 @@ class AtlasTaskRepairBlockedCommand extends Command
         // allowed_files; (2) scope-repair-doomed — the pétreo target was already moved to forbidden_files but the
         // acceptance still demands it (the dominant jam cause), plus stale self-sufficient quarantines.
         $forbidden = $orchestrator->repairBlockedForbiddenSelfTargetTasks(limit: $limit, dryRun: $dryRun, actor: $actor);
-        $scope = $orchestrator->repairScopeBlockedTasks(limit: $limit, dryRun: $dryRun, actor: $actor);
+        $blockedRepair = (string) ($forbidden['status'] ?? '') === 'blocked' ? $forbidden : null;
+        $scope = $blockedRepair === null ? $orchestrator->repairScopeBlockedTasks(limit: $limit, dryRun: $dryRun, actor: $actor) : null;
+        if ($scope !== null && (string) ($scope['status'] ?? '') === 'blocked') {
+            $blockedRepair = $scope;
+        }
+
+        if ($blockedRepair !== null) {
+            $result = [
+                'status' => 'blocked',
+                'reason' => (string) ($blockedRepair['reason'] ?? 'unknown_reason'),
+                'repair_path' => $scope === null ? 'forbidden_self_target_repair' : 'scope_repair',
+                'repair' => $blockedRepair,
+            ];
+            if ($this->option('json')) {
+                $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+                return self::FAILURE;
+            }
+
+            $this->error('Blocked task repair: '.$result['reason']);
+
+            return self::FAILURE;
+        }
 
         // Self-heal quarantine: repeated-give-back packets that repairScopeBlockedTasks bails as UNREPAIRABLE
         // (reason 'repeated_give_back_quarantine_requires_respec') stay blocked forever. The self-healing organ
