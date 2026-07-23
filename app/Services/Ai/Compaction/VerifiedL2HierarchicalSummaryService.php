@@ -7,7 +7,7 @@ namespace App\Services\Ai\Compaction;
 use App\Models\AiCompaction;
 use App\Models\AtlasL2HierarchicalSummary;
 use App\Models\AtlasLongHorizonCompactionReceipt;
-use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;

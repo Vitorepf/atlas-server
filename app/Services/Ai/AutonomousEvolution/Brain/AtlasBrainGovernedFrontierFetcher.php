@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
-use App\Services\Ai\Aaeos\Support\AtlasSourceConnectorsAndCaptureService;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasSourceConnectorsAndCaptureService;
 
 /**
  * MAXN-05 — governed external frontier fetch plan.

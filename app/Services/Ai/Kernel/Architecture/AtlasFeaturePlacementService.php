@@ -4,7 +4,7 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasDocsAuthorityGraph;
 use App\Models\AtlasEngineeringKnowledgeItem;
-use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
