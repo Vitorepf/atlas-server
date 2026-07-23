@@ -1208,9 +1208,13 @@ final class ReadinessProjectionReleaseWriterSection
         $completedReservations = collect((array) data_get($reservationPayload, 'ledger.completed_reservations', []))
             ->keyBy('packet_id');
 
-        $readyToReview = array_map(function (array $entry) use ($completedReservations): array {
+        $completedReviewEntries = array_map(function (array $entry) use ($completedReservations): array {
             $packetId = (string) data_get($entry, 'packet_id');
             $reservation = (array) $completedReservations->get($packetId, []);
+            $evidenceHash = data_get($reservation, 'completion_evidence_hash');
+            $reservationMatchesPacket = $packetId !== '' && $reservation !== [];
+            $evidenceHashValid = is_string($evidenceHash)
+                && preg_match('/^[a-f0-9]{64}$/', $evidenceHash) === 1;
 
             return [
                 'packet_id' => $packetId,
@@ -1219,7 +1223,10 @@ final class ReadinessProjectionReleaseWriterSection
                 'completed_at' => data_get($entry, 'completed_at'),
                 'actor' => data_get($entry, 'completion_actor'),
                 'reservation_id' => data_get($entry, 'completed_reservation_id'),
-                'evidence_hash' => data_get($reservation, 'completion_evidence_hash'),
+                'evidence_hash' => $evidenceHash,
+                'evidence_status' => ! $reservationMatchesPacket
+                    ? 'completion_reservation_missing_or_mismatched'
+                    : ($evidenceHashValid ? 'completion_evidence_hash_valid' : 'completion_evidence_hash_invalid'),
                 'allowed_files' => (array) data_get($entry, 'allowed_files', []),
                 'review_expectations' => [
                     'inspect_diff_for_allowed_files_only',
@@ -1229,8 +1236,16 @@ final class ReadinessProjectionReleaseWriterSection
                 ],
             ];
         }, $completed);
+        $readyToReview = array_values(array_filter(
+            $completedReviewEntries,
+            fn (array $entry): bool => data_get($entry, 'evidence_status') === 'completion_evidence_hash_valid',
+        ));
+        $completedWithInvalidEvidence = array_values(array_filter(
+            $completedReviewEntries,
+            fn (array $entry): bool => data_get($entry, 'evidence_status') !== 'completion_evidence_hash_valid',
+        ));
 
-        $missingPackets = array_map(fn (array $entry): array => [
+        $missingPackets = array_merge(array_map(fn (array $entry): array => [
             'packet_id' => data_get($entry, 'packet_id'),
             'lane' => data_get($entry, 'lane'),
             'queue_state' => data_get($entry, 'queue_state'),
@@ -1243,10 +1258,17 @@ final class ReadinessProjectionReleaseWriterSection
         ], array_values(array_filter(
             array_merge($claimed, $available, $blocked),
             fn (array $entry): bool => in_array(data_get($entry, 'queue_state'), ['claimed', 'available', 'blocked_by_dependency'], true)
-        )));
+        ))), array_map(fn (array $entry): array => [
+            'packet_id' => data_get($entry, 'packet_id'),
+            'lane' => data_get($entry, 'lane'),
+            'queue_state' => 'completed',
+            'evidence_status' => data_get($entry, 'evidence_status'),
+            'next_action' => 'repair_completed_packet_evidence_before_review',
+        ], $completedWithInvalidEvidence));
 
         $integrationStatus = match (true) {
             $claimed !== [] => 'waiting_for_active_sessions',
+            $completedWithInvalidEvidence !== [] => 'completed_evidence_requires_repair',
             $completed !== [] && ($available !== [] || $blocked !== []) => 'partial_completion_review_available',
             $completed !== [] => 'ready_for_human_integration_review',
             default => 'nothing_completed_yet',
@@ -1262,6 +1284,7 @@ final class ReadinessProjectionReleaseWriterSection
                 'ready_to_review' => count($readyToReview),
                 'active_sessions' => count($claimed),
                 'missing_packets' => count($missingPackets),
+                'completed_evidence_requiring_repair' => count($completedWithInvalidEvidence),
                 'withheld_packets' => count($withheld),
                 'ledger_events' => data_get($reservationPayload, 'ledger.event_count'),
             ],
