@@ -1760,3 +1760,14 @@ write_back:
   status: pending_human_review
   auto_promoted: false
 ```
+
+### Task 57 write-back addendum
+
+```yaml
+status: recorded_for_human_review
+context_feedback: "persisted provider-safe feedback; utility=25; canonical_doc and test flagged as missing source types"
+outcome_id: god-debulk-rootsingles-conversation-ops-2026-07-22
+outcome_status: recorded
+auto_promoted: false
+merged_to_main_by_aobg: false
+```
