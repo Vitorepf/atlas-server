@@ -266,20 +266,18 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('claim_blocked', ['reason' => 'agent_id_missing']);
         }
 
-        // A3/MF-05: reclaim stranded leases BEFORE listing, so a task stranded by an expired lease, an orphaned
-        // claim, OR a client give-back (status `released`) is visible (and serveable) again this very call —
-        // R1/R2 recovery on the hot path, not just by the scheduled reaper. Best-effort: a hiccup in recovery
-        // never blocks a claim.
+        // Reclaim recoverable work before bounded selection.
         $this->reapExpiredBeforeListing();
 
-        $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
-        // ORDER (soft): serve lower waves first so the version-ladder advances v1 → v2 → v3 in sequence. This is
-        // a stable preference, not a hard gate (depends_on is the hard gate); a stable sort preserves the prior
-        // ordering within a wave, so same-wave disjoint tasks still flow in parallel.
-        // BEHAVIOR DEMOTION (flag-gated, soft): within a wave, families THIS worker has repeatedly given back
-        // (durable worker-behavior ledger, written by the outcome bridge) sort LAST — never skipped, so a task
-        // can never starve: the worker still claims it when nothing better exists, and other workers see the
-        // normal order. This is the read side of the learning circuit: outcome → ledger → next claim.
+        $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters, [
+            'limit' => self::MAX_ANTI_FARM_CANDIDATES + 1,
+        ]));
+        $scanLimitExceeded = count($candidates) > self::MAX_ANTI_FARM_CANDIDATES;
+        if ($scanLimitExceeded) {
+            array_pop($candidates);
+        }
+
+        // Prefer lower waves, then demote repeated give-back families.
         $demote = $this->behaviorDemotionScorer($agentId);
         usort($candidates, static function (array $a, array $b) use ($demote): int {
             return [((int) data_get($a, 'metadata.wave', 0)), $demote($a)]
@@ -301,9 +299,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'ttl_seconds' => (int) ($filters['ttl_seconds'] ?? 1800),
             ]);
             if ((string) $claim['status'] === 'ok') {
-                // A2/MF-16: the lease (A1) already serialized the winner; the ATOMIC compare-and-swap
-                // claimable->claimed guarantees the queue record can never be double-flipped by a stale
-                // selection. If the record moved under us, release the lease we just took and try the next.
+                // Lease plus compare-and-swap serialize the winner.
                 $swap = $this->queue->compareAndSwapStatus($taskPacketId, 'claimable', 'claimed', [
                     'lease_id' => (string) $claim['lease_id'],
                     'agent_id' => $agentId,
@@ -330,23 +326,21 @@ final class AgentControlPlaneTaskQueueOrchestrator
             // Conflict: try next candidate.
         }
 
+        if ($scanLimitExceeded) {
+            return $this->envelope('claim_blocked', [
+                'reason' => 'queue_scan_limit_exceeded',
+                'agent_id' => $agentId,
+                'candidate_count' => count($candidates),
+                'minimum_claimable_count' => self::MAX_ANTI_FARM_CANDIDATES + 1,
+                'scan_limit' => self::MAX_ANTI_FARM_CANDIDATES,
+            ]);
+        }
+
         return $this->envelope('no_claimable_task', [
             'agent_id' => $agentId,
             'candidate_count' => count($candidates),
         ]);
     }
-
-    /**
-     * A3/MF-05 — return any stranded task to `claimable` before the claim scan, reusing this orchestrator's OWN
-     * queue + lease repos (same disk/lock config). Best-effort + fail-open: recovery never throws into the
-     * claim path. Equivalent to the scheduled reaper, on the hot path. Three strands:
-     *   - EXPIRED leases (dead client past TTL) — `recoverExpiredLeases`.
-     *   - ORPHANED claims (queue stuck `claimed` with a missing/non-active lease) — `recoverOrphanedClaims`.
-     *   - RELEASED tasks (a client reported give_back/failed) — `recoverReleasedTasks`. WITHOUT this, a
-     *     give-back stranded the task in `released` forever (never re-listed), silently draining the queue
-     *     (R1) and failing to re-serve recoverable work (R2). The recovery itself SKIPS released-with-blocker
-     *     reasons (operator-investigation), so only transient give-backs are re-admitted.
-     */
     /**
      * Returns a candidate → {0,1} scorer for the claim sort: 1 = demote (this worker has enough durable
      * give-back evidence on the candidate's scope-family). OFF by default (atlas.maestro.adaptive.

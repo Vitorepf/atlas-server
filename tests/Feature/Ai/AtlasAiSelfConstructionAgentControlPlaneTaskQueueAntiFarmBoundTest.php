@@ -62,6 +62,29 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest e
         $this->assertSame(65, data_get($queue->registry(['status' => 'claimable'], true), 'entry_count'));
     }
 
+    public function test_claim_blocks_when_only_unscanned_packets_may_be_servable(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+
+        for ($index = 0; $index < 64; $index++) {
+            $packet = $this->input('claim-bound-blocked-'.$index);
+            $queue->enqueue($builder->build($packet), [
+                'metadata' => ['depends_on' => ['missing-claim-bound-'.$index]],
+            ]);
+        }
+        $queue->enqueue($builder->build($this->input('claim-bound-later')));
+
+        $blocked = $this->orchestrator()->claimNext('claim-bound-worker');
+
+        $this->assertSame('claim_blocked', $blocked['event']);
+        $this->assertSame('queue_scan_limit_exceeded', $blocked['reason']);
+        $this->assertSame(64, $blocked['candidate_count']);
+        $this->assertSame(65, $blocked['minimum_claimable_count']);
+        $this->assertSame(64, $blocked['scan_limit']);
+        $this->assertSame('claimable', data_get($queue->get('claim-bound-later'), 'status'));
+    }
+
     /** @return array<string, mixed> */
     private function input(string $id): array
     {
