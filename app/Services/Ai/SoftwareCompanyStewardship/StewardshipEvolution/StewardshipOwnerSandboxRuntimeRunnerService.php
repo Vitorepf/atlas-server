@@ -482,12 +482,8 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
             return ['ok' => true, 'command' => $command, 'prepared' => false];
         }
 
-        $createFixture = in_array('--create-fixture-workspace', $command, true);
-        $command = array_values(array_filter(
-            $command,
-            static fn (string $part): bool => $part !== '--create-fixture-workspace',
-        ));
-
+        // GOD-DEBULK 3d: fixture-workspace demo path removed (blueprint 91c334a27 §2.3);
+        // AtlasDevSeniorLoopRunCommand keeps its own independent --create-fixture-workspace.
         $workspace = $this->workspaceOption($command);
         if ($workspace === '') {
             return ['ok' => true, 'command' => $command, 'prepared' => false];
@@ -508,13 +504,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
         $prepared = false;
         $preparedKind = [];
 
-        if ($createFixture && ! is_dir($workspace)) {
-            $this->createSeniorLoopFixtureWorkspace($workspace);
-            $prepared = true;
-            $preparedKind[] = 'atlas_dev_senior_loop_fixture_workspace';
-        }
-
-        $dependency = $this->prepareExistingLaravelWorkspaceDependencies($workspace, $createFixture);
+        $dependency = $this->prepareExistingLaravelWorkspaceDependencies($workspace);
         if (($dependency['ok'] ?? true) !== true) {
             return ['ok' => false, 'command' => $command, 'reason' => (string) ($dependency['reason'] ?? 'workspace_dependency_preparation_failed'), 'dependency_preparation' => $dependency];
         }
@@ -541,9 +531,9 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
      *
      * @return array<string,mixed>
      */
-    private function prepareExistingLaravelWorkspaceDependencies(string $workspace, bool $fixtureWorkspace): array
+    private function prepareExistingLaravelWorkspaceDependencies(string $workspace): array
     {
-        if ($fixtureWorkspace || ! is_dir($workspace) || ! is_file($workspace.'/artisan')) {
+        if (! is_dir($workspace) || ! is_file($workspace.'/artisan')) {
             return ['ok' => true, 'prepared' => false, 'reason' => 'not_existing_laravel_workspace'];
         }
 
@@ -662,37 +652,6 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
         }
 
         return '';
-    }
-
-    private function createSeniorLoopFixtureWorkspace(string $workspace): void
-    {
-        File::ensureDirectoryExists($workspace.'/src');
-        File::ensureDirectoryExists($workspace.'/tests');
-        File::ensureDirectoryExists($workspace.'/.git/refs/heads');
-        File::put($workspace.'/.git/HEAD', 'ref: refs/heads/main');
-        File::put($workspace.'/.git/refs/heads/main', '0123456789abcdef0123456789abcdef01234567');
-        File::put($workspace.'/composer.json', '{"scripts":{"test":"php tests/SmokeSubjectTest.php"}}'.PHP_EOL);
-        File::put($workspace.'/src/SmokeSubject.php', <<<'PHP'
-<?php
-namespace Smoke;
-final class SmokeSubject
-{
-    public function greeting(): string
-    {
-        return 'helo atlas';
-    }
-}
-PHP);
-        File::put($workspace.'/tests/SmokeSubjectTest.php', <<<'PHP'
-<?php
-require __DIR__.'/../src/SmokeSubject.php';
-$subject = new \Smoke\SmokeSubject();
-if ($subject->greeting() !== 'hello atlas') {
-    fwrite(STDERR, 'Expected hello atlas, got '.$subject->greeting().PHP_EOL);
-    exit(1);
-}
-echo "ok\n";
-PHP);
     }
 
     /**
