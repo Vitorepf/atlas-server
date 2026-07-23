@@ -3553,3 +3553,41 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 114 — bound scope repair inventory, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0108
+commit: f8dd7a491
+subject: "refactor(core): GOD-DEBULK bound scope repair"
+scope:
+  - app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueAntiFarmBoundTest.php --filter=test_scope_repair_refuses_an_unbounded_blocked_inventory --no-coverage
+  result: "FAIL 1 test: the direct public scope repair scanned 65 real blocked records and exposed no bounded-inventory status."
+green:
+  behavior: "The direct scope repair now reads the real blocked registry summary before packet materialization. Above 64 it returns blocked/scope_repair_scan_limit_exceeded with zero inspected and no reopen, retirement, or repair-plan mutations."
+verification:
+  characterization: "PASS 1 test, 6 assertions through the public scope repair method and real queue records."
+  scope_repair_family: "PASS 5 tests, 14 assertions: buildable repair/reopen, test-only retirement, stale reopening, repeated-give-back quarantine, and dry-run no-mutation all remain real-path green."
+  package_suite: "PASS 116 tests, 555 assertions when run serially: bounded anti-farm Feature, scope-repair Feature, and Feature/Unit orchestrator suites."
+  php_lint: "PASS both touched PHP files."
+  pint: "PASS focused Feature test; NOT GREEN only for inherited whole-file formatting drift in AgentControlPlaneTaskQueueOrchestrator.php. No broad reformatting was applied."
+  diff_check: "PASS scoped diff check."
+  density: "orchestrator=1984 LOC; focused Feature test=244 LOC; all <2000 and hot test <800."
+boundary:
+  - "The guard executes the actual public read-only blocked registry before task payload materialization; it neither reflects into the repository nor mocks the scan."
+  - "The bounded positive family proves reopening, retirement, stale cleanup, quarantine preservation, and dry-run behavior remain intact below the limit."
+  - "No queue status, packet, lease, receipt, provider, dispatch, token, completion, or runtime-execution mutation occurs in the oversized path."
+residual:
+  - "atlas:task:repair-blocked now composes two bounded repair results, but it still gives an outer success exit/result when either inner repair reports blocked; its CLI stop/exit semantics remain uncharacterized."
+  - "A1-SC-0108 remains partially open: dependency-wait and cooldown scans, plus the composite repair CLI, require separate real characterizations and bounded-index ownership."
+next_cursor: "Characterize the composite repair CLI's oversized-inventory receipt and exit semantics, then make it propagate an inner blocked result before any later action."
+write_back:
+  status: recorded_for_human_review
+  outcome_id: god-debulk-task-114-scope-repair-f8dd7a491
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
