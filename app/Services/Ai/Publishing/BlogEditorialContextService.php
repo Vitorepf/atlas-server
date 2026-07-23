@@ -52,36 +52,6 @@ final class BlogEditorialContextService
         $this->writing = new WritingSection($this->openBrain, $this->support);
     }
 
-    private readonly ReviewQueueSection $reviewQueue;
-
-    private readonly CandidateSection $candidates;
-
-    private readonly GraphSection $graph;
-
-    private readonly CoverageSection $coverage;
-
-    private readonly RadarSection $radar;
-
-    private readonly PlanningSection $planning;
-
-    private readonly OperationsSection $operations;
-
-    private readonly WritingSection $writing;
-
-    public function __construct(
-        private readonly ?AtlasOpenBrainService $openBrain = null,
-    ) {
-        $this->support = new EditorialSupport();
-        $this->reviewQueue = new ReviewQueueSection();
-        $this->candidates = new CandidateSection($this->support);
-        $this->graph = new GraphSection();
-        $this->coverage = new CoverageSection($this->support);
-        $this->radar = new RadarSection($this->support);
-        $this->planning = new PlanningSection($this->support);
-        $this->operations = new OperationsSection($this->support);
-        $this->writing = new WritingSection($this->openBrain, $this->support);
-    }
-
     /**
      * @param  array<int,array<string,mixed>>  $posts
      * @param  array<int,string>  $publishedSlugs
@@ -135,7 +105,6 @@ final class BlogEditorialContextService
             && str_contains((string) file_get_contents($targetPath), 'slug: "'.$this->reviewQueue->escapeYamlString((string) $candidate['slug']).'"');
 
         if ($write && ! $alreadyQueued) {
-
             File::ensureDirectoryExists(dirname($targetPath));
             if (! is_file($targetPath)) {
                 File::put($targetPath, "name: \"Blog candidate review queue\"\nstatus: \"review\"\ncandidates:\n");
@@ -275,7 +244,6 @@ final class BlogEditorialContextService
         $snippet = $this->reviewQueue->promotionWeekSnippet($week);
 
         if ($write) {
-
             $current = (string) file_get_contents($backlogPath);
             File::put($backlogPath, rtrim($current)."\n".$snippet);
         }
@@ -344,7 +312,6 @@ final class BlogEditorialContextService
                 if (isset($existing['titles'][$this->support->normalizedTitle((string) $candidate['title'])])) {
                     continue;
                 }
-
 
                 $existing['slugs'][$candidate['slug']] = true;
                 $existing['titles'][$this->support->normalizedTitle((string) $candidate['title'])] = true;
@@ -500,6 +467,102 @@ final class BlogEditorialContextService
         return $this->coverage->sourceMap($posts, $publishedSlugs, $publishedPosts);
     }
 
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @return array<string,mixed>
+     */
+    public function graphRagReadiness(array $posts, array $publishedSlugs = [], array $publishedPosts = []): array
+    {
+        $sourceMap = $this->sourceMap($posts, $publishedSlugs, $publishedPosts);
+        $coverageMap = $this->coverageMap($posts, $publishedSlugs);
+        $goldenSet = $this->editorialGoldenSet($posts, $publishedSlugs, $publishedPosts);
+        $components = $this->graph->graphRagReadinessComponents();
+        $blockedItems = [
+            [
+                'code' => 'ap_817_p2_review_required',
+                'status' => 'blocking',
+                'reason' => 'Editorial graph/RAG needs explicit P2 promotion before becoming an active source.',
+                'evidence' => 'docs/ap/AP-817-blog-editorial-planning-contract.md',
+            ],
+            [
+                'code' => 'kernel_decision_receipt_required',
+                'status' => 'blocking',
+                'reason' => 'Every Python/data/graph runtime call must be mediated by the Kernel and recorded as a decision receipt.',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+            ],
+            [
+                'code' => 'global_graph_retrieval_future_governed',
+                'status' => 'blocking',
+                'reason' => 'AGRN currently allows bounded Codebase World Model retrieval; global/external graph remains future-governed.',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-graph-retrieval-network.md',
+            ],
+        ];
+
+        if (($goldenSet['status'] ?? '') !== 'passed') {
+            $blockedItems[] = [
+                'code' => 'editorial_golden_set_missing',
+                'status' => 'blocking',
+                'reason' => 'Blog order suggestions need a fixture/golden set proving they do not skip reader foundation.',
+                'evidence' => 'tests/Feature/Ai/Publishing/AtlasBlogEditorialPlanCommandTest.php',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_graph_rag_readiness.v1',
+            'mode' => 'read_only_p2_readiness_preflight',
+            'status' => 'not_promoted',
+            'current_phase' => 'p1_read_only_editorial_intelligence',
+            'target_phase' => 'p2_bounded_graph_rag_editorial_context',
+            'summary' => [
+                'planned_posts' => count($posts),
+                'public_archive_posts' => (int) data_get($sourceMap, 'archive_state.public_archive_posts', 0),
+                'foundation_planned' => (int) data_get($coverageMap, 'summary.foundation_planned', 0),
+                'foundation_published' => (int) data_get($coverageMap, 'summary.foundation_published', 0),
+                'available_component_count' => count(array_filter($components, fn (array $component): bool => (string) ($component['status'] ?? '') === 'available')),
+                'blocking_item_count' => count($blockedItems),
+                'editorial_golden_set_status' => (string) ($goldenSet['status'] ?? 'unknown'),
+            ],
+            'available_components' => $components,
+            'editorial_golden_set' => $goldenSet,
+            'missing_or_blocking_items' => $blockedItems,
+            'allowed_now' => [
+                'source_map',
+                'coverage_map',
+                'editorial_radar',
+                'editorial_graph_context_bounded_world_model',
+                'writing_packet',
+                'open_brain_handoff',
+                'explicit_open_brain_context_execution',
+                'review_queue_candidate_suggestions',
+            ],
+            'deferred_until_p2' => [
+                'direct_graph_traversal_for_blog_planning',
+                'direct_vector_runtime_calls',
+                'python_ai_data_runtime_calls',
+                'automatic_backlog_reordering',
+                'automatic_publication',
+            ],
+            'editorial_integration_plan' => [
+                [
+                    'step' => 1,
+                    'name' => 'bounded_context_only',
+                    'rule' => 'Use graph results only as provider-safe evidence summaries, never as raw blog text.',
+                ],
+                [
+                    'step' => 2,
+                    'name' => 'attach_evidence_to_candidates',
+                    'rule' => 'Candidates must carry source refs and suggested placement, not mutate the backlog.',
+                ],
+                [
+                    'step' => 3,
+                    'name' => 'sequence_gate_before_depth',
+                    'rule' => 'Graph/RAG may suggest topics only after foundation coverage says the reader path is ready.',
+                ],
+                [
+                    'step' => 4,
+                    'name' => 'human_promotion',
                     'rule' => 'Vitor explicitly accepts and promotes any graph/RAG-derived candidate.',
                 ],
             ],
@@ -627,7 +690,6 @@ final class BlogEditorialContextService
                 'query_hash' => (string) data_get($graph, 'graph_query.query_hash', ''),
                 'graph_scope' => (string) data_get($graph, 'graph_query.graph_scope', ''),
                 'traversal_receipt' => [
-
                     'schema_version' => (string) data_get($graph, 'graph_traversal_receipt.schema_version', ''),
                     'status' => (string) data_get($graph, 'graph_traversal_receipt.status', 'unknown'),
                     'bounded_traversal' => (bool) data_get($graph, 'graph_traversal_receipt.bounded_traversal', false),
@@ -833,7 +895,6 @@ final class BlogEditorialContextService
                 'planned_posts' => count($posts),
                 'published_posts' => count($publishedSlugs),
                 'public_archive_posts' => count($publishedPosts),
-
             ],
             'cases' => $cases,
             'failed_cases' => $failed,
@@ -951,7 +1012,6 @@ final class BlogEditorialContextService
                 )), 0, 5),
             ],
             'review_queue' => [
-
                 'status' => (string) data_get($reviewQueueState, 'status', 'missing'),
                 'candidate_count' => (int) data_get($reviewQueueState, 'candidate_count', 0),
                 'duplicate_count' => (int) data_get($reviewQueueState, 'duplicate_count', 0),
@@ -1101,7 +1161,6 @@ final class BlogEditorialContextService
         ];
     }
 
-
     /**
      * @param  array<int,array<string,mixed>>  $posts
      * @param  array<int,string>  $publishedSlugs
@@ -1198,7 +1257,6 @@ final class BlogEditorialContextService
                 'external_published_posts' => (int) data_get($sourceMap, 'archive_state.external_published_posts', 0),
                 'engineering_knowledge' => (string) data_get($sourceMap, 'sources.engineering_knowledge.status', 'unknown'),
                 'code_intelligence' => (string) data_get($sourceMap, 'sources.code_intelligence.status', 'unknown'),
-
                 'open_brain_context_pack' => (string) data_get($sourceMap, 'sources.open_brain_context_pack.status', 'unknown'),
                 'vector_retrieval' => (string) data_get($sourceMap, 'sources.vector_retrieval.status', 'unknown'),
                 'graph_retrieval' => (string) data_get($sourceMap, 'sources.graph_retrieval.status', 'unknown'),
@@ -1328,7 +1386,6 @@ final class BlogEditorialContextService
                 'generates_full_article' => false,
                 'generates_private_draft_seed' => true,
                 'uses_graph_rag' => false,
-
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
                 'executes_open_brain_context' => $executeOpenBrain,
@@ -1399,9 +1456,4 @@ final class BlogEditorialContextService
 
         return null;
     }
-}
-
-
-
-
 }
