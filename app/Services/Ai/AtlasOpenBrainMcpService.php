@@ -9,7 +9,6 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\Compression\AtlasCcrStore;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
@@ -34,15 +33,13 @@ use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\OpenBrainMcp\CodeGraphTools;
 use App\Services\Ai\OpenBrainMcp\TaskTools;
 use App\Services\Ai\OpenBrainMcp\MemoryEntryTools;
+use App\Services\Ai\OpenBrainMcp\GraphRagTools;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
-use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
-use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
-use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Carbon;
@@ -169,6 +166,7 @@ class AtlasOpenBrainMcpService
         private readonly CodeGraphTools $codeGraph,
         private readonly TaskTools $taskTools,
         private readonly MemoryEntryTools $memoryEntry,
+        private readonly GraphRagTools $graphRag,
     ) {
         $this->processStartedAt = Carbon::now()->toIso8601String();
     }
@@ -1463,9 +1461,9 @@ class AtlasOpenBrainMcpService
                 'atlas_code_neighbors' => $this->toolResponse($id, $this->codeGraph->codeNeighbors($arguments)),
                 'atlas_code_path' => $this->toolResponse($id, $this->codeGraph->codePath($arguments)),
                 'atlas_code_explain' => $this->toolResponse($id, $this->codeGraph->codeExplain($arguments)),
-                'atlas_ccr_retrieve' => $this->toolResponse($id, $this->ccrRetrieve($arguments)),
-                'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
-                'atlas_aurg_query' => $this->toolResponse($id, $this->aurgQuery($arguments)),
+                'atlas_ccr_retrieve' => $this->toolResponse($id, $this->graphRag->ccrRetrieve($arguments)),
+                'atlas_cross_domain_query' => $this->toolResponse($id, $this->graphRag->crossDomainQuery($arguments)),
+                'atlas_aurg_query' => $this->toolResponse($id, $this->graphRag->aurgQuery($arguments)),
                 'atlas_mission_history' => $this->toolResponse($id, $this->missionHistory($arguments)),
                 'atlas_obra_status' => $this->toolResponse($id, $this->obraStatus($arguments)),
                 'atlas_context_pack' => $this->toolResponse($id, $this->contextPackUnified($arguments)),
@@ -3278,135 +3276,6 @@ class AtlasOpenBrainMcpService
             'decisions' => $decisions,
             'count' => count($decisions),
             'summary' => $recall['summary'] ?? [],
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-
-
-    /**
-     * AP-813 · retrieve a CCR original by content hash. Read-only,
-     * lossless-by-governance. Privacy gate mirrors the bridge-evidence secret-class
-     * rule: a secret/sensitive original is NEVER surfaced over this provider-safe path.
-     *
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function ccrRetrieve(array $arguments): array
-    {
-        $hash = $this->string($arguments['hash'] ?? null);
-        if ($hash === null || $hash === '') {
-            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'hash_required'];
-        }
-
-        $store = app(AtlasCcrStore::class);
-        $result = $store->retrieve($hash, [
-            'correlation_id' => $this->string($arguments['correlation_id'] ?? null),
-            'trace_id' => $this->string($arguments['trace_id'] ?? null),
-            'recorded_by' => 'open_brain_mcp',
-        ]);
-
-        if (($result['found'] ?? false) !== true) {
-            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'original_not_found'];
-        }
-
-        $privacyClass = (string) ($result['privacy_class'] ?? 'internal');
-        if (in_array($privacyClass, ['secret', 'sensitive'], true)) {
-            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'not_provider_safe', 'privacy_class' => $privacyClass];
-        }
-
-        return [
-            'ok' => true,
-            'tool' => 'atlas_ccr_retrieve',
-            'hash' => $hash,
-            'content_type' => $result['content_type'],
-            'original' => $result['original'],
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * M-8 Fase-2 (AP-814): the cross-domain killer query — what is reachable across
-     * domains under the ARPTL veto. Read-only, flag-gated. Provider-safe: returns
-     * graph topology (domain labels + vetoes), never domain content.
-     *
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function crossDomainQuery(array $arguments): array
-    {
-        $tool = 'atlas_cross_domain_query';
-        $seed = $this->string($arguments['seed'] ?? null);
-        if ($seed === null || $seed === '') {
-            return ['ok' => false, 'tool' => $tool, 'error' => 'seed_required'];
-        }
-        if (! (bool) config('atlas.cross_domain_graph.enabled', false)) {
-            return ['ok' => false, 'tool' => $tool, 'error' => 'cross_domain_graph_disabled'];
-        }
-
-        $taxonomy = app(CrossDomainTaxonomyMap::class);
-        // Accept "domain:finance", "finance", a mesh id, or a registry id.
-        if (! str_starts_with($seed, 'domain:')) {
-            $canonical = $taxonomy->canonical($seed);
-            $seed = $canonical !== null ? 'domain:'.$canonical : $seed;
-        }
-
-        $privacy = $this->string($arguments['privacy_class'] ?? null) ?? 'normal';
-        $traversal = app(CrossDomainGraphTraversalService::class);
-        $result = $traversal->killerQuery($seed, $privacy);
-
-        return [
-            'ok' => (bool) ($result['ok'] ?? false),
-            'tool' => $tool,
-            'seed' => $seed,
-            'query' => $result,
-            'generated_at' => now()->toJSON(),
-        ];
-    }
-
-    /**
-     * AURG F2 (Salto 1): the fused reality-graph brain query with provenance.
-     * Read-only. provider_bound is FORCED TRUE on this surface — MCP output can
-     * land in provider prompts, and sensitive domains (plus anything reachable
-     * only through them) are NEVER included in any provider prompt output. The
-     * unbounded local view is the operator CLI (atlas:aurg:query).
-     *
-     * @param  array<string,mixed>  $arguments
-     * @return array<string,mixed>
-     */
-    private function aurgQuery(array $arguments): array
-    {
-        $tool = 'atlas_aurg_query';
-        $query = $this->string($arguments['query'] ?? null);
-        if ($query === null) {
-            return ['ok' => false, 'tool' => $tool, 'error' => 'query_required'];
-        }
-        if (! (bool) config('atlas.aurg.enabled', true)) {
-            return ['ok' => false, 'tool' => $tool, 'error' => 'aurg_disabled'];
-        }
-
-        $opts = ['provider_bound' => true]; // structural: never relaxable via MCP
-        if (is_numeric($arguments['depth'] ?? null)) {
-            $opts['depth'] = (int) $arguments['depth'];
-        }
-        if (is_numeric($arguments['limit'] ?? null)) {
-            $opts['max_nodes'] = (int) $arguments['limit'];
-        }
-        $expand = $this->string($arguments['expand'] ?? null);
-        if ($expand !== null && $expand !== '') {
-            $opts['expand'] = $expand;
-        }
-        if (is_numeric($arguments['expand_per_module'] ?? null)) {
-            $opts['expand_symbols_per_module'] = (int) $arguments['expand_per_module'];
-        }
-
-        $result = app(AtlasRealityGraphQueryService::class)->query($query, $opts);
-
-        return [
-            'ok' => true,
-            'tool' => $tool,
-            'provider_bound' => true,
-            'result' => $result,
             'generated_at' => now()->toJSON(),
         ];
     }
