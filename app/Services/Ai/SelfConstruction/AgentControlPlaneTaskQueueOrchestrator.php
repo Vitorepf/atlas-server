@@ -267,7 +267,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
         }
 
         // Reclaim recoverable work before bounded selection.
-        $this->reapExpiredBeforeListing();
+        $recoveryFailure = $this->reapExpiredBeforeListing();
+        if ($recoveryFailure !== null) {
+            return $this->envelope('claim_blocked', ['reason' => 'lease_recovery_unavailable'] + $recoveryFailure);
+        }
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters, [
             'limit' => self::MAX_ANTI_FARM_CANDIDATES + 1,
@@ -380,15 +383,16 @@ final class AgentControlPlaneTaskQueueOrchestrator
         }
     }
 
-    private function reapExpiredBeforeListing(): void
+    private function reapExpiredBeforeListing(): ?array
     {
         try {
             $recovery = new AgentControlPlaneTaskLeaseRecoveryService($this->queue, $this->leases);
             $recovery->recoverExpiredLeases(['actor' => 'claim_next_presweep']);
             $recovery->recoverOrphanedClaims(['actor' => 'claim_next_presweep']);
             $recovery->recoverReleasedTasks(['actor' => 'claim_next_presweep']);
-        } catch (Throwable) {
-            // Pre-sweep is best-effort; a recovery hiccup must never block serving a claim.
+            return null;
+        } catch (Throwable $e) {
+            return ['lease_recovery_status' => 'unavailable', 'recovery_exception' => $e::class];
         }
     }
 
