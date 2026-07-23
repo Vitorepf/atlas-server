@@ -3095,7 +3095,7 @@ final class AutonomousEvolutionSessionService
     /**
      * @return list<string>
      */
-    private function changedFiles(string $worktree): array
+    public function changedFiles(string $worktree): array
     {
         return $this->executionSummary()->changedFiles($worktree);
     }
