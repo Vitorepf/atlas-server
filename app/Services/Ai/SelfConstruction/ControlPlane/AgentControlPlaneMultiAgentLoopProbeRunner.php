@@ -1099,10 +1099,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
             'queue' => ['priority' => 5, 'tags' => ['terminal_fleet_evidence_rollup_probe', $queueTag]],
         ]);
 
-        $claim = $this->orchestrator->claimNext('terminal_fleet_evidence_rollup_probe_'.$runId, [
-            'tag' => $queueTag,
-            'ttl_seconds' => 600,
-        ]);
+        $claim = $this->claimSyntheticFleetProbePacket(
+            $taskPacketId,
+            'terminal_fleet_evidence_rollup_probe_'.$runId,
+            $queueTag,
+            600,
+        );
         $completion = [];
         $evidenceHash = '';
         if ((string) ($claim['event'] ?? '') === 'claimed') {
@@ -1111,8 +1113,12 @@ class AgentControlPlaneMultiAgentLoopProbeRunner
                 'lease_id' => (string) ($claim['lease_id'] ?? ''),
                 'actor' => 'terminal_fleet_evidence_rollup_probe_'.$runId,
                 'files_changed' => [$allowedFile],
-                'commands_run' => ['php artisan test --filter=terminal_fleet_evidence_rollup_probe'],
+                'commands_run' => [
+                    'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php --filter=terminal_fleet_evidence_rollup_probe # verifies '.$allowedFile,
+                ],
                 'tests_or_gates_result' => 'passed',
+                'implementation_notes' => 'Synthetic fleet evidence probe completed its isolated dry-run packet for evidence review.',
+                'capability_delta' => 'Proved the fleet evidence rollup and supervisor review path without enabling runtime execution.',
                 'git_status_short' => 'M '.$allowedFile,
                 'git_diff_check_result' => 'clean',
             ];
