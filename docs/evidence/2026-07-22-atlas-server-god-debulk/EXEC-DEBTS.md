@@ -74,6 +74,10 @@ claimed_paths:
      snapshots stay read-only even when oversized registries would normally
      self-heal; every named writer now reports durable IDs/idempotency only
      after verification, and the publisher has a durable replay receipt.
+   - Fase 2 CLI wiring complete (`ed9a7bb05`): the existing merge-review
+     contract/preflight/implementation-packet/status quartet is again
+     registered by the canonical mother-command surface; no route now dies at
+     option parsing before its real Readiness projection runs.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):

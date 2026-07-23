@@ -2851,3 +2851,36 @@ write_back:
   auto_promoted: false
 merged_to_main_by_aobg: false
 ```
+
+## Task 93 — restore merge-review runtime CLI quartet, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL
+finding: A1-SC-0005
+commit: ed9a7bb05
+subject: "refactor(core): GOD-DEBULK restore merge review CLI quartet"
+scope:
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+red:
+  command: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AgentControlPlaneMergeReviewRuntimeSurfaceTest.php --filter=test_command_exposes_merge_review_runtime_quartet --no-coverage
+  result: "FAIL 1 test, 0 assertions: the public --agent-control-plane-merge-review-runtime-contract option was absent, so Symfony raised InvalidOptionException before the real projection executed."
+green:
+  behavior: "The canonical mother-command surface now registers contract, preflight, implementation-packet, and status flags for the existing Merge Review Runtime methods."
+verification:
+  characterization: "PASS 1 test, 24 assertions: each public flag reaches the real command and returns its exact schema."
+  status_projection: "PASS 1 test, 8 assertions: the real status route remains available, non-promoting, and runtime-safe."
+  direct_console: "PASS: atlas:ai:self-construction --agent-control-plane-merge-review-runtime-contract --json emits the catalog-driven contract schema."
+  batch_note: "The isolated status-batch case exceeded the normal interactive interval and its runner emitted no final summary; it is not claimed green by this task."
+  php_lint: "PASS mother-command surface."
+  pint: "PASS mother-command surface."
+  diff_check: PASS
+  density: "mother-command surface=264 LOC (<800 hot limit); no godfile was edited."
+commit_scope: "PASS: git commit --only recorded exactly the command-surface mapping."
+boundary:
+  - "The proof executes the public Artisan command and real Readiness methods; it does not inspect the mapping by reflection."
+  - "The mapping only restores read-only projection routes. It does not add execution, dispatch, provider, token, or persistence authority."
+write_back:
+  status: recorded_for_human_review
+  auto_promoted: false
+merged_to_main_by_aobg: false
+```
