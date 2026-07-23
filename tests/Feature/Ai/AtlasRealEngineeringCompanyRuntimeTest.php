@@ -4,15 +4,24 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiEngineeringCompanyEngagement;
 use App\Models\AiEngineeringCompanyRoleRun;
-use Illuminate\Support\Facades\Artisan;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
+/**
+ * GOD-DEBULK 3c (blueprint 91c334a27 §2.3 as amended): the `atlas:ai:engineering-company`
+ * command surface was quarantined to archive/; this suite now exercises the SAME runtime
+ * surfaces directly on AtlasRealEngineeringCompanyRuntimeService, which stays load-bearing
+ * for the EngineeringKernel. Role expectations follow the canonical 22-role QUALITY_ROLES
+ * roster (frozen by EngineeringCompanyRuntimeGoldenCharacterizationTest); the pre-3c
+ * command-based suite still pinned the retired 9-role legacy roster and was red.
+ */
 class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
 {
     use BootsCompoundingSchema;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,28 +44,20 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_command_runs_engineering_company_runtime_end_to_end(): void
+    public function test_runtime_runs_engineering_company_end_to_end(): void
     {
-        $readinessExit = Artisan::call('atlas:ai:engineering-company', ['action' => 'readiness', '--json' => true]);
-        $readiness = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $service = app(AtlasRealEngineeringCompanyRuntimeService::class);
 
-        $this->assertSame(0, $readinessExit);
+        $readiness = $service->readiness();
         $this->assertSame('passed', $readiness['status']);
         $this->assertContains('atlas.ai.engineering_company.certification.v1', $readiness['contracts']);
 
-        $runExit = Artisan::call('atlas:ai:engineering-company', [
-            'action' => 'run',
-            '--goal' => 'execute um smoke company runtime com equipe, review, qa e release',
-            '--json' => true,
-        ]);
-        $run = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $run = $service->run('execute um smoke company runtime com equipe, review, qa e release');
 
         // Obra #1: the company can no longer certify green on top of the fake-green smoke; the
-        // sovereign gate blocks the real-execution step, so the engagement is honestly blocked and
-        // the command honestly exits non-zero.
-        $this->assertSame(1, $runExit);
+        // sovereign gate blocks the real-execution step, so the engagement is honestly blocked.
         $this->assertSame('blocked', $run['status']);
-        $this->assertCount(9, $run['roles']);
+        $this->assertCount(22, $run['roles']);
         foreach ($run['roles'] as $role) {
             $this->assertSame('standard_agent_control_plane_task_packet', data_get($role, 'output.agent_runtime_mode'));
             $this->assertSame('atlas.self_construction.agent_control_plane_task_packet.v1', data_get($role, 'output.agent_control_plane_task_packet.schema_version'));
@@ -73,31 +74,23 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
         $this->assertFalse((bool) data_get($run, 'certification.claim_policy.external_benchmark_executed'));
         $this->assertFalse((bool) data_get($run, 'certification.claim_policy.rivals_provider_called'));
 
-        $controlExit = Artisan::call('atlas:ai:engineering-company', ['action' => 'control-plane', '--json' => true]);
-        $control = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
-
-        $this->assertSame(0, $controlExit);
+        $control = $service->controlPlane();
         $this->assertSame('ready', $control['status']);
         $this->assertSame(1, data_get($control, 'counts.engagements'));
-        $this->assertSame(9, data_get($control, 'counts.role_runs'));
+        $this->assertSame(22, data_get($control, 'counts.role_runs'));
 
-        $certifyExit = Artisan::call('atlas:ai:engineering-company', ['action' => 'certify', '--json' => true]);
-        $certification = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
-
+        $certification = $service->certify()->toArray();
         $this->assertSame('blocked', $certification['status']);
         $this->assertNotEmpty($certification['blockers']);
     }
 
     public function test_runtime_persists_company_contracts(): void
     {
-        Artisan::call('atlas:ai:engineering-company', [
-            'action' => 'run',
-            '--goal' => 'execute outro smoke company runtime',
-            '--json' => true,
-        ]);
+        app(AtlasRealEngineeringCompanyRuntimeService::class)
+            ->run('execute outro smoke company runtime');
 
         $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('schema_version', 'atlas.ai.engineering_company.engagement.v1')->where('status', 'blocked')->exists());
-        $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->where('schema_version', 'atlas.ai.engineering_company.role_run.v1')->distinct('role_id')->count('role_id'));
+        $this->assertSame(22, AiEngineeringCompanyRoleRun::query()->where('schema_version', 'atlas.ai.engineering_company.role_run.v1')->distinct('role_id')->count('role_id'));
         $role = AiEngineeringCompanyRoleRun::query()->firstOrFail();
         $this->assertSame('standard_agent_control_plane_task_packet', data_get($role->output, 'agent_runtime_mode'));
         $this->assertNotEmpty(data_get($role->output, 'agent_control_plane_task_packet.task_packet_hash'));

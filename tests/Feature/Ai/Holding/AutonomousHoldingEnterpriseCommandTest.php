@@ -31,7 +31,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
     public static function companyCommands(): array
     {
         return [
-            'software' => ['atlas:ai:engineering-company', ['action' => 'enterprise-analysis', '--json' => true], 'software'],
+            // GOD-DEBULK 3c: 'software' lane retired — atlas:ai:engineering-company quarantined
+            // to archive/ (blueprint 91c334a27 §2.3 as amended).
             'research' => ['atlas:ai:research-domain', ['--action' => 'enterprise-analysis', '--json' => true], 'research'],
             'strategy' => ['atlas:ai:strategy-domain', ['--action' => 'enterprise-analysis', '--json' => true], 'strategy'],
             'marketing' => ['atlas:ai:marketing-domain', ['--action' => 'enterprise-analysis', '--json' => true], 'marketing'],
@@ -316,7 +317,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
     {
         $service = app(AutonomousHoldingEnterpriseBuildoutService::class);
         $commandByCompany = [
-            'software' => 'atlas:ai:engineering-company',
+            // GOD-DEBULK 3c: 'software' lane retired — atlas:ai:engineering-company quarantined
+            // to archive/ (blueprint 91c334a27 §2.3 as amended).
             'research' => 'atlas:ai:research-domain',
             'strategy' => 'atlas:ai:strategy-domain',
             'finance' => 'atlas:ai:finance-domain',
@@ -413,7 +415,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
 
         $service = app(AutonomousHoldingEnterpriseBuildoutService::class);
         $commandByCompany = [
-            'software' => 'atlas:ai:engineering-company',
+            // GOD-DEBULK 3c: 'software' lane retired — atlas:ai:engineering-company quarantined
+            // to archive/ (blueprint 91c334a27 §2.3 as amended).
             'research' => 'atlas:ai:research-domain',
             'strategy' => 'atlas:ai:strategy-domain',
             'finance' => 'atlas:ai:finance-domain',

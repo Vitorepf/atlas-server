@@ -32,7 +32,6 @@ use App\Console\Commands\AtlasAiCyberDomainCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
-use App\Console\Commands\AtlasAiEngineeringCompanyCommand;
 use App\Console\Commands\AtlasAiFinanceDomainCommand;
 use App\Console\Commands\AtlasAiHyperflowCommand;
 use App\Console\Commands\AtlasAiLearningCurriculumCommand;
@@ -287,7 +286,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
         AtlasAiDynamicComputeMarketCommand::class,
-        AtlasAiEngineeringCompanyCommand::class,
+        // GOD-DEBULK 3c: AtlasAiEngineeringCompanyCommand quarantined to archive/ (blueprint 91c334a27 §2.3
+        // as amended) — runtime service kept load-bearing for the EngineeringKernel.
         AtlasAiFinanceDomainCommand::class,
         AtlasAiHyperflowCommand::class,
         AtlasAiLedgerCommand::class,

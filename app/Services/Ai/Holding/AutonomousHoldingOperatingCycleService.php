@@ -1526,8 +1526,10 @@ class AutonomousHoldingOperatingCycleService
     {
         return [
             'software' => [
-                ['label' => 'engineering_enterprise_analysis', 'command' => 'atlas:ai:engineering-company', 'parameters' => ['action' => 'enterprise-analysis', '--json' => true]],
-                ['label' => 'engineering_enterprise_policy_review', 'command' => 'atlas:ai:engineering-company', 'parameters' => ['action' => 'enterprise-analysis', '--json' => true]],
+                // GOD-DEBULK 3c: atlas:ai:engineering-company quarantined (blueprint 91c334a27 §2.3);
+                // software routines now observe the live programming runtime control plane.
+                ['label' => 'engineering_runtime_control_plane', 'command' => 'atlas:ai:programming-runtime-control-plane', 'parameters' => ['--json' => true]],
+                ['label' => 'engineering_runtime_control_plane_review', 'command' => 'atlas:ai:programming-runtime-control-plane', 'parameters' => ['--json' => true]],
             ],
             'research' => $this->domainCommandRoutines('atlas:ai:research-domain'),
             'strategy' => $this->domainCommandRoutines('atlas:ai:strategy-domain'),

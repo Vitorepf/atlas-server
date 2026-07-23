@@ -498,7 +498,9 @@ class DomainSeedManifests
                 'metrics' => ['delivery_lead_time', 'review_pass_rate', 'evidence_completeness', 'repair_success_rate'],
                 'operational_history' => ['atlas_engineering_runs', 'ai_traces', 'programming_runtime_control_plane'],
                 'runtime_commands' => [
-                    'php artisan atlas:ai:engineering-company --json',
+                    // GOD-DEBULK 3c: atlas:ai:engineering-company quarantined (blueprint 91c334a27 §2.3);
+                    // the live software execution-kernel CLI is the surviving runtime surface.
+                    'php artisan atlas:ai:real-engineering-kernel --json',
                     'php artisan atlas:ai:programming-runtime-control-plane --json',
                     'php artisan atlas:forge:runtime-certify --json',
                 ],

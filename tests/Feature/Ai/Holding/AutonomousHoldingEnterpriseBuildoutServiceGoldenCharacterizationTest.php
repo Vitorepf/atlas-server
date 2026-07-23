@@ -16,7 +16,10 @@ use Tests\TestCase;
  */
 class AutonomousHoldingEnterpriseBuildoutServiceGoldenCharacterizationTest extends TestCase
 {
-    private const REPORT_DEEP_HASH = '81bb5fe23f4ccaee5b4e4f1b01c44635ff16742964d483f6092e8823018f4a01';
+    // GOD-DEBULK 3c: report + software deep hashes re-frozen after the software manifest
+    // runtime_commands re-pin (atlas:ai:engineering-company quarantined → live kernel CLI;
+    // blueprint 91c334a27 §2.3). Receipt hashes unchanged — data drift is command_surfaces only.
+    private const REPORT_DEEP_HASH = '9caf526ef23e660127283de1204d45d8e79f679e78d387e816a926134a5548e7';
 
     private const REPORT_RECEIPT_HASH = '336bc015a6b8e6c24171a1a46058a6bb333a57a44c060a0d44dea9ac91845691';
 
@@ -38,7 +41,7 @@ class AutonomousHoldingEnterpriseBuildoutServiceGoldenCharacterizationTest exten
      * company_id => [receipt_hash, deep sha256 of the full company packet].
      */
     private const COMPANY_HASHES = [
-        'software' => ['c07e1153b09034a54cc374b04c03fd0780cd8051f9b31195ab16e440b2c03f4a', 'b8ed4c39d5c4e3d1b682f75fa6d0046c859a6943d72d00c7645d7b70a068a757'],
+        'software' => ['c07e1153b09034a54cc374b04c03fd0780cd8051f9b31195ab16e440b2c03f4a', 'a27b84c42b03471c077f6cf673c483ea4dd133be1d435c918793e9407498fd1d'],
         'research' => ['98c1deb645660b6da8d5a166532ee188eda0004ade7e7232095cc95994d919fa', '82c54b1308d577a588bddbd65295580f923a4435a1e3e24a8cc81b408c62dad7'],
         'strategy' => ['e2dcb860612344d1b4cd46aa2827cc76c602376b31361ae0b28fc6c3e193657c', 'aa42f95c6634612634a8e924f67c091079b6af6f248de18a56096205d084b064'],
         'finance' => ['da2e4205c4c7ebe30e5864477f73f941e1b7f04a10d42b6788087bee95a31363', '2238e85491b96418122deeb6a4c9499d97496498302a37adfac58872feaffcb6'],
