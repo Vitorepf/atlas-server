@@ -2363,5 +2363,34 @@ write_back:
   status: recorded_for_human_review
   context_feedback: recorded
   auto_promoted: false
+merged_to_main_by_aobg: false
+```
+
+## Task 76 — A1-SC Task 6.2 status projector and named runtime, 2026-07-23
+
+```yaml
+status: VERIFIED_LOCAL_WITH_ADJACENT_BASELINE_RED
+commit: 371b5a553
+subject: "refactor(core): GOD-DEBULK separate control plane status runtime"
+red:
+  result: "FAIL 2 tests: ControlPlaneStatusProjector and AgentControlPlaneRuntime did not exist."
+green:
+  behavior: "The projector reports queue state without expiring a lease; the named runtime uses the real bootstrap writer, reports durable task_packet_id plus lease_id, and replays the same active artifacts without another write."
+verification:
+  focused_feature: "PASS 2 tests, 27 assertions"
+  php_lint: "PASS both new owners"
+  pint: "PASS scoped new owners and Feature test"
+  diff_check: PASS
+  loc: "control_plane_status_projector=131; agent_control_plane_runtime=269; feature_test=211 (all <800 hot limit)"
+  adjacent_bootstrap: "NOT GREEN, 2 failures in isolation: second multi-lane and lane-isolated bootstraps expected ready_for_worker and received blocked; recorded in EXEC-DEBTS as a separate serving/bootstrap debt."
+boundary:
+  - the status path intentionally does not enumerate leases because activeLeases expires stale entries; reporting that boundary as uninspected preserves read-only projection truthfulness
+  - runtime calls the existing terminal bootstrap writer and proves the returned durable queue/lease binding before it records an idempotency receipt
+  - replay is receipt-backed from the persistent queue record, not an in-memory cache
+  - no provider call, dispatch, token spend, ledger write, self-programming, or real completion is enabled
+write_back:
+  status: recorded_for_human_review
+  context_feedback: recorded
+  auto_promoted: false
   merged_to_main_by_aobg: false
 ```

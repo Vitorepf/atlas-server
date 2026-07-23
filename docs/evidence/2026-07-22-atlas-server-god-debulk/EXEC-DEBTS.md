@@ -20,6 +20,9 @@ claimed_paths:
   - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest.php
   - docs/superpowers/plans/2026-07-22-god-debulk-wave-a1-selfconstruction.md
+  - app/Services/Ai/SelfConstruction/ControlPlane/ControlPlaneStatusProjector.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneRuntime.php
+  - tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneStatusTruthfulnessTest.php
 ```
 
 ## Fila (ordem — derive dos META-FINDINGS; atualize ao executar)
@@ -64,8 +67,9 @@ claimed_paths:
    - TEST status mutation matrix complete (`21b149eb9`): public lease
      recovery, replenishment, bootstrap, and draft-publication statuses now
      characterize their false outer authority alongside their durable effects.
-   - BUGFIX next: child plan Task 6.2 creates the bounded read projector and
-     named runtime owners before legacy routing changes.
+   - BUGFIX Task 6.2 complete (`371b5a553`): bounded read projector and named
+     runtime owners now prove persisted packet/lease IDs plus no-write replay
+     before legacy routing changes.
    - SPLIT façade thin + owners ≤2000 / hot ≤800 (sem novo `*Section` monstro)
    - OWNER / EXTRACT / CODEMAP / PERF (nessa ordem)
 7. ⭐ ORDEM DO COMANDANTE — Fase 0 dos blueprints (characterization pura, test(core), SEM mudança de comportamento; blueprints em ARCH-BLUEPRINTS/):
@@ -93,3 +97,4 @@ claimed_paths:
 - 2026-07-22 executor observed: `AgentControlPlaneTerminalLoopHealthDigestServiceTest.php` is not suite-isolated: its first pull-now control receives `reap_recoverable` from a recoverable lease only when the full file runs, while the focused A1-SC-0153 recovery contract passes. Investigate queue/lease-storage cleanup outside A1-SC-0153.
 - 2026-07-22 executor observed: `AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest.php` did not finish after 10 minutes and became idle with no aggregate result; focused A1-SC-0117 passes. Investigate the unbounded completion-audit/terminal-loop lifecycle outside the one-snapshot reuse.
 - 2026-07-22 executor observed: `AgentControlPlaneReportLearningBridgeTest.php` remains red in isolation (completeDryRun returns `complete_dry_run_blocked` instead of `completed_dry_run`; fresh durable worker-behavior recall is absent). Investigate completion-evidence fixture/bridge persistence outside A1-SC-0105 markResolved ordering.
+- 2026-07-23 executor observed: `AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest.php` still fails in isolation for the second of two parallel/lane-isolated bootstraps (`expected ready_for_worker`, got `blocked`); serving/bootstrap lane contract owner, outside Task 6.2 status-runtime ownership.
