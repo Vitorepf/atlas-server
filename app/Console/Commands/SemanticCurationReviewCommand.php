@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Http\Resources\SemanticCurationProposalResource;
 use App\Http\Resources\SemanticNoteResource;
 use App\Models\AtlasMemoryEntry;
@@ -174,6 +175,6 @@ class SemanticCurationReviewCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Http\Resources\AiInboxItemResource;
 use App\Models\AiInboxItem;
@@ -377,7 +378,7 @@ class AtlasCliInboxCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 
     private function invalid(string $action): int

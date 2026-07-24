@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Services\Engineering\AtlasDocumentationRealityBidirectionalReconciliationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -125,6 +126,6 @@ class AtlasDocumentationRealityBidirectionalReconcileCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 }

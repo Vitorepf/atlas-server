@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Services\Ai\Cli\AtlasCliDogfoodService;
 use Illuminate\Console\Command;
 
@@ -157,7 +158,7 @@ class AtlasCliDogfoodCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 
     private function workspace(): string

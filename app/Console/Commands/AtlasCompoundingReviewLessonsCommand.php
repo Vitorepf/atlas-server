@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiLearningCandidate;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
@@ -307,7 +308,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
     {
         $value = $this->option($option);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 
     private function failWith(string $message): int

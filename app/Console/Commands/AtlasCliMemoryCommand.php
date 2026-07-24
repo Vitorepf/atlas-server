@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AiMemoryDeltaProposer;
@@ -307,6 +308,6 @@ class AtlasCliMemoryCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 }

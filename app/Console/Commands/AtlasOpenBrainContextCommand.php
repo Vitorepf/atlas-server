@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Services\Ai\AtlasOpenBrainService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -96,6 +97,6 @@ class AtlasOpenBrainContextCommand extends Command
     {
         $value = $this->option($key);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 }

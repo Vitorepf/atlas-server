@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactAemorBridgeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactShadowExecutionService;
@@ -142,7 +143,7 @@ final class AtlasWorkspaceArtifactsCommand extends Command
     {
         $value = $this->option($name);
 
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 
     /**

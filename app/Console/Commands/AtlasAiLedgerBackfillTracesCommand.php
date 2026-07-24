@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\StringOrNull;
 use App\Models\AiTrace;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -197,6 +198,6 @@ class AtlasAiLedgerBackfillTracesCommand extends Command
 
     private function stringOrNull(mixed $value): ?string
     {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return StringOrNull::trimmed($value);
     }
 }
