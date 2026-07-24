@@ -1,0 +1,1013 @@
+{
+  "schema": "atlas.server.full_pass.inventory.v1",
+  "generated_for": "2026-07-24-atlas-server-full-pass",
+  "corpus_roots": [
+    "app",
+    "tests",
+    "config",
+    "routes",
+    "database",
+    "bin",
+    "scripts",
+    "bootstrap",
+    "resources",
+    "docs/engineering-knowledge-base"
+  ],
+  "totals": {
+    "files": 13399,
+    "loc": 3017306,
+    "buckets": 176,
+    "php_godfiles_gt_2000": 21
+  },
+  "coverage_law": "EVERY file in files[] must receive full 30-area visit before program done",
+  "line_law": "EVERY non-blank line of every text file is in scope for the 30-area crivo when that file is open",
+  "buckets": [
+    {
+      "bucket": "tests/Unit",
+      "files": 2804,
+      "loc": 533066
+    },
+    {
+      "bucket": "tests/Feature",
+      "files": 1939,
+      "loc": 490971
+    },
+    {
+      "bucket": "Ai/SelfConstruction",
+      "files": 1071,
+      "loc": 358760
+    },
+    {
+      "bucket": "docs",
+      "files": 1075,
+      "loc": 345020
+    },
+    {
+      "bucket": "Console/Commands",
+      "files": 953,
+      "loc": 136837
+    },
+    {
+      "bucket": "Ai/Programming",
+      "files": 556,
+      "loc": 132932
+    },
+    {
+      "bucket": "Ai/SoftwareCompanyStewardship",
+      "files": 307,
+      "loc": 117938
+    },
+    {
+      "bucket": "Services/Engineering",
+      "files": 177,
+      "loc": 73380
+    },
+    {
+      "bucket": "Http",
+      "files": 339,
+      "loc": 47516
+    },
+    {
+      "bucket": "Ai/Kernel",
+      "files": 195,
+      "loc": 43893
+    },
+    {
+      "bucket": "Ai/Holding",
+      "files": 41,
+      "loc": 43837
+    },
+    {
+      "bucket": "Ai/AgenticEngineeringOs",
+      "files": 87,
+      "loc": 43278
+    },
+    {
+      "bucket": "Ai/AutonomousEvolution",
+      "files": 241,
+      "loc": 41196
+    },
+    {
+      "bucket": "database",
+      "files": 376,
+      "loc": 30077
+    },
+    {
+      "bucket": "Ai/MarketingDomain",
+      "files": 182,
+      "loc": 26873
+    },
+    {
+      "bucket": "Ai/RootSingles",
+      "files": 42,
+      "loc": 24695
+    },
+    {
+      "bucket": "Ai/Cognition",
+      "files": 85,
+      "loc": 24284
+    },
+    {
+      "bucket": "Ai/Context",
+      "files": 82,
+      "loc": 24102
+    },
+    {
+      "bucket": "Ai/Rivals",
+      "files": 77,
+      "loc": 21177
+    },
+    {
+      "bucket": "Models",
+      "files": 407,
+      "loc": 21141
+    },
+    {
+      "bucket": "Ai/Finance",
+      "files": 101,
+      "loc": 17631
+    },
+    {
+      "bucket": "Ai/Vox",
+      "files": 44,
+      "loc": 16240
+    },
+    {
+      "bucket": "Ai/EngineeringKernel",
+      "files": 111,
+      "loc": 14902
+    },
+    {
+      "bucket": "Ai/Memory",
+      "files": 48,
+      "loc": 14876
+    },
+    {
+      "bucket": "Ai/Hermes",
+      "files": 55,
+      "loc": 13486
+    },
+    {
+      "bucket": "Ai/SelfImprovement",
+      "files": 30,
+      "loc": 11707
+    },
+    {
+      "bucket": "Services/AtlasCode",
+      "files": 33,
+      "loc": 11288
+    },
+    {
+      "bucket": "Ai/Product",
+      "files": 38,
+      "loc": 10289
+    },
+    {
+      "bucket": "config",
+      "files": 31,
+      "loc": 10115
+    },
+    {
+      "bucket": "tooling",
+      "files": 73,
+      "loc": 9732
+    },
+    {
+      "bucket": "Ai/Cli",
+      "files": 30,
+      "loc": 9618
+    },
+    {
+      "bucket": "Ai/AtlasDecide",
+      "files": 34,
+      "loc": 9610
+    },
+    {
+      "bucket": "Ai/Mobile",
+      "files": 23,
+      "loc": 8915
+    },
+    {
+      "bucket": "Ai/LongHorizon",
+      "files": 23,
+      "loc": 8678
+    },
+    {
+      "bucket": "Ai/Telemetry",
+      "files": 35,
+      "loc": 8623
+    },
+    {
+      "bucket": "Ai/Learning",
+      "files": 64,
+      "loc": 8566
+    },
+    {
+      "bucket": "Ai/WorkspaceIntelligence",
+      "files": 21,
+      "loc": 8352
+    },
+    {
+      "bucket": "Ai/Company",
+      "files": 39,
+      "loc": 8117
+    },
+    {
+      "bucket": "Ai/Compounding",
+      "files": 33,
+      "loc": 7976
+    },
+    {
+      "bucket": "Ai/RealExecution",
+      "files": 17,
+      "loc": 7096
+    },
+    {
+      "bucket": "Ai/Publishing",
+      "files": 11,
+      "loc": 6418
+    },
+    {
+      "bucket": "tests/Fixtures",
+      "files": 524,
+      "loc": 6408
+    },
+    {
+      "bucket": "tests/Concerns",
+      "files": 61,
+      "loc": 5783
+    },
+    {
+      "bucket": "Ai/Reality",
+      "files": 10,
+      "loc": 5687
+    },
+    {
+      "bucket": "Ai/Foundry",
+      "files": 17,
+      "loc": 5492
+    },
+    {
+      "bucket": "Ai/Voice",
+      "files": 16,
+      "loc": 5440
+    },
+    {
+      "bucket": "Ai/ControlPlane",
+      "files": 19,
+      "loc": 5389
+    },
+    {
+      "bucket": "Services/Semantic",
+      "files": 19,
+      "loc": 5385
+    },
+    {
+      "bucket": "Ai/Governance",
+      "files": 19,
+      "loc": 5259
+    },
+    {
+      "bucket": "Ai/Mission",
+      "files": 25,
+      "loc": 5115
+    },
+    {
+      "bucket": "Ai/Obra",
+      "files": 19,
+      "loc": 4787
+    },
+    {
+      "bucket": "Ai/Domain",
+      "files": 23,
+      "loc": 4652
+    },
+    {
+      "bucket": "Ai/OpenBrainMcp",
+      "files": 13,
+      "loc": 4385
+    },
+    {
+      "bucket": "Services/Tools",
+      "files": 14,
+      "loc": 4309
+    },
+    {
+      "bucket": "Ai/Policy",
+      "files": 16,
+      "loc": 4021
+    },
+    {
+      "bucket": "Ai/OpenBrainContextPack",
+      "files": 11,
+      "loc": 3867
+    },
+    {
+      "bucket": "Ai/RouterRuntime",
+      "files": 14,
+      "loc": 3778
+    },
+    {
+      "bucket": "Ai/OperatorIntelligence",
+      "files": 19,
+      "loc": 3665
+    },
+    {
+      "bucket": "Ai/ProgrammingRuntime",
+      "files": 12,
+      "loc": 3657
+    },
+    {
+      "bucket": "Ai/Aaeos",
+      "files": 27,
+      "loc": 3596
+    },
+    {
+      "bucket": "Ai/Aemor",
+      "files": 11,
+      "loc": 3263
+    },
+    {
+      "bucket": "Ai/Router",
+      "files": 11,
+      "loc": 2894
+    },
+    {
+      "bucket": "Ai/Runtime",
+      "files": 14,
+      "loc": 2879
+    },
+    {
+      "bucket": "Ai/Autonomy",
+      "files": 10,
+      "loc": 2775
+    },
+    {
+      "bucket": "Ai/Organism",
+      "files": 24,
+      "loc": 2647
+    },
+    {
+      "bucket": "Ai/TerminalDev",
+      "files": 14,
+      "loc": 2614
+    },
+    {
+      "bucket": "Ai/Knowledge",
+      "files": 5,
+      "loc": 2593
+    },
+    {
+      "bucket": "Ai/AiWorkerSupport",
+      "files": 12,
+      "loc": 2576
+    },
+    {
+      "bucket": "Ai/Skills",
+      "files": 10,
+      "loc": 2522
+    },
+    {
+      "bucket": "Ai/Surface",
+      "files": 17,
+      "loc": 2492
+    },
+    {
+      "bucket": "Ai/Arena",
+      "files": 8,
+      "loc": 2462
+    },
+    {
+      "bucket": "Ai/Compression",
+      "files": 14,
+      "loc": 2327
+    },
+    {
+      "bucket": "Ai/RuntimeEfficiency",
+      "files": 4,
+      "loc": 2269
+    },
+    {
+      "bucket": "Ai/Instrumentation",
+      "files": 7,
+      "loc": 2223
+    },
+    {
+      "bucket": "Ai/ConversationOps",
+      "files": 6,
+      "loc": 2121
+    },
+    {
+      "bucket": "Ai/ToolRuntime",
+      "files": 15,
+      "loc": 2080
+    },
+    {
+      "bucket": "Ai/Evidence",
+      "files": 17,
+      "loc": 2054
+    },
+    {
+      "bucket": "Ai/DomainProfiles",
+      "files": 4,
+      "loc": 1931
+    },
+    {
+      "bucket": "Ai/AutonomousEngineering",
+      "files": 4,
+      "loc": 1897
+    },
+    {
+      "bucket": "Ai/AutomationDomain",
+      "files": 16,
+      "loc": 1869
+    },
+    {
+      "bucket": "Ai/AiGateway",
+      "files": 5,
+      "loc": 1766
+    },
+    {
+      "bucket": "Ai/Cyber",
+      "files": 14,
+      "loc": 1742
+    },
+    {
+      "bucket": "Ai/RuntimeBoundary",
+      "files": 23,
+      "loc": 1739
+    },
+    {
+      "bucket": "Ai/AobgWorkspaceOnboarding",
+      "files": 5,
+      "loc": 1708
+    },
+    {
+      "bucket": "Ai/AgenticWorkcell",
+      "files": 3,
+      "loc": 1699
+    },
+    {
+      "bucket": "Ai/Analysis",
+      "files": 8,
+      "loc": 1689
+    },
+    {
+      "bucket": "Services/MacAgent",
+      "files": 1,
+      "loc": 1686
+    },
+    {
+      "bucket": "routes",
+      "files": 2,
+      "loc": 1632
+    },
+    {
+      "bucket": "app/Support",
+      "files": 15,
+      "loc": 1610
+    },
+    {
+      "bucket": "Ai/MemoryGovernance",
+      "files": 8,
+      "loc": 1583
+    },
+    {
+      "bucket": "Ai/DomainRuntime",
+      "files": 10,
+      "loc": 1576
+    },
+    {
+      "bucket": "Ai/Strategy",
+      "files": 13,
+      "loc": 1527
+    },
+    {
+      "bucket": "Services/ProjectExecutionService.php",
+      "files": 1,
+      "loc": 1471
+    },
+    {
+      "bucket": "Services/Vault",
+      "files": 7,
+      "loc": 1446
+    },
+    {
+      "bucket": "Ai/Patamar4",
+      "files": 6,
+      "loc": 1428
+    },
+    {
+      "bucket": "Ai/Support",
+      "files": 12,
+      "loc": 1413
+    },
+    {
+      "bucket": "Ai/ValueObjects",
+      "files": 8,
+      "loc": 1391
+    },
+    {
+      "bucket": "Jobs",
+      "files": 13,
+      "loc": 1369
+    },
+    {
+      "bucket": "Ai/NightShift",
+      "files": 2,
+      "loc": 1348
+    },
+    {
+      "bucket": "Ai/ResearchDomain",
+      "files": 10,
+      "loc": 1291
+    },
+    {
+      "bucket": "Services/CaptureService.php",
+      "files": 1,
+      "loc": 1272
+    },
+    {
+      "bucket": "Providers",
+      "files": 3,
+      "loc": 1269
+    },
+    {
+      "bucket": "Services/Digital",
+      "files": 7,
+      "loc": 1235
+    },
+    {
+      "bucket": "Ai/ContextIntelligence",
+      "files": 5,
+      "loc": 1205
+    },
+    {
+      "bucket": "Ai/Scheduling",
+      "files": 6,
+      "loc": 1190
+    },
+    {
+      "bucket": "Services/TaskPlanningService.php",
+      "files": 1,
+      "loc": 1171
+    },
+    {
+      "bucket": "Ai/AgentGovernance",
+      "files": 12,
+      "loc": 1159
+    },
+    {
+      "bucket": "Ai/AutonomousWorkExecution",
+      "files": 2,
+      "loc": 1152
+    },
+    {
+      "bucket": "Ai/SelfDirectedEvolution",
+      "files": 3,
+      "loc": 1114
+    },
+    {
+      "bucket": "Ai/StrategicReality",
+      "files": 2,
+      "loc": 1080
+    },
+    {
+      "bucket": "bootstrap",
+      "files": 5,
+      "loc": 1068
+    },
+    {
+      "bucket": "Ai/Concerns",
+      "files": 3,
+      "loc": 1060
+    },
+    {
+      "bucket": "Ai/SpecialistFlows",
+      "files": 13,
+      "loc": 1052
+    },
+    {
+      "bucket": "Ai/VerifiedExecution",
+      "files": 2,
+      "loc": 1044
+    },
+    {
+      "bucket": "Ai/OperatorApproval",
+      "files": 4,
+      "loc": 1017
+    },
+    {
+      "bucket": "Ai/RealitySandbox",
+      "files": 2,
+      "loc": 1003
+    },
+    {
+      "bucket": "Ai/PersistentContext",
+      "files": 2,
+      "loc": 977
+    },
+    {
+      "bucket": "Services/ProjectExecution",
+      "files": 4,
+      "loc": 960
+    },
+    {
+      "bucket": "Ai/EngineeringCompany",
+      "files": 2,
+      "loc": 909
+    },
+    {
+      "bucket": "Ai/StrategicOperatingSystem",
+      "files": 1,
+      "loc": 884
+    },
+    {
+      "bucket": "Ai/RuntimeReadiness",
+      "files": 1,
+      "loc": 857
+    },
+    {
+      "bucket": "Ai/Caching",
+      "files": 6,
+      "loc": 851
+    },
+    {
+      "bucket": "Ai/PersonalDevelopment",
+      "files": 6,
+      "loc": 787
+    },
+    {
+      "bucket": "Ai/Teos",
+      "files": 2,
+      "loc": 723
+    },
+    {
+      "bucket": "Ai/Capture",
+      "files": 2,
+      "loc": 719
+    },
+    {
+      "bucket": "Ai/OpenBrainContextInjection",
+      "files": 2,
+      "loc": 714
+    },
+    {
+      "bucket": "Ai/CrossDomain",
+      "files": 2,
+      "loc": 706
+    },
+    {
+      "bucket": "Ai/Rsi",
+      "files": 6,
+      "loc": 701
+    },
+    {
+      "bucket": "Ai/Provider",
+      "files": 10,
+      "loc": 675
+    },
+    {
+      "bucket": "Ai/AtlasForge",
+      "files": 4,
+      "loc": 665
+    },
+    {
+      "bucket": "Ai/Attachments",
+      "files": 2,
+      "loc": 649
+    },
+    {
+      "bucket": "Ai/HumanSurface",
+      "files": 2,
+      "loc": 643
+    },
+    {
+      "bucket": "Ai/DualCore",
+      "files": 5,
+      "loc": 626
+    },
+    {
+      "bucket": "Ai/OpenBrain",
+      "files": 3,
+      "loc": 622
+    },
+    {
+      "bucket": "Services/ProjectPlanningService.php",
+      "files": 1,
+      "loc": 615
+    },
+    {
+      "bucket": "Ai/Reconciliation",
+      "files": 1,
+      "loc": 613
+    },
+    {
+      "bucket": "Ai/Decide",
+      "files": 3,
+      "loc": 594
+    },
+    {
+      "bucket": "Ai/Brain",
+      "files": 3,
+      "loc": 591
+    },
+    {
+      "bucket": "Ai/Compaction",
+      "files": 5,
+      "loc": 574
+    },
+    {
+      "bucket": "Services/ProjectBlockerService.php",
+      "files": 1,
+      "loc": 563
+    },
+    {
+      "bucket": "Services/Bitacula",
+      "files": 1,
+      "loc": 541
+    },
+    {
+      "bucket": "Services/CaptureDestinationService.php",
+      "files": 1,
+      "loc": 511
+    },
+    {
+      "bucket": "Ai/CognitiveMemory",
+      "files": 2,
+      "loc": 466
+    },
+    {
+      "bucket": "Ai/Search",
+      "files": 2,
+      "loc": 456
+    },
+    {
+      "bucket": "Ai/VerifiedContextExecution",
+      "files": 1,
+      "loc": 442
+    },
+    {
+      "bucket": "Ai/Cartography",
+      "files": 1,
+      "loc": 388
+    },
+    {
+      "bucket": "Ai/SoftwareCompany",
+      "files": 1,
+      "loc": 364
+    },
+    {
+      "bucket": "Ai/Gateway",
+      "files": 2,
+      "loc": 357
+    },
+    {
+      "bucket": "Services/WhisperTranscriber.php",
+      "files": 1,
+      "loc": 348
+    },
+    {
+      "bucket": "Services/RoutineSchedulingService.php",
+      "files": 1,
+      "loc": 334
+    },
+    {
+      "bucket": "Ai/Operator",
+      "files": 4,
+      "loc": 323
+    },
+    {
+      "bucket": "Ai/Transcription",
+      "files": 1,
+      "loc": 304
+    },
+    {
+      "bucket": "Ai/Forge",
+      "files": 2,
+      "loc": 287
+    },
+    {
+      "bucket": "Ai/Tasks",
+      "files": 1,
+      "loc": 284
+    },
+    {
+      "bucket": "Ai/Mcp",
+      "files": 1,
+      "loc": 283
+    },
+    {
+      "bucket": "Ai/Tokens",
+      "files": 2,
+      "loc": 275
+    },
+    {
+      "bucket": "resources",
+      "files": 4,
+      "loc": 270
+    },
+    {
+      "bucket": "Ai/RuntimeReleaseGate",
+      "files": 1,
+      "loc": 263
+    },
+    {
+      "bucket": "Ai/Streaming",
+      "files": 2,
+      "loc": 245
+    },
+    {
+      "bucket": "Services/BitaculaService.php",
+      "files": 1,
+      "loc": 206
+    },
+    {
+      "bucket": "Services/CaptureDeletionService.php",
+      "files": 1,
+      "loc": 201
+    },
+    {
+      "bucket": "Services/AtlasDomainRegistry.php",
+      "files": 1,
+      "loc": 195
+    },
+    {
+      "bucket": "Services/BitaculaServiceSupport.php",
+      "files": 1,
+      "loc": 137
+    },
+    {
+      "bucket": "Services/CapturePrivacyService.php",
+      "files": 1,
+      "loc": 123
+    },
+    {
+      "bucket": "Services/AuditLogService.php",
+      "files": 1,
+      "loc": 115
+    },
+    {
+      "bucket": "Ai/Compat",
+      "files": 1,
+      "loc": 96
+    },
+    {
+      "bucket": "tests/TestCase.php",
+      "files": 1,
+      "loc": 94
+    },
+    {
+      "bucket": "app/Console",
+      "files": 2,
+      "loc": 92
+    },
+    {
+      "bucket": "app/Enums",
+      "files": 3,
+      "loc": 88
+    },
+    {
+      "bucket": "Ai/ExecutionAuthority",
+      "files": 4,
+      "loc": 88
+    },
+    {
+      "bucket": "tests/hooks",
+      "files": 2,
+      "loc": 81
+    },
+    {
+      "bucket": "Services/CaptureFileStorage.php",
+      "files": 1,
+      "loc": 76
+    },
+    {
+      "bucket": "tests/Support",
+      "files": 1,
+      "loc": 62
+    },
+    {
+      "bucket": "Ai/Security",
+      "files": 1,
+      "loc": 55
+    },
+    {
+      "bucket": "app/Observers",
+      "files": 1,
+      "loc": 36
+    },
+    {
+      "bucket": "app/Logging",
+      "files": 1,
+      "loc": 26
+    }
+  ],
+  "godfiles_php_gt_2000": [
+    {
+      "path": "tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php",
+      "loc": 31811,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/Console/AtlasAaeosCommandTest.php",
+      "loc": 12678,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/EngineeringHarnessRunnerTest.php",
+      "loc": 5641,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "config/atlas.php",
+      "loc": 5400,
+      "bucket": "config"
+    },
+    {
+      "path": "tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php",
+      "loc": 5043,
+      "bucket": "tests/Unit"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php",
+      "loc": 4005,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/AtlasMemoryRegistryTest.php",
+      "loc": 3896,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "loc": 3597,
+      "bucket": "Ai/SoftwareCompanyStewardship"
+    },
+    {
+      "path": "tests/Feature/CaptureTranscriptionRetryTest.php",
+      "loc": 3420,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php",
+      "loc": 3377,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php",
+      "loc": 3080,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php",
+      "loc": 2976,
+      "bucket": "tests/Unit"
+    },
+    {
+      "path": "tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php",
+      "loc": 2694,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php",
+      "loc": 2460,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Unit/Ai/ProposalInboxEmitterTest.php",
+      "loc": 2416,
+      "bucket": "tests/Unit"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php",
+      "loc": 2365,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php",
+      "loc": 2292,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "tests/Feature/AtlasToolRuntimeCoreTest.php",
+      "loc": 2237,
+      "bucket": "tests/Feature"
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php",
+      "loc": 2202,
+      "bucket": "Ai/Kernel"
+    },
+    {
+      "path": "tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php",
+      "loc": 2108,
+      "bucket": "tests/Unit"
+    },
+    {
+      "path": "tests/Feature/Ai/EngineeringKernel/EliteExecutorKernelReadOnlyVerticalTest.php",
+      "loc": 2073,
+      "bucket": "tests/Feature"
+    }
+  ]
+}

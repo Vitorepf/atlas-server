@@ -1,0 +1,4626 @@
+{
+  "schema": "atlas.server.static_scan.v1",
+  "php_files_app": 6496,
+  "methods_total": 44710,
+  "god_files_gt_2000": [
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "loc": 3597
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php",
+      "loc": 2211
+    }
+  ],
+  "very_long_methods_gt_200": [
+    {
+      "path": "app/Services/Ai/Knowledge/YouTubeKnowledgeIngestionService.php",
+      "namespace": "App\\Services\\Ai\\Knowledge",
+      "class": "YouTubeKnowledgeIngestionService",
+      "method": "parseCaptionPayload",
+      "start": 319,
+      "end": 1781,
+      "loc": 1463
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseReportDashboardHtml.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseReportDashboardHtml",
+      "method": "render",
+      "start": 31,
+      "end": 1439,
+      "loc": 1409
+    },
+    {
+      "path": "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php",
+      "namespace": "App\\Http\\Controllers\\AtlasDev\\Support",
+      "class": "PipelineRunExecutor",
+      "method": "execute",
+      "start": 207,
+      "end": 1517,
+      "loc": 1311
+    },
+    {
+      "path": "app/Services/Ai/Holding/EnterpriseFlowFixtureActionRuntimeService.php",
+      "namespace": "App\\Services\\Ai\\Holding",
+      "class": "EnterpriseFlowFixtureActionRuntimeService",
+      "method": "run",
+      "start": 396,
+      "end": 1602,
+      "loc": 1207
+    },
+    {
+      "path": "app/Services/Ai/AtlasOpenBrainMcpService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AtlasOpenBrainMcpService",
+      "method": "tools",
+      "start": 202,
+      "end": 1285,
+      "loc": 1084
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/VoiceAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "VoiceAudit",
+      "method": "scanVoiceRealtimeProductionPromotionGate",
+      "start": 455,
+      "end": 1475,
+      "loc": 1021
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture",
+      "class": "AtlasArchitectureOperationsCatalog",
+      "method": "commands",
+      "start": 22,
+      "end": 1025,
+      "loc": 1004
+    },
+    {
+      "path": "app/Services/Ai/Skills/AiSkillStore.php",
+      "namespace": "App\\Services\\Ai\\Skills",
+      "class": "AiSkillStore",
+      "method": "defaultFiles",
+      "start": 146,
+      "end": 992,
+      "loc": 847
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/ProviderAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "ProviderAudit",
+      "method": "scanProviderUsagePerformanceContract",
+      "start": 156,
+      "end": 987,
+      "loc": 832
+    },
+    {
+      "path": "app/Console/Commands/AtlasAaeosCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAaeosCommand",
+      "method": "universalGates",
+      "start": 968,
+      "end": 1775,
+      "loc": 808
+    },
+    {
+      "path": "app/Providers/AppServiceProvider.php",
+      "namespace": "App\\Providers",
+      "class": "AppServiceProvider",
+      "method": "register",
+      "start": 214,
+      "end": 992,
+      "loc": 779
+    },
+    {
+      "path": "app/Services/Tools/AtlasToolResultNormalizer.php",
+      "namespace": "App\\Services\\Tools",
+      "class": "AtlasToolResultNormalizer",
+      "method": "jsonPayload",
+      "start": 99,
+      "end": 765,
+      "loc": 667
+    },
+    {
+      "path": "app/Services/Ai/Product/Certification/ExecutionDoctrineCertification.php",
+      "namespace": "App\\Services\\Ai\\Product\\Certification",
+      "class": "ExecutionDoctrineCertification",
+      "method": "frontendOperationalUnderstandingCheck",
+      "start": 25,
+      "end": 639,
+      "loc": 615
+    },
+    {
+      "path": "app/Services/Ai/Holding/EnterpriseFlowFixture/EnterpriseFlowFixtureRuntimeRecords.php",
+      "namespace": "App\\Services\\Ai\\Holding\\EnterpriseFlowFixture",
+      "class": "EnterpriseFlowFixtureRuntimeRecords",
+      "method": "runtimeRecordsForCompany",
+      "start": 201,
+      "end": 785,
+      "loc": 585
+    },
+    {
+      "path": "app/Console/Commands/AiChatCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AiChatCommand",
+      "method": "handle",
+      "start": 153,
+      "end": 714,
+      "loc": 562
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/RepairLoopAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "RepairLoopAudit",
+      "method": "scanRepairLoopContract",
+      "start": 27,
+      "end": 587,
+      "loc": 561
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/AtlasTaskServingService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction",
+      "class": "AtlasTaskServingService",
+      "method": "report",
+      "start": 421,
+      "end": 970,
+      "loc": 550
+    },
+    {
+      "path": "app/Services/Ai/AiWorker.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiWorker",
+      "method": "completeAttempt",
+      "start": 1016,
+      "end": 1548,
+      "loc": 533
+    },
+    {
+      "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php",
+      "namespace": "App\\Services\\Ai\\AutonomousEvolution",
+      "class": "AtlasLoopAutoMergeService",
+      "method": "mergeOneCritical",
+      "start": 292,
+      "end": 801,
+      "loc": 510
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneCertificationCoverageReportService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneCertificationCoverageReportService",
+      "method": "report",
+      "start": 72,
+      "end": 576,
+      "loc": 505
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AutonomousEvolutionSessionService",
+      "method": "runCycle",
+      "start": 1193,
+      "end": 1680,
+      "loc": 488
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseProductionEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseProductionEvidenceSection",
+      "method": "enterpriseCompanyOperatingEvidenceBundleStatus",
+      "start": 516,
+      "end": 998,
+      "loc": 483
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "Reliable24hLoopRunnerService",
+      "method": "run",
+      "start": 525,
+      "end": 1005,
+      "loc": 481
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseProductionEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseProductionEvidenceSection",
+      "method": "enterpriseCompanyProductionReadinessCertificationStatus",
+      "start": 32,
+      "end": 511,
+      "loc": 480
+    },
+    {
+      "path": "app/Services/Engineering/CodeRealityUsageIntelligence/CodeRealityLegacySignalSection.php",
+      "namespace": "App\\Services\\Engineering\\CodeRealityUsageIntelligence",
+      "class": "CodeRealityLegacySignalSection",
+      "method": "legacySignalOperationalClassification",
+      "start": 440,
+      "end": 912,
+      "loc": 473
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseReportPresenter.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseReportPresenter",
+      "method": "markdown",
+      "start": 79,
+      "end": 529,
+      "loc": 451
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiArchitectureValidateCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiArchitectureValidateCommand",
+      "method": "handle",
+      "start": 15,
+      "end": 460,
+      "loc": 446
+    },
+    {
+      "path": "app/Services/Ai/AiGatewayService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiGatewayService",
+      "method": "enqueueInteraction",
+      "start": 130,
+      "end": 573,
+      "loc": 444
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeCockpitSurfaceService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\ProductMode",
+      "class": "ProductModeCockpitSurfaceService",
+      "method": "reviewQueue",
+      "start": 830,
+      "end": 1268,
+      "loc": 439
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService",
+      "method": "build",
+      "start": 43,
+      "end": 480,
+      "loc": 438
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusFactoryMaxCanonicalBacklogService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AreaFocusFactoryMaxCanonicalBacklogService",
+      "method": "findings",
+      "start": 33,
+      "end": 468,
+      "loc": 436
+    },
+    {
+      "path": "app/Services/Ai/Cognition/AcosProgram/AcosMaxMeasureSeriesRegistry.php",
+      "namespace": "App\\Services\\Ai\\Cognition\\AcosProgram",
+      "class": "AcosMaxMeasureSeriesRegistry",
+      "method": "defaultEntries",
+      "start": 261,
+      "end": 696,
+      "loc": 436
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AutonomousEvolutionSessionService",
+      "method": "runOwnerFlowCycle",
+      "start": 2173,
+      "end": 2585,
+      "loc": 413
+    },
+    {
+      "path": "app/Services/Ai/Obra/AtlasObraExecutor.php",
+      "namespace": "App\\Services\\Ai\\Obra",
+      "class": "AtlasObraExecutor",
+      "method": "execute",
+      "start": 158,
+      "end": 569,
+      "loc": 412
+    },
+    {
+      "path": "app/Services/Ai/OpenBrainContextPack/RenderMarkdownSection.php",
+      "namespace": "App\\Services\\Ai\\OpenBrainContextPack",
+      "class": "RenderMarkdownSection",
+      "method": "renderMarkdown",
+      "start": 31,
+      "end": 433,
+      "loc": 403
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/KernelAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "KernelAudit",
+      "method": "scanKernelPipelineContract",
+      "start": 28,
+      "end": 426,
+      "loc": 399
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliHelpCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliHelpCommand",
+      "method": "commands",
+      "start": 50,
+      "end": 445,
+      "loc": 396
+    },
+    {
+      "path": "app/Http/Controllers/AtlasDev/Support/PipelineRun/BestOfNSection.php",
+      "namespace": "App\\Http\\Controllers\\AtlasDev\\Support\\PipelineRun",
+      "class": "BestOfNSection",
+      "method": "executeBestOfNHermes",
+      "start": 156,
+      "end": 544,
+      "loc": 389
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionRuntimePromotionEndgameService",
+      "method": "build",
+      "start": 43,
+      "end": 426,
+      "loc": 384
+    },
+    {
+      "path": "app/Services/Ai/TerminalDev/Session/AtlasTerminalSessionRuntime.php",
+      "namespace": "App\\Services\\Ai\\TerminalDev\\Session",
+      "class": "AtlasTerminalSessionRuntime",
+      "method": "handleSlash",
+      "start": 73,
+      "end": 452,
+      "loc": 380
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\OwnerFlow",
+      "class": "Ap786OwnerFlowExecutor",
+      "method": "execute",
+      "start": 132,
+      "end": 511,
+      "loc": 380
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiVoiceRealtimeCommand",
+      "method": "handle",
+      "start": 39,
+      "end": 417,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Engineering/EngineeringHarnessRunnerService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "EngineeringHarnessRunnerService",
+      "method": "run",
+      "start": 82,
+      "end": 460,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AreaFocusDeepFindingEngineService",
+      "method": "discoverInertWiringDebt",
+      "start": 774,
+      "end": 1152,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureBusinessRuleMinerService.php",
+      "namespace": "App\\Services\\Ai\\Company\\Ventures\\Comprehension\\Capabilities",
+      "class": "VentureBusinessRuleMinerService",
+      "method": "isNonPriceNumber",
+      "start": 221,
+      "end": 595,
+      "loc": 375
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOsHandoffStatus",
+      "start": 265,
+      "end": 637,
+      "loc": 373
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus",
+      "start": 644,
+      "end": 1016,
+      "loc": 373
+    },
+    {
+      "path": "app/Console/Commands/AtlasBrainHealthDoctorCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasBrainHealthDoctorCommand",
+      "method": "handle",
+      "start": 53,
+      "end": 422,
+      "loc": 370
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliDevCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliDevCommand",
+      "method": "handle",
+      "start": 87,
+      "end": 456,
+      "loc": 370
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/Catalog/CertificationWorkbenchEntries.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness\\Catalog",
+      "class": "CertificationWorkbenchEntries",
+      "method": "entries",
+      "start": 95,
+      "end": 464,
+      "loc": 370
+    },
+    {
+      "path": "app/Services/Ai/AiWorker.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiWorker",
+      "method": "runNextMatching",
+      "start": 260,
+      "end": 628,
+      "loc": 369
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Completion/AtlasSelfConstructionFinalEvidenceSourceRegistry.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Completion",
+      "class": "AtlasSelfConstructionFinalEvidenceSourceRegistry",
+      "method": "sources",
+      "start": 184,
+      "end": 539,
+      "loc": 356
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/LedgerAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "LedgerAudit",
+      "method": "scanLedgerReplayCommandSurface",
+      "start": 195,
+      "end": 534,
+      "loc": 340
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneReplayDiffService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneReplayDiffService",
+      "method": "diff",
+      "start": 42,
+      "end": 377,
+      "loc": 336
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "AtlasUpliftRunner",
+      "method": "compare",
+      "start": 16,
+      "end": 346,
+      "loc": 331
+    },
+    {
+      "path": "app/Services/Ai/Hermes/Acp/HermesAcpProtocol.php",
+      "namespace": "App\\Services\\Ai\\Hermes\\Acp",
+      "class": "HermesAcpProtocol",
+      "method": "classify",
+      "start": 134,
+      "end": 463,
+      "loc": 330
+    },
+    {
+      "path": "app/Services/Engineering/AtlasUniversalRealityCartographyService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "AtlasUniversalRealityCartographyService",
+      "method": "nodes",
+      "start": 312,
+      "end": 640,
+      "loc": 329
+    },
+    {
+      "path": "app/Services/Ai/Arena/ArenaCapabilityProfileService.php",
+      "namespace": "App\\Services\\Ai\\Arena",
+      "class": "ArenaCapabilityProfileService",
+      "method": "profile",
+      "start": 12,
+      "end": 340,
+      "loc": 329
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService",
+      "method": "orderedOperatorPath",
+      "start": 778,
+      "end": 1100,
+      "loc": 323
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketBuilder.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneTaskPacketBuilder",
+      "method": "build",
+      "start": 191,
+      "end": 512,
+      "loc": 322
+    },
+    {
+      "path": "app/Console/Commands/AtlasFinanceStrategySearchCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFinanceStrategySearchCommand",
+      "method": "handle",
+      "start": 114,
+      "end": 434,
+      "loc": 321
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOsCompletionEvidenceStatus",
+      "start": 1023,
+      "end": 1342,
+      "loc": 320
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseCompletionSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseCompletionSection",
+      "method": "enterpriseHoldingCompletionAuditStatus",
+      "start": 320,
+      "end": 638,
+      "loc": 319
+    },
+    {
+      "path": "app/Console/Commands/AtlasBrainStateCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasBrainStateCommand",
+      "method": "handle",
+      "start": 71,
+      "end": 385,
+      "loc": 315
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasRivalsBatteryStateMachine.php",
+      "namespace": "App\\Services\\Ai\\Programming",
+      "class": "AtlasRivalsBatteryStateMachine",
+      "method": "snapshot",
+      "start": 196,
+      "end": 510,
+      "loc": 315
+    },
+    {
+      "path": "app/Services/Ai/Product/AtlasProductDeliveryCertificationService.php",
+      "namespace": "App\\Services\\Ai\\Product",
+      "class": "AtlasProductDeliveryCertificationService",
+      "method": "certify",
+      "start": 16,
+      "end": 328,
+      "loc": 313
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainMuscleOutcomeLearningMatrix.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ExternalBrain",
+      "class": "AtlasExternalBrainMuscleOutcomeLearningMatrix",
+      "method": "analyze",
+      "start": 68,
+      "end": 380,
+      "loc": 313
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseModelDissectionBuilder.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseModelDissectionBuilder",
+      "method": "dissectModelRuntime",
+      "start": 131,
+      "end": 434,
+      "loc": 304
+    },
+    {
+      "path": "app/Services/Ai/OpenBrainContextPack/ContextDeliveryPolicySection.php",
+      "namespace": "App\\Services\\Ai\\OpenBrainContextPack",
+      "class": "ContextDeliveryPolicySection",
+      "method": "contextDeliveryPolicy",
+      "start": 38,
+      "end": 340,
+      "loc": 303
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseOperatingCycleSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseOperatingCycleSection",
+      "method": "enterpriseCompanyCapabilityCatalogStatus",
+      "start": 809,
+      "end": 1110,
+      "loc": 302
+    },
+    {
+      "path": "app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "AtlasCodeRealityUsageIntelligenceService",
+      "method": "globalDuplicationAudit",
+      "start": 298,
+      "end": 597,
+      "loc": 300
+    },
+    {
+      "path": "app/Http/Controllers/SyncController.php",
+      "namespace": "App\\Http\\Controllers",
+      "class": "SyncController",
+      "method": "__invoke",
+      "start": 33,
+      "end": 331,
+      "loc": 299
+    },
+    {
+      "path": "app/Http/Controllers/AtlasAiVoxController.php",
+      "namespace": "App\\Http\\Controllers",
+      "class": "AtlasAiVoxController",
+      "method": "intent",
+      "start": 146,
+      "end": 444,
+      "loc": 299
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainArchitectureCompressionPlanner.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ExternalBrain",
+      "class": "AtlasExternalBrainArchitectureCompressionPlanner",
+      "method": "plan",
+      "start": 79,
+      "end": 375,
+      "loc": 297
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeWorker",
+      "class": "AtlasNativeWorkerClaimExecuteReportCycle",
+      "method": "run",
+      "start": 87,
+      "end": 382,
+      "loc": 296
+    },
+    {
+      "path": "app/Services/Ai/Arena/ArenaMeasurementStore.php",
+      "namespace": "App\\Services\\Ai\\Arena",
+      "class": "ArenaMeasurementStore",
+      "method": "measurements",
+      "start": 59,
+      "end": 352,
+      "loc": 294
+    },
+    {
+      "path": "app/Console/Commands/AtlasExternalBrainOriginatorQualityCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasExternalBrainOriginatorQualityCommand",
+      "method": "handle",
+      "start": 65,
+      "end": 357,
+      "loc": 293
+    },
+    {
+      "path": "app/Console/Commands/AtlasCognitionMintPipelineReceiptsCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCognitionMintPipelineReceiptsCommand",
+      "method": "handle",
+      "start": 31,
+      "end": 321,
+      "loc": 291
+    },
+    {
+      "path": "app/Services/Ai/ValueObjects/AiContextPack.php",
+      "namespace": "App\\Services\\Ai\\ValueObjects",
+      "class": "AiContextPack",
+      "method": "toPromptSection",
+      "start": 416,
+      "end": 704,
+      "loc": 289
+    },
+    {
+      "path": "app/Services/Ai/AtlasOpenBrainContextInjectionService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AtlasOpenBrainContextInjectionService",
+      "method": "promptSection",
+      "start": 1428,
+      "end": 1714,
+      "loc": 287
+    }
+  ],
+  "long_methods_gt_80_count": 2830,
+  "long_methods_gt_80_top": [
+    {
+      "path": "app/Services/Ai/Knowledge/YouTubeKnowledgeIngestionService.php",
+      "namespace": "App\\Services\\Ai\\Knowledge",
+      "class": "YouTubeKnowledgeIngestionService",
+      "method": "parseCaptionPayload",
+      "start": 319,
+      "end": 1781,
+      "loc": 1463
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseReportDashboardHtml.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseReportDashboardHtml",
+      "method": "render",
+      "start": 31,
+      "end": 1439,
+      "loc": 1409
+    },
+    {
+      "path": "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php",
+      "namespace": "App\\Http\\Controllers\\AtlasDev\\Support",
+      "class": "PipelineRunExecutor",
+      "method": "execute",
+      "start": 207,
+      "end": 1517,
+      "loc": 1311
+    },
+    {
+      "path": "app/Services/Ai/Holding/EnterpriseFlowFixtureActionRuntimeService.php",
+      "namespace": "App\\Services\\Ai\\Holding",
+      "class": "EnterpriseFlowFixtureActionRuntimeService",
+      "method": "run",
+      "start": 396,
+      "end": 1602,
+      "loc": 1207
+    },
+    {
+      "path": "app/Services/Ai/AtlasOpenBrainMcpService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AtlasOpenBrainMcpService",
+      "method": "tools",
+      "start": 202,
+      "end": 1285,
+      "loc": 1084
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/VoiceAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "VoiceAudit",
+      "method": "scanVoiceRealtimeProductionPromotionGate",
+      "start": 455,
+      "end": 1475,
+      "loc": 1021
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture",
+      "class": "AtlasArchitectureOperationsCatalog",
+      "method": "commands",
+      "start": 22,
+      "end": 1025,
+      "loc": 1004
+    },
+    {
+      "path": "app/Services/Ai/Skills/AiSkillStore.php",
+      "namespace": "App\\Services\\Ai\\Skills",
+      "class": "AiSkillStore",
+      "method": "defaultFiles",
+      "start": 146,
+      "end": 992,
+      "loc": 847
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/ProviderAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "ProviderAudit",
+      "method": "scanProviderUsagePerformanceContract",
+      "start": 156,
+      "end": 987,
+      "loc": 832
+    },
+    {
+      "path": "app/Console/Commands/AtlasAaeosCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAaeosCommand",
+      "method": "universalGates",
+      "start": 968,
+      "end": 1775,
+      "loc": 808
+    },
+    {
+      "path": "app/Providers/AppServiceProvider.php",
+      "namespace": "App\\Providers",
+      "class": "AppServiceProvider",
+      "method": "register",
+      "start": 214,
+      "end": 992,
+      "loc": 779
+    },
+    {
+      "path": "app/Services/Tools/AtlasToolResultNormalizer.php",
+      "namespace": "App\\Services\\Tools",
+      "class": "AtlasToolResultNormalizer",
+      "method": "jsonPayload",
+      "start": 99,
+      "end": 765,
+      "loc": 667
+    },
+    {
+      "path": "app/Services/Ai/Product/Certification/ExecutionDoctrineCertification.php",
+      "namespace": "App\\Services\\Ai\\Product\\Certification",
+      "class": "ExecutionDoctrineCertification",
+      "method": "frontendOperationalUnderstandingCheck",
+      "start": 25,
+      "end": 639,
+      "loc": 615
+    },
+    {
+      "path": "app/Services/Ai/Holding/EnterpriseFlowFixture/EnterpriseFlowFixtureRuntimeRecords.php",
+      "namespace": "App\\Services\\Ai\\Holding\\EnterpriseFlowFixture",
+      "class": "EnterpriseFlowFixtureRuntimeRecords",
+      "method": "runtimeRecordsForCompany",
+      "start": 201,
+      "end": 785,
+      "loc": 585
+    },
+    {
+      "path": "app/Console/Commands/AiChatCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AiChatCommand",
+      "method": "handle",
+      "start": 153,
+      "end": 714,
+      "loc": 562
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/RepairLoopAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "RepairLoopAudit",
+      "method": "scanRepairLoopContract",
+      "start": 27,
+      "end": 587,
+      "loc": 561
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/AtlasTaskServingService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction",
+      "class": "AtlasTaskServingService",
+      "method": "report",
+      "start": 421,
+      "end": 970,
+      "loc": 550
+    },
+    {
+      "path": "app/Services/Ai/AiWorker.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiWorker",
+      "method": "completeAttempt",
+      "start": 1016,
+      "end": 1548,
+      "loc": 533
+    },
+    {
+      "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php",
+      "namespace": "App\\Services\\Ai\\AutonomousEvolution",
+      "class": "AtlasLoopAutoMergeService",
+      "method": "mergeOneCritical",
+      "start": 292,
+      "end": 801,
+      "loc": 510
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneCertificationCoverageReportService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneCertificationCoverageReportService",
+      "method": "report",
+      "start": 72,
+      "end": 576,
+      "loc": 505
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AutonomousEvolutionSessionService",
+      "method": "runCycle",
+      "start": 1193,
+      "end": 1680,
+      "loc": 488
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseProductionEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseProductionEvidenceSection",
+      "method": "enterpriseCompanyOperatingEvidenceBundleStatus",
+      "start": 516,
+      "end": 998,
+      "loc": 483
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "Reliable24hLoopRunnerService",
+      "method": "run",
+      "start": 525,
+      "end": 1005,
+      "loc": 481
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseProductionEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseProductionEvidenceSection",
+      "method": "enterpriseCompanyProductionReadinessCertificationStatus",
+      "start": 32,
+      "end": 511,
+      "loc": 480
+    },
+    {
+      "path": "app/Services/Engineering/CodeRealityUsageIntelligence/CodeRealityLegacySignalSection.php",
+      "namespace": "App\\Services\\Engineering\\CodeRealityUsageIntelligence",
+      "class": "CodeRealityLegacySignalSection",
+      "method": "legacySignalOperationalClassification",
+      "start": 440,
+      "end": 912,
+      "loc": 473
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseReportPresenter.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseReportPresenter",
+      "method": "markdown",
+      "start": 79,
+      "end": 529,
+      "loc": 451
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiArchitectureValidateCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiArchitectureValidateCommand",
+      "method": "handle",
+      "start": 15,
+      "end": 460,
+      "loc": 446
+    },
+    {
+      "path": "app/Services/Ai/AiGatewayService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiGatewayService",
+      "method": "enqueueInteraction",
+      "start": 130,
+      "end": 573,
+      "loc": 444
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeCockpitSurfaceService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\ProductMode",
+      "class": "ProductModeCockpitSurfaceService",
+      "method": "reviewQueue",
+      "start": 830,
+      "end": 1268,
+      "loc": 439
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService",
+      "method": "build",
+      "start": 43,
+      "end": 480,
+      "loc": 438
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusFactoryMaxCanonicalBacklogService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AreaFocusFactoryMaxCanonicalBacklogService",
+      "method": "findings",
+      "start": 33,
+      "end": 468,
+      "loc": 436
+    },
+    {
+      "path": "app/Services/Ai/Cognition/AcosProgram/AcosMaxMeasureSeriesRegistry.php",
+      "namespace": "App\\Services\\Ai\\Cognition\\AcosProgram",
+      "class": "AcosMaxMeasureSeriesRegistry",
+      "method": "defaultEntries",
+      "start": 261,
+      "end": 696,
+      "loc": 436
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AutonomousEvolutionSessionService",
+      "method": "runOwnerFlowCycle",
+      "start": 2173,
+      "end": 2585,
+      "loc": 413
+    },
+    {
+      "path": "app/Services/Ai/Obra/AtlasObraExecutor.php",
+      "namespace": "App\\Services\\Ai\\Obra",
+      "class": "AtlasObraExecutor",
+      "method": "execute",
+      "start": 158,
+      "end": 569,
+      "loc": 412
+    },
+    {
+      "path": "app/Services/Ai/OpenBrainContextPack/RenderMarkdownSection.php",
+      "namespace": "App\\Services\\Ai\\OpenBrainContextPack",
+      "class": "RenderMarkdownSection",
+      "method": "renderMarkdown",
+      "start": 31,
+      "end": 433,
+      "loc": 403
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/KernelAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "KernelAudit",
+      "method": "scanKernelPipelineContract",
+      "start": 28,
+      "end": 426,
+      "loc": 399
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliHelpCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliHelpCommand",
+      "method": "commands",
+      "start": 50,
+      "end": 445,
+      "loc": 396
+    },
+    {
+      "path": "app/Http/Controllers/AtlasDev/Support/PipelineRun/BestOfNSection.php",
+      "namespace": "App\\Http\\Controllers\\AtlasDev\\Support\\PipelineRun",
+      "class": "BestOfNSection",
+      "method": "executeBestOfNHermes",
+      "start": 156,
+      "end": 544,
+      "loc": 389
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionRuntimePromotionEndgameService",
+      "method": "build",
+      "start": 43,
+      "end": 426,
+      "loc": 384
+    },
+    {
+      "path": "app/Services/Ai/TerminalDev/Session/AtlasTerminalSessionRuntime.php",
+      "namespace": "App\\Services\\Ai\\TerminalDev\\Session",
+      "class": "AtlasTerminalSessionRuntime",
+      "method": "handleSlash",
+      "start": 73,
+      "end": 452,
+      "loc": 380
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\OwnerFlow",
+      "class": "Ap786OwnerFlowExecutor",
+      "method": "execute",
+      "start": 132,
+      "end": 511,
+      "loc": 380
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiVoiceRealtimeCommand",
+      "method": "handle",
+      "start": 39,
+      "end": 417,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Engineering/EngineeringHarnessRunnerService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "EngineeringHarnessRunnerService",
+      "method": "run",
+      "start": 82,
+      "end": 460,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php",
+      "namespace": "App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop",
+      "class": "AreaFocusDeepFindingEngineService",
+      "method": "discoverInertWiringDebt",
+      "start": 774,
+      "end": 1152,
+      "loc": 379
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureBusinessRuleMinerService.php",
+      "namespace": "App\\Services\\Ai\\Company\\Ventures\\Comprehension\\Capabilities",
+      "class": "VentureBusinessRuleMinerService",
+      "method": "isNonPriceNumber",
+      "start": 221,
+      "end": 595,
+      "loc": 375
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOsHandoffStatus",
+      "start": 265,
+      "end": 637,
+      "loc": 373
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus",
+      "start": 644,
+      "end": 1016,
+      "loc": 373
+    },
+    {
+      "path": "app/Console/Commands/AtlasBrainHealthDoctorCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasBrainHealthDoctorCommand",
+      "method": "handle",
+      "start": 53,
+      "end": 422,
+      "loc": 370
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliDevCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliDevCommand",
+      "method": "handle",
+      "start": 87,
+      "end": 456,
+      "loc": 370
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/Catalog/CertificationWorkbenchEntries.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness\\Catalog",
+      "class": "CertificationWorkbenchEntries",
+      "method": "entries",
+      "start": 95,
+      "end": 464,
+      "loc": 370
+    },
+    {
+      "path": "app/Services/Ai/AiWorker.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AiWorker",
+      "method": "runNextMatching",
+      "start": 260,
+      "end": 628,
+      "loc": 369
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Completion/AtlasSelfConstructionFinalEvidenceSourceRegistry.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Completion",
+      "class": "AtlasSelfConstructionFinalEvidenceSourceRegistry",
+      "method": "sources",
+      "start": 184,
+      "end": 539,
+      "loc": 356
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Architecture/Scanner/LedgerAudit.php",
+      "namespace": "App\\Services\\Ai\\Kernel\\Architecture\\Scanner",
+      "class": "LedgerAudit",
+      "method": "scanLedgerReplayCommandSurface",
+      "start": 195,
+      "end": 534,
+      "loc": 340
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneReplayDiffService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneReplayDiffService",
+      "method": "diff",
+      "start": 42,
+      "end": 377,
+      "loc": 336
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "AtlasUpliftRunner",
+      "method": "compare",
+      "start": 16,
+      "end": 346,
+      "loc": 331
+    },
+    {
+      "path": "app/Services/Ai/Hermes/Acp/HermesAcpProtocol.php",
+      "namespace": "App\\Services\\Ai\\Hermes\\Acp",
+      "class": "HermesAcpProtocol",
+      "method": "classify",
+      "start": 134,
+      "end": 463,
+      "loc": 330
+    },
+    {
+      "path": "app/Services/Engineering/AtlasUniversalRealityCartographyService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "AtlasUniversalRealityCartographyService",
+      "method": "nodes",
+      "start": 312,
+      "end": 640,
+      "loc": 329
+    },
+    {
+      "path": "app/Services/Ai/Arena/ArenaCapabilityProfileService.php",
+      "namespace": "App\\Services\\Ai\\Arena",
+      "class": "ArenaCapabilityProfileService",
+      "method": "profile",
+      "start": 12,
+      "end": 340,
+      "loc": 329
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService",
+      "method": "orderedOperatorPath",
+      "start": 778,
+      "end": 1100,
+      "loc": 323
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketBuilder.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneTaskPacketBuilder",
+      "method": "build",
+      "start": 191,
+      "end": 512,
+      "loc": 322
+    },
+    {
+      "path": "app/Console/Commands/AtlasFinanceStrategySearchCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFinanceStrategySearchCommand",
+      "method": "handle",
+      "start": 114,
+      "end": 434,
+      "loc": 321
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionOsEvidenceSection.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\Readiness",
+      "class": "ReadinessProjectionOsEvidenceSection",
+      "method": "atlasSelfConstructionOsCompletionEvidenceStatus",
+      "start": 1023,
+      "end": 1342,
+      "loc": 320
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseCompletionSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseCompletionSection",
+      "method": "enterpriseHoldingCompletionAuditStatus",
+      "start": 320,
+      "end": 638,
+      "loc": 319
+    },
+    {
+      "path": "app/Console/Commands/AtlasBrainStateCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasBrainStateCommand",
+      "method": "handle",
+      "start": 71,
+      "end": 385,
+      "loc": 315
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasRivalsBatteryStateMachine.php",
+      "namespace": "App\\Services\\Ai\\Programming",
+      "class": "AtlasRivalsBatteryStateMachine",
+      "method": "snapshot",
+      "start": 196,
+      "end": 510,
+      "loc": 315
+    },
+    {
+      "path": "app/Services/Ai/Product/AtlasProductDeliveryCertificationService.php",
+      "namespace": "App\\Services\\Ai\\Product",
+      "class": "AtlasProductDeliveryCertificationService",
+      "method": "certify",
+      "start": 16,
+      "end": 328,
+      "loc": 313
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainMuscleOutcomeLearningMatrix.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ExternalBrain",
+      "class": "AtlasExternalBrainMuscleOutcomeLearningMatrix",
+      "method": "analyze",
+      "start": 68,
+      "end": 380,
+      "loc": 313
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Core/EnterpriseModelDissectionBuilder.php",
+      "namespace": "App\\Services\\Ai\\Rivals\\Core",
+      "class": "EnterpriseModelDissectionBuilder",
+      "method": "dissectModelRuntime",
+      "start": 131,
+      "end": 434,
+      "loc": 304
+    },
+    {
+      "path": "app/Services/Ai/OpenBrainContextPack/ContextDeliveryPolicySection.php",
+      "namespace": "App\\Services\\Ai\\OpenBrainContextPack",
+      "class": "ContextDeliveryPolicySection",
+      "method": "contextDeliveryPolicy",
+      "start": 38,
+      "end": 340,
+      "loc": 303
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseOperatingCycleSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseOperatingCycleSection",
+      "method": "enterpriseCompanyCapabilityCatalogStatus",
+      "start": 809,
+      "end": 1110,
+      "loc": 302
+    },
+    {
+      "path": "app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php",
+      "namespace": "App\\Services\\Engineering",
+      "class": "AtlasCodeRealityUsageIntelligenceService",
+      "method": "globalDuplicationAudit",
+      "start": 298,
+      "end": 597,
+      "loc": 300
+    },
+    {
+      "path": "app/Http/Controllers/SyncController.php",
+      "namespace": "App\\Http\\Controllers",
+      "class": "SyncController",
+      "method": "__invoke",
+      "start": 33,
+      "end": 331,
+      "loc": 299
+    },
+    {
+      "path": "app/Http/Controllers/AtlasAiVoxController.php",
+      "namespace": "App\\Http\\Controllers",
+      "class": "AtlasAiVoxController",
+      "method": "intent",
+      "start": 146,
+      "end": 444,
+      "loc": 299
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainArchitectureCompressionPlanner.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ExternalBrain",
+      "class": "AtlasExternalBrainArchitectureCompressionPlanner",
+      "method": "plan",
+      "start": 79,
+      "end": 375,
+      "loc": 297
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeWorker",
+      "class": "AtlasNativeWorkerClaimExecuteReportCycle",
+      "method": "run",
+      "start": 87,
+      "end": 382,
+      "loc": 296
+    },
+    {
+      "path": "app/Services/Ai/Arena/ArenaMeasurementStore.php",
+      "namespace": "App\\Services\\Ai\\Arena",
+      "class": "ArenaMeasurementStore",
+      "method": "measurements",
+      "start": 59,
+      "end": 352,
+      "loc": 294
+    },
+    {
+      "path": "app/Console/Commands/AtlasExternalBrainOriginatorQualityCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasExternalBrainOriginatorQualityCommand",
+      "method": "handle",
+      "start": 65,
+      "end": 357,
+      "loc": 293
+    },
+    {
+      "path": "app/Console/Commands/AtlasCognitionMintPipelineReceiptsCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCognitionMintPipelineReceiptsCommand",
+      "method": "handle",
+      "start": 31,
+      "end": 321,
+      "loc": 291
+    },
+    {
+      "path": "app/Services/Ai/ValueObjects/AiContextPack.php",
+      "namespace": "App\\Services\\Ai\\ValueObjects",
+      "class": "AiContextPack",
+      "method": "toPromptSection",
+      "start": 416,
+      "end": 704,
+      "loc": 289
+    },
+    {
+      "path": "app/Services/Ai/AtlasOpenBrainContextInjectionService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AtlasOpenBrainContextInjectionService",
+      "method": "promptSection",
+      "start": 1428,
+      "end": 1714,
+      "loc": 287
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionClosureExecutionPackService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionRuntimePromotionClosureExecutionPackService",
+      "method": "build",
+      "start": 53,
+      "end": 339,
+      "loc": 287
+    },
+    {
+      "path": "app/Services/Ai/Cognition/AcosProgram/AcosMaxLedgerRotationRegistry.php",
+      "namespace": "App\\Services\\Ai\\Cognition\\AcosProgram",
+      "class": "AcosMaxLedgerRotationRegistry",
+      "method": "defaultPolicies",
+      "start": 186,
+      "end": 472,
+      "loc": 287
+    },
+    {
+      "path": "app/Services/Ai/TerminalDev/Session/AtlasTerminalSessionRuntime.php",
+      "namespace": "App\\Services\\Ai\\TerminalDev\\Session",
+      "class": "AtlasTerminalSessionRuntime",
+      "method": "prompt",
+      "start": 461,
+      "end": 746,
+      "loc": 286
+    },
+    {
+      "path": "app/Services/Ai/WorkspaceIntelligence/Runtime/WorkspaceNextSessionBrainSection.php",
+      "namespace": "App\\Services\\Ai\\WorkspaceIntelligence\\Runtime",
+      "class": "WorkspaceNextSessionBrainSection",
+      "method": "workspaceNextSessionBrain",
+      "start": 73,
+      "end": 357,
+      "loc": 285
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseCompletionSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseCompletionSection",
+      "method": "enterpriseCompanyCompletionCertificationStatus",
+      "start": 32,
+      "end": 315,
+      "loc": 284
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService",
+      "method": "build",
+      "start": 76,
+      "end": 359,
+      "loc": 284
+    },
+    {
+      "path": "app/Console/Commands/AtlasEngineeringBenchmarkSeedCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasEngineeringBenchmarkSeedCommand",
+      "method": "fairClaudeCorpusCases",
+      "start": 138,
+      "end": 420,
+      "loc": 283
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopCertificationService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneMultiAgentLoopCertificationService",
+      "method": "runCycle",
+      "start": 402,
+      "end": 684,
+      "loc": 283
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalEvidenceBundleService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\NativeImplementation",
+      "class": "AtlasSelfConstructionFinalEvidenceBundleService",
+      "method": "build",
+      "start": 25,
+      "end": 306,
+      "loc": 282
+    },
+    {
+      "path": "app/Services/Ai/AtlasOpenBrainContextInjectionService.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "AtlasOpenBrainContextInjectionService",
+      "method": "buildInjection",
+      "start": 156,
+      "end": 436,
+      "loc": 281
+    },
+    {
+      "path": "app/Services/Ai/HermesCliProvider.php",
+      "namespace": "App\\Services\\Ai",
+      "class": "HermesCliProvider",
+      "method": "runStreaming",
+      "start": 76,
+      "end": 354,
+      "loc": 279
+    },
+    {
+      "path": "app/Services/Ai/Programming/CompletionAudit/AtlasAudit/UxSection.php",
+      "namespace": "App\\Services\\Ai\\Programming\\CompletionAudit\\AtlasAudit",
+      "class": "UxSection",
+      "method": "atlasCodeVisualErgonomicsCertification",
+      "start": 381,
+      "end": 658,
+      "loc": 278
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneMultiAgentLoopProbeRunner.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneMultiAgentLoopProbeRunner",
+      "method": "runTerminalBootstrapProbeInternal",
+      "start": 147,
+      "end": 423,
+      "loc": 277
+    },
+    {
+      "path": "app/Services/Ai/Router/AtlasAiRouterService.php",
+      "namespace": "App\\Services\\Ai\\Router",
+      "class": "AtlasAiRouterService",
+      "method": "decide",
+      "start": 23,
+      "end": 298,
+      "loc": 276
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/EnterpriseAgentWorkforceSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "EnterpriseAgentWorkforceSection",
+      "method": "enterpriseDomainWorkloadAgentTemplateStatus",
+      "start": 32,
+      "end": 307,
+      "loc": 276
+    },
+    {
+      "path": "app/Services/Ai/Holding/MandateRegistry/RealExecutionChainSection.php",
+      "namespace": "App\\Services\\Ai\\Holding\\MandateRegistry",
+      "class": "RealExecutionChainSection",
+      "method": "realExternalExecutionReadinessDossier",
+      "start": 32,
+      "end": 307,
+      "loc": 276
+    },
+    {
+      "path": "app/Services/Ai/Finance/StrategyLoop/Campaign/StrategyLoopPlanCompletionAudit.php",
+      "namespace": "App\\Services\\Ai\\Finance\\StrategyLoop\\Campaign",
+      "class": "StrategyLoopPlanCompletionAudit",
+      "method": "searchCommandControlsReady",
+      "start": 185,
+      "end": 458,
+      "loc": 274
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTerminalLoopOperationalProofService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneTerminalLoopOperationalProofService",
+      "method": "prove",
+      "start": 225,
+      "end": 498,
+      "loc": 274
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneChainIntegrityAuditService.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ControlPlane",
+      "class": "AgentControlPlaneChainIntegrityAuditService",
+      "method": "audit",
+      "start": 46,
+      "end": 317,
+      "loc": 272
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainCostQualityParetoFront.php",
+      "namespace": "App\\Services\\Ai\\SelfConstruction\\ExternalBrain",
+      "class": "AtlasExternalBrainCostQualityParetoFront",
+      "method": "compute",
+      "start": 73,
+      "end": 343,
+      "loc": 271
+    }
+  ],
+  "smell_classes": [
+    {
+      "path": "app/Support/Metadata.php",
+      "class": "Metadata",
+      "line": 7
+    },
+    {
+      "path": "app/Services/Ai/AiProviderManager.php",
+      "class": "AiProviderManager",
+      "line": 18
+    },
+    {
+      "path": "app/Services/Engineering/EngineeringKnowledgeBaseService.php",
+      "class": "EngineeringKnowledgeBaseService",
+      "line": 14
+    },
+    {
+      "path": "app/Services/Ai/Cli/AtlasCliDevEfficientHandler.php",
+      "class": "AtlasCliDevEfficientHandler",
+      "line": 34
+    },
+    {
+      "path": "app/Services/Ai/ConversationOps/AiSessionManager.php",
+      "class": "AiSessionManager",
+      "line": 12
+    },
+    {
+      "path": "app/Services/Ai/Programming/ProgrammingSandboxManager.php",
+      "class": "ProgrammingSandboxManager",
+      "line": 9
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasStrategyFlowHandler.php",
+      "class": "AtlasStrategyFlowHandler",
+      "line": 15
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasResearchFlowHandler.php",
+      "class": "AtlasResearchFlowHandler",
+      "line": 14
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasPersonalDevelopmentFlowHandler.php",
+      "class": "AtlasPersonalDevelopmentFlowHandler",
+      "line": 17
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasConversationFlowHandler.php",
+      "class": "AtlasConversationFlowHandler",
+      "line": 14
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasMarketingFlowHandler.php",
+      "class": "AtlasMarketingFlowHandler",
+      "line": 17
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasFinanceFlowHandler.php",
+      "class": "AtlasFinanceFlowHandler",
+      "line": 17
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/BaseSpecialistFlowHandler.php",
+      "class": "BaseSpecialistFlowHandler",
+      "line": 22
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasCyberFlowHandler.php",
+      "class": "AtlasCyberFlowHandler",
+      "line": 18
+    },
+    {
+      "path": "app/Services/Ai/SpecialistFlows/Handlers/AtlasAutomationFlowHandler.php",
+      "class": "AtlasAutomationFlowHandler",
+      "line": 18
+    },
+    {
+      "path": "app/Services/Ai/Finance/StrategyLoop/Bar.php",
+      "class": "Bar",
+      "line": 11
+    },
+    {
+      "path": "app/Services/Ai/AgenticEngineeringOs/Gates/GateObserveSectionBase.php",
+      "class": "GateObserveSectionBase",
+      "line": 11
+    },
+    {
+      "path": "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDepartmentQualityBarService.php",
+      "class": "AtlasDepartmentQualityBarService",
+      "line": 9
+    },
+    {
+      "path": "app/Services/Ai/MarketingDomain/Decision/BriefGroundingHelper.php",
+      "class": "BriefGroundingHelper",
+      "line": 11
+    },
+    {
+      "path": "app/Services/Ai/Learning/Failure/SuiteRedTriageHelper.php",
+      "class": "SuiteRedTriageHelper",
+      "line": 13
+    },
+    {
+      "path": "app/Services/Ai/Rivals/Benchmarks/BenchmarkRepoManager.php",
+      "class": "BenchmarkRepoManager",
+      "line": 19
+    }
+  ],
+  "smell_methods_generic": [
+    {
+      "path": "app/Models/AiDataConfidenceAudit.php",
+      "namespace": "App\\Models",
+      "class": "AiDataConfidenceAudit",
+      "method": "run",
+      "start": 62,
+      "end": 65,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiAutomationToolDecision.php",
+      "namespace": "App\\Models",
+      "class": "AiAutomationToolDecision",
+      "method": "run",
+      "start": 40,
+      "end": 43,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasToolFinding.php",
+      "namespace": "App\\Models",
+      "class": "AtlasToolFinding",
+      "method": "run",
+      "start": 43,
+      "end": 46,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasSelfConstructionAgentHeartbeat.php",
+      "namespace": "App\\Models",
+      "class": "AtlasSelfConstructionAgentHeartbeat",
+      "method": "run",
+      "start": 34,
+      "end": 37,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasToolArtifact.php",
+      "namespace": "App\\Models",
+      "class": "AtlasToolArtifact",
+      "method": "run",
+      "start": 36,
+      "end": 39,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiLocalAgentIngestionCandidate.php",
+      "namespace": "App\\Models",
+      "class": "AiLocalAgentIngestionCandidate",
+      "method": "run",
+      "start": 46,
+      "end": 49,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringTestRun.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringTestRun",
+      "method": "run",
+      "start": 38,
+      "end": 41,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiReportFinding.php",
+      "namespace": "App\\Models",
+      "class": "AiReportFinding",
+      "method": "run",
+      "start": 40,
+      "end": 43,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringControlResult.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringControlResult",
+      "method": "run",
+      "start": 39,
+      "end": 42,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringRunOperatorAction.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringRunOperatorAction",
+      "method": "run",
+      "start": 36,
+      "end": 39,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasSelfConstructionAgentWorkProduct.php",
+      "namespace": "App\\Models",
+      "class": "AtlasSelfConstructionAgentWorkProduct",
+      "method": "run",
+      "start": 36,
+      "end": 39,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiAutomationPlan.php",
+      "namespace": "App\\Models",
+      "class": "AiAutomationPlan",
+      "method": "run",
+      "start": 41,
+      "end": 44,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringReviewFinding.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringReviewFinding",
+      "method": "run",
+      "start": 51,
+      "end": 54,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringContextPack.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringContextPack",
+      "method": "run",
+      "start": 45,
+      "end": 48,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasSelfConstructionAgentCostEvent.php",
+      "namespace": "App\\Models",
+      "class": "AtlasSelfConstructionAgentCostEvent",
+      "method": "run",
+      "start": 38,
+      "end": 41,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringPatchArtifact.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringPatchArtifact",
+      "method": "run",
+      "start": 42,
+      "end": 45,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasSelfConstructionAgentDispatchReceipt.php",
+      "namespace": "App\\Models",
+      "class": "AtlasSelfConstructionAgentDispatchReceipt",
+      "method": "run",
+      "start": 44,
+      "end": 47,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasSelfConstructionAgentWakeupItem.php",
+      "namespace": "App\\Models",
+      "class": "AtlasSelfConstructionAgentWakeupItem",
+      "method": "run",
+      "start": 41,
+      "end": 44,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringRunAttempt.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringRunAttempt",
+      "method": "run",
+      "start": 48,
+      "end": 51,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiAutomationEvolutionEvent.php",
+      "namespace": "App\\Models",
+      "class": "AiAutomationEvolutionEvent",
+      "method": "run",
+      "start": 35,
+      "end": 38,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AtlasEngineeringFileReviewDecision.php",
+      "namespace": "App\\Models",
+      "class": "AtlasEngineeringFileReviewDecision",
+      "method": "run",
+      "start": 35,
+      "end": 38,
+      "loc": 4
+    },
+    {
+      "path": "app/Models/AiLocalAgentIngestionSource.php",
+      "namespace": "App\\Models",
+      "class": "AiLocalAgentIngestionSource",
+      "method": "run",
+      "start": 53,
+      "end": 56,
+      "loc": 4
+    },
+    {
+      "path": "app/Jobs/ProcessAudioTranscription.php",
+      "namespace": "App\\Jobs",
+      "class": "ProcessAudioTranscription",
+      "method": "handle",
+      "start": 27,
+      "end": 90,
+      "loc": 64
+    },
+    {
+      "path": "app/Jobs/OperatorComprehensionExtractionJob.php",
+      "namespace": "App\\Jobs",
+      "class": "OperatorComprehensionExtractionJob",
+      "method": "handle",
+      "start": 37,
+      "end": 65,
+      "loc": 29
+    },
+    {
+      "path": "app/Jobs/SendMobilePushJob.php",
+      "namespace": "App\\Jobs",
+      "class": "SendMobilePushJob",
+      "method": "handle",
+      "start": 39,
+      "end": 63,
+      "loc": 25
+    },
+    {
+      "path": "app/Jobs/DeliverAtlasMissionJob.php",
+      "namespace": "App\\Jobs",
+      "class": "DeliverAtlasMissionJob",
+      "method": "handle",
+      "start": 38,
+      "end": 68,
+      "loc": 31
+    },
+    {
+      "path": "app/Jobs/ProcessAiAttachmentVisuals.php",
+      "namespace": "App\\Jobs",
+      "class": "ProcessAiAttachmentVisuals",
+      "method": "handle",
+      "start": 22,
+      "end": 47,
+      "loc": 26
+    },
+    {
+      "path": "app/Jobs/RunScheduledTaskJob.php",
+      "namespace": "App\\Jobs",
+      "class": "RunScheduledTaskJob",
+      "method": "handle",
+      "start": 42,
+      "end": 106,
+      "loc": 65
+    },
+    {
+      "path": "app/Jobs/FlushBatchedMobilePushes.php",
+      "namespace": "App\\Jobs",
+      "class": "FlushBatchedMobilePushes",
+      "method": "handle",
+      "start": 17,
+      "end": 20,
+      "loc": 4
+    },
+    {
+      "path": "app/Jobs/ProcessYouTubeIngestionJob.php",
+      "namespace": "App\\Jobs",
+      "class": "ProcessYouTubeIngestionJob",
+      "method": "handle",
+      "start": 33,
+      "end": 38,
+      "loc": 6
+    },
+    {
+      "path": "app/Jobs/GenerateVerifiedL2HierarchicalSummaryJob.php",
+      "namespace": "App\\Jobs",
+      "class": "GenerateVerifiedL2HierarchicalSummaryJob",
+      "method": "handle",
+      "start": 29,
+      "end": 32,
+      "loc": 4
+    },
+    {
+      "path": "app/Jobs/AtlasCodeForgeLiveExecutionJob.php",
+      "namespace": "App\\Jobs",
+      "class": "AtlasCodeForgeLiveExecutionJob",
+      "method": "handle",
+      "start": 34,
+      "end": 44,
+      "loc": 11
+    },
+    {
+      "path": "app/Jobs/ProcessVslAssetIngestionJob.php",
+      "namespace": "App\\Jobs",
+      "class": "ProcessVslAssetIngestionJob",
+      "method": "handle",
+      "start": 34,
+      "end": 43,
+      "loc": 10
+    },
+    {
+      "path": "app/Jobs/SoftwareCompanyLoopCycleRevertJob.php",
+      "namespace": "App\\Jobs",
+      "class": "SoftwareCompanyLoopCycleRevertJob",
+      "method": "handle",
+      "start": 45,
+      "end": 49,
+      "loc": 5
+    },
+    {
+      "path": "app/Jobs/AssembleWorkspaceFolderIntelligenceJob.php",
+      "namespace": "App\\Jobs",
+      "class": "AssembleWorkspaceFolderIntelligenceJob",
+      "method": "handle",
+      "start": 60,
+      "end": 85,
+      "loc": 26
+    },
+    {
+      "path": "app/Console/Commands/AtlasSelfConstructionApproveProposalCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasSelfConstructionApproveProposalCommand",
+      "method": "handle",
+      "start": 26,
+      "end": 31,
+      "loc": 6
+    },
+    {
+      "path": "app/Console/Commands/AtlasLongHorizonWorldModelCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasLongHorizonWorldModelCommand",
+      "method": "handle",
+      "start": 22,
+      "end": 48,
+      "loc": 27
+    },
+    {
+      "path": "app/Console/Commands/HealthRepairCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "HealthRepairCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 81,
+      "loc": 65
+    },
+    {
+      "path": "app/Console/Commands/AtlasObraWorkOrderCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasObraWorkOrderCommand",
+      "method": "handle",
+      "start": 42,
+      "end": 128,
+      "loc": 87
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliScheduleCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliScheduleCommand",
+      "method": "handle",
+      "start": 35,
+      "end": 66,
+      "loc": 32
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiMissionFoundationCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiMissionFoundationCommand",
+      "method": "handle",
+      "start": 37,
+      "end": 94,
+      "loc": 58
+    },
+    {
+      "path": "app/Console/Commands/AtlasGraphRetrievalNetworkCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasGraphRetrievalNetworkCommand",
+      "method": "handle",
+      "start": 27,
+      "end": 55,
+      "loc": 29
+    },
+    {
+      "path": "app/Console/Commands/AtlasRuntimeCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasRuntimeCommand",
+      "method": "handle",
+      "start": 46,
+      "end": 123,
+      "loc": 78
+    },
+    {
+      "path": "app/Console/Commands/AtlasFrontendCompanyRepoOnboardingCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFrontendCompanyRepoOnboardingCommand",
+      "method": "handle",
+      "start": 30,
+      "end": 59,
+      "loc": 30
+    },
+    {
+      "path": "app/Console/Commands/AtlasSoftwareTwinCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasSoftwareTwinCommand",
+      "method": "handle",
+      "start": 32,
+      "end": 67,
+      "loc": 36
+    },
+    {
+      "path": "app/Console/Commands/AtlasSwarmExecutorCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasSwarmExecutorCommand",
+      "method": "handle",
+      "start": 37,
+      "end": 102,
+      "loc": 66
+    },
+    {
+      "path": "app/Console/Commands/AtlasGoldenCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasGoldenCommand",
+      "method": "handle",
+      "start": 35,
+      "end": 58,
+      "loc": 24
+    },
+    {
+      "path": "app/Console/Commands/AtlasFrontendDesignDossierCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFrontendDesignDossierCommand",
+      "method": "handle",
+      "start": 18,
+      "end": 40,
+      "loc": 23
+    },
+    {
+      "path": "app/Console/Commands/AtlasIntelligenceRolloutPromoteCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasIntelligenceRolloutPromoteCommand",
+      "method": "handle",
+      "start": 62,
+      "end": 182,
+      "loc": 121
+    },
+    {
+      "path": "app/Console/Commands/AtlasTaskHealthHistogramCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasTaskHealthHistogramCommand",
+      "method": "handle",
+      "start": 45,
+      "end": 67,
+      "loc": 23
+    },
+    {
+      "path": "app/Console/Commands/AtlasCliDevPlanCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCliDevPlanCommand",
+      "method": "handle",
+      "start": 51,
+      "end": 95,
+      "loc": 45
+    },
+    {
+      "path": "app/Console/Commands/AtlasAaelCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAaelCommand",
+      "method": "handle",
+      "start": 29,
+      "end": 54,
+      "loc": 26
+    },
+    {
+      "path": "app/Console/Commands/AtlasExternalBrainMaturityGapCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasExternalBrainMaturityGapCommand",
+      "method": "handle",
+      "start": 33,
+      "end": 86,
+      "loc": 54
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiApprovalCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiApprovalCommand",
+      "method": "handle",
+      "start": 38,
+      "end": 60,
+      "loc": 23
+    },
+    {
+      "path": "app/Console/Commands/AtlasWatchdogRunCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasWatchdogRunCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 33,
+      "loc": 17
+    },
+    {
+      "path": "app/Console/Commands/AtlasProgrammingRetrievalBenchmarkCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasProgrammingRetrievalBenchmarkCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 38,
+      "loc": 22
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiQualitativeLevelsCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiQualitativeLevelsCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 47,
+      "loc": 31
+    },
+    {
+      "path": "app/Console/Commands/AtlasOpenBrainContextCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasOpenBrainContextCommand",
+      "method": "handle",
+      "start": 26,
+      "end": 73,
+      "loc": 48
+    },
+    {
+      "path": "app/Console/Commands/AtlasExternalBrainControlPlaneCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasExternalBrainControlPlaneCommand",
+      "method": "handle",
+      "start": 36,
+      "end": 57,
+      "loc": 22
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiLessonHalfLifeCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiLessonHalfLifeCommand",
+      "method": "handle",
+      "start": 16,
+      "end": 21,
+      "loc": 6
+    },
+    {
+      "path": "app/Console/Commands/AtlasCognitionScorecardWatchdogCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCognitionScorecardWatchdogCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 30,
+      "loc": 14
+    },
+    {
+      "path": "app/Console/Commands/AtlasFailureAutoFeedCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFailureAutoFeedCommand",
+      "method": "handle",
+      "start": 24,
+      "end": 62,
+      "loc": 39
+    },
+    {
+      "path": "app/Console/Commands/AtlasTaskEnqueueCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasTaskEnqueueCommand",
+      "method": "handle",
+      "start": 39,
+      "end": 93,
+      "loc": 55
+    },
+    {
+      "path": "app/Console/Commands/AtlasOrganismCommissionCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasOrganismCommissionCommand",
+      "method": "handle",
+      "start": 44,
+      "end": 82,
+      "loc": 39
+    },
+    {
+      "path": "app/Console/Commands/AtlasAiAbstractionLadderCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAiAbstractionLadderCommand",
+      "method": "handle",
+      "start": 25,
+      "end": 51,
+      "loc": 27
+    },
+    {
+      "path": "app/Console/Commands/AtlasExternalBrainModelAmplifierCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasExternalBrainModelAmplifierCommand",
+      "method": "handle",
+      "start": 36,
+      "end": 84,
+      "loc": 49
+    },
+    {
+      "path": "app/Console/Commands/AtlasTaskRetireCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasTaskRetireCommand",
+      "method": "handle",
+      "start": 30,
+      "end": 121,
+      "loc": 92
+    },
+    {
+      "path": "app/Console/Commands/AtlasSelfConstructionFinalCompletionGateCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasSelfConstructionFinalCompletionGateCommand",
+      "method": "handle",
+      "start": 22,
+      "end": 33,
+      "loc": 12
+    },
+    {
+      "path": "app/Console/Commands/AtlasFrontendWorkOrderCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFrontendWorkOrderCommand",
+      "method": "handle",
+      "start": 30,
+      "end": 58,
+      "loc": 29
+    },
+    {
+      "path": "app/Console/Commands/AtlasFrontendFrameworkAdapterCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFrontendFrameworkAdapterCommand",
+      "method": "handle",
+      "start": 18,
+      "end": 40,
+      "loc": 23
+    },
+    {
+      "path": "app/Console/Commands/AtlasFrontendDesignSystemDriftCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFrontendDesignSystemDriftCommand",
+      "method": "handle",
+      "start": 18,
+      "end": 37,
+      "loc": 20
+    },
+    {
+      "path": "app/Console/Commands/AtlasStrategicRealityCertifyCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasStrategicRealityCertifyCommand",
+      "method": "handle",
+      "start": 16,
+      "end": 32,
+      "loc": 17
+    },
+    {
+      "path": "app/Console/Commands/AtlasProgrammingPatchVerifierBenchmarkCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasProgrammingPatchVerifierBenchmarkCommand",
+      "method": "handle",
+      "start": 15,
+      "end": 30,
+      "loc": 16
+    },
+    {
+      "path": "app/Console/Commands/AtlasPythonDataRetrievalRuntimeCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasPythonDataRetrievalRuntimeCommand",
+      "method": "handle",
+      "start": 25,
+      "end": 51,
+      "loc": 27
+    },
+    {
+      "path": "app/Console/Commands/AtlasContextPackCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasContextPackCommand",
+      "method": "handle",
+      "start": 49,
+      "end": 118,
+      "loc": 70
+    },
+    {
+      "path": "app/Console/Commands/AtlasFinancePolyShadowCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasFinancePolyShadowCommand",
+      "method": "handle",
+      "start": 39,
+      "end": 47,
+      "loc": 9
+    },
+    {
+      "path": "app/Console/Commands/AtlasContextFeedbackHealthCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasContextFeedbackHealthCommand",
+      "method": "handle",
+      "start": 17,
+      "end": 31,
+      "loc": 15
+    },
+    {
+      "path": "app/Console/Commands/AtlasAaelExecutionDepthCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasAaelExecutionDepthCommand",
+      "method": "handle",
+      "start": 36,
+      "end": 52,
+      "loc": 17
+    },
+    {
+      "path": "app/Console/Commands/AtlasCrossDomainGraphBuildCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasCrossDomainGraphBuildCommand",
+      "method": "handle",
+      "start": 27,
+      "end": 101,
+      "loc": 75
+    },
+    {
+      "path": "app/Console/Commands/AtlasTaskReindexCommand.php",
+      "namespace": "App\\Console\\Commands",
+      "class": "AtlasTaskReindexCommand",
+      "method": "handle",
+      "start": 22,
+      "end": 41,
+      "loc": 20
+    }
+  ],
+  "method_name_spread_top": [
+    {
+      "method": "casts",
+      "count": 401,
+      "sample": [
+        "app/Models/AiAppSecReview.php::AiAppSecReview",
+        "app/Models/AiApprovalRequest.php::AiApprovalRequest",
+        "app/Models/AiArtifact.php::AiArtifact",
+        "app/Models/AiAtlasDecisionReceipt.php::AiAtlasDecisionReceipt",
+        "app/Models/AiAtlasFlowRoute.php::AiAtlasFlowRoute",
+        "app/Models/AiAtlasIntentClassification.php::AiAtlasIntentClassification",
+        "app/Models/AiAtlasRouterDecision.php::AiAtlasRouterDecision",
+        "app/Models/AiAtlasRuntimeDispatch.php::AiAtlasRuntimeDispatch"
+      ]
+    },
+    {
+      "method": "evaluate",
+      "count": 259,
+      "sample": [
+        "app/Http/Controllers/AtlasCodeSelfImprovementProposalBacklogController.php::AtlasCodeSelfImprovementProposalBacklogController",
+        "app/Services/Ai/Aaeos/Spine/AaeosSpineGate.php::AaeosSpineGate",
+        "app/Services/Ai/Aemor/Judgment/AemorFalseLearningGateEvaluator.php::AemorFalseLearningGateEvaluator",
+        "app/Services/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluator.php::AtlasUniversalGatesEvaluator",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDepartmentPromotionEligibilityEvaluator.php::AtlasDepartmentPromotionEligibilityEvaluator",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasImplementationTruthService.php::AtlasImplementationTruthService",
+        "app/Services/Ai/Analysis/AnalysisHonestyGate.php::AnalysisHonestyGate",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmTopologyAutoComposerService.php::AtlasSwarmTopologyAutoComposerService"
+      ]
+    },
+    {
+      "method": "normalize",
+      "count": 224,
+      "sample": [
+        "app/Console/Commands/AtlasSelfConstructionWorkersCommand.php::AtlasSelfConstructionWorkersCommand",
+        "app/Http/Controllers/BitaculaController.php::BitaculaController",
+        "app/Services/Ai/AgenticEngineeringOs/AaeosRequiredGateCoverageChecker.php::AaeosRequiredGateCoverageChecker",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasClaimDefinitionOfDoneValidator.php::AtlasClaimDefinitionOfDoneValidator",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasVetoPropagationResolver.php::AtlasVetoPropagationResolver",
+        "app/Services/Ai/AgenticEngineeringOs/Scoring/SummaryFidelityCoverageScorer.php::SummaryFidelityCoverageScorer",
+        "app/Services/Ai/Analysis/AiQualityEvaluator.php::AiQualityEvaluator",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCloneOrderedNormalizer.php::AtlasLoopCloneOrderedNormalizer"
+      ]
+    },
+    {
+      "method": "run",
+      "count": 171,
+      "sample": [
+        "app/Http/Controllers/AiQualityActionController.php::AiQualityActionController",
+        "app/Http/Controllers/AtlasToolRuntimeController.php::AtlasToolRuntimeController",
+        "app/Models/AiAutomationEvolutionEvent.php::AiAutomationEvolutionEvent",
+        "app/Models/AiAutomationPlan.php::AiAutomationPlan",
+        "app/Models/AiAutomationToolDecision.php::AiAutomationToolDecision",
+        "app/Models/AiDataConfidenceAudit.php::AiDataConfidenceAudit",
+        "app/Models/AiLocalAgentIngestionCandidate.php::AiLocalAgentIngestionCandidate",
+        "app/Models/AiLocalAgentIngestionSource.php::AiLocalAgentIngestionSource"
+      ]
+    },
+    {
+      "method": "emit",
+      "count": 169,
+      "sample": [
+        "app/Console/Commands/AtlasAaelExecutionDebuggerCommand.php::AtlasAaelExecutionDebuggerCommand",
+        "app/Console/Commands/AtlasAaelExecutionDepthCommand.php::AtlasAaelExecutionDepthCommand",
+        "app/Console/Commands/AtlasAaelExecutionRollbackCommand.php::AtlasAaelExecutionRollbackCommand",
+        "app/Console/Commands/AtlasAaelInFlightCommand.php::AtlasAaelInFlightCommand",
+        "app/Console/Commands/AtlasAaelParallelCommand.php::AtlasAaelParallelCommand",
+        "app/Console/Commands/AtlasAaeosChoreographyStatusCommand.php::AtlasAaeosChoreographyStatusCommand",
+        "app/Console/Commands/AtlasAaeosCommand.php::AtlasAaeosCommand",
+        "app/Console/Commands/AtlasAaeosDepartmentRegistryCommand.php::AtlasAaeosDepartmentRegistryCommand"
+      ]
+    },
+    {
+      "method": "plan",
+      "count": 160,
+      "sample": [
+        "app/Console/Commands/AtlasEvolucaoCommand.php::AtlasEvolucaoCommand",
+        "app/Console/Commands/AtlasFinancePolyExecCommand.php::AtlasFinancePolyExecCommand",
+        "app/Console/Commands/AtlasProjectLaneRuntimePlanCommand.php::AtlasProjectLaneRuntimePlanCommand",
+        "app/Console/Commands/AtlasRivalsCommand.php::AtlasRivalsCommand",
+        "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php::AtlasSelfConstructionAutonomousRuntimeCommand",
+        "app/Console/Commands/AtlasSelfConstructionContinuousRuntimeCommand.php::AtlasSelfConstructionContinuousRuntimeCommand",
+        "app/Console/Commands/AtlasSelfConstructionKnowledgeSyncCommand.php::AtlasSelfConstructionKnowledgeSyncCommand",
+        "app/Console/Commands/AtlasSelfConstructionLearningTransferCommand.php::AtlasSelfConstructionLearningTransferCommand"
+      ]
+    },
+    {
+      "method": "result",
+      "count": 152,
+      "sample": [
+        "app/Services/Ai/Aaeos/Control/AaeosModeSelector.php::AaeosModeSelector",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDocsAuthorityGraphService.php::AtlasDocsAuthorityGraphService",
+        "app/Services/Ai/AtlasDecide/HonestExplorationPolicy.php::HonestExplorationPolicy",
+        "app/Services/Ai/AtlasOpenBrainContextInjectionBoundaryClassifier.php::AtlasOpenBrainContextInjectionBoundaryClassifier",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopProjectionEngine.php::AtlasLoopProjectionEngine",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php::AtlasLoopQualityGrader",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainLeverageBrief.php::AtlasBrainLeverageBrief",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPortfolioRouter.php::AtlasBrainPortfolioRouter"
+      ]
+    },
+    {
+      "method": "build",
+      "count": 141,
+      "sample": [
+        "app/Services/Ai/Aaeos/Control/AaeosWorldSnapshotBuilder.php::AaeosWorldSnapshotBuilder",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDocsAuthorityGraphService.php::AtlasDocsAuthorityGraphService",
+        "app/Services/Ai/AiPromptBuilder.php::AiPromptBuilder",
+        "app/Services/Ai/AiProviderChoiceBuilder.php::AiProviderChoiceBuilder",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopImpactReceiptService.php::AtlasLoopImpactReceiptService",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainComposedSelfKnowledgeReport.php::AtlasBrainComposedSelfKnowledgeReport",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintTransitionMatrix.php::AtlasBrainHintTransitionMatrix",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHypotheticalTailAppender.php::AtlasBrainHypotheticalTailAppender"
+      ]
+    },
+    {
+      "method": "record",
+      "count": 119,
+      "sample": [
+        "app/Console/Commands/AtlasBrainCycleCapsuleCommand.php::AtlasBrainCycleCapsuleCommand",
+        "app/Console/Commands/AtlasEngineeringMScorecardCommand.php::AtlasEngineeringMScorecardCommand",
+        "app/Console/Commands/AtlasFailureCommand.php::AtlasFailureCommand",
+        "app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php::AaeosCycleOutcomeRecorder",
+        "app/Services/Ai/Aemor/AtlasEngineeringOutcomeRecorder.php::AtlasEngineeringOutcomeRecorder",
+        "app/Services/Ai/AgentGovernance/AtlasAgentDesiredStateStore.php::AtlasAgentDesiredStateStore",
+        "app/Services/Ai/AtlasDecide/AtlasConductorRoutingMemory.php::AtlasConductorRoutingMemory",
+        "app/Services/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackService.php::AtlasDecideLiveOutcomeFeedbackService"
+      ]
+    },
+    {
+      "method": "report",
+      "count": 118,
+      "sample": [
+        "app/Console/Commands/AtlasAcosAdvReproofCommand.php::AtlasAcosAdvReproofCommand",
+        "app/Console/Commands/AtlasBrainRehydrateMemoryCommand.php::AtlasBrainRehydrateMemoryCommand",
+        "app/Console/Commands/AtlasBrainReplayCommand.php::AtlasBrainReplayCommand",
+        "app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php::AtlasEngineeringBenchmarkFairCommand",
+        "app/Console/Commands/AtlasFinancePolyArbCommand.php::AtlasFinancePolyArbCommand",
+        "app/Console/Commands/AtlasFinancePolyImplicationCommand.php::AtlasFinancePolyImplicationCommand",
+        "app/Console/Commands/AtlasFinancePolyShadowCommand.php::AtlasFinancePolyShadowCommand",
+        "app/Console/Commands/AtlasMemoryBackfillMetadataCommand.php::AtlasMemoryBackfillMetadataCommand"
+      ]
+    },
+    {
+      "method": "claimPolicy",
+      "count": 115,
+      "sample": [
+        "app/Services/Ai/Aemor/AtlasAemorCertificationService.php::AtlasAemorCertificationService",
+        "app/Services/Ai/Aemor/AtlasAemorRuntimeService.php::AtlasAemorRuntimeService",
+        "app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellCertificationService.php::AtlasAgenticWorkcellCertificationService",
+        "app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeService.php::AtlasAgenticWorkcellRuntimeService",
+        "app/Services/Ai/AtlasDecide/AtlasCognitiveFunctionSwarmRouterService.php::AtlasCognitiveFunctionSwarmRouterService",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmAutoFailoverService.php::AtlasSwarmAutoFailoverService",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmParallelDispatchService.php::AtlasSwarmParallelDispatchService",
+        "app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationService.php::AtlasAutonomousEvolutionCertificationService"
+      ]
+    },
+    {
+      "method": "hash",
+      "count": 110,
+      "sample": [
+        "app/Console/Commands/AiReportEngineRunCommand.php::AiReportEngineRunCommand",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCloneOrderedNormalizer.php::AtlasLoopCloneOrderedNormalizer",
+        "app/Services/Ai/Brain/AtlasEvolutionDiary.php::AtlasEvolutionDiary",
+        "app/Services/Ai/Brain/AtlasMemoryJournal.php::AtlasMemoryJournal",
+        "app/Services/Ai/Cognition/AtlasCognitionScoreCardService.php::AtlasCognitionScoreCardService",
+        "app/Services/Ai/ConversationOps/AtlasConversationOperationsCertificationService.php::AtlasConversationOperationsCertificationService",
+        "app/Services/Ai/ConversationOps/AtlasConversationOperationsService.php::AtlasConversationOperationsService",
+        "app/Services/Ai/EngineeringKernel/CanonicalKernelPayload.php::CanonicalKernelPayload"
+      ]
+    },
+    {
+      "method": "classify",
+      "count": 106,
+      "sample": [
+        "app/Console/Commands/AtlasSelfConstructionLearningTransferCommand.php::AtlasSelfConstructionLearningTransferCommand",
+        "app/Console/Commands/AtlasTaskMaestroMultiProviderCommand.php::AtlasTaskMaestroMultiProviderCommand",
+        "app/Services/Ai/Aaeos/Control/AaeosDifficultyClassifier.php::AaeosDifficultyClassifier",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasCognitiveImmuneInputClassifier.php::AtlasCognitiveImmuneInputClassifier",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDepartmentLevelClassifier.php::AtlasDepartmentLevelClassifier",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDepartmentMaturityBandClassifier.php::AtlasDepartmentMaturityBandClassifier",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDepartmentQualityBarLevelClassifier.php::AtlasDepartmentQualityBarLevelClassifier",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasDocMaturityClassifier.php::AtlasDocMaturityClassifier"
+      ]
+    },
+    {
+      "method": "stringOption",
+      "count": 104,
+      "sample": [
+        "app/Console/Commands/AtlasAaeosMaturityCommand.php::AtlasAaeosMaturityCommand",
+        "app/Console/Commands/AtlasAaeosVerifyTestsCommand.php::AtlasAaeosVerifyTestsCommand",
+        "app/Console/Commands/AtlasAcosWindowsCommand.php::AtlasAcosWindowsCommand",
+        "app/Console/Commands/AtlasAiControlPlaneCommand.php::AtlasAiControlPlaneCommand",
+        "app/Console/Commands/AtlasAiDomainRuntimeCommand.php::AtlasAiDomainRuntimeCommand",
+        "app/Console/Commands/AtlasAiEvidenceCommand.php::AtlasAiEvidenceCommand",
+        "app/Console/Commands/AtlasAiFinanceDomainCommand.php::AtlasAiFinanceDomainCommand",
+        "app/Console/Commands/AtlasAiLearningCommand.php::AtlasAiLearningCommand"
+      ]
+    },
+    {
+      "method": "fromArray",
+      "count": 103,
+      "sample": [
+        "app/Services/Ai/Aaeos/Control/AaeosWorldSnapshot.php::AaeosWorldSnapshot",
+        "app/Services/Ai/Aemor/Envelope/OutcomeEnvelope.php::OutcomeEnvelope",
+        "app/Services/Ai/AgenticEngineeringOs/ArchitectAgentSpecPackGateContract.php::ArchitectAgentSpecPackGateContract",
+        "app/Services/Ai/AgenticEngineeringOs/QualityBarTelemetryContract.php::QualityBarTelemetryContract",
+        "app/Services/Ai/AutonomousEngineering/WorldModel/WorldModelRankingQuery.php::WorldModelRankingQuery",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php::AtlasLoopScopeComprehensionModel",
+        "app/Services/Ai/AutonomousEvolution/Pattern/AtlasLoopPatternSpec.php::AtlasLoopPatternSpec",
+        "app/Services/Ai/Cognition/CognitiveImmuneCheckContract.php::CognitiveImmuneCheckContract"
+      ]
+    },
+    {
+      "method": "certify",
+      "count": 98,
+      "sample": [
+        "app/Console/Commands/AtlasCompactionCertifyCommand.php::AtlasCompactionCertifyCommand",
+        "app/Services/Ai/Aemor/AtlasAemorCertificationService.php::AtlasAemorCertificationService",
+        "app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellCertificationService.php::AtlasAgenticWorkcellCertificationService",
+        "app/Services/Ai/AutonomousEngineering/AtlasAutonomousEngineeringService.php::AtlasAutonomousEngineeringService",
+        "app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationService.php::AtlasAutonomousEvolutionCertificationService",
+        "app/Services/Ai/AutonomousWorkExecution/AtlasAutonomousWorkExecutionCertificationService.php::AtlasAutonomousWorkExecutionCertificationService",
+        "app/Services/Ai/Compounding/AtlasCompoundingReadinessService.php::AtlasCompoundingReadinessService",
+        "app/Services/Ai/Compounding/AtlasTemporalCertificationService.php::AtlasTemporalCertificationService"
+      ]
+    },
+    {
+      "method": "decide",
+      "count": 92,
+      "sample": [
+        "app/Console/Commands/AtlasBrainNextCommand.php::AtlasBrainNextCommand",
+        "app/Console/Commands/AtlasCompoundingReviewLessonsCommand.php::AtlasCompoundingReviewLessonsCommand",
+        "app/Console/Commands/AtlasSelfConstructionMergeGovernorCommand.php::AtlasSelfConstructionMergeGovernorCommand",
+        "app/Http/Controllers/AtlasCodeAttentionControlPlaneController.php::AtlasCodeAttentionControlPlaneController",
+        "app/Http/Controllers/AtlasCodeObservedSessionController.php::AtlasCodeObservedSessionController",
+        "app/Services/Ai/AutomationDomain/ToolSelectionWorkflowService.php::ToolSelectionWorkflowService",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCriticalConsensusGate.php::AtlasBrainCriticalConsensusGate",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopHeavyWorkPanelService.php::AtlasLoopHeavyWorkPanelService"
+      ]
+    },
+    {
+      "method": "stableHash",
+      "count": 91,
+      "sample": [
+        "app/Services/Ai/Kernel/Repair/RepairEvidencePayloadFormatter.php::RepairEvidencePayloadFormatter",
+        "app/Services/Ai/Rivals/Core/StatisticalPolicy.php::StatisticalPolicy",
+        "app/Services/Ai/SelfConstruction/Completion/AtlasSelfConstructionOsCompletionAuditHashCanonicalizer.php::AtlasSelfConstructionOsCompletionAuditHashCanonicalizer",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService.php::AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneApprovalReceiptPlanner.php::AgentControlPlaneApprovalReceiptPlanner",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneAutomaticCostImportRuntimeCertificationService.php::AgentControlPlaneAutomaticCostImportRuntimeCertificationService",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneAutomaticWorkProductCollectionCertificationService.php::AgentControlPlaneAutomaticWorkProductCollectionCertificationService",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneBaselineCaptureReadinessService.php::AgentControlPlaneBaselineCaptureReadinessService"
+      ]
+    },
+    {
+      "method": "status",
+      "count": 85,
+      "sample": [
+        "app/Console/Commands/AtlasCliMobileCommand.php::AtlasCliMobileCommand",
+        "app/Console/Commands/AtlasCliPermissionsCommand.php::AtlasCliPermissionsCommand",
+        "app/Console/Commands/AtlasFinancePolyExecCommand.php::AtlasFinancePolyExecCommand",
+        "app/Console/Commands/AtlasFinanceSpotExecCommand.php::AtlasFinanceSpotExecCommand",
+        "app/Console/Commands/AtlasMemoryProjectionCommand.php::AtlasMemoryProjectionCommand",
+        "app/Http/Controllers/Ai/YoutubePrewarmController.php::YoutubePrewarmController",
+        "app/Http/Controllers/AiProviderController.php::AiProviderController",
+        "app/Http/Controllers/AtlasAgentGovernanceController.php::AtlasAgentGovernanceController"
+      ]
+    },
+    {
+      "method": "snapshot",
+      "count": 83,
+      "sample": [
+        "app/Console/Commands/AtlasAcosDeltaSeriesCommand.php::AtlasAcosDeltaSeriesCommand",
+        "app/Console/Commands/AtlasAcosDeltaSeriesV2Command.php::AtlasAcosDeltaSeriesV2Command",
+        "app/Console/Commands/AtlasSelfConstructionCortexCommand.php::AtlasSelfConstructionCortexCommand",
+        "app/Console/Commands/AtlasSelfConstructionOperatorInterfaceCommand.php::AtlasSelfConstructionOperatorInterfaceCommand",
+        "app/Services/Ai/AgentGovernance/AtlasAgentRegistry.php::AtlasAgentRegistry",
+        "app/Services/Ai/AgenticEngineeringOs/AtlasMissionControlCockpitService.php::AtlasMissionControlCockpitService",
+        "app/Services/Ai/AutomationDomain/AutomationControlPlaneProjection.php::AutomationControlPlaneProjection",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/AtlasAaelExecutionSafeStateRecoverer.php::AtlasAaelExecutionSafeStateRecoverer"
+      ]
+    },
+    {
+      "method": "rules",
+      "count": 81,
+      "sample": [
+        "app/Http/Controllers/AtlasProjectBlockerController.php::AtlasProjectBlockerController",
+        "app/Http/Controllers/AtlasProjectController.php::AtlasProjectController",
+        "app/Http/Requests/AcceptSemanticCurationProposalRequest.php::AcceptSemanticCurationProposalRequest",
+        "app/Http/Requests/AnswerCognitiveGameRequest.php::AnswerCognitiveGameRequest",
+        "app/Http/Requests/ApplyAtlasMemoryProviderProjectionRequest.php::ApplyAtlasMemoryProviderProjectionRequest",
+        "app/Http/Requests/AtlasDev/PlanRequest.php::PlanRequest",
+        "app/Http/Requests/AtlasDev/RunRequest.php::RunRequest",
+        "app/Http/Requests/AtlasMemoryProviderProjectionRequest.php::AtlasMemoryProviderProjectionRequest"
+      ]
+    },
+    {
+      "method": "blocked",
+      "count": 78,
+      "sample": [
+        "app/Console/Commands/AtlasAcosDeltaSeriesCommand.php::AtlasAcosDeltaSeriesCommand",
+        "app/Console/Commands/AtlasAcosDeltaSeriesV2Command.php::AtlasAcosDeltaSeriesV2Command",
+        "app/Console/Commands/AtlasNightShiftAreaFocusCycleCommand.php::AtlasNightShiftAreaFocusCycleCommand",
+        "app/Http/Controllers/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandController.php::AreaFocusLoopCommandController",
+        "app/Http/Controllers/AtlasCodeForgeProviderCapacityController.php::AtlasCodeForgeProviderCapacityController",
+        "app/Http/Controllers/AtlasCodeSelfImprovementGovernanceController.php::AtlasCodeSelfImprovementGovernanceController",
+        "app/Services/Ai/Aemor/AtlasAemorJudgmentService.php::AtlasAemorJudgmentService",
+        "app/Services/Ai/Aemor/AtlasAemorRuntimeService.php::AtlasAemorRuntimeService"
+      ]
+    },
+    {
+      "method": "envelope",
+      "count": 77,
+      "sample": [
+        "app/Console/Commands/AtlasMutativeCommand.php::AtlasMutativeCommand",
+        "app/Console/Commands/AtlasSelfConstructionWorkersCommand.php::AtlasSelfConstructionWorkersCommand",
+        "app/Console/Commands/AtlasTaskMaestroCostCommand.php::AtlasTaskMaestroCostCommand",
+        "app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php::AtlasAobgWorkspaceOnboardingService",
+        "app/Services/Ai/AtlasDecide/AtlasEngineeringRunConductorService.php::AtlasEngineeringRunConductorService",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmParallelDispatchService.php::AtlasSwarmParallelDispatchService",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCausalEffectGate.php::AtlasBrainCausalEffectGate",
+        "app/Services/Ai/Cartography/CartographyTruthGuardService.php::CartographyTruthGuardService"
+      ]
+    },
+    {
+      "method": "authorize",
+      "count": 76,
+      "sample": [
+        "app/Http/Requests/AcceptSemanticCurationProposalRequest.php::AcceptSemanticCurationProposalRequest",
+        "app/Http/Requests/AnswerCognitiveGameRequest.php::AnswerCognitiveGameRequest",
+        "app/Http/Requests/ApplyAtlasMemoryProviderProjectionRequest.php::ApplyAtlasMemoryProviderProjectionRequest",
+        "app/Http/Requests/AtlasDev/PlanRequest.php::PlanRequest",
+        "app/Http/Requests/AtlasDev/RunRequest.php::RunRequest",
+        "app/Http/Requests/AtlasMemoryProviderProjectionRequest.php::AtlasMemoryProviderProjectionRequest",
+        "app/Http/Requests/AtlasVaultExportSemanticRequest.php::AtlasVaultExportSemanticRequest",
+        "app/Http/Requests/AtlasVaultImportRequest.php::AtlasVaultImportRequest"
+      ]
+    },
+    {
+      "method": "toCanonicalArray",
+      "count": 72,
+      "sample": [
+        "app/Models/AiDualCoreRouteDecision.php::AiDualCoreRouteDecision",
+        "app/Models/AiForgeLongHorizonState.php::AiForgeLongHorizonState",
+        "app/Models/AiForgeMultiAgentSchedule.php::AiForgeMultiAgentSchedule",
+        "app/Models/AiForgeOutcomeMemory.php::AiForgeOutcomeMemory",
+        "app/Models/AiForgeWorkPacket.php::AiForgeWorkPacket",
+        "app/Models/AiForgeWorkPacketExecutionCycle.php::AiForgeWorkPacketExecutionCycle",
+        "app/Models/AiForgeWorkPacketWorkcellRoute.php::AiForgeWorkPacketWorkcellRoute",
+        "app/Services/Ai/LongHorizon/Gate/LongHorizonContextFreshnessGateResult.php::LongHorizonContextFreshnessGateResult"
+      ]
+    },
+    {
+      "method": "render",
+      "count": 71,
+      "sample": [
+        "app/Console/Commands/AtlasAiAgentBehaviorReportCommand.php::AtlasAiAgentBehaviorReportCommand",
+        "app/Console/Commands/AtlasAiCaptureInboxPipelineReportCommand.php::AtlasAiCaptureInboxPipelineReportCommand",
+        "app/Console/Commands/AtlasAiDecisionReceiptReportCommand.php::AtlasAiDecisionReceiptReportCommand",
+        "app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php::AtlasAiDynamicComputeMarketCommand",
+        "app/Console/Commands/AtlasAiInboxActionReportCommand.php::AtlasAiInboxActionReportCommand",
+        "app/Console/Commands/AtlasAiKernelPipelineReportCommand.php::AtlasAiKernelPipelineReportCommand",
+        "app/Console/Commands/AtlasAiLedgerBackfillTracesCommand.php::AtlasAiLedgerBackfillTracesCommand",
+        "app/Console/Commands/AtlasAiLedgerCommand.php::AtlasAiLedgerCommand"
+      ]
+    },
+    {
+      "method": "all",
+      "count": 70,
+      "sample": [
+        "app/Services/Ai/AgentGovernance/AtlasFleetCatalog.php::AtlasFleetCatalog",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightReceiptLedger.php::AtlasAaelInFlightReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCycleCapsuleLedger.php::AtlasBrainCycleCapsuleLedger",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCatalog.php::AtlasBrainPathCatalog",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSchemaContractRegistry.php::AtlasBrainSchemaContractRegistry",
+        "app/Services/Ai/AutonomousEvolution/Pattern/AtlasLoopPatternLearningLedger.php::AtlasLoopPatternLearningLedger",
+        "app/Services/Ai/AutonomousEvolution/Pattern/AtlasLoopPatternRegistry.php::AtlasLoopPatternRegistry",
+        "app/Services/Ai/Brain/AtlasEvolutionDiary.php::AtlasEvolutionDiary"
+      ]
+    },
+    {
+      "method": "workspace",
+      "count": 68,
+      "sample": [
+        "app/Console/Commands/AiChat/AiChatUiSection.php::AiChatUiSection",
+        "app/Console/Commands/AtlasAiLongRunningWorkDeclareBaselineCommand.php::AtlasAiLongRunningWorkDeclareBaselineCommand",
+        "app/Console/Commands/AtlasCliBootstrapCommand.php::AtlasCliBootstrapCommand",
+        "app/Console/Commands/AtlasCliCheckpointCommand.php::AtlasCliCheckpointCommand",
+        "app/Console/Commands/AtlasCliCompareCommand.php::AtlasCliCompareCommand",
+        "app/Console/Commands/AtlasCliContinueCommand.php::AtlasCliContinueCommand",
+        "app/Console/Commands/AtlasCliDashboardCommand.php::AtlasCliDashboardCommand",
+        "app/Console/Commands/AtlasCliDevCommand.php::AtlasCliDevCommand"
+      ]
+    },
+    {
+      "method": "project",
+      "count": 67,
+      "sample": [
+        "app/Console/Commands/AtlasProjectBlueprintPrepareCommand.php::AtlasProjectBlueprintPrepareCommand",
+        "app/Http/Controllers/AtlasOperatorIntelligenceController.php::AtlasOperatorIntelligenceController",
+        "app/Models/AtlasEngineeringBlueprint.php::AtlasEngineeringBlueprint",
+        "app/Models/AtlasEngineeringEvidence.php::AtlasEngineeringEvidence",
+        "app/Models/AtlasEngineeringProjectBlueprint.php::AtlasEngineeringProjectBlueprint",
+        "app/Models/AtlasEngineeringRun.php::AtlasEngineeringRun",
+        "app/Models/AtlasMemoryEntry.php::AtlasMemoryEntry",
+        "app/Models/AtlasProjectBlocker.php::AtlasProjectBlocker"
+      ]
+    },
+    {
+      "method": "show",
+      "count": 67,
+      "sample": [
+        "app/Console/Commands/AtlasAiMarketingVslCommand.php::AtlasAiMarketingVslCommand",
+        "app/Console/Commands/AtlasCliInboxCommand.php::AtlasCliInboxCommand",
+        "app/Console/Commands/AtlasCliMemoryCommand.php::AtlasCliMemoryCommand",
+        "app/Console/Commands/AtlasCliScheduleCommand.php::AtlasCliScheduleCommand",
+        "app/Console/Commands/AtlasCliSkillsCommand.php::AtlasCliSkillsCommand",
+        "app/Console/Commands/AtlasCliTraceCommand.php::AtlasCliTraceCommand",
+        "app/Console/Commands/AtlasMemoryVerbatimCommand.php::AtlasMemoryVerbatimCommand",
+        "app/Console/Commands/AtlasOperatorSkillCommand.php::AtlasOperatorSkillCommand"
+      ]
+    },
+    {
+      "method": "score",
+      "count": 66,
+      "sample": [
+        "app/Services/Ai/AgenticEngineeringOs/DeliveryPackCompletenessScorer.php::DeliveryPackCompletenessScorer",
+        "app/Services/Ai/AgenticEngineeringOs/Scoring/AtlasMemoryRecallRelevanceScorer.php::AtlasMemoryRecallRelevanceScorer",
+        "app/Services/Ai/AgenticEngineeringOs/Scoring/MemoryFeedbackDecayScorer.php::MemoryFeedbackDecayScorer",
+        "app/Services/Ai/AgenticEngineeringOs/Scoring/SpecCompletenessScorer.php::SpecCompletenessScorer",
+        "app/Services/Ai/AgenticEngineeringOs/Scoring/SummaryFidelityCoverageScorer.php::SummaryFidelityCoverageScorer",
+        "app/Services/Ai/AutomationDomain/ToolSelectionWorkflowService.php::ToolSelectionWorkflowService",
+        "app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php::AtlasEvolutionFrozenJudge",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopImpactReceiptService.php::AtlasLoopImpactReceiptService"
+      ]
+    },
+    {
+      "method": "finalize",
+      "count": 64,
+      "sample": [
+        "app/Http/Controllers/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandController.php::AreaFocusLoopCommandController",
+        "app/Services/Ai/Hermes/Acp/HermesAcpPermissionGate.php::HermesAcpPermissionGate",
+        "app/Services/Ai/LongHorizon/Causal/LongHorizonCausalDecisionGraphService.php::LongHorizonCausalDecisionGraphService",
+        "app/Services/Ai/NightShift/AreaFocusLoopReadModelService.php::AreaFocusLoopReadModelService",
+        "app/Services/Ai/Programming/AtlasCodeEnterpriseCertificationService.php::AtlasCodeEnterpriseCertificationService",
+        "app/Services/Ai/Programming/AtlasCodeForgeFastPathService.php::AtlasCodeForgeFastPathService",
+        "app/Services/Ai/Programming/AtlasCodeForgeUxOrchestratorService.php::AtlasCodeForgeUxOrchestratorService",
+        "app/Services/Ai/Programming/AtlasDev/Gate/VerificationGate.php::VerificationGate"
+      ]
+    },
+    {
+      "method": "summary",
+      "count": 63,
+      "sample": [
+        "app/Console/Commands/AtlasAiMarketingVslCommand.php::AtlasAiMarketingVslCommand",
+        "app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php::AaeosCycleOutcomeRecorder",
+        "app/Services/Ai/AiCompactionService.php::AiCompactionService",
+        "app/Services/Ai/AtlasOpenBrainContextInjectionService.php::AtlasOpenBrainContextInjectionService",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php::AtlasLoopAutoMergeService",
+        "app/Services/Ai/Autonomy/AtlasAutonomousLearningApplier.php::AtlasAutonomousLearningApplier",
+        "app/Services/Ai/Cli/AtlasCliQualityService.php::AtlasCliQualityService",
+        "app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php::AtlasRetrievalEvaluationBenchmarkArenaService"
+      ]
+    },
+    {
+      "method": "check",
+      "count": 63,
+      "sample": [
+        "app/Console/Commands/AtlasApiDescribeCommand.php::AtlasApiDescribeCommand",
+        "app/Console/Commands/AtlasEngineeringEndToEndScorecardCommand.php::AtlasEngineeringEndToEndScorecardCommand",
+        "app/Console/Commands/AtlasGoldenCommand.php::AtlasGoldenCommand",
+        "app/Console/Commands/AtlasMemoryQualityCommand.php::AtlasMemoryQualityCommand",
+        "app/Http/Controllers/AiProviderController.php::AiProviderController",
+        "app/Services/Ai/Aemor/AtlasAemorCertificationService.php::AtlasAemorCertificationService",
+        "app/Services/Ai/AgenticEngineeringOs/AaeosRequiredGateCoverageChecker.php::AaeosRequiredGateCoverageChecker",
+        "app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellCertificationService.php::AtlasAgenticWorkcellCertificationService"
+      ]
+    },
+    {
+      "method": "string",
+      "count": 62,
+      "sample": [
+        "app/Services/Ai/AtlasOpenBrainContextInjectionService.php::AtlasOpenBrainContextInjectionService",
+        "app/Services/Ai/AtlasOpenBrainMcpService.php::AtlasOpenBrainMcpService",
+        "app/Services/Ai/AtlasOpenBrainWriteBackService.php::AtlasOpenBrainWriteBackService",
+        "app/Services/Ai/Cognition/AcosProgram/Teto10PredictedRevertReviewDigest.php::Teto10PredictedRevertReviewDigest",
+        "app/Services/Ai/Compounding/AtlasBenchmarkGeneratorService.php::AtlasBenchmarkGeneratorService",
+        "app/Services/Ai/Compounding/AtlasCompoundingOutcomeEvaluator.php::AtlasCompoundingOutcomeEvaluator",
+        "app/Services/Ai/Compounding/AtlasHeuristicEvolutionService.php::AtlasHeuristicEvolutionService",
+        "app/Services/Ai/Compounding/AtlasLearningDistiller.php::AtlasLearningDistiller"
+      ]
+    },
+    {
+      "method": "stringOrNull",
+      "count": 61,
+      "sample": [
+        "app/Console/Commands/AtlasAiLedgerBackfillTracesCommand.php::AtlasAiLedgerBackfillTracesCommand",
+        "app/Http/Controllers/AtlasCodeForgeProviderCapacityController.php::AtlasCodeForgeProviderCapacityController",
+        "app/Http/Controllers/AtlasCodeForgeProviderTopologyController.php::AtlasCodeForgeProviderTopologyController",
+        "app/Http/Resources/AtlasMemoryEntryResource.php::AtlasMemoryEntryResource",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasGateSignalEvaluator.php::AtlasGateSignalEvaluator",
+        "app/Services/Ai/AgenticEngineeringOs/Support/AtlasAeosValueNormalizer.php::AtlasAeosValueNormalizer",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopAutoArchitectureProposalService.php::AtlasLoopAutoArchitectureProposalService",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopObraAutoMergeService.php::AtlasLoopObraAutoMergeService"
+      ]
+    },
+    {
+      "method": "toJson",
+      "count": 61,
+      "sample": [
+        "app/Services/Ai/Mobile/MobileHealthService.php::MobileHealthService",
+        "app/Services/Ai/Programming/AtlasDev/Gate/MandatoryRagGateResult.php::MandatoryRagGateResult",
+        "app/Services/Ai/Programming/AtlasDev/Pipeline/SpecialistFlowDecision.php::SpecialistFlowDecision",
+        "app/Services/Ai/Programming/AtlasDev/Provider/ProviderCallResult.php::ProviderCallResult",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/AtlasDevOperationEnvelope.php::AtlasDevOperationEnvelope",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CodeDiscoveryManifest.php::CodeDiscoveryManifest",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php::CompactSdd",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/BlastRadius.php::BlastRadius"
+      ]
+    },
+    {
+      "method": "audit",
+      "count": 60,
+      "sample": [
+        "app/Console/Commands/AtlasAiCaptureQualityAuditCommand.php::AtlasAiCaptureQualityAuditCommand",
+        "app/Console/Commands/AtlasOperatorProfileContextCommand.php::AtlasOperatorProfileContextCommand",
+        "app/Console/Commands/AtlasSelfConstructionRuntimeSoakCommand.php::AtlasSelfConstructionRuntimeSoakCommand",
+        "app/Services/Ai/AutonomousEvolution/Aael/AtlasAaelExecutionDriftAuditor.php::AtlasAaelExecutionDriftAuditor",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightDriftAuditor.php::AtlasAaelInFlightDriftAuditor",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainGateAdversarialAuditor.php::AtlasBrainGateAdversarialAuditor",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeFlagAuditor.php::AtlasBrainScopeFlagAuditor",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedGateAdversarialAuditor.php::AtlasBrainSeedGateAdversarialAuditor"
+      ]
+    },
+    {
+      "method": "toProviderSafeArray",
+      "count": 59,
+      "sample": [
+        "app/Services/Ai/Organism/DomainProposal.php::DomainProposal",
+        "app/Services/Ai/Programming/AtlasDev/Provider/ProviderCallResult.php::ProviderCallResult",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/AtlasDevOperationEnvelope.php::AtlasDevOperationEnvelope",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CodeDiscoveryManifest.php::CodeDiscoveryManifest",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php::CompactSdd",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/BlastRadius.php::BlastRadius",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/Budget.php::Budget",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CodeCandidate.php::CodeCandidate"
+      ]
+    },
+    {
+      "method": "resolve",
+      "count": 58,
+      "sample": [
+        "app/Console/Commands/AtlasObraWorkOrderCommand.php::AtlasObraWorkOrderCommand",
+        "app/Console/Commands/AtlasOperatorSkillCommand.php::AtlasOperatorSkillCommand",
+        "app/Http/Controllers/AtlasDev/Support/PipelineRun/ResolverSupport.php::ResolverSupport",
+        "app/Http/Controllers/AtlasProjectBlockerController.php::AtlasProjectBlockerController",
+        "app/Http/Controllers/AtlasVaultController.php::AtlasVaultController",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasImplementationEvidenceResolver.php::AtlasImplementationEvidenceResolver",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasVetoPropagationResolver.php::AtlasVetoPropagationResolver",
+        "app/Services/Ai/AiProviderChoiceResolver.php::AiProviderChoiceResolver"
+      ]
+    },
+    {
+      "method": "append",
+      "count": 58,
+      "sample": [
+        "app/Services/Ai/AgentGovernance/AtlasAgentEventLedger.php::AtlasAgentEventLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Debugger/AtlasAaelExecutionDebuggerReceiptLedger.php::AtlasAaelExecutionDebuggerReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightReceiptLedger.php::AtlasAaelInFlightReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Rollback/AtlasAaelExecutionRollbackReceiptLedger.php::AtlasAaelExecutionRollbackReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Parallel/AtlasAaelParallelExecutionReceiptLedger.php::AtlasAaelParallelExecutionReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogManifestService.php::AtlasLoopBacklogManifestService",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopLearningAppendService.php::AtlasLoopLearningAppendService",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainEvolutionDocAuthor.php::AtlasBrainEvolutionDocAuthor"
+      ]
+    },
+    {
+      "method": "schemaVersion",
+      "count": 58,
+      "sample": [
+        "app/Services/Ai/Programming/AtlasDev/Provider/ProviderCallResult.php::ProviderCallResult",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/AtlasDevOperationEnvelope.php::AtlasDevOperationEnvelope",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CodeDiscoveryManifest.php::CodeDiscoveryManifest",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php::CompactSdd",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/BlastRadius.php::BlastRadius",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/Budget.php::Budget",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CodeCandidate.php::CodeCandidate",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CompletionSummary.php::CompletionSummary"
+      ]
+    },
+    {
+      "method": "isProviderSafe",
+      "count": 58,
+      "sample": [
+        "app/Services/Ai/Programming/AtlasDev/Provider/ProviderCallResult.php::ProviderCallResult",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/AtlasDevOperationEnvelope.php::AtlasDevOperationEnvelope",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CodeDiscoveryManifest.php::CodeDiscoveryManifest",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php::CompactSdd",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/BlastRadius.php::BlastRadius",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/Budget.php::Budget",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CodeCandidate.php::CodeCandidate",
+        "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CompletionSummary.php::CompletionSummary"
+      ]
+    },
+    {
+      "method": "index",
+      "count": 55,
+      "sample": [
+        "app/Console/Commands/AtlasSelfConstructionReceiptsCommand.php::AtlasSelfConstructionReceiptsCommand",
+        "app/Http/Controllers/Ai/Programming/AtlasDevPlanVisibleController.php::AtlasDevPlanVisibleController",
+        "app/Http/Controllers/AiDecisionController.php::AiDecisionController",
+        "app/Http/Controllers/AiInteractionController.php::AiInteractionController",
+        "app/Http/Controllers/AiJobController.php::AiJobController",
+        "app/Http/Controllers/AiQualityActionController.php::AiQualityActionController",
+        "app/Http/Controllers/AiThreadController.php::AiThreadController",
+        "app/Http/Controllers/AtlasAiControlPlaneController.php::AtlasAiControlPlaneController"
+      ]
+    },
+    {
+      "method": "inspect",
+      "count": 55,
+      "sample": [
+        "app/Console/Commands/AtlasAaelExecutionRollbackCommand.php::AtlasAaelExecutionRollbackCommand",
+        "app/Console/Commands/AtlasProjectLaneRuntimePlanCommand.php::AtlasProjectLaneRuntimePlanCommand",
+        "app/Console/Commands/AtlasSelfConstructionArchitectureCouncilCommand.php::AtlasSelfConstructionArchitectureCouncilCommand",
+        "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php::AtlasSelfConstructionAutonomousRuntimeCommand",
+        "app/Console/Commands/AtlasSelfConstructionKnowledgeSyncCommand.php::AtlasSelfConstructionKnowledgeSyncCommand",
+        "app/Console/Commands/AtlasSelfConstructionMergeGovernorCommand.php::AtlasSelfConstructionMergeGovernorCommand",
+        "app/Console/Commands/AtlasSelfConstructionStrategyCouncilCommand.php::AtlasSelfConstructionStrategyCouncilCommand",
+        "app/Console/Commands/AtlasSelfConstructionVerificationCourtCommand.php::AtlasSelfConstructionVerificationCourtCommand"
+      ]
+    },
+    {
+      "method": "execute",
+      "count": 55,
+      "sample": [
+        "app/Http/Controllers/AtlasAiVoxController.php::AtlasAiVoxController",
+        "app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php::KernelRunExecutor",
+        "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php::PipelineRunExecutor",
+        "app/Services/Ai/Aaeos/Control/AaeosSovereignContinuationCoordinator.php::AaeosSovereignContinuationCoordinator",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmExecutorService.php::AtlasSwarmExecutorService",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Rollback/AtlasAaelExecutionRollbackExecutor.php::AtlasAaelExecutionRollbackExecutor",
+        "app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php::AtlasAaelLoopExecutionBridge",
+        "app/Services/Ai/Domain/AtlasHealthOrchestrator.php::AtlasHealthOrchestrator"
+      ]
+    },
+    {
+      "method": "stringList",
+      "count": 54,
+      "sample": [
+        "app/Console/Commands/AtlasCompactionCertifyCommand.php::AtlasCompactionCertifyCommand",
+        "app/Http/Controllers/AtlasDev/Support/PipelineRun/WorkspaceGitSupport.php::WorkspaceGitSupport",
+        "app/Services/Ai/AiPromptBuilder.php::AiPromptBuilder",
+        "app/Services/Ai/AtlasOpenBrainContextExpansionService.php::AtlasOpenBrainContextExpansionService",
+        "app/Services/Ai/AtlasOpenBrainContextInjectionService.php::AtlasOpenBrainContextInjectionService",
+        "app/Services/Ai/AtlasOpenBrainMcpService.php::AtlasOpenBrainMcpService",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopLossObserverService.php::AtlasLoopLossObserverService",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php::AtlasLoopQualityGrader"
+      ]
+    },
+    {
+      "method": "verify",
+      "count": 54,
+      "sample": [
+        "app/Console/Commands/AtlasSelfConstructionAtlasNativeCompletionCommand.php::AtlasSelfConstructionAtlasNativeCompletionCommand",
+        "app/Console/Commands/AtlasSelfConstructionNativeImplementationReleaseCommand.php::AtlasSelfConstructionNativeImplementationReleaseCommand",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopAdversarialVerifierPool.php::AtlasLoopAdversarialVerifierPool",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopCharacterizationTestVerifier.php::AtlasLoopCharacterizationTestVerifier",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopTransferGate.php::AtlasLoopTransferGate",
+        "app/Services/Ai/AutonomousEvolution/Constitution/AtlasLoopConstitutionGateToken.php::AtlasLoopConstitutionGateToken",
+        "app/Services/Ai/Autonomy/AtlasAutonomyLadderSignatureLedger.php::AtlasAutonomyLadderSignatureLedger",
+        "app/Services/Ai/Cognition/AcosProgram/AtlasModelCapabilitySpecService.php::AtlasModelCapabilitySpecService"
+      ]
+    },
+    {
+      "method": "blockers",
+      "count": 53,
+      "sample": [
+        "app/Http/Controllers/AtlasAiControlPlaneController.php::AtlasAiControlPlaneController",
+        "app/Models/AtlasProject.php::AtlasProject",
+        "app/Models/AtlasProjectStep.php::AtlasProjectStep",
+        "app/Models/AtlasTask.php::AtlasTask",
+        "app/Services/Ai/Compounding/AtlasLearningRecallUseLiftService.php::AtlasLearningRecallUseLiftService",
+        "app/Services/Ai/Context/AtlasContextObservabilityPlaneService.php::AtlasContextObservabilityPlaneService",
+        "app/Services/Ai/Context/AtlasContextQualityCertificationService.php::AtlasContextQualityCertificationService",
+        "app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php::AtlasContextIntelligenceService"
+      ]
+    },
+    {
+      "method": "canonicalize",
+      "count": 53,
+      "sample": [
+        "app/Services/Ai/AutonomousEvolution/Aael/AtlasAaelExecutionReceiptLedger.php::AtlasAaelExecutionReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightReceiptLedger.php::AtlasAaelInFlightReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopLearningAppendService.php::AtlasLoopLearningAppendService",
+        "app/Services/Ai/Brain/AtlasEvolutionDiary.php::AtlasEvolutionDiary",
+        "app/Services/Ai/Brain/AtlasMemoryJournal.php::AtlasMemoryJournal",
+        "app/Services/Ai/Compounding/AtlasCaptureQualityGate.php::AtlasCaptureQualityGate",
+        "app/Services/Ai/Compounding/AtlasLearningProposalService.php::AtlasLearningProposalService",
+        "app/Services/Ai/Compounding/AtlasLearningSignalScanner.php::AtlasLearningSignalScanner"
+      ]
+    },
+    {
+      "method": "persist",
+      "count": 50,
+      "sample": [
+        "app/Console/Commands/AtlasAiMarketingBridgePageCommand.php::AtlasAiMarketingBridgePageCommand",
+        "app/Console/Commands/AtlasLearnProjectCommand.php::AtlasLearnProjectCommand",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasCapabilityTestExecutionService.php::AtlasCapabilityTestExecutionService",
+        "app/Services/Ai/Cartography/CartographyTruthGuardService.php::CartographyTruthGuardService",
+        "app/Services/Ai/Cli/AtlasCliTelemetry.php::AtlasCliTelemetry",
+        "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php::AtlasCognitiveWorkingSetMemoryService",
+        "app/Services/Ai/Company/Ventures/Assessment/VentureQuestionEngine.php::VentureQuestionEngine",
+        "app/Services/Ai/Context/AtlasContextIdRemapService.php::AtlasContextIdRemapService"
+      ]
+    },
+    {
+      "method": "detect",
+      "count": 50,
+      "sample": [
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintBurstDetector.php::AtlasBrainHintBurstDetector",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintFrequencyDriftAlarm.php::AtlasBrainHintFrequencyDriftAlarm",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCadenceDetector.php::AtlasBrainPathCadenceDetector",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathOscillationDetector.php::AtlasBrainPathOscillationDetector",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathStarvationDetector.php::AtlasBrainPathStarvationDetector",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainRepeatedRefusalAntiPattern.php::AtlasBrainRepeatedRefusalAntiPattern",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainRubberStampDetector.php::AtlasBrainRubberStampDetector",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainStaleScopeDetector.php::AtlasBrainStaleScopeDetector"
+      ]
+    },
+    {
+      "method": "nextActions",
+      "count": 49,
+      "sample": [
+        "app/Console/Commands/AtlasCliReleaseCommand.php::AtlasCliReleaseCommand",
+        "app/Http/Controllers/AtlasAiControlPlaneController.php::AtlasAiControlPlaneController",
+        "app/Services/Ai/AtlasOpenBrainContextInjectionService.php::AtlasOpenBrainContextInjectionService",
+        "app/Services/Ai/Cli/AtlasCliDoctorService.php::AtlasCliDoctorService",
+        "app/Services/Ai/Cli/AtlasCliInstallService.php::AtlasCliInstallService",
+        "app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php::AtlasFeaturePlacementService",
+        "app/Services/Ai/LongHorizon/ObraReviewService.php::ObraReviewService",
+        "app/Services/Ai/Mission/MissionModeService.php::MissionModeService"
+      ]
+    },
+    {
+      "method": "store",
+      "count": 48,
+      "sample": [
+        "app/Http/Controllers/Ai/AtlasLiveActivityController.php::AtlasLiveActivityController",
+        "app/Http/Controllers/AiInteractionController.php::AiInteractionController",
+        "app/Http/Controllers/AiTelemetryController.php::AiTelemetryController",
+        "app/Http/Controllers/AiThreadController.php::AiThreadController",
+        "app/Http/Controllers/ArenaRunController.php::ArenaRunController",
+        "app/Http/Controllers/AtlasCalendarBlockController.php::AtlasCalendarBlockController",
+        "app/Http/Controllers/AtlasChatSyncController.php::AtlasChatSyncController",
+        "app/Http/Controllers/AtlasCodeCheckpointController.php::AtlasCodeCheckpointController"
+      ]
+    },
+    {
+      "method": "assess",
+      "count": 44,
+      "sample": [
+        "app/Console/Commands/AtlasVentureFoundryCommand.php::AtlasVentureFoundryCommand",
+        "app/Services/Ai/AgenticEngineeringOs/AaeosBlockerSeverityGate.php::AaeosBlockerSeverityGate",
+        "app/Services/Ai/Analysis/AiQualityEvaluator.php::AiQualityEvaluator",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopTrustLadder.php::AtlasLoopTrustLadder",
+        "app/Services/Ai/Caching/AtlasProviderCostSentinel.php::AtlasProviderCostSentinel",
+        "app/Services/Ai/Cognition/AtlasAcosLongHorizonGateService.php::AtlasAcosLongHorizonGateService",
+        "app/Services/Ai/Company/Ventures/Cost/VentureRunwayReader.php::VentureRunwayReader",
+        "app/Services/Ai/Compounding/AtlasCaptureQualityGate.php::AtlasCaptureQualityGate"
+      ]
+    },
+    {
+      "method": "validate",
+      "count": 44,
+      "sample": [
+        "app/Console/Commands/AtlasAaelInFlightCommand.php::AtlasAaelInFlightCommand",
+        "app/Console/Commands/AtlasCliSkillsCommand.php::AtlasCliSkillsCommand",
+        "app/Services/Ai/Aemor/Envelope/OutcomeEnvelope.php::OutcomeEnvelope",
+        "app/Services/Ai/AgenticEngineeringOs/AaeosPhaseHandoffService.php::AaeosPhaseHandoffService",
+        "app/Services/Ai/AgenticEngineeringOs/Maturity/AtlasClaimDefinitionOfDoneValidator.php::AtlasClaimDefinitionOfDoneValidator",
+        "app/Services/Ai/AtlasDecide/AtlasConductorPlanGate.php::AtlasConductorPlanGate",
+        "app/Services/Ai/AtlasDecide/AtlasStructuredOutputValidator.php::AtlasStructuredOutputValidator",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightStepValidator.php::AtlasAaelInFlightStepValidator"
+      ]
+    },
+    {
+      "method": "replay",
+      "count": 42,
+      "sample": [
+        "app/Console/Commands/AiReportEngineRunCommand.php::AiReportEngineRunCommand",
+        "app/Console/Commands/AtlasCliTraceCommand.php::AtlasCliTraceCommand",
+        "app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php::AtlasEngineeringBenchmarkFairCommand",
+        "app/Http/Controllers/EngineeringRunController.php::EngineeringRunController",
+        "app/Services/Ai/AtlasForge/AtlasObraDeterministicReplayService.php::AtlasObraDeterministicReplayService",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Debugger/AtlasAaelExecutionDebuggerReceiptLedger.php::AtlasAaelExecutionDebuggerReceiptLedger",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/TraceReplay/AtlasAaelExecutionTraceReplayer.php::AtlasAaelExecutionTraceReplayer",
+        "app/Services/Ai/Autonomy/AtlasAutonomyLadderSignatureLedger.php::AtlasAutonomyLadderSignatureLedger"
+      ]
+    },
+    {
+      "method": "__call",
+      "count": 42,
+      "sample": [
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchGate/DispatchGatePart01SubSection.php::DispatchGatePart01SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchGate/DispatchGatePart02SubSection.php::DispatchGatePart02SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchProvider/DispatchProviderPart01SubSection.php::DispatchProviderPart01SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchProvider/DispatchProviderPart02SubSection.php::DispatchProviderPart02SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchProvider/DispatchProviderPart03SubSection.php::DispatchProviderPart03SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/DispatchProvider/DispatchProviderPart04SubSection.php::DispatchProviderPart04SubSection",
+        "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch1Section.php::ReadinessProjectionAgentAutomaticDispatchBatch1Section",
+        "app/Services/Ai/SelfConstruction/Readiness/ReadinessProjectionAgentAutomaticDispatchBatch2Section.php::ReadinessProjectionAgentAutomaticDispatchBatch2Section"
+      ]
+    },
+    {
+      "method": "checks",
+      "count": 40,
+      "sample": [
+        "app/Console/Commands/AtlasCliReleaseCommand.php::AtlasCliReleaseCommand",
+        "app/Services/Ai/Kernel/Architecture/Scanner/AgentBehaviorAudit.php::AgentBehaviorAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/ArchitectureAudit.php::ArchitectureAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/ArchitectureOperationsAudit.php::ArchitectureOperationsAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/ChatAudit.php::ChatAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/CliAudit.php::CliAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/ContextAudit.php::ContextAudit",
+        "app/Services/Ai/Kernel/Architecture/Scanner/DecisionReceiptAudit.php::DecisionReceiptAudit"
+      ]
+    },
+    {
+      "method": "payload",
+      "count": 39,
+      "sample": [
+        "app/Console/Commands/AtlasAiLedgerBackfillTracesCommand.php::AtlasAiLedgerBackfillTracesCommand",
+        "app/Console/Commands/AtlasAiProviderReleaseSourcesCommand.php::AtlasAiProviderReleaseSourcesCommand",
+        "app/Console/Commands/AtlasCliBootstrapCommand.php::AtlasCliBootstrapCommand",
+        "app/Console/Commands/SemanticCurationReviewCommand.php::SemanticCurationReviewCommand",
+        "app/Http/Controllers/AtlasProjectBlockerController.php::AtlasProjectBlockerController",
+        "app/Services/Ai/AtlasDecide/AtlasSwarmTopologyAutoComposerService.php::AtlasSwarmTopologyAutoComposerService",
+        "app/Services/Ai/AtlasOpenBrainContextInjectionService.php::AtlasOpenBrainContextInjectionService",
+        "app/Services/Ai/Cli/AtlasCliDoctorService.php::AtlasCliDoctorService"
+      ]
+    }
+  ],
+  "duplicate_bodies_top": [
+    {
+      "hash": "a5537c55a678b1ac",
+      "count": 6,
+      "loc": 23,
+      "methods": [
+        "app/Console/Commands/AtlasSelfConstructionControlPlaneCommand.php:196 AtlasSelfConstructionControlPlaneCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionReceiptsCommand.php:151 AtlasSelfConstructionReceiptsCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionCompoundingCommand.php:84 AtlasSelfConstructionCompoundingCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionFinalArchitectureSmokeCommand.php:151 AtlasSelfConstructionFinalArchitectureSmokeCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionGoalValueCommand.php:74 AtlasSelfConstructionGoalValueCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionCompletionAutonomyCommand.php:137 AtlasSelfConstructionCompletionAutonomyCommand::loadFacts (23L)"
+      ]
+    },
+    {
+      "hash": "b1720738af8dfad0",
+      "count": 5,
+      "loc": 24,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart09SubSection.php:134 CodexReviewMergePart09SubSection::laterCycleChainResolve (24L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart10SubSection.php:134 CodexReviewMergePart10SubSection::laterCycleChainResolve (24L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart07SubSection.php:174 CodexReviewMergePart07SubSection::laterCycleChainResolve (24L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart11SubSection.php:84 CodexReviewMergePart11SubSection::laterCycleChainResolve (24L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart08SubSection.php:159 CodexReviewMergePart08SubSection::laterCycleChainResolve (24L)"
+      ]
+    },
+    {
+      "hash": "7823cbec6fcefc59",
+      "count": 5,
+      "loc": 21,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart09SubSection.php:112 CodexReviewMergePart09SubSection::laterCycleChainProjection (21L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart10SubSection.php:112 CodexReviewMergePart10SubSection::laterCycleChainProjection (21L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart07SubSection.php:152 CodexReviewMergePart07SubSection::laterCycleChainProjection (21L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart11SubSection.php:62 CodexReviewMergePart11SubSection::laterCycleChainProjection (21L)",
+        "app/Services/Ai/SelfConstruction/Readiness/CodexReviewMerge/CodexReviewMergePart08SubSection.php:137 CodexReviewMergePart08SubSection::laterCycleChainProjection (21L)"
+      ]
+    },
+    {
+      "hash": "a4181a5353878eba",
+      "count": 4,
+      "loc": 22,
+      "methods": [
+        "app/Console/Commands/AtlasSelfImprovementMaturityScoreCommand.php:46 AtlasSelfImprovementMaturityScoreCommand::resolveJsonOption (22L)",
+        "app/Console/Commands/AtlasSelfImprovementBeforeAfterCommand.php:63 AtlasSelfImprovementBeforeAfterCommand::resolveJsonOption (22L)",
+        "app/Console/Commands/AtlasSelfImprovementRegressionSentinelCommand.php:157 AtlasSelfImprovementRegressionSentinelCommand::resolveJsonOption (22L)",
+        "app/Console/Commands/AtlasSelfImprovementInvariantLockCommand.php:49 AtlasSelfImprovementInvariantLockCommand::resolveJsonOption (22L)"
+      ]
+    },
+    {
+      "hash": "6b7953086611d214",
+      "count": 4,
+      "loc": 18,
+      "methods": [
+        "app/Console/Commands/AtlasCliInterruptCommand.php:100 AtlasCliInterruptCommand::projectRootFor (18L)",
+        "app/Console/Commands/AtlasCliContinueCommand.php:159 AtlasCliContinueCommand::projectRootFor (18L)",
+        "app/Console/Commands/AtlasCliDevCommand.php:1362 AtlasCliDevCommand::projectRootFor (18L)",
+        "app/Console/Commands/AtlasCliStartCommand.php:238 AtlasCliStartCommand::projectRootFor (18L)"
+      ]
+    },
+    {
+      "hash": "ae18f31b46ac46c7",
+      "count": 4,
+      "loc": 16,
+      "methods": [
+        "app/Console/Commands/AtlasMemoryAddCommand.php:145 AtlasMemoryAddCommand::metadata (16L)",
+        "app/Console/Commands/AtlasMemoryRelationsCommand.php:287 AtlasMemoryRelationsCommand::metadata (16L)",
+        "app/Console/Commands/AtlasMemoryVerbatimCommand.php:355 AtlasMemoryVerbatimCommand::metadata (16L)",
+        "app/Console/Commands/AtlasMemoryPrivacyCommand.php:261 AtlasMemoryPrivacyCommand::metadata (16L)"
+      ]
+    },
+    {
+      "hash": "393163accb0bbb3e",
+      "count": 4,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/Aael/AtlasAaelExecutionReceiptLedger.php:160 AtlasAaelExecutionReceiptLedger::canonicalize (15L)",
+        "app/Services/Ai/SelfConstruction/MultiProject/AtlasProjectLaneGovernanceDossier.php:103 AtlasProjectLaneGovernanceDossier::canonicalize (15L)",
+        "app/Services/Ai/SelfConstruction/WorkerSwarm/AtlasSelfConstructionWorkerScopedExecutionEnvelope.php:171 AtlasSelfConstructionWorkerScopedExecutionEnvelope::canonicalize (15L)",
+        "app/Services/Ai/SelfConstruction/LearningTransfer/AtlasSelfConstructionLearningTransferContextUpdatePlan.php:282 AtlasSelfConstructionLearningTransferContextUpdatePlan::canonicalize (15L)"
+      ]
+    },
+    {
+      "hash": "6a3ad8f93bfcd455",
+      "count": 3,
+      "loc": 25,
+      "methods": [
+        "app/Services/Engineering/CodeGraph/CodeGraphSkeletonView.php:258 CodeGraphSkeletonView::intOrNull (25L)",
+        "app/Services/Engineering/CodeGraph/CodeGraphFirstIndexPlanner.php:307 CodeGraphFirstIndexPlanner::intOrNull (25L)",
+        "app/Services/Engineering/CodeGraph/CodeGraphIncrementalReindexPlanner.php:315 CodeGraphIncrementalReindexPlanner::intOrNull (25L)"
+      ]
+    },
+    {
+      "hash": "0c4619dd779dc365",
+      "count": 3,
+      "loc": 19,
+      "methods": [
+        "app/Services/Ai/ClaudeCliProvider.php:256 ClaudeCliProvider::invocationModel (19L)",
+        "app/Services/Ai/CodexCliProvider.php:181 CodexCliProvider::invocationModel (19L)",
+        "app/Services/Ai/JarvisMlxProvider.php:73 JarvisMlxProvider::invocationModel (19L)"
+      ]
+    },
+    {
+      "hash": "996add01b315f6f0",
+      "count": 3,
+      "loc": 18,
+      "methods": [
+        "app/Console/Commands/AtlasMemoryAddCommand.php:123 AtlasMemoryAddCommand::safetySummary (18L)",
+        "app/Console/Commands/AtlasMemoryPrivacyCommand.php:239 AtlasMemoryPrivacyCommand::safetySummary (18L)",
+        "app/Console/Commands/AtlasMemoryListCommand.php:138 AtlasMemoryListCommand::safetySummary (18L)"
+      ]
+    },
+    {
+      "hash": "77d9fadb4572c8ba",
+      "count": 3,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentRuntimeRegistryQuarantineRepository.php:490 AgentRuntimeRegistryQuarantineRepository::loadIndex (18L)",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentRuntimeRegistryHeartbeatRepository.php:551 AgentRuntimeRegistryHeartbeatRepository::loadIndex (18L)",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentDispatchPlannerDryRunReceiptBuilder.php:268 AgentDispatchPlannerDryRunReceiptBuilder::loadIndex (18L)"
+      ]
+    },
+    {
+      "hash": "ffcfb23900fdcf83",
+      "count": 3,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/SpecialistFlows/SpecialistFlowsRouter.php:137 SpecialistFlowsRouter::canonicalize (17L)",
+        "app/Services/Ai/Router/AtlasAiSpecialistFlowRuntimeService.php:180 AtlasAiSpecialistFlowRuntimeService::canonicalize (17L)",
+        "app/Services/Ai/Kernel/Architecture/AtlasExternalGraphHarnessService.php:785 AtlasExternalGraphHarnessService::canonicalize (17L)"
+      ]
+    },
+    {
+      "hash": "f46c7a044a7faa05",
+      "count": 3,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/Kernel/Architecture/AtlasAiArchitectureValidationService.php:483 AtlasAiArchitectureValidationService::memoryLimitToBytes (17L)",
+        "app/Http/Controllers/AiInteractionController.php:242 AiInteractionController::memoryLimitToBytes (17L)",
+        "app/Http/Controllers/AtlasCartographyController.php:118 AtlasCartographyController::memoryLimitToBytes (17L)"
+      ]
+    },
+    {
+      "hash": "1b6591fca48a92f1",
+      "count": 3,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/Compounding/AtlasLearningSignalScanner.php:803 AtlasLearningSignalScanner::canonicalize (15L)",
+        "app/Services/Ai/Compounding/AtlasLearningProposalService.php:389 AtlasLearningProposalService::canonicalize (15L)",
+        "app/Services/Ai/LongHorizon/LongHorizonContinuityCertificationService.php:698 LongHorizonContinuityCertificationService::canonicalize (15L)"
+      ]
+    },
+    {
+      "hash": "891d82868a174e77",
+      "count": 2,
+      "loc": 58,
+      "methods": [
+        "app/Services/Ai/Programming/ProgrammingRivalsReadinessService.php:964 ProgrammingRivalsReadinessService::gitWorkspaceState (58L)",
+        "app/Services/Ai/Programming/AtlasForgeNativeRivalsPreflightService.php:468 AtlasForgeNativeRivalsPreflightService::gitWorkspaceState (58L)"
+      ]
+    },
+    {
+      "hash": "77eeffb8c20cfd7c",
+      "count": 2,
+      "loc": 45,
+      "methods": [
+        "app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php:885 AtlasEngineeringBenchmarkFairCommand::gitWorkspaceState (45L)",
+        "app/Http/Controllers/EngineeringBenchmarkController.php:391 EngineeringBenchmarkController::gitWorkspaceState (45L)"
+      ]
+    },
+    {
+      "hash": "076180cbc721f31e",
+      "count": 2,
+      "loc": 36,
+      "methods": [
+        "app/Services/Ai/MarketingDomain/VslIntelligenceExtractorService.php:328 VslIntelligenceExtractorService::parseJson (36L)",
+        "app/Services/Ai/MarketingDomain/Content/BridgePageComposerService.php:1072 BridgePageComposerService::parseJson (36L)"
+      ]
+    },
+    {
+      "hash": "f2493ec05803f7f1",
+      "count": 2,
+      "loc": 34,
+      "methods": [
+        "app/Services/Ai/Cyber/CyberControlPlaneProjection.php:99 CyberControlPlaneProjection::section (34L)",
+        "app/Services/Ai/Strategy/StrategyControlPlaneProjection.php:91 StrategyControlPlaneProjection::section (35L)"
+      ]
+    },
+    {
+      "hash": "0f9b8dd692e98658",
+      "count": 2,
+      "loc": 32,
+      "methods": [
+        "app/Services/CaptureDeletionService.php:99 CaptureDeletionService::idsContaining (32L)",
+        "app/Services/Ai/ConversationOps/AiThreadDeletionService.php:235 AiThreadDeletionService::idsContaining (32L)"
+      ]
+    },
+    {
+      "hash": "8c69bf6af0c4e0c4",
+      "count": 2,
+      "loc": 32,
+      "methods": [
+        "app/Console/Commands/AtlasAcosDeltaSeriesCommand.php:225 AtlasAcosDeltaSeriesCommand::appendSnapshot (32L)",
+        "app/Console/Commands/AtlasAcosDeltaSeriesV2Command.php:245 AtlasAcosDeltaSeriesV2Command::appendSnapshot (32L)"
+      ]
+    },
+    {
+      "hash": "48560f19b0eb87d3",
+      "count": 2,
+      "loc": 32,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeCertificationService.php:222 AtlasSelfConstructionRealProviderSmokeCertificationService::isPlaceholderOperatorSmokeValue (32L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService.php:150 AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService::isPlaceholderOperatorSmokeValue (32L)"
+      ]
+    },
+    {
+      "hash": "b5d46909b1940ff5",
+      "count": 2,
+      "loc": 30,
+      "methods": [
+        "app/Console/Commands/AtlasDocumentationRealityWriteGateCommand.php:179 AtlasDocumentationRealityWriteGateCommand::parseNameStatusZ (30L)",
+        "app/Services/Engineering/AtlasDocumentationRealityAutoHealService.php:494 AtlasDocumentationRealityAutoHealService::parseNameStatusZ (30L)"
+      ]
+    },
+    {
+      "hash": "87b0b66354bc1417",
+      "count": 2,
+      "loc": 30,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentProviderAdapterExecutionGuard.php:229 AgentProviderAdapterExecutionGuard::normalize (30L)",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php:52 AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker::normalize (30L)"
+      ]
+    },
+    {
+      "hash": "03264797a48aaf3a",
+      "count": 2,
+      "loc": 29,
+      "methods": [
+        "app/Console/Commands/AtlasAiDecideCommand.php:258 AtlasAiDecideCommand::fallbackReason (29L)",
+        "app/Http/Controllers/AiDecisionController.php:124 AiDecisionController::fallbackReason (29L)"
+      ]
+    },
+    {
+      "hash": "2e8ee5af9bbd9b15",
+      "count": 2,
+      "loc": 29,
+      "methods": [
+        "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php:1162 AtlasAiVoiceRealtimeCommand::sanitizeSmokePayload (29L)",
+        "app/Services/Ai/Voice/AtlasVoiceProductionPromotionReviewBundleService.php:166 AtlasVoiceProductionPromotionReviewBundleService::sanitizeSmokePayload (29L)"
+      ]
+    },
+    {
+      "hash": "26e8e1b9323be9cd",
+      "count": 2,
+      "loc": 28,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php:312 AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::verifierContext (28L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalCompletionHumanGateService.php:257 AtlasSelfConstructionFinalCompletionHumanGateService::verifierContext (28L)"
+      ]
+    },
+    {
+      "hash": "5682aaaf96a5670d",
+      "count": 2,
+      "loc": 27,
+      "methods": [
+        "app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php:578 StewardshipOwnerRuntimeResultBridgeService::findRecord (27L)",
+        "app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipRuntimeResultBridgeService.php:809 StewardshipRuntimeResultBridgeService::findRecord (27L)"
+      ]
+    },
+    {
+      "hash": "12625d04c0b867d9",
+      "count": 2,
+      "loc": 26,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php:247 AtlasAaelLoopExecutionBridge::normalizeInvariantMap (26L)",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/InFlight/AtlasAaelInFlightStepValidator.php:98 AtlasAaelInFlightStepValidator::normalizeInvariantMap (26L)"
+      ]
+    },
+    {
+      "hash": "eab38903d2cb199f",
+      "count": 2,
+      "loc": 25,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanSignedCompletionReceiptService.php:254 AtlasSelfConstructionHumanSignedCompletionReceiptService::isPlaceholderReason (25L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptVerifierService.php:150 AtlasSelfConstructionHumanCompletionReceiptVerifierService::isPlaceholderReason (25L)"
+      ]
+    },
+    {
+      "hash": "d9c8248d976b1dfc",
+      "count": 2,
+      "loc": 24,
+      "methods": [
+        "app/Console/Commands/AtlasAiDecideCommand.php:315 AtlasAiDecideCommand::providerAllowedForPreview (24L)",
+        "app/Http/Controllers/AiDecisionController.php:154 AiDecisionController::providerAllowedForPreview (24L)"
+      ]
+    },
+    {
+      "hash": "31fac2f50c194ef9",
+      "count": 2,
+      "loc": 24,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathYieldMomentum.php:71 AtlasBrainPathYieldMomentum::yieldByPath (24L)",
+        "app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCompoundingVelocity.php:79 AtlasBrainCompoundingVelocity::yieldByPath (24L)"
+      ]
+    },
+    {
+      "hash": "c6b7271cb1c4e064",
+      "count": 2,
+      "loc": 24,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/FinalOperatorClosureCorridor/OperatorCommandSurfaceIntegrityInspector.php:130 OperatorCommandSurfaceIntegrityInspector::collectOperatorCommands (24L)",
+        "app/Services/Ai/SelfConstruction/OperatorEvidence/OperatorCommandSurfaceIntegrityAnalyzer.php:121 OperatorCommandSurfaceIntegrityAnalyzer::collectOperatorCommands (24L)"
+      ]
+    },
+    {
+      "hash": "12160f252cd4bc82",
+      "count": 2,
+      "loc": 23,
+      "methods": [
+        "app/Console/Commands/AtlasAcosDeltaSeriesCommand.php:261 AtlasAcosDeltaSeriesCommand::readSeries (23L)",
+        "app/Console/Commands/AtlasAcosDeltaSeriesV2Command.php:281 AtlasAcosDeltaSeriesV2Command::readSeries (23L)"
+      ]
+    },
+    {
+      "hash": "8669d1a014e6e9d7",
+      "count": 2,
+      "loc": 23,
+      "methods": [
+        "app/Console/Commands/AtlasSelfConstructionOperatorInterfaceCommand.php:129 AtlasSelfConstructionOperatorInterfaceCommand::loadFacts (23L)",
+        "app/Console/Commands/AtlasSelfConstructionContinuousRuntimeCommand.php:299 AtlasSelfConstructionContinuousRuntimeCommand::loadFacts (23L)"
+      ]
+    },
+    {
+      "hash": "12d6398d88f6d71d",
+      "count": 2,
+      "loc": 23,
+      "methods": [
+        "app/Console/Commands/AiChat/AiChatModelSection.php:281 AiChatModelSection::appendModelCatalogRow (23L)",
+        "app/Services/Ai/Cli/AtlasCliModelCatalogService.php:197 AtlasCliModelCatalogService::appendModelCatalogRow (23L)"
+      ]
+    },
+    {
+      "hash": "780895a3a2ca7c96",
+      "count": 2,
+      "loc": 22,
+      "methods": [
+        "app/Services/CaptureDeletionService.php:135 CaptureDeletionService::deleteMatching (22L)",
+        "app/Services/Ai/ConversationOps/AiThreadDeletionService.php:271 AiThreadDeletionService::deleteMatching (22L)"
+      ]
+    },
+    {
+      "hash": "b65eee08ab34e2f1",
+      "count": 2,
+      "loc": 22,
+      "methods": [
+        "app/Services/Engineering/CodeGraph/CodeGraphUnifiedView.php:169 CodeGraphUnifiedView::normalizeProvenSet (22L)",
+        "app/Services/Engineering/CodeGraph/CodeGraphRuntimeEvidenceOverlay.php:153 CodeGraphRuntimeEvidenceOverlay::normalizeProvenSet (22L)"
+      ]
+    },
+    {
+      "hash": "8e93a92eae639d65",
+      "count": 2,
+      "loc": 22,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Rollback/AtlasAaelExecutionRollbackExecutor.php:162 AtlasAaelExecutionRollbackExecutor::normalizeRelativePath (22L)",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/Rollback/AtlasAaelExecutionPreImageSnapshotter.php:197 AtlasAaelExecutionPreImageSnapshotter::normalizeRelativePath (22L)"
+      ]
+    },
+    {
+      "hash": "9d4ffc6e182dc9f1",
+      "count": 2,
+      "loc": 21,
+      "methods": [
+        "app/Console/Commands/AtlasAiDecideCommand.php:366 AtlasAiDecideCommand::candidates (21L)",
+        "app/Http/Controllers/AiDecisionController.php:205 AiDecisionController::candidates (21L)"
+      ]
+    },
+    {
+      "hash": "20b09f1cab094fa4",
+      "count": 2,
+      "loc": 21,
+      "methods": [
+        "app/Services/Vault/RepoVaultReader.php:70 RepoVaultReader::read (21L)",
+        "app/Services/Vault/ObsidianVaultReader.php:61 ObsidianVaultReader::read (21L)"
+      ]
+    },
+    {
+      "hash": "b48a95ac2556409a",
+      "count": 2,
+      "loc": 21,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionCompletionFinalizationGateService.php:504 AtlasSelfConstructionCompletionFinalizationGateService::finalVerificationSequence (21L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionFinalCompletionReadinessGateService.php:280 AtlasSelfConstructionFinalCompletionReadinessGateService::finalVerificationSequence (21L)"
+      ]
+    },
+    {
+      "hash": "b2b5a78ce4880dd0",
+      "count": 2,
+      "loc": 21,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanSignedCompletionReceiptService.php:232 AtlasSelfConstructionHumanSignedCompletionReceiptService::isPlaceholderSigner (21L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptVerifierService.php:128 AtlasSelfConstructionHumanCompletionReceiptVerifierService::isPlaceholderSigner (21L)"
+      ]
+    },
+    {
+      "hash": "de026c878b6727f7",
+      "count": 2,
+      "loc": 20,
+      "methods": [
+        "app/Services/Engineering/EngineeringProviderRuntimeService.php:217 EngineeringProviderRuntimeService::process (20L)",
+        "app/Services/Engineering/EngineeringDockerHarnessService.php:650 EngineeringDockerHarnessService::process (20L)"
+      ]
+    },
+    {
+      "hash": "d42c0f648b6bd380",
+      "count": 2,
+      "loc": 20,
+      "methods": [
+        "app/Services/Ai/Programming/Governance/ProgrammingSpecCompiler.php:305 ProgrammingSpecCompiler::hasMeasurableCriterion (20L)",
+        "app/Services/Ai/Programming/Sdd/Compilers/SpecCritic.php:119 SpecCritic::hasMeasurableCriterion (20L)"
+      ]
+    },
+    {
+      "hash": "753b38ba7732dcc1",
+      "count": 2,
+      "loc": 20,
+      "methods": [
+        "app/Services/Ai/EngineeringKernel/Repair/FailureBrainCorpus.php:50 FailureBrainCorpus::all (20L)",
+        "app/Services/Ai/EngineeringKernel/RegressionLock/RegressionLockLedger.php:71 RegressionLockLedger::all (20L)"
+      ]
+    },
+    {
+      "hash": "62fec9f2165d7c84",
+      "count": 2,
+      "loc": 20,
+      "methods": [
+        "app/Services/Ai/MarketingDomain/Content/PatternLibraryScorer.php:70 PatternLibraryScorer::hits (20L)",
+        "app/Services/Ai/MarketingDomain/Content/HybridPatternScorer.php:111 HybridPatternScorer::hits (20L)"
+      ]
+    },
+    {
+      "hash": "033c2772849e282d",
+      "count": 2,
+      "loc": 20,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneReplaySnapshotStore.php:244 AgentControlPlaneReplaySnapshotStore::loadRegistry (20L)",
+        "app/Services/Ai/SelfConstruction/ControlPlane/AgentRuntimeRegistryRepository.php:850 AgentRuntimeRegistryRepository::loadRegistry (18L)"
+      ]
+    },
+    {
+      "hash": "ee38274cb8c71d55",
+      "count": 2,
+      "loc": 19,
+      "methods": [
+        "app/Console/Commands/Ai/Product/AtlasProductDeliveryRepairExecuteCommand.php:169 AtlasProductDeliveryRepairExecuteCommand::evidenceFromOptions (19L)",
+        "app/Console/Commands/Ai/Product/AtlasProductDeliveryPatchRequestCommand.php:75 AtlasProductDeliveryPatchRequestCommand::evidenceFromOptions (19L)"
+      ]
+    },
+    {
+      "hash": "4cde2ea64d1ba321",
+      "count": 2,
+      "loc": 19,
+      "methods": [
+        "app/Services/Ai/Autonomy/SealedLedgerAutonomyMetricsAuthority.php:250 SealedLedgerAutonomyMetricsAuthority::append (19L)",
+        "app/Services/Ai/Autonomy/AtlasAutonomyLadderSignatureLedger.php:190 AtlasAutonomyLadderSignatureLedger::append (19L)"
+      ]
+    },
+    {
+      "hash": "a58d1c7fbb2e8d6f",
+      "count": 2,
+      "loc": 19,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/AtlasLoopWeeklyAgendaProposalService.php:741 AtlasLoopWeeklyAgendaProposalService::arrayOptionOr (19L)",
+        "app/Services/Ai/Programming/AtlasWeeklyEngineeringReportService.php:262 AtlasWeeklyEngineeringReportService::arrayOptionOr (19L)"
+      ]
+    },
+    {
+      "hash": "6af5805df343fde3",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Console/Commands/AtlasAiPipelineCommand.php:88 AtlasAiPipelineCommand::hints (18L)",
+        "app/Console/Commands/AtlasAiPlaceFeatureCommand.php:81 AtlasAiPlaceFeatureCommand::hints (16L)"
+      ]
+    },
+    {
+      "hash": "eea5a34f221a6253",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/SelfImprovement/AtlasSelfImprovementHumanTrustLedgerService.php:356 AtlasSelfImprovementHumanTrustLedgerService::resolveOccurredAt (18L)",
+        "app/Services/Ai/Programming/AtlasForgeProviderFailureMemoryService.php:283 AtlasForgeProviderFailureMemoryService::resolveOccurredAt (18L)"
+      ]
+    },
+    {
+      "hash": "2f0dcd2c092be393",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/Context/AtlasDeliveredPackLedger.php:346 AtlasDeliveredPackLedger::percentile (18L)",
+        "app/Services/Ai/OpenBrain/AtlasAobgLatencyLedger.php:264 AtlasAobgLatencyLedger::percentile (18L)"
+      ]
+    },
+    {
+      "hash": "b84bb26e8f8392ba",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/Memory/AtlasMemoryReviewQueueService.php:668 AtlasMemoryReviewQueueService::memorySafety (18L)",
+        "app/Services/Ai/MemoryGovernance/AtlasMemoryGovernanceService.php:547 AtlasMemoryGovernanceService::memorySafety (18L)"
+      ]
+    },
+    {
+      "hash": "4b016387c6747017",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/Programming/AtlasDevBeatTestReportService.php:571 AtlasDevBeatTestReportService::containsPlaceholderString (18L)",
+        "app/Services/Ai/Programming/AtlasForgeMultiNodeL410ProofService.php:645 AtlasForgeMultiNodeL410ProofService::containsPlaceholderString (18L)"
+      ]
+    },
+    {
+      "hash": "a21fda00105d89a7",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php:145 StewardshipOwnerRuntimeResultBridgeService::consumption (18L)",
+        "app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php:158 StewardshipOwnerRuntimeExecutionAdapterService::consumption (18L)"
+      ]
+    },
+    {
+      "hash": "cef17366624a7a9c",
+      "count": 2,
+      "loc": 18,
+      "methods": [
+        "app/Http/Controllers/AtlasCodeReceiptShowController.php:80 AtlasCodeReceiptShowController::latestSignature (18L)",
+        "app/Http/Controllers/AtlasCodeWorkController.php:731 AtlasCodeWorkController::latestSignature (18L)"
+      ]
+    },
+    {
+      "hash": "c7452fb9931960a3",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Engineering/EngineeringDocumentationHealthService.php:471 EngineeringDocumentationHealthService::corpusSignature (17L)",
+        "app/Services/Engineering/AtlasDocumentationRealitySystemService.php:278 AtlasDocumentationRealitySystemService::corpusSignature (17L)"
+      ]
+    },
+    {
+      "hash": "45a45ef9e5b5046c",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/ControlPlane/AtlasControlPlaneEvidenceService.php:145 AtlasControlPlaneEvidenceService::safeCount (17L)",
+        "app/Services/Ai/ControlPlane/AtlasControlPlanePolicyService.php:129 AtlasControlPlanePolicyService::safeCount (17L)"
+      ]
+    },
+    {
+      "hash": "259e2b5010cf4a05",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/Programming/AtlasMinimaxM27RuntimeExecutor.php:80 AtlasMinimaxM27RuntimeExecutor::compile (17L)",
+        "app/Services/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutor.php:344 AtlasMinimaxM27CliRuntimeExecutor::compile (17L)"
+      ]
+    },
+    {
+      "hash": "31494328f4f80ef6",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php:1181 AtlasEvidenceLedger::eventsForEnvelope (17L)",
+        "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php:32 AtlasLedgerReplayService::eventsForEnvelope (17L)"
+      ]
+    },
+    {
+      "hash": "44ae2882e5c95c78",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionReceiptService.php:310 AtlasSelfConstructionRuntimePromotionReceiptService::latestReceipt (17L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanSignedCompletionReceiptService.php:178 AtlasSelfConstructionHumanSignedCompletionReceiptService::latestReceipt (17L)"
+      ]
+    },
+    {
+      "hash": "6c731220b921c284",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService.php:344 AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService::isPlaceholderSigner (17L)",
+        "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptDraftService.php:172 AtlasSelfConstructionHumanCompletionReceiptDraftService::isPlaceholderSigner (17L)"
+      ]
+    },
+    {
+      "hash": "9c5179cb1481411b",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimEnvelopeAdapter.php:244 AtlasNativeWorkerClaimEnvelopeAdapter::redactSensitive (17L)",
+        "app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerExecutionEnvelopeBuilder.php:120 AtlasNativeWorkerExecutionEnvelopeBuilder::redactSensitive (17L)"
+      ]
+    },
+    {
+      "hash": "733bb45f2d012b9a",
+      "count": 2,
+      "loc": 17,
+      "methods": [
+        "app/Http/Controllers/SyncController.php:349 SyncController::normalizeConfidence (17L)",
+        "app/Http/Controllers/HealthSnapshotController.php:174 HealthSnapshotController::normalizeConfidence (17L)"
+      ]
+    },
+    {
+      "hash": "51b572e77d46efac",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Console/Commands/AtlasAiDecideCommand.php:139 AtlasAiDecideCommand::optionsWithSelectionMetadata (16L)",
+        "app/Http/Controllers/AiDecisionController.php:107 AiDecisionController::optionsWithSelectionMetadata (16L)"
+      ]
+    },
+    {
+      "hash": "a8bc13b6b49ff7bb",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Console/Commands/AtlasAiDecideCommand.php:406 AtlasAiDecideCommand::confidenceScore (16L)",
+        "app/Http/Controllers/AiDecisionController.php:245 AiDecisionController::confidenceScore (16L)"
+      ]
+    },
+    {
+      "hash": "c12a35a2e688f464",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Engineering/CodeGraph/CodeGraphRegressionDetector.php:446 CodeGraphRegressionDetector::numericOrNull (16L)",
+        "app/Services/Engineering/CodeGraph/CodeGraphInferredGuard.php:310 CodeGraphInferredGuard::numericOrNull (16L)"
+      ]
+    },
+    {
+      "hash": "6ee23ca015847d1d",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php:302 AtlasSelfImprovementScheduleService::canonicalize (16L)",
+        "app/Services/Ai/Kernel/Repair/RepairEvidencePayloadFormatter.php:91 RepairEvidencePayloadFormatter::canonicalize (16L)"
+      ]
+    },
+    {
+      "hash": "b7c45053cf526d11",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Ai/Programming/AtlasDevRuntimeService.php:594 AtlasDevRuntimeService::filesMatchScope (16L)",
+        "app/Services/Ai/Programming/Forge/ForgeIntakeService.php:1102 ForgeIntakeService::filesMatchScope (16L)"
+      ]
+    },
+    {
+      "hash": "d86d840533bab1dd",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Ai/Hermes/HermesDelegationAdapter.php:185 HermesDelegationAdapter::toolsetPresentInManifest (16L)",
+        "app/Services/Ai/Hermes/Mesh/HermesProfileResolver.php:156 HermesProfileResolver::toolsetPresentInManifest (16L)"
+      ]
+    },
+    {
+      "hash": "d2d28b2baf58131d",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Ai/Hermes/HermesProcedureAdapter.php:212 HermesProcedureAdapter::evidence (16L)",
+        "app/Services/Ai/Hermes/HermesMemoryAdapter.php:195 HermesMemoryAdapter::evidence (16L)"
+      ]
+    },
+    {
+      "hash": "9dd5c22d66fbbf64",
+      "count": 2,
+      "loc": 16,
+      "methods": [
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/AtlasAaelExecutionPlanInvariantChecker.php:80 AtlasAaelExecutionPlanInvariantChecker::extractSteps (16L)",
+        "app/Services/Ai/AutonomousEvolution/Aael/Execution/AtlasAaelExecutionPlanSemanticProver.php:70 AtlasAaelExecutionPlanSemanticProver::extractSteps (16L)"
+      ]
+    },
+    {
+      "hash": "f694b5977d6d3f0d",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:91 AtlasDecideMetaLearningActivateCommand::applyActions (15L)",
+        "app/Console/Commands/AtlasDecideMetaLearningDeactivateCommand.php:69 AtlasDecideMetaLearningDeactivateCommand::applyActions (15L)"
+      ]
+    },
+    {
+      "hash": "f932bd9bf0d7721e",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/AtlasOpenBrainFileContextService.php:830 AtlasOpenBrainFileContextService::intOpt (15L)",
+        "app/Services/Ai/AtlasOpenBrainGuardService.php:1041 AtlasOpenBrainGuardService::intOpt (15L)"
+      ]
+    },
+    {
+      "hash": "66e6feb1e185037b",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Engineering/EngineeringProjectBlueprintService.php:455 EngineeringProjectBlueprintService::sortRecursive (15L)",
+        "app/Services/Engineering/EngineeringBlueprintSnapshotService.php:145 EngineeringBlueprintSnapshotService::sortRecursive (15L)"
+      ]
+    },
+    {
+      "hash": "9a98f82d08cbb1c5",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/Cognition/AtlasCognitionEvidenceResolver.php:580 AtlasCognitionEvidenceResolver::parseDate (15L)",
+        "app/Services/Ai/Cognition/AcosProgram/AcosMeasureSeriesFreshnessReader.php:190 AcosMeasureSeriesFreshnessReader::parseDate (15L)"
+      ]
+    },
+    {
+      "hash": "b93b5f8b141f7a5f",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/Cognition/ImmuneVerdictLedger.php:278 ImmuneVerdictLedger::parseDate (15L)",
+        "app/Services/Ai/Cognition/ImmuneSignatureStore.php:439 ImmuneSignatureStore::parseDate (15L)"
+      ]
+    },
+    {
+      "hash": "bedcd9a3e9f43b4c",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/Programming/AtlasForgeCodexCliInvocationDriver.php:98 AtlasForgeCodexCliInvocationDriver::resolveBinaryPath (15L)",
+        "app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php:246 AtlasForgeCursorCliInvocationDriver::resolveBinaryPath (15L)"
+      ]
+    },
+    {
+      "hash": "2ce98e40045bcfbf",
+      "count": 2,
+      "loc": 15,
+      "methods": [
+        "app/Services/Ai/Programming/AtlasCodeForgeFastPathStatusService.php:497 AtlasCodeForgeFastPathStatusService::findRun (15L)",
+        "app/Services/Ai/Programming/AtlasCodeForgeReviewCompletionService.php:556 AtlasCodeForgeReviewCompletionService::findRun (15L)"
+      ]
+    }
+  ],
+  "todo_fixme_count": 92,
+  "todo_sample": [
+    {
+      "path": "app/Console/Commands/AtlasFinanceSpotExecCommand.php",
+      "line": 29,
+      "text": "{--all : sell vende todo o saldo livre do ativo base}"
+    },
+    {
+      "path": "app/Services/AtlasCode/WorkspaceFolderIntelligenceService.php",
+      "line": 30,
+      "text": "*   - Todo comando git tem timeout curto (3s) e falha vira null, n\u00e3o exce\u00e7\u00e3o."
+    },
+    {
+      "path": "app/Services/AtlasCode/AtlasCodeAskService.php",
+      "line": 18,
+      "text": "* commits que a sustentam, para o grafo acender atr\u00e1s do vidro. Todo hash"
+    },
+    {
+      "path": "app/Services/AtlasCode/AtlasCodeAskService.php",
+      "line": 229,
+      "text": "* sonda, todo hash pareceria inexistente e a falha viraria fato \u2014 \"n\u00e3o"
+    },
+    {
+      "path": "app/Services/AtlasCode/AtlasCodeAskService.php",
+      "line": 911,
+      "text": "* responde \u00e9 o p\u00f3dio + quanto ele pesa no todo, porque isso diz se h\u00e1 um"
+    },
+    {
+      "path": "app/Services/Engineering/AtlasDocumentationRealitySelfImprovementModelingService.php",
+      "line": 16,
+      "text": "* virar runtime, um por vez, com prova e incerteza declarada; o todo permanece norte\")."
+    },
+    {
+      "path": "app/Services/Engineering/EngineeringKnowledgeBaseService.php",
+      "line": 17,
+      "text": "* Workspace dono do corpus legado (todo o hist\u00f3rico pr\u00e9-federa\u00e7\u00e3o)."
+    },
+    {
+      "path": "app/Services/Engineering/AtlasDocumentationRealityCausalSelfModelService.php",
+      "line": 19,
+      "text": "* virar runtime, um por vez, com prova e incerteza declarada; o todo permanece"
+    },
+    {
+      "path": "app/Services/Vault/GraphAssembler.php",
+      "line": 181,
+      "text": "* - works/forge/risks \u2192 0 (TODO: own world or graph_parent taxonomy)"
+    },
+    {
+      "path": "app/Services/Ai/Context/AiContextPackBuilder.php",
+      "line": 264,
+      "text": "* `'constitutional' => []` para todo agente, em toda superf\u00edcie, desde"
+    },
+    {
+      "path": "app/Services/Ai/Memory/AtlasMemoryRecallCache.php",
+      "line": 17,
+      "text": "* (via observer) invalida TODO o cache no pr\u00f3ximo hit. Corpus pequeno torna"
+    },
+    {
+      "path": "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+      "line": 159,
+      "text": "* filtro era `-- app` + `.php`, o que deixava todo repo n\u00e3o-Laravel com"
+    },
+    {
+      "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php",
+      "line": 319,
+      "text": "// autonomia plena (meta_harness ON sobre AutonomousEvolution/), a SUPERF\u00cdCIE DE REWARD-HACK"
+    },
+    {
+      "path": "app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php",
+      "line": 328,
+      "text": "//     eval, training. O r\u00e9u treinar/promover o pr\u00f3prio m\u00fasculo na pr\u00f3pria m\u00e9trica \u00e9 o reward-hack"
+    },
+    {
+      "path": "app/Services/Ai/Vox/VoxPromptCompiler.php",
+      "line": 42,
+      "text": "* V6-ES-C \u00b7 se\u00e7\u00f5es can\u00f4nicas presentes em todo `compiled_prompt` de"
+    },
+    {
+      "path": "app/Services/Ai/RouterRuntime/IntentKernelService.php",
+      "line": 47,
+      "text": "'todo o fluxo', 'diff',"
+    },
+    {
+      "path": "app/Services/Ai/Arena/ArenaMeasurementStore.php",
+      "line": 359,
+      "text": "* pra todo consumidor que l\u00ea `score` sem olhar o N. Aqui a contagem existe s\u00f3"
+    },
+    {
+      "path": "app/Services/Ai/Gateway/ChatWeakResponseProbe.php",
+      "line": 23,
+      "text": "*   - placeholder markers (case-sensitive TODO/FIXME \u2014 PT-BR prose contains"
+    },
+    {
+      "path": "app/Services/Ai/Gateway/ChatWeakResponseProbe.php",
+      "line": 24,
+      "text": "*     'todo' as a word, the p\u00e9treo lesson from the Dev W1 probe);"
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureImprovementScannerService.php",
+      "line": 31,
+      "text": "*  - dx                  developer-experience signals (lingering TODO/FIXME debt)"
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureImprovementScannerService.php",
+      "line": 440,
+      "text": "* DX: lingering TODO/FIXME debt rolled up per file as a low-effort cleanup"
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureProblemMapService.php",
+      "line": 27,
+      "text": "*   - debt_marker      low|med   TODO/FIXME/HACK/XXX comments (FIXME/HACK = medium)"
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureProblemMapService.php",
+      "line": 244,
+      "text": "* Debt markers left in code: TODO/FIXME/HACK/XXX. FIXME and HACK signal a"
+    },
+    {
+      "path": "app/Services/Ai/Company/Ventures/Comprehension/Capabilities/VentureProblemMapService.php",
+      "line": 245,
+      "text": "* known defect (medium); TODO/XXX are deferred work (low)."
+    },
+    {
+      "path": "app/Services/Ai/LongHorizon/Causal/CausalGraphBuilder.php",
+      "line": 23,
+      "text": "* Props banidas em todo `meta` de node \u2014 protege contra leak de texto raw"
+    },
+    {
+      "path": "app/Services/Ai/Hermes/Kanban/HermesKanbanSwarmService.php",
+      "line": 218,
+      "text": "* todo, running or scheduled tasks (only done/blocked remain)."
+    },
+    {
+      "path": "app/Services/Ai/Compression/Compressors/SearchCompressor.php",
+      "line": 23,
+      "text": "*      scans for), plus every match that is an anomaly (error/warning/TODO/etc.) and"
+    },
+    {
+      "path": "app/Services/Ai/Compression/Compressors/SearchCompressor.php",
+      "line": 42,
+      "text": "private const ANOMALY_SHAPE = '/\\b(error|errors|err|exception|throwable|panic|fatal|fail|failed|failure|warn|warning|critical|severe|deprecated|todo|fixme|hack|"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Pipeline/OutOfScopeDelegationDetector.php",
+      "line": 23,
+      "text": "*   - \"reescrever o sistema todo\" / \"Obra multi-semana\" -> atlas_forge"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Pipeline/OutOfScopeDelegationDetector.php",
+      "line": 37,
+      "text": "'sistema inteiro', 'sistema todo', 'app inteiro', 'aplicacao inteira', 'aplica\u00e7\u00e3o inteira',"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Pipeline/OutOfScopeDelegationDetector.php",
+      "line": 39,
+      "text": "'reescrever todo', 'reescrever tudo', 'rewrite the entire', 'rewrite all',"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Intelligence/ReviewIntelligenceService.php",
+      "line": 58,
+      "text": "// 'foreach ($' removido 03/07: TODO diff PHP com um loop virava"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Intelligence/ReviewIntelligenceService.php",
+      "line": 886,
+      "text": "* de seguran\u00e7a em todo identificador que cont\u00e9m a palavra; mesma doen\u00e7a"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php",
+      "line": 56,
+      "text": "'for', 'with', 'com', 'sem', 'todo', 'tudo', 'rodar', 'execute',"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 18,
+      "text": "*   placeholder_marker            \u2014 TODO, ellipsis-only body, or a fake always-true assertion."
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 57,
+      "text": "self::SIGNAL_PLACEHOLDER_MARKER => 'a concrete implementation instead of TODO/ellipsis/fake-assert placeholders',"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 63,
+      "text": "* the former `/\\bTODO\\b/i` matched Portuguese prose \u2014 'todo o workspace',"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 64,
+      "text": "* 'Todo', and even 'm\u00e9todo'/'M\u00c9TODO' (the accented char is a non-word"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 79,
+      "text": "* `...` line is the canonical YAML document end, and TODO lists are"
+    },
+    {
+      "path": "app/Services/Ai/Programming/AtlasDev/Gate/DevWeakOutputDetector.php",
+      "line": 148,
+      "text": "* lines ('+' prefix stripped) for placeholder markers (TODO/FIXME,"
+    }
+  ],
+  "throwable_catch_count": 41,
+  "throwable_catch_sample": [
+    {
+      "path": "app/Services/Ai/Support/BuildsReadinessChecks.php",
+      "line": 70,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/AiGateway/EnrichesGatewayRichInput.php",
+      "line": 80,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/AiGateway/EnrichesGatewayRichInput.php",
+      "line": 136,
+      "text": "} catch (\\Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/AiGateway/EnrichesGatewayRichInput.php",
+      "line": 172,
+      "text": "} catch (\\Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 43,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 169,
+      "text": "} catch (\\Throwable $exception) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 233,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 249,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 255,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Concerns/RunsCliProcesses.php",
+      "line": 346,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Kernel/Envelope/Provenance.php",
+      "line": 31,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Vox/Gate/VoxGateStatusHelper.php",
+      "line": 38,
+      "text": "} catch (\\Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/Vox/Gate/Checks/InspectsVoxSource.php",
+      "line": 85,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/EngineeringKernel/Spec/IntentEnvelope.php",
+      "line": 74,
+      "text": "} catch (\\Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SelfConstruction/ControlPlane/AgentRuntimeRegistryStorageConcerns.php",
+      "line": 58,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 133,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 155,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 210,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 232,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 396,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 453,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 493,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleReceiptRuntimeSection.php",
+      "line": 563,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 49,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 75,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 98,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 269,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 344,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 500,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/CycleGovernanceSection.php",
+      "line": 516,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 114,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 180,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 279,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 735,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 751,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoop/SessionPlanBacklogSection.php",
+      "line": 843,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/Cognition/Watchdog/AtlasWatchdogRunner.php",
+      "line": 77,
+      "text": "} catch (Throwable $e) {"
+    },
+    {
+      "path": "app/Services/Ai/Cognition/Watchdog/AtlasWatchdogRunner.php",
+      "line": 198,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Cognition/Watchdog/Checks/AobgLatencyWatchdogCheck.php",
+      "line": 160,
+      "text": "} catch (Throwable) {"
+    },
+    {
+      "path": "app/Services/Ai/Cognition/Watchdog/Checks/OperatorReviewDebtWatchdogCheck.php",
+      "line": 40,
+      "text": "} catch (Throwable $e) {"
+    }
+  ],
+  "dir_mass_top": [
+    {
+      "dir": "app/Services/Ai/SelfConstruction",
+      "loc": 358760
+    },
+    {
+      "dir": "app/Console/Commands",
+      "loc": 136837
+    },
+    {
+      "dir": "app/Services/Ai/Programming",
+      "loc": 132932
+    },
+    {
+      "dir": "app/Services/Ai/SoftwareCompanyStewardship",
+      "loc": 117938
+    },
+    {
+      "dir": "app/Services/Engineering",
+      "loc": 73380
+    },
+    {
+      "dir": "app/Services/Ai/Kernel",
+      "loc": 43902
+    },
+    {
+      "dir": "app/Services/Ai/Holding",
+      "loc": 43837
+    },
+    {
+      "dir": "app/Services/Ai/AgenticEngineeringOs",
+      "loc": 43264
+    },
+    {
+      "dir": "app/Services/Ai/AutonomousEvolution",
+      "loc": 41164
+    },
+    {
+      "dir": "app/Http/Controllers",
+      "loc": 40239
+    },
+    {
+      "dir": "app/Services/Ai/MarketingDomain",
+      "loc": 26873
+    },
+    {
+      "dir": "app/Services/Ai/Cognition",
+      "loc": 24284
+    },
+    {
+      "dir": "app/Services/Ai/Context",
+      "loc": 24102
+    },
+    {
+      "dir": "app/Services/Ai/Rivals",
+      "loc": 21177
+    },
+    {
+      "dir": "app/Services/Ai/Finance",
+      "loc": 17631
+    },
+    {
+      "dir": "app/Services/Ai/Vox",
+      "loc": 16240
+    },
+    {
+      "dir": "app/Services/Ai/EngineeringKernel",
+      "loc": 14902
+    },
+    {
+      "dir": "app/Services/Ai/Memory",
+      "loc": 14876
+    },
+    {
+      "dir": "app/Services/Ai/Hermes",
+      "loc": 13486
+    },
+    {
+      "dir": "app/Services/Ai/SelfImprovement",
+      "loc": 11707
+    },
+    {
+      "dir": "app/Services/AtlasCode",
+      "loc": 11288
+    },
+    {
+      "dir": "app/Services/Ai/Product",
+      "loc": 10289
+    },
+    {
+      "dir": "app/Services/Ai/Cli",
+      "loc": 9618
+    },
+    {
+      "dir": "app/Services/Ai/AtlasDecide",
+      "loc": 9610
+    },
+    {
+      "dir": "app/Services/Ai/Mobile",
+      "loc": 8915
+    },
+    {
+      "dir": "app/Services/Ai/LongHorizon",
+      "loc": 8678
+    },
+    {
+      "dir": "app/Services/Ai/Telemetry",
+      "loc": 8623
+    },
+    {
+      "dir": "app/Services/Ai/Learning",
+      "loc": 8566
+    },
+    {
+      "dir": "app/Services/Ai/WorkspaceIntelligence",
+      "loc": 8352
+    },
+    {
+      "dir": "app/Services/Ai/Company",
+      "loc": 8117
+    },
+    {
+      "dir": "app/Services/Ai/Compounding",
+      "loc": 7976
+    },
+    {
+      "dir": "app/Services/Ai/RealExecution",
+      "loc": 7096
+    },
+    {
+      "dir": "app/Services/Ai/Publishing",
+      "loc": 6418
+    },
+    {
+      "dir": "app/Services/Ai/Reality",
+      "loc": 5687
+    },
+    {
+      "dir": "app/Services/Ai/Foundry",
+      "loc": 5492
+    },
+    {
+      "dir": "app/Services/Ai/Voice",
+      "loc": 5440
+    },
+    {
+      "dir": "app/Services/Ai/ControlPlane",
+      "loc": 5389
+    },
+    {
+      "dir": "app/Services/Semantic",
+      "loc": 5385
+    },
+    {
+      "dir": "app/Services/Ai/Governance",
+      "loc": 5259
+    },
+    {
+      "dir": "app/Services/Ai/Mission",
+      "loc": 5115
+    }
+  ]
+}

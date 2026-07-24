@@ -1,0 +1,61 @@
+# Bucket `Ai/Hermes`
+
+Files: 55 · LOC: 13486
+
+| LOC | Path | status |
+|---:|---|---|
+| 1152 | `app/Services/Ai/Hermes/HermesCapabilityProbe.php` | pending |
+| 715 | `app/Services/Ai/Hermes/HermesSkillProvisioner.php` | pending |
+| 560 | `app/Services/Ai/Hermes/HermesHookBridge.php` | pending |
+| 497 | `app/Services/Ai/Hermes/HermesCapabilityRegistry.php` | pending |
+| 494 | `app/Services/Ai/Hermes/HermesOpenAiResponseAdapter.php` | pending |
+| 466 | `app/Services/Ai/Hermes/HermesMcpAdapter.php` | pending |
+| 464 | `app/Services/Ai/Hermes/HermesMemoryReviewGate.php` | pending |
+| 463 | `app/Services/Ai/Hermes/Acp/HermesAcpProtocol.php` | pending |
+| 444 | `app/Services/Ai/Hermes/HermesDelegationAdapter.php` | pending |
+| 443 | `app/Services/Ai/Hermes/HermesCapabilityInvocationBuilder.php` | pending |
+| 408 | `app/Services/Ai/Hermes/Kanban/HermesKanbanSwarmService.php` | pending |
+| 402 | `app/Services/Ai/Hermes/Acp/HermesAcpPermissionGate.php` | pending |
+| 372 | `app/Services/Ai/Hermes/HermesHookSink.php` | pending |
+| 364 | `app/Services/Ai/Hermes/Acp/AtlasHermesAcpRuntime.php` | pending |
+| 363 | `app/Services/Ai/Hermes/HermesResultPacketFactory.php` | pending |
+| 301 | `app/Services/Ai/Hermes/Mesh/HermesMeshReconciler.php` | pending |
+| 280 | `app/Services/Ai/Hermes/HermesMissionCapabilitiesFactory.php` | pending |
+| 278 | `app/Services/Ai/Hermes/HermesRuntimeRouter.php` | pending |
+| 278 | `app/Services/Ai/Hermes/Mesh/HermesWorkcellAdapter.php` | pending |
+| 264 | `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php` | pending |
+| 262 | `app/Services/Ai/Hermes/HermesScheduleAdapter.php` | pending |
+| 249 | `app/Services/Ai/Hermes/HermesProcedureAdapter.php` | pending |
+| 239 | `app/Services/Ai/Hermes/HermesMcpCapabilityCandidateRecorder.php` | pending |
+| 239 | `app/Services/Ai/Hermes/HermesMemoryAdapter.php` | pending |
+| 234 | `app/Services/Ai/Hermes/Mesh/HermesExecutiveMeshPlanner.php` | pending |
+| 212 | `app/Services/Ai/Hermes/HermesScheduleActivationGate.php` | pending |
+| 211 | `app/Services/Ai/Hermes/HermesLearningHomeLinker.php` | pending |
+| 195 | `app/Services/Ai/Hermes/Mesh/HermesSessionEvidenceImporter.php` | pending |
+| 183 | `app/Services/Ai/Hermes/Mesh/HermesProfileResolver.php` | pending |
+| 179 | `app/Services/Ai/Hermes/Mesh/HermesMeshProcessWorkerFactory.php` | pending |
+| 179 | `app/Services/Ai/Hermes/Support/HermesStringListNormalizer.php` | pending |
+| 177 | `app/Services/Ai/Hermes/ManagedHermesHome.php` | pending |
+| 175 | `app/Services/Ai/Hermes/Mesh/HermesMeshRoutingAdvisor.php` | pending |
+| 171 | `app/Services/Ai/Hermes/HermesCapabilityEnablementGate.php` | pending |
+| 164 | `app/Services/Ai/Hermes/Acp/HermesAcpTransport.php` | pending |
+| 149 | `app/Services/Ai/Hermes/Acp/HermesAcpResultMapper.php` | pending |
+| 143 | `app/Services/Ai/Hermes/Mesh/HermesMeshJobRunner.php` | pending |
+| 138 | `app/Services/Ai/Hermes/Mesh/HermesMeshCheckpointExecutor.php` | pending |
+| 130 | `app/Services/Ai/Hermes/Mesh/HermesDoctorPreflight.php` | pending |
+| 120 | `app/Services/Ai/Hermes/Mesh/HermesProfileHomeProvisioner.php` | pending |
+| 113 | `app/Services/Ai/Hermes/HermesManagedMcpConfigProvisioner.php` | pending |
+| 109 | `app/Services/Ai/Hermes/Acp/HermesAcpSessionPool.php` | pending |
+| 105 | `app/Services/Ai/Hermes/Mesh/HermesCheckpointPolicy.php` | pending |
+| 90 | `app/Services/Ai/Hermes/Kanban/HermesKanbanProcessCli.php` | pending |
+| 51 | `app/Services/Ai/Hermes/Mesh/HermesMeshProcessHandle.php` | pending |
+| 36 | `app/Services/Ai/Hermes/Acp/HermesAcpWarmSession.php` | pending |
+| 34 | `app/Services/Ai/Hermes/HermesAdapterReceipt.php` | pending |
+| 31 | `app/Services/Ai/Hermes/HermesKeysHashHelper.php` | pending |
+| 28 | `app/Services/Ai/Hermes/Mesh/MeshWorkerHandle.php` | pending |
+| 27 | `app/Services/Ai/Hermes/Acp/HermesAcpChannel.php` | pending |
+| 26 | `app/Services/Ai/Hermes/HermesWorkspaceHelper.php` | pending |
+| 23 | `app/Services/Ai/Hermes/Kanban/HermesKanbanCli.php` | pending |
+| 22 | `app/Services/Ai/Hermes/Kanban/HermesKanbanResult.php` | pending |
+| 20 | `app/Services/Ai/Hermes/Mesh/SharedHermesCheckpointPolicySeam.php` | pending |
+| 14 | `app/Services/Ai/Hermes/Mesh/HermesExecutiveMeshService.php` | pending |

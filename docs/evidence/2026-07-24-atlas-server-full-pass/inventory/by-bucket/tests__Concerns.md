@@ -1,0 +1,67 @@
+# Bucket `tests/Concerns`
+
+Files: 61 · LOC: 5783
+
+| LOC | Path | status |
+|---:|---|---|
+| 224 | `tests/Concerns/CreatesAiJobChoiceTables.php` | pending |
+| 210 | `tests/Concerns/CreatesAtlasSddTables.php` | pending |
+| 209 | `tests/Concerns/CreatesEvidenceRuntimeTables.php` | pending |
+| 193 | `tests/Concerns/CreatesVentureComprehensionTables.php` | pending |
+| 183 | `tests/Concerns/CreatesAemorTables.php` | pending |
+| 182 | `tests/Concerns/CreatesCyberRuntimeTables.php` | pending |
+| 181 | `tests/Concerns/CreatesStrategicRealityTables.php` | pending |
+| 174 | `tests/Concerns/CreatesStrategyRuntimeTables.php` | pending |
+| 168 | `tests/Concerns/CreatesMarketingDomainTables.php` | pending |
+| 155 | `tests/Concerns/CreatesPolicySafetyTables.php` | pending |
+| 152 | `tests/Concerns/CreatesAtlasProgrammingGovernanceTables.php` | pending |
+| 150 | `tests/Concerns/CreatesForgeLongHorizonStateTable.php` | pending |
+| 145 | `tests/Concerns/CreatesToolRuntimeTables.php` | pending |
+| 132 | `tests/Concerns/CreatesAtlasToolRuntimeTables.php` | pending |
+| 131 | `tests/Concerns/CreatesIntelligenceFactoryTables.php` | pending |
+| 129 | `tests/Concerns/CreatesMissionFoundationTables.php` | pending |
+| 127 | `tests/Concerns/CreatesOperatorIntelligenceTables.php` | pending |
+| 124 | `tests/Concerns/CreatesAverTables.php` | pending |
+| 124 | `tests/Concerns/CreatesVentureFoundryTables.php` | pending |
+| 123 | `tests/Concerns/CreatesDomainRuntimeTables.php` | pending |
+| 121 | `tests/Concerns/MakesCodexRealInvokerPostStartFixtures.php` | pending |
+| 120 | `tests/Concerns/CreatesPolyExecTables.php` | pending |
+| 113 | `tests/Concerns/CreatesAaelTables.php` | pending |
+| 112 | `tests/Concerns/CreatesForgeIntakeTables.php` | pending |
+| 107 | `tests/Concerns/CreatesRouterRuntimeTables.php` | pending |
+| 103 | `tests/Concerns/CreatesLongHorizonPersistenceTables.php` | pending |
+| 101 | `tests/Concerns/CreatesAarsTables.php` | pending |
+| 100 | `tests/Concerns/CreatesRuntimeEfficiencyTables.php` | pending |
+| 97 | `tests/Concerns/CreatesResearchDomainTables.php` | pending |
+| 90 | `tests/Concerns/CreatesAgenticWorkcellTables.php` | pending |
+| 90 | `tests/Concerns/CreatesAtlasEngineeringCodeTables.php` | pending |
+| 88 | `tests/Concerns/CreatesAweosTables.php` | pending |
+| 87 | `tests/Concerns/CreatesLocalAgentIngestionTables.php` | pending |
+| 86 | `tests/Concerns/CreatesAutomationDomainTables.php` | pending |
+| 72 | `tests/Concerns/CreatesAtlasTaskTables.php` | pending |
+| 72 | `tests/Concerns/CreatesPersistentContextTables.php` | pending |
+| 67 | `tests/Concerns/CreatesAtlasMemoryEntryTable.php` | pending |
+| 66 | `tests/Concerns/CreatesVentureAssessmentTables.php` | pending |
+| 63 | `tests/Concerns/MakesAgentControlPlaneTaskQueueOrchestrator.php` | pending |
+| 59 | `tests/Concerns/CreatesAtlasMemoryEntryRelationsConflictVerbsTable.php` | pending |
+| 54 | `tests/Concerns/CreatesAtlasContextIdRemapTable.php` | pending |
+| 49 | `tests/Concerns/CreatesDualCoreRouteDecisionTables.php` | pending |
+| 48 | `tests/Concerns/CreatesAtlasKnowledgeSourcePacketsTable.php` | pending |
+| 46 | `tests/Concerns/CreatesOperatorApprovalTable.php` | pending |
+| 44 | `tests/Concerns/CreatesAtlasEngineeringKnowledgeTables.php` | pending |
+| 44 | `tests/Concerns/CreatesAtlasProjectsTable.php` | pending |
+| 44 | `tests/Concerns/CreatesForgeMultiAgentScheduleTable.php` | pending |
+| 41 | `tests/Concerns/MakesSelfConstructionAgentRuns.php` | pending |
+| 38 | `tests/Concerns/TestsWithLedgerEvents.php` | pending |
+| 37 | `tests/Concerns/CreatesAtlasMemoryEntryRelationsTable.php` | pending |
+| 35 | `tests/Concerns/BootsCompoundingSchema.php` | pending |
+| 35 | `tests/Concerns/CreatesSelfConstructionControlPlaneTables.php` | pending |
+| 33 | `tests/Concerns/CreatesSoftwareTwinTables.php` | pending |
+| 32 | `tests/Concerns/CreatesAtlasEngineeringEvidenceTable.php` | pending |
+| 31 | `tests/Concerns/CreatesAiThreadsTable.php` | pending |
+| 26 | `tests/Concerns/CreatesAiMessagesTable.php` | pending |
+| 26 | `tests/Concerns/CreatesAiTracesTable.php` | pending |
+| 25 | `tests/Concerns/CreatesAtlasToolRunsTable.php` | pending |
+| 23 | `tests/Concerns/CreatesAtlasEngineeringRunsTable.php` | pending |
+| 21 | `tests/Concerns/CreatesFinanceDomainTables.php` | pending |
+| 21 | `tests/Concerns/CreatesProgrammingAdapterTables.php` | pending |
