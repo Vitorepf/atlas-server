@@ -6,41 +6,25 @@
 program: atlas-server-full-pass-file-by-file
 branch: main
 execution: in_progress
-started: 2026-07-24
-commits_full_pass_session: 12+
-unit_proof: 24+ tests green (see package-proof.log)
-inventory_files: 13399
-file_receipts_corpus_wide: incomplete (honest)
-next_item: MCP tools catalog OR PipelineRunExecutor Http exit OR Readiness peel collapse
+unit_proof: 27 tests / 80 assertions green (package-proof.log)
+mcp_service_loc: ~875 (was ~1954 before catalog extract)
+next: PipelineRunExecutor Http exit OR Readiness peel OR HTML render split
 ```
 
-## Landed batches (this session)
+## Landed (session)
 
-1. LoadsFactsJsonOption + GitWorkspaceStateReader + loop operate honesty
-2. ResolvesSilentJsonOption + MemoryLimitBytes + OpenBrain intOpt
-3. ResolvesGitProjectRoot (CLI)
-4. CliInvocationModel + ParsesKeyValueMetadataOption
-5. MemoryEntrySafetySummary + CodeGraphIntOrNull + evidence inventory
-6. Benchmark git shape + ReadsNonEmptyStringOption
-7. ControlPlaneStatusSection
-8. AcosDeltaSeriesJsonl
-9. SchemaVersionedJsonBlockParser + DiskJsonIndexLoader
-10. DatabaseIdsContaining
-11. BriefGrounding rename (Helper BC)
-12. SuiteRedTriage rename (Helper BC)
+Reuse: LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader (+benchmark shape), MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection, AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining.
 
-## Next queued
+Honesty rename: BriefGrounding, SuiteRedTriage (Helper BC).
 
-- density monstruos (MCP tools, HTML render, Session runCycle)
-- PipelineRunExecutor leave Http
-- config/atlas.php physical split
-- Readiness invoker registry
-- ProviderCatalog
+Density: OpenBrainMcpToolCatalog extract from tools() god method; annotations remain on façade.
 
-## Floors blocked
+Operate: config atlas loop keys documented as legacy ACDE.
 
-Session RSI, Evidence LedgerReplay redesign, Readiness probe hub, AtlasLoop* keep-list
+## Next / DEBT
 
-## Honesty
+See DEBTS.md — monstruos, config split, ProviderCatalog, thin fat commands.
 
-Not claiming corpus-wide zero bugs. Continuous full-pass hygiene with package-green commits.
+## Floors
+
+RSI Session, Evidence redesign, Readiness probe hub, keep-list AtlasLoop*
