@@ -22,7 +22,8 @@
 - [ ] Remaining behavior-sensitive stringOption (~11: no-trim / keep-untrimmed variants)
 - [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
 - [x] Empty Maestro ClosedLoop+Pinning dirs removed
-- [ ] ExternalBrain loadFacts / NativeImplementation loadJson trait variants
+- [x] ExternalBrain loadFacts → LoadsFactsFileOption (3 cmds)
+- [ ] NativeImplementation loadJson trait variant
 
 ### Density / elevate
 

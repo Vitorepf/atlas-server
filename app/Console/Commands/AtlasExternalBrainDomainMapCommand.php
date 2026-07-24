@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\LoadsFactsFileOption;
+
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBreakthroughPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityMapDriftDetector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDriftWorkProposer;
@@ -34,6 +36,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 final class AtlasExternalBrainDomainMapCommand extends Command
 {
+    use LoadsFactsFileOption;
+
     use EmitsCanonicalJson;
 
     private const SCHEMA = 'atlas.external_brain.domain_map.v1';
@@ -136,14 +140,4 @@ final class AtlasExternalBrainDomainMapCommand extends Command
     }
 
     /** @return array<string,mixed> */
-    private function loadFacts(): array
-    {
-        $path = trim((string) $this->option('facts-file'));
-        if ($path === '' || ! is_file($path) || ! is_readable($path)) {
-            return [];
-        }
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : [];
-    }
 }

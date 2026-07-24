@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\LoadsFactsFileOption;
+
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBacklogAgingValueMonitor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorImpactDiversityReport;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRoadmapCoverageGapGovernor;
@@ -33,6 +35,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 final class AtlasExternalBrainOriginatorCoverageCommand extends Command
 {
+    use LoadsFactsFileOption;
+
     use EmitsCanonicalJson;
 
     private const SCHEMA = 'atlas.external_brain.originator_coverage.v1';
@@ -118,14 +122,4 @@ final class AtlasExternalBrainOriginatorCoverageCommand extends Command
     }
 
     /** @return array<string,mixed> */
-    private function loadFacts(): array
-    {
-        $path = trim((string) $this->option('facts-file'));
-        if ($path === '' || ! is_file($path) || ! is_readable($path)) {
-            return [];
-        }
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : [];
-    }
 }
