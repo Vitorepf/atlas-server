@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Provider\ProviderCatalog;
+
 use App\Models\AiCompaction;
 use App\Models\AiDecision;
 use App\Models\AiJob;
@@ -80,25 +82,9 @@ class AiGatewayService
         return $this->preflight?->lastEnvelope();
     }
 
-    private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
-
-    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
-
-    /**
-     * Providers Atlas Decide (auto mode) may land on because a worker is actually
-     * DRAINING their queue. The desktop kernel only spawns workers for
-     * hermes_cli + codex_cli (see atlas-desktop kernel_manager
-     * PRIMARY_AI_WORKER_PROVIDERS; minimax is listed there but its worker was not
-     * running). It never runs a claude_cli or gemini_cli worker, yet claude was
-     * auto-eligible (allow_auto), so an auto-routed chat enqueued to a queue
-     * nobody consumes and the desktop gave up at 120s ("Atlas não respondeu").
-     * Operator directive (03/07): Hermes is the default executive — any auto pick
-     * outside this live set is redirected to config('atlas.ai.default_provider').
-     * An EXPLICIT provider choice (model/mode dropdown) still bypasses this.
-     *
-     * @var list<string>
-     */
-    private const AUTO_LIVE_WORKER_PROVIDERS = ['hermes_cli', 'codex_cli'];
+    // Provider inventory lives in ProviderCatalog (full-pass single source).
+    // AUTO_LIVE_WORKER docs: desktop kernel drains hermes_cli+codex_cli only;
+    // auto mode must not land on workers that never drain (stranded chats).
 
     private const TRANSACTION_ATTEMPTS = 5;
 
@@ -219,7 +205,7 @@ class AiGatewayService
                     && ! $this->fairClaude->isFairPayload($payload)
                     && ($gatewayConsultation['verdict'] ?? null) === AtlasDecideGatewayConsultationService::VERDICT_FOLLOW_LEARNED
                     && is_string($learnedProvider)
-                    && in_array($learnedProvider, self::AUTO_LIVE_WORKER_PROVIDERS, true)
+                    && in_array($learnedProvider, ProviderCatalog::autoLiveWorkerProviders(), true)
                     && $this->providerAllowedForInvocation($learnedProvider, $options)) {
                     $provider = $learnedProvider;
                     $options['provider'] = $provider;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\AiGateway;
 
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Models\AiCompaction;
 use App\Models\AiDecision;
 use App\Models\AiJob;
@@ -59,7 +60,7 @@ trait RoutesGatewayProvider
             return $this->providerAllowedForInvocation('claude_codex', $options);
         }
 
-        if (in_array($manualProvider, self::INVOCATION_PROVIDERS, true)) {
+        if (in_array($manualProvider, ProviderCatalog::invocationProviders(), true)) {
             return $this->providerAllowedForInvocation((string) $manualProvider, $options, explicitProvider: true);
         }
 
@@ -70,7 +71,7 @@ trait RoutesGatewayProvider
         // 120s"). Redirect any auto pick outside the live-worker set to the
         // default executive (Hermes). Explicit provider choices returned above are
         // untouched, so the operator can still force claude_cli/codex_cli/etc.
-        if (! in_array($candidate, self::AUTO_LIVE_WORKER_PROVIDERS, true)) {
+        if (! in_array($candidate, ProviderCatalog::autoLiveWorkerProviders(), true)) {
             $candidate = (string) config('atlas.ai.default_provider', 'hermes_cli');
         }
 

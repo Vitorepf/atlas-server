@@ -45,7 +45,8 @@
 
 - [ ] PipelineRunExecutor leave Http + test port (live DI already KernelRunExecutor)
 - [x] config/atlas.php: loop → atlas_loop_legacy.php (~1704L extracted; atlas.php 5409→3707)
-- [ ] ProviderCatalog single source (Decide/Gateway/Manager/Forge)
+- [x] ProviderCatalog SSOT for invocation/auto-live/council (Gateway+Routes wired; config overrides optional)
+- [ ] ProviderCatalog adopt in Decide/Manager/Forge hard lists residual
 - [ ] AppServiceProvider domain providers
 - [ ] routes/api.php domain split
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
