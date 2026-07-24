@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+use App\Console\Commands\Concerns\ResolvesJsonOptionWithComponentsError;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -22,6 +23,12 @@ use Throwable;
 final class AtlasSelfImprovementProposalBacklogCommand extends Command
 {
     use ReadsNonEmptyStringOption;
+    use ResolvesJsonOptionWithComponentsError;
+
+    protected function jsonOptionMissingFileLabel(): string
+    {
+        return 'payload file not found';
+    }
 
     protected $signature = 'atlas:self-improvement:proposal-backlog
         {--create : Create a new proposal (requires --proposal payload)}
@@ -189,30 +196,4 @@ final class AtlasSelfImprovementProposalBacklogCommand extends Command
     /**
      * @return array<string,mixed>|null
      */
-    private function resolveJsonOption(string $key): ?array
-    {
-        $raw = $this->option($key);
-        if (! is_string($raw) || trim($raw) === '') {
-            return null;
-        }
-        $raw = trim($raw);
-        if (str_starts_with($raw, '@')) {
-            $path = substr($raw, 1);
-            if (! is_file($path)) {
-                $this->components->error('payload file not found: '.$path);
-
-                return null;
-            }
-            $raw = (string) file_get_contents($path);
-        }
-        try {
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable $e) {
-            $this->components->error('payload is not valid JSON: '.$e->getMessage());
-
-            return null;
-        }
-
-        return is_array($decoded) ? $decoded : null;
-    }
 }

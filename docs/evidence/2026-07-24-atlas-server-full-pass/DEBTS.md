@@ -19,6 +19,7 @@
 - [x] UtcIsoTimestamp::now() + mass gmdate('c') (~83 / 47 files)
 - [x] EmitsCanonicalJson mass adoption on Command line(json_encode) (~705; residual complex remains)
 - [x] Finish ReadsNonEmptyStringOption trait-equivalent (7 cmds)
+- [x] SelfImprovement resolveJsonOption → ResolvesJsonOptionWithComponentsError (3 cmds)
 - [ ] Remaining behavior-sensitive stringOption (~11: no-trim / keep-untrimmed variants)
 - [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
 - [x] Empty Maestro ClosedLoop+Pinning dirs removed
