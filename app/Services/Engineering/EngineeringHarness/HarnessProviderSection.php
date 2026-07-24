@@ -99,6 +99,7 @@ class HarnessProviderSection
 
         if ((bool) ($providerOptions['complete'] ?? false)) {
             $hostCommand[] = '--forge';
+            $hostCommand[] = '--operator';
         }
 
         if (is_string($providerOptions['resume'] ?? null) && trim((string) $providerOptions['resume']) !== '') {
