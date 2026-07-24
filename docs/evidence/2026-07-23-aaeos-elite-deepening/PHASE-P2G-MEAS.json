@@ -1,0 +1,111 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2g-MEAS",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "af37cf33e3362e02689ea966bc287f7346a6a001",
+  "implementation_commit": "8a19ca956c1b7b21b6fa9e3de69b9bf3c352a11a",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Rivals/Core/RivalsExcellenceMeasure.php",
+    "app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php",
+    "app/Services/Ai/Rivals/Core/Adjudicator.php",
+    "app/Services/Ai/Rivals/Core/ReportBuilder.php",
+    "app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php",
+    "config/atlas_rivals.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceDualArmReportTest.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceClaimGate50xTest.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceSaturatedLevelNoClaimTest.php",
+    "docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Rivals/Core/RivalsExcellenceMeasure.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceDualArmReportTest.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceClaimGate50xTest.php",
+    "tests/Feature/Ai/Rivals/AaeosMExcellenceSaturatedLevelNoClaimTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2g-MEAS M_excellence dual-arm + claim gate",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Rivals/AaeosMExcellenceDualArmReportTest.php tests/Feature/Ai/Rivals/AaeosMExcellenceClaimGate50xTest.php tests/Feature/Ai/Rivals/AaeosMExcellenceSaturatedLevelNoClaimTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2g-MEAS matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2g-MEAS:10-passed-29-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.rivals.excellence_measure.v1",
+    "N_raw",
+    "N_atlas",
+    "M_excellence",
+    "dual_arm_required",
+    "saturated_frontier_no_claim",
+    "multiplier_negative",
+    "r104_symmetry_not_attested"
+  ],
+  "exit_checklist": {
+    "dual_arm_report_fields": true,
+    "claim_50x_impossible_without_valid_frontier_measure": true,
+    "saturated_level_cannot_claim_50x": true,
+    "r107_path_core_closed_measured_m_pure": true,
+    "r104_residual_honesty_for_market_claim": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Pure dual-arm M_excellence formula + epsilon",
+    "Claim gate dual-arm/same-μ/frontier/saturated/R104",
+    "Negative M stop-the-line",
+    "EXCELLENCE_PASS conjunctive predicates path-core"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual (blocks honest market 50× until channel green)",
+    "R-P2A1-PG-LIVE multi-process residual",
+    "Live AtlasUpliftRunner projection of N_raw/N_atlas/M_excellence fields",
+    "P2g-EVOL night self-improve enqueue on M<1 / promotion"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "d4d2862b1cea4794130cb1f3185deef9199555847785796414284832f9b6b941",
+    "ledger_content_sha256": "074e1ba1738ba3528ed4fbd63af6b0c7798c83b65fa49e9d659e04ac8749886b",
+    "scoreboard_content_sha256": "8bb938a8610b04686e3a4a6245c584f6f76e2b07b70cd20a78d7646d345887b1",
+    "sha256": "7e1dfa7dedb7f4cdad5148b5102cec93351e43a99e1636e78e807f057e7e0eb1"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2g-EVOL",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2g-MEAS GREEN path-core. RivalsExcellenceMeasure pure dual-arm M_excellence. Live uplift runner field projection residual. Next EXECUTE P2g-EVOL. R104 residual open."
+}
