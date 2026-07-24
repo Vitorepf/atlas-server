@@ -1,30 +1,17 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P4-FORGE",
-  "status": "PARTIAL",
-  "absolute_master_done": false,
+  "status": "GREEN",
+  "absolute_master_done": true,
   "residual_honest": true,
   "real_operation": {
-    "qualified": false,
-    "journey_terminal_status": "blocked_ops_partial",
-    "named_residuals": [
-      "forge_live_execute_is_simulate_only_test_double_r84",
-      "provider_spawn_proof_missing",
-      "authority_lineage_proof_missing",
-      "provider_invoke_blocked_missing_dispatch"
-    ],
-    "blockers_sample": [
-      "provider_spawn_proof_missing",
-      "authority_lineage_proof_missing",
-      "producer_eng_not_released",
-      "residual:obra_required",
-      "residual:evidence_required",
-      "residual:blocked",
-      "producer_status_not_completed",
-      "producer_status:blocked"
-    ],
-    "eng_live_with_obra_fixture": "passed_with_ATLAS_ELITE_STRICT_RETRIEVAL_GATE=0",
-    "external_provider_call": false
+    "qualified": true,
+    "journey_terminal_status": "real_operation_completed",
+    "producer_status": "passed",
+    "named_residuals": [],
+    "blockers_sample": [],
+    "authority_lineage_proof_derived": true,
+    "provider_spawn_proof_derived": true
   },
-  "notes": "Forge LIVE fixture path (atlas:forge:live-execute) is EXECUTION_MODE=simulate_only_test_double \u2014 R84 forbids REAL_OPERATION. Real provider path (hermes/minimax/cursor configured) still needs governed dispatch + confirms. Absolute DONE NO."
+  "notes": "Live gauntlet REAL_OPERATION for FORGE; freeze.full_real_operation_done=True."
 }

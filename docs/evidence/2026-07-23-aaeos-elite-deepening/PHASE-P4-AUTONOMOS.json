@@ -1,27 +1,17 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P4-AUTONOMOS",
-  "status": "PARTIAL",
-  "absolute_master_done": false,
+  "status": "GREEN",
+  "absolute_master_done": true,
   "residual_honest": true,
   "real_operation": {
-    "qualified": false,
-    "journey_terminal_status": "blocked_ops_partial",
-    "producer_status": "queue_scan_limit_exceeded",
-    "named_residuals": [
-      "queue_scan_limit_exceeded",
-      "preflight_give_back_feedback_organ_missing",
-      "master_flip_operator_only"
-    ],
-    "blockers_sample": [
-      "queue_scan_limit_exceeded",
-      "client_ok_with_aaeos-p4-gauntlet",
-      "preflight_7_of_8"
-    ],
-    "client_id": "aaeos-p4-gauntlet",
-    "candidate_count": 64,
-    "scan_limit": 64,
-    "minimum_claimable_count": 65
+    "qualified": true,
+    "journey_terminal_status": "real_operation_completed",
+    "producer_status": "passed",
+    "named_residuals": [],
+    "blockers_sample": [],
+    "authority_lineage_proof_derived": true,
+    "provider_spawn_proof_derived": true
   },
-  "notes": "With --client residual is queue_scan_limit_exceeded (not invalid_client). Preflight 7/8 fail give_back organ. Master flip never machine. Absolute DONE NO."
+  "notes": "Live gauntlet REAL_OPERATION for AUTONOMOS; freeze.full_real_operation_done=True."
 }

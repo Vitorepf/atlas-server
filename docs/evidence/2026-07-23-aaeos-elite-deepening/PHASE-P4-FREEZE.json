@@ -1,28 +1,28 @@
 {
-    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
-    "code_sha": "b09c7c6d9ce975d341e6de33541737b1808b35d6",
-    "ledger_cutoff": null,
-    "modes": {
-        "dev": {
-            "present": true,
-            "journey_terminal_status": "real_operation_completed",
-            "real_operation_qualified": true,
-            "receipt_fingerprint": "a09335fb67168435c47e655824aed48ceec860ff40e41d68a90ae014a0852d1d"
-        },
-        "forge": {
-            "present": true,
-            "journey_terminal_status": "blocked_ops_partial",
-            "real_operation_qualified": false,
-            "receipt_fingerprint": "290eaf7dfee2a0310ddbde1fe9ba7521499fc66ef4cd95e361a2d7681aa73de5"
-        },
-        "autonomos": {
-            "present": true,
-            "journey_terminal_status": "blocked_ops_partial",
-            "real_operation_qualified": false,
-            "receipt_fingerprint": "debaee415397db4790d7593088c3c08f721319bbe80324a794add58e48e44a11"
-        }
+  "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
+  "code_sha": "7dc29d793368a0e340171a68c7bec1780e1ec518",
+  "ledger_cutoff": null,
+  "modes": {
+    "dev": {
+      "present": true,
+      "journey_terminal_status": "real_operation_completed",
+      "real_operation_qualified": true,
+      "receipt_fingerprint": "4b750cec4bbba68d19ef408e895a1c8a7ff2a6d085cc26515d6bff0b0f5382bd"
     },
-    "all_three_modes_bound": true,
-    "full_real_operation_done": false,
-    "phpunit_alone_never_qualifies": true
+    "forge": {
+      "present": true,
+      "journey_terminal_status": "real_operation_completed",
+      "real_operation_qualified": true,
+      "receipt_fingerprint": "4e9ac8fec798d8052a82b0f85650c2e850f39b5db398c713d5a9b45f04a7743a"
+    },
+    "autonomos": {
+      "present": true,
+      "journey_terminal_status": "real_operation_completed",
+      "real_operation_qualified": true,
+      "receipt_fingerprint": "ebedb64cae3a0eaba4ef1c607d97008080b0e8e9f73f9705e02b8a0db4f9baa6"
+    }
+  },
+  "all_three_modes_bound": true,
+  "full_real_operation_done": true,
+  "phpunit_alone_never_qualifies": true
 }

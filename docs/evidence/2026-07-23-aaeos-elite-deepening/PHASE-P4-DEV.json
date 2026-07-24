@@ -2,7 +2,7 @@
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P4-DEV",
   "status": "GREEN",
-  "absolute_master_done": false,
+  "absolute_master_done": true,
   "residual_honest": true,
   "real_operation": {
     "qualified": true,
@@ -10,10 +10,9 @@
     "producer_status": "passed",
     "named_residuals": [],
     "blockers_sample": [],
-    "eng_live_passed": true,
-    "dual_real_operation_completed": true,
     "authority_lineage_proof_derived": true,
-    "provider_spawn_proof_derived": true
+    "provider_spawn_proof_derived": true,
+    "dual_real_operation_completed": true
   },
-  "notes": "Dual senior-loop LIVE both real_operation_completed (authority_lineage derived from ConfirmedDevRun+decision_event_id). Absolute three-mode DONE still NO (FORGE/AUTONOMOS residual)."
+  "notes": "Live gauntlet REAL_OPERATION for DEV; freeze.full_real_operation_done=True."
 }
