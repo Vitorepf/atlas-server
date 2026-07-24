@@ -101,6 +101,15 @@ class AtlasTaskPostLandCanarySentinel
                 'changed_files_hash' => $this->hash($allowedFiles),
                 'project_lane' => ['project_id' => 'atlas-self-construction'],
                 'decided_at' => ($this->clock)(),
+                // v3 ledger requires evidence_refs + rollback_posture (throws otherwise → canary error).
+                'evidence_refs' => [
+                    'canary_verdict:'.$verdict,
+                    'commit_sha:'.$commitSha,
+                    'task_packet:'.$taskPacketId,
+                ],
+                'rollback_posture' => 'revertible:git_revert_task_packet',
+                'rejected_alternatives' => [],
+                'post_release_learning_hooks' => [],
             ])['status'] ?? 'error');
         } catch (Throwable) {
             return 'error';

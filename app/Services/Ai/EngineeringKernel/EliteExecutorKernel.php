@@ -106,7 +106,11 @@ final class EliteExecutorKernel
         } catch (\Throwable) {
             return $this->uncertainCanary($request, 'canary_observed_ledger_failed');
         }
-        if (($canary['ledger_status'] ?? 'error') === 'error' || $verdict === AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE) {
+        // Diagnostic release-decision ledger failures must not quarantine a canary_pass.
+        // Inconclusive verdicts still quarantine.
+        if ($verdict === AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE
+            || (($canary['ledger_status'] ?? 'error') === 'error'
+                && $verdict !== AtlasTaskPostLandCanarySentinel::VERDICT_PASS)) {
             return $this->persistUncertainCanary($authority, $request, 'canary_inconclusive_or_diagnostic_ledger_down', $verdict,
                 $provisionalOutcome);
         }
@@ -769,6 +773,10 @@ final class EliteExecutorKernel
                 ],
             ];
         }
+        // Hermetic candidates live in a sandbox worktree. Materialize the verified
+        // files into the order workspace before the merge actuator validates
+        // tree_hash against `git diff` and commits the land.
+        $this->materializeHermeticCandidateIntoWorkspace($order, $candidate);
         $actuation = $this->actAuthorizedMutativeCandidate($governed['governance'], $actuator);
         $settlement = null;
         if (($actuation['status'] ?? null) === 'landed_pending_canary'
@@ -783,7 +791,15 @@ final class EliteExecutorKernel
                     $action, $landed, $provisionalEvent, $order->canonicalHash(), $order->deliveryId,
                     $action->evidenceHash, 'atlas.engineering_kernel.canary',
                 );
-                $settlement = $this->settleLandedRelease($request, $actuator, $sentinel);
+                // Foreign fixture workspaces must canary against their own tree, not base_path.
+                $canarySentinel = realpath($order->workspace) === realpath(base_path())
+                    ? $sentinel
+                    : new AtlasTaskPostLandCanarySentinel(
+                        gate: new \App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate(
+                            repoRootOverride: $order->workspace,
+                        ),
+                    );
+                $settlement = $this->settleLandedRelease($request, $actuator, $canarySentinel);
             } catch (\Throwable $exception) {
                 $settlement = [
                     'status' => 'release_uncertain', 'resolved' => false, 'release_uncertain' => true,
@@ -1109,6 +1125,40 @@ final class EliteExecutorKernel
         }
 
         return $outcome;
+    }
+
+    /**
+     * Copy verified hermetic sandbox files into the order workspace so land can
+     * validate tree_hash via `git diff` and commitScope can stage real content.
+     */
+    private function materializeHermeticCandidateIntoWorkspace(ExecutionOrder $order, VerifiedMutativeCandidate $candidate): void
+    {
+        $sandbox = rtrim($candidate->sandboxRoot, '/');
+        $workspace = rtrim($order->workspace, '/');
+        if ($sandbox === '' || $workspace === '' || ! is_dir($sandbox) || ! is_dir($workspace)) {
+            return;
+        }
+        if (realpath($sandbox) === realpath($workspace)) {
+            return;
+        }
+        foreach ($candidate->files as $relative) {
+            $relative = ltrim(str_replace('\\', '/', (string) $relative), '/');
+            if ($relative === '' || str_contains($relative, '..')) {
+                continue;
+            }
+            $from = $sandbox.'/'.$relative;
+            $to = $workspace.'/'.$relative;
+            if (! is_file($from)) {
+                continue;
+            }
+            $dir = dirname($to);
+            if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
+                throw new \RuntimeException('hermetic_materialize_mkdir_failed:'.$relative);
+            }
+            if (! copy($from, $to)) {
+                throw new \RuntimeException('hermetic_materialize_copy_failed:'.$relative);
+            }
+        }
     }
 
     /**

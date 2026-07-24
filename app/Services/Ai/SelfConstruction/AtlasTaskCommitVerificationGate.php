@@ -93,17 +93,24 @@ final class AtlasTaskCommitVerificationGate
         $checks['required_test'] = $testFiles === [] ? 'skip' : 'present';
 
         // 2) BOOT SMOKE — catches a fatal that breaks the framework boot (eager class-not-found, etc.).
-        $boot = ($this->runner)([PHP_BINARY, 'artisan', 'about', '--only=environment'], $repo, 120.0);
-        if ($boot['ran'] && ! $boot['ok']) {
-            if ($this->outputMentionsAny($boot['out'], $changed)) {
-                return $this->blocked('bootstrap_failed', 'artisan about', $this->tail($boot['out']), $checks + ['boot' => 'fail_attributed']);
-            }
-            // Tree is already broken, but NOT by this task — do not punish this worker.
-            $checks['boot'] = 'fail_unattributed_open';
+        // Dev senior-loop hermetic fixtures are not Laravel trees (no artisan) — skip boot there so
+        // post-land canary is not forced into fail-open/inconclusive for an honest non-app workspace.
+        if (! is_file($repo.'/artisan')) {
+            $checks['boot'] = 'skip_infra';
+            $boot = ['ran' => false, 'ok' => true, 'out' => ''];
+        } else {
+            $boot = ($this->runner)([PHP_BINARY, 'artisan', 'about', '--only=environment'], $repo, 120.0);
+            if ($boot['ran'] && ! $boot['ok']) {
+                if ($this->outputMentionsAny($boot['out'], $changed)) {
+                    return $this->blocked('bootstrap_failed', 'artisan about', $this->tail($boot['out']), $checks + ['boot' => 'fail_attributed']);
+                }
+                // Tree is already broken, but NOT by this task — do not punish this worker.
+                $checks['boot'] = 'fail_unattributed_open';
 
-            return $this->passed('boot_broken_elsewhere_fail_open', $checks, 'fail_open_unattributed', 'boot_broken_elsewhere');
+                return $this->passed('boot_broken_elsewhere_fail_open', $checks, 'fail_open_unattributed', 'boot_broken_elsewhere');
+            }
+            $checks['boot'] = $boot['ran'] ? 'pass' : 'skip_infra';
         }
-        $checks['boot'] = $boot['ran'] ? 'pass' : 'skip_infra';
 
         // 3) TASK TESTS — only with a healthy boot and the task authoring its own tests (its own contract).
         // BLOCK ONLY on a GENUINE test failure — PHPUnit/Pest actually executed tests and reported red. A

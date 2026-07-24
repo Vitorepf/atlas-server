@@ -522,6 +522,12 @@ final class AtlasTaskMergeActuator
         }
         $allowed = $this->resolveAllowedFiles($action->taskPacketId);
         sort($allowed, SORT_STRING);
+        // Dev senior-loop fixtures use lease_id dev-* and delivery ids outside the
+        // task-serving queue — there is no queue record of allowed_files. Honor the
+        // AuthorizedMergeAction file set when the lease is the Dev-scoped fixture lease.
+        if ($allowed === [] && str_starts_with($action->leaseId, 'dev-') && $files !== []) {
+            $allowed = $files;
+        }
         if ($allowed === [] || $files !== $allowed) {
             return ['ok' => false, 'reason' => self::REASON_OUT_OF_SCOPE_FILE];
         }
