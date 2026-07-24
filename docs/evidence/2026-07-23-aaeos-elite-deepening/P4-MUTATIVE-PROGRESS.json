@@ -37,12 +37,32 @@
     ],
     "latest_receipt_ref": "storage/app/aaeos-p4-mut-dev/senior-loop-bind.json",
     "journey_terminal_status": "blocked_ops_partial",
-    "real_operation_completed": false
+    "real_operation_completed": false,
+    "diagnosed_residual": "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
   },
   "residuals_still_open": [
     "P4 mutative REAL_OPERATION eng journey (quality-court authorityEligible + authorized_merge_action + COVERED provider spawn proof)",
     "R104-TRANSPORT",
     "P4-FORGE live completeObra / AUTONOMOS brain→seed→land or honest blocked"
   ],
-  "honesty": "Do not invent real_operation_completed. Durable PG proven. Decision mint is real product fix enabling further mutative progress."
+  "honesty": "Do not invent real_operation_completed. Durable PG proven. Decision mint is real product fix enabling further mutative progress.",
+  "forge": {
+    "entry": "php artisan atlas:forge:live-execute --json",
+    "status": "blocked_ops_partial",
+    "blocker": "obra_required",
+    "external_provider_call": false,
+    "honesty": "fail-closed without --obra — no fabricated REAL_OPERATION"
+  },
+  "autonomos": {
+    "entry": "php artisan atlas:task next --client=aaeos-p4-probe --json",
+    "status": "blocked_ops_partial",
+    "observed_blockers": [
+      "workspace_not_ready"
+    ],
+    "honesty": "direct probe without aaeos_initiated; mutative path not claimed"
+  },
+  "commits": [
+    "bbe23e7cd",
+    "1297ceb48"
+  ]
 }
