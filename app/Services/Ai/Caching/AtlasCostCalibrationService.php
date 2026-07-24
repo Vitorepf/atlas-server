@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Caching;
 
+use App\Support\ArrayPercentile;
 /**
  * Turns observed cost telemetry (the JSONL the cost sentinel records in observe
  * mode) into the numbers the operator needs to set a hard ceiling from DATA, not
@@ -66,21 +67,6 @@ final class AtlasCostCalibrationService
      */
     private function percentile(array $sorted, float $q): ?float
     {
-        $n = count($sorted);
-        if ($n === 0) {
-            return null;
-        }
-        if ($n === 1) {
-            return $sorted[0];
-        }
-
-        $rank = $q * ($n - 1);
-        $low = (int) floor($rank);
-        $high = (int) ceil($rank);
-        if ($low === $high) {
-            return $sorted[$low];
-        }
-
-        return $sorted[$low] + ($sorted[$high] - $sorted[$low]) * ($rank - $low);
+        return ArrayPercentile::ofSorted($sorted, $q);
     }
 }
