@@ -24,6 +24,7 @@
 | inbox-tasks routes | route:list 1388; api.php →~90 |
 | YouTubeUrlSupport pure peel | 29 unit / 128 asserts green; ingestion 1780→1715 |
 | YouTubeCaption+MetadataSupport | 39 tests / 184 asserts green; ingestion 1715→1248 |
+| Readiness HubDelegators compact | 16 readiness unit green; hub traits ~8046→6044 LOC |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

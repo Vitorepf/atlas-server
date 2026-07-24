@@ -229,9 +229,7 @@ final class AtlasSelfConstructionReadinessService
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\FinalCompletionGateSectionDelegators;
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\ForgeWorkspaceSectionDelegators;
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\HumanCompletionReceiptSectionDelegators;
-    use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\MiscProjectionsPart1SectionDelegators;
-    use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\MiscProjectionsPart2SectionDelegators;
-    use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\MiscProjectionsPart3SectionDelegators;
+    use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\MiscProjectionsSectionDelegators;
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\MutatingWriterSectionDelegators;
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\OneShotTickCodexPart10SectionDelegators;
     use \App\Services\Ai\SelfConstruction\Readiness\HubDelegators\OneShotTickCodexPart1SectionDelegators;

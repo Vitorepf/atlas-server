@@ -53,7 +53,8 @@
 - [x] AtlasDecideService executionGraph strategy peels (scout/council/single; 39 unit green)
 - [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)
 - [ ] OneShotTick invoker further normalize/factory fusion residual
-- [ ] Readiness PartN / HubDelegators peel collapse
+- [x] Readiness HubDelegators compact forwarders (misc merge 3→1; batch/poststart/review/etc. ~8046→6044; method names preserved)
+- [ ] Readiness remaining Part forests / true map+__call where no method_exists dependency
 
 ### Architecture
 

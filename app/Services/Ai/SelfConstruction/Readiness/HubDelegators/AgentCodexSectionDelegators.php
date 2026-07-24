@@ -1,13 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Ai\SelfConstruction\Readiness\HubDelegators;
 
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixService;
-use App\Services\Ai\SelfConstruction\Readiness\CertificationWorkbenchEvaluator;
-use App\Services\Ai\SelfConstruction\Readiness\ReadinessCertificationChainQuartetProjector;
-use App\Services\Ai\SelfConstruction\Readiness\ReadinessPacketProjection;
-use App\Services\Ai\SelfConstruction\Readiness\ReadinessStatusProjection;
-
+/**
+ * Compact section forwarders (full-pass density). Section: agentCodexSection().
+ */
 trait AgentCodexSectionDelegators
 {
     public function agentCodexProviderExecutionContractTemplate(array $options = []): array
