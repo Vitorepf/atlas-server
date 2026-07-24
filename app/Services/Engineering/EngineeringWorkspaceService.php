@@ -667,6 +667,18 @@ class EngineeringWorkspaceService
 
                 continue;
             }
+
+            // A provider workspace may itself be a disposable clone whose
+            // ignored runtime artifacts are symlinks to the canonical checkout.
+            // Resolve the directory before the isolated vendor copy: `cp -R`
+            // otherwise preserves the source symlink on some hosts and leaves
+            // the worktree without vendor/autoload.php.
+            if ($artifact === 'vendor' && is_link($source)) {
+                $resolved = realpath($source);
+                if (is_string($resolved) && $resolved !== '') {
+                    $source = $resolved;
+                }
+            }
             if (file_exists($target) || is_link($target)) {
                 $artifacts['skipped'][] = $artifact.':already_present';
 

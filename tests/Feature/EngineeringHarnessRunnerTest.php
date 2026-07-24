@@ -4139,7 +4139,8 @@ class EngineeringHarnessRunnerTest extends TestCase
             $worktree = (string) $plan['execution_workspace'];
             $this->assertDirectoryExists($worktree);
 
-            $this->assertTrue(is_link($worktree.'/vendor'), 'vendor symlink missing in baseline worktree');
+            $this->assertFalse(is_link($worktree.'/vendor'), 'vendor must be isolated from the baseline worktree');
+            $this->assertDirectoryExists($worktree.'/vendor');
             $this->assertTrue(is_link($worktree.'/node_modules'), 'node_modules symlink missing');
             $this->assertTrue(is_link($worktree.'/.env'), '.env symlink missing');
             $this->assertFileExists($worktree.'/vendor/autoload.php');
@@ -4150,7 +4151,7 @@ class EngineeringHarnessRunnerTest extends TestCase
             }
 
             $bootstrap = (array) ($plan['bootstrapped_artifacts'] ?? []);
-            $this->assertContains('vendor', (array) ($bootstrap['symlinks'] ?? []));
+            $this->assertContains('vendor:cloned', (array) ($bootstrap['symlinks'] ?? []));
             $this->assertContains('node_modules', (array) ($bootstrap['symlinks'] ?? []));
             $this->assertContains('.env', (array) ($bootstrap['symlinks'] ?? []));
             $this->assertContains('storage/logs', (array) ($bootstrap['directories'] ?? []));
