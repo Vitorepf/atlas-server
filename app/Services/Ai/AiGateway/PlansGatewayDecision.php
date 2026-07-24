@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Provider\ProviderCatalog;
 
 /**
  * Atlas Decide recording + fair-mode decision plans/signals + scout gate/payload
@@ -292,7 +293,7 @@ trait PlansGatewayDecision
             ]];
         }
 
-        return collect(self::INVOCATION_PROVIDERS)
+        return collect(ProviderCatalog::invocationProviders())
             ->map(fn (string $provider): array => [
                 'provider' => $provider,
                 'selected' => $provider === $selectedProvider,

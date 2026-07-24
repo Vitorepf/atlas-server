@@ -5,15 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Resources\AiDecisionResource;
 use App\Models\AiDecision;
 use App\Services\Ai\AiProviderModelResolver;
-use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Provider\ProviderCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiDecisionController extends Controller
 {
-    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
-
     public function index(Request $request): JsonResponse
     {
         $decisions = AiDecision::query()
@@ -211,7 +210,7 @@ class AiDecisionController extends Controller
     ): array {
         $manualProvider = $decide->manualOverrideProvider($options);
 
-        return collect(self::INVOCATION_PROVIDERS)
+        return collect(ProviderCatalog::invocationProviders())
             ->map(fn (string $provider): array => [
                 'provider' => $provider,
                 'selected' => $provider === $selectedProvider,

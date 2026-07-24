@@ -8,7 +8,8 @@ execution: in_progress
 full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
-  - routes arena/code-native/agents/memory-vault (api.php →488)
+  - engineering routes + ProviderCatalog residual (api.php →411)
+  - routes arena/code-native/agents/memory-vault
   - AtlasSwarmServiceProvider ASP peel (ASP →856)
   - routes voice/mobile/vox split
   - AtlasOrganismServiceProvider ASP peel

@@ -3,16 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AiProviderModelResolver;
-use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 class AtlasAiDecideCommand extends Command
 {
-    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
-
     protected $signature = 'atlas:ai:decide
         {input : Prompt or task description to route}
         {--provider= : auto, hermes, minimax, claude, codex, gemini, conselho, hermes_cli, minimax_m27_cli, claude_cli, codex_cli, gemini_cli or claude_codex}
@@ -372,7 +371,7 @@ class AtlasAiDecideCommand extends Command
     ): array {
         $manualProvider = $decide->manualOverrideProvider($options);
 
-        return collect(self::INVOCATION_PROVIDERS)
+        return collect(ProviderCatalog::invocationProviders())
             ->map(fn (string $provider): array => [
                 'provider' => $provider,
                 'selected' => $provider === $selectedProvider,
