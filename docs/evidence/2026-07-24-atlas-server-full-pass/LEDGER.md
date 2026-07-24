@@ -22,8 +22,8 @@ recent:
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: Patamar4+conductor+delivery 89 tests green; prior peels green
-next: continuous residual (Aaeos density | YouTube peel | routes projects/ai-core | PRE staged | floors)
+unit_proof: package peels green this wave (routes 1388; Aaeos 4545 asserts; ASP/Patamar 89)
+next: continuous residual (YouTube density | Readiness HubDelegators map | PRE staged | floors)
 ```
 
 ## Progress summary

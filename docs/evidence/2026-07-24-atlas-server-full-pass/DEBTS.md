@@ -28,6 +28,8 @@
 
 ### Density / elevate
 
+- [x] YouTubeUrlSupport pure peel (videoId/canonical/ISO duration/timestamp; ingestion 1780→1715; 29 unit green)
+
 - [x] EnterpriseReportDashboardHtml shell → Template class (host ~552L)
 - [x] CertificationWorkbenchDelegators → map+__call (~1985→272L, 219 methods)
 - [x] OpenBrainMcpToolCatalog::definitions → data file (catalog 25L + definitions 1089L)

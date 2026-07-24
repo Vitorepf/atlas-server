@@ -41,8 +41,8 @@ class YouTubeKnowledgeIngestionService
 
                 return $kind === 'youtube' && $url !== '';
             })
-            ->map(fn (array $entry): string => $this->canonicalUrl((string) $entry['url']))
-            ->filter(fn (string $url): bool => $this->videoIdFromUrl($url) !== null)
+            ->map(fn (array $entry): string => YouTubeUrlSupport::canonicalUrl((string) $entry['url']))
+            ->filter(fn (string $url): bool => YouTubeUrlSupport::videoIdFromUrl($url) !== null)
             ->unique()
             ->values()
             ->all();
@@ -64,8 +64,8 @@ class YouTubeKnowledgeIngestionService
     {
         $urls = collect($urls)
             ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
-            ->map(fn (string $url): string => $this->canonicalUrl(trim($url)))
-            ->filter(fn (string $url): bool => $this->videoIdFromUrl($url) !== null)
+            ->map(fn (string $url): string => YouTubeUrlSupport::canonicalUrl(trim($url)))
+            ->filter(fn (string $url): bool => YouTubeUrlSupport::videoIdFromUrl($url) !== null)
             ->unique()
             ->values()
             ->all();
@@ -131,7 +131,7 @@ class YouTubeKnowledgeIngestionService
 
         return collect($matches[0] ?? [])
             ->map(fn (string $url): string => rtrim($url, ".,;:)]}\n\r\t "))
-            ->map(fn (string $url): string => $this->canonicalUrl($url))
+            ->map(fn (string $url): string => YouTubeUrlSupport::canonicalUrl($url))
             ->filter()
             ->unique()
             ->values()
@@ -273,7 +273,7 @@ class YouTubeKnowledgeIngestionService
             return;
         }
 
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return;
         }
@@ -400,42 +400,6 @@ class YouTubeKnowledgeIngestionService
         return $chunks;
     }
 
-    private function canonicalUrl(string $url): string
-    {
-        $videoId = $this->videoIdFromUrl($url);
-        if ($videoId === null) {
-            return $url;
-        }
-
-        return 'https://www.youtube.com/watch?v='.$videoId;
-    }
-
-    private function videoIdFromUrl(string $url): ?string
-    {
-        $parts = parse_url($url);
-        $host = strtolower((string) ($parts['host'] ?? ''));
-        $path = trim((string) ($parts['path'] ?? ''), '/');
-        parse_str((string) ($parts['query'] ?? ''), $query);
-
-        if (str_contains($host, 'youtu.be') && $path !== '') {
-            return strtok($path, '/') ?: null;
-        }
-
-        if (isset($query['v']) && is_string($query['v']) && $query['v'] !== '') {
-            return $query['v'];
-        }
-
-        foreach (['shorts/', 'live/'] as $prefix) {
-            if (str_starts_with($path, $prefix)) {
-                $id = substr($path, strlen($prefix));
-
-                return strtok($id, '/') ?: null;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * @return array<string,mixed>|null
      */
@@ -445,7 +409,7 @@ class YouTubeKnowledgeIngestionService
             return $this->storedVideoResult($url, $startedAt, $allowProcessing);
         }
 
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return $this->storedVideoResult($url, $startedAt, $allowProcessing);
         }
@@ -472,7 +436,7 @@ class YouTubeKnowledgeIngestionService
             return null;
         }
 
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return null;
         }
@@ -570,7 +534,7 @@ class YouTubeKnowledgeIngestionService
             return $this->finalizeVideoResult($result);
         }
 
-        $videoId = $this->videoIdFromUrl((string) ($result['url'] ?? ''));
+        $videoId = YouTubeUrlSupport::videoIdFromUrl((string) ($result['url'] ?? ''));
         if ($videoId === null) {
             return $this->finalizeVideoResult($result);
         }
@@ -635,7 +599,7 @@ class YouTubeKnowledgeIngestionService
 
         $this->persistVideoResult($result);
 
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         $queueKey = $videoId ? 'atlas:youtube:processing:'.$videoId : 'atlas:youtube:processing:'.sha1($url);
         $lockMinutes = max(5, (int) config('atlas.youtube.processing_lock_minutes', 90));
         if (Cache::add($queueKey, true, now()->addMinutes($lockMinutes))) {
@@ -669,7 +633,7 @@ class YouTubeKnowledgeIngestionService
         }
 
         $url = (string) ($result['url'] ?? '');
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return;
         }
@@ -743,7 +707,7 @@ class YouTubeKnowledgeIngestionService
         }
 
         $url = (string) ($result['url'] ?? '');
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return;
         }
@@ -818,7 +782,7 @@ class YouTubeKnowledgeIngestionService
         }
 
         $apiKey = trim((string) config('atlas.youtube.data_api_key', ''));
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($apiKey === '' || $videoId === null || ! $this->consumeDataApiQuota(1)) {
             return [];
         }
@@ -862,7 +826,7 @@ class YouTubeKnowledgeIngestionService
             'channel_id' => $snippet['channelId'] ?? null,
             'description' => $description,
             'published_at' => $snippet['publishedAt'] ?? null,
-            'duration' => $this->secondsFromIso8601Duration((string) ($content['duration'] ?? '')),
+            'duration' => YouTubeUrlSupport::secondsFromIso8601Duration((string) ($content['duration'] ?? '')),
             'webpage_url' => 'https://www.youtube.com/watch?v='.$videoId,
             'language' => $snippet['defaultAudioLanguage'] ?? $snippet['defaultLanguage'] ?? null,
             'category_id' => $snippet['categoryId'] ?? null,
@@ -932,7 +896,7 @@ class YouTubeKnowledgeIngestionService
 
         return collect($matches)
             ->map(fn (array $match): array => [
-                'start' => $this->secondsFromTimestamp((string) $match[1]),
+                'start' => YouTubeUrlSupport::secondsFromTimestamp((string) $match[1]),
                 'start_label' => (string) $match[1],
                 'title' => trim((string) $match[2]),
             ])
@@ -940,24 +904,6 @@ class YouTubeKnowledgeIngestionService
             ->take(80)
             ->values()
             ->all();
-    }
-
-    private function secondsFromIso8601Duration(string $duration): ?int
-    {
-        if ($duration === '') {
-            return null;
-        }
-
-        try {
-            $interval = new \DateInterval($duration);
-        } catch (Throwable) {
-            return null;
-        }
-
-        return ($interval->d * 86400)
-            + ($interval->h * 3600)
-            + ($interval->i * 60)
-            + $interval->s;
     }
 
     /**
@@ -1000,7 +946,7 @@ class YouTubeKnowledgeIngestionService
      */
     private function metadataViaWatchPage(string $url): array
     {
-        $videoId = $this->videoIdFromUrl($url);
+        $videoId = YouTubeUrlSupport::videoIdFromUrl($url);
         if ($videoId === null) {
             return [];
         }
@@ -1547,8 +1493,8 @@ class YouTubeKnowledgeIngestionService
             }
 
             $segments[] = [
-                'start' => $this->secondsFromTimestamp($startRaw),
-                'end' => $this->secondsFromTimestamp($endRaw),
+                'start' => YouTubeUrlSupport::secondsFromTimestamp($startRaw),
+                'end' => YouTubeUrlSupport::secondsFromTimestamp($endRaw),
                 'text' => $text,
             ];
         }
@@ -1597,12 +1543,12 @@ class YouTubeKnowledgeIngestionService
                 ? ((float) $attributes['t']) / 1000
                 : (isset($attributes['start'])
                     ? (float) $attributes['start']
-                    : (isset($attributes['begin']) ? $this->secondsFromTimestamp((string) $attributes['begin']) : 0));
+                    : (isset($attributes['begin']) ? YouTubeUrlSupport::secondsFromTimestamp((string) $attributes['begin']) : 0));
             $end = isset($attributes['d'])
                 ? $start + (((float) $attributes['d']) / 1000)
                 : (isset($attributes['dur'])
                     ? $start + (float) $attributes['dur']
-                    : (isset($attributes['end']) ? $this->secondsFromTimestamp((string) $attributes['end']) : $start + 0.1));
+                    : (isset($attributes['end']) ? YouTubeUrlSupport::secondsFromTimestamp((string) $attributes['end']) : $start + 0.1));
 
             $segments[] = [
                 'start' => $start,
@@ -1672,19 +1618,6 @@ class YouTubeKnowledgeIngestionService
         }
 
         return $segments;
-    }
-
-    private function secondsFromTimestamp(string $timestamp): float
-    {
-        $parts = array_map('floatval', explode(':', str_replace(',', '.', $timestamp)));
-        if (count($parts) === 3) {
-            return ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
-        }
-        if (count($parts) === 2) {
-            return ($parts[0] * 60) + $parts[1];
-        }
-
-        return (float) ($parts[0] ?? 0);
     }
 
     /**
