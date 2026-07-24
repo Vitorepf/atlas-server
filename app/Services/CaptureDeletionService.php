@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\DatabaseIdsContaining;
 use App\Models\Capture;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
@@ -98,35 +99,7 @@ class CaptureDeletionService
      */
     private function idsContaining(string $table, array $columns, array $needles): array
     {
-        if ($needles === [] || ! DatabaseTableAvailability::hasColumn($table, 'id')) {
-            return [];
-        }
-
-        $query = DB::table($table);
-        $matched = false;
-
-        $query->where(function ($where) use ($table, $columns, $needles, &$matched): void {
-            foreach ($columns as $column) {
-                if (! DatabaseTableAvailability::hasColumn($table, $column)) {
-                    continue;
-                }
-
-                foreach ($needles as $needle) {
-                    $matched = true;
-                    $where->orWhere($column, 'like', '%'.$needle.'%');
-                }
-            }
-        });
-
-        if (! $matched) {
-            return [];
-        }
-
-        return $query
-            ->pluck('id')
-            ->map(fn ($id): string => (string) $id)
-            ->values()
-            ->all();
+        return DatabaseIdsContaining::query($table, $columns, $needles);
     }
 
     /**
