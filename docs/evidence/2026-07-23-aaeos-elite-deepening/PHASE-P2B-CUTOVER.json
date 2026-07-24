@@ -1,0 +1,111 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2b-CUTOVER",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "9c8c02643e7f5acee38180996d16d8e1f6ac5c65",
+  "implementation_commit": "c3ccaced007e6aa509656f63235d1e4dbe6425cd",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php",
+    "app/Services/Ai/AiWorker.php",
+    "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php",
+    "app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php",
+    "app/Services/Ai/SelfConstruction/AtlasTaskServingService.php",
+    "config/atlas.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosMixedVersionWorkerCompatibilityTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php",
+    "app/Services/Ai/AiWorker.php",
+    "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php",
+    "app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php",
+    "app/Services/Ai/SelfConstruction/AtlasTaskServingService.php",
+    "config/atlas.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosMixedVersionWorkerCompatibilityTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2b-CUTOVER matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php tests/Feature/Ai/Aaeos/AaeosMixedVersionWorkerCompatibilityTest.php tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN cutover matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2b-CUTOVER:36-passed-150-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "config:atlas.ai.decision_receipt_v3_cutover_enabled",
+    "error:decision_receipt_cutover_v2_only_refused",
+    "r102:autonomos_mode_explicit"
+  ],
+  "exit_checklist": {
+    "mutative_cutover_config_present": true,
+    "v2_only_refused_when_cutover": true,
+    "valid_v3_authoritative_when_cutover": true,
+    "mixed_worker_block_before_effect": true,
+    "r102_autonomos_not_presented_as_dev": true,
+    "r102_unknown_mode_fail_closed": true,
+    "historical_v2_not_rewritten": true,
+    "unlocks_p1b1_serial": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Decision v3 mutative cutover path-core",
+    "Mixed-worker v2-only refused before effect",
+    "AWIS R102 autonomos mode identity + unknown fail-closed"
+  ],
+  "residuals_still_open": [
+    "P2b-CONTRACT (old-worker drain formalization)",
+    "Cutover default remains false until operator enables ATLAS_AI_DECISION_RECEIPT_V3_CUTOVER_ENABLED",
+    "R-P2A1-PG-LIVE / R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "e229c18fa0cb53f44385a0f8171cf27cd41f4a62f71d835308d002fdaaa75d43",
+    "ledger_content_sha256": "163f73323dbc5df05c05301f9c80df9e32db0114d294ad74a091a1498932c269",
+    "scoreboard_content_sha256": "6c1077120b509c4050167551c17acbce9fa5b12af850f117772f55a852319397",
+    "sha256": "87adcb5351bd795d1abf85205d1b970c9b6da0d5e4567b531c95071aad429923"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2b-CONTRACT",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2b-CUTOVER GREEN path-core. Unlocks P1b.1 serial. Next EXECUTE P2b-CONTRACT. Operator enables cutover via env when ready."
+}
