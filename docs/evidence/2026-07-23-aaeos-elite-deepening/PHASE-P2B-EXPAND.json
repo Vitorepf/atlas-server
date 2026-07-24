@@ -1,0 +1,114 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2b-EXPAND",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "88e71b0c719077e48c62448ce3665b35359c7b9b",
+  "implementation_commit": "2eb70c7847c97d45f447558d1e87e0284e09e25d",
+  "dirty_before": [
+    "foreign_wip_status_sha256:dc1fd84b3adb324097b8f58bedaf684f339b659920383e4ac58746a27b2ee7f3",
+    "foreign_wip_status_lines:163"
+  ],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceipt.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptHash.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Envelope/OperatorContext.php",
+    "app/Services/Ai/Kernel/Envelope/KernelInput.php",
+    "app/Services/Ai/Kernel/Envelope/Provenance.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceipt.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptHash.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Envelope/KernelInput.php",
+    "app/Services/Ai/Kernel/Envelope/OperatorContext.php",
+    "app/Services/Ai/Kernel/Envelope/Provenance.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "concurrent_codex_ledger_wip",
+    "marketing_and_atlas_dev_foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2b-EXPAND dual-read matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN expand matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2b-EXPAND:25-passed-76-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "schema:atlas.decide.v2",
+    "schema:atlas.decide.v3",
+    "v3_full_envelope_hash",
+    "v3_only_non_authoritative_until_canary"
+  ],
+  "exit_checklist": {
+    "receipt_v3_schema_fields_present": true,
+    "dual_read_v2_governing": true,
+    "v3_only_non_authoritative_expand": true,
+    "v3_full_envelope_hash_verified": true,
+    "writers_still_legacy_v2": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "DecisionReceipt SCHEMA_VERSION_V3 + authority field reserve",
+    "DecisionReceiptHash v3 full-envelope hash",
+    "RuntimeGuard dual-read: v2 governs; v3-only non-authoritative",
+    "Issuer still emits v2 only"
+  ],
+  "residuals_still_open": [
+    "P2b-SHADOW contradiction veto not started",
+    "P2b-CANARY writer not started",
+    "R-P2A1-PG-LIVE and R104-TRANSPORT still open"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "c81a64e69c3dec85923b8f9c0411f1706dfa5b23acfddc95b84a1213b5d68824",
+    "ledger_content_sha256": "bb14595ac08735db49a28d940490f041969c20af206914aa1622ba21e269ef81",
+    "scoreboard_content_sha256": "3c8e0cd994108d30cdefdc0e34bd47d959468988bbd6ca7fc86719ef27af6956",
+    "sha256": "1809cd131b81e5b8fd6f78f8f20e0a14945587eb1b09b3dc8bd98212d0918b6c"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2b-SHADOW",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2b-EXPAND GREEN. Next EXECUTE P2b-SHADOW. Writers remain v2."
+}

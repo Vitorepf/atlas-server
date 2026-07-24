@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Cursor:** P0…P2a.2 GREEN · **next P2b-EXPAND**
+**Cursor:** P0…P2b-EXPAND GREEN · **next P2b-SHADOW**
 
 | Gate | State | Closes in |
 |---|---|---|
@@ -10,8 +10,9 @@
 | R104-TRANSPORT | OPEN residual | later |
 | P2a Ledger v2 path-core | GREEN | P2a.1 |
 | R-P2A1-PG-LIVE | OPEN residual | later PG env |
-| P2a.2 EngineeringOutcome v3 expand | **GREEN** | P2a.2 |
-| P2b Decision v3 EXPAND | FAIL | **P2b-EXPAND ACTIVE** |
+| P2a.2 EngineeringOutcome v3 | GREEN | P2a.2 |
+| P2b Decision v3 EXPAND | **GREEN** | P2b-EXPAND |
+| P2b Decision v3 SHADOW | FAIL | **P2b-SHADOW ACTIVE** |
 | P2g QoS / 50× / self-evol | FAIL | P2g-* |
 | REAL_OPERATION ×3 | MISSING | P4 |
 
