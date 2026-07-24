@@ -69,7 +69,7 @@ class CodeGraphSymbolBuilder
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
-        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges));
+        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges), $this->callEdgeAudit($symbols, $relations));
     }
 
     /**
@@ -97,6 +97,133 @@ class CodeGraphSymbolBuilder
             // intentionally discarded here; a future slice may gate actual filtering).
             'edge_quality' => (new CodeGraphInferredGuard)->apply($edges)['stats'] ?? [],
         ];
+    }
+
+    /**
+     * AP-815 Tier-1 fusion (REPORT-ONLY preview) — run the now-exposed `callgraph`
+     * op over the workspace source and resolve method->method CALL edges via the pure
+     * {@see CodeGraphCallResolver}, reporting the YIELD stats in the build receipt.
+     *
+     * Flag-gated (default OFF): when OFF returns [] so build()'s receipt is byte-identical
+     * to before. When ON it NEVER mutates the persisted graph — it only adds a 'call_edges'
+     * stats key so the operator can see the real yield (edges / resolved / ambiguous) on
+     * their own workspace BEFORE paying the perf cost of merging call edges live. Any
+     * runtime block/failure or unreadable source degrades to a stats note, never breaks build().
+     *
+     * ponytail: reads every source file once per build — bounded by call_edges_max_files.
+     * The eventual LIVE-merge slice must feed off the incremental reindex (file_hash/mtime),
+     * NOT this full re-read; this pass is an opt-in preview, never the hot path.
+     *
+     * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
+     * @param  array<int,array{file_path:string,symbol:string,kind:string}>  $relations
+     * @return array<string,mixed>
+     */
+    private function callEdgeAudit(array $symbols, array $relations): array
+    {
+        if (! (bool) config('atlas.code_graph.call_edges', false)) {
+            return [];
+        }
+
+        $files = $this->loadCallFiles($symbols);
+        if ($files === []) {
+            return ['call_edges' => ['files' => 0, 'note' => 'no readable source']];
+        }
+
+        $input = ['files' => $files];
+        $receipt = CodeGraphRuntimeInvoker::mintReceipt('callgraph', $input, 'atlas-kernel:code-graph-call-edges');
+        $result = app(CodeGraphRuntimeInvoker::class)->invoke('callgraph', $input, [], $receipt);
+
+        if (($result['status'] ?? null) !== CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
+            return ['call_edges' => ['files' => count($files), 'status' => 'runtime_unavailable']];
+        }
+
+        $calls = $result['artifacts'][0]['result']['calls'] ?? null;
+        if (! is_array($calls)) {
+            return ['call_edges' => ['files' => count($files), 'status' => 'malformed_result']];
+        }
+
+        $resolved = (new CodeGraphCallResolver)->resolveCalls($calls, $this->buildMethodIndex($symbols));
+
+        // REPORT-ONLY: the resolved edges are intentionally NOT merged into the persisted
+        // world model — only their stats reach the receipt. Live merge is a separate slice.
+        return ['call_edges' => array_merge(['files' => count($files)], $resolved['stats'] ?? [])];
+    }
+
+    /**
+     * Method-name index for {@see CodeGraphCallResolver}: short method name -> list of
+     * defining method FQNs, from the loaded symbols (type 'method', name shaped
+     * "Namespace\Class::method" per the resolver's fqn() normalization). Pure, no IO.
+     *
+     * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
+     * @return array<string,array<int,string>>
+     */
+    private function buildMethodIndex(array $symbols): array
+    {
+        $index = [];
+        foreach ($symbols as $sym) {
+            if (($sym['type'] ?? null) !== 'method') {
+                continue;
+            }
+            $name = ltrim((string) ($sym['name'] ?? ''), '\\');
+            $pos = strrpos($name, '::');
+            if ($pos === false) {
+                continue;
+            }
+            $short = substr($name, $pos + 2);
+            if ($short !== '') {
+                $index[$short][] = $name;
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * Read the unique source files referenced by the symbols into the callgraph op's
+     * {path,language,content} shape. Bounded by call_edges_max_files; each read guarded;
+     * unknown extensions skipped. Repo-relative paths resolve under base_path().
+     *
+     * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
+     * @return array<int,array{path:string,language:string,content:string}>
+     */
+    private function loadCallFiles(array $symbols): array
+    {
+        $langByExt = [
+            'php' => 'php', 'py' => 'python', 'js' => 'javascript', 'ts' => 'typescript',
+            'go' => 'go', 'rb' => 'ruby', 'rs' => 'rust', 'java' => 'java',
+        ];
+        $max = (int) config('atlas.code_graph.call_edges_max_files', 5000);
+
+        $seen = [];
+        $files = [];
+        foreach ($symbols as $sym) {
+            $rel = (string) ($sym['file_path'] ?? '');
+            if ($rel === '' || isset($seen[$rel])) {
+                continue;
+            }
+            $seen[$rel] = true;
+
+            $lang = $langByExt[strtolower(pathinfo($rel, PATHINFO_EXTENSION))] ?? null;
+            if ($lang === null) {
+                continue;
+            }
+
+            $abs = str_starts_with($rel, '/') ? $rel : base_path($rel);
+            if (! is_file($abs) || ! is_readable($abs)) {
+                continue;
+            }
+            $content = @file_get_contents($abs);
+            if (! is_string($content) || $content === '') {
+                continue;
+            }
+
+            $files[] = ['path' => $rel, 'language' => $lang, 'content' => $content];
+            if (count($files) >= $max) {
+                break;
+            }
+        }
+
+        return $files;
     }
 
     /**

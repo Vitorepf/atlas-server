@@ -4596,6 +4596,16 @@ return [
         // Only takes effect when real_edges is on AND a Decision Receipt is minted;
         // if the runtime blocks/fails the build FALLS BACK to the PHP resolver.
         'python_resolve' => (bool) env('ATLAS_CODE_GRAPH_PYTHON_RESOLVE', false),
+
+        // AP-815 Tier-1 fusion (REPORT-ONLY): when ON, build() runs the `callgraph`
+        // op over the workspace source and reports method->method CALL-edge YIELD stats
+        // in the receipt WITHOUT merging them into the persisted graph. DEFAULT OFF
+        // (byte-identical when off). A preview so the operator can weigh the live-merge
+        // perf cost against real yield before the separate live-merge slice is built.
+        'call_edges' => (bool) env('ATLAS_CODE_GRAPH_CALL_EDGES', false),
+        // Upper bound on source files read per build when call_edges is ON (perf ceiling;
+        // the live-merge slice must use the incremental reindex, not this full re-read).
+        'call_edges_max_files' => (int) env('ATLAS_CODE_GRAPH_CALL_EDGES_MAX_FILES', 5000),
     ],
 
     /*
