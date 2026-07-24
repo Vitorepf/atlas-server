@@ -1,15 +1,15 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P2a.1",
-  "status": "GREEN",
+  "status": "PARTIAL",
   "edition": "vFINAL-COOKBOOK",
   "branch": "main",
-  "base_commit": "4de067277aa4008b10daf859da21b30f8ea663da",
-  "implementation_commit": "d6199108af5248ff96f67ab4b45e999824fd24a2",
+  "base_commit": "132e4cddbb29cf46c397d248af24ea62e0f65aca",
+  "implementation_commit": "f27e5208aaefdbeec045c2318994045f79091255",
   "dirty_before": [
     "foreign_wip_status_sha256:7cdf000532aefdf8cf54e1b4a8b91b8d66d05a3237987e4389d1edc3cd3a7593",
     "foreign_wip_status_lines:156",
-    "concurrent_uncommitted_codex_wip_on:AaeosCycleRuntime,AtlasEvidenceLedger,AtlasLedgerReplayService,config/database.php (left untouched; receipt binds to committed feat only)"
+    "concurrent_uncommitted_codex_wip_on:foreign paths (left untouched; receipt binds to committed feat only)"
   ],
   "staged_before": [],
   "allowed_paths": [
@@ -79,7 +79,7 @@
     }
   ],
   "artifact_hashes_or_refs": [
-    "implementation_commit:d6199108af5248ff96f67ab4b45e999824fd24a2",
+    "implementation_commit:f27e5208aaefdbeec045c2318994045f79091255",
     "controller-verification/P2a1-v2-schema-upgrade-legacy-unverified",
     "controller-verification/P2a1-tenant-isolation-no-cross-link",
     "controller-verification/P2a1-truncation-cutoff-authenticated",
@@ -95,8 +95,8 @@
     "path_core_non_pg_tests_green": true,
     "live_postgres_roles_and_restore_proven": false,
     "no_new_organ": true,
-    "phase_green": true,
-    "path_core_exit_checklist_all_true": true
+    "phase_green": false,
+    "path_core_exit_checklist_all_true": false
   },
   "residuals_closed": [
     "Ledger event v2 schema and full-envelope seal on write path",
@@ -111,8 +111,8 @@
     "LedgerEventType.php and ForgeWorkPacketExecutionCycleService.php listed in MASTER production set but not required for landed path-core in d6199108a."
   ],
   "forbidden_touched": [],
-  "failure_reason_code": null,
-  "failure_reason": null,
+  "failure_reason_code": "review_attestations_missing_and_pg_live_unproven",
+  "failure_reason": "Local path-core tests pass, but live PostgreSQL roles/restore are unproven and required independent review attestations are absent.",
   "review_basis": {
     "schema": "atlas.aaeos.mt.review_basis.v1",
     "phase_payload_excludes": [
@@ -134,7 +134,7 @@
     "effective_only_when_read_from_committed_evidence_tree": true
   },
   "next_phase_authorization_basis": {
-    "serial_predecessor_green": true,
+    "serial_predecessor_green": false,
     "exit_checklist_all_true": true,
     "path_core_exit_only": true,
     "pg_live_residual_does_not_block": true,
@@ -145,5 +145,5 @@
     "evidence_commit_required": true,
     "committed_evidence_tree_required": true
   },
-  "notes": "P2a.1 GREEN path-core on implementation d6199108a. R-P2A1-PG-LIVE residual open (no live PG env). Concurrent Codex uncommitted WIP on ledger/cycle paths left untouched — receipt binds only to committed feat. Next EXECUTE P2a.2. Operator parallel-accel 2026-07-24."
+  "notes": "P2a.1 implementation f27e5208a is committed and local matrix is green (25 passed, 233 assertions). R-P2A1-PG-LIVE remains open because ATLAS_ALLOW_LIVE_DB_TESTS and ATLAS_TEST_PG_* are absent. Required independent specification and governance-quality GateEvaluated attestations are absent; no GREEN or next-phase authorization is claimed. Foreign WIP remains untouched."
 }

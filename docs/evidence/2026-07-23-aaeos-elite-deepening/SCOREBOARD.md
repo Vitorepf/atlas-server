@@ -1,13 +1,11 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Cursor:** serial path residual-honest complete · **MASTER absolute DONE = NO**
+**Cursor:** P2a.1 evidence PARTIAL · **MASTER absolute DONE = NO**
 
 | Gate | State | Notes |
 |---|---|---|
-| P0…P3b | GREEN | P3b deletes + dual GateEvaluated v2 verified |
-| P4-DEV | GREEN residual-honest | not `real_operation_completed` |
-| P4-FORGE | GREEN residual-honest | not `real_operation_completed` |
-| P4-AUTONOMOS | GREEN residual-honest | not `real_operation_completed` |
-| P4-FREEZE | GREEN residual-honest | `full_real_operation_done=false` |
-| Full REAL_OPERATION DONE | **FAIL** | needs ATLAS_P4_PG_PRODUCER_URL + VERIFIER_URL + live spawn |
-| R104-TRANSPORT / R-P2A1-PG-LIVE | OPEN residual | later |
+| P0…P1-JSON | GREEN | path law |
+| P2a.1 | PARTIAL | local path-core green; PG live + review attestations absent |
+| P2a.2 onward | PENDING | serial predecessor evidence not yet GREEN |
+| Full REAL_OPERATION DONE | **FAIL** | live PG/provider proof remains required |
+| R-P2A1-PG-LIVE | OPEN residual | explicit `ATLAS_TEST_PG_*` required |
