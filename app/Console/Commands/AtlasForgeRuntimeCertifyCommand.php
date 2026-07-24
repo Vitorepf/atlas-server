@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService;
 use Illuminate\Console\Command;
@@ -15,6 +17,8 @@ use Illuminate\Console\Command;
  */
 class AtlasForgeRuntimeCertifyCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:forge:runtime-certify
@@ -79,16 +83,5 @@ class AtlasForgeRuntimeCertifyCommand extends Command
             : self::FAILURE;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value !== '' ? $value : null;
-    }
 
 }

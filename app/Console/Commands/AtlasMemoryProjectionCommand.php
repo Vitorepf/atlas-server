@@ -6,10 +6,11 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 class AtlasMemoryProjectionCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:memory:projection
         {action=preview : preview, review, apply, write, inspect, status, adopt, audit-summary or audit-purge}
         {--target=claude : claude, agents or all}
@@ -315,12 +316,6 @@ class AtlasMemoryProjectionCommand extends Command
         ], fn (mixed $value): bool => $value !== null);
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? Str::of($value)->trim()->value() : null;
-    }
 
     /**
      * @return array<string,mixed>

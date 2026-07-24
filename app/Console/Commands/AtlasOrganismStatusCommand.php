@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+
 use App\Services\Ai\Organism\ActuationReceiptStore;
 use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use Illuminate\Console\Command;
@@ -33,6 +35,8 @@ use Throwable;
  */
 class AtlasOrganismStatusCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     public const SCHEMA = 'atlas.organism.status_command.v1';
 
     protected $signature = 'atlas:organism:status
@@ -205,10 +209,4 @@ class AtlasOrganismStatusCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $val = $this->option($name);
-
-        return is_string($val) && trim($val) !== '' ? trim($val) : null;
-    }
 }

@@ -6,19 +6,27 @@
 branch: main
 execution: in_progress
 full_pass_commits: 50+
-unit_proof: "Support+Concerns 29 tests green; broader 122 earlier"
+rescan: "FINDINGS-RESCAN-2 multi-agent (8 explore) 2026-07-24"
+unit_proof: "Support+Concerns packages prior green"
 mcp_service_loc: 878
-next: PipelineRunExecutor Http exit | HTML monolog | remaining specialized stringOption | ProviderCatalog | config split | OneShotTick
+mcp_catalog_loc: 1099
+next: Wave A cont (YesNo/UtcIso/JSON) | residual stringOption variants | HTML monolog | Workbench catalog
 ```
 
 ## Progress summary
 
-Massive reuse/standardize wave on main: Support utilities, CLI Concerns (stringOption adoption 80+ commands), MCP ToolCatalog density, CodexReviewMerge later-cycle, CanonicalValue/Clamp01/ArrayPercentile/etc., honesty renames, loop legacy docs.
+Reuse/standardize wave landed helpers+traits; **rescan #2** shows residual is mostly **under-adoption** + monstruos de orquestração/catalog, not missing helper invention.
+
+Corrections from rescan #2:
+- tools() MCP done; catalog blob residual
+- parseCaptionPayload 1463 was static false positive
+- atlas:loop CLI already dead
+- PipelineRunExecutor not live DI path (KernelRunExecutor is)
 
 ## Residual DEBT
 
-See DEBTS.md. Not claiming zero bugs corpus-wide. Continuous queue continues.
+See DEBTS.md + `scan/FINDINGS-RESCAN-2.md`. Not claiming zero bugs corpus-wide.
 
 ## Floors blocked
 
-RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list.
+RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list (alias-only renames).

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxWindowOrchestratorService;
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
@@ -12,6 +14,8 @@ use Illuminate\Console\Command;
 
 final class AtlasAcosWindowsCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:windows
         {--promotion-ledger= : Override PromotionProtocol flip ledger path}
         {--protocol= : Override protocol entries JSON path}
@@ -53,15 +57,6 @@ final class AtlasAcosWindowsCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-        if (! is_string($value) || trim($value) === '') {
-            return null;
-        }
-
-        return trim($value);
-    }
 
     /**
      * @return list<array<string,mixed>>|null
