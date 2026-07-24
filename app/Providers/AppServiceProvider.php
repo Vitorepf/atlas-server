@@ -41,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
             return; // OFF ⇒ zero bindings, byte-identical no-op
         }
 
+        // HONEST residual: wave19_enabled ON currently has no live sentinel class
+        // registrations here (historical bindings removed with ACDE-dead loop).
+        // When/if live wave-19 sentinel classes return, rebind them as singletons
+        // under this flag. Until then ON is a no-op (same as OFF for DI), not a
+        // silent "sentinels active" claim.
     }
 
 
