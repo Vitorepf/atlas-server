@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v14 — cycle-7 native-journey convergence; six mode/recovery/freeze invariants merged into existing residuals, zero new IDs or organs
+> Version: v15 — cycle-8 operator-experience/anti-Goodhart convergence; six OneShot/product invariants merged, zero new IDs or organs
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -624,6 +624,19 @@ Cycle 7 applied thirteen lenses to full Dev, Forge and Autônomos journeys; dire
 
 No new scheduler, worker, reporter, repair loop, verifier, freeze store, queue or receipt owner is authorized.
 
+### 7.12 v15 cycle-8 operator-experience convergence — zero new residual IDs
+
+Cycle 8 applied thirteen lenses to cognitive load, Dev live intent, Forge planning boundary, Autônomos zero-touch, daily entries, cockpit/inbox, H1–H7 UX, audit/control, elapsed time, n=1/fan-out, memory/learning, public help/API and claim ambition. The judge rejected every R104+ proposal and bound six strengthenings to existing owners:
+
+- R79/R83/R91/R103: once a Dev or Forge root/authority is durably acknowledged, killing the operator's terminal cannot stop the journey; it recovers to one terminal result under the same root/budget. Later attach is audit; `atlas continue` is only for operator-initiated pause/cancel recovery.
+- R76/R99/R103: clarification is a fail-closed enum bound to the exact ProductIntent Court objection/episode; technical choices are forbidden. Missing productive intent returns non-zero `intent_required`, never synthetic work. Help/completion/migration guidance and bare transcripts teach one intent with no technical second action.
+- R45/R77/R81/R89/R95/R100: one versioned H1–H7 payload binds reserved class, task causation, issuer/actor, action hash, authority gap, scope/effect, continuation and decision refs. Draft/escalation/learning/attention are projections, never operator actions or authority; only signed DecisionIssued resumes once.
+- R19/R29/R55/R69/R85/R86: EngineeringOutcome v3 derives elapsed/operator effort from durable server events; missing capture is null+unknown, never zero. OneShot remains invariant to elapsed/internal cycles and presenters retain unknowns in ITT/capture coverage.
+- R69/R79/R86: n=1 is default. Fan-out requires server-observed decomposable width and signed root-budget headroom; child/handoff burn stays on the parent, candidate hashes dedupe before provider use and useful repair is never penalized.
+- R23/R65/R84/R88/R94/R97: scorecard/certify/cockpit/review present a conjunctive, scoped, cutoff-bound, stale-aware allowed-claim set. Missing/unknown/contradictory facts weaken/refuse; duplicated unrelated facts never upgrade; REAL_OPERATION, OneShot, SUSTAINED and COMPARATIVE remain independent.
+
+Zero new notification, learning, attention, fan-out, marketing or claim service is authorized.
+
 ## 8. Single implementation plan
 
 Every phase begins with branch/status, current hash, dirty ownership, residual revalidation and RED characterization. Every commit is scoped. No phase may absorb the next phase. The production and test path lists below are authorization manifests, not examples: `*`, “if needed” and unnamed native owners are forbidden. If a RED proves that an unlisted path must change, execution stops and this MASTER is amended before that path is edited.
@@ -886,6 +899,7 @@ P2a — evidence/outcome integrity:
 - serialize even the empty-chain first append with an existing PostgreSQL transaction/advisory lock and unique `(tenant_id, chain_key_hash, chain_position)`; install a PostgreSQL runtime-role guard that refuses `UPDATE`/`DELETE` after the migration/backfill window, without a head table or outbox;
 - bind every EngineeringOutcome status to authority;
 - expand `atlas.engineering_outcome.v3` before any adverse writer cutover; require stable `failure_reason_code` plus precise `failure_reason` for adverse terminal outcomes; v2 bytes remain historical/read-only and are never inferred/backfilled;
+- derive elapsed/operator effort from durable server event timestamps and capture state: missing/incomplete is `null` + `unknown`, actual measured zero alone is `0`, and ITT/presenters retain unknowns plus coverage instead of imputing instant/free work;
 - complete the EngineeringOutcome producer/consumer census, dual-read/shadow/canary/rollback/contract rollout before contracting v2 writers;
 - preserve precise causes through Forge and AAEOS.
 - require authenticated tenant at every append and read; constrain predecessor, eventById, scope, correlation, latest, outcome lookup, replay and dedupe by tenant, and prove identical A/B identifiers cannot cross-link or satisfy proof;
@@ -996,6 +1010,7 @@ P2c — unattended durability:
   - app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php
   - app/Services/Ai/Programming/Forge/Execution/ForgeObraSupervisor.php
   - app/Services/Ai/Programming/Forge/Execution/ForgeTickBudget.php
+  - app/Services/Ai/Programming/Forge/ForgeMultiAgentSchedulerService.php
   - app/Services/Ai/Programming/Forge/ForgeLongHorizonStateService.php
   - app/Services/Ai/Programming/Forge/ForgeScopeReservationService.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
@@ -1007,6 +1022,8 @@ P2c — unattended durability:
 - make Dev's existing RepairOrchestrator the retry owner through the productive KernelRunExecutor/AtlasDevExecutionService chain; persist prepared/observed attempts in existing ReceiptStorage; SeniorEngineerLoopExecutor owns the journey;
 - eliminate routine `human_action_required`, `needs_review` and operator-next exits: 0..N technical failures route from the exact failure capsule through RepairOrchestrator, back through the same Court, under one DevIntent/ConfirmedDevRun + Decision v3 revision/root/budget until accepted or precisely exhausted;
 - derive remaining retry/tick budget from the canonical signed journey manifest; caller snapshots, new tick ids, handoffs or successor episodes cannot reset consumed burn, and only an authenticated sovereign authority event may add incremental budget;
+- default to one candidate/worker; fan-out requires server-observed disjoint/decomposable width plus signed budget headroom, binds every child to parent consumed burn, and deduplicates semantically equivalent candidate hashes before provider use;
+- after a Dev root or sealed Forge Obra is acknowledged, client/terminal disconnect is not cancellation: fresh-process recovery continues to one terminal result without `--yes`, ship/reject, status answer or `atlas continue`; later attach is read-only audit;
 - reconcile commit→queue→lease/report and lease-file→derived-registry crash splits before accepting another claim/effect;
 - resume the single running Forge cycle and deterministic provider execution id before selecting another packet;
 - make the existing Forge supervisor drive sealed work through tick→Court→repair/re-review→advanceMilestone→`completeObra`; its signed tick budget applies across restart, and it never asks the operator to continue;
@@ -1035,6 +1052,8 @@ P2c — unattended durability:
   - tests/Feature/Ai/Aaeos/AaeosAutonomosLandBeforeReportCrashTest.php (NEW)
   - tests/Feature/Ai/Programming/Forge/ForgeObraCertificationBindingTest.php (NEW)
   - tests/Feature/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeSchedulerIntegrationTest.php (created in P1a; extend restart/empty-queue proof)
+  - tests/Feature/Ai/Aaeos/AaeosPublicClientDetachContinuationTest.php (NEW; direct+routed Dev/Forge)
+  - tests/Feature/Ai/Aaeos/AaeosSignedFanoutBudgetInvariantTest.php (NEW)
   - tests/Feature/Ai/Aaeos/ForgeWorkPacketExecutionCycleMigrationTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosLedgerJourneyMigrationTest.php (NEW)
 
@@ -1062,6 +1081,7 @@ P2e — asynchronous H1–H7 continuation:
   - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
   - app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php
 - persist the reserved-effect event and continuation ref; project only through existing attention/cockpit readers;
+- use one versioned H1–H7 Ledger payload binding reserved class, task causation, authenticated issuer/actor, action hash, authority gap, affected scope/effect, continuation ref, decision ref/hash and timestamps. DecisionDrafted/Escalation/attention/learning proposals are system projections, never operator actions or authority;
 - replay a later valid DecisionIssued before continuation; unrelated work makes observed claim→execute→settle progress rather than merely remaining runnable.
 - H4 operational learning remains propose-only/reversible through the existing promotion/miner/context-pack owners; a scope-expanding promotion becomes the asynchronous reserved continuation.
 - Test path: tests/Feature/Ai/Aaeos/AaeosSovereignContinuationTest.php (NEW; two-work-item A/B proof: B settles while A is reserved, then A resumes exactly once).
@@ -1084,6 +1104,8 @@ P2f — operator-experience truth and removal of technical human loops:
   - app/Console/Commands/AtlasCliContinueCommand.php
   - app/Services/Ai/Cli/AtlasCliSessionService.php
   - app/Console/Commands/AtlasAaeosRunCommand.php
+  - app/Console/Commands/AtlasCliHelpCommand.php
+  - app/Console/Commands/AtlasApiDescribeCommand.php
   - app/Services/Ai/Programming/Forge/ForgeContinuationPackBuilder.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleCanon.php
   - app/Services/Ai/Programming/Forge/Intelligence/ForgeFailureIntelligenceService.php
@@ -1091,6 +1113,7 @@ P2f — operator-experience truth and removal of technical human loops:
   - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketBuilder.php
   - app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php
 - instrument the complete native ingress/request census with authenticated producer seals; classify Atlas-requested work separately from elective operator control;
+- ProductIntent clarification uses a closed fail-unknown type enum bound to the exact Court objection and commissioning episode; implementation/provider/test/review/repair/budget/release/effect questions are invalid, never relabeled as generic clarification;
 - consume Dev's initial authority once; PlanVisible remains optional audit and a replan never asks ship/reject again;
 - plain `atlas dev` enters its live intent session; `atlas dev <intent>` starts productive Dev from the initial authority without `--yes`; `--plan-only` is elective audit. `needs_review`, `escalate_forge` and crash resume continue agentically; `atlas continue` remains only for operator-initiated pause/cancel recovery;
 - convert every non-H1–H7 Forge human hint/review into native Court/repair/continuation; commissioning is the last routine operator boundary;
@@ -1098,6 +1121,7 @@ P2f — operator-experience truth and removal of technical human loops:
 - operator `accept/reject` cannot set an engineering run to passed/failed; technical terminal truth comes only from Court + EngineeringOutcome. Retain cancel and true H1–H7 authority actions, with historical legacy decisions read-only;
 - derive OneShot as a monotonic fold over operator events, metamorphically invariant under 0/1/100 internal attempts.
 - make daily commissioning intent-first and productive by default under signed caps; provider, cadence, batch width, scope and internal execution mechanics are server-owned, never operator prerequisites.
+- productive missing intent returns non-zero `intent_required` and creates no root; `atlas help`, per-command help, machine API description/completion and deprecated-flag migration guidance all conform to the same one-intent productive contract and expose no technical next step.
 - Test paths:
   - tests/Unit/Ai/Product/ProductIntentCourtTest.php (existing; extend)
   - tests/Unit/Ai/Programming/AtlasDev/PlanVisible/AtlasDevPlanApprovalGateTest.php (existing; invert repeated approval)
@@ -1111,6 +1135,8 @@ P2f — operator-experience truth and removal of technical human loops:
   - tests/Feature/AtlasCliContinueCommandTest.php (existing; elective-only continuation)
   - tests/Feature/Engineering/EngineeringRunOperatorActionServiceTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosTechnicalOneShotReachabilityCensusTest.php (NEW; reports exact reachable rename/delete amendment; no bulk edit)
+  - tests/Feature/Ai/Aaeos/AaeosPublicHelpAndCompletionParityTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosClarificationClosedTaxonomyTest.php (NEW)
 
 Binding execution DAG: P0 → P1a structural parity/refusal-only → P2a.1 Ledger v2 tenant-safe expand + PostgreSQL roles → P2a.2 EngineeringOutcome v3 expand/dual-read/shadow → P2b EXPAND→SHADOW→CANARY→CUTOVER for Decision v3/keyring/revocation + R102 AWIS parity → P1b.1 CodeGraph/pre-provider authoritative replay → P2c native lineage/crash/forward-progress durability → P1b.2 tool-artifact redaction + native ACT/settlement → P1b.3 AAEOS projection → P2d Spine settlement refs → P2e async continuation (after P2c, so B can actually settle) → P2f complete operator census/technical-loop removal → P2b CONTRACT after old-worker drain → P3 consumer-proven deletion → P4 exact producer-role journeys → separate verifier-role certification. Slices sharing AtlasEvidenceLedger or another owner never run concurrently. Each checkpoint is a separate scoped commit and receipt; no context/provider/tool/sandbox/effect path activates before its authority/schema/role gate is green.
 
@@ -1150,6 +1176,8 @@ Production/document paths:
 - app/Http/Controllers/AtlasDev/Support/PipelineRun/WorkspaceGitSupport.php (retain pending R103)
 - app/Services/Ai/Aaeos/README.md
 - app/Console/Commands/AtlasAaeosRouterCommand.php
+- app/Console/Commands/AtlasCliHelpCommand.php
+- app/Console/Commands/AtlasApiDescribeCommand.php
 - app/Services/Ai/Programming/AtlasWeeklyEngineeringReportService.php
 - app/Services/Ai/Programming/AtlasFableFinalReportService.php
 - app/Services/Ai/Programming/AtlasFableFinalCaptureService.php
@@ -1176,6 +1204,7 @@ Required behavior:
 - 17 phases and `human_review` are historical/governance material, not the daily operate path;
 - replace invented plan_seal/session labels with native commissioning/authority hashes and canonical enums;
 - terminal-first: the existing `atlas:cli:cockpit` consumes read-only proof/economy refs through its current projection owner; no new shell or authority;
+- public help, daily map, command descriptions/completion and machine API catalog conform to the same public-entry matrix; productive entries cannot be absent, null-versioned or silently skipped by `--check`;
 - landing review/cockpit becomes optional read-only inspection: stop scheduled creation of required approve/reject items, migrate Inbox action handlers, and ensure human accept/reject cannot set engineering truth. Court rejection returns to agents; no qualified landing waits for an operator verdict. The cockpit partitions technical history from actionable H1–H7 attention and shows Court verdict, findings, executed-command receipts, evidence refs, rejection→repair chain, artifact hash and freshness; it emits no technical `next_commands`;
 - comparative Rivals hardening remains HORIZON R50 and is not a P3 change; the presenter only shows a pre-existing current valid claim or `not_claimed`;
 - active docs/config no longer teach dead `atlas:loop:*`; historical evidence is preserved;
@@ -1432,7 +1461,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | 5 | v11 | 13 lens-distinct passes: phase executability; OneShot/operator UX; Autônomos topology; Ledger/PostgreSQL; Forge; Dev; authority/security; schema rollout; REAL_OPERATION; routing/ablation; deletion census; efficiency/context anti-Goodhart; terminal/cockpit — plus final anti-dup judge | accepted only R101–R103; merged Ledger/Forge/Autônomos/OneShot/keyring/terminal/provider/budget findings into existing residuals; rejected new scheduler, store, outbox, router, executor, metrics owner and unsafe bulk deletions | v12 |
 | 6 | v12 | 13 lenses: formal state/terminal; property/model; Byzantine independence; failure taxonomy; proof lattice; tenant/workspace isolation; secrets/privacy; supply chain/sandbox; incident recovery; phase DAG; exact PG/live profiles; compatibility/deletion; OneShot/public acceptance — plus anti-dup judge | accepted five hard strengthenings into R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected all proposed R104+ and all new privacy/identity/credential/incident/proof stores | v13 |
 | 7 | v13 | 13 lenses: complete Dev, Forge, Autônomos; direct/routed parity; 0..N repair; crash cutpoints; PostgreSQL races; authority TOCTOU; budget across restart; real producer/certifier; operator census; scheduler cold-start; freeze/late invalidation — plus anti-dup judge | accepted six journey/recovery/freeze strengthenings into existing residuals; rejected every R104+ and any new scheduler/worker/reporter/repair/verifier/freeze store | v14 |
-| 8 | current | pending | pending | pending |
+| 8 | v14 | 13 lenses: cognitive load, Dev live intent, Forge planning boundary, Autônomos zero-touch, daily entry, cockpit/inbox, H1–H7 UX, elective controls, elapsed status, n=1/fan-out, learning, public help/API, ambition/claims — plus anti-dup judge | accepted six operator-experience/anti-Goodhart strengthenings into existing residuals; rejected every R104+ and new notification/learning/attention/fan-out/marketing/claim owner | v15 |
 | 9 | current | pending | pending | pending |
 | 10 | current | pending | pending | pending |
 
@@ -1451,6 +1480,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | v12 | cycle-5 executable hardening: R101 forbids ACT before Decision v3/keyring/revocation; R102 closes AWIS mode-identity downgrade; R103 binds public-entry and consumer-complete retirement parity. Forge forward progress, live Autônomos scheduling, Ledger v2 append-only, provider coverage, budget carry-forward and terminal truth deepen existing owners. Zero new runtime organs |
 | v13 | cycle-6 convergence with zero new residual IDs: EngineeringOutcome v3 rollout, tenant-safe Ledger, caller-narrow-only CodeGraph sovereignty, truthful artifact redaction and exact PostgreSQL producer/verifier roles deepen existing owners; formal terminal/permutation/claim-set semantics and serial rollout receipts added |
 | v14 | cycle-7 convergence with zero new residual IDs: Autônomos land-before-report, Forge Ledger-bound certification/forward driver, Dev single-root repair, strict producer/verifier separation, durable scheduler cold-start and globally invalidatable freeze deepen native owners |
+| v15 | cycle-8 convergence with zero new residual IDs: detached continuation, closed clarification/missing-intent contract, one causal H1–H7 schema, honest unknown elapsed/effort, signed n=1/fan-out budget and stale-aware conjunctive claims make OneShot executable at the operator surface |
 
 ## 14. Handoff
 

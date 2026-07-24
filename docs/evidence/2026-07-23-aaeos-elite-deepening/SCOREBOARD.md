@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** v14
+**Plan:** v15
 **Program:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Measured composite:** null
@@ -59,6 +59,10 @@ No average, 9.x value or checkbox certifies this program.
 | Forge Ledger-bound certification and scheduled completeObra | MISSING | supervisor does not drive terminal Obra; textual certification can pass; R57/R62/R66/R84 |
 | Dev same-root 0..N internal repair | FAIL | senior loop executes once and can emit human_action_required; R79/R91/R96 |
 | global freeze and late-event invalidation | MISSING | no single cutoff binds all modes/current head; R75/R80/R84/R90 |
+| detached Dev/Forge continuation after client exit | NOT_PROVEN | public client can remain a workflow dependency; R79/R83/R91/R103 |
+| closed clarification and missing-intent refusal | FAIL | generic clarification/default synthetic intent remain possible; R76/R99/R103 |
+| elapsed/operator effort unknown never imputed zero | FAIL | current kernel hardcodes zero; R55/R69/R85 |
+| n=1/fan-out signed root-budget invariant | NOT_PROVEN | packet count can drive width without measured lift; R69/R79/R86 |
 
 ## Cycle-2 (v8) added hard sub-gates R64–R74
 
@@ -147,6 +151,18 @@ No average, 9.x value or checkbox certifies this program.
 | producer exits zero only for canonical completed terminal; certifier is read-only second process | FAIL | public/native commands + AtlasAaeosCertifyCommand |
 | scheduler cold-starts from durable facts/known empty queue without `--facts` | MISSING | scheduler manifest + daemon + replenisher + TaskServing |
 | freeze binds all three manifests/cutoff/SHAs/DB/verifier and current replay has no invalidator | MISSING | Ledger projection + certifier + compensation owner |
+
+## Cycle-8 (v15) operator-experience convergence — zero new residual IDs
+
+| Gate | State | Existing owner reused |
+|---|---|---|
+| kill Dev/Forge client after root ack; journey still reaches one terminal | NOT_PROVEN | native journey/recovery owners |
+| clarification type is Court-bound, fail-unknown and never technical | FAIL | ProductIntent clarification/Court |
+| missing productive intent exits non-zero and creates no root | FAIL | current AAEOS default synthesizes work |
+| H1–H7 payload binds causation/action/authority/continuation; only DecisionIssued resumes | MISSING | Ledger + Decision owners |
+| absent timing/effort is null+unknown, never instant/free zero | FAIL | EngineeringOutcome/kernel writers |
+| default n=1; fan-out requires disjoint width + shared signed budget + pre-provider dedupe | NOT_PROVEN | ExecutionOrder/native scheduler/budget owners |
+| help/completion/API/presenters conform to one public intent contract and stale-aware claim set | FAIL | current public guidance and hardcoded graders diverge |
 
 ## OneShot operator experience
 
