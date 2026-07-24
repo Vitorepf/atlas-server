@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Models\AtlasTask;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;
@@ -30,6 +31,8 @@ use Symfony\Component\Process\Process;
 
 class AtlasCliDevCommand extends Command
 {
+    use ResolvesGitProjectRoot;
+
     protected $signature = 'atlas:cli:dev
         {task?* : Development task}
         {--task-id= : Load an Atlas task and attach its engineering contract}
@@ -1368,22 +1371,4 @@ class AtlasCliDevCommand extends Command
         return $this->projectRootFor($resolved) ?: $resolved;
     }
 
-    private function projectRootFor(string $workspace): ?string
-    {
-        try {
-            $process = new Process(['git', 'rev-parse', '--show-toplevel'], $workspace, AtlasSecurity::processEnv(profile: 'tool'));
-            $process->setTimeout(3);
-            $process->run();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        if (! $process->isSuccessful()) {
-            return null;
-        }
-
-        $root = trim(AtlasSecurity::redactString($process->getOutput()));
-
-        return $root !== '' && is_dir($root) ? $root : null;
-    }
 }

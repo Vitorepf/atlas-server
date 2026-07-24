@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Cli\DevProgressReporter;
 use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
@@ -13,6 +14,8 @@ use Symfony\Component\Process\Process;
 
 class AtlasCliContinueCommand extends Command
 {
+    use ResolvesGitProjectRoot;
+
     protected $signature = 'atlas:cli:continue
         {--workspace= : Workspace path. Defaults to current directory}
         {--thread= : Specific thread id to resume}
@@ -156,22 +159,4 @@ class AtlasCliContinueCommand extends Command
         return $this->projectRootFor($resolved) ?: $resolved;
     }
 
-    private function projectRootFor(string $workspace): ?string
-    {
-        try {
-            $process = new Process(['git', 'rev-parse', '--show-toplevel'], $workspace, AtlasSecurity::processEnv(profile: 'tool'));
-            $process->setTimeout(3);
-            $process->run();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        if (! $process->isSuccessful()) {
-            return null;
-        }
-
-        $root = trim(AtlasSecurity::redactString($process->getOutput()));
-
-        return $root !== '' && is_dir($root) ? $root : null;
-    }
 }

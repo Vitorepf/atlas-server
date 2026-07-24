@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Services\Ai\Cli\AtlasCliStartService;
 use App\Services\Ai\Cli\DevProgressReporter;
 use App\Support\AtlasSecurity;
 use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
 
 class AtlasCliStartCommand extends Command
 {
+    use ResolvesGitProjectRoot;
+
     protected $signature = 'atlas:cli:start
         {--workspace= : Workspace path. Defaults to current directory}
         {--full : Show extended context (decisions, open loops, all next steps)}
@@ -235,22 +237,4 @@ class AtlasCliStartCommand extends Command
         return $this->projectRootFor($resolved) ?: $resolved;
     }
 
-    private function projectRootFor(string $workspace): ?string
-    {
-        try {
-            $process = new Process(['git', 'rev-parse', '--show-toplevel'], $workspace, AtlasSecurity::processEnv(profile: 'tool'));
-            $process->setTimeout(3);
-            $process->run();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        if (! $process->isSuccessful()) {
-            return null;
-        }
-
-        $root = trim(AtlasSecurity::redactString($process->getOutput()));
-
-        return $root !== '' && is_dir($root) ? $root : null;
-    }
 }
