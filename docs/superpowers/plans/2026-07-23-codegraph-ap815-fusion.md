@@ -43,6 +43,13 @@ O pipeline vivo (`atlas:code-graph:pipeline` → `CodeGraphSymbolBuilder.build`)
 
 **NÃO deletar nada do AP-815.** Cada órfão é um tier a religar.
 
+## EXAME dos Tiers downstream (3 retrieval / 5 unified) — 24/07, read-only, não-suposição
+Examinei (não assumi) os tiers que o loop apontou. Achado unificador: **todo tier downstream é alimentado pelos EDGES do code-graph — que estão dormentes (125)**. Por isso os Tier-1 que construí estavam certos (alimentados por fontes VIVAS: 467k symbols, 28k arquivos, rotas vivas), e os downstream não:
+- **Tier-3** (`RetrievalCompressor`/`SkeletonView`): transforms puros DB-free, MAS wiring é no read-path (`ContextRetriever::packFor`, que consulta DB) e o efeito é SUBTRATIVO no pack do AOBG (comprime) — corretude = julgamento de qualidade sobre uso real, não unit-test DB-free. Gated no code-graph vivo.
+- **Tier-5** (`UnifiedView`/`RuntimeEvidenceOverlay`): AURG existe e está POPULADO mas pequeno (**278 nodes / 139 edges**). `unify(codeEdges, aurgEdges, provenRefs)` e `overlay(edges, provenRefs)` são transforms puros DB-free (verificáveis). MAS é view read-side (merge code+reality p/ traversal), valor gated em (a) code-graph populado (dormente agora → merge dominado pelo lado dormente) + (b) um consumidor da unified view + (c) os dois grafos compartilharem/bridgearem nodes. Construir agora = alimentar com grafo dormente = **DEAD-FED** (regra `self-construction-os-aspirational-not-live` "só com fonte-viva"), mesma razão do Coverage.
+
+**Conclusão pétrea**: o caminho crítico é o operador ligar `real_edges` (popular o code-graph 125→~200k via a fusão Tier-1 typed já pronta). SÓ DEPOIS os tiers downstream têm fonte viva p/ operar. Construí tudo alimentado por fonte viva (Tier-1); o resto é gated na ativação do operador — construir antes viola DEAD-FED.
+
 ---
 
 ## ACHADO DE EXECUÇÃO (24/07) — por que os Tier-1 são órfãos: falta o PIPELINE DE DADOS, não o wiring
