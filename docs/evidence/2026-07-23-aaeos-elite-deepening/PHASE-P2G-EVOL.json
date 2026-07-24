@@ -1,0 +1,112 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2g-EVOL",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "ca30b01c41906592bf4e7006b5171b379d989ea6",
+  "implementation_commit": "a3c9303da1ea7c5388ee95222c455d91b81fd348",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosSelfEvolutionQualityLoop.php",
+    "app/Services/Ai/Aaeos/Control/Dispatch/AutonomosLiveDispatcher.php",
+    "app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemon.php",
+    "app/Services/Ai/SelfConstruction/TaskServing/AtlasTaskBrainReplenisher.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionFrontierPromoteEnqueuesWorkTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNegativeMultiplierStopTheLineTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNoProxyCleanupTasksTest.php",
+    "docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosSelfEvolutionQualityLoop.php",
+    "app/Services/Ai/Aaeos/Control/Dispatch/AutonomosLiveDispatcher.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionFrontierPromoteEnqueuesWorkTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNegativeMultiplierStopTheLineTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNoProxyCleanupTasksTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2g-EVOL self-evolution quality loop",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosSelfEvolutionFrontierPromoteEnqueuesWorkTest.php tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNegativeMultiplierStopTheLineTest.php tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNoProxyCleanupTasksTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2g-EVOL matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2g-EVOL:8-passed-46-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.aaeos.self_evolution_quality_loop.v1",
+    "stop_the_line",
+    "promote_curriculum",
+    "originate_quality_work",
+    "proxy_only_evolution_refused",
+    "operator_task_causal_forbidden"
+  ],
+  "exit_checklist": {
+    "saturation_promotes_school_and_enqueues_real_work": true,
+    "m_lt_1_stop_the_line_priority": true,
+    "no_proxy_only_evolution_tasks": true,
+    "operator_eng_zero_on_path": true,
+    "remeasure_path_declared": true,
+    "acde_forbidden": true,
+    "r108_path_core_closed": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Measure→structured quality evolution intents",
+    "Curriculum promote on saturation",
+    "Stop-the-line on negative M",
+    "Anti-proxy admit gate",
+    "Dispatcher measure ingress (plan only)"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual",
+    "R-P2A1-PG-LIVE multi-process residual",
+    "Physical brain:seed enqueue of evolution intents (path-core plans only)",
+    "Scheduled remeasure job wiring beyond command declaration",
+    "P2d spine settlement evidence"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "5b4d84e03f6c744b49f403976d4183a8b18bbc1482327f052d5e8cf258251701",
+    "ledger_content_sha256": "4ae3eb467f92db3e8cdf3f15639a9e032d4f1883b74e62f462b28cde046bdf71",
+    "scoreboard_content_sha256": "6650a5be41bb79868a59f514dfe37f174e5fd939deae2375e919cb23cc776bf6",
+    "sha256": "1086d9e12db645e6e9111b779ba323180fe6a3e437aecb608d40d5d60f321ce4"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2d",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2g-EVOL GREEN path-core. Quality loop intents from measure; no ACDE; no proxy. Physical seed enqueue residual. Next EXECUTE P2d (spine settlement)."
+}
