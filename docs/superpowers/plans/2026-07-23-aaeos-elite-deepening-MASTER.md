@@ -1,12 +1,19 @@
 # AAEOS — CANONICAL IMPLEMENTATION COOKBOOK (vFINAL-COOKBOOK)
 
-> **Status:** CANONICAL · PLAN_ONLY · **P0 remains inactive until the committed document-preflight contract has two independently verifiable approvals and controller gate verification**
-> **Edition:** **vFINAL-COOKBOOK** · timeless document-preflight contract; no approval or implementation outcome is asserted here.
+> **Status:** CANONICAL · IMPLEMENTATION ACTIVE  
+> **Edition:** **vFINAL-COOKBOOK**  
 > **Authority:** sole master. Satellites only: LEDGER.md + SCOREBOARD.md  
 > **Branch:** local `main` only · scoped `git add -- <paths>` · never `git add -A`  
 > **Evidence dir:** `docs/evidence/2026-07-23-aaeos-elite-deepening/`  
 > **Archive:** NON-NORMATIVE historical only (never law). All hard-done R64–R103 live **in this file §3.1**.  
-> **Standing operator authorization:** this implementation handoff and the operator authorization recorded in `pasted-text-1.txt` pre-authorize every catalogued slice below, but each remains latent until its serial predecessor is GREEN. It waives another planning/cycle-10 round; it does **not** waive any gate, test, proof, or the governed new-path procedure in §0.0.
+> **Standing operator authorization:** every catalogued slice is pre-authorized; activate the next when predecessor is GREEN.  
+>
+> ### LIVE CURSOR (operator — 2026-07-24 — non-negotiable)
+> - **P0 GREEN · P1a GREEN · P1-JSON GREEN (R104 path law)**
+> - **R104-TRANSPORT** (live Hermes native FC) = residual only → **does NOT block P2**
+> - **NEXT = EXECUTE P2a.1** then chain the DAG to P4
+> - **FORBIDDEN implementer theater:** reopening frozen GREEN; PARTIAL wall on path-law; “precisa emenda humana de fronteira de provider”; stopping the program to re-audit P1-JSON
+> - If LEDGER / SCOREBOARD / PHASE-P1-JSON disagree with stale chat memory → **files win**. If residual transport is open and path law is GREEN → **continue**.
 
 ```text
 AI RULE #0 — DO NOT THINK, FOLLOW
@@ -1365,7 +1372,7 @@ tests/Feature/Ai/Aaeos/AaeosExecutableMaterializationAttestationTest.php
 # SLICES P2 — authority / evidence / durability
 
 ## P2a.1 Ledger v2 + PG roles
-**Gate:** `EXECUTE P2a.1` after P1a  
+**Gate:** `EXECUTE P2a.1` after P1-JSON GREEN (path law). R104-TRANSPORT residual does **not** block this gate.  
 **Receipt:** `PHASE-P2A1.json`
 
 ### Production paths

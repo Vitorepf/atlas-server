@@ -12,4 +12,5 @@
 | P2g QoS / 50× / self-evol | FAIL | P2g-* |
 | REAL_OPERATION ×3 | MISSING | P4 |
 
-**Do not block P2 on R104-TRANSPORT.**
+**Do not block P2 on R104-TRANSPORT.**  
+**Prompt válido:** `docs/prompts/atlas-aaeos-mt-CODEX-SHIP-IT.md` only (ZERO/WORK-HARD = deprecated).

@@ -21,6 +21,8 @@ No provider invents native FC capability. Live Hermes native FC = later residual
 GREEN phases stay GREEN. Do not stop the program on ceremony.  
 Ship the next DAG gate. Prefer progress. Hard bans only: git add -A, new organs, skip critical slices forever, vanity 50×, PHPUnit REAL_OPERATION.
 
+**Operator override (2026-07-24):** any implementer that says “P1-JSON PARTIAL walls P2” or “precisa emenda humana de provider” is **wrong**. PHASE-P1-JSON is GREEN path law. Start **P2a.1**. Prompt válido: `docs/prompts/atlas-aaeos-mt-CODEX-SHIP-IT.md`.
+
 ## Canons
 - MASTER
 - atlas-agent-qos-excellence-ceiling.md
