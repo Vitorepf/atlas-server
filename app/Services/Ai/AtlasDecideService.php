@@ -9,6 +9,7 @@ use App\Services\Ai\Decide\KernelContractSection;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\Hermes\HermesRuntimeRouter;
 use App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor;
+use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
@@ -464,7 +465,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             'policy_profile_id' => $policy['profile_id'] ?? null,
         ]);
 
-        return $this->slo->measure('decide.issue', fn (): array => $this->receipts->issue($envelope, [
+        $decisionSeed = [
             'ttl_seconds' => max(30, (int) config('atlas.ai.decision_receipt_ttl_seconds', 7200)),
             'dry_run' => (bool) data_get($payload, 'dry_run', false),
             'signed_by' => 'atlas.decide.v2',
@@ -508,7 +509,33 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
                 // backed by env `ATLAS_AIWORKER_KERNEL_ROUTED`.
                 'kernel_routed' => (bool) config('atlas_ai.aiworker_kernel_routed', false),
             ],
-        ])->toArray(), [
+        ];
+
+        return $this->slo->measure('decide.issue', function () use (
+            $envelope,
+            $payload,
+            $domain,
+            $flow,
+            $selectedProvider,
+            $selectedModel,
+            $decisionSeed,
+        ): array {
+            $receipt = $this->receipts->issue($envelope, $decisionSeed);
+            $v2 = $receipt->toArray();
+            // CANARY: optional companion v3 for NEW issuances only. Never rewrites v2.
+            $v3 = $this->receipts->issueV3CanaryCompanion($receipt, $envelope, $decisionSeed);
+            if (is_array($v3)) {
+                $v2['canary_receipt_v3_attached'] = true;
+                // Transport dual envelope for consumers that look for receipt_v3 beside receipt_v2.
+                // The historical decide shape still returns the v2 body as the primary array.
+                $v2['transport'] = [
+                    DecisionReceipt::RECEIPT_V2_KEY => $v2,
+                    DecisionReceipt::RECEIPT_V3_KEY => $v3,
+                ];
+            }
+
+            return $v2;
+        }, [
             'tenant_id' => $envelope->operator->tenantId,
             'operator_id' => $envelope->operator->operatorId,
             'envelope_id' => $envelope->envelopeId,

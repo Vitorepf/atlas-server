@@ -1630,6 +1630,9 @@ return [
         'retry_delay_seconds' => (int) env('ATLAS_AI_RETRY_DELAY_SECONDS', 300),
         'decision_receipt_ttl_seconds' => (int) env('ATLAS_AI_DECISION_RECEIPT_TTL_SECONDS', 7200),
         'decision_receipt_refresh_window_seconds' => (int) env('ATLAS_AI_DECISION_RECEIPT_REFRESH_WINDOW_SECONDS', 21600),
+        // P2b-CANARY: percent of NEW decision issuances that attach a companion receipt_v3
+        // envelope. Default 0 = writers remain legacy V2-only. Never rewrites historical V2.
+        'decision_receipt_v3_canary_percent' => max(0, min(100, (int) env('ATLAS_AI_DECISION_RECEIPT_V3_CANARY_PERCENT', 0))),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
         'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
         'memory_registry_limit' => (int) env('ATLAS_AI_MEMORY_REGISTRY_LIMIT', 8),

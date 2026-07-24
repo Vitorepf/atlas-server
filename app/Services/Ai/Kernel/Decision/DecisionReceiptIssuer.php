@@ -128,6 +128,119 @@ class DecisionReceiptIssuer
         return $this->issue($envelope, $decision);
     }
 
+    /**
+     * CANARY: explicit selector for NEW issuances only. Never rewrites historical
+     * V2 bytes — only decides whether a companion receipt_v3 envelope is emitted
+     * alongside a freshly issued V2 receipt.
+     */
+    public function isV3CanarySelected(string $receiptId): bool
+    {
+        $percent = max(0, min(100, (int) config('atlas.ai.decision_receipt_v3_canary_percent', 0)));
+        if ($percent <= 0) {
+            return false;
+        }
+        if ($percent >= 100) {
+            return true;
+        }
+
+        $bucket = hexdec(substr(hash('sha256', 'decision_receipt_v3_canary:'.$receiptId), 0, 8)) % 100;
+
+        return $bucket < $percent;
+    }
+
+    /**
+     * Build a canary V3 companion envelope from an already-issued V2 receipt.
+     * Historical signed V2 fields are copied, never mutated in place.
+     *
+     * @param  array<string,mixed>  $decision
+     * @return array<string,mixed>|null
+     */
+    public function issueV3CanaryCompanion(DecisionReceipt $receipt, OperationEnvelope $envelope, array $decision = []): ?array
+    {
+        if (! $this->isV3CanarySelected($receipt->receiptId)) {
+            return null;
+        }
+
+        $v2 = $receipt->toArray();
+        $authority = $this->canaryAuthorityEnvelope($receipt, $envelope, $decision);
+        $v3 = [
+            'receipt_id' => $v2['receipt_id'],
+            'envelope_id' => $v2['envelope_id'],
+            'schema_version' => DecisionReceipt::SCHEMA_VERSION_V3,
+            'issued_at' => $v2['issued_at'],
+            'expires_at' => $v2['expires_at'],
+            'dry_run' => $v2['dry_run'],
+            'signed_by' => 'atlas.decide.v3-canary',
+            'domain' => $v2['domain'],
+            'flow' => $v2['flow'],
+            'risk' => $v2['risk'],
+            'provider_selection' => $v2['provider_selection'],
+            'budgets' => $v2['budgets'],
+            'required_gates' => $v2['required_gates'],
+            'required_evidence' => $v2['required_evidence'],
+            'repair_policy' => $v2['repair_policy'],
+            'inputs_hash' => $v2['inputs_hash'],
+            'parent_receipt_id' => $v2['parent_receipt_id'],
+            'chain_hash' => $v2['chain_hash'],
+            'authority' => $authority,
+        ];
+        $v3['receipt_hash'] = DecisionReceiptHash::v3FullEnvelopeHash($v3);
+
+        return $v3;
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     * @return array<string,mixed>
+     */
+    private function canaryAuthorityEnvelope(DecisionReceipt $receipt, OperationEnvelope $envelope, array $decision): array
+    {
+        $tenantId = $this->string($envelope->operator->tenantId ?? 'tenant-canary') ?: 'tenant-canary';
+        $principalId = $this->string($envelope->operator->operatorId ?? 'principal-canary') ?: 'principal-canary';
+        if (in_array($tenantId, ['default', 'system', 'unknown'], true)) {
+            $tenantId = 'tenant-canary-'.$receipt->receiptId;
+        }
+        if (in_array($principalId, ['default', 'system', 'unknown'], true)) {
+            $principalId = 'principal-canary-'.$receipt->receiptId;
+        }
+        $workspace = $this->string($envelope->operator->workspace ?? base_path()) ?: base_path();
+        $mode = $this->string(data_get($decision, 'metadata.mode')
+            ?? data_get($decision, 'mode')
+            ?? 'dev') ?: 'dev';
+        if (! in_array($mode, ['dev', 'forge', 'autonomos'], true)) {
+            $mode = 'dev';
+        }
+
+        return [
+            'authority_id' => 'canary-'.$receipt->receiptId,
+            'issuer_key_id' => 'atlas.decide.v3-canary',
+            'lifecycle' => ['status' => 'active', 'revision' => 1],
+            'audience' => [
+                'tenant_id' => $tenantId,
+                'principal_id' => $principalId,
+            ],
+            'scope' => [
+                'workspace_id' => hash('sha256', $workspace),
+                'modes' => [$mode],
+                'capability' => $receipt->flow,
+            ],
+            'effect' => [
+                'class' => 'provider_tool_sandbox_mutation',
+                'allowed' => ! $receipt->dryRun,
+            ],
+            'budget' => [
+                'budget_id' => 'budget-canary-'.$receipt->receiptId,
+                'max_effects' => 1,
+            ],
+            'nonce' => hash('sha256', 'nonce:'.$receipt->receiptId.':'.$receipt->receiptHash),
+            'revocation_head' => hash('sha256', 'revocation:'.$receipt->chainHash),
+            'separation_of_duties' => [
+                'issuer_principal_id' => 'issuer-'.$principalId,
+                'executor_principal_id' => 'executor-'.$principalId,
+            ],
+        ];
+    }
+
     private function providerSelection(mixed $selection): DecisionProviderSelection
     {
         $selection = is_array($selection) ? $selection : [];

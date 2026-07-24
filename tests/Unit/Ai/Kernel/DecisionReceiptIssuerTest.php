@@ -5,6 +5,7 @@ namespace Tests\Unit\Ai\Kernel;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use Carbon\CarbonImmutable;
 use Tests\TestCase;
@@ -205,5 +206,57 @@ class DecisionReceiptIssuerTest extends TestCase
         $this->assertArrayNotHasKey(DecisionReceipt::RECEIPT_V3_KEY, $first);
         $this->assertSame($first, $roundTrip);
         $this->assertSame($first, $receipt->toArray());
+    }
+
+    public function test_canary_selector_is_off_by_default_and_does_not_rewrite_v2(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_canary_percent' => 0]);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'canary off']);
+        $receipt = $issuer->issue($envelope, [
+            'receipt_id' => 'canary-off-v2',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+        ]);
+        $before = $receipt->toArray();
+
+        $this->assertFalse($issuer->isV3CanarySelected($receipt->receiptId));
+        $this->assertNull($issuer->issueV3CanaryCompanion($receipt, $envelope));
+        $this->assertSame($before, $receipt->toArray());
+    }
+
+    public function test_canary_emits_companion_v3_for_new_issuance_without_mutating_v2_bytes(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_canary_percent' => 100]);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $envelope = app(OperationEnvelopeFactory::class)->create([
+            'text' => 'canary on',
+            'operator' => ['operator_id' => 'op-canary', 'tenant_id' => 'tenant-canary'],
+        ]);
+        $receipt = $issuer->issue($envelope, [
+            'receipt_id' => 'canary-on-v2',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'provider_selection' => ['primary' => 'codex_cli', 'model' => 'gpt-5.5', 'fallbacks' => []],
+        ]);
+        $v2Before = $receipt->toArray();
+        $v3 = $issuer->issueV3CanaryCompanion($receipt, $envelope);
+
+        $this->assertTrue($issuer->isV3CanarySelected($receipt->receiptId));
+        $this->assertIsArray($v3);
+        $this->assertSame(DecisionReceipt::SCHEMA_VERSION_V3, $v3['schema_version']);
+        $this->assertSame($v2Before['receipt_id'], $v3['receipt_id']);
+        $this->assertSame($v2Before['envelope_id'], $v3['envelope_id']);
+        $this->assertTrue(DecisionReceiptHash::v3FullEnvelopeHashMatches($v3));
+        // Historical V2 object bytes unchanged by companion emission.
+        $this->assertSame($v2Before, $receipt->toArray());
+
+        $guard = new DecisionReceiptRuntimeGuard;
+        CarbonImmutable::setTestNow(CarbonImmutable::parse($v2Before['expires_at'])->subSecond());
+        $this->assertNull($guard->violationForReceipt([
+            'receipt_v2' => $v2Before,
+            'receipt_v3' => $v3,
+        ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5'));
+        CarbonImmutable::setTestNow();
     }
 }

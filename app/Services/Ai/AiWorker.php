@@ -1730,6 +1730,10 @@ class AiWorker
             'decision_receipt_invalid',
             'decision_receipt_model_mismatch',
             'decision_receipt_provider_mismatch',
+            'decision_receipt_v3_invalid',
+            'decision_receipt_v3_hash_mismatch',
+            'decision_receipt_v3_non_authoritative',
+            'decision_receipt_v2_v3_shadow_contradiction',
             'permission_denied',
             'policy_violation',
         ], true);

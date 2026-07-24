@@ -42,6 +42,21 @@ class DecisionReceiptRuntimeGuard
         ?string $runtimeModel = null,
         ?string $runtimeStage = null,
     ): ?DecisionReceiptRuntimeViolation {
+        // CANARY/mutative consumers: receipt_v3 present but non-array must never
+        // fall through as "no receipt" and reach the provider.
+        if (array_key_exists(DecisionReceipt::RECEIPT_V3_KEY, $receipt)
+            && ! is_array($receipt[DecisionReceipt::RECEIPT_V3_KEY])) {
+            return new DecisionReceiptRuntimeViolation(
+                errorCode: 'decision_receipt_v3_invalid',
+                message: 'DecisionReceipt v3 invalido: receipt_v3 presente mas nao e um envelope array.',
+                receiptId: null,
+                envelopeId: null,
+                expiresAt: null,
+                dryRun: null,
+                schemaVersion: DecisionReceipt::SCHEMA_VERSION_V3,
+            );
+        }
+
         $receiptV2 = data_get($receipt, DecisionReceipt::RECEIPT_V2_KEY);
         if (! is_array($receiptV2)) {
             $receiptV3 = data_get($receipt, DecisionReceipt::RECEIPT_V3_KEY);

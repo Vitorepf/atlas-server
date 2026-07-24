@@ -39,6 +39,18 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         $this->assertSame('atlas.decide.v3', $violation?->schemaVersion);
     }
 
+    public function test_canary_fails_closed_when_receipt_v3_is_present_but_not_an_array(): void
+    {
+        $guard = new DecisionReceiptRuntimeGuard;
+
+        foreach ([null, 'scalar-v3', 42, true] as $malformed) {
+            $violation = $guard->violationForReceipt([
+                'receipt_v3' => $malformed,
+            ]);
+            $this->assertSame('decision_receipt_v3_invalid', $violation?->errorCode, 'malformed='.var_export($malformed, true));
+        }
+    }
+
     public function test_blocks_v3_only_receipt_when_a_bound_authority_field_is_tampered(): void
     {
         $receipt = $this->validV3Receipt();
