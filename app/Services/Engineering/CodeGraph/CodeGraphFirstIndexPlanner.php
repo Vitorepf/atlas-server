@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Engineering\CodeGraph\Support\CodeGraphIntOrNull;
 
 /**
  * AP-815 · W-11 — Staged, budgeted plan for the FIRST index of an external repo.
@@ -306,28 +307,7 @@ class CodeGraphFirstIndexPlanner
      */
     private function intOrNull(mixed $value): ?int
     {
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value)) {
-            if (is_nan($value) || is_infinite($value)) {
-                return null;
-            }
-
-            return (int) $value;
-        }
-
-        if (is_string($value) && is_numeric(trim($value))) {
-            $float = (float) trim($value);
-            if (is_nan($float) || is_infinite($float)) {
-                return null;
-            }
-
-            return (int) $float;
-        }
-
-        return null;
+        return CodeGraphIntOrNull::coerce($value);
     }
 
     /** Clamp an int argument to a non-negative value (fail-safe floor). */
