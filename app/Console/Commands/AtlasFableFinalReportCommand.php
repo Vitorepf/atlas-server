@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasFableFinalReportService;
 use Illuminate\Console\Command;
 
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasFableFinalReportCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:fable:final-report
         {--baseline= : Marco Zero JSON path}
         {--series= : Fable delta-series JSONL path}
@@ -105,14 +108,4 @@ final class AtlasFableFinalReportCommand extends Command
         return ctype_digit($value) ? (int) $value : null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

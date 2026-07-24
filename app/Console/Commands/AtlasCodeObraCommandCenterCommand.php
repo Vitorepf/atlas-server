@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeObraCommandCenterService;
 use Illuminate\Console\Command;
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeObraCommandCenterCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:code:obra-command-center
@@ -98,15 +101,5 @@ final class AtlasCodeObraCommandCenterCommand extends Command
         ], true) ? self::FAILURE : self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
 }

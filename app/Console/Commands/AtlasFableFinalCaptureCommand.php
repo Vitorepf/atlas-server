@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasFableFinalCaptureService;
 use Illuminate\Console\Command;
 
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasFableFinalCaptureCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:fable:final-capture
         {--workspace= : Workspace root for KB/code index and provider projection commands}
         {--baseline= : Optional Marco Zero JSON path used when refreshing L4-13 from operator evidence}
@@ -123,16 +126,6 @@ final class AtlasFableFinalCaptureCommand extends Command
             && data_get($payload, 'operator_gated_external_proofs.status') === 'ready';
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     private function intOption(string $key): ?int
     {

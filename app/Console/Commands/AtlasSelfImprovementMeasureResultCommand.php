@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use Illuminate\Console\Command;
@@ -30,6 +31,8 @@ use Throwable;
  */
 final class AtlasSelfImprovementMeasureResultCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-improvement:measure-result
         {--proposal= : Proposal id (prop_<ULID>) — required}
         {--obra= : Obra (AtlasProject) UUID — required}
@@ -112,16 +115,6 @@ final class AtlasSelfImprovementMeasureResultCommand extends Command
         }
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     /**
      * @return array<string,mixed>|null

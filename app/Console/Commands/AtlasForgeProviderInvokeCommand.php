@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use Illuminate\Console\Command;
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasForgeProviderInvokeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:forge:provider-invoke
@@ -166,15 +169,5 @@ final class AtlasForgeProviderInvokeCommand extends Command
         return in_array($status, $okStatuses, true) ? self::SUCCESS : self::FAILURE;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
 }

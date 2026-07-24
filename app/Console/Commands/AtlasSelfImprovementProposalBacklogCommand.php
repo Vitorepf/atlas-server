@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -20,6 +21,8 @@ use Throwable;
  */
 final class AtlasSelfImprovementProposalBacklogCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-improvement:proposal-backlog
         {--create : Create a new proposal (requires --proposal payload)}
         {--proposal= : Inline JSON or @path with the proposal payload (for --create) or proposal id (for read/evaluate/prioritize)}
@@ -165,16 +168,6 @@ final class AtlasSelfImprovementProposalBacklogCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     private function boolOption(string $key): ?bool
     {

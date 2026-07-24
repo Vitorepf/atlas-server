@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService;
 use Illuminate\Console\Command;
@@ -11,6 +12,8 @@ use Throwable;
 
 final class AtlasSelfImprovementMaturityScoreCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use ResolvesSilentJsonOption;
 
     protected $signature = 'atlas:self-improvement:maturity-score
@@ -47,16 +50,6 @@ final class AtlasSelfImprovementMaturityScoreCommand extends Command
      * @return array<string,mixed>|null
      */
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     /**
      * @param  array<string,mixed>  $payload

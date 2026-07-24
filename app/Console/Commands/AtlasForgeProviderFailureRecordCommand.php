@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeProviderCapacityService;
@@ -32,6 +33,8 @@ use Throwable;
  */
 final class AtlasForgeProviderFailureRecordCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:forge:provider-failure-record
@@ -187,15 +190,5 @@ final class AtlasForgeProviderFailureRecordCommand extends Command
         }
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
 }

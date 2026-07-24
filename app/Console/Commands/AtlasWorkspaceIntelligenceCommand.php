@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceConversationFusionService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceExecutionBoundaryAuditService;
@@ -18,6 +19,8 @@ use InvalidArgumentException;
 
 final class AtlasWorkspaceIntelligenceCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:workspace-intelligence
         {action=certify : certify|show|twin|artifacts|contracts|evolution|learning-loop|live-execution-memory|next-session-brain|artifact-intelligence|conversation-fusion|handoff-pack|boundary-audit|gate|register|list}
         {--workspace= : Workspace slug, defaults to configured Atlas workspace}
@@ -243,16 +246,6 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
         }
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     /**
      * @return array<int,string>

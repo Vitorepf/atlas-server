@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Governance\ChangeClassTrustReleaseGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
 final class AtlasChangeClassTrustReleaseGateCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:governance:change-class-trust-release-gate
         {--fixture=live : live, mature, regressed or blocked-sensitive}
         {--change-class= : Change class to assess}
@@ -59,16 +62,6 @@ final class AtlasChangeClassTrustReleaseGateCommand extends Command
         return $exit;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     private function receiptPath(): string
     {

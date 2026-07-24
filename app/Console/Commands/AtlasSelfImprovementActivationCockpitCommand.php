@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService;
 use Illuminate\Console\Command;
 
@@ -22,6 +23,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasSelfImprovementActivationCockpitCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-improvement:activation-cockpit
         {--activation= : Inspect a specific activation id and project its detail in the response}
         {--status= : Filter list by status (blocked, needs_revision, pending_human_review, accepted, obra_created, rejected, dry_run_planned)}
@@ -111,14 +114,4 @@ final class AtlasSelfImprovementActivationCockpitCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

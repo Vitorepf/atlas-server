@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementNextCycleRecommendationService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasSelfImprovementNextCycleCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-improvement:next-cycle
         {--proposal= : Proposal id (prop_<ULID>)}
         {--latest : Use the most recent result entry overall (overrides --proposal when both passed)}
@@ -83,14 +86,4 @@ final class AtlasSelfImprovementNextCycleCommand extends Command
         $this->components->twoColumnDetail('human_approval_required', ($payload['human_approval_required'] ?? false) ? 'true' : 'false');
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

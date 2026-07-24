@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasForgeMultiNodeL410ProofService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\File;
  */
 final class AtlasForgeMultiNodeL410ProofCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:forge:l4-10-proof
         {--evidence= : JSON receipt from a real 6-10 node Forge/Obra run}
         {--hours=24 : Morning digest window used to prove L4-6 is locally delivered}
@@ -84,14 +87,4 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
         return ctype_digit($value) ? (int) $value : null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

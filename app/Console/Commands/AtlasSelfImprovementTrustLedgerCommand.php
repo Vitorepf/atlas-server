@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasProject;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use Illuminate\Console\Command;
@@ -13,6 +14,8 @@ use Throwable;
 
 final class AtlasSelfImprovementTrustLedgerCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-improvement:trust-ledger
         {--obra= : UUID Obra (optional; without it the snapshot is global empty)}
         {--record : Record an entry instead of just reading the ledger}
@@ -112,16 +115,6 @@ final class AtlasSelfImprovementTrustLedgerCommand extends Command
         }
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 
     /**
      * @param  array<string,mixed>  $payload
