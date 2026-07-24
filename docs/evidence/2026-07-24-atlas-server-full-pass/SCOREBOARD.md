@@ -1,25 +1,22 @@
-# Full-Pass SCOREBOARD (continuous goal window)
+# Full-Pass SCOREBOARD (goal continuous)
 
 | area_id | status | notes |
 |---|---|---|
-| reuse | partial | Wave A YesNo/UtcIso; CanonicalValue; ProviderCatalog; CLI traits |
-| standardize | partial | dual SC/aeos still open |
-| density | strong | OneShotTick envelope; Serving report thin; Aaeos projectors; Fixture loadFlowFinds; LedgerReplay SLO+repair |
-| architecture | partial | config loop split; ASP alias SP; PRE still open; routes open |
-| surface_std | partial | EmitsCanonicalJson mass; stringOption variants residual |
-| gates | partial | package proofs green for peels |
-| anti_goodhart | done | real peels + tests; fixed botched LedgerReplay multi-move |
+| reuse | strong | Wave A helpers; ProviderCatalog; CanonicalValue; CLI traits |
+| density | strong | Serving report thin; OneShotTick envelope; Aaeos table; LedgerReplay families→Support; Decide stages |
+| architecture | partial | config loop; ASP aliases; routes splits (code/cartography/stewardship/OI/patamar4); PRE open |
+| gates | partial | package proofs green (55-test round: Ledger+Decide+Serving) |
+| anti_goodhart | done | careful multi-arg peels; restored botched LedgerReplay once |
 
-## This evaluator wave (proofs)
+## Latest evaluator round proofs
 
-| batch | proof |
+| item | proof |
 |---|---|
-| OneShotTick envelope+catalog | unit + invoker features green |
-| Serving report stages (commit/dry/give_back) | ServingServiceTest 8/8; report ~23L |
-| Aaeos universalGates projectors | unit 4545 asserts table; requires_intent green |
-| LedgerReplay SLO+repair | 22/22 unit green (restored after bad move) |
-| Decide pure helpers + catalog wire | 25 Decide/gateway/catalog tests green |
+| Decide operationalDecision stages | 39 unit green |
+| Decide executionGraph strategies | 39 unit green |
+| LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green each step |
+| Combined package round | **55 tests / 428 asserts OK** |
 
-## Residual next
+## Residual
 
-Decide operationalDecision stages · LedgerReplay inbox/agent careful · routes/api split · floors
+voice/mobile route splits · PRE leave Http · floors · remaining stringOption variants
