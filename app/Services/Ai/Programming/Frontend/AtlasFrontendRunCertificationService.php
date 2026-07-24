@@ -333,5 +333,4 @@ final class AtlasFrontendRunCertificationService
             'observed_scope_keys_hash' => hash('sha256', implode('|', $uniqueKeys)),
         ];
     }
-
 }

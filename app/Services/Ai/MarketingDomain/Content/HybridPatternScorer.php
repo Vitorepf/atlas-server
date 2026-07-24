@@ -101,6 +101,7 @@ class HybridPatternScorer
             return 1.0;
         }
         $share = 30.0 / (30.0 + $sample);     // simple soft-max style
+
         return max(0.1, min(1.0, $share));
     }
 

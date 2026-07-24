@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 class RsaAdForge
 {
     private const HEADLINE_MAX = 30;
+
     private const DESC_MAX = 90;
 
     /**
@@ -93,7 +94,7 @@ class RsaAdForge
         }
         $cut = mb_substr($text, 0, $max);
         $cut = mb_substr($cut, 0, mb_strrpos($cut, ' ') ?: $max);
-        $cut = rtrim($cut, " ,.;:-–—");
+        $cut = rtrim($cut, ' ,.;:-–—');
 
         return mb_strlen($cut) >= 8 ? $cut : '';
     }

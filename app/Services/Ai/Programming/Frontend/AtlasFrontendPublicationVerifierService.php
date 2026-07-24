@@ -562,5 +562,4 @@ final class AtlasFrontendPublicationVerifierService
 
         return is_array($decoded) ? $decoded : null;
     }
-
 }

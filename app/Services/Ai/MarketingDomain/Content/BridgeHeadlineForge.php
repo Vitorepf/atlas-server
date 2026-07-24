@@ -19,7 +19,7 @@ class BridgeHeadlineForge
 {
     /**
      * @param  array<string,mixed>  $opts  lang ('en'|'pt')
-     * @return array<int,string>  ranked best-first
+     * @return array<int,string> ranked best-first
      */
     public function forge(AiMarketingVslAsset $asset, array $opts = []): array
     {
@@ -185,7 +185,7 @@ class BridgeHeadlineForge
     }
 
     /**
-     * @return array{0:string,1:string}  [who, age]
+     * @return array{0:string,1:string} [who, age]
      */
     private function avatarParts(AiMarketingVslAsset $asset): array
     {

@@ -7,6 +7,8 @@ use RuntimeException;
 
 final class AtlasFrontendExecutionRunbookService
 {
+    use FrontendPrefixHelper;
+
     public const SCHEMA_VERSION = 'atlas.frontend.execution_runbook.v1';
 
     /**
@@ -286,15 +288,6 @@ final class AtlasFrontendExecutionRunbookService
      * @param  array<int,mixed>  $items
      * @return array<int,string>
      */
-    private function prefix(string $prefix, array $items): array
-    {
-        return collect($items)
-            ->filter(fn (mixed $item): bool => is_string($item))
-            ->map(fn (string $item): string => $prefix.'_'.$item)
-            ->values()
-            ->all();
-    }
-
     private function workspaceArg(string $workspace): string
     {
         return $workspace !== '' ? '--workspace='.$this->quote($workspace) : '--workspace=<local-company-repo>';

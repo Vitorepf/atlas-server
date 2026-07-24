@@ -263,5 +263,4 @@ final class AtlasFrontendDesignReviewService
             || str_contains($normalized, 'token')
             || str_contains($normalized, 'cookie');
     }
-
 }

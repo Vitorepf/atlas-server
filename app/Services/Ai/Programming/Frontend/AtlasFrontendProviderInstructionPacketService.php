@@ -6,6 +6,8 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 
 final class AtlasFrontendProviderInstructionPacketService
 {
+    use FrontendPrefixHelper;
+
     public const SCHEMA_VERSION = 'atlas.frontend.provider_instruction_packet.v1';
 
     public const EXECUTION_GUARDRAILS_SCHEMA_VERSION = 'atlas.frontend.provider_execution_guardrails.v1';
@@ -206,12 +208,4 @@ final class AtlasFrontendProviderInstructionPacketService
      * @param  array<int,mixed>  $items
      * @return array<int,string>
      */
-    private function prefix(string $prefix, array $items): array
-    {
-        return collect($items)
-            ->filter(fn (mixed $item): bool => is_string($item))
-            ->map(fn (string $item): string => $prefix.'_'.$item)
-            ->values()
-            ->all();
-    }
 }

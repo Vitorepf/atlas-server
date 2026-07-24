@@ -317,5 +317,4 @@ final class AtlasFrontendVisualQualityGateService
 
         return false;
     }
-
 }

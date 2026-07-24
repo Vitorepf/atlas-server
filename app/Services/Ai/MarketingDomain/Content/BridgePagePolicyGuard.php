@@ -22,6 +22,7 @@ namespace App\Services\Ai\MarketingDomain\Content;
 class BridgePagePolicyGuard
 {
     private const MIN_BODY_WORDS = 350;          // below this the page reads as a thin pre-sell.
+
     private const MIN_BODY_SECTIONS = 3;
 
     /** Absolute health/earnings claims that MUST be hedged on the bridge (the VSL can be aggressive; the bridge stays durable). */

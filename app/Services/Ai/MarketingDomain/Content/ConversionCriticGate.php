@@ -49,10 +49,10 @@ class ConversionCriticGate
      * @param  string  $awarenessLevel  the asset's target awareness (warn tier; '' to skip)
      * @param  string  $threshold  'strong' | 'decent' | 'off'
      * @param  array<int,array{term:string,category:string,severity:string,is_regex?:bool}>  $spoilerCatalog
-     *         terms the bridge must NOT name (the caller pre-filters to the categories it enforces — e.g.
-     *         product_name + named_ingredient — so physical_form stays a legitimate message-match angle)
+     *                                                                                                        terms the bridge must NOT name (the caller pre-filters to the categories it enforces — e.g.
+     *                                                                                                        product_name + named_ingredient — so physical_form stays a legitimate message-match angle)
      * @param  array<string,string>  $stages  ordered funnel stages (label=>copy, stage[0]=top-of-funnel ad)
-     *         for the cross-stage continuity check; inert unless >=2 non-empty stages are supplied
+     *                                        for the cross-stage continuity check; inert unless >=2 non-empty stages are supplied
      * @return array{verdict:'block'|'warn'|'ok',structural_pass:bool,threshold:string,reasons:array<int,array{floor:string,kind:string,detail:string}>}
      */
     public function evaluate(string $copy, string $awarenessLevel = '', string $threshold = 'decent', array $spoilerCatalog = [], array $stages = []): array
@@ -166,7 +166,6 @@ class ConversionCriticGate
     }
 
     /**
-     * @param  mixed  $v
      * @return array<int,mixed>
      */
     private function arr(mixed $v): array

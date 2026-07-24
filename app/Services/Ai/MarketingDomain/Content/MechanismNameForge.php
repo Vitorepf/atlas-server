@@ -21,6 +21,8 @@ use App\Models\AiMarketingVslAsset;
  */
 class MechanismNameForge
 {
+    use ContentInputNormalization;
+
     private const METHOD_EN = ['Protocol', 'Method', 'Ritual', 'Switch', 'Formula', 'System', 'Blueprint', 'Sequence', 'Reset', 'Loop', 'Code', 'Shortcut'];
 
     private const METHOD_PT = ['Protocolo', 'Método', 'Ritual', 'Fórmula', 'Sistema', 'Ciclo', 'Gatilho', 'Atalho', 'Sequência'];
@@ -214,14 +216,4 @@ class MechanismNameForge
     /**
      * @param  array<int,string>  $candidates
      */
-    private function firstNonEmpty(array $candidates): string
-    {
-        foreach ($candidates as $c) {
-            if (trim($c) !== '') {
-                return trim($c);
-            }
-        }
-
-        return '';
-    }
 }

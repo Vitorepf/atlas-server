@@ -15,6 +15,7 @@ use App\Services\Ai\MarketingDomain\Knowledge\VideoCreativeAnatomyLibrary;
  * score inverts on adversarial copy, as the dead NarrativeTensionScorer proved), flags any non-opening,
  * non-closing segment that opens NO loop/re-hook as a flat-middle leak. Reuses VideoCreativeAnatomyLibrary's
  * re_hook + curiosity-gap markers (no regex reimplemented). Structural, provider-free, niche-agnostic.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class RetentionCurveLeakDetector

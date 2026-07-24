@@ -245,5 +245,4 @@ final class AtlasFrontendQualityBudgetGateService
 
         return false;
     }
-
 }

@@ -3,6 +3,8 @@
 namespace App\Services\Ai\MarketingDomain\Content;
 
 use App\Models\AiMarketingVslAsset;
+use App\Services\Ai\MarketingDomain\Decision\GrandSlamBuilder;
+use App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary;
 
 /**
  * StructuredFunnelComposer — the leap from AUDITING to GENERATING (generator+verifier inverted at the
@@ -24,6 +26,8 @@ use App\Models\AiMarketingVslAsset;
  */
 class StructuredFunnelComposer
 {
+    use ContentInputNormalization;
+
     /**
      * @return array{ad:string,bridge:string,page:string,checkout:string}
      */
@@ -55,7 +59,7 @@ class StructuredFunnelComposer
         $guarantee = $this->guarantee($asset);
         // Default = MAXIMUM aggression (operator: sem freio). The market's raw wound/dream is woven in
         // niche-flavored, so the scaffold ships aggressive by construction (not generic).
-        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         // Value Equation (Eixo 5): only CLAIM the time/effort levers when the ASSET gives real substance.
         // A brutal panel proved fixed filler ("starting today", "simple, without…") just gamed the auditor.
         // No substance → leave an HONEST gap for the producer to fill, never plant generic filler.
@@ -110,7 +114,7 @@ class StructuredFunnelComposer
             $pageHook,                                                                     // hook (sophistication-aware)
             'Most advice has it backwards, and it is not your fault.',                     // build
             "Every day you wait is another day {$wound['pain']}.",                         // fear (niche wound)
-            "The real cause hid in plain sight — and it has nothing to do with what you have been blamed for.", // ONE concrete pull (not 3 empty open-loops)
+            'The real cause hid in plain sight — and it has nothing to do with what you have been blamed for.', // ONE concrete pull (not 3 empty open-loops)
             "Here is the missing piece — {$mechanism}. That is the real reason {$promiseNoun} finally happens{$heroLine}.", // REVEAL (late), grammatical (promise nominalized)
             $proofLine,                                                                     // proof ADJACENT to the claim (believability: a claim must be backed at the point of assertion)
             "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
@@ -124,7 +128,7 @@ class StructuredFunnelComposer
         // intelligence (bonuses mapped 1:1 to objections + value anchoring) instead of a thin one-liner —
         // the offer is a top 1→25 lever. Rendered in EN from the builder's DATA (no language leak); the
         // guarantee is only stated when the offer really has one (no fabricated risk-reversal).
-        $gs = (new \App\Services\Ai\MarketingDomain\Decision\GrandSlamBuilder)->build($asset);
+        $gs = (new GrandSlamBuilder)->build($asset);
         $bonusN = is_array($gs['bonus_stack'] ?? null) ? count($gs['bonus_stack']) : 0;
         $anchored = (string) ($gs['total_anchored_value'] ?? '');
         $valueLine = $pt
@@ -181,7 +185,7 @@ class StructuredFunnelComposer
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);
         $heroLine = $hero !== '' ? " — {$hero}" : '';
-        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         $timeframe = $this->timeframe($asset);
         $meansBody = $pt
             ? trim("Imagine {$wound['dream']}."
@@ -418,14 +422,4 @@ class StructuredFunnelComposer
     /**
      * @param  array<int,string>  $candidates
      */
-    private function firstNonEmpty(array $candidates): string
-    {
-        foreach ($candidates as $c) {
-            if (trim($c) !== '') {
-                return trim($c);
-            }
-        }
-
-        return '';
-    }
 }

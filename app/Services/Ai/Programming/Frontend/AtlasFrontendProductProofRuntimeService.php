@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\File;
 
 final class AtlasFrontendProductProofRuntimeService
 {
+    use FrontendPrefixHelper;
+
     public const SCHEMA_VERSION = 'atlas.frontend.product_proof_runtime.v1';
 
     public const BUNDLE_SCHEMA_VERSION = 'atlas.frontend.product_proof_bundle.v1';
@@ -398,14 +400,6 @@ final class AtlasFrontendProductProofRuntimeService
      * @param  array<int,mixed>  $items
      * @return array<int,string>
      */
-    private function prefix(string $prefix, array $items): array
-    {
-        return collect($items)
-            ->filter(fn (mixed $item): bool => is_string($item))
-            ->map(fn (string $item): string => $prefix.'_'.$item)
-            ->values()
-            ->all();
-    }
 
     /**
      * @param  array<string,mixed>  $demo

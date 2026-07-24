@@ -3,12 +3,11 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\Programming\Frontend\RivalReplay\RivalReplaySupport;
 use App\Services\Ai\Programming\Frontend\RivalReplay\RivalReplayDiagnosticsSection;
+use App\Services\Ai\Programming\Frontend\RivalReplay\RivalReplaySupport;
 use App\Services\Ai\Programming\Frontend\RivalReplay\RivalReplayTemplateSection;
 use App\Services\Ai\Programming\Frontend\RivalReplay\RivalReplayValidationSection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 final class AtlasFrontendRivalReplayHarnessService
 {
@@ -144,8 +143,6 @@ final class AtlasFrontendRivalReplayHarnessService
 
         return $payload;
     }
-
-
 
     /**
      * @return array<string,mixed>
@@ -1202,12 +1199,6 @@ final class AtlasFrontendRivalReplayHarnessService
         return $payload;
     }
 
-
-
-
-
-
-
     /**
      * @return array<int,string>
      */
@@ -1233,31 +1224,6 @@ final class AtlasFrontendRivalReplayHarnessService
             'completed_at',
         ];
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private function evidenceDirectory(?string $directory): string
     {

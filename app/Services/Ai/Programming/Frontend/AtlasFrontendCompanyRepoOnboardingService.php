@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\File;
 
 final class AtlasFrontendCompanyRepoOnboardingService
 {
+    use FrontendPrefixHelper;
+
     public const SCHEMA_VERSION = 'atlas.frontend.company_repo_onboarding.v1';
 
     /**
@@ -189,14 +191,6 @@ final class AtlasFrontendCompanyRepoOnboardingService
      * @param  array<int,mixed>  $items
      * @return array<int,string>
      */
-    private function prefix(string $prefix, array $items): array
-    {
-        return collect($items)
-            ->filter(fn (mixed $item): bool => is_string($item))
-            ->map(fn (string $item): string => $prefix.'_'.$item)
-            ->values()
-            ->all();
-    }
 
     /**
      * @param  array<string,mixed>  $skillInstall
@@ -218,5 +212,4 @@ final class AtlasFrontendCompanyRepoOnboardingService
 
         return AiStringListNormalizer::uniqueStrings($actions);
     }
-
 }

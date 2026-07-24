@@ -141,5 +141,4 @@ final class AtlasFrontendScenarioMatrixService
 
         return array_values(array_unique($blockers));
     }
-
 }

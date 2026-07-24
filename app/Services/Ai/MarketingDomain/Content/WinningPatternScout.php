@@ -84,7 +84,7 @@ class WinningPatternScout
             $present = (array) ($r['present'] ?? []);
             if (count($present) >= 5) {
                 $cands[] = ['snippet' => $libName.': '.implode(', ', array_slice($present, 0, 4)),
-                    'why' => "Esta página ativa {$libName} muito acima da média (".count($present)." padrões) — provavelmente é uma alavanca dominante do nicho dela."];
+                    'why' => "Esta página ativa {$libName} muito acima da média (".count($present).' padrões) — provavelmente é uma alavanca dominante do nicho dela.'];
             }
         }
 

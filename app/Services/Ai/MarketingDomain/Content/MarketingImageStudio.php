@@ -40,8 +40,8 @@ class MarketingImageStudio
 
         return match ($kind) {
             'product_mockup' => "Professional product photography of {$product}, a {$form}, on a clean white studio background, soft shadows, premium supplement packaging, high detail, commercial e-commerce style. No text, no people.",
-            'mechanism_illustration' => "Clean medical infographic illustration of three fat-burning hormones (GLP-1, GIP, glucagon) working together in metabolism, friendly modern flat style, soft teal and green palette, labeled, editorial science magazine look. No real people, no claims.",
-            'lifestyle' => "Bright authentic lifestyle photo of a confident, healthy woman over 40 enjoying her morning at home, natural light, candid and warm, wellness editorial style. Generic stock feel, not a testimonial, no text overlay.",
+            'mechanism_illustration' => 'Clean medical infographic illustration of three fat-burning hormones (GLP-1, GIP, glucagon) working together in metabolism, friendly modern flat style, soft teal and green palette, labeled, editorial science magazine look. No real people, no claims.',
+            'lifestyle' => 'Bright authentic lifestyle photo of a confident, healthy woman over 40 enjoying her morning at home, natural light, candid and warm, wellness editorial style. Generic stock feel, not a testimonial, no text overlay.',
             'thumbnail_bg' => "Dramatic dark news-report background texture for a {$niche} video thumbnail, subtle red and gold accents, slight grain, cinematic, empty center for text. No people, no text.",
             default => '',
         };

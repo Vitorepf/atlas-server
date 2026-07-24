@@ -68,7 +68,7 @@ class AntiGoodhartGuard
         $overused = array_filter($wordCount, fn ($c) => $c >= 6);
         if ($overused !== [] && $wc < 600) {
             $top = array_keys($overused);
-            $flags[] = ['key' => 'keyword_stuffing', 'name' => 'Stuffing de palavra', 'detail' => "Palavra repetida ≥6×: ".implode(', ', array_slice($top, 0, 3))];
+            $flags[] = ['key' => 'keyword_stuffing', 'name' => 'Stuffing de palavra', 'detail' => 'Palavra repetida ≥6×: '.implode(', ', array_slice($top, 0, 3))];
         }
 
         // 6. Vague intensifiers without concrete object — "very effective", "really good", "muito bom"

@@ -19,6 +19,7 @@ use Throwable;
 class MarketingSkillRegistry
 {
     private const MIN_AUDIT = 80;
+
     private const MIN_COVERAGE = 40;
 
     /**

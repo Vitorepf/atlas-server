@@ -104,7 +104,6 @@ final class AtlasFrontendAppScope
         return $relative !== '' ? $relative : null;
     }
 
-
     /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>

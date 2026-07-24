@@ -28,7 +28,7 @@ class LeadForge
             $p1 = "Se você é {$who} e sente que o próprio corpo virou seu inimigo, você não está imaginando coisas.";
             $p2 = "Você já cortou doce, tentou {$failed}, se arrastou pra mais uma caminhada — e mesmo assim viu a balança travada, a roupa apertando e cada espelho virar uma má notícia. Depois de tantas tentativas, começa a parecer pessoal.";
             $p3 = $enemy
-                ? "Mas e se o verdadeiro motivo nunca foi falta de disciplina? E se a indústria que lucra com injeções de milhares por mês tem todo o interesse em você nunca descobrir o que realmente trava a sua queima de gordura?"
+                ? 'Mas e se o verdadeiro motivo nunca foi falta de disciplina? E se a indústria que lucra com injeções de milhares por mês tem todo o interesse em você nunca descobrir o que realmente trava a sua queima de gordura?'
                 : 'Mas e se o verdadeiro motivo nunca foi falta de disciplina — e sim três hormônios que pararam de trabalhar juntos?';
             $p4 = "Na apresentação acima, mulheres descrevem o “{$mech}” como a primeira coisa que finalmente fez o corpo delas voltar a cooperar — sem agulha, sem passar fome. O porquê exato está no vídeo.";
         } else {

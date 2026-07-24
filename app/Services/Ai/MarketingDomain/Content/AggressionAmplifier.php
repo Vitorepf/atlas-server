@@ -3,6 +3,7 @@
 namespace App\Services\Ai\MarketingDomain\Content;
 
 use App\Models\AiMarketingVslAsset;
+use App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary;
 
 /**
  * AggressionAmplifier — the closed loop. It audits a bridge across all 9 Conversion-OS libraries,
@@ -20,7 +21,7 @@ class AggressionAmplifier
         private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
         private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
-        private readonly \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary $aggressiveLib = new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary,
+        private readonly AggressiveConversionTacticsLibrary $aggressiveLib = new AggressiveConversionTacticsLibrary,
         private readonly AwarenessAggressionRouter $awarenessRouter = new AwarenessAggressionRouter,
     ) {}
 

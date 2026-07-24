@@ -22,6 +22,8 @@ use App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary
  */
 class BigIdeaLeadForge
 {
+    use ContentInputNormalization;
+
     /** Awareness stage → lead archetypes that fit it, best first. */
     private const ROUTE = [
         'unaware' => ['story', 'secret', 'enemy'],
@@ -281,14 +283,4 @@ class BigIdeaLeadForge
     /**
      * @param  array<int,string>  $candidates
      */
-    private function firstNonEmpty(array $candidates): string
-    {
-        foreach ($candidates as $c) {
-            if (trim($c) !== '') {
-                return trim($c);
-            }
-        }
-
-        return '';
-    }
 }

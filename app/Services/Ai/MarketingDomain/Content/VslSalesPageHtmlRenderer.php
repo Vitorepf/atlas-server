@@ -99,6 +99,7 @@ HTML;
         if ($packages === []) {
             // graceful default from the price string
             $price = $this->esc((string) ($metrics['price'] ?? 'Special price inside'));
+
             return '<section class="pkgs"><div class="pkg best"><div class="pname">Best Value</div><div class="pprice">'.$price.'</div>'
                 .$this->orderBtn($checkout, $ctaLabel).'</div></section>';
         }

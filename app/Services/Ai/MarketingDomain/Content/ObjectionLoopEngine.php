@@ -53,13 +53,13 @@ class ObjectionLoopEngine
             $reask = 'Mas se for — faz sentido até aqui? Então o próximo passo é simples: assista à apresentação gratuita e veja você mesmo.';
         } else {
             // 1. Acknowledge (feel-felt-found / fair question) — disarm without confronting.
-            $acknowledge = "Fair question — and you are right to ask. Plenty of people thought the same before they saw how it actually works.";
+            $acknowledge = 'Fair question — and you are right to ask. Plenty of people thought the same before they saw how it actually works.';
             // 2. Reframe the dropped certainty axis with NEW proof.
             $reframe = $this->reframe($objectionKey, $axis, $mech, $wound, $lang);
             // 3. Take-away (reactance + status scarcity).
             $takeaway = "And to be honest, this is not for everyone — only for the people actually ready for {$dream}. If that is not you yet, no hard feelings.";
             // 4. Re-ask (assumptive next step, loops back to the offer).
-            $reask = "But if it is — does that make sense so far? Then the next step is simple: watch the free presentation and see it for yourself.";
+            $reask = 'But if it is — does that make sense so far? Then the next step is simple: watch the free presentation and see it for yourself.';
         }
 
         $steps = ['acknowledge' => $acknowledge, 'reframe' => $reframe, 'takeaway' => $takeaway, 'reask' => $reask];
@@ -81,9 +81,9 @@ class ObjectionLoopEngine
                 'price_too_high', 'cant_afford' => "Pense no custo real de não fazer nada — mais um ano {$pain}, e a conta só cresce. {$mech} custa menos do que você já desperdiça no que não funciona. A escolha cara é continuar onde está.",
                 'wont_work_for_me' => "É exatamente por isso que funciona pra você — tudo que você tentou antes consertava a coisa errada. {$mech} ataca a causa real, e foi feito pra quem está exatamente na sua situação.",
                 'tried_everything' => "Claro que já — e é esse o ponto. Você tentou tudo, menos a única coisa que ataca a causa real. {$mech} não é mais uma versão do que já te decepcionou.",
-                'is_it_scam' => "Inteligente ser cético — a maioria por aí é ruído. Então não acredite em mim: assista à apresentação, veja a prova você mesmo, e você tem garantia total de reembolso. O risco é todo nosso.",
+                'is_it_scam' => 'Inteligente ser cético — a maioria por aí é ruído. Então não acredite em mim: assista à apresentação, veja a prova você mesmo, e você tem garantia total de reembolso. O risco é todo nosso.',
                 'is_it_safe' => "Sua segurança vem primeiro — por isso {$mech} trabalha COM o seu corpo, não contra ele, e você está protegido por garantia total de reembolso se um dia não for pra você.",
-                'no_time' => "Se o problema é tempo, isso foi feito pra isso — cabe em minutos por dia, sem virar sua vida de cabeça pra baixo. Não fazer nada te custa muito mais tempo do que isso jamais vai custar.",
+                'no_time' => 'Se o problema é tempo, isso foi feito pra isso — cabe em minutos por dia, sem virar sua vida de cabeça pra baixo. Não fazer nada te custa muito mais tempo do que isso jamais vai custar.',
                 default => "Eis o que muda: {$mech} ataca o verdadeiro motivo {$pain} — e você tem garantia total de reembolso, então o risco é nosso, não seu.",
             };
         }
@@ -92,9 +92,9 @@ class ObjectionLoopEngine
             'price_too_high', 'cant_afford' => "Think about the real cost of doing nothing — another year of {$pain}, and the bill only grows. {$mech} costs less than what you already waste on what does not work. The expensive choice is staying where you are.",
             'wont_work_for_me' => "That is exactly why it works for you — everything you tried before fixed the wrong thing. {$mech} targets the real cause, and it was built for people in exactly your situation.",
             'tried_everything' => "Of course you have — and that is the point. You tried everything except the one thing that addresses the real cause. {$mech} is not another version of what already failed you.",
-            'is_it_scam' => "Smart to be skeptical — most things out there are noise. So do not take my word: watch the presentation, see the proof for yourself, and you are covered by a full money-back guarantee. The risk is entirely on us.",
+            'is_it_scam' => 'Smart to be skeptical — most things out there are noise. So do not take my word: watch the presentation, see the proof for yourself, and you are covered by a full money-back guarantee. The risk is entirely on us.',
             'is_it_safe' => "Your safety comes first — that is why {$mech} works WITH your body, not against it, and you are protected by a full money-back guarantee if it is ever not right for you.",
-            'no_time' => "If time is the worry, this is built for exactly that — it fits into minutes a day, no overhaul of your life. Doing nothing costs you far more time than this ever will.",
+            'no_time' => 'If time is the worry, this is built for exactly that — it fits into minutes a day, no overhaul of your life. Doing nothing costs you far more time than this ever will.',
             default => "Here is what changes it: {$mech} addresses the real reason {$pain} — and you are covered by a full money-back guarantee, so the risk is on us, not you.",
         };
     }

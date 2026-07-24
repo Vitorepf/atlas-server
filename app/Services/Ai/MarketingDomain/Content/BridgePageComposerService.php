@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiMarketingVslAsset;
 use App\Models\AiMarketingWinningPattern;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner;
 use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
 use App\Services\Ai\MarketingDomain\Knowledge\PagePatternLibrary;
 use App\Services\Ai\MarketingDomain\Scoring\MessageMatchScorer;
@@ -30,6 +31,7 @@ use RuntimeException;
  * The intelligence lives here (prompt + grounding + deterministic validation); the words are written
  * by the governed provider (hermes_cli, never a pinned model). Output is validated fail-closed by the
  * deterministic BridgePagePolicyGuard + scored by MessageMatchScorer/PageAuditScorer.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class BridgePageComposerService
@@ -51,10 +53,10 @@ class BridgePageComposerService
         private readonly BridgeHeadlineForge $headlines = new BridgeHeadlineForge,
         private readonly ProofForge $proof = new ProofForge,
         private readonly RsaAdForge $ads = new RsaAdForge,
-        private readonly \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner $search = new \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner,
+        private readonly SearchNetworkPlanner $search = new SearchNetworkPlanner,
         private readonly LeadForge $leadForge = new LeadForge,
         private readonly EmailFollowupForge $emails = new EmailFollowupForge,
-        private readonly \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer $transformations = new \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer,
+        private readonly TransformationAssetSourcer $transformations = new TransformationAssetSourcer,
         private readonly PersuasionScorer $persuasion = new PersuasionScorer,
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
         private readonly ConversionAuditor $conversionAuditor = new ConversionAuditor,
@@ -530,7 +532,7 @@ TXT;
                 ' Não vaze o reveal/mecanismo no topo (segure até depois de construir o desejo), tenha UMA ação dominante (assistir a VSL), e ancore com prova concreta (número/nome/ratio real).';
         }
         if ($orphans !== []) {
-            $parts[] = 'ERRO CRÍTICO (crime de keyword): os termos [' .implode(', ', $orphans).
+            $parts[] = 'ERRO CRÍTICO (crime de keyword): os termos ['.implode(', ', $orphans).
                 '] aparecem na copy mas NÃO existem na VSL. Remova-os ou substitua por termos da própria oferta.';
         }
         if ($metaLeaks !== []) {
