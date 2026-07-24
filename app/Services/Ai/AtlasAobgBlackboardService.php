@@ -45,6 +45,8 @@ use Throwable;
  */
 class AtlasAobgBlackboardService
 {
+    use AtlasOptionStringHelper;
+
     public const SCHEMA = 'atlas.aobg.blackboard.v1';
 
     public const TABLE = 'atlas_aobg_blackboard';
@@ -563,17 +565,6 @@ class AtlasAobgBlackboardService
     /**
      * @param  array<string,mixed>  $opts
      */
-    private function stringOpt(array $opts, string $key): ?string
-    {
-        $raw = $opts[$key] ?? null;
-        if (! is_scalar($raw)) {
-            return null;
-        }
-        $raw = trim((string) $raw);
-
-        return $raw !== '' ? $raw : null;
-    }
-
     private function tableReady(): bool
     {
         try {

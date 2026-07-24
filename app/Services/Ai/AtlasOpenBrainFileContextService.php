@@ -60,6 +60,8 @@ use Throwable;
  */
 class AtlasOpenBrainFileContextService
 {
+    use AtlasOptionStringHelper;
+
     public const SCHEMA = 'atlas.aobg.file_context.v1';
 
     public const HONESTY_LABEL = 'curated top-K (not exhaustive)';
@@ -76,11 +78,11 @@ class AtlasOpenBrainFileContextService
      *
      * @param  string  $path  the file path (absolute or workspace-relative).
      * @param  array<string,mixed>  $opts  optional:
-     *   - workspace: explicit workspace path OR id (wins over cwd / default).
-     *   - cwd: caller's working directory, resolved to a workspace id.
-     *   - budget: total char ceiling (default config aobg.file_context.budget_chars).
+     *                                     - workspace: explicit workspace path OR id (wins over cwd / default).
+     *                                     - cwd: caller's working directory, resolved to a workspace id.
+     *                                     - budget: total char ceiling (default config aobg.file_context.budget_chars).
      * @return array<string,mixed> the structured delta (see SCHEMA), with a rendered
-     *   markdown brief under `markdown` (the one block the hook injects).
+     *                             markdown brief under `markdown` (the one block the hook injects).
      */
     public function contextFor(string $path, array $opts = []): array
     {
@@ -844,14 +846,4 @@ class AtlasOpenBrainFileContextService
     /**
      * @param  array<string,mixed>  $opts
      */
-    private function stringOpt(array $opts, string $key): ?string
-    {
-        $raw = $opts[$key] ?? null;
-        if (! is_scalar($raw)) {
-            return null;
-        }
-        $raw = trim((string) $raw);
-
-        return $raw !== '' ? $raw : null;
-    }
 }

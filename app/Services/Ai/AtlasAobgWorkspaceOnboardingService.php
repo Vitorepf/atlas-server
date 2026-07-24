@@ -9,8 +9,9 @@ use App\Services\Ai\AobgWorkspaceOnboarding\ProviderBootstrapSection;
 use App\Services\Ai\AobgWorkspaceOnboarding\WorkspaceMapSection;
 use App\Services\Ai\AobgWorkspaceOnboarding\WorkspaceProfileSection;
 use App\Services\Ai\AobgWorkspaceOnboarding\WorkspaceReadModelSection;
-use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
+use App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService;
+use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -58,6 +59,8 @@ use Throwable;
  */
 class AtlasAobgWorkspaceOnboardingService
 {
+    use AtlasOptionStringHelper;
+
     public const SCHEMA = 'atlas.aobg.workspace_onboarding.v1';
 
     /** The W-1 code-intelligence read-model the gateway scopes its status to. */
@@ -108,8 +111,8 @@ class AtlasAobgWorkspaceOnboardingService
         private readonly AtlasCodeWorkspaceProfileService $workspaceProfiles,
         private readonly AtlasProviderProjectionService $providerProjection,
     ) {
-        $this->support = new AobgWorkspaceOnboardingSupport();
-        $this->readModel = new WorkspaceReadModelSection();
+        $this->support = new AobgWorkspaceOnboardingSupport;
+        $this->readModel = new WorkspaceReadModelSection;
         $this->mapSection = new WorkspaceMapSection($providerProjection, $this->support);
         $this->profileSection = new WorkspaceProfileSection($workspaceProfiles, $this->support);
         $this->bootstrapSection = new ProviderBootstrapSection($providerProjection);
@@ -339,8 +342,8 @@ class AtlasAobgWorkspaceOnboardingService
         ));
         $originUri = $remote !== '' ? $remote : 'file://'.$workspacePath;
 
-        return app(\App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService::class)->register([
-            'source_type' => \App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService::SOURCE_TYPE_REPO,
+        return app(AtlasKnowledgeSourcePacketRegistryService::class)->register([
+            'source_type' => AtlasKnowledgeSourcePacketRegistryService::SOURCE_TYPE_REPO,
             'origin_uri' => $originUri,
             'source_hash' => hash('sha256', 'adn.docs_corner|'.$workspaceId.'|'.$corner),
             'ingester' => 'aobg.workspace_activate',
@@ -957,16 +960,6 @@ class AtlasAobgWorkspaceOnboardingService
     /**
      * @param  array<string,mixed>  $opts
      */
-    private function stringOpt(array $opts, string $key): ?string
-    {
-        $raw = $opts[$key] ?? null;
-        if (! is_scalar($raw)) {
-            return null;
-        }
-        $raw = trim((string) $raw);
-
-        return $raw !== '' ? $raw : null;
-    }
 
     /**
      * Append-only audit receipt for every status/onboard call (best-effort, never gates).

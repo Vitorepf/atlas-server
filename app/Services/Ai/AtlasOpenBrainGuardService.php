@@ -80,6 +80,8 @@ use Throwable;
  */
 class AtlasOpenBrainGuardService
 {
+    use AtlasOptionStringHelper;
+
     public const SCHEMA = 'atlas.aobg.guard.v1';
 
     public const DECISION_ALLOW = 'allow';
@@ -1055,14 +1057,4 @@ class AtlasOpenBrainGuardService
     /**
      * @param  array<string,mixed>  $opts
      */
-    private function stringOpt(array $opts, string $key): ?string
-    {
-        $raw = $opts[$key] ?? null;
-        if (! is_scalar($raw)) {
-            return null;
-        }
-        $raw = trim((string) $raw);
-
-        return $raw !== '' ? $raw : null;
-    }
 }
