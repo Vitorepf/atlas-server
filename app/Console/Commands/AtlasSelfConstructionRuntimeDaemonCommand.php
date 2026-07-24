@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter;
-use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemon;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
-use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonState;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -26,24 +24,26 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 {
     /** @var string */
     protected $signature = 'atlas:self-construction:runtime-daemon
-        {action : status|plan|tick|run-once|pause|resume|stop}
+        {action : status|plan|claim|tick|run-once|pause|resume|stop}
+        {intent? : Optional provenance-only intent for claim}
         {--facts= : Path to a JSON facts file or - for STDIN}
+        {--workspace= : Optional caller workspace provenance for claim}
         {--max-cycles=1 : max ticks to drive in run-once (>=1)}
         {--apply : Deprecated compatibility flag; productive tick/run-once already apply}
         {--dry-run : Explicit diagnostic mode; never mutates}
         {--json : Emit machine-readable JSON}';
 
     /** @var string */
-    protected $description = 'Atlas-native runtime daemon control: status | plan | tick | run-once | pause | resume | stop.';
+    protected $description = 'Atlas-native runtime daemon control: status | plan | claim | tick | run-once | pause | resume | stop.';
 
-    public const FINAL_RUNTIME_OWNER = 'atlas_native';
+    public const FINAL_RUNTIME_OWNER = AtlasSelfConstructionRuntimeDaemon::FINAL_RUNTIME_OWNER;
 
-    public const STEADY_STATE_RUNTIME_OWNER = 'atlas_server';
+    public const STEADY_STATE_RUNTIME_OWNER = AtlasSelfConstructionRuntimeDaemon::STEADY_STATE_RUNTIME_OWNER;
 
-    public function handle(): int
+    public function handle(AtlasSelfConstructionRuntimeDaemon $daemon): int
     {
         $action = (string) $this->argument('action');
-        $apply = in_array($action, ['tick', 'run-once'], true) && ! (bool) $this->option('dry-run');
+        $dryRun = (bool) $this->option('dry-run');
         $maxCycles = max(1, (int) $this->option('max-cycles'));
 
         $facts = $this->readFacts((string) ($this->option('facts') ?? ''));
@@ -53,219 +53,33 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
             return self::FAILURE;
         }
         $facts ??= [];
+        if ($action === 'claim') {
+            $intent = trim((string) ($this->argument('intent') ?? ''));
+            $workspace = trim((string) ($this->option('workspace') ?? ''));
+            if ($intent !== '') {
+                $facts['intent'] ??= $intent;
+            }
+            if ($workspace !== '') {
+                $facts['workspace'] ??= $workspace;
+            }
+        }
 
         try {
-            $payload = match ($action) {
-                'status' => $this->statusAction($facts),
-                'plan' => $this->planAction($facts),
-                'tick' => $this->tickAction($facts, $apply),
-                'run-once' => $this->runOnceAction($facts, $apply, $maxCycles),
-                'pause' => $this->controlAction($facts, ['type' => 'pause_requested']),
-                'resume' => $this->controlAction($facts, ['type' => 'resume']),
-                'stop' => $this->controlAction($facts, ['type' => 'stop_requested']),
-                default => ['status' => 'unknown_action', 'action' => $action],
-            };
+            $payload = $daemon->run(
+                action: $action,
+                facts: $facts,
+                dryRun: $dryRun,
+                maxCycles: $maxCycles,
+            );
         } catch (Throwable $e) {
             $payload = ['status' => 'error', 'error' => $e->getMessage()];
         }
 
         $this->emit($payload);
 
-        return ($payload['status'] ?? 'ok') === 'ok' ? self::SUCCESS : self::FAILURE;
-    }
-
-    /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
-    private function statusAction(array $facts): array
-    {
-        $state = is_array($facts['daemon_state'] ?? null) ? $facts['daemon_state'] : [];
-
-        return $this->withOwnership([
-            'status' => 'ok',
-            'action' => 'status',
-            'dry_run' => true,
-            'daemon_state' => $state,
-            'safety_stop' => (bool) ($state['safety_stop'] ?? false),
-            'next_tick_allowed' => (bool) ($state['next_tick_allowed'] ?? false),
-            'planned_actions' => array_values((array) ($facts['planned_actions'] ?? [])),
-            'applied_actions' => [],
-            'evidence_obligations' => $this->evidenceObligations(),
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
-    private function planAction(array $facts): array
-    {
-        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
-        $verdict = $cycle->tick($facts);
-
-        return $this->withOwnership([
-            'status' => 'ok',
-            'action' => 'plan',
-            'dry_run' => true,
-            'daemon_status' => (string) $verdict['daemon_status'],
-            'safety_stop' => (bool) ($verdict['next_state']['safety_stop'] ?? false),
-            'next_tick_allowed' => (bool) ($verdict['next_state']['next_tick_allowed'] ?? false),
-            'planned_actions' => $verdict['planned_actions'],
-            'applied_actions' => $verdict['applied_actions'],
-            'withheld_actions' => $verdict['withheld_actions'],
-            'cycle_blocked_reasons' => $verdict['cycle_blocked_reasons'],
-            'daemon_cycle_hash' => $verdict['daemon_cycle_hash'],
-            'evidence_obligations' => $this->evidenceObligations(),
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
-    private function tickAction(array $facts, bool $apply): array
-    {
-        $facts = $this->withProductiveNativeTick($facts, $apply);
-        $cycle = $this->productiveCycle();
-        $verdict = $cycle->tick($facts, ['apply' => $apply]);
-
-        return $this->withOwnership([
-            'status' => 'ok',
-            'action' => 'tick',
-            'dry_run' => $verdict['dry_run'],
-            'daemon_status' => $verdict['daemon_status'],
-            'safety_stop' => (bool) ($verdict['next_state']['safety_stop'] ?? false),
-            'next_tick_allowed' => (bool) ($verdict['next_state']['next_tick_allowed'] ?? false),
-            'planned_actions' => $verdict['planned_actions'],
-            'applied_actions' => $verdict['applied_actions'],
-            'withheld_actions' => $verdict['withheld_actions'],
-            'blocked_actions' => $verdict['blocked_actions'],
-            'cycle_blocked_reasons' => $verdict['cycle_blocked_reasons'],
-            'daemon_cycle_hash' => $verdict['daemon_cycle_hash'],
-            'evidence_obligations' => $this->evidenceObligations(),
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
-    private function runOnceAction(array $facts, bool $apply, int $maxCycles): array
-    {
-        $ticks = [];
-        $state = is_array($facts['daemon_state'] ?? null) ? $facts['daemon_state'] : [];
-        $cycle = $this->productiveCycle();
-
-        for ($i = 0; $i < $maxCycles; $i++) {
-            $tickFacts = array_replace($facts, ['daemon_state' => $state]);
-            $tickFacts = $this->withProductiveNativeTick($tickFacts, $apply);
-            $verdict = $cycle->tick($tickFacts, ['apply' => $apply]);
-            $ticks[] = $verdict;
-            $state = $verdict['next_state'];
-            if (! (bool) ($state['next_tick_allowed'] ?? false)) {
-                break;
-            }
-        }
-
-        return $this->withOwnership([
-            'status' => 'ok',
-            'action' => 'run-once',
-            'dry_run' => ! $apply,
-            'max_cycles' => $maxCycles,
-            'cycle_count' => count($ticks),
-            'ticks' => $ticks,
-            'final_state' => $state,
-            'daemon_status' => (string) ($state['status'] ?? 'unknown'),
-            'evidence_obligations' => $this->evidenceObligations(),
-        ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $facts
-     * @param  array<string,mixed>  $event
-     * @return array<string,mixed>
-     */
-    private function controlAction(array $facts, array $event): array
-    {
-        $state = is_array($facts['daemon_state'] ?? null) ? $facts['daemon_state'] : [];
-        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
-        $next = $reducer->reduce($state, $event);
-
-        return $this->withOwnership([
-            'status' => 'ok',
-            'action' => (string) $event['type'],
-            'dry_run' => true,
-            'daemon_status' => (string) $next['status'],
-            'safety_stop' => (bool) ($next['safety_stop'] ?? false),
-            'next_tick_allowed' => (bool) ($next['next_tick_allowed'] ?? false),
-            'next_state' => $next,
-            'evidence_obligations' => $this->evidenceObligations(),
-        ]);
-    }
-
-    private function productiveCycle(): AtlasSelfConstructionRuntimeDaemonCycle
-    {
-        $executor = app()->bound(AtlasSelfConstructionNativeActionExecutor::class)
-            ? app(AtlasSelfConstructionNativeActionExecutor::class)
-            : new AtlasSelfConstructionNativeActionExecutor(provider: app(AgentExecutionProviderPortAdapter::class));
-
-        return new AtlasSelfConstructionRuntimeDaemonCycle(
-            actionExecutor: $executor,
-        );
-    }
-
-    /** @param array<string,mixed> $facts @return array<string,mixed> */
-    private function withProductiveNativeTick(array $facts, bool $apply): array
-    {
-        if (! $apply) {
-            return $facts;
-        }
-        $provider = trim((string) config('atlas.ai.default_provider', ''));
-        $model = trim((string) config("atlas.ai.providers.{$provider}.model", ''));
-        if ($provider === '' || $model === '') {
-            return $facts;
-        }
-        $actions = (array) ($facts['planned_actions'] ?? []);
-        if ($actions === []) {
-            $actions[] = ['kind' => 'native_tick'];
-        }
-        $facts['planned_actions'] = array_map(static function (mixed $action) use ($provider, $model): mixed {
-            if (! is_array($action) || ($action['kind'] ?? null) !== 'native_tick') {
-                return $action;
-            }
-            $action['provider'] = trim((string) ($action['provider'] ?? '')) ?: $provider;
-            $action['model'] = trim((string) ($action['model'] ?? '')) ?: $model;
-            $action['source'] ??= 'governed_default_route';
-
-            return $action;
-        }, $actions);
-
-        return $facts;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function evidenceObligations(): array
-    {
-        return [
-            'daemon_cycle_hash',
-            'cycle_receipt_hash',
-            'state_hash',
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withOwnership(array $payload): array
-    {
-        return array_replace([
-            'final_runtime_owner' => self::FINAL_RUNTIME_OWNER,
-            'steady_state_runtime_owner' => self::STEADY_STATE_RUNTIME_OWNER,
-        ], $payload);
+        return in_array((string) ($payload['status'] ?? ''), ['claimed', 'ok', 'planned'], true)
+            ? self::SUCCESS
+            : self::FAILURE;
     }
 
     /**
@@ -301,5 +115,14 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
     private function emit(array $payload): void
     {
         $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Compatibility seam for callers that inspected the command before the
+     * composition owner moved into AtlasSelfConstructionRuntimeDaemon.
+     */
+    private function productiveCycle(): AtlasSelfConstructionRuntimeDaemonCycle
+    {
+        return app(AtlasSelfConstructionRuntimeDaemon::class)->productiveCycle();
     }
 }

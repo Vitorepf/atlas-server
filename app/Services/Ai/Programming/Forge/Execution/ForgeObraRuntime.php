@@ -33,6 +33,27 @@ final class ForgeObraRuntime
         private readonly ?ForgeScopeReservationService $scopeReservations = null,
     ) {}
 
+    /**
+     * Non-mutating commissioning projection for control-plane admission.
+     * Persistence and packet execution remain exclusively in commission/tick.
+     *
+     * @return array<string,mixed>
+     */
+    public function commissioningContract(ForgeCommissioning $commissioning): array
+    {
+        return [
+            'schema' => 'atlas.forge.native_commissioning.v1',
+            'status' => 'prepared',
+            'commissioning_owner' => ForgeCommissioning::class,
+            'runtime_owner' => self::class,
+            'runtime_owner_invoked' => true,
+            'commissioning_ref' => $commissioning->commissioningHash,
+            'authority_status' => 'commissioning_only',
+            'execution_requested' => false,
+            'mutation_authorized' => false,
+        ];
+    }
+
     public function commission(ForgeCommissioning $commissioning): ForgeObraSnapshot
     {
         $workspaceGate = ($this->workspaceExecutionGate ?? app(AwisExecutionGatePort::class))->gate(

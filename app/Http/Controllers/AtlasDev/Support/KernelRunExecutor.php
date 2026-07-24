@@ -66,6 +66,19 @@ final class KernelRunExecutor implements RunExecutor
         return $this->toLegacyResult($result, $taskContract, $runId);
     }
 
+    /** @return array<string,mixed> */
+    public function commissioningContract(DevIntent $intent, ConfirmedDevRun $run): array
+    {
+        return [
+            'owner' => self::class,
+            'invoked' => true,
+            'status' => 'prepared',
+            'downstream' => $this->execution->commissioningContract($intent, $run),
+            'execution_requested' => false,
+            'mutation_authorized' => false,
+        ];
+    }
+
     private function authorityHash(OperationEnvelope $envelope, LightTaskContract $contract, string $runId): string
     {
         return CanonicalKernelPayload::hash([

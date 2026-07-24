@@ -26,6 +26,29 @@ final class AtlasDevExecutionService implements DevPlanRunFacade
         return DevPlan::fromResult($intent, $result);
     }
 
+    /**
+     * Non-executing terminal owner for a confirmed Dev commissioning.
+     *
+     * @return array<string,mixed>
+     */
+    public function commissioningContract(DevIntent $intent, ConfirmedDevRun $run): array
+    {
+        if (! hash_equals($intent->intentHash, $run->intentHash)
+            || ! hash_equals($intent->authorityHash, $run->authorityHash)) {
+            throw new \InvalidArgumentException('dev_native_commissioning_binding_mismatch');
+        }
+
+        return [
+            'owner' => self::class,
+            'invoked' => true,
+            'status' => 'prepared',
+            'intent_ref' => $intent->intentHash,
+            'run_ref' => $run->runHash,
+            'execution_requested' => false,
+            'mutation_authorized' => false,
+        ];
+    }
+
     public function run(ConfirmedDevRun $run, ?DevPlan $planned = null): DevRunResult
     {
         // A caller that already completed the governed plan phase must pass

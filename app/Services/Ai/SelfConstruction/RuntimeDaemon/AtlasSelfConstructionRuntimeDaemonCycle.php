@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\RuntimeDaemon;
 
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionRuntime;
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerRecoverableProductionRuntime;
 use Throwable;
 
 /**
@@ -39,7 +42,157 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
     public function __construct(
         private readonly ?AtlasSelfConstructionRuntimeDaemonState $stateReducer = null,
         private readonly ?AtlasSelfConstructionNativeActionExecutor $actionExecutor = null,
+        private readonly ?AtlasNativeWorkerProductionRuntime $nativeWorker = null,
     ) {}
+
+    /**
+     * Claim or recover one governed native lease without entering the productive action loop.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function claim(array $facts = [], bool $dryRun = false): array
+    {
+        $clientId = trim((string) ($facts['client_id'] ?? '')) ?: 'atlas-self-construction-runtime-daemon';
+
+        // Claim is a native-authority operation. A diagnostic request must not
+        // even probe resume/renew/claim, because those calls can acquire or
+        // extend a lease.
+        if ($dryRun) {
+            return $this->claimReceipt($facts, $clientId, 'planned', 'dry_run_claim_withheld', dryRun: true);
+        }
+
+        try {
+            $runtime = $this->nativeWorker;
+            if (! $runtime instanceof AtlasNativeWorkerProductionRuntime) {
+                if (! function_exists('app')) {
+                    return $this->claimReceipt($facts, $clientId, 'native_claim_authority_unavailable');
+                }
+                $runtime = app(AtlasNativeWorkerProductionCallbacks::class);
+            }
+
+            if ($runtime instanceof AtlasNativeWorkerRecoverableProductionRuntime) {
+                $resumed = $runtime->resume($clientId);
+                if (is_array($resumed)) {
+                    [$taskPacketId, $leaseId] = $this->claimIdentifiers($resumed);
+                    if ($taskPacketId === '' || $leaseId === '') {
+                        return $this->claimReceipt($facts, $clientId, 'invalid_native_claim_envelope');
+                    }
+                    if (($provenanceFailure = $this->nativeClaimProvenanceFailure($resumed)) !== null) {
+                        return $this->claimReceipt(
+                            $facts,
+                            $clientId,
+                            $provenanceFailure['status'],
+                            $provenanceFailure['reason'],
+                            envelope: $resumed,
+                        );
+                    }
+                    if (! $runtime->renew($clientId, $taskPacketId, $leaseId)) {
+                        return $this->claimReceipt($facts, $clientId, 'lease_recovery_failed');
+                    }
+
+                    return $this->claimReceipt(
+                        $facts,
+                        $clientId,
+                        'claimed',
+                        envelope: $resumed,
+                        recovered: true,
+                    );
+                }
+            }
+
+            $envelope = $runtime instanceof AtlasNativeWorkerProductionCallbacks
+                ? $runtime->claimEnvelope($clientId)
+                : $runtime->claim($clientId);
+            if ($envelope === null) {
+                return $this->claimReceipt($facts, $clientId, 'no_claimable_task');
+            }
+
+            $status = trim((string) ($envelope['status'] ?? ''));
+            if (! in_array($status, ['leased', 'served'], true)) {
+                if ($status === '') {
+                    return $this->claimReceipt($facts, $clientId, 'invalid_native_claim_envelope');
+                }
+
+                return $this->claimReceipt(
+                    $facts,
+                    $clientId,
+                    $status,
+                    trim((string) ($envelope['reason'] ?? '')) ?: $status,
+                );
+            }
+
+            [$taskPacketId, $leaseId] = $this->claimIdentifiers($envelope);
+            if ($taskPacketId === '' || $leaseId === '') {
+                return $this->claimReceipt($facts, $clientId, 'invalid_native_claim_envelope');
+            }
+
+            if ($runtime instanceof AtlasNativeWorkerRecoverableProductionRuntime) {
+                // A fresh claim's authority is not trusted until the owner
+                // reads back the active lease it just issued. This prevents a
+                // shape-valid serving envelope from minting claim truth.
+                $authoritativeResume = $runtime->resume($clientId);
+                if (! is_array($authoritativeResume)) {
+                    return $this->claimReceipt(
+                        $facts,
+                        $clientId,
+                        'native_claim_provenance_unavailable',
+                        'fresh_claim_resume_unavailable',
+                    );
+                }
+                [$resumedTaskPacketId, $resumedLeaseId] = $this->claimIdentifiers($authoritativeResume);
+                if ($resumedTaskPacketId === '' || $resumedLeaseId === '') {
+                    return $this->claimReceipt(
+                        $facts,
+                        $clientId,
+                        'native_claim_provenance_mismatch',
+                        'fresh_claim_resume_identifiers_missing',
+                        envelope: $authoritativeResume,
+                    );
+                }
+                if (! hash_equals($taskPacketId, $resumedTaskPacketId)
+                    || ! hash_equals($leaseId, $resumedLeaseId)) {
+                    return $this->claimReceipt(
+                        $facts,
+                        $clientId,
+                        'native_claim_provenance_mismatch',
+                        'fresh_claim_resume_mismatch',
+                        envelope: $authoritativeResume,
+                    );
+                }
+                if (($provenanceFailure = $this->nativeClaimProvenanceFailure($authoritativeResume)) !== null) {
+                    return $this->claimReceipt(
+                        $facts,
+                        $clientId,
+                        $provenanceFailure['status'],
+                        $provenanceFailure['reason'],
+                        envelope: $authoritativeResume,
+                    );
+                }
+
+                // This is a field-for-field owner projection. No daemon-side
+                // hash/ref may replace the authoritative readback.
+                $envelope = array_replace($envelope, $authoritativeResume);
+            } elseif (($provenanceFailure = $this->nativeClaimProvenanceFailure($envelope)) !== null) {
+                return $this->claimReceipt(
+                    $facts,
+                    $clientId,
+                    $provenanceFailure['status'],
+                    $provenanceFailure['reason'],
+                    envelope: $envelope,
+                );
+            }
+
+            return $this->claimReceipt(
+                $facts,
+                $clientId,
+                'claimed',
+                envelope: $envelope,
+            );
+        } catch (Throwable) {
+            return $this->claimReceipt($facts, $clientId, 'native_claim_authority_unavailable');
+        }
+    }
 
     /**
      * @param  array<string,mixed>  $facts  {daemon_state?, heartbeat_event, planned_actions?, unattended_verdict?, native_pool_receipt?}
@@ -283,6 +436,134 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         $copy = $this->ksortDeep($copy);
 
         return hash('sha256', (string) json_encode($copy, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /** @param array<string,mixed> $envelope @return array{0:string,1:string} */
+    private function claimIdentifiers(array $envelope): array
+    {
+        $task = is_array($envelope['task'] ?? null) ? $envelope['task'] : $envelope;
+
+        return [
+            trim((string) ($task['task_packet_id'] ?? '')),
+            trim((string) ($task['lease_id'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    private function claimReceipt(
+        array $facts,
+        string $clientId,
+        string $status,
+        ?string $reason = null,
+        ?array $envelope = null,
+        bool $recovered = false,
+        bool $dryRun = false,
+    ): array {
+        $native = $this->nativeClaimFields($envelope ?? []);
+        $taskPacketId = $native['task_packet_id'];
+        $leaseId = $native['lease_id'];
+
+        $payload = [
+            'schema_version' => self::SCHEMA,
+            'status' => $status,
+            'action' => 'claim',
+            'dry_run' => $dryRun,
+            'client_id' => $clientId,
+            'intent' => trim((string) ($facts['intent'] ?? '')) ?: null,
+            'workspace' => trim((string) ($facts['workspace'] ?? '')) ?: null,
+            'reason' => $reason ?? ($status === 'claimed' ? null : $status),
+            'recovered' => $recovered,
+            // These are direct projections of the native envelope. Do not
+            // synthesize a daemon hash or a prefixed reference in this path.
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'authority_nonce' => $native['authority_nonce'],
+            'authority_hash' => $native['authority_hash'],
+            'envelope_hash' => $native['envelope_hash'],
+            'native_envelope_ref' => $native['envelope_hash'],
+            'lease_expires_at' => $native['lease_expires_at'],
+            'native_journey_ref' => $native['native_journey_ref'],
+            'native_cycle_refs' => $native['native_cycle_refs'],
+            'native_task_refs' => $taskPacketId === null ? [] : [$taskPacketId],
+            'native_lease_refs' => $leaseId === null ? [] : [$leaseId],
+            'task' => [
+                'status' => $status === 'claimed' ? 'claimed' : 'not_claimed',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'worker_executed' => false,
+            ],
+            'worker_executed' => false,
+            'provider_calls' => 0,
+            'mutation_performed' => false,
+        ];
+
+        return $payload;
+    }
+
+    /**
+     * Extract native owner fields without normalizing, hashing or creating a
+     * second reference namespace. The native worker owns their meaning.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @return array{task_packet_id:mixed,lease_id:mixed,authority_nonce:mixed,authority_hash:mixed,envelope_hash:mixed,authority_revoked:mixed,lease_expires_at:mixed,native_journey_ref:mixed,native_cycle_refs:array<mixed,mixed>}
+     */
+    private function nativeClaimFields(array $envelope): array
+    {
+        $task = is_array($envelope['task'] ?? null) ? $envelope['task'] : [];
+        $field = static function (string $key) use ($envelope, $task): mixed {
+            if (array_key_exists($key, $envelope)) {
+                return $envelope[$key];
+            }
+
+            return $task[$key] ?? null;
+        };
+        $taskPacketId = $field('task_packet_id');
+        $leaseId = $field('lease_id');
+
+        return [
+            'task_packet_id' => is_scalar($taskPacketId) && trim((string) $taskPacketId) !== '' ? $taskPacketId : null,
+            'lease_id' => is_scalar($leaseId) && trim((string) $leaseId) !== '' ? $leaseId : null,
+            'authority_nonce' => $field('authority_nonce'),
+            'authority_hash' => $field('authority_hash'),
+            'envelope_hash' => $field('envelope_hash'),
+            'authority_revoked' => $field('authority_revoked'),
+            'lease_expires_at' => $field('lease_expires_at'),
+            'native_journey_ref' => $field('native_journey_ref'),
+            'native_cycle_refs' => is_array($field('native_cycle_refs')) ? $field('native_cycle_refs') : [],
+        ];
+    }
+
+    /**
+     * The task-serving owner, rather than the daemon, issues these fields.
+     * A claim without all of them is an observation, never claim authority.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @return array{status:string,reason:string}|null
+     */
+    private function nativeClaimProvenanceFailure(array $envelope): ?array
+    {
+        $native = $this->nativeClaimFields($envelope);
+        if ((bool) $native['authority_revoked']) {
+            return [
+                'status' => 'native_claim_authority_revoked',
+                'reason' => 'native_authority_revoked',
+            ];
+        }
+
+        foreach (['authority_nonce', 'authority_hash', 'envelope_hash'] as $field) {
+            $value = $native[$field];
+            if (! is_scalar($value) || trim((string) $value) === '') {
+                return [
+                    'status' => 'native_claim_provenance_missing',
+                    'reason' => 'missing_native_claim_'.$field,
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**

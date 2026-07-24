@@ -4,12 +4,441 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\RuntimeDaemon;
 
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerRecoverableProductionRuntime;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
 {
+    public function test_claim_only_cycle_resumes_and_renews_without_executing_productive_steps(): void
+    {
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $resumes = 0;
+
+            public int $renews = 0;
+
+            public int $claims = 0;
+
+            public int $forbiddenEffects = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                $this->resumes++;
+
+                return [
+                    'task_packet_id' => 'task-recovered-1',
+                    'lease_id' => 'lease-recovered-1',
+                    'authority_nonce' => 'nonce-recovered-1',
+                    'authority_hash' => str_repeat('a', 64),
+                    'envelope_hash' => str_repeat('b', 64),
+                    'recovered' => true,
+                ];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                $this->renews++;
+
+                return $taskPacketId === 'task-recovered-1' && $leaseId === 'lease-recovered-1';
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                $this->claims++;
+
+                return null;
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                $this->forbiddenEffects++;
+
+                return [];
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                $this->forbiddenEffects++;
+
+                return [];
+            }
+        };
+
+        $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim([
+            'intent' => 'resume the canonical claim lease',
+        ]);
+
+        self::assertSame('claimed', $claim['status']);
+        self::assertTrue($claim['recovered']);
+        self::assertSame(1, $runtime->resumes);
+        self::assertSame(1, $runtime->renews);
+        self::assertSame(0, $runtime->claims);
+        self::assertSame(0, $runtime->forbiddenEffects);
+        self::assertSame('task-recovered-1', $claim['task_packet_id']);
+        self::assertSame('lease-recovered-1', $claim['lease_id']);
+        self::assertSame('nonce-recovered-1', $claim['authority_nonce']);
+        self::assertSame(str_repeat('a', 64), $claim['authority_hash']);
+        self::assertSame(str_repeat('b', 64), $claim['envelope_hash']);
+        self::assertSame(str_repeat('b', 64), $claim['native_envelope_ref']);
+        self::assertNull($claim['native_journey_ref']);
+        self::assertSame([], $claim['native_cycle_refs']);
+        self::assertSame(['task-recovered-1'], $claim['native_task_refs']);
+        self::assertSame(['lease-recovered-1'], $claim['native_lease_refs']);
+        self::assertArrayNotHasKey('cycle_receipt_hash', $claim);
+        self::assertArrayNotHasKey('daemon_cycle_hash', $claim);
+        self::assertSame(0, $claim['provider_calls']);
+        self::assertFalse($claim['worker_executed']);
+        self::assertFalse($claim['mutation_performed']);
+    }
+
+    public function test_claim_only_cycle_falls_back_to_claim_when_recoverable_runtime_has_no_active_lease(): void
+    {
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $resumes = 0;
+
+            public int $renews = 0;
+
+            public int $claims = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                $this->resumes++;
+
+                return $this->resumes === 1 ? null : [
+                    'task_packet_id' => 'task-new-1',
+                    'lease_id' => 'lease-new-1',
+                    'authority_nonce' => 'nonce-fresh-1',
+                    'authority_hash' => str_repeat('a', 64),
+                    'envelope_hash' => str_repeat('b', 64),
+                ];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                $this->renews++;
+
+                return false;
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                $this->claims++;
+
+                return [
+                    'status' => 'served',
+                    'task' => [
+                        'task_packet_id' => 'task-new-1',
+                        'lease_id' => 'lease-new-1',
+                    ],
+                ];
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                throw new \LogicException('report_must_not_run');
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                throw new \LogicException('materialize_must_not_run');
+            }
+        };
+
+        $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim();
+
+        self::assertSame('claimed', $claim['status']);
+        self::assertFalse($claim['recovered']);
+        self::assertSame(2, $runtime->resumes);
+        self::assertSame(0, $runtime->renews);
+        self::assertSame(1, $runtime->claims);
+        self::assertSame('task-new-1', $claim['task_packet_id']);
+        self::assertSame('lease-new-1', $claim['lease_id']);
+        self::assertSame('nonce-fresh-1', $claim['authority_nonce']);
+        self::assertSame(str_repeat('a', 64), $claim['authority_hash']);
+        self::assertSame(str_repeat('b', 64), $claim['envelope_hash']);
+        self::assertSame(str_repeat('b', 64), $claim['native_envelope_ref']);
+        self::assertSame(['task-new-1'], $claim['native_task_refs']);
+        self::assertSame(['lease-new-1'], $claim['native_lease_refs']);
+    }
+
+    public function test_fresh_claim_refuses_when_authoritative_resume_is_missing_provenance(): void
+    {
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $resumes = 0;
+
+            public int $renews = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                $this->resumes++;
+
+                return $this->resumes === 1 ? null : [
+                    'task_packet_id' => 'task-fresh-missing-proof',
+                    'lease_id' => 'lease-fresh-missing-proof',
+                ];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                $this->renews++;
+
+                return true;
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                return [
+                    'status' => 'served',
+                    'task' => [
+                        'task_packet_id' => 'task-fresh-missing-proof',
+                        'lease_id' => 'lease-fresh-missing-proof',
+                    ],
+                ];
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                throw new \LogicException('report_must_not_run');
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                throw new \LogicException('materialize_must_not_run');
+            }
+        };
+
+        $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim();
+
+        self::assertSame('native_claim_provenance_missing', $claim['status']);
+        self::assertSame('missing_native_claim_authority_nonce', $claim['reason']);
+        self::assertSame(2, $runtime->resumes);
+        self::assertSame(0, $runtime->renews);
+        self::assertFalse($claim['worker_executed']);
+        self::assertSame(0, $claim['provider_calls']);
+        self::assertFalse($claim['mutation_performed']);
+    }
+
+    public function test_fresh_claim_refuses_when_authoritative_resume_is_revoked_or_mismatched(): void
+    {
+        foreach ([
+            [
+                [
+                    'task_packet_id' => 'task-fresh-revoked',
+                    'lease_id' => 'lease-fresh-revoked',
+                    'authority_nonce' => 'nonce-fresh-revoked',
+                    'authority_hash' => str_repeat('a', 64),
+                    'envelope_hash' => str_repeat('b', 64),
+                    'authority_revoked' => true,
+                ],
+                'native_claim_authority_revoked',
+                'native_authority_revoked',
+            ],
+            [
+                [
+                    'task_packet_id' => 'task-fresh-mismatch-other',
+                    'lease_id' => 'lease-fresh-mismatch-other',
+                    'authority_nonce' => 'nonce-fresh-mismatch',
+                    'authority_hash' => str_repeat('a', 64),
+                    'envelope_hash' => str_repeat('b', 64),
+                ],
+                'native_claim_provenance_mismatch',
+                'fresh_claim_resume_mismatch',
+            ],
+        ] as [$resumed, $status, $reason]) {
+            $runtime = new class($resumed) implements AtlasNativeWorkerRecoverableProductionRuntime
+            {
+                public int $resumes = 0;
+
+                public int $renews = 0;
+
+                /** @param array<string,mixed> $resumed */
+                public function __construct(private readonly array $resumed) {}
+
+                public function resume(string $clientId): ?array
+                {
+                    $this->resumes++;
+
+                    return $this->resumes === 1 ? null : $this->resumed;
+                }
+
+                public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+                {
+                    $this->renews++;
+
+                    return true;
+                }
+
+                public function claim(string $clientId): ?array
+                {
+                    return [
+                        'status' => 'served',
+                        'task' => [
+                            'task_packet_id' => 'task-fresh-revoked',
+                            'lease_id' => 'lease-fresh-revoked',
+                        ],
+                    ];
+                }
+
+                public function report(string $clientId, array $outcome): array
+                {
+                    throw new \LogicException('report_must_not_run');
+                }
+
+                public function materialize(array $patchPlan): array
+                {
+                    throw new \LogicException('materialize_must_not_run');
+                }
+            };
+
+            $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim();
+
+            self::assertSame($status, $claim['status']);
+            self::assertSame($reason, $claim['reason']);
+            self::assertSame(2, $runtime->resumes);
+            self::assertSame(0, $runtime->renews);
+            self::assertFalse($claim['worker_executed']);
+            self::assertSame(0, $claim['provider_calls']);
+            self::assertFalse($claim['mutation_performed']);
+        }
+    }
+
+    public function test_existing_resume_refuses_missing_or_revoked_provenance_before_renewal(): void
+    {
+        foreach ([
+            [
+                [
+                    'task_packet_id' => 'task-existing-missing',
+                    'lease_id' => 'lease-existing-missing',
+                ],
+                'native_claim_provenance_missing',
+                'missing_native_claim_authority_nonce',
+            ],
+            [
+                [
+                    'task_packet_id' => 'task-existing-revoked',
+                    'lease_id' => 'lease-existing-revoked',
+                    'authority_nonce' => 'nonce-existing-revoked',
+                    'authority_hash' => str_repeat('a', 64),
+                    'envelope_hash' => str_repeat('b', 64),
+                    'authority_revoked' => true,
+                ],
+                'native_claim_authority_revoked',
+                'native_authority_revoked',
+            ],
+        ] as [$resumed, $status, $reason]) {
+            $runtime = new class($resumed) implements AtlasNativeWorkerRecoverableProductionRuntime
+            {
+                public int $renews = 0;
+
+                public int $claims = 0;
+
+                /** @param array<string,mixed> $resumed */
+                public function __construct(private readonly array $resumed) {}
+
+                public function resume(string $clientId): ?array
+                {
+                    return $this->resumed;
+                }
+
+                public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+                {
+                    $this->renews++;
+
+                    return true;
+                }
+
+                public function claim(string $clientId): ?array
+                {
+                    $this->claims++;
+
+                    return null;
+                }
+
+                public function report(string $clientId, array $outcome): array
+                {
+                    throw new \LogicException('report_must_not_run');
+                }
+
+                public function materialize(array $patchPlan): array
+                {
+                    throw new \LogicException('materialize_must_not_run');
+                }
+            };
+
+            $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim();
+
+            self::assertSame($status, $claim['status']);
+            self::assertSame($reason, $claim['reason']);
+            self::assertSame(0, $runtime->renews);
+            self::assertSame(0, $runtime->claims);
+            self::assertFalse($claim['worker_executed']);
+            self::assertSame(0, $claim['provider_calls']);
+            self::assertFalse($claim['mutation_performed']);
+        }
+    }
+
+    public function test_dry_claim_withholds_without_resume_renew_or_claim(): void
+    {
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $resumes = 0;
+
+            public int $renews = 0;
+
+            public int $claims = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                $this->resumes++;
+
+                return ['task_packet_id' => 'must-not-resume', 'lease_id' => 'must-not-renew'];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                $this->renews++;
+
+                return true;
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                $this->claims++;
+
+                return null;
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                throw new \LogicException('report_must_not_run');
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                throw new \LogicException('materialize_must_not_run');
+            }
+        };
+
+        $claim = (new AtlasSelfConstructionRuntimeDaemonCycle(nativeWorker: $runtime))->claim([], true);
+
+        self::assertSame('planned', $claim['status']);
+        self::assertTrue($claim['dry_run']);
+        self::assertSame('dry_run_claim_withheld', $claim['reason']);
+        self::assertSame(0, $runtime->resumes);
+        self::assertSame(0, $runtime->renews);
+        self::assertSame(0, $runtime->claims);
+        self::assertNull($claim['native_journey_ref']);
+        self::assertSame([], $claim['native_cycle_refs']);
+        self::assertSame([], $claim['native_task_refs']);
+        self::assertSame([], $claim['native_lease_refs']);
+        self::assertSame(0, $claim['provider_calls']);
+        self::assertFalse($claim['mutation_performed']);
+    }
+
     public function test_native_executor_cannot_resolve_before_independent_canary_receipt(): void
     {
         $executor = new class extends AtlasSelfConstructionNativeActionExecutor

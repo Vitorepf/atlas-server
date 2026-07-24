@@ -3,16 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\AtlasTask;
-use App\Services\Ai\Context\AiContextPackBuilder;
-use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
+use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
@@ -105,14 +105,17 @@ class AtlasCliDevCommand extends Command
         $forceEfficient = (bool) $this->option('efficient');
         $forceLegacy = (bool) $this->option('legacy');
         $defaultPath = (string) config('atlas_dev.efficient.default_path', 'efficient');
-        $useEfficient = $forceEfficient
-            || ($defaultPath === 'efficient' && ! $forceLegacy);
+        $forgeRequested = (bool) $this->option('forge');
+        // Forge has a distinct owner/profile. It must never silently take the
+        // Dev-efficient shortcut, even when that route is the global default.
+        $useEfficient = ! $forgeRequested && ($forceEfficient
+            || ($defaultPath === 'efficient' && ! $forceLegacy));
 
         if ($useEfficient) {
             return $this->runEfficient($workspace, $task, $json);
         }
 
-        $programmingProfile = (bool) $this->option('forge') ? 'forge' : 'dev';
+        $programmingProfile = $forgeRequested ? 'forge' : 'dev';
         $taskId = $this->taskId();
         $atlasTask = null;
         $engineeringContract = null;

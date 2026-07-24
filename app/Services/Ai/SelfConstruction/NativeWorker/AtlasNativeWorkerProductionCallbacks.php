@@ -33,7 +33,7 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRec
     {
         return [
             'claim_callback' => function () use ($clientId): ?array {
-                $next = $this->serving->next($clientId, ['runtime_owner' => 'atlas_native']);
+                $next = $this->claimEnvelope($clientId);
                 if (! in_array((string) ($next['status'] ?? ''), ['leased', 'served'], true)
                     && (string) ($next['event'] ?? '') !== 'leased') {
                     return null;
@@ -53,9 +53,15 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRec
     /** @return array<string,mixed>|null */
     public function claim(string $clientId): ?array
     {
-        $next = $this->serving->next($clientId, ['runtime_owner' => 'atlas_native']);
+        $next = $this->claimEnvelope($clientId);
 
         return in_array((string) ($next['status'] ?? ''), ['leased', 'served'], true) ? $next : null;
+    }
+
+    /** @return array<string,mixed> */
+    public function claimEnvelope(string $clientId): array
+    {
+        return $this->serving->next($clientId, ['runtime_owner' => 'atlas_native']);
     }
 
     /** @param array<string,mixed> $outcome @return array<string,mixed> */

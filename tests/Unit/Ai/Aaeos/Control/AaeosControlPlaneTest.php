@@ -13,32 +13,83 @@ use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
 use App\Services\Ai\Aaeos\Control\AaeosModeToDualCoreRoute;
 use App\Services\Ai\Aaeos\Control\AaeosOrgStateProjector;
 use App\Services\Ai\Aaeos\Control\AaeosScorecardProjector;
+use App\Services\Ai\Aaeos\Control\Dispatch\AaeosLiveDispatchGateway;
+use App\Services\Ai\Aaeos\Control\Dispatch\AutonomosLiveDispatcher;
 use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
 use App\Services\Ai\Aaeos\Spine\AaeosSpineGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasSourceConnectorsAndCaptureService;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionRuntime;
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemon;
 use PHPUnit\Framework\TestCase;
 
 final class AaeosControlPlaneTest extends TestCase
 {
-    public function test_autonomos_cycle_is_zero_operator_and_dispatches_brain_task_path(): void
+    public function test_autonomos_empty_native_claim_refuses_terminally_without_effects(): void
     {
-        $runtime = new AaeosCycleRuntime;
-        $receipt = $runtime->runAutonomosCycle('evolve atlas memory quality with proof', [], true);
+        $nativeWorker = new class implements AtlasNativeWorkerProductionRuntime
+        {
+            public function claim(string $clientId): ?array
+            {
+                return null;
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                throw new \LogicException('report_must_not_run');
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                throw new \LogicException('materialize_must_not_run');
+            }
+        };
+        $runtime = new AaeosCycleRuntime(
+            liveGateway: new AaeosLiveDispatchGateway(
+                autonomos: new AutonomosLiveDispatcher(
+                    new AtlasSelfConstructionRuntimeDaemon(nativeWorker: $nativeWorker),
+                ),
+            ),
+        );
+        $receipt = $runtime->runAutonomosCycle(
+            'evolve atlas memory quality with proof',
+            ['live_dispatch' => true],
+            false,
+        );
 
         $this->assertSame(AaeosCycleRuntime::SCHEMA, $receipt['schema']);
-        $this->assertSame('dispatched', $receipt['status']);
+        $this->assertSame('dispatch_failed', $receipt['status']);
         $this->assertFalse($receipt['runtime_write_performed']);
-        $this->assertTrue($receipt['dry_run']);
+        $this->assertFalse($receipt['dry_run']);
+        $this->assertTrue($receipt['live_dispatch']);
         $this->assertSame(AaeosExecutorMode::AUTONOMOS, $receipt['mode']['mode']);
         $this->assertArrayNotHasKey('human_in_engineering_loop', $receipt);
         $this->assertTrue($receipt['admission']['allows_execution']);
-        $this->assertContains('atlas:brain:next', $receipt['dispatch']['operate_path']);
-        $this->assertContains('atlas:task next', $receipt['dispatch']['operate_path']);
+        $this->assertArrayNotHasKey('operate_path', $receipt['dispatch']);
+        $this->assertStringNotContainsString('atlas:brain:next', json_encode($receipt, JSON_THROW_ON_ERROR));
         $this->assertSame('N9', $receipt['dispatch']['spine']['delivery']);
         $this->assertSame('N11', $receipt['dispatch']['spine']['evidence']);
-        $this->assertTrue($receipt['dispatch']['seed_gate_required']);
-        $this->assertTrue($receipt['dispatch']['scoped_commit_required']);
+
+        $live = $receipt['dispatch']['live'];
+        $this->assertSame('dispatch_refused', $live['status']);
+        $this->assertSame('no_claimable_task', $live['error']);
+        $this->assertSame(0, $live['provider_calls']);
+        $this->assertFalse($live['mutation_performed']);
+        $this->assertSame([], $live['native_task_refs']);
+        $this->assertSame('not_claimed', $live['task']['status']);
+        $this->assertNull($live['task']['task_packet_id']);
+        $this->assertNull($live['task']['lease_id']);
+        $this->assertFalse($live['task']['worker_executed']);
+        $this->assertTrue($live['seed_gate_required']);
+        $this->assertTrue($live['scoped_commit_required']);
+
+        $effect = $live['effects'][0];
+        $this->assertSame('native_task_claim_refused', $effect['kind']);
+        $this->assertSame('no_claimable_task', $effect['result']['status']);
+        $this->assertSame('no_claimable_task', $effect['result']['reason']);
+        $this->assertSame(0, $effect['result']['provider_calls']);
+        $this->assertFalse($effect['result']['worker_executed']);
+        $this->assertFalse($effect['result']['mutation_performed']);
     }
 
     public function test_interactive_intent_selects_dev_mode(): void

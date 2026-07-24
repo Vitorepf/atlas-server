@@ -292,8 +292,8 @@ Essas pecas podem existir dentro do sistema, mas nao sao o sistema.
 
 | Path | Papel |
 |---|---|
-| `app/Services/Ai/Aaeos/Control/*` | Control plane: intent, difficulty, mode, admission (world-aware), cycle runtime, adapters, scorecard, learning candidates |
-| `app/Services/Ai/Aaeos/Control/Adapters/*` | Dev / Forge / Autonomos mode adapters |
+| `app/Services/Ai/Aaeos/Control/*` | Control plane: intent, difficulty, mode, admission (world-aware), cycle runtime, scorecard, learning candidates |
+| `app/Services/Ai/Aaeos/Control/Dispatch/*` | Typed Dev / Forge / Autonomos admission dispatch to native owners; no adapter layer |
 | `app/Services/Ai/Aaeos/Spine/*` | N9+N11 shared spine + SpineGate stamp on intakes |
 | `app/Services/Ai/Aaeos/Support/AtlasSourceConnectorsAndCaptureService.php` | Brain frontier connectors (re-homed) |
 | `archive/app/Services/Ai/Aaeos/Quarantine/` | Cemetery archived (not operate path) |

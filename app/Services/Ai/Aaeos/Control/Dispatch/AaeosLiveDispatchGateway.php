@@ -10,8 +10,7 @@ use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use Throwable;
 
 /**
- * Sole I/O chokepoint for live AAEOS dispatch. Adapters remain policy metadata;
- * this gateway produces world effects (or honest plan-only packs).
+ * Sole I/O chokepoint for live AAEOS dispatch.
  */
 final class AaeosLiveDispatchGateway
 {
@@ -43,7 +42,6 @@ final class AaeosLiveDispatchGateway
         $planOnly = (bool) ($options['plan_only'] ?? false);
         $live = ! $planOnly && (bool) ($options['live'] ?? $cyclePlan['live_dispatch'] ?? false);
 
-        $adapterMeta = (array) ($cyclePlan['adapter_accept'] ?? []);
         $dualcore = $this->recordDualCore($mode, $cyclePlan);
 
         if (! $live) {
@@ -53,9 +51,7 @@ final class AaeosLiveDispatchGateway
                 'mode' => $mode,
                 'live' => false,
                 'effects' => [],
-                'next_commands' => (array) ($adapterMeta['operate_path'] ?? []),
                 'dualcore' => $dualcore,
-                'adapter' => $adapterMeta,
                 'provider_calls' => 0,
             ];
         }
@@ -69,7 +65,6 @@ final class AaeosLiveDispatchGateway
                 'live' => true,
                 'effects' => [],
                 'error' => 'unknown_mode_dispatcher',
-                'next_commands' => [],
                 'dualcore' => $dualcore,
                 'provider_calls' => 0,
             ];
@@ -85,7 +80,6 @@ final class AaeosLiveDispatchGateway
                 'live' => true,
                 'effects' => [],
                 'error' => $e->getMessage(),
-                'next_commands' => (array) ($adapterMeta['operate_path'] ?? []),
                 'dualcore' => $dualcore,
                 'provider_calls' => 0,
             ];
@@ -96,7 +90,6 @@ final class AaeosLiveDispatchGateway
             'mode' => $mode,
             'live' => true,
             'dualcore' => $dualcore,
-            'adapter' => $adapterMeta,
         ], $result);
     }
 

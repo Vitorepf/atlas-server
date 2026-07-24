@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Control;
 
-use App\Services\Ai\Aaeos\Control\Adapters\AaeosExecutorModeAdapter;
-use App\Services\Ai\Aaeos\Control\Adapters\AutonomosModeAdapter;
-use App\Services\Ai\Aaeos\Control\Adapters\DevModeAdapter;
-use App\Services\Ai\Aaeos\Control\Adapters\ForgeModeAdapter;
 use App\Services\Ai\Aaeos\Control\Dispatch\AaeosLiveDispatchGateway;
 use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -23,9 +19,6 @@ final class AaeosCycleRuntime
 {
     public const SCHEMA = 'atlas.aaeos.cycle_receipt.v1';
 
-    /** @var array<string, AaeosExecutorModeAdapter> */
-    private array $adapters;
-
     public function __construct(
         private readonly AaeosIntentCompiler $intents = new AaeosIntentCompiler,
         private readonly AaeosDifficultyClassifier $difficulty = new AaeosDifficultyClassifier,
@@ -35,16 +28,7 @@ final class AaeosCycleRuntime
         private readonly AaeosEngineeringSpine $spine = new AaeosEngineeringSpine,
         private readonly AaeosLiveDispatchGateway $liveGateway = new AaeosLiveDispatchGateway,
         private readonly ?AtlasEvidenceLedger $ledger = null,
-        ?DevModeAdapter $dev = null,
-        ?ForgeModeAdapter $forge = null,
-        ?AutonomosModeAdapter $autonomos = null,
-    ) {
-        $this->adapters = [
-            AaeosExecutorMode::DEV => $dev ?? new DevModeAdapter($this->spine),
-            AaeosExecutorMode::FORGE => $forge ?? new ForgeModeAdapter($this->spine),
-            AaeosExecutorMode::AUTONOMOS => $autonomos ?? new AutonomosModeAdapter($this->spine),
-        ];
-    }
+    ) {}
 
     /**
      * @param  array<string,mixed>  $hints
@@ -90,10 +74,12 @@ final class AaeosCycleRuntime
         if ((bool) ($admit['allows_execution'] ?? false)) {
             $liveStatus = (string) ($dispatch['live']['status'] ?? '');
             $status = match ($liveStatus) {
-                'dispatch_failed' => 'dispatch_failed',
+                'dispatch_failed', 'dispatch_refused', 'dispatch_skipped' => 'dispatch_failed',
                 'dispatched_live' => 'dispatched_live',
+                'commissioned' => 'commissioned',
+                'claimed' => 'claimed',
                 'plan_only' => 'dispatched',
-                default => 'dispatched',
+                default => 'dispatch_failed',
             };
         }
 
@@ -117,7 +103,6 @@ final class AaeosCycleRuntime
             ],
             'elite_same_bar' => true,
             'evidence_status' => 'skipped',
-            'next_commands' => (array) ($dispatch['live']['next_commands'] ?? $dispatch['operate_path'] ?? []),
         ];
 
         if (! $dryRun) {
@@ -168,8 +153,7 @@ final class AaeosCycleRuntime
             ];
         }
 
-        $adapter = $this->adapters[$mode] ?? null;
-        if ($adapter === null) {
+        if (! AaeosExecutorMode::isValid($mode)) {
             return [
                 'status' => 'blocked',
                 'mode' => $mode,
@@ -178,8 +162,15 @@ final class AaeosCycleRuntime
             ];
         }
 
-        $accept = $adapter->accept($cyclePlan);
-        $cyclePlan['adapter_accept'] = $accept;
+        $modeContract = [
+            'status' => 'ready',
+            'mode' => $mode,
+            'spine' => ['delivery' => 'N9', 'evidence' => 'N11'],
+            'spine_contract' => $this->spine->contractForMode($mode),
+            'elite_same_bar' => true,
+            'difficulty_level' => (int) ($cyclePlan['difficulty']['level'] ?? AaeosDifficultyLevel::L1),
+        ];
+        $cyclePlan['mode_contract'] = $modeContract;
 
         if ($dryRun) {
             $dryProjection = [
@@ -188,17 +179,15 @@ final class AaeosCycleRuntime
                 'mode' => $mode,
                 'live' => false,
                 'effects' => [],
-                'next_commands' => (array) ($accept['operate_path'] ?? []),
                 'dualcore' => [
                     'recorded' => false,
                     'status' => 'not_attempted_dry_run',
                 ],
-                'adapter' => $accept,
                 'provider_calls' => 0,
                 'reason' => 'dry_run_no_gateway_dispatch',
             ];
 
-            return array_merge($accept, [
+            return array_merge($modeContract, [
                 'live' => $dryProjection,
                 'dualcore' => $dryProjection['dualcore'],
                 'effects' => [],
@@ -211,13 +200,17 @@ final class AaeosCycleRuntime
             'max_seeds' => (int) ($hints['max_seeds'] ?? 0),
             'execute_provider' => (bool) ($hints['execute_provider'] ?? false),
             'run_worker_once' => (bool) ($hints['run_worker_once'] ?? false),
-            'run_brain_next' => (bool) ($hints['run_brain_next'] ?? true),
             'scope' => $hints['scope'] ?? null,
+            'workspace' => $hints['workspace'] ?? data_get($cyclePlan, 'world.workspace'),
+            // AAEOS transports native authority; it does not manufacture it.
+            'confirmed_dev_run' => $hints['confirmed_dev_run'] ?? null,
+            'forge_commissioning' => $hints['forge_commissioning'] ?? null,
+            'dry_run' => (bool) ($hints['dry_run'] ?? false),
         ];
 
         $live = $this->liveGateway->dispatch($mode, $cyclePlan, $liveOptions);
 
-        return array_merge($accept, [
+        return array_merge($modeContract, [
             'live' => $live,
             'dualcore' => $live['dualcore'] ?? null,
             'effects' => $live['effects'] ?? [],
@@ -284,11 +277,12 @@ final class AaeosCycleRuntime
         }
 
         return match ((string) ($receipt['status'] ?? '')) {
-            'halted', 'repair_required', 'dispatch_failed', 'blocked' => 'blocked',
+            'halted', 'repair_required', 'dispatch_failed', 'dispatch_refused', 'blocked' => 'blocked',
             'dispatched_live' => $this->hasDurableMutationProof($receipt)
                 ? 'mutated'
                 : ((bool) ($receipt['runtime_write_performed'] ?? false) ? 'claimed' : 'prepared'),
-            'dispatched' => 'prepared',
+            'dispatched', 'commissioned' => 'prepared',
+            'claimed' => 'claimed',
             default => 'blocked',
         };
     }

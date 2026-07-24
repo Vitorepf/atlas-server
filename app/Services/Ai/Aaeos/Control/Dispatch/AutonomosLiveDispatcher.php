@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Control\Dispatch;
 
 use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
-use Illuminate\Support\Facades\Artisan;
-use Throwable;
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemon;
 
 /**
- * Live Autônomos path: brain:next (+ optional seed). Does not reimplement muscle.
- * Default does NOT run task worker or expensive providers.
+ * Live Autônomos path: a typed native task claim through the shared daemon.
+ * It never executes the worker or invokes an external provider.
  */
 final class AutonomosLiveDispatcher implements AaeosModeLiveDispatcher
 {
+    public function __construct(
+        private readonly ?AtlasSelfConstructionRuntimeDaemon $daemon = null,
+    ) {}
+
     public function mode(): string
     {
         return AaeosExecutorMode::AUTONOMOS;
@@ -21,102 +24,103 @@ final class AutonomosLiveDispatcher implements AaeosModeLiveDispatcher
 
     public function liveDispatch(array $cyclePlan, array $options = []): array
     {
-        $maxSeeds = max(0, (int) ($options['max_seeds'] ?? 0));
-        $runBrainNext = (bool) ($options['run_brain_next'] ?? true);
-        $effects = [];
-        $next = ['atlas:task next'];
-        $providerCalls = 0;
-
-        if (! class_exists(Artisan::class)) {
-            return [
-                'status' => 'plan_only',
-                'effects' => [['kind' => 'skipped', 'reason' => 'no_artisan']],
-                'next_commands' => ['atlas:brain:next', 'atlas:brain:seed', 'atlas:task next'],
-                'provider_calls' => 0,
-                'note' => 'container_unavailable_plan_only',
-            ];
+        if (($reason = $this->prohibitedRequestReason($options)) !== null) {
+            return $this->refused($reason);
         }
 
-        if ($runBrainNext) {
-            $brain = $this->callArtisan('atlas:brain:next', $this->brainNextArgs($options));
-            $effects[] = ['kind' => 'brain_next', 'result' => $brain];
-            if (($brain['exit_code'] ?? 1) !== 0) {
-                return [
-                    'status' => 'dispatch_failed',
-                    'effects' => $effects,
-                    'next_commands' => ['atlas:brain:next', 'atlas:cli:cockpit'],
-                    'provider_calls' => $providerCalls,
-                    'error' => 'brain_next_failed',
-                ];
-            }
+        try {
+            $daemon = $this->daemon ?? $this->resolveDaemon();
+        } catch (\Throwable) {
+            return $this->refused('native_runtime_daemon_unavailable');
         }
-
-        if ($maxSeeds > 0) {
-            $seed = $this->callArtisan('atlas:brain:seed', array_filter([
-                '--max' => $maxSeeds,
-                '--json' => true,
-            ], static fn ($v) => $v !== null && $v !== false));
-            // if --max unsupported, retry bare
-            if (($seed['exit_code'] ?? 1) !== 0) {
-                $seed = $this->callArtisan('atlas:brain:seed', ['--json' => true]);
-            }
-            $effects[] = ['kind' => 'brain_seed', 'result' => $seed, 'max_seeds' => $maxSeeds];
-        } else {
-            $effects[] = ['kind' => 'brain_seed_skipped', 'reason' => 'max_seeds_0_use_flag'];
-            $next = array_merge(['atlas:brain:seed'], $next);
+        $intent = trim((string) ($cyclePlan['objective']['objective'] ?? $cyclePlan['objective']['raw'] ?? ''));
+        $facts = $intent === '' ? [] : ['intent' => $intent];
+        $workspace = trim((string) ($options['workspace'] ?? ''));
+        if ($workspace !== '') {
+            $facts['workspace'] = $workspace;
         }
-
-        if ((bool) ($options['run_worker_once'] ?? false)) {
-            $task = $this->callArtisan('atlas:task', ['action' => 'next', '--json' => true]);
-            $effects[] = ['kind' => 'task_next', 'result' => $task];
-        }
+        $dryRun = (bool) ($options['dry_run'] ?? false);
+        $claim = $daemon->run('claim', $facts, $dryRun);
+        $claimed = (string) ($claim['status'] ?? '') === 'claimed';
+        $planned = (string) ($claim['status'] ?? '') === 'planned';
 
         return [
-            'status' => 'dispatched_live',
-            'effects' => $effects,
-            'next_commands' => $next,
-            'provider_calls' => $providerCalls,
+            'status' => $claimed ? 'claimed' : ($planned ? 'plan_only' : 'dispatch_refused'),
+            'effects' => [[
+                'kind' => $claimed ? 'native_task_claimed' : ($planned ? 'native_task_claim_planned' : 'native_task_claim_refused'),
+                'result' => $claim,
+            ]],
+            'provider_calls' => 0,
             'seed_gate_required' => true,
             'scoped_commit_required' => true,
-            'human_in_engineering_loop' => false,
+            'effect_level' => $claimed ? 'claimed' : ($planned ? 'none' : 'blocked'),
+            'native_journey_ref' => $claim['native_journey_ref'] ?? null,
+            'native_cycle_refs' => is_array($claim['native_cycle_refs'] ?? null) ? $claim['native_cycle_refs'] : [],
+            'native_task_refs' => is_array($claim['native_task_refs'] ?? null) ? $claim['native_task_refs'] : [],
+            'native_lease_refs' => is_array($claim['native_lease_refs'] ?? null) ? $claim['native_lease_refs'] : [],
+            'task' => is_array($claim['task'] ?? null) ? $claim['task'] : [
+                'status' => $claimed ? 'claimed' : 'not_claimed',
+                'task_packet_id' => $claim['task_packet_id'] ?? null,
+                'lease_id' => $claim['lease_id'] ?? null,
+                'worker_executed' => false,
+            ],
+            'mutation_performed' => false,
+            ...($claimed || $planned ? [] : ['error' => (string) ($claim['reason'] ?? 'native_claim_refused')]),
         ];
     }
 
-    /**
-     * @param  array<string,mixed>  $options
-     * @return array<string,mixed>
-     */
-    private function brainNextArgs(array $options): array
+    /** @param array<string,mixed> $options */
+    private function prohibitedRequestReason(array $options): ?string
     {
-        $args = ['--json' => true];
-        if (! empty($options['scope'])) {
-            $args['--scope'] = (string) $options['scope'];
+        if ((bool) ($options['execute_provider'] ?? false)) {
+            return 'p1a_execute_provider_forbidden';
+        }
+        if ((bool) ($options['run_worker_once'] ?? false)) {
+            return 'p1a_run_worker_once_forbidden';
+        }
+        if ((int) ($options['max_seeds'] ?? 0) > 0) {
+            return 'p1a_max_seeds_forbidden';
+        }
+        if (trim((string) ($options['scope'] ?? '')) !== '') {
+            return 'p1a_scope_forbidden';
         }
 
-        return $args;
+        return null;
     }
 
-    /**
-     * @param  array<string,mixed>  $params
-     * @return array<string,mixed>
-     */
-    private function callArtisan(string $command, array $params = []): array
+    private function resolveDaemon(): AtlasSelfConstructionRuntimeDaemon
     {
-        try {
-            $code = Artisan::call($command, $params);
-            $out = Artisan::output();
-
-            return [
-                'command' => $command,
-                'exit_code' => $code,
-                'output_excerpt' => mb_substr(trim($out), 0, 2000),
-            ];
-        } catch (Throwable $e) {
-            return [
-                'command' => $command,
-                'exit_code' => 1,
-                'error' => $e->getMessage(),
-            ];
+        // In Laravel, use the declared composition owner. The direct
+        // constructor remains only for cold/no-container contract tests.
+        if (function_exists('app')) {
+            return app(AtlasSelfConstructionRuntimeDaemon::class);
         }
+
+        return new AtlasSelfConstructionRuntimeDaemon;
+    }
+
+    /** @return array<string,mixed> */
+    private function refused(string $reason): array
+    {
+        return [
+            'status' => 'dispatch_refused',
+            'effects' => [['kind' => 'native_task_claim_refused', 'reason' => $reason]],
+            'provider_calls' => 0,
+            'seed_gate_required' => true,
+            'scoped_commit_required' => true,
+            'effect_level' => 'blocked',
+            'native_journey_ref' => null,
+            'native_cycle_refs' => [],
+            'native_task_refs' => [],
+            'native_lease_refs' => [],
+            'task' => [
+                'status' => 'not_claimed',
+                'task_packet_id' => null,
+                'lease_id' => null,
+                'worker_executed' => false,
+            ],
+            'mutation_performed' => false,
+            'error' => $reason,
+        ];
     }
 }

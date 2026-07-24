@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\SeniorLoop;
 
+use App\Http\Controllers\AtlasDev\Support\KernelRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine;
 use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationSignalsInput;
+use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\GenericArtifactPersister;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
@@ -38,6 +41,38 @@ final class SeniorEngineerLoopExecutor
         private readonly GenericArtifactPersister $persister,
         private readonly EscalationDecisionEngine $escalationEngine,
     ) {}
+
+    /**
+     * Non-executing native commissioning seam used by the AAEOS control plane.
+     * Provider invocation remains owned by run(), behind operator authority.
+     *
+     * @return array<string,mixed>
+     */
+    public function commissioningContract(DevIntent $intent, ConfirmedDevRun $run): array
+    {
+        if (! hash_equals($intent->intentHash, $run->intentHash)
+            || ! hash_equals($intent->authorityHash, $run->authorityHash)) {
+            throw new \InvalidArgumentException('dev_native_commissioning_binding_mismatch');
+        }
+
+        if (! $this->runExecutor instanceof KernelRunExecutor) {
+            throw new \LogicException('dev_native_kernel_owner_unavailable');
+        }
+
+        $kernel = $this->runExecutor->commissioningContract($intent, $run);
+
+        return [
+            'schema' => 'atlas.dev.native_commissioning.v1',
+            'status' => 'prepared',
+            'intent_ref' => $intent->intentHash,
+            'run_ref' => $run->runHash,
+            'owner' => self::class,
+            'invoked' => true,
+            'downstream' => $kernel,
+            'execution_requested' => false,
+            'mutation_authorized' => false,
+        ];
+    }
 
     /**
      * @param  list<string>  $userConstraints
