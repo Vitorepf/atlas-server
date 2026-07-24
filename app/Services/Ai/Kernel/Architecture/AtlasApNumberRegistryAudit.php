@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 final class AtlasApNumberRegistryAudit
 {
+    use ArchitecturePathHelper;
+
     private const SCHEMA_VERSION = 'atlas.ap_number_registry_audit.v1';
 
     /**
@@ -161,16 +163,5 @@ final class AtlasApNumberRegistryAudit
         }
 
         return null;
-    }
-
-    private function relativePath(string $path): string
-    {
-        $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-        $normalized = str_replace('\\', '/', $path);
-        $normalizedBase = str_replace('\\', '/', $base);
-
-        return str_starts_with($normalized, $normalizedBase)
-            ? substr($normalized, strlen($normalizedBase))
-            : $normalized;
     }
 }

@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class SurfaceGuardAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>
@@ -17,54 +15,54 @@ class SurfaceGuardAudit
     {
         return [
             'ap1_surface_provider_bypass' => fn (): array => $this->primitives->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
-                            'App\\Services\\Ai\\Kernel\\Provider\\ProviderDriver',
-                            'App\\Services\\Ai\\Provider\\Drivers\\',
-                            'App\\Services\\Ai\\ClaudeCliProvider',
-                            'App\\Services\\Ai\\CodexCliProvider',
-                            'App\\Services\\Ai\\GeminiCliProvider',
-                            'App\\Services\\Ai\\AiGatewayService',
-                            'App\\Services\\Ai\\AiWorker',
-                            'ProviderDriverRegistry',
-                            'ClaudeCliProvider',
-                            'CodexCliProvider',
-                            'GeminiCliProvider',
-                            'provider->execute(',
-                            'prepareRequest(',
-                        ]),
+                'App\\Services\\Ai\\Kernel\\Provider\\ProviderDriver',
+                'App\\Services\\Ai\\Provider\\Drivers\\',
+                'App\\Services\\Ai\\ClaudeCliProvider',
+                'App\\Services\\Ai\\CodexCliProvider',
+                'App\\Services\\Ai\\GeminiCliProvider',
+                'App\\Services\\Ai\\AiGatewayService',
+                'App\\Services\\Ai\\AiWorker',
+                'ProviderDriverRegistry',
+                'ClaudeCliProvider',
+                'CodexCliProvider',
+                'GeminiCliProvider',
+                'provider->execute(',
+                'prepareRequest(',
+            ]),
             'ap2_surface_context_bypass' => fn (): array => $this->primitives->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
-                            'App\\Services\\Ai\\Context\\AiContextPackBuilder',
-                            'App\\Services\\Ai\\AtlasOpenBrainContextInjectionService',
-                            'App\\Services\\Ai\\Memory\\AtlasMemoryRegistryService',
-                            'App\\Services\\Ai\\EngineeringContextPackService',
-                            'App\\Services\\Engineering\\EngineeringContextPackService',
-                            'ContextPackBuilder',
-                            'OpenBrainContextInjection',
-                            'AtlasMemoryRegistry',
-                            'EngineeringContextPack',
-                            'new ContextPack',
-                            'context_pack',
-                            'contextPack',
-                            'context_refs',
-                            'contextRefs',
-                            'memory_refs',
-                            'memoryRefs',
-                        ]),
+                'App\\Services\\Ai\\Context\\AiContextPackBuilder',
+                'App\\Services\\Ai\\AtlasOpenBrainContextInjectionService',
+                'App\\Services\\Ai\\Memory\\AtlasMemoryRegistryService',
+                'App\\Services\\Ai\\EngineeringContextPackService',
+                'App\\Services\\Engineering\\EngineeringContextPackService',
+                'ContextPackBuilder',
+                'OpenBrainContextInjection',
+                'AtlasMemoryRegistry',
+                'EngineeringContextPack',
+                'new ContextPack',
+                'context_pack',
+                'contextPack',
+                'context_refs',
+                'contextRefs',
+                'memory_refs',
+                'memoryRefs',
+            ]),
             'ap12_provider_driver_identity_bypass' => fn (): array => $this->primitives->scanPhpFilesForForbiddenTokens(
-                            app_path('Services/Ai/Provider/Drivers'),
-                            [
-                                'new ClaudeCliProvider',
-                                'new CodexCliProvider',
-                                'new GeminiCliProvider',
-                                'app(ClaudeCliProvider',
-                                'app(CodexCliProvider',
-                                'app(GeminiCliProvider',
-                                'provider_real_execution_allowed\' => true',
-                                'provider_real_execution_allowed" => true',
-                            ],
-                            [
-                                app_path('Services/Ai/Provider/Drivers/ProviderDriverRegistry.php'),
-                            ],
-                        ),
+                app_path('Services/Ai/Provider/Drivers'),
+                [
+                    'new ClaudeCliProvider',
+                    'new CodexCliProvider',
+                    'new GeminiCliProvider',
+                    'app(ClaudeCliProvider',
+                    'app(CodexCliProvider',
+                    'app(GeminiCliProvider',
+                    'provider_real_execution_allowed\' => true',
+                    'provider_real_execution_allowed" => true',
+                ],
+                [
+                    app_path('Services/Ai/Provider/Drivers/ProviderDriverRegistry.php'),
+                ],
+            ),
             'ap14_tool_tier_hot_path' => fn (): array => $this->scanToolTierHotPathPolicy(),
             'ap24_surface_alias_canonicalization' => fn (): array => $this->scanSurfaceAliasCanonicalization(),
         ];

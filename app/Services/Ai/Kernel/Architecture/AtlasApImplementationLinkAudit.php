@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 final class AtlasApImplementationLinkAudit
 {
+    use ArchitecturePathHelper;
+
     private const SCHEMA_VERSION = 'atlas.ap_implementation_link_audit.v1';
 
     /**
@@ -113,16 +115,5 @@ final class AtlasApImplementationLinkAudit
         }
 
         return array_values(array_unique($paths));
-    }
-
-    private function relativePath(string $path): string
-    {
-        $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-        $normalized = str_replace('\\', '/', $path);
-        $normalizedBase = str_replace('\\', '/', $base);
-
-        return str_starts_with($normalized, $normalizedBase)
-            ? substr($normalized, strlen($normalizedBase))
-            : $normalized;
     }
 }

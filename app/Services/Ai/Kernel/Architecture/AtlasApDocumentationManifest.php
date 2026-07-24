@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 final class AtlasApDocumentationManifest
 {
+    use ArchitecturePathHelper;
+
     private const SCHEMA_VERSION = 'atlas.ap_documentation_manifest.v1';
 
     public function __construct(
@@ -194,16 +196,5 @@ final class AtlasApDocumentationManifest
         ksort($counts);
 
         return $counts;
-    }
-
-    private function relativePath(string $path): string
-    {
-        $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-        $normalized = str_replace('\\', '/', $path);
-        $normalizedBase = str_replace('\\', '/', $base);
-
-        return str_starts_with($normalized, $normalizedBase)
-            ? substr($normalized, strlen($normalizedBase))
-            : $normalized;
     }
 }

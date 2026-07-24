@@ -2,14 +2,14 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Capture\CaptureInboxPipelineReadModel;
+use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Mobile\ProactiveLayerReadModel;
 use App\Services\Ai\Runtime\ToolActionRuntimeReadModel;
 use App\Services\Ai\Scheduling\LongRunningWorkReadModel;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Tasks\TaskOrchestrationReadModel;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 
 class AtlasStructureMotherAuditReadModel

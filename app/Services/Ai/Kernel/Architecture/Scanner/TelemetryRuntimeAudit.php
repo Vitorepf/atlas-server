@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class TelemetryRuntimeAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>

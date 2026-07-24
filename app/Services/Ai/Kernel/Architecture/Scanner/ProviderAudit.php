@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class ProviderAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>
@@ -247,7 +245,7 @@ class ProviderAudit
             "'cost_microusd'",
             "'cost_confidence'",
             "'cost_mode'",
-        ], "app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field"));
+        ], 'app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($projection, [
             'class ProviderPerformanceProjection',
@@ -263,7 +261,7 @@ class ProviderAudit
             "'average_cost_microusd'",
             "'cost_confidence_counts'",
             "'groups'",
-        ], "app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events"));
+        ], 'app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($this->primitives->aiWorkerImplementationCorpus(), [
             'ProviderUsagePayload $providerUsage',
@@ -273,13 +271,13 @@ class ProviderAudit
             '$this->providerUsage->called(',
             '$this->providerUsage->returned(',
             '$this->providerUsage->fallback(',
-        ], "app/Services/Ai/AiWorker.php: worker must emit normalized provider usage events for AP-99"));
+        ], 'app/Services/Ai/AiWorker.php: worker must emit normalized provider usage events for AP-99'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($strategy, [
             'ProviderPerformanceProjection $performance',
             "'empirical_performance'",
             '$this->performance->reportForWindow(',
-        ], "app/Services/Ai/Cli/AtlasCliProviderStrategyService.php: Strategy Matrix must expose AP-99 empirical performance projection"));
+        ], 'app/Services/Ai/Cli/AtlasCliProviderStrategyService.php: Strategy Matrix must expose AP-99 empirical performance projection'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarket, [
             'class DynamicComputeMarketAdvisor',
@@ -306,7 +304,7 @@ class ProviderAudit
             "'recommendation_reason'",
             "'benchmark_candidate'",
             'run_controlled_provider_benchmark_before_policy_change',
-        ], "app/Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php: Dynamic Compute Market must stay advisory, explainable, and non-routing"));
+        ], 'app/Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php: Dynamic Compute Market must stay advisory, explainable, and non-routing'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketReport, [
             'class DynamicComputeMarketReportService',
@@ -316,7 +314,7 @@ class ProviderAudit
             "'authority' => 'read_only_no_routing_change'",
             "'dynamic_compute_market' => \$market",
             'private function requiredScalar',
-        ], "app/Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php: Dynamic Compute Market report service must stay read-only and advisor-backed"));
+        ], 'app/Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php: Dynamic Compute Market report service must stay read-only and advisor-backed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketCommand, [
             "protected \$signature = 'atlas:ai:dynamic-compute-market",
@@ -324,7 +322,7 @@ class ProviderAudit
             "'status' => 'invalid_input'",
             'Atlas Dynamic Compute Market',
             'Changes provider',
-        ], "app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php: Dynamic Compute Market CLI must expose governed read-only advice"));
+        ], 'app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php: Dynamic Compute Market CLI must expose governed read-only advice'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketApi, [
             'class AtlasAiDynamicComputeMarketController',
@@ -332,14 +330,14 @@ class ProviderAudit
             "'provider' => ['required', 'string', 'max:120']",
             '$reports->report($data)',
             "=== 'ok' ? 200 : 503",
-        ], "app/Http/Controllers/AtlasAiDynamicComputeMarketController.php: Dynamic Compute Market API must expose authenticated read-only report contract"));
+        ], 'app/Http/Controllers/AtlasAiDynamicComputeMarketController.php: Dynamic Compute Market API must expose authenticated read-only report contract'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($selfImprovement, [
             'ProviderPerformanceProjection $providerPerformance',
             'DynamicComputeMarketAdvisor $dynamicComputeMarket',
             'providerPerformanceFindings(',
             'dynamicComputeMarketFindings(',
-        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection"));
+        ], 'app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection'));
 
         // Pins relocated under GOD-DEBULK D3 (2026-07-23): providerPerformanceFindings +
         // dynamicComputeMarketFindings moved verbatim from AtlasSelfImprovementRuntime into the
@@ -355,7 +353,7 @@ class ProviderAudit
             'self-improvement:dynamic-compute-market:',
             'configure_provider_cost_rates',
             'atlas.provider_usage.v1',
-        ], "app/Services/Ai/SelfImprovement/Runtime/ProviderPerformanceSection.php: provider_performance_review must consume AP-99 projection"));
+        ], 'app/Services/Ai/SelfImprovement/Runtime/ProviderPerformanceSection.php: provider_performance_review must consume AP-99 projection'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($inboxActions, [
             "'configure_provider_cost_rates' => \$this->configureProviderCostRates(\$locked, \$input)",
@@ -363,7 +361,7 @@ class ProviderAudit
             'private function configureProviderCostRates(AiInboxItem $item, array $input): array',
             "'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1'",
             '$this->providerCostRates->upsert($rateTemplate)',
-        ], "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings"));
+        ], 'app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($costRateService, [
             'private function requiredString',
@@ -372,7 +370,7 @@ class ProviderAudit
             'effective_until must not be before effective_from.',
             '{$field} must be greater than or equal to 0.',
             'currency must be a 3 to 8 character code.',
-        ], "app/Services/Ai/Telemetry/AiProviderCostRateService.php: AP-99 cost rates must reject invalid provider/model/rate windows before contaminating AP-99"));
+        ], 'app/Services/Ai/Telemetry/AiProviderCostRateService.php: AP-99 cost rates must reject invalid provider/model/rate windows before contaminating AP-99'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($costRateCommand, [
             'private function renderError',
@@ -381,7 +379,7 @@ class ProviderAudit
             "'currency'",
             "'input uUSD/1K'",
             "'output uUSD/1K'",
-        ], "app/Console/Commands/AiTelemetryCostRatesCommand.php: AP-99 cost-rate CLI must report governed validation failures"));
+        ], 'app/Console/Commands/AiTelemetryCostRatesCommand.php: AP-99 cost-rate CLI must report governed validation failures'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($replayService, [
             'provider_cost_rate_action_count',
@@ -389,7 +387,7 @@ class ProviderAudit
             'provider_cost_rate_provider_counts',
             'configure_provider_cost_rates_action_without_applied_rate',
             'provider_cost_rates_configured',
-        ], "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-99 provider cost-rate Inbox action must be projected in replay reports"));
+        ], 'app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-99 provider cost-rate Inbox action must be projected in replay reports'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($command, [
             "protected \$signature = 'atlas:ai:provider-performance",
@@ -399,12 +397,12 @@ class ProviderAudit
             '{--provider=',
             '{--specialist-profile=',
             "data_get(\$report, 'review_signal.status'",
-        ], "app/Console/Commands/AtlasAiProviderPerformanceCommand.php: AP-99 must expose provider performance through CLI read model"));
+        ], 'app/Console/Commands/AtlasAiProviderPerformanceCommand.php: AP-99 must expose provider performance through CLI read model'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($bootstrap, [
             'AtlasAiProviderPerformanceCommand::class',
             'AtlasAiDynamicComputeMarketCommand::class',
-        ], "bootstrap/app.php: AP-99 provider performance CLI command must be registered"));
+        ], 'bootstrap/app.php: AP-99 provider performance CLI command must be registered'));
 
         // Façade keeps the tools() schema + dispatch; the report handlers were relocated
         // under GOD-DEBULK D3 to OpenBrainMcp/ReportTools (invariant unchanged).
@@ -413,7 +411,7 @@ class ProviderAudit
             "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->reportTools->providerPerformanceReport(\$arguments))",
             "'name' => 'atlas_dynamic_compute_market_report'",
             "'atlas_dynamic_compute_market_report' => \$this->toolResponse(\$id, \$this->reportTools->dynamicComputeMarketReport(\$arguments))",
-        ], "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report"));
+        ], 'app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($reportTools, [
             'ProviderPerformanceProjection $providerPerformance',
@@ -421,7 +419,7 @@ class ProviderAudit
             '$this->providerPerformance->reportForWindow(',
             'dynamicComputeMarketReport(array $arguments)',
             'DynamicComputeMarketReportService $dynamicComputeMarketReports',
-        ], "app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-99 provider performance must be available as a read-only MCP report"));
+        ], 'app/Services/Ai/OpenBrainMcp/ReportTools.php: AP-99 provider performance must be available as a read-only MCP report'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($api, [
             'class AtlasAiProviderPerformanceController',
@@ -430,32 +428,32 @@ class ProviderAudit
             '$performance->reportForWindow(',
             "'provider_performance'",
             "'ledger_unavailable'",
-        ], "app/Http/Controllers/AtlasAiProviderPerformanceController.php: AP-99 provider performance API must expose the shared read model"));
+        ], 'app/Http/Controllers/AtlasAiProviderPerformanceController.php: AP-99 provider performance API must expose the shared read model'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($routes, [
             'AtlasAiProviderPerformanceController::class',
             "'/ai/provider-performance'",
             'AtlasAiDynamicComputeMarketController::class',
             "'/ai/dynamic-compute-market'",
-        ], "routes/api.php: AP-99 provider performance API route must be registered"));
+        ], 'routes/api.php: AP-99 provider performance API route must be registered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($observability, [
             'ProviderPerformanceProjection $providerPerformance',
             '$providerPerformance->reportForWindow($since)',
             "'provider_performance' => \$providerPerformanceReport",
-        ], "app/Http/Controllers/AiObservabilityController.php: AP-99 provider performance must appear in Observability through the shared projection"));
+        ], 'app/Http/Controllers/AiObservabilityController.php: AP-99 provider performance must appear in Observability through the shared projection'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($projectionTest, [
             'ProviderPerformanceProjectionTest',
             'provider_performance_projection_groups',
             'ProviderUsagePayload::SCHEMA_VERSION',
-        ], "tests/Unit/Ai/ProviderPerformanceProjectionTest.php: AP-99 projection contract must have focused tests"));
+        ], 'tests/Unit/Ai/ProviderPerformanceProjectionTest.php: AP-99 projection contract must have focused tests'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($workerTest, [
             'atlas.provider_usage.v1',
             "'router_fallback_provider'",
             "'selection_mode'",
-        ], "tests/Feature/Ai/AiWorkerProviderChoiceTest.php: AP-99 worker hot path must assert normalized provider usage payload"));
+        ], 'tests/Feature/Ai/AiWorkerProviderChoiceTest.php: AP-99 worker hot path must assert normalized provider usage payload'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($commandTest, [
             'AtlasAiProviderPerformanceCommandTest',
@@ -465,7 +463,7 @@ class ProviderAudit
             'provider_performance.cost_confidence_counts',
             'Review signal',
             'ledger_unavailable',
-        ], "tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php: AP-99 provider performance CLI must be covered"));
+        ], 'tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php: AP-99 provider performance CLI must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($mcpTest, [
             'atlas_provider_performance_report',
@@ -478,7 +476,7 @@ class ProviderAudit
             'test_dynamic_compute_market_report_exposes_read_only_shadow_advice',
             'test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
             'ledger_unavailable',
-        ], "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered"));
+        ], 'tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($apiTest, [
             'AtlasAiProviderPerformanceApiTest',
@@ -487,7 +485,7 @@ class ProviderAudit
             'provider_performance.average_cost_microusd',
             'provider_performance.cost_confidence_counts.estimated',
             'wait_for_provider_usage_evidence',
-        ], "tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php: AP-99 provider performance API must be covered"));
+        ], 'tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php: AP-99 provider performance API must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketCommandTest, [
             'AtlasAiDynamicComputeMarketCommandTest',
@@ -499,7 +497,7 @@ class ProviderAudit
             'provider is required.',
             'test_command_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
-        ], "tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php: Dynamic Compute Market CLI surface must be covered"));
+        ], 'tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php: Dynamic Compute Market CLI surface must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketApiTest, [
             'AtlasAiDynamicComputeMarketApiTest',
@@ -511,7 +509,7 @@ class ProviderAudit
             'test_api_requires_atlas_token',
             'test_api_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
-        ], "tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php: Dynamic Compute Market API surface must be covered"));
+        ], 'tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php: Dynamic Compute Market API surface must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($selfImprovementRuntimeTest, [
             'test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal',
@@ -520,7 +518,7 @@ class ProviderAudit
             'routing_control.changes_provider',
             'routing_control.routing_authority',
             'metadata.proposal_evidence_contract',
-        ], "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-147 Curator proposal-only contract must be covered"));
+        ], 'tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-147 Curator proposal-only contract must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($observabilityTest, [
             'test_observability_payload_includes_provider_performance_summary',
@@ -529,7 +527,7 @@ class ProviderAudit
             'provider_performance.review_signal.status',
             'test_observability_payload_exposes_provider_cost_rate_inbox_actions',
             'inbox_actions.provider_cost_rate_action_count',
-        ], "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered"));
+        ], 'tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($telemetryMetricsTest, [
             'test_cost_rate_upsert_rejects_negative_input_and_output_rates',
@@ -537,19 +535,19 @@ class ProviderAudit
             'test_cost_rate_upsert_rejects_effective_until_before_effective_from',
             'test_cost_rate_command_reports_invalid_input_as_json_and_human_error',
             'test_cost_rate_import_reports_indexed_validation_errors',
-        ], "tests/Feature/AiTelemetryMetricsTest.php: AP-99 cost-rate governance must be covered"));
+        ], 'tests/Feature/AiTelemetryMetricsTest.php: AP-99 cost-rate governance must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($telemetryDiagnosticsTest, [
             'test_cost_rate_service_rejects_invalid_effective_window',
             'effective_until must not be before effective_from.',
-        ], "tests/Feature/AiTelemetryToolDiagnosticsTest.php: AP-99 cost-rate diagnostics must cover invalid windows"));
+        ], 'tests/Feature/AiTelemetryToolDiagnosticsTest.php: AP-99 cost-rate diagnostics must cover invalid windows'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($telemetryDoc, [
             'Cost rates sao governados',
             'provider/model obrigatorios',
             'micro-USD por 1K tokens',
             'effective_until',
-        ], "docs/atlas-ai-telemetry.md: AP-99 cost-rate governance must be documented"));
+        ], 'docs/atlas-ai-telemetry.md: AP-99 cost-rate governance must be documented'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($decideReceiptTest, [
             'test_dynamic_compute_market_uses_ap99_provider_performance_inside_decision_receipt',
@@ -564,7 +562,7 @@ class ProviderAudit
             'explanation.latency_basis',
             'explanation.cost_basis',
             'routing_control.changes_provider',
-        ], "tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php: Dynamic Compute Market receipt explainability must be covered"));
+        ], 'tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php: Dynamic Compute Market receipt explainability must be covered'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($modelSelectionDoc, [
             'DynamicComputeMarketAdvisor',
@@ -576,7 +574,7 @@ class ProviderAudit
             'recommendation_reason',
             'benchmark controlado',
             'proposal_review_packet',
-        ], "docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented"));
+        ], 'docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($dynamicComputeMarketAp, [
             'AP-147',
@@ -592,7 +590,7 @@ class ProviderAudit
             'AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
             'AtlasSelfImprovementRuntimeTest::test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal',
             'AtlasSelfImprovementRuntimeTest::test_self_improvement_command_surfaces_dynamic_compute_market_proposal_without_routing_change',
-        ], "docs/ap/AP-147-dynamic-compute-market-shadow-surface.md: Dynamic Compute Market shadow surface contract must be documented"));
+        ], 'docs/ap/AP-147-dynamic-compute-market-shadow-surface.md: Dynamic Compute Market shadow surface contract must be documented'));
 
         return $violations;
     }
@@ -765,7 +763,7 @@ class ProviderAudit
             ],
             'providerBody redacts raw body fallback' => [
                 'AtlasSecurity::redactString((string) $entry->body)',
-                "providerBoundText((string) \$entry->body",
+                'providerBoundText((string) $entry->body',
             ],
         ];
 

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
-use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Kernel\Capability\AtlasCapabilityRegistry;
 use App\Services\Ai\Kernel\Capability\SurfaceCapabilityParityService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
@@ -14,6 +13,7 @@ use App\Services\Ai\Kernel\Failure\FailureHandlerRegistry;
 use App\Services\Ai\Kernel\Provider\ProviderDriver;
 use App\Services\Ai\Kernel\Slo\KernelSloTargets;
 use App\Services\Ai\Kernel\Surface\SurfaceAdapter;
+use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Engineering\EngineeringDocumentationHealthService;

@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class VoiceAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>
@@ -575,7 +573,7 @@ class VoiceAudit
             'artifacts',
             'product_loop_check',
             '--product-loop-check',
-        ], "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed"));
+        ], 'app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($voiceService, [
             'voiceRoomName',
@@ -593,7 +591,7 @@ class VoiceAudit
             'session_lease',
             'kernelBaseUrl',
             'parse_url($baseUrl)',
-        ], "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-687 session lease must scope LiveKit rooms to Atlas Voice namespace"));
+        ], 'app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-687 session lease must scope LiveKit rooms to Atlas Voice namespace'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($tokenIssuer, [
             'readiness(): array',
@@ -603,7 +601,7 @@ class VoiceAudit
             'livekit_room_outside_atlas_voice_namespace',
             'livekit_participant_outside_client_surface_namespace',
             'configure_livekit_token_issuer',
-        ], "app/Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php: AP-687 LiveKit token issuer readiness must be explicit and secret-safe"));
+        ], 'app/Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php: AP-687 LiveKit token issuer readiness must be explicit and secret-safe'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonContract, [
             'urlparse',
@@ -612,7 +610,7 @@ class VoiceAudit
             'not isinstance(room_prefix, str)',
             '_absolute_http_url',
             'control characters',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-687 Python runtime contract must reject unsafe manifest URLs and room prefixes outside Atlas Voice namespace"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-687 Python runtime contract must reject unsafe manifest URLs and room prefixes outside Atlas Voice namespace'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonContractTest, [
             'rejects_room_prefix_outside_atlas_voice_namespace',
@@ -620,14 +618,14 @@ class VoiceAudit
             'rejects_kernel_url_without_host',
             'rogue-voice-',
             'LIVEKIT_API_SECRET=injected',
-        ], "runtimes/python/voice_realtime/tests/test_contract.py: AP-687 Python runtime contract URL and room namespace safety must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_contract.py: AP-687 Python runtime contract URL and room namespace safety must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSettings, [
             'urlparse',
             'control characters',
             'atlas-voice-',
             '_room_prefix',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/settings.py: AP-687 Python runtime settings must mirror Kernel URL and room namespace safety"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/settings.py: AP-687 Python runtime settings must mirror Kernel URL and room namespace safety'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSessionLease, [
             'urlparse',
@@ -637,7 +635,7 @@ class VoiceAudit
             '_optional_url',
             'atlas-voice- namespace',
             'allowed client surface',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py: AP-687 Python runtime session leases must reject unsafe LiveKit URL, room and participant namespaces"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py: AP-687 Python runtime session leases must reject unsafe LiveKit URL, room and participant namespaces'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSessionLeaseTest, [
             'rejects_room_name_outside_atlas_voice_namespace',
@@ -645,7 +643,7 @@ class VoiceAudit
             'rejects_livekit_url_with_control_characters',
             'rejects_livekit_url_without_host',
             'LIVEKIT_API_SECRET=injected',
-        ], "runtimes/python/voice_realtime/tests/test_session_lease.py: AP-687 Python runtime session lease namespace safety must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_session_lease.py: AP-687 Python runtime session lease namespace safety must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonMockKernel, [
             '_atlas_voice_room',
@@ -653,13 +651,13 @@ class VoiceAudit
             'atlas-voice-',
             'mobile:',
             'mac_edge:',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py: AP-687 mock Kernel must normalize session leases like the real Kernel"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py: AP-687 mock Kernel must normalize session leases like the real Kernel'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonMockKernelTest, [
             'normalizes_unsafe_session_lease_namespaces',
             'atlas-voice-prod-room',
             'mobile:adminroot',
-        ], "runtimes/python/voice_realtime/tests/test_mock_kernel.py: AP-687 mock Kernel namespace normalization must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_mock_kernel.py: AP-687 mock Kernel namespace normalization must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonRuntimeEntrypoint, [
             'production_promotion',
@@ -681,7 +679,7 @@ class VoiceAudit
             'callback_loop_wired',
             'production_sdk_loop_wired',
             'supervised_start_plan',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonRuntimeEntrypointTest, [
             'worker_start_without_production_promotion_allowed',
@@ -703,7 +701,7 @@ class VoiceAudit
             'blocked_pending_daemon_implementation_review',
             'blocked_pending_human_review',
             'production_sdk_loop_wired',
-        ], "runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedStartPlan, [
             'atlas.voice_realtime.supervised_start_plan.v1',
@@ -733,7 +731,7 @@ class VoiceAudit
             'start_without_supervisor_allowed',
             'unbounded_restart_loop_allowed',
             'implement_supervised_daemon_start',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py: AP-687 supervised daemon start plan must remain fail-closed before real process launch"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py: AP-687 supervised daemon start plan must remain fail-closed before real process launch'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedStartPlanTest, [
             'test_blocks_until_human_review',
@@ -750,7 +748,7 @@ class VoiceAudit
             'ready_for_supervisor_execution_implementation',
             'worker_process_launch_disabled',
             'blocked_kernel_normalizer_contract',
-        ], "runtimes/python/voice_realtime/tests/test_supervised_start_plan.py: AP-687 supervised start plan must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_supervised_start_plan.py: AP-687 supervised start plan must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonDaemonImplementationReview, [
             'atlas.voice_realtime.daemon_implementation_review.v1',
@@ -763,7 +761,7 @@ class VoiceAudit
             'supervised_start_required_must_be_true',
             'direct_provider_call_allowed_must_be_false',
             'raw_audio_persistence_allowed_must_be_false',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py: AP-687 daemon implementation review must be a separate fail-closed receipt"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py: AP-687 daemon implementation review must be a separate fail-closed receipt'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonDaemonImplementationReviewTest, [
             'test_valid_daemon_implementation_review_is_approved_and_sanitized',
@@ -774,7 +772,7 @@ class VoiceAudit
             'commit:voice-daemon-reviewed',
             'direct_provider_call_from_daemon',
             'start_without_supervisor',
-        ], "runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py: AP-687 daemon implementation review receipt must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py: AP-687 daemon implementation review receipt must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonDaemonSupervisor, [
             'atlas.voice_realtime.daemon_supervisor_execution.v1',
@@ -800,7 +798,7 @@ class VoiceAudit
             'VOICE_DAEMON_START_BLOCKED',
             'process_launch_allowed_by_this_contract',
             'implement_reviewed_process_adapter',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py: AP-687 daemon supervisor execution boundary must exist and remain fail-closed"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py: AP-687 daemon supervisor execution boundary must exist and remain fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonDaemonSupervisorTest, [
             'test_ready_worker_reaches_process_adapter_boundary_without_launch',
@@ -817,7 +815,7 @@ class VoiceAudit
             'daemon_started',
             'process_adapter_implemented',
             'process_launch_allowed_by_this_contract',
-        ], "runtimes/python/voice_realtime/tests/test_daemon_supervisor.py: AP-687 daemon supervisor execution boundary must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_daemon_supervisor.py: AP-687 daemon supervisor execution boundary must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedProcessAdapter, [
             'atlas.voice_realtime.supervised_process_adapter.v1',
@@ -861,7 +859,7 @@ class VoiceAudit
             'process_launch_attempted',
             'daemon_started',
             'launch_allowed',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py: AP-687 supervised process adapter shell must exist and remain fail-closed"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py: AP-687 supervised process adapter shell must exist and remain fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedProcessAdapterTest, [
             'test_inspects_ready_supervisor_without_launching_process',
@@ -892,7 +890,7 @@ class VoiceAudit
             'atlas.voice_realtime.subprocess_start_contract.v1',
             'VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED',
             'VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED',
-        ], "runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py: AP-687 supervised process adapter shell must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py: AP-687 supervised process adapter shell must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonManagedEnvWriter, [
             'atlas.voice_realtime.managed_env_writer.v1',
@@ -914,7 +912,7 @@ class VoiceAudit
             'VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED',
             'VOICE_DAEMON_MANAGED_ENV_WRITE_BLOCKED',
             'start_process_after_env_render',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py: AP-687 managed env writer contract must exist without writing env files"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py: AP-687 managed env writer contract must exist without writing env files'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonManagedEnvWriterTest, [
             'test_writer_contract_is_ready_without_writing_env_file_or_leaking_secret',
@@ -930,7 +928,7 @@ class VoiceAudit
             'write_env_file_from_writer_contract',
             'literal-secret-value',
             '0o600',
-        ], "runtimes/python/voice_realtime/tests/test_managed_env_writer.py: AP-687 managed env writer contract must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_managed_env_writer.py: AP-687 managed env writer contract must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedLaunchExecution, [
             'atlas.voice_realtime.supervised_launch_execution.v1',
@@ -967,7 +965,7 @@ class VoiceAudit
             'implement_real_subprocess_start_after_final_review',
             'start_without_launch_execution_decision_receipt',
             'call_provider_from_launch_execution',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_launch_execution.py: AP-687 supervised launch execution contract must exist without starting subprocess"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/supervised_launch_execution.py: AP-687 supervised launch execution contract must exist without starting subprocess'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSupervisedLaunchExecutionTest, [
             'test_launch_execution_contract_is_available_but_blocked_without_written_env',
@@ -998,26 +996,26 @@ class VoiceAudit
             'VOICE_DAEMON_PRE_START_HEALTH_CHECKS_EVALUATED',
             'VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED',
             'import_subprocess_from_launch_execution_contract',
-        ], "runtimes/python/voice_realtime/tests/test_supervised_launch_execution.py: AP-687 supervised launch execution contract must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_supervised_launch_execution.py: AP-687 supervised launch execution contract must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonActivationContract, [
             'production_sdk_loop_wired',
             'start_worker_before_production_sdk_loop_wired',
             'wire_production_sdk_loop',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py: AP-687 activation contract must require production SDK loop wiring before worker start"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py: AP-687 activation contract must require production SDK loop wiring before worker start'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonActivationContractTest, [
             'test_activation_contract_blocks_until_production_sdk_loop_is_wired',
             'production_sdk_loop_wired',
             'wire_production_sdk_loop',
-        ], "runtimes/python/voice_realtime/tests/test_activation_contract.py: AP-687 activation contract production SDK loop gate must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_activation_contract.py: AP-687 activation contract production SDK loop gate must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSettingsTest, [
             'rejects_urls_with_control_characters',
             'rejects_room_prefix_outside_atlas_voice_namespace',
             'LIVEKIT_API_SECRET=injected',
             'atlas-voice-from-file-',
-        ], "runtimes/python/voice_realtime/tests/test_settings.py: AP-687 Python runtime settings safety must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_settings.py: AP-687 Python runtime settings safety must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($command, [
             'Production promotion',
@@ -1037,13 +1035,13 @@ class VoiceAudit
             'Daemon supervisor launch attempted',
             'product-loop-check',
             'daemon-supervisor-check',
-        ], "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement"));
+        ], 'app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($tokenIssuerTest, [
             'rejects_rooms_outside_atlas_voice_namespace',
             'rejects_participants_outside_client_surface_namespace',
             'not_issued_invalid_lease',
-        ], "tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases"));
+        ], 'tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($unitTest, [
             'production_promotion_gate.status',
@@ -1106,7 +1104,7 @@ class VoiceAudit
             'daemon_implementation_review_valid',
             'artifacts.product_loop_check',
             'product-loop-secret',
-        ], "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests"));
+        ], 'tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($commandTest, [
             'Production promotion',
@@ -1195,7 +1193,7 @@ class VoiceAudit
             'product_loop_check_available',
             'artifacts.product_loop_check',
             'timeout_seconds',
-        ], "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-687 CLI promotion gate output must be tested"));
+        ], 'tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-687 CLI promotion gate output must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($apiTest, [
             'production_promotion_gate.schema_version',
@@ -1209,7 +1207,7 @@ class VoiceAudit
             'sdk_handler_blueprint_available',
             'sdk_kernel_normalizer_required',
             'artifacts.product_loop_check',
-        ], "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested"));
+        ], 'tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($apDoc, [
             'status: implemented_ready',
@@ -1252,7 +1250,7 @@ class VoiceAudit
             '--production-sdk-loop-wired',
             'runtime-certify',
             'status=blocked',
-        ], "docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented"));
+        ], 'docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($doc, [
             'AP-687',
@@ -1280,7 +1278,7 @@ class VoiceAudit
             'ready_for_supervised_start_implementation',
             'blocked_pending_daemon_implementation_review',
             'production_sdk_loop_wired',
-        ], "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance"));
+        ], 'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonProductionLoopRunnerTest, [
             'test_bridge_contract_report_fails_closed_for_missing_callback_or_guardrail',
@@ -1291,7 +1289,7 @@ class VoiceAudit
             'direct_provider_call_allowed',
             'missing_callbacks',
             'invalid_guardrails',
-        ], "runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py: AP-687 production loop smoke must fail closed when bridge callbacks or guardrails regress"));
+        ], 'runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py: AP-687 production loop smoke must fail closed when bridge callbacks or guardrails regress'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonProductionLoopRunner, [
             'LiveKitSdkHandlerRegistry',
@@ -1300,7 +1298,7 @@ class VoiceAudit
             '_handler_registry_contract_report',
             'missing_handlers',
             'sdk_import_safe',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py: AP-687 production smoke must pass through SDK handler registry"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py: AP-687 production smoke must pass through SDK handler registry'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkWiringContract, [
             'handler_blueprint',
@@ -1317,7 +1315,7 @@ class VoiceAudit
             'kernel_event_normalizer_required_for_real_loop',
             'return_LiveKitWorkerResult_log_payload_only',
             'never_call_provider_tool_memory_or_policy_from_sdk_handler',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py: AP-687 SDK wiring contract must document exact handler blueprint and Kernel-only invariants"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py: AP-687 SDK wiring contract must document exact handler blueprint and Kernel-only invariants'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkWiringContractTest, [
             'test_wiring_contract_uses_bridge_and_router_as_sources_of_truth',
@@ -1332,7 +1330,7 @@ class VoiceAudit
             'never_call_provider_tool_memory_or_policy_from_sdk_handler',
             'kernel_event_normalizer_required_for_real_loop',
             'provider SDK call',
-        ], "runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py: AP-687 SDK wiring blueprint must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py: AP-687 SDK wiring blueprint must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkHandlers, [
             'atlas.voice_realtime.sdk_handler_registry.v1',
@@ -1346,7 +1344,7 @@ class VoiceAudit
             'memory_write_allowed',
             'policy_mutation_allowed',
             'sdk_import_required_for_contract',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py: AP-687 SDK handlers must route real SDK callbacks through Kernel-only registry"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py: AP-687 SDK handlers must route real SDK callbacks through Kernel-only registry'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkHandlersTest, [
             'test_handler_registry_contract_is_complete_without_importing_sdk',
@@ -1357,7 +1355,7 @@ class VoiceAudit
             'KernelRuntimeEventNormalizerGuard',
             'direct_provider_call',
             'audio_bytes',
-        ], "runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py: AP-687 SDK handler registry must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py: AP-687 SDK handler registry must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonProductLoopCheck, [
             'atlas.voice_realtime.product_loop_check.v1',
@@ -1401,7 +1399,7 @@ class VoiceAudit
             'ready_for_supervised_start_implementation',
             'submit_daemon_implementation_review',
             'implement_supervised_daemon_start',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonProductLoopCheckTest, [
             'test_product_loop_check_aggregates_wired_gates_without_starting_daemon',
@@ -1448,7 +1446,7 @@ class VoiceAudit
             'fix_sdk_handler_blueprint_contract',
             'fix_sdk_kernel_normalizer_contract',
             'fix_sdk_probe_contract',
-        ], "runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed"));
+        ], 'runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkStatus, [
             'metadata.version',
@@ -1457,7 +1455,7 @@ class VoiceAudit
             'sdk_imported',
             'import_probe_only',
             'probe_policy',
-        ], "runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py: AP-687 SDK status must be import-safe and expose package compatibility checks"));
+        ], 'runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py: AP-687 SDK status must be import-safe and expose package compatibility checks'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($pythonSdkStatusTest, [
             'test_sdk_check_reports_package_checks_without_importing_sdk',
@@ -1466,12 +1464,12 @@ class VoiceAudit
             'package_checks',
             'missing_imports',
             'probe_policy',
-        ], "runtimes/python/voice_realtime/tests/test_sdk_status.py: AP-687 SDK status probe contract must be tested"));
+        ], 'runtimes/python/voice_realtime/tests/test_sdk_status.py: AP-687 SDK status probe contract must be tested'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($staticScanDoc, [
             'Voice production promotion (AP-687)',
             'voice runtime being promoted to production',
-        ], "docs/engineering-knowledge-base/kernel/static-scans.md: AP-687 static scan behavior must be documented"));
+        ], 'docs/engineering-knowledge-base/kernel/static-scans.md: AP-687 static scan behavior must be documented'));
 
         return $violations;
     }

@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 final class AtlasApLineLimitAudit
 {
+    use ArchitecturePathHelper;
+
     private const SCHEMA_VERSION = 'atlas.ap_line_limit_audit.v1';
 
     /**
@@ -89,16 +91,5 @@ final class AtlasApLineLimitAudit
         }
 
         return substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1);
-    }
-
-    private function relativePath(string $path): string
-    {
-        $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-        $normalized = str_replace('\\', '/', $path);
-        $normalizedBase = str_replace('\\', '/', $base);
-
-        return str_starts_with($normalized, $normalizedBase)
-            ? substr($normalized, strlen($normalizedBase))
-            : $normalized;
     }
 }

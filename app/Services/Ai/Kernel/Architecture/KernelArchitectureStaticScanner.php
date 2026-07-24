@@ -72,8 +72,7 @@ class KernelArchitectureStaticScanner
         private FailureGovernanceAudit $failureGovernanceAudit,
         private InputContractAudit $inputContractAudit,
         private MiscGuardAudit $miscGuardAudit,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{

@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class ReplayObservabilityAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>
@@ -72,7 +70,7 @@ class ReplayObservabilityAudit
         // Façade still declares the KernelReplayReportInput dependency; the replay tool
         // consumers were relocated under GOD-DEBULK D3 to OpenBrainMcp/ReportTools.
         if (! str_contains($mcp, 'private readonly KernelReplayReportInput $replayInput')) {
-            $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay tools must consume KernelReplayReportInput [private readonly KernelReplayReportInput \$replayInput]";
+            $violations[] = 'app/Services/Ai/AtlasOpenBrainMcpService.php: MCP replay tools must consume KernelReplayReportInput [private readonly KernelReplayReportInput $replayInput]';
         }
 
         foreach ([

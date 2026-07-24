@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\File;
 
 class RepairLoopAudit
 {
-    public function __construct(private ScanPrimitivesSupport $primitives)
-    {
-    }
+    public function __construct(private ScanPrimitivesSupport $primitives) {}
 
     /**
      * @return array<string,callable(): array<int,string>>
@@ -86,7 +84,7 @@ class RepairLoopAudit
             'RepairReason::ExecutionBlockedByDryRun',
             'RepairReason::ExecutionNotImplementedContractFoundationOnly',
             "'execution_enabled' => false",
-        ], "app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php: repair loop must remain scaffold-safe"));
+        ], 'app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php: repair loop must remain scaffold-safe'));
 
         $commandPath = app_path('Console/Commands/AtlasAiRepairCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiRepairController.php');
@@ -108,7 +106,7 @@ class RepairLoopAudit
             "'status' => 'planned_scaffold'",
             "'status' => 'attempted_scaffold'",
             "'compliance' => \$repair->complianceReport()",
-        ], "app/Console/Commands/AtlasAiRepairCommand.php: missing safe repair CLI contract"));
+        ], 'app/Console/Commands/AtlasAiRepairCommand.php: missing safe repair CLI contract'));
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($controller, [
             'AtlasRepairOrchestrator',
@@ -123,7 +121,7 @@ class RepairLoopAudit
             "'status' => 'planned_scaffold'",
             "'status' => 'attempted_scaffold'",
             "'compliance' => \$repair->complianceReport()",
-        ], "app/Http/Controllers/AtlasAiRepairController.php: missing safe repair API contract"));
+        ], 'app/Http/Controllers/AtlasAiRepairController.php: missing safe repair API contract'));
 
         if (! str_contains($routes, 'AtlasAiRepairController') || ! str_contains($routes, "Route::post('/ai/repair', AtlasAiRepairController::class);")) {
             $violations[] = 'routes/api.php: POST /ai/repair must be registered inside the atlas.token API group';
@@ -139,7 +137,7 @@ class RepairLoopAudit
             "'kernel_repair' => \$kernelRepairDecision?->toArray()",
             "'kernel_decision' => \$kernelRepairDecision?->toArray()",
             'kernel_repair_contract_blocks',
-        ], "app/Services/Ai/AiWorker.php: native programming repair must pass through kernel repair contract"));
+        ], 'app/Services/Ai/AiWorker.php: native programming repair must pass through kernel repair contract'));
 
         $programmingPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
         $programming = $this->primitives->fileContents($programmingPath);
@@ -153,7 +151,7 @@ class RepairLoopAudit
             "'blocks_when_kernel_blocks' => true",
             "'allowed_strategies' => RepairStrategy::values()",
             "'requires_evidence_for_heavy_repair' => true",
-        ], "app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php: programming repair contract must declare kernel repair policy"));
+        ], 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php: programming repair contract must declare kernel repair policy'));
 
         $harnessPath = app_path('Services/Engineering/EngineeringHarnessExecutionService.php');
         $harness = $this->primitives->fileContents($harnessPath);
@@ -170,7 +168,7 @@ class RepairLoopAudit
             "'decision_required_before_enqueue' => true",
             "'blocks_when_kernel_blocks' => true",
             "'executor' => 'engineering_harness'",
-        ], "app/Services/Engineering/EngineeringHarnessExecutionService.php: engineering harness failures must attach kernel repair decisions"));
+        ], 'app/Services/Engineering/EngineeringHarnessExecutionService.php: engineering harness failures must attach kernel repair decisions'));
 
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
         $ledger = $this->primitives->fileContents($ledgerPath);
@@ -182,7 +180,7 @@ class RepairLoopAudit
             "'emitter_stage' => \$context['emitter_stage'] ?? 'atlas.repair'",
             "'causation_id' => \$context['causation_id'] ?? data_get(\$result->decision->evidencePayload, 'decision_hash')",
             "'repair_executed' => false",
-        ], "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: repair decisions must be recordable as canonical evidence"));
+        ], 'app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: repair decisions must be recordable as canonical evidence'));
 
         $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
         $ledgerCommandPath = app_path('Console/Commands/AtlasAiLedgerCommand.php');
@@ -215,21 +213,21 @@ class RepairLoopAudit
             'LedgerEventType::RepairCompleted',
             'requires_human_review',
             'repairEventFromEvent(',
-        ], "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: repair events must be projectable from ledger replay"));
+        ], 'app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: repair events must be projectable from ledger replay'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($ledgerCommand, [
             '{--repair : Include Repair Loop summary for the envelope}',
             'KernelLedgerEnvelopeReportService $reports',
             'includeRepair: (bool) $this->option(\'repair\')',
-        ], "app/Console/Commands/AtlasAiLedgerCommand.php: ledger CLI must expose repair replay summary"));
+        ], 'app/Console/Commands/AtlasAiLedgerCommand.php: ledger CLI must expose repair replay summary'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($ledgerController, [
             "'repair' => ['nullable', 'boolean']",
             'KernelLedgerEnvelopeReportService $reports',
             'includeRepair: (bool) ($filters[\'repair\'] ?? false)',
-        ], "app/Http/Controllers/AtlasAiLedgerController.php: ledger API must expose repair replay summary"));
+        ], 'app/Http/Controllers/AtlasAiLedgerController.php: ledger API must expose repair replay summary'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($ledgerReport, [
             'repairReportForEnvelope($envelopeId)',
             "\$payload['repair']",
-        ], "app/Services/Ai/Kernel/Evidence/KernelLedgerEnvelopeReportService.php: shared ledger report must expose repair replay summary"));
+        ], 'app/Services/Ai/Kernel/Evidence/KernelLedgerEnvelopeReportService.php: shared ledger report must expose repair replay summary'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($repairReportCommand, [
             'atlas:ai:repair-report',
             'repairReportForWindow(',
@@ -238,7 +236,7 @@ class RepairLoopAudit
             '{--failure-domain= : Filter by failure domain}',
             "'kernel_repair' => \$report",
             'ledger_unavailable',
-        ], "app/Console/Commands/AtlasAiRepairReportCommand.php: dedicated Repair Loop report CLI must expose window projection"));
+        ], 'app/Console/Commands/AtlasAiRepairReportCommand.php: dedicated Repair Loop report CLI must expose window projection'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($repairReportController, [
             'AtlasAiRepairReportController',
             'repairReportForWindow(',
@@ -247,7 +245,7 @@ class RepairLoopAudit
             "'failure_domain' => ['nullable', 'string', 'max:160']",
             "'kernel_repair' => \$report",
             'ledger_unavailable',
-        ], "app/Http/Controllers/AtlasAiRepairReportController.php: dedicated Repair Loop report API must expose window projection"));
+        ], 'app/Http/Controllers/AtlasAiRepairReportController.php: dedicated Repair Loop report API must expose window projection'));
         if (! str_contains($routes, 'AtlasAiRepairReportController') || ! str_contains($routes, "Route::get('/ai/repair/report', AtlasAiRepairReportController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/repair/report must be registered inside the atlas.token API group';
         }
@@ -263,7 +261,7 @@ class RepairLoopAudit
             'Registered commands',
             'Skipped reason',
             'schedulePlanExitCode(',
-        ], "app/Console/Commands/AtlasAiSelfImproveCommand.php: Self-Improvement schedule plan must be inspectable from CLI"));
+        ], 'app/Console/Commands/AtlasAiSelfImproveCommand.php: Self-Improvement schedule plan must be inspectable from CLI'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($selfImprovementSchedule, [
             'schedulePlan()',
             'scheduleHealth()',
@@ -292,12 +290,12 @@ class RepairLoopAudit
             "'repair_loop_review'",
             "'kernel_pipeline_review'",
             'SUPPORTED_FLOWS',
-        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: recurring Self-Improvement schedule must be centralized and include Repair Loop review by default"));
+        ], 'app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: recurring Self-Improvement schedule must be centralized and include Repair Loop review by default'));
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($selfImprovementScheduleController, [
             'AtlasAiSelfImprovementScheduleController',
             'AtlasSelfImprovementScheduleService',
             'schedulePlan()',
-        ], "app/Http/Controllers/AtlasAiSelfImprovementScheduleController.php: Self-Improvement schedule plan must be inspectable from API"));
+        ], 'app/Http/Controllers/AtlasAiSelfImprovementScheduleController.php: Self-Improvement schedule plan must be inspectable from API'));
         if (! str_contains($routes, 'AtlasAiSelfImprovementScheduleController') || ! str_contains($routes, "Route::get('/ai/self-improvement/schedule', AtlasAiSelfImprovementScheduleController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/self-improvement/schedule must be registered inside the atlas.token API group';
         }
@@ -305,7 +303,7 @@ class RepairLoopAudit
             'AtlasAiSelfImprovementScheduleHealthController',
             'AtlasSelfImprovementScheduleService',
             'scheduleHealth()',
-        ], "app/Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php: Self-Improvement schedule health must be inspectable from API"));
+        ], 'app/Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php: Self-Improvement schedule health must be inspectable from API'));
         if (! str_contains($routes, 'AtlasAiSelfImprovementScheduleHealthController') || ! str_contains($routes, "Route::get('/ai/self-improvement/schedule/health', AtlasAiSelfImprovementScheduleHealthController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/self-improvement/schedule/health must be registered inside the atlas.token API group';
         }
@@ -315,7 +313,7 @@ class RepairLoopAudit
             "->dailyAt(\$selfImprovementCommand['time'])",
             "->timezone(\$selfImprovementCommand['timezone'])",
             '->withoutOverlapping()',
-        ], "bootstrap/app.php: recurring Self-Improvement scheduler registration must use the centralized schedule contract"));
+        ], 'bootstrap/app.php: recurring Self-Improvement scheduler registration must use the centralized schedule contract'));
 
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
         $selfImprovement = $this->primitives->fileContents($selfImprovementPath);
@@ -342,7 +340,7 @@ class RepairLoopAudit
             "'type' => 'domain_catalog'",
             'executable_incomplete_domains',
             'scaffold_domains',
-        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement must consume Repair Loop, Kernel Pipeline, and Domain Catalog onboarding evidence"));
+        ], 'app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement must consume Repair Loop, Kernel Pipeline, and Domain Catalog onboarding evidence'));
 
         return $violations;
     }

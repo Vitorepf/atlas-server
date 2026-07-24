@@ -48,7 +48,7 @@ final class KernelShadowRunRecorder
      * `null` when the flag is off — caller decides whether to log.
      *
      * @param  array<string,mixed>  $kernelEnvelope  The Mission envelope built by AiGatewayMissionBridge.
-     * @param  array<string,mixed>  $legacyOutcome   Provider-safe summary of legacy orchestrator outcome.
+     * @param  array<string,mixed>  $legacyOutcome  Provider-safe summary of legacy orchestrator outcome.
      * @return array<string,mixed>|null
      */
     public function record(string $traceId, array $kernelEnvelope, array $legacyOutcome): ?array
