@@ -1,0 +1,22 @@
+{
+  "schema": "atlas.aaeos.mt.master_amendment_review_basis.v1",
+  "amendment_id": "p3b-trihygiene-aliases-delete-v1",
+  "requirement_id": "R72+R93+P3b",
+  "repo_relative_path": "docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md",
+  "mechanical_evidence_sha256": "ccf6e7a912057224e88316a934d677fe58c2fe83bcfb3766412674d9efbb112c",
+  "unified_diff_sha256": "716b4d5c64523bef315c9f66458d31882c53cd3ffc1507b2976e072c2bc3b372",
+  "unified_diff": "--- a/docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md\n+++ b/docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md\n@@ P3b authorized delete set (from P3A census)\n+### P3b authorized delete set (PHASE-P3A census 2026-07-24)\n+- app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php  # R72\n+- app/Console/Commands/AtlasTriHygieneScorecardCommand.php  # R72\n+- app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php  # R93 cold-neg\n+- composer.json files autoload entry for AaeosHygieneLegacyAliases.php only\n+# RETAIN: PipelineRunExecutor family, OrgState, OutcomeRecorder, Scorecard (readers>0)\n",
+  "gate_evaluated_refs": [
+    {
+      "event_id": "p3b-amend-spec-56f3019b99c0efd9",
+      "role": "specification_reviewer",
+      "verdict": "APPROVED"
+    },
+    {
+      "event_id": "p3b-amend-gov-bc20a29e0f4abb9a",
+      "role": "governance_quality_reviewer",
+      "verdict": "APPROVED"
+    }
+  ],
+  "sha256": "6c2f25695cac5a2c1efa439d0e287a4247a7da00e8e7e6e5a5376333e0e4b942"
+}

@@ -1975,6 +1975,20 @@ Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeReco
 **Gate:** `EXECUTE P3b` only after P3a census paths listed in MASTER amendment  
 **Receipt:** `PHASE-P3B.json`
 
+### P3b authorized delete set (PHASE-P3A census + amendment basis)
+**Amendment id:** `p3b-trihygiene-aliases-delete-v1`  
+**Basis:** `docs/evidence/2026-07-23-aaeos-elite-deepening/P3B-MASTER-AMENDMENT-BASIS.json`  
+**GateEvaluated refs:** `p3b-amend-spec-56f3019b99c0efd9` (specification_reviewer APPROVED) · `p3b-amend-gov-bc20a29e0f4abb9a` (governance_quality_reviewer APPROVED)
+
+Exact delete-only paths (already on production list; zero/low production readers per census):
+```
+app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php
+app/Console/Commands/AtlasTriHygieneScorecardCommand.php
+app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php
+composer.json   # files autoload entry for AaeosHygieneLegacyAliases.php only
+```
+**RETAIN (readers > 0 or R103):** PipelineRunExecutor family · AaeosOrgStateProjector · AaeosCycleOutcomeRecorder · AaeosScorecardProjector
+
 ### Production paths (authorized)
 ```
 composer.json
