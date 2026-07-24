@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\Support\DiskJsonIndexLoader;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -489,21 +490,7 @@ final class AgentRuntimeRegistryQuarantineRepository
      */
     private function loadIndex(): array
     {
-        $disk = $this->disk();
-        if (! $disk->exists(self::INDEX_PATH)) {
-            return [];
-        }
-        $raw = (string) $disk->get(self::INDEX_PATH);
-        try {
-            $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return [];
-        }
-        if (! is_array($decoded)) {
-            return [];
-        }
-
-        return array_values($decoded);
+        return DiskJsonIndexLoader::load($this->disk(), self::INDEX_PATH);
     }
 
     /**
