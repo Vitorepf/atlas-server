@@ -31,6 +31,7 @@
 | Aaeos JSON observe support | projectors 2/4545 + targeted feature 2 green |
 | ProviderCatalog CLI/HTTP residual | Provider unit 68 green |
 | YouTube extractInitialPlayerResponse peel | 19 unit green; ingestion →1185 |
+| AiPromptTextSupport peel | Awis/area memory prompt tests 4 green; builder →1589 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

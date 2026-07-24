@@ -17,6 +17,7 @@ use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Services\Ai\Support\AiPromptTextSupport;
 use App\Support\YesNo;
 
 class AiPromptBuilder
@@ -248,14 +249,14 @@ TXT,
             return '';
         }
 
-        $workspaceName = $this->awisPromptScalar(
+        $workspaceName = AiPromptTextSupport::awisPromptScalar(
             data_get($context, 'workspace.name', data_get($context, 'workspace.key')),
             'workspace desconhecido',
         );
         $neverStartCold = (bool) data_get($context, 'never_start_cold', false);
-        $files = $this->awisPromptList(data_get($context, 'working_set.files', []), 5);
-        $docs = $this->awisPromptList(data_get($context, 'working_set.docs', []), 5);
-        $commands = $this->awisPromptList(data_get($context, 'working_set.commands', []), 5);
+        $files = AiPromptTextSupport::awisPromptList(data_get($context, 'working_set.files', []), 5);
+        $docs = AiPromptTextSupport::awisPromptList(data_get($context, 'working_set.docs', []), 5);
+        $commands = AiPromptTextSupport::awisPromptList(data_get($context, 'working_set.commands', []), 5);
 
         $lines = [
             '# Atlas Workspace Intelligence System',
@@ -266,11 +267,11 @@ TXT,
         ];
 
         $startupLines = [];
-        $launchMode = $this->awisPromptScalar(data_get($context, 'startup_contract.launch_mode'), '');
+        $launchMode = AiPromptTextSupport::awisPromptScalar(data_get($context, 'startup_contract.launch_mode'), '');
         if ($launchMode !== '') {
             $startupLines[] = 'modo de partida: '.$launchMode;
         }
-        $contextMode = $this->awisPromptScalar(data_get($context, 'startup_contract.context_mode'), '');
+        $contextMode = AiPromptTextSupport::awisPromptScalar(data_get($context, 'startup_contract.context_mode'), '');
         if ($contextMode !== '') {
             $startupLines[] = 'modo de contexto: '.$contextMode;
         }
@@ -288,23 +289,23 @@ TXT,
         }
         $startupLines = [
             ...$startupLines,
-            ...array_map(fn (string $item): string => 'sequência: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.load_sequence', []), 6)),
-            ...array_map(fn (string $item): string => 'revalidar antes de enviar: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.revalidate_before_send', []), 6)),
-            ...array_map(fn (string $item): string => 'fronteira humana: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.human_boundary', []), 4)),
+            ...array_map(fn (string $item): string => 'sequência: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'startup_contract.load_sequence', []), 6)),
+            ...array_map(fn (string $item): string => 'revalidar antes de enviar: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'startup_contract.revalidate_before_send', []), 6)),
+            ...array_map(fn (string $item): string => 'fronteira humana: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'startup_contract.human_boundary', []), 4)),
         ];
         if ($startupLines !== []) {
             $lines = [
                 ...$lines,
-                ...$this->awisPromptSectionLines('Contrato de partida', $startupLines),
+                ...AiPromptTextSupport::awisPromptSectionLines('Contrato de partida', $startupLines),
             ];
         }
 
         $lines = [
             ...$lines,
-            ...$this->awisPromptSectionLines('Carregar primeiro', $this->awisPromptList(data_get($context, 'load_first', []), 8)),
-            ...$this->awisPromptSectionLines('Resumo ouro', $this->awisPromptList(data_get($context, 'use_as_summary', []), 6)),
-            ...$this->awisPromptSectionLines('Validar com', $this->awisPromptList(data_get($context, 'validate_with', []), 6)),
-            ...$this->awisPromptSectionLines('Evitar carregar', $this->awisPromptList(data_get($context, 'avoid_loading', []), 6)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Carregar primeiro', AiPromptTextSupport::awisPromptList(data_get($context, 'load_first', []), 8)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Resumo ouro', AiPromptTextSupport::awisPromptList(data_get($context, 'use_as_summary', []), 6)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Validar com', AiPromptTextSupport::awisPromptList(data_get($context, 'validate_with', []), 6)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Evitar carregar', AiPromptTextSupport::awisPromptList(data_get($context, 'avoid_loading', []), 6)),
         ];
 
         if ($files !== [] || $docs !== [] || $commands !== []) {
@@ -321,8 +322,8 @@ TXT,
             }
         }
 
-        $verifyBeforeTrust = $this->awisPromptList(data_get($context, 'evidence_gate.verify_before_trust', []), 4);
-        $humanBoundary = $this->awisPromptList(data_get($context, 'evidence_gate.human_boundary', []), 4);
+        $verifyBeforeTrust = AiPromptTextSupport::awisPromptList(data_get($context, 'evidence_gate.verify_before_trust', []), 4);
+        $humanBoundary = AiPromptTextSupport::awisPromptList(data_get($context, 'evidence_gate.human_boundary', []), 4);
         if ($verifyBeforeTrust !== [] || $humanBoundary !== []) {
             $lines[] = '';
             $lines[] = 'Evidence gate:';
@@ -335,18 +336,18 @@ TXT,
         }
 
         $spaceLines = [
-            ...array_map(fn (string $item): string => 'Space ativo: '.$item, $this->awisPromptList(data_get($context, 'space_context.active_spaces', []), 4)),
-            ...array_map(fn (string $item): string => 'Space forte: '.$item, $this->awisPromptList(data_get($context, 'space_context.strongest_spaces', []), 5)),
-            ...array_map(fn (string $item): string => 'carregar: '.$item, $this->awisPromptList(data_get($context, 'space_context.load_first', []), 6)),
-            ...array_map(fn (string $item): string => 'manter: '.$item, $this->awisPromptList(data_get($context, 'space_context.carry_forward', []), 6)),
-            ...array_map(fn (string $item): string => 'validar: '.$item, $this->awisPromptList(data_get($context, 'space_context.validate_before_use', []), 5)),
-            ...array_map(fn (string $item): string => 'limite humano: '.$item, $this->awisPromptList(data_get($context, 'space_context.human_boundary', []), 4)),
-            ...array_map(fn (string $item): string => 'artifact: '.$item, $this->awisPromptList(data_get($context, 'space_context.artifact_refs', []), 4)),
+            ...array_map(fn (string $item): string => 'Space ativo: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.active_spaces', []), 4)),
+            ...array_map(fn (string $item): string => 'Space forte: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.strongest_spaces', []), 5)),
+            ...array_map(fn (string $item): string => 'carregar: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.load_first', []), 6)),
+            ...array_map(fn (string $item): string => 'manter: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.carry_forward', []), 6)),
+            ...array_map(fn (string $item): string => 'validar: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.validate_before_use', []), 5)),
+            ...array_map(fn (string $item): string => 'limite humano: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.human_boundary', []), 4)),
+            ...array_map(fn (string $item): string => 'artifact: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'space_context.artifact_refs', []), 4)),
         ];
         if ($spaceLines !== []) {
             $lines = [
                 ...$lines,
-                ...$this->awisPromptSectionLines('Spaces vivos', $spaceLines),
+                ...AiPromptTextSupport::awisPromptSectionLines('Spaces vivos', $spaceLines),
             ];
         }
 
@@ -354,39 +355,39 @@ TXT,
         if ((bool) data_get($context, 'artifact_context.replay_ready', false)) {
             $artifactLines[] = 'replay pronto';
         }
-        $latestArtifactHash = $this->awisPromptScalar(data_get($context, 'artifact_context.latest_artifact_hash'), '');
+        $latestArtifactHash = AiPromptTextSupport::awisPromptScalar(data_get($context, 'artifact_context.latest_artifact_hash'), '');
         if ($latestArtifactHash !== '') {
             $artifactLines[] = 'artifact recente: '.$latestArtifactHash;
         }
         $artifactLines = [
             ...$artifactLines,
-            ...array_map(fn (string $item): string => 'carregar: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.load_order', []), 5)),
-            ...array_map(fn (string $item): string => 'validar: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.validate_with', []), 4)),
-            ...array_map(fn (string $item): string => 'padrão reutilizável: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.reusable_patterns', []), 5)),
-            ...array_map(fn (string $item): string => 'Space preservado: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.strongest_spaces', []), 4)),
-            ...array_map(fn (string $item): string => 'atenção: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.warnings', []), 4)),
+            ...array_map(fn (string $item): string => 'carregar: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'artifact_context.load_order', []), 5)),
+            ...array_map(fn (string $item): string => 'validar: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'artifact_context.validate_with', []), 4)),
+            ...array_map(fn (string $item): string => 'padrão reutilizável: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'artifact_context.reusable_patterns', []), 5)),
+            ...array_map(fn (string $item): string => 'Space preservado: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'artifact_context.strongest_spaces', []), 4)),
+            ...array_map(fn (string $item): string => 'atenção: '.$item, AiPromptTextSupport::awisPromptList(data_get($context, 'artifact_context.warnings', []), 4)),
         ];
         if ($artifactLines !== []) {
             $lines = [
                 ...$lines,
-                ...$this->awisPromptSectionLines('Artifacts reutilizáveis', $artifactLines),
+                ...AiPromptTextSupport::awisPromptSectionLines('Artifacts reutilizáveis', $artifactLines),
             ];
         }
 
-        $recentMaintenance = $this->awisPromptList(data_get($context, 'continue_learning.maintenance_recent', []), 5);
+        $recentMaintenance = AiPromptTextSupport::awisPromptList(data_get($context, 'continue_learning.maintenance_recent', []), 5);
         if ($recentMaintenance !== []) {
             $lines = [
                 ...$lines,
-                ...$this->awisPromptSectionLines('Manutenção recente AWIS', $recentMaintenance),
+                ...AiPromptTextSupport::awisPromptSectionLines('Manutenção recente AWIS', $recentMaintenance),
             ];
         }
 
         $lines = [
             ...$lines,
-            ...$this->awisPromptSectionLines('Próxima sessão · carregar', $this->awisPromptList(data_get($context, 'next_session.first_load', []), 6)),
-            ...$this->awisPromptSectionLines('Próxima sessão · validar', $this->awisPromptList(data_get($context, 'next_session.validate_with', []), 5)),
-            ...$this->awisPromptSectionLines('Promover para memória quando', $this->awisPromptList(data_get($context, 'next_session.promote_when', []), 5)),
-            ...$this->awisPromptSectionLines('Rebaixar quando', $this->awisPromptList(data_get($context, 'next_session.demote_when', []), 5)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Próxima sessão · carregar', AiPromptTextSupport::awisPromptList(data_get($context, 'next_session.first_load', []), 6)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Próxima sessão · validar', AiPromptTextSupport::awisPromptList(data_get($context, 'next_session.validate_with', []), 5)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Promover para memória quando', AiPromptTextSupport::awisPromptList(data_get($context, 'next_session.promote_when', []), 5)),
+            ...AiPromptTextSupport::awisPromptSectionLines('Rebaixar quando', AiPromptTextSupport::awisPromptList(data_get($context, 'next_session.demote_when', []), 5)),
         ];
 
         $learning = [
@@ -404,7 +405,7 @@ TXT,
         if ($enabledLearning !== []) {
             $lines = [
                 ...$lines,
-                ...$this->awisPromptSectionLines('Aprendizado contínuo', $enabledLearning),
+                ...AiPromptTextSupport::awisPromptSectionLines('Aprendizado contínuo', $enabledLearning),
             ];
         }
 
@@ -417,55 +418,10 @@ TXT,
     /**
      * @return array<int,string>
      */
-    private function awisPromptList(mixed $values, int $limit = 6): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return collect($values)
-            ->filter(fn (mixed $value): bool => is_scalar($value))
-            ->map(fn (mixed $value): string => trim((string) $value))
-            ->filter(fn (string $value): bool => $value !== '' && ! $this->awisPromptValueIsUnsafe($value))
-            ->unique()
-            ->take($limit)
-            ->values()
-            ->all();
-    }
-
     /**
      * @param  array<int,string>  $items
      * @return array<int,string>
      */
-    private function awisPromptSectionLines(string $title, array $items): array
-    {
-        if ($items === []) {
-            return [];
-        }
-
-        return [
-            '',
-            $title.':',
-            ...array_map(fn (string $item): string => '- '.$item, $items),
-        ];
-    }
-
-    private function awisPromptScalar(mixed $value, string $fallback): string
-    {
-        if (! is_scalar($value)) {
-            return $fallback;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' && ! $this->awisPromptValueIsUnsafe($value) ? $value : $fallback;
-    }
-
-    private function awisPromptValueIsUnsafe(string $value): bool
-    {
-        return preg_match('/\/Users\/|thread_id|source_thread_ids|raw_conversation|response_text|operator_input|full_message/i', $value) === 1;
-    }
-
     /**
      * @param  array<int,array<string,mixed>>  $contextRefs
      * @param  array<string,mixed>  $openBrainInjection
@@ -623,7 +579,7 @@ TXT,
 
     private function bestBundleSkillForInput(string $input): ?string
     {
-        $inputWords = $this->keywords($input);
+        $inputWords = AiPromptTextSupport::keywords($input);
         if ($inputWords === []) {
             return null;
         }
@@ -635,7 +591,7 @@ TXT,
                 continue;
             }
 
-            $haystackWords = $this->keywords($manifest->name.' '.$manifest->description);
+            $haystackWords = AiPromptTextSupport::keywords($manifest->name.' '.$manifest->description);
             if ($haystackWords === []) {
                 continue;
             }
@@ -649,21 +605,6 @@ TXT,
         }
 
         return $bestScore >= 0.22 ? $best : null;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function keywords(string $text): array
-    {
-        $normalized = Str::of($text)->lower()->ascii()->replaceMatches('/[^a-z0-9]+/', ' ')->value();
-        $stop = ['para', 'com', 'uma', 'que', 'quando', 'onde', 'como', 'de', 'do', 'da', 'dos', 'das', 'the', 'and', 'use', 'when'];
-
-        return collect(preg_split('/\s+/', $normalized) ?: [])
-            ->filter(fn (string $word): bool => mb_strlen($word) >= 4 && ! in_array($word, $stop, true))
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function legacySkillExists(string $slug): bool
@@ -816,10 +757,10 @@ TXT,
 
         $mode = (string) data_get($contract, 'mode', data_get($options, 'payload.atlas_mode', 'general'));
         $objective = (string) data_get($contract, 'objective', 'responder com clareza e continuidade');
-        $expected = $this->stringList(data_get($contract, 'expected_output', []));
+        $expected = AiPromptTextSupport::stringList(data_get($contract, 'expected_output', []));
         $quality = data_get($options, 'payload.quality_policy');
         $qualityRules = is_array($quality) && $quality !== []
-            ? $this->keyValueLines($quality)
+            ? AiPromptTextSupport::keyValueLines($quality)
             : '- sem regras adicionais';
 
         $modeRules = match ($mode) {
@@ -858,35 +799,6 @@ Regras do modo:
 TXT;
     }
 
-    private function stringList(mixed $values): string
-    {
-        if (! is_array($values)) {
-            return '';
-        }
-
-        return collect($values)
-            ->filter(fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')
-            ->map(fn (mixed $value): string => '- '.trim((string) $value))
-            ->implode("\n");
-    }
-
-    private function keyValueLines(array $values): string
-    {
-        return collect($values)
-            ->map(function (mixed $value, string|int $key): string {
-                if (is_bool($value)) {
-                    $value = YesNo::trueFalse($value);
-                } elseif (is_array($value)) {
-                    $value = implode(', ', array_map(fn (mixed $item): string => (string) $item, $value));
-                } elseif (! is_scalar($value)) {
-                    $value = 'n/a';
-                }
-
-                return '- '.$key.': '.trim((string) $value);
-            })
-            ->implode("\n");
-    }
-
     private function specialistFlowInstructions(array $options): string
     {
         $execution = data_get($options, 'payload.specialist_flow_execution');
@@ -899,15 +811,15 @@ TXT;
         $status = (string) data_get($execution, 'status', 'ready_for_provider');
         $runtimeReceipt = (string) data_get($execution, 'runtime_receipt_id', 'missing');
         $runtimeHash = (string) data_get($execution, 'runtime_contract_hash', 'missing');
-        $promptContract = $this->stringList(data_get($execution, 'provider_prompt_contract', []));
-        $responseShape = $this->stringList(data_get($execution, 'response_shape', []));
-        $auditChecks = $this->stringList(data_get($execution, 'audit_checks', []));
-        $qualityRubric = $this->stringList(data_get($execution, 'quality_rubric', []));
-        $completionChecks = $this->stringList(data_get($execution, 'completion_checks', []));
-        $failureModes = $this->stringList(data_get($execution, 'failure_modes', []));
+        $promptContract = AiPromptTextSupport::stringList(data_get($execution, 'provider_prompt_contract', []));
+        $responseShape = AiPromptTextSupport::stringList(data_get($execution, 'response_shape', []));
+        $auditChecks = AiPromptTextSupport::stringList(data_get($execution, 'audit_checks', []));
+        $qualityRubric = AiPromptTextSupport::stringList(data_get($execution, 'quality_rubric', []));
+        $completionChecks = AiPromptTextSupport::stringList(data_get($execution, 'completion_checks', []));
+        $failureModes = AiPromptTextSupport::stringList(data_get($execution, 'failure_modes', []));
         $delegation = data_get($execution, 'delegation');
         $delegationLines = is_array($delegation) && $delegation !== []
-            ? $this->keyValueLines($delegation)
+            ? AiPromptTextSupport::keyValueLines($delegation)
             : '- status: not_delegated';
 
         return <<<TXT
@@ -1235,7 +1147,7 @@ TXT;
             return $pages->all();
         }
 
-        $terms = $this->keywords($input);
+        $terms = AiPromptTextSupport::keywords($input);
         if ($terms === []) {
             return $pages->take($limit)->all();
         }
