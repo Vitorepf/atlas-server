@@ -422,10 +422,6 @@ class EngineeringQualityScanService
             return false;
         }
 
-        if (str_ends_with($path, '.sh')) {
-            return true;
-        }
-
         $handle = fopen($path, 'rb');
         if (! $handle) {
             return false;
@@ -434,7 +430,11 @@ class EngineeringQualityScanService
         $firstLine = fgets($handle, 160) ?: '';
         fclose($handle);
 
-        return str_starts_with($firstLine, '#!') && preg_match('/\b(?:bash|sh|zsh)\b/', $firstLine) === 1;
+        if (str_starts_with($firstLine, '#!')) {
+            return preg_match('/\b(?:bash|sh|dash|ksh|busybox\s+sh)\b/', $firstLine) === 1;
+        }
+
+        return str_ends_with($path, '.sh');
     }
 
     /**

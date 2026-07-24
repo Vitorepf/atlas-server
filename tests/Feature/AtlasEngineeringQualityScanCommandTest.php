@@ -66,6 +66,28 @@ class AtlasEngineeringQualityScanCommandTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'awis_workspace_required_for_quality_scan'));
     }
 
+    public function test_quality_scan_does_not_send_zsh_scripts_to_shellcheck(): void
+    {
+        File::ensureDirectoryExists($this->workspace.'/scripts');
+        File::put($this->workspace.'/scripts/zsh-task.sh', "#!/usr/bin/env zsh\necho ok\n");
+        $this->installFakeExecutable('shellcheck', <<<'PHP'
+echo json_encode(['invoked' => array_slice($argv, 1)]);
+exit(0);
+PHP);
+
+        $exit = Artisan::call('atlas:engineering:quality-scan', [
+            '--workspace' => $this->workspace,
+            '--profile' => 'standard',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+        $shellcheck = collect($payload['tools'] ?? [])->firstWhere('slug', 'shellcheck');
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('skipped', data_get($shellcheck, 'status'));
+        $this->assertSame('not_applicable', data_get($shellcheck, 'reason'));
+    }
+
     public function test_quality_scan_blocks_without_registered_awis_workspace(): void
     {
         $unregistered = sys_get_temp_dir().'/atlas-quality-scan-unregistered-'.bin2hex(random_bytes(4));
