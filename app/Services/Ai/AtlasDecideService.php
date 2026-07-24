@@ -257,38 +257,20 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     public function operationalDecision(array $options, ?string $selectedProvider = null, ?string $selectedModel = null): OperationalDecision
     {
         $forceLegacyV2Writer = ($options[self::LEGACY_V2_WRITER] ?? false) === true;
-        $policy = $this->policies->effectiveProfile($options);
-        $manualProvider = $this->manualOverrideProvider($options);
-        $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
-        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'hermes_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'), $policy);
-        $automatic = $this->isAutomaticInvocation($options);
-        $programmingLike = $this->isProgrammingTask($options);
-        $fallbackReason = null;
-
-        if ($selectedProvider === null) {
-            $selectedProvider = $candidateProvider;
-
-            if ($manualProvider === 'claude_codex') {
-                $selectedProvider = 'claude_codex';
-            } elseif (in_array($manualProvider, ProviderCatalog::invocationProviders(), true)) {
-                $selectedProvider = $manualProvider;
-            } elseif ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
-                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: true);
-                $fallbackReason = 'gemini_blocked_for_dev_like_task';
-            } elseif ($automatic && ! $this->policies->providerAllowsAuto($policy, $candidateProvider)) {
-                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: $programmingLike);
-                $fallbackReason = 'candidate_auto_disabled';
-            }
-        } elseif ($selectedProvider !== $candidateProvider) {
-            $fallbackReason = $this->fallbackReasonFromSelection($options, $policy, $candidateProvider, $selectedProvider);
-        }
-        $modelResolution = $this->models->resolveWithSource($selectedProvider, $selectedModel ?: data_get($options, 'payload.requested_model_alias') ?: data_get($options, 'payload.model'), $this->modelResolutionContext($options));
-        $selectedModel = $selectedModel ?: ($modelResolution['model'] ?? null);
+        $selection = $this->resolveOperationalProviderSelection($options, $selectedProvider, $selectedModel);
+        $policy = $selection['policy'];
+        $manualProvider = $selection['manual_provider'];
+        $selectionMode = $selection['selection_mode'];
+        $candidateProvider = $selection['candidate_provider'];
+        $selectedProvider = $selection['selected_provider'];
+        $selectedModel = $selection['selected_model'];
+        $modelResolution = $selection['model_resolution'];
+        $fallbackReason = $selection['fallback_reason'];
 
         $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
         $runtimeGraph = $plan['execution_graph'];
         $decisionId = (string) Str::orderedUuid();
-        $selectionExplanation = $this->providerSelectionExplanation(
+        $selectionExplanation = $this->buildOperationalSelectionExplanation(
             options: $options,
             policy: $policy,
             plan: $plan,
@@ -299,26 +281,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             fallbackReason: $fallbackReason,
             manualProvider: $manualProvider,
         );
-        $selectionExplanation['rivals_advisory'] = $this->rivalsAdvisoryContext(
-            options: $options,
-            plan: $plan,
-            selectedProvider: $selectedProvider,
-            selectedModel: $selectedModel,
-        );
-        if ($candidateProvider === 'hermes_cli' || $selectedProvider === 'hermes_cli') {
-            $selectionExplanation['hermes_runtime_router'] = $this->hermesRouter->buildReceipt(
-                $options,
-                $policy,
-                $selectedProvider === 'hermes_cli',
-                $fallbackReason,
-            );
-        }
-        // Executive Mesh auto-route advice (default-safe, observability-only): the
-        // sealed advisor says whether this mission SHOULD fan out as a governed
-        // many-agent mesh. mesh_advised stays false unless mesh.policy=atlas_adapter
-        // AND a decomposition signal is present AND privacy permits — so attaching
-        // it here never changes provider selection.
-        $selectionExplanation['hermes_mesh_routing'] = $this->meshAdvisor->advise($options);
         $kernelContracts = $this->kernelContracts->kernelContractReceipts(
             options: $options,
             policy: $policy,
@@ -357,6 +319,165 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         }
         $this->recordDecisionReceipt($receiptV2, $options);
 
+        return OperationalDecision::fromArray($this->assembleOperationalDecisionArray(
+            options: $options,
+            policy: $policy,
+            plan: $plan,
+            decisionId: $decisionId,
+            candidateProvider: $candidateProvider,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+            modelResolution: $modelResolution,
+            selectionMode: $selectionMode,
+            fallbackReason: $fallbackReason,
+            manualProvider: $manualProvider,
+            selectionExplanation: $selectionExplanation,
+            runtimeGraph: $runtimeGraph,
+            receiptV2: $receiptV2,
+            receiptV3: is_array($receiptV3) ? $receiptV3 : null,
+            kernelContracts: $kernelContracts,
+        ));
+    }
+
+    /**
+     * Resolve provider/model selection for operationalDecision (candidate → overrides → fallbacks).
+     *
+     * @param  array<string, mixed>  $options
+     * @return array{
+     *   policy: array<string, mixed>,
+     *   manual_provider: ?string,
+     *   selection_mode: string,
+     *   candidate_provider: string,
+     *   selected_provider: string,
+     *   selected_model: ?string,
+     *   model_resolution: array<string, mixed>,
+     *   fallback_reason: ?string
+     * }
+     */
+    private function resolveOperationalProviderSelection(array $options, ?string $selectedProvider, ?string $selectedModel): array
+    {
+        $policy = $this->policies->effectiveProfile($options);
+        $manualProvider = $this->manualOverrideProvider($options);
+        $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
+        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'hermes_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'), $policy);
+        $automatic = $this->isAutomaticInvocation($options);
+        $programmingLike = $this->isProgrammingTask($options);
+        $fallbackReason = null;
+
+        if ($selectedProvider === null) {
+            $selectedProvider = $candidateProvider;
+
+            if ($manualProvider === 'claude_codex') {
+                $selectedProvider = 'claude_codex';
+            } elseif (in_array($manualProvider, ProviderCatalog::invocationProviders(), true)) {
+                $selectedProvider = $manualProvider;
+            } elseif ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
+                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: true);
+                $fallbackReason = 'gemini_blocked_for_dev_like_task';
+            } elseif ($automatic && ! $this->policies->providerAllowsAuto($policy, $candidateProvider)) {
+                $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: $programmingLike);
+                $fallbackReason = 'candidate_auto_disabled';
+            }
+        } elseif ($selectedProvider !== $candidateProvider) {
+            $fallbackReason = $this->fallbackReasonFromSelection($options, $policy, $candidateProvider, $selectedProvider);
+        }
+        $modelResolution = $this->models->resolveWithSource($selectedProvider, $selectedModel ?: data_get($options, 'payload.requested_model_alias') ?: data_get($options, 'payload.model'), $this->modelResolutionContext($options));
+        $selectedModel = $selectedModel ?: ($modelResolution['model'] ?? null);
+
+        return [
+            'policy' => $policy,
+            'manual_provider' => $manualProvider,
+            'selection_mode' => $selectionMode,
+            'candidate_provider' => $candidateProvider,
+            'selected_provider' => $selectedProvider,
+            'selected_model' => $selectedModel,
+            'model_resolution' => $modelResolution,
+            'fallback_reason' => $fallbackReason,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @param  array<string, mixed>  $policy
+     * @param  array<string, mixed>  $plan
+     * @return array<string, mixed>
+     */
+    private function buildOperationalSelectionExplanation(
+        array $options,
+        array $policy,
+        array $plan,
+        string $candidateProvider,
+        string $selectedProvider,
+        ?string $selectedModel,
+        string $selectionMode,
+        ?string $fallbackReason,
+        ?string $manualProvider,
+    ): array {
+        $selectionExplanation = $this->providerSelectionExplanation(
+            options: $options,
+            policy: $policy,
+            plan: $plan,
+            candidateProvider: $candidateProvider,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+            selectionMode: $selectionMode,
+            fallbackReason: $fallbackReason,
+            manualProvider: $manualProvider,
+        );
+        $selectionExplanation['rivals_advisory'] = $this->rivalsAdvisoryContext(
+            options: $options,
+            plan: $plan,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
+        );
+        if ($candidateProvider === 'hermes_cli' || $selectedProvider === 'hermes_cli') {
+            $selectionExplanation['hermes_runtime_router'] = $this->hermesRouter->buildReceipt(
+                $options,
+                $policy,
+                $selectedProvider === 'hermes_cli',
+                $fallbackReason,
+            );
+        }
+        // Executive Mesh auto-route advice (default-safe, observability-only): the
+        // sealed advisor says whether this mission SHOULD fan out as a governed
+        // many-agent mesh. mesh_advised stays false unless mesh.policy=atlas_adapter
+        // AND a decomposition signal is present AND privacy permits — so attaching
+        // it here never changes provider selection.
+        $selectionExplanation['hermes_mesh_routing'] = $this->meshAdvisor->advise($options);
+
+        return $selectionExplanation;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @param  array<string, mixed>  $policy
+     * @param  array<string, mixed>  $plan
+     * @param  array<string, mixed>  $modelResolution
+     * @param  array<string, mixed>  $selectionExplanation
+     * @param  array<string, mixed>  $runtimeGraph
+     * @param  array<string, mixed>  $receiptV2
+     * @param  array<string, mixed>|null  $receiptV3
+     * @param  array<string, mixed>  $kernelContracts
+     * @return array<string, mixed>
+     */
+    private function assembleOperationalDecisionArray(
+        array $options,
+        array $policy,
+        array $plan,
+        string $decisionId,
+        string $candidateProvider,
+        string $selectedProvider,
+        ?string $selectedModel,
+        array $modelResolution,
+        string $selectionMode,
+        ?string $fallbackReason,
+        ?string $manualProvider,
+        array $selectionExplanation,
+        array $runtimeGraph,
+        array $receiptV2,
+        ?array $receiptV3,
+        array $kernelContracts,
+    ): array {
         $operationalDecision = [
             'schema_version' => 1,
             'decision_id' => $decisionId,
@@ -413,7 +534,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             $operationalDecision[DecisionReceipt::RECEIPT_V3_KEY] = $receiptV3;
         }
 
-        return OperationalDecision::fromArray($operationalDecision);
+        return $operationalDecision;
     }
 
     /**

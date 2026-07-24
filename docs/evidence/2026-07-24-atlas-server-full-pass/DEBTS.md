@@ -43,7 +43,8 @@
 - [x] AtlasLedgerReplayService SLO + repair summary/review → LedgerReplaySupport (22 unit green)
 - [ ] AtlasLedgerReplayService remaining families (inbox/agent/decision/kernel)
 - [x] AtlasDecideService pure helpers → DecideProviderNormalization (confidence/quality/mode/research/task-type)
-- [ ] AtlasDecideService larger operationalDecision/executionGraph peels residual
+- [x] AtlasDecideService operationalDecision stages (resolveSelection/buildExplanation/assemble; 39 unit green)
+- [ ] AtlasDecideService executionGraph peel residual
 - [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)
 - [ ] OneShotTick invoker further normalize/factory fusion residual
 - [ ] Readiness PartN / HubDelegators peel collapse

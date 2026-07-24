@@ -19,7 +19,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: continuous residual (kernel pipeline summary careful | routes split | floors)
+next: LedgerReplay inbox/agent careful | Decide executionGraph | floors
 ```
 
 ## Progress summary
