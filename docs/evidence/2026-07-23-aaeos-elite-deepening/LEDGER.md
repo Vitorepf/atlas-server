@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P2b-CUTOVER GREEN · **P2b-CONTRACT GREEN** · **NEXT = EXECUTE P1b.1**  
+**State:** P0…P2b-CONTRACT GREEN · **P1b.1 GREEN** · **NEXT = EXECUTE P2c**  
 **Branch:** main only
 
 ## Cursor
@@ -9,13 +9,15 @@
 | Slice | Status | Next |
 |---|---|---|
 | P0–P2a.2 | GREEN | — |
-| P2b-EXPAND→CONTRACT | **GREEN** | Decision v3 ladder complete |
-| **P1b.1** | **NOT_STARTED — ACTIVE** | **EXECUTE P1b.1** (pre-effect replay / characterization) |
+| P2b full ladder | GREEN | Decision v3 complete |
+| **P1b.1** | **GREEN** | pre-effect authority replay |
+| **P2c** | **NOT_STARTED — ACTIVE** | **EXECUTE P2c** (unattended durability) |
+| P1b.2 | blocked on P2c (MASTER) | after P2c |
 
 ## Notes
-- P2b Decision v3: EXPAND → SHADOW → CANARY → CUTOVER → CONTRACT all GREEN
-- Cutover env still default **false** for live traffic until operator enables
-- Unlocks P1b.1 per MASTER serial (after P2b CUTOVER; CONTRACT freezes invariants)
+- Factory requires explicit decision_event_id (no mode-decision-* synthesis)
+- Mutative prepareMutativeCandidate reloads decision from ledger before provider
+- CodeGraph caller opts only narrow trusted/sovereign sets
 
 ## Rule for implementers
 GREEN phases stay GREEN. Ship next DAG gate. Hard bans: git add -A, new organs, vanity 50×, PHPUnit REAL_OPERATION.

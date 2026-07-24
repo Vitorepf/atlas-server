@@ -1,0 +1,105 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P1b.1",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "134d63bcb5da605b5cd201b16612b32b7239bca5",
+  "implementation_commit": "96d132bfa1ac1e7430b0b25211d17667ac421ae8",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/EngineeringKernel/EngineeringModeExecutionOrderFactory.php",
+    "app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php",
+    "app/Services/Engineering/CodeGraph/CodeGraphWorkspaceAccessPolicy.php",
+    "tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php",
+    "tests/Unit/Ai/EngineeringKernel/EngineeringModeExecutionOrderFactoryTest.php",
+    "tests/Unit/CodeGraph/CodeGraphWorkspaceAccessPolicyTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/EngineeringKernel/EngineeringModeExecutionOrderFactory.php",
+    "app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php",
+    "app/Services/Engineering/CodeGraph/CodeGraphWorkspaceAccessPolicy.php",
+    "tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php",
+    "tests/Unit/Ai/EngineeringKernel/EngineeringModeExecutionOrderFactoryTest.php",
+    "tests/Unit/CodeGraph/CodeGraphWorkspaceAccessPolicyTest.php",
+    "tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php",
+    "tests/Feature/Ai/EngineeringKernel/QualityFoundryExecutionCoverageEvidenceTest.php",
+    "tests/Feature/Ai/Programming/AtlasDev/AtlasDevProviderContractNoJson3TaxTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P1b.1 pre-effect matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php tests/Unit/Ai/EngineeringKernel/EngineeringModeExecutionOrderFactoryTest.php tests/Unit/CodeGraph/CodeGraphWorkspaceAccessPolicyTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN pre-effect matrix",
+      "output_fingerprint_or_ref": "controller-verification/P1b1:24-passed-86-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "blocker:pre_effect_decision_authority_missing",
+    "error:engineering_order_decision_event_id_required",
+    "codegraph:caller_opts_narrow_only"
+  ],
+  "exit_checklist": {
+    "no_factory_decision_id_synthesis": true,
+    "pre_effect_reload_before_provider": true,
+    "fake_decision_refuses_mutation": true,
+    "codegraph_caller_opts_narrow_only": true,
+    "characterization_only_no_new_act_path": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Factory no longer synthesizes mode-decision-* fallbacks",
+    "Mutative prepare reloads decision from ledger before provider",
+    "CodeGraph sovereign/trusted opts intersection-only"
+  ],
+  "residuals_still_open": [
+    "P1b.2 native ACT/settlement not started",
+    "Full revoked/stale lease golden suite may expand later",
+    "R-P2A1-PG-LIVE / R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "f74ca7911feb979aa402cfc774b2385bd8bd41ca2b66f3d7066d413d3fc65bf5",
+    "ledger_content_sha256": "d909fffc9ebcbadbaa4140e2ce688f6c55311ed3d5eee773185124ef9d3a8503",
+    "scoreboard_content_sha256": "25cb71d197f868f3f5401f408ca669fb2a4df55f4864f7dd75e13fcb0afc53de",
+    "sha256": "60e2170ba76fe8f2758d670641e64d535d69e1c13d3cd48d74a8c3994b1b160e"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2c",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P1b.1 GREEN path-core. DAG next often P2c after P1b.1 (MASTER serial); P1b.2 waits P2c. Cursor: EXECUTE P2c or continue characterization."
+}
