@@ -12,6 +12,7 @@ use App\Services\Ai\Cli\IntentPermissionResolver;
 use App\Services\Ai\Cli\IntentResolution;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasPhpBinary;
@@ -909,8 +910,25 @@ class AiChatUiSection
         $sandboxes = is_array($sandboxes) ? $sandboxes : [];
         $allowUnsandboxedProvider = (bool) $this->command->option('allow-unsandboxed')
             || (bool) config('atlas.ai.tool_permissions.allow_unsandboxed_write', false);
+        $workspaceCert = null;
+        if (in_array($mode, ['write', 'danger'], true)) {
+            $gate = app(AtlasWorkspaceIntelligenceExecutionGateService::class)->gate(
+                workspace: $workspace,
+                mode: $workflowMode === '' ? 'dev' : $workflowMode,
+                task: 'atlas_cli_workspace_permission_certification',
+            );
+            if (($gate['allowed'] ?? false) === true) {
+                $workspaceCert = [
+                    'status' => 'available',
+                    'mode' => $mode,
+                    'workspace_id' => (string) ($gate['workspace_id'] ?? ''),
+                    'gate_hash' => (string) ($gate['gate_hash'] ?? ''),
+                    'source' => 'awis_execution_gate',
+                ];
+            }
+        }
 
-        return [
+        $permissions = [
             'schema_version' => 1,
             'source' => 'atlas_cli',
             'mode' => $mode,
@@ -926,6 +944,11 @@ class AiChatUiSection
             'capabilities' => $this->capabilitiesForPermissionMode($mode),
             'allowed_roots' => $this->allowedRootsForPrompt(),
         ];
+        if ($workspaceCert !== null) {
+            $permissions['workspace_cert'] = $workspaceCert;
+        }
+
+        return $permissions;
     }
 
     public function permissionMode(string $requested, string $workflowMode): string

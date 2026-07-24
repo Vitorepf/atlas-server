@@ -108,7 +108,9 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
             ],
             [
                 'id' => 'engineering_runner_provider',
-                'path' => 'app/Services/Engineering/EngineeringHarnessRunnerService.php',
+                // The mutative AWIS preflight lives in the extracted evidence
+                // section; the runner delegates to it before any provider call.
+                'path' => 'app/Services/Engineering/EngineeringHarness/HarnessEvidenceSection.php',
                 'required_markers' => [
                     'AtlasWorkspaceIntelligenceExecutionGateService',
                     'awis_workspace_required_for_engineering_run',
