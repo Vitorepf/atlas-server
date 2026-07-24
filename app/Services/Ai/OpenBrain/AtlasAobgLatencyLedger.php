@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrain;
 
+use App\Support\UtcIsoTimestamp;
 use App\Support\RoundOrNull;
 use App\Support\ArrayPercentile;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
@@ -270,15 +271,7 @@ final class AtlasAobgLatencyLedger
 
     private function normalizeTimestamp(?string $ts): string
     {
-        if ($ts === null || trim($ts) === '') {
-            return gmdate('c');
-        }
-
-        try {
-            return (new DateTimeImmutable($ts))->setTimezone(new DateTimeZone('UTC'))->format('c');
-        } catch (Throwable) {
-            return gmdate('c');
-        }
+        return UtcIsoTimestamp::normalize($ts);
     }
 
     private function normalizeDay(string $day): string
