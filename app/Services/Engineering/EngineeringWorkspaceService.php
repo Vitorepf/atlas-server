@@ -9,6 +9,7 @@ use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -98,7 +99,8 @@ class EngineeringWorkspaceService
         // the clean worktree so fresh-process certification does not resolve
         // back to the dirty parent workspace.
         $parentProfile = $this->workspaceProfiles->findContainingPath((string) $base['original_workspace']);
-        $this->workspaceProfiles->upsertPersistedProfile([
+        if (Schema::hasTable('atlas_workspace_profiles')) {
+            $this->workspaceProfiles->upsertPersistedProfile([
             'slug' => 'engineering-run-'.$run->id,
             'name' => 'Engineering run '.$run->id,
             'kind' => 'isolated',
@@ -111,7 +113,8 @@ class EngineeringWorkspaceService
             'critical_areas' => (array) ($parentProfile['critical_areas'] ?? []),
             'source' => 'engineering_workspace_service',
             'status' => 'active',
-        ]);
+            ]);
+        }
 
         $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
 
