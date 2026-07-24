@@ -31,7 +31,7 @@
 - [x] EnterpriseReportDashboardHtml shell → Template class (host ~552L)
 - [x] CertificationWorkbenchDelegators → map+__call (~1985→272L, 219 methods)
 - [x] OpenBrainMcpToolCatalog::definitions → data file (catalog 25L + definitions 1089L)
-- [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)
+- [x] EnterpriseFlowFixtureActionRuntimeService::run loadFlowFinds table (119 paths; golden 2 tests / 240 asserts)
 - [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
 - [x] AtlasTaskServingService::report intake validateReportIntake peel (8 unit tests green)
 - [ ] AtlasTaskServingService::report commit/success path further stages
