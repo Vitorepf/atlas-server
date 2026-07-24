@@ -27,6 +27,53 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         $this->assertNull($guard->violationForReceipt(['decision_receipt' => ['receipt_id' => 'legacy']]));
     }
 
+    public function test_blocks_a_cryptographically_valid_v3_only_receipt_during_expand(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v3' => $this->validV3Receipt(),
+        ]);
+
+        $this->assertSame('decision_receipt_v3_non_authoritative', $violation?->errorCode);
+        $this->assertSame('atlas.decide.v3', $violation?->schemaVersion);
+    }
+
+    public function test_blocks_v3_only_receipt_when_a_bound_authority_field_is_tampered(): void
+    {
+        $receipt = $this->validV3Receipt();
+        $receipt['authority']['effect']['class'] = 'different_effect';
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt(['receipt_v3' => $receipt]);
+
+        $this->assertSame('decision_receipt_v3_hash_mismatch', $violation?->errorCode);
+    }
+
+    public function test_fails_closed_for_a_malformed_v3_authority_even_if_the_envelope_is_rehashed(): void
+    {
+        $receipt = $this->validV3Receipt();
+        unset($receipt['authority']['nonce']);
+        $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt(['receipt_v3' => $receipt]);
+
+        $this->assertSame('decision_receipt_v3_invalid', $violation?->errorCode);
+    }
+
+    public function test_v2_governs_during_expand_when_a_v2_and_v3_receipt_are_both_present(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $v3 = $this->validV3Receipt();
+        $v3['authority']['budget']['max_effects'] = 2;
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v2' => $this->issuedReceipt(),
+            'receipt_v3' => $v3,
+        ]);
+
+        $this->assertNull($violation);
+    }
+
     public function test_accepts_valid_live_receipt(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
@@ -288,5 +335,76 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
             'required_evidence' => ['summary'],
             'repair_policy' => ['enabled' => false, 'max_attempts' => 0],
         ], $decision))->toArray();
+    }
+
+    /** @return array<string,mixed> */
+    private function validV3Receipt(): array
+    {
+        $receipt = [
+            'receipt_id' => 'rcpt_v3_expand_only',
+            'envelope_id' => 'env_v3_expand_only',
+            'schema_version' => 'atlas.decide.v3',
+            'issued_at' => '2026-07-24T11:59:00Z',
+            'expires_at' => '2026-07-24T12:01:00Z',
+            'dry_run' => false,
+            'signed_by' => 'atlas.decide.v3',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+            'risk' => 'high',
+            'provider_selection' => ['primary' => 'codex_cli', 'model' => 'gpt-5.5', 'fallbacks' => []],
+            'budgets' => ['provider_calls' => 1],
+            'required_gates' => ['authority'],
+            'required_evidence' => ['receipt'],
+            'repair_policy' => ['enabled' => false, 'max_attempts' => 0],
+            'inputs_hash' => str_repeat('b', 64),
+            'parent_receipt_id' => null,
+            'chain_hash' => str_repeat('c', 64),
+            'authority' => [
+                'authority_id' => 'mandate-01',
+                'issuer_key_id' => 'key-01',
+                'lifecycle' => ['status' => 'active', 'revision' => 1],
+                'audience' => ['tenant_id' => 'tenant-01', 'principal_id' => 'principal-01'],
+                'scope' => ['workspace_id' => 'workspace-01', 'modes' => ['dev'], 'capability' => 'programming.dev'],
+                'effect' => ['class' => 'provider_tool_sandbox_mutation', 'allowed' => true],
+                'budget' => ['budget_id' => 'budget-01', 'max_effects' => 1],
+                'nonce' => 'nonce-01',
+                'revocation_head' => str_repeat('a', 64),
+                'separation_of_duties' => [
+                    'issuer_principal_id' => 'issuer-01',
+                    'executor_principal_id' => 'executor-01',
+                ],
+            ],
+        ];
+        $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
+
+        return $receipt;
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function independentV3Hash(array $receipt): string
+    {
+        unset($receipt['receipt_hash']);
+
+        return hash('sha256', json_encode(
+            $this->independentCanonicalize($receipt),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
+    }
+
+    private function independentCanonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $isList = array_is_list($value);
+        if (! $isList) {
+            ksort($value);
+        }
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->independentCanonicalize($item);
+        }
+
+        return $isList ? array_values($value) : $value;
     }
 }

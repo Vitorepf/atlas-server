@@ -6,6 +6,8 @@ use Carbon\CarbonImmutable;
 
 final readonly class Provenance
 {
+    use EnvelopeStringHelper;
+
     public function __construct(
         public string $surfaceId,
         public string $surfaceVersion,

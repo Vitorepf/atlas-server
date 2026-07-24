@@ -42,10 +42,18 @@ class DecisionReceiptRuntimeGuard
         ?string $runtimeModel = null,
         ?string $runtimeStage = null,
     ): ?DecisionReceiptRuntimeViolation {
-        $receiptV2 = data_get($receipt, 'receipt_v2');
+        $receiptV2 = data_get($receipt, DecisionReceipt::RECEIPT_V2_KEY);
         if (! is_array($receiptV2)) {
-            return null;
+            $receiptV3 = data_get($receipt, DecisionReceipt::RECEIPT_V3_KEY);
+
+            return is_array($receiptV3)
+                ? $this->v3ExpandViolation($receiptV3)
+                : null;
         }
+
+        // EXPAND dual-read rule: V2 remains the governing receipt while the
+        // V3 transport is introduced. SHADOW/CANARY own contradiction and
+        // writer policy; they must not be smuggled into this phase.
 
         $receiptId = data_get($receiptV2, 'receipt_id');
         $envelopeId = data_get($receiptV2, 'envelope_id');
@@ -134,6 +142,183 @@ class DecisionReceiptRuntimeGuard
         }
 
         return null;
+    }
+
+    /**
+     * V3 bytes can be parsed and integrity-checked in EXPAND, but no V3-only
+     * envelope can authorize runtime work before the CANARY/CUTOVER path.
+     *
+     * @param  array<string,mixed>  $receiptV3
+     */
+    private function v3ExpandViolation(array $receiptV3): DecisionReceiptRuntimeViolation
+    {
+        $base = $this->baseForReceipt($receiptV3);
+        if (($base['schemaVersion'] ?? null) !== DecisionReceipt::SCHEMA_VERSION_V3
+            || ! $this->v3EnvelopeIsParseable($receiptV3)) {
+            return $this->v3Violation(
+                'decision_receipt_v3_invalid',
+                'DecisionReceipt v3 invalido: envelope de autoridade incompleto ou malformado.',
+                $base,
+            );
+        }
+
+        try {
+            $hashMatches = DecisionReceiptHash::v3FullEnvelopeHashMatches($receiptV3);
+        } catch (\Throwable) {
+            $hashMatches = false;
+        }
+        if (! $hashMatches) {
+            return $this->v3Violation(
+                'decision_receipt_v3_hash_mismatch',
+                'DecisionReceipt v3 invalido: receipt_hash nao cobre o envelope completo de autoridade.',
+                $base,
+            );
+        }
+
+        return $this->v3Violation(
+            'decision_receipt_v3_non_authoritative',
+            'DecisionReceipt v3 foi verificado em EXPAND, mas ainda nao e autoridade de runtime antes de CANARY/CUTOVER.',
+            $base,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}
+     */
+    private function baseForReceipt(array $receipt): array
+    {
+        $receiptId = data_get($receipt, 'receipt_id');
+        $envelopeId = data_get($receipt, 'envelope_id');
+        $schemaVersion = data_get($receipt, 'schema_version');
+        $expiresAt = data_get($receipt, 'expires_at');
+        $dryRun = data_get($receipt, 'dry_run');
+
+        return [
+            'receiptId' => is_scalar($receiptId) ? (string) $receiptId : null,
+            'envelopeId' => is_scalar($envelopeId) ? (string) $envelopeId : null,
+            'expiresAt' => is_scalar($expiresAt) ? (string) $expiresAt : null,
+            'dryRun' => is_bool($dryRun) ? $dryRun : null,
+            'schemaVersion' => is_scalar($schemaVersion) ? (string) $schemaVersion : null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptV3
+     */
+    private function v3EnvelopeIsParseable(array $receiptV3): bool
+    {
+        foreach ([
+            'receipt_id', 'envelope_id', 'issued_at', 'expires_at', 'signed_by',
+            'domain', 'flow', 'risk', 'inputs_hash', 'chain_hash',
+        ] as $field) {
+            if ($this->stringOrNull(data_get($receiptV3, $field)) === null) {
+                return false;
+            }
+        }
+        if (! is_bool(data_get($receiptV3, 'dry_run'))
+            || preg_match('/^[a-f0-9]{64}$/', (string) data_get($receiptV3, 'inputs_hash')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/', (string) data_get($receiptV3, 'chain_hash')) !== 1
+            || ! is_array(data_get($receiptV3, 'provider_selection'))
+            || ! is_array(data_get($receiptV3, 'budgets'))
+            || ! is_array(data_get($receiptV3, 'required_gates'))
+            || ! is_array(data_get($receiptV3, 'required_evidence'))
+            || ! is_array(data_get($receiptV3, 'repair_policy'))) {
+            return false;
+        }
+
+        try {
+            CarbonImmutable::parse((string) data_get($receiptV3, 'issued_at'));
+            CarbonImmutable::parse((string) data_get($receiptV3, 'expires_at'));
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $this->v3AuthorityIsParseable(data_get($receiptV3, 'authority'));
+    }
+
+    private function v3AuthorityIsParseable(mixed $authority): bool
+    {
+        if (! is_array($authority)) {
+            return false;
+        }
+        foreach (DecisionReceipt::V3_AUTHORITY_FIELDS as $field) {
+            if (! array_key_exists($field, $authority)) {
+                return false;
+            }
+        }
+        if ($this->stringOrNull($authority['authority_id'] ?? null) === null
+            || $this->stringOrNull($authority['issuer_key_id'] ?? null) === null
+            || $this->stringOrNull($authority['nonce'] ?? null) === null
+            || preg_match('/^[a-f0-9]{64}$/', (string) ($authority['revocation_head'] ?? '')) !== 1) {
+            return false;
+        }
+
+        $lifecycle = $authority['lifecycle'];
+        $audience = $authority['audience'];
+        $scope = $authority['scope'];
+        $effect = $authority['effect'];
+        $budget = $authority['budget'];
+        $sod = $authority['separation_of_duties'];
+        if (! is_array($lifecycle) || ! is_array($audience) || ! is_array($scope)
+            || ! is_array($effect) || ! is_array($budget) || ! is_array($sod)
+            || $this->stringOrNull($lifecycle['status'] ?? null) !== 'active'
+            || ! is_int($lifecycle['revision'] ?? null) || $lifecycle['revision'] < 1
+            || $this->authorityIdentity($audience, 'tenant_id') === null
+            || $this->authorityIdentity($audience, 'principal_id') === null
+            || $this->stringOrNull($scope['workspace_id'] ?? null) === null
+            || $this->stringOrNull($scope['capability'] ?? null) === null
+            || ! $this->stringListIsNonEmpty($scope['modes'] ?? null)
+            || $this->stringOrNull($effect['class'] ?? null) === null
+            || ! is_bool($effect['allowed'] ?? null)
+            || $this->stringOrNull($budget['budget_id'] ?? null) === null
+            || ! is_int($budget['max_effects'] ?? null) || $budget['max_effects'] < 0) {
+            return false;
+        }
+
+        $issuer = $this->authorityIdentity($sod, 'issuer_principal_id');
+        $executor = $this->authorityIdentity($sod, 'executor_principal_id');
+
+        return $issuer !== null && $executor !== null && $issuer !== $executor;
+    }
+
+    /** @param array<string,mixed> $values */
+    private function authorityIdentity(array $values, string $key): ?string
+    {
+        $value = $this->stringOrNull($values[$key] ?? null);
+
+        return in_array($value, ['default', 'system', 'unknown'], true) ? null : $value;
+    }
+
+    private function stringListIsNonEmpty(mixed $values): bool
+    {
+        if (! is_array($values) || $values === []) {
+            return false;
+        }
+
+        foreach ($values as $value) {
+            if ($this->stringOrNull($value) === null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
+     */
+    private function v3Violation(string $errorCode, string $message, array $base): DecisionReceiptRuntimeViolation
+    {
+        return new DecisionReceiptRuntimeViolation(
+            errorCode: $errorCode,
+            message: $message,
+            receiptId: $base['receiptId'],
+            envelopeId: $base['envelopeId'],
+            expiresAt: $base['expiresAt'],
+            dryRun: $base['dryRun'],
+            schemaVersion: $base['schemaVersion'],
+        );
     }
 
     /**

@@ -186,4 +186,24 @@ class DecisionReceiptIssuerTest extends TestCase
             'receipt_hash' => $receipt->receiptHash,
         ]), $receipt->chainHash);
     }
+
+    public function test_expand_keeps_v2_issuer_bytes_and_does_not_emit_a_v3_writer(): void
+    {
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'preserve receipt v2 bytes']);
+        $receipt = app(DecisionReceiptIssuer::class)->issue($envelope, [
+            'receipt_id' => 'immutable-v2-expand',
+            'issued_at' => '2026-07-24T12:00:00Z',
+            'expires_at' => '2026-07-24T12:01:00Z',
+            'domain' => 'programming',
+            'flow' => 'programming.dev',
+        ]);
+
+        $first = $receipt->toArray();
+        $roundTrip = json_decode(json_encode($first, JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(DecisionReceipt::SCHEMA_VERSION, $first['schema_version']);
+        $this->assertArrayNotHasKey(DecisionReceipt::RECEIPT_V3_KEY, $first);
+        $this->assertSame($first, $roundTrip);
+        $this->assertSame($first, $receipt->toArray());
+    }
 }

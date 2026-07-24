@@ -8,6 +8,30 @@ final readonly class DecisionReceipt
 {
     public const SCHEMA_VERSION = 'atlas.decide.v2';
 
+    public const SCHEMA_VERSION_V3 = 'atlas.decide.v3';
+
+    public const RECEIPT_V2_KEY = 'receipt_v2';
+
+    public const RECEIPT_V3_KEY = 'receipt_v3';
+
+    /**
+     * V3 reserves the complete standing-authority envelope. EXPAND only
+     * parses/verifies these bytes; issuance remains the immutable V2 writer
+     * until the later CANARY gate.
+     */
+    public const V3_AUTHORITY_FIELDS = [
+        'authority_id',
+        'issuer_key_id',
+        'lifecycle',
+        'audience',
+        'scope',
+        'effect',
+        'budget',
+        'nonce',
+        'revocation_head',
+        'separation_of_duties',
+    ];
+
     /**
      * @param  array<int,string>  $requiredGates
      * @param  array<int,string>  $requiredEvidence

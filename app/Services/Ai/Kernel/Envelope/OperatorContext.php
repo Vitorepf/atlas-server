@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Envelope;
 
 final readonly class OperatorContext
 {
+    use EnvelopeStringHelper;
+
     /**
      * @param  array<string,mixed>  $preferences
      */

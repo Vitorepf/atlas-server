@@ -4,6 +4,8 @@ namespace App\Services\Ai\Kernel\Envelope;
 
 final readonly class KernelInput
 {
+    use EnvelopeStringHelper;
+
     /**
      * @param  array<int,array<string,mixed>>  $attachments
      * @param  array<string,mixed>  $hints
