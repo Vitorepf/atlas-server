@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v9 — operator-OneShot, journey integrity and native-loop closure (R75–R82)
+> Version: v10 — mother-block-of-law, provider-governance M-lever, falsifiable M, cycle-4 consolidation (R83–R93); incorporates the crash-safe/real-proof disk-truth additions
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -13,6 +13,8 @@ This is the only master plan for this program. LEDGER.md and SCOREBOARD.md are i
 ## 0. Outcome and authority of this document
 
 The target is not a bigger AAEOS. It is a smaller optional Crown that reliably routes into the engineering systems Atlas already owns, while those systems enforce authority, evidence, recovery and claims at their real effect boundaries.
+
+AAEOS is nonetheless the **mother block** of all Atlas agentic software engineering: it is the constitution and governance authority — the product law (§1), the effect-authority protocol (§4), the proof taxonomy (§6) and the residual government (§7) that every mode obeys. "Optional" and "thin" describe its **muscle** (it re-implements no executor), never its **law**: the governance is central and non-bypassable even though the muscle stays in native owners. The reason this mother block exists is the multiplier **M** — governance, refusal, proof, memory, recovery and mandate applied over untrusted provider output N. M is only real if measured (R84), so this plan keeps M falsifiable and never a vanity number.
 
 This version replaces the duplicated v2–v6 structure. Historical facts and residual IDs are retained here; repeated phase catalogs, receipt schemas, DONE lists, file maps and architecture diagrams are deleted.
 
@@ -48,7 +50,7 @@ The legacy field human_in_engineering_loop must be removed as an authoritative f
 
 ### 1.3 AAEOS position
 
-AAEOS is an optional Control + Spine facade. Direct Dev, Forge and Autônomos remain primary product entries. AAEOS may route, cap, correlate and project evidence; it may not become:
+AAEOS is optional-in-**muscle** but the mother authority in **law**: it is a Control + Spine facade that re-implements no executor, yet Dev, Forge and Autônomos — though primary product entries reachable directly — perform their engineering under the AAEOS product law (§1), effect-authority protocol (§4) and proof/residual government. AAEOS may route, cap, correlate and project evidence; it may not become:
 
 - a mandatory detour;
 - a fourth executor;
@@ -82,7 +84,11 @@ OneShot is a property of the operator experience, never of the internal engineer
 
 Therefore no class, flag, queue, retry policy, test or P4 criterion may interpret OneShot as one technical attempt, one dispatch, one pass, immediate delivery or a shortcut around review.
 
-OneShot proof is server-derived, not declared by a dispatcher or receipt caller. It requires complete capture of the native operator-request and operator-action events for the journey. Missing capture is `unknown`, never zero. Dev may ask only intent questions inside the same commissioning episode; Forge may do so only before its commissioning is sealed; Autônomos permits zero per-task questions or actions. A substantive intent change starts a new commissioning episode rather than being hidden as a clarification.
+OneShot proof is server-derived, not declared by a dispatcher or receipt caller. Its denominator is the complete, versioned census of native operator ingresses and Atlas-to-operator request egresses; every event binds direction, authenticated principal, ingress/egress, episode ref and journey causation. Missing instrumentation or producer seal is `unknown`, never zero.
+
+Dev may ask only an intent question inside the same commissioning episode; Forge may do so only before commissioning is sealed; Autônomos permits zero per-task questions or actions. A clarification must resolve an ambiguity already found by the existing ProductIntent Court and may not choose implementation, provider, test, review, repair, budget, release or effect. Scope, acceptance, risk or authority change opens a new episode. Elective operator audit/pause/revoke is recorded as `operator_initiated_control`, not work requested by Atlas; it never hides an Atlas-requested technical action.
+
+Internal retries are invariant to the OneShot label. They consume the same monotonic signed journey budget and no-progress policy across replan, child packet, handoff, worker or respec; changing an internal id cannot reset authority. A useful attempt changes a server-observed plan, hypothesis, candidate, context delta, test set or authority revision. An identical no-delta attempt is held before another provider call. This is safety and resource governance, not a speed target.
 
 ## 2. Current disk truth
 
@@ -95,6 +101,7 @@ Revalidate before every execution slice. The current plan was grounded on these 
 | Phase receipts | zero PHASE-* artifacts | program is PLAN_ONLY |
 | predecessor receipts | dry only; runtime_write_performed was incorrectly true | no real-operation proof |
 | scorecard/certify | hardcoded hints and GOD_SOTA presentation | not claim authority |
+| exact score fiction | certify injects operate/spine 9.2 and antifragile 9.0; projector defaults operate/spine/antifragile 9.0 and control 9.2 | P0 removes numeric fantasy; preserve this fact in regression tests |
 | CycleRuntime | assertShared(mode, []) can self-green; runtime_write_performed=true; Dev human field=true | P0/P2 blockers |
 | Autônomos dispatch | calls brain:next with nonexistent --scope; brain expects positional scope | R33 live failure |
 | Brain success | exit 0 can mean disabled or dry | R34 false-positive risk |
@@ -104,14 +111,18 @@ Revalidate before every execution slice. The current plan was grounded on these 
 | irreversibility | AaeosIntentCompiler regex/hints feed admission | suspicion, not authority |
 | ExecutionOrder v2 | exact schema; duration enum is interactive, durable_task, obra, continuous; work_topology already exists | do not add conflicting top-level axes |
 | Dev native path | DevPlanRunFacade → AtlasDevExecutionService → Dev Kernel port → Kernel | AAEOS must not bypass it |
+| Dev live binding | AtlasDevServiceProvider binds RunExecutor→KernelRunExecutor and DevPlanRunFacade→AtlasDevExecutionService; PlanApprovalGate still asks operator ship/reject | use the productive binding; retire repeated approval, not the initial authority token |
 | Forge native path | ForgeObraRuntime → work-packet cycle → ExecutionOrder → Kernel | AAEOS must not flatten an Obra |
 | Autônomos native path | Brain → Seed → TaskServing → worker → ScopedCommitter; Kernel only for quality-foundry-bound actions | do not fabricate universal Kernel parity |
+| Autônomos productive composition | ContinuousRuntimeCycleRunner is pure; RuntimeDaemonCycle receives composed facts; productive composition lives in AtlasSelfConstructionRuntimeDaemonCommand | P1a must name one native productive entry; no fictitious “single call” to three unrelated services |
 | canonical land | Governor/ledger/nonce/lease/fencing/write-set bindings already exist | deepen these owners; do not create CRES owner |
 | Evidence Ledger | canonical owner exists; bounded event-type/window query and full chain verification are incomplete | harden owner, never add a counter store |
 | EngineeringOutcome | already owns cost, tokens, elapsed and operator_effort; adverse cause coverage is incomplete | no AAEOS economy receipt |
 | claim authority | RivalsClaimAuthority exists | comparative status is derived from it |
 | reversibility | ReceiptReversibilityConsentGate exists but has no production caller | wire only for true reserved effects |
 | signing | Ed25519 signer exists under Services/AtlasCode; general DecisionReceipt issuer is weaker | reuse/promote primitive, not a second signer |
+| real-proof harness | phpunit forces SQLite :memory:, sync queue and disabled real providers; Forge live service identifies a simulate-only test double | PHPUnit may verify receipts but cannot produce REAL_OPERATION |
+| predecessor operations | the three predecessor mode receipts are dry, carry no live effects and report the old hardcoded write truth | historical only; never P4 evidence |
 
 ### 2.1 Revalidation commands
 
@@ -133,9 +144,9 @@ Any material drift updates the residual ledger before code.
         → AaeosCycleRuntime
         → AaeosLiveDispatchGateway
         → existing AaeosModeLiveDispatcher port
-            Dev handler       → native Dev journey → DevPlanRunFacade attempts → AtlasDevExecutionService
+            Dev handler       → SeniorEngineerLoopExecutor → KernelRunExecutor translator → AtlasDevExecutionService
             Forge handler     → ForgeObraRuntime commission/tick/completeObra
-            Autônomos handler → one native scheduler/daemon-cycle entry → native journey ref
+            Autônomos handler → productive native daemon entry → native journey ref
         → native effect owner performs pre-effect authority replay
         → native actuator acts
         → native actuator/settler records observed effect
@@ -148,9 +159,9 @@ AAEOS does not call EliteExecutorKernel directly. The native Dev and Forge owner
 
 | Concern | Existing owner to reuse | Forbidden duplication |
 |---|---|---|
-| Dev journey and attempts | SeniorEngineerLoopExecutor as journey owner; DevPlanRunFacade and AtlasDevExecutionService as typed attempt owners | Dev executor or retry loop inside AAEOS |
+| Dev journey and attempts | SeniorEngineerLoopExecutor; productive RunExecutor→KernelRunExecutor binding; DevPlanRunFacade→AtlasDevExecutionService binding | Dev executor, translator or retry loop inside AAEOS |
 | Forge continuity/execution | ForgeObraRuntime; ForgeWorkPacketExecutionCycleService | flat/one-call Forge wrapper |
-| Autônomos native cycle | AtlasSelfConstructionContinuousRuntimeCycleRunner; AtlasSelfConstructionRuntimeDaemonCycle; AtlasNativeWorkerClaimExecuteReportCycle | AAEOS-owned Brain/Seed/Task orchestrator |
+| Autônomos native cycle | AtlasSelfConstructionRuntimeDaemonCommand productive composition; RuntimeDaemonCycle; NativeActionExecutor; NativeWorkerProductionCallbacks | AAEOS-owned Brain/Seed/Task orchestrator or a fictitious composite facade |
 | Autônomos origination/seed | Brain and Seed native owners reached by the existing replenisher/scheduler composition | CLI-to-CLI or invented --max protocol |
 | task claim/worker | AtlasTaskServingService and native runtime worker | calling task next a worker |
 | execution contract | ExecutionOrder v2; EngineeringOutcome | EngineeringMission envelope/receipt |
@@ -163,6 +174,8 @@ AAEOS does not call EliteExecutorKernel directly. The native Dev and Forge owner
 | reversibility | ReceiptReversibilityConsentGate | regex-based consent gate |
 | metrics | EngineeringOutcome; Quality Foundry read models | AAEOS cost/token truth |
 | comparative claims | RivalsClaimAuthority | capability_proof field accepted from caller |
+| provider spawn governance / bypass (M-lever) | ProviderGovernanceCoverageLedger; ProviderGovernanceConsult; GovernanceConsultSkipCounter | second bypass meter or ungoverned muscle spawn |
+| delegated learning / memory promotion | AtlasMemoryLearningPromotionService; AtlasHeldEvidenceMinerService; AtlasOpenBrainContextPackService | second memory promoter or evidence→memory bridge under AAEOS |
 | terminal audit | existing atlas:cli:cockpit | new cockpit/shell |
 
 ### 3.3 Deliberate deletions and fusions
@@ -187,7 +200,7 @@ This is a protocol across existing owners, not a new package or product.
 2. PRE-AUTHORIZE: the native tool/actuator gateway resolves an authorized_effect_ceiling from a server-owned action registry/tool contract, arguments, target, active authority receipt and current world state.
 3. ACT: the concrete actuator performs at most the authorized effect.
 4. POST-ATTEST: the actuator/settler derives observed_effect_class from actual tool invocation, write-set, landed SHA or external receipt.
-5. SETTLE: evidence binds authorization, observed effect and outcome. A mismatch gives zero capability credit and triggers refuse-next, revoke, rollback or compensation as applicable.
+5. SETTLE: evidence binds authorization, observed effect and outcome. A mismatch gives zero capability credit and triggers refuse-next, revoke, rollback or compensation as applicable. Rollback/compensation is owned by AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (and revert() for a landed packet); AAEOS never actuates a revert itself. A release proven bad after a green settle is compensated through that owner with its own authorized action and evidence, not re-litigated as a fresh effect (R86).
 
 Land-only observation is insufficient for an external irreversible effect. An effect cannot be blocked retroactively.
 
@@ -199,6 +212,8 @@ Land-only observation is insufficient for an external irreversible effect. An ef
 - Trust derives from the emitting owner, canonical event type, causation chain, hashes and replay, not from a minter='observer' string.
 - Authorization is replayed immediately before the effect, under the same relevant lock/lease where possible.
 - Post-attestation cannot authorize what already happened.
+- Text such as `commitAuthority=operator`, caller actor ids, caller public keys and `observerIdentity` arguments are not trust anchors. Operator events come from authenticated ingress; issuer keys resolve through the trusted existing keyring; effect observations are sealed by the native settler/KernelEvidenceAuthority.
+- A child effect capability binds mode, native audience/deputy, journey root, order/task/delivery id, action kind, canonical target/scope, effect ceiling, budget and one-effect nonce. A standing mandate may span work; its child effect capability may not be replayed across work, mode, action or owner.
 
 ### 4.3 Effect scope of this MT
 
@@ -214,7 +229,21 @@ Land-only observation is insufficient for an external irreversible effect. An ef
 
 P1b proves workspace mutation and canonical release. It does not claim a universal external-effect system.
 
-### 4.4 Sovereignty reserve
+### 4.4 Crash and concurrency semantics
+
+The protocol is a recoverable state relation, not five best-effort calls:
+
+- per effect key, ACT is at-most-once;
+- `ACTED` must eventually become `SETTLED`, `COMPENSATED` or the precise terminal `release_uncertain`; while uncertain, another ACT is forbidden;
+- authorization consume and revoke/expire serialize on authority revision + effect nonce: revoke wins means zero effect; consume wins means one effect whose settlement remains mandatory;
+- authorization receipt/event plus Git trailer/native durable artifact are the recovery journal; no second outbox or recovery store is created;
+- fresh-process reconciliation may append one missing idempotent settlement for the observed SHA/write-set, but may not create a second commit/effect;
+- journey and repair terminals are single-winner and absorbing; late siblings become evidence only;
+- concurrent events form one acyclic causation DAG and a deterministic topological manifest independent of caller clock or arrival permutation.
+
+The crash matrix covers every boundary from authorization through provider/tool, sandbox, commit, observation, settlement, queue/lease/report and Forge cycle transition on the real durable backend.
+
+### 4.5 Sovereignty reserve
 
 Human authority is asynchronous and exceptional:
 
@@ -245,11 +274,13 @@ Do not add delegation_regime, work_origin, sovereignty_channel or assurance tier
 
 The legacy operator_contract.presence string is non-authoritative. It cannot be consumed as technical approval, judge identity or release verdict.
 
-A standing mandate is not an opaque receipt label. Its canonically signed payload binds subject principal, issuer/key, workspace and target scope, capability and version, permitted effect/risk/domain ceilings, budgets, release policy, delegation bounds, validity window, revision/head and revocation lineage. The native owner reloads and verifies that full payload at origination, claim/renewal and immediately before each effect. Missing receipt, unsigned metadata, stale revision, scope mismatch or unprovable revocation head means zero mutative/provider/tool calls. The existing DecisionReceipt owner and promoted Ed25519 primitive remain the only authority; no AAEOS signer or authority store is allowed.
+A standing mandate is not an opaque receipt label. Its canonically signed payload binds subject principal, issuer/key, workspace and target scope, capability and version, permitted effect/risk/domain ceilings, budgets, release policy, delegation bounds, validity window, revision/head and revocation lineage. Issue, renew, narrow, supersede, revoke, expire and key rotation are immutable linked receipts/events, never in-place mutation. Subject/executor cannot issue, expand or declare current its own authority; issuer, executor, author, judge, governor and revoker satisfy the existing independence floor.
 
-### 5.2 Minimal AAEOS cycle receipt
+The native owner reloads and verifies that full payload at origination, claim/renewal, after a long provider call and immediately before sandbox/effect. Missing receipt, unsigned metadata, untrusted issuer key, stale revision, wrong audience, scope mismatch or unprovable revocation head means zero adoption/mutative/provider/tool calls. The existing DecisionReceipt owner and promoted Ed25519 primitive remain the only authority; no AAEOS signer or authority store is allowed. Because this changes signed semantics, the mutative target is `atlas.decide.v3`: v2 remains historical/read-only and returns `decision_receipt_upgrade_required` at a mutative boundary.
 
-The cycle receipt is a projection and correlation envelope, not a second evidence truth:
+### 5.2 Minimal AAEOS cycle receipt v2
+
+The cycle receipt is a projection and correlation envelope, not a second evidence truth. The target writer emits `atlas.aaeos.cycle_receipt.v2`; v1 remains dual-readable as `historical_unverified` and can never satisfy P2/P4.
 
     schema_version
     cycle_id
@@ -271,7 +302,9 @@ The cycle receipt is a projection and correlation envelope, not a second evidenc
     failure_reason               # required for every adverse terminal status
     next_actions
 
-The binding is deliberately non-circular. A canonical `receipt_core_hash` covers the receipt core while excluding `evidence_event_id` and `evidence_event_hash`; the Ledger event stores that core hash. The final read projection may add the event id/hash, but those fields are not rehashed into the core. A journey manifest later binds the ordered event chain and terminal artifact. Duplicate-identical cycle/core writes are idempotent; divergent duplicates fail closed.
+The binding is deliberately non-circular. A canonical `receipt_core_hash` covers the persisted `receipt_core` while excluding `evidence_event_id` and `evidence_event_hash`; the Ledger `AAEOS_CYCLE_RECORDED` payload v2 stores both core and core hash. The Ledger envelope version remains independent. The final read projection may add the event id/hash, but those fields are not rehashed into the core. A journey manifest later binds the causal event DAG and terminal artifact. Duplicate-identical cycle/core writes are idempotent; divergent duplicates fail closed.
+
+Schema rollout is expand → dual-read/shadow-verify → canary writer → mutative cutover → contract. A consumer census classifies each reader as current-authority, legacy-read-only or reject-unknown. Old workers block on an unsupported newer authority before provider/effect. Rollback disables the new writer; it never rehashes, resigns, deletes or backfills authority into historical bytes.
 
 Removed from the target contract:
 
@@ -293,6 +326,8 @@ Economy is a vector over the intent-to-treat cohort of all commissioned journeys
 - revert, rework and late-failure rates;
 - sovereign interventions by H-class;
 - capture coverage and unknown/unattributed resource burn.
+
+The cohort is a canonical left join from every commissioning root in the window to outcomes/costs; a root with no EngineeringOutcome remains in the denominator. AAEOS must add zero provider calls, context builds, retries, workers or mutations versus the paired direct native journey. Fan-out consumes the signed root budget, deduplicates identical candidate hashes before provider use and is never rewarded by agent count. Context accounting separates unique base, useful delta, required protocol retransmission, avoidable identical retransmission and unknown capture. Known deterministic blockers must yield zero subsequent provider calls.
 
 Segment by mode, risk, complexity and canonical duration regime. Quality and safety gates remain primary. Operator touches are not a quality or autonomy KPI.
 
@@ -392,7 +427,7 @@ No default numeric value substitutes for unknown. No composite certifies DONE.
 | R41 | v6 invented conflicting mode axes | v7 deletes; derive from existing contracts |
 | R42 | 17-phase/human-review runbook presented as operate | P3 demote/alignment |
 | R43 | AAEOS uses CLI-to-CLI for Brain/Seed | P1a application extraction |
-| R44 | Spine can self-green from empty declarations | P2 fail closed on applicable missing refs |
+| R44 | Spine can self-green from empty declarations (AaeosEngineeringSpine::assertShared(mode,[]) defaults to shared constants → ok:true with zero refs; AaeosCycleRuntime:75 calls it with []) | FOLDED into R66 (see R93): R66 closes R44 by construction at the strictly stronger settlement-receipt-readback bar; not separately closable |
 | R45 | attention queues risk becoming authority | P2: existing Ledger decision events + read-model projection only |
 | R46 | principal/capability/spec-witness independence not proved | P2 owner hardening, same floor in all modes |
 | R47 | durable sustained government | HORIZON after P4: preregistered ITT window; no Mission Runtime |
@@ -405,18 +440,18 @@ No default numeric value substitutes for unknown. No composite certifies DONE.
 
 | ID | Gap discovered by cycle 1 | Hard done condition |
 |---|---|---|
-| R52 | v6 land-only CRES is too late | pre-authorize → act → post-attest → settle proven for code effects |
+| R52 | v6 land-only CRES is too late | pre-authorize → act → post-attest → settle plus crash-cutpoint reconciliation proven for code effects |
 | R53 | ExecutionOrder proposal may carry caller-authored authority; provider can run before authoritative replay | active decision/authority event reloaded before provider/tool/sandbox |
-| R54 | Ledger integrity/query/dedupe incomplete | recompute canonical event/envelope chain; bounded event-type/window query; divergent duplicate veto |
+| R54 | Ledger integrity/query/dedupe incomplete | recompute full event/envelope chain; single linear head/position under concurrent first writers; bounded query; divergent duplicate veto |
 | R55 | EngineeringOutcome adverse causes/authority incomplete | all statuses authority-bound; adverse status requires precise failure_reason |
-| R56 | Autônomos claim/already_done can be sold as worker/origination | distinct served, claimed, executed, landed, resolved refs; already_done gets no new-work credit |
-| R57 | Forge terminal concurrency/exactly-once is not proved | unique cycle position + lock/CAS + single terminal winner + precise cause |
+| R56 | Autônomos claim/already_done can be sold as worker/origination | distinct served, claimed, executed, landed, resolved refs; commit→queue→lease crash reconciliation; already_done gets no new-work credit |
+| R57 | Forge terminal concurrency/exactly-once is not proved | unique cycle position + lock/CAS + resume one running cycle/provider lifecycle + single terminal winner + precise cause |
 | R58 | v6 capability_proof can become second truth | status derived from hard gates/Rivals only; caller value ignored |
 | R59 | standing mandate is a label without stale-resume proof | mutative unattended path binds active receipt id/hash/revision or remains blocked |
 | R60 | planned ModeExecutor duplicates existing dispatcher port | no new interface; adapters removed after parity |
 | R61 | plan_seal/session enums are labels conflicting with owners | use commissioning/authority hashes and canonical duration enum |
-| R62 | P4 criteria accepted a first effect/exit instead of a completed operator journey | P4 requires end-to-end REAL_OPERATION artifact + fresh-process replay; retries/review/repair remain visible |
-| R63 | reversibility gate is orphan and DecisionReceipt signing is not global-strength | integrate existing gate only for reserved effects; reuse/promote Ed25519 verification at Decide owner |
+| R62 | P4 criteria accepted a first effect/exit or test receipt instead of a completed operator journey | non-testing real producer + durable backend + end-to-end artifact + independent fresh-process verifier; retries/review/repair remain visible |
+| R63 | reversibility gate is orphan and DecisionReceipt signing is not global-strength | integrate existing gate only for reserved effects; promote Ed25519 with trusted keyring at Decision v3 owner |
 
 R43, R44, R46, R51–R63 cannot be waived into DONE. A follow-up debt may exist, but the MT remains PARTIAL.
 
@@ -431,7 +466,7 @@ Root judged the cycle-2 adversarial panel (15 lenses) against v7 and disk. Only 
 | R66 | Spine N11 self-greens from empty/declared refs and is a second disjoint proof | fuse into AaeosEngineeringSpine::assertShared + AaeosSpineGate + AtlasEvidenceLedger | an applicable critical N11 site is satisfied only by an evidence ref resolving to a settlement-emitted effect receipt (observer identity + changed-files hash + landed SHA) via ledger readback; caller-declared/empty refs fail closed; closes R44 by construction |
 | R67 | measure-first is enforced only by a one-time human census; a future receipt field can ship with zero readers | reuse tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest harness | one standing red test reads the field-set from the single receipt builder and fails when a field ships with no non-test reader (nullable-correlation fields exempt by name); no new registry/service |
 | R68 | independence proves principal/capability but is blind to model-weights; under verboo-only, author and judge always share weights and the same in-artifact injection | reuse provider-lock modelFamily / adapter MODEL_FAMILY + SelfConstruction/VerificationCourt | the independence receipt carries model_family_id from trusted issuance (not caller); a same-family author+judge cannot reach landed/certify without a mechanical VerificationCourt verdict; the LLM judge is recorded advisory only |
-| R69 | R49 economy is hand-waved and an accepted-only denominator hides failed/cancelled/recovery burn | reuse AtlasMaestroCostAggregator (aggregateByCycle) + EngineeringOutcome.operatorEffort/tokens + AaeosScorecardProjector | scorecard --view=economy uses every commissioned journey as the primary ITT cohort, includes blocked/timeout/cancel/failure/retry/rollback/recovery burn and capture coverage; accepted-landing efficiency is secondary and counts only observer-minted releases; no new receipt field |
+| R69 | R49 economy is hand-waved and an accepted-only denominator hides failed/cancelled/recovery burn | reuse Ledger commissioning roots + EngineeringOutcome + AtlasMaestroCostAggregator + AaeosScorecardProjector | canonical ITT left join includes roots with no outcome and all blocked/timeout/cancel/failure/retry/rollback/recovery burn; accepted efficiency is secondary; unknown capture stays unknown; no new receipt field |
 | R70 | §P1b land-observer names the two chokepoint files but not the exact primitive, and only one chokepoint is observer-minted (autonomos committer records declared evidence) | reuse AtlasTaskMergeActuator::changedFiles (diff-tree at landed SHA) + CanarySettlementRequest.observerIdentity | post-commit the observed write-set is derived by the same diff-tree primitive as the merge actuator; the autonomos committer's landed event carries observer_identity minted by the settler, not the caller; present-but-false read_only and declared-not-edited goldens pass on both chokepoints |
 | R71 | AaeosOperateScorecardProjector is a verified-zero-consumer hardcoded self-grader gated behind an already-satisfied census | delete app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php | class removed; scorecard/certify truth sources only measured/observed dimensions |
 | R72 | AaeosTriHygieneScorecardProjector scores AEOS by file size/existence — a refactor-progress proxy and the sole Aaeos→AEOS coupling | delete AaeosTriHygieneScorecardProjector + AtlasTriHygieneScorecardCommand | no AAEOS quality number derives from lineCount()/is_file(); honest structural signal reuses SovereignHonestyFloor + AtlasUniversalGatesEvaluator |
@@ -446,16 +481,49 @@ The cycle-3 panel attacked v8 with native Dev/Forge/Autônomos semantics, journe
 
 | ID | Gap surpassing v8 | Existing owner reused / deletion | Hard done condition |
 |---|---|---|---|
-| R75 | refs from different valid runs can be spliced into a fake REAL_OPERATION | reuse native root refs + AtlasEvidenceLedger correlation/causation | journey has one root event/ref and a canonical ordered manifest of event/native/artifact hashes; terminal status is exactly `real_operation_completed`, `blocked_before_effect`, `failed_after_effect`, `authority_exhausted` or `cancelled`; only the first qualifies P4; splice/omit/reorder goldens fail |
-| R76 | OneShot counters can be caller-zeroed or hide technical approvals as clarifications | reuse native Dev operator-action table, Forge commissioning/control events and Decision/Ledger events | 100% capture coverage; typed request/action refs and hashes; derived commissioning episodes, clarifications, technical approvals/reviews, cancel/revoke and reserved decisions; missing capture = unknown; Dev intent clarification is allowed only in the same episode, Forge only pre-seal, Autônomos zero per-task requests/actions/clarifications/waits |
-| R77 | standing mandate is neither fully signed nor provably current; absent receipt currently can pass the runtime guard | reuse/promote HumanDecisionReceiptSigner inside Kernel/Decision owner; delete textual signer authority | full payload in §5.1 is Ed25519 verified, active and non-revoked at origination/claim/renew/pre-effect; absence/mismatch/stale head means zero provider/tool/mutation calls; cross-order and TOCTOU revocation goldens pass |
-| R78 | AAEOS arrays can mint or discard native identity before Dev/Forge/Autônomos owners | reuse DevIntent + ConfirmedDevRun, ForgeCommissioning, existing native scheduler/daemon/worker entry points | native ingress constructs and validates typed input and authority lineage; Forge rejects unknown/malformed packet fields and synthetic decision fallback; AAEOS receives returned refs only; Autônomos propagates one authority ref/hash/revision Brain/Seed→packet→lease without remint |
-| R79 | rejected work has no proven owner-complete return path; worker `queue_repair_signal` is incompatible with TaskServing outcomes | reuse Dev RepairOrchestrator, Forge state/cycle owners, TaskServing give-back/repair semantics and native worker | each mode proves reject→repair/replan→re-review→terminal under the same root intent/authority; no AAEOS retry loop; Forge preserves failed-cycle→child packet/attempt→blocker resolution→next cycle; Autônomos normalizes repair into a TaskServing-owned transition rather than invalid_report |
-| R80 | receipt↔Ledger binding is circular and fresh-readback can validate only a projected hash | reuse AaeosCycleRuntime receipt core + AtlasEvidenceLedger | receipt_core_hash excludes event id/hash; event stores core hash; final projection adds the event ref; fresh process recomputes core, chain, causation, manifest and terminal artifact bytes; tamper/splice/missing evidence fails precisely |
-| R81 | H1–H7 says “persist a work item” but has no mechanical event/continuation protocol | reuse AtlasEvidenceLedger `DecisionDrafted`/`EscalationRequested`/`DecisionIssued` and existing attention/cockpit projections | reserved effect alone blocks; event binds H-class/action/needed-authority/continuation; valid issued decision resumes after replay; unrelated work continues; no new queue or synchronous human wait |
-| R82 | Spec Floor treats Dev/Forge operator presence as technical independence | reuse SpecSourceIndependence, witness resolvers, SovereignSpecFloor and VerificationCourt | `SelfComposedUnwitnessed` cannot pass in any mode merely because an operator exists; independent principal/capability or mechanical Court evidence is required; same goldens apply to Dev, Forge and Autônomos |
+| R75 | refs/states from valid runs can be spliced or raced into fake REAL_OPERATION | reuse native root refs + AtlasEvidenceLedger correlation/causation | total journey state projection; one absorbing terminal; causal DAG canonical fold stable under concurrent permutation; only settled `real_operation_completed` qualifies; splice/omit/reorder/cycle/race goldens fail |
+| R76 | OneShot counters can be caller-zeroed or hide technical approvals/controls as clarifications | reuse authenticated native ingresses, ProductIntent Court, existing operator-action events and Ledger | complete ingress/egress census and producer seals; typed request/action/control refs; no repeated Dev approval, no post-seal Forge work, Autônomos zero-touch; elective audit/control separated; label invariant under any internal attempt trace |
+| R77 | standing mandate is neither fully signed nor provably current; absent/foreign receipt can pass | reuse/promote HumanDecisionReceiptSigner inside Decision v3 owner | trusted keyring, immutable lifecycle, audience/scope/effect/budget/nonce/head binding and SoD; revalidate after provider and under effect lock; absence/mismatch/stale/foreign means zero adoption/effect |
+| R78 | AAEOS arrays can mint/discard native identity and real provider/tool/path boundaries are outside the manifest | reuse typed Dev/Forge ingress, productive native daemon, provider/tool/sandbox owners and AtlasSecurity path primitive | no authority remint/fallback; canonical path identical packet→lease→order→sandbox→write-set; server-owned command verdict; AAEOS receives refs only |
+| R79 | rejected work and crash-restarted attempts lack owner-complete convergence | reuse Dev RepairOrchestrator/ReceiptStorage, Forge state/cycle journal, TaskServing/lease repair | same root/budget across reject→repair→re-review; prepared/observed attempts durable; late siblings evidence-only; crash resumes one cycle/claim/effect without duplicate |
+| R80 | receipt↔Ledger binding is circular and replay lacks concurrent/DAG truth | reuse persisted AaeosCycleRuntime receipt core + AtlasEvidenceLedger | non-circular persisted core/hash; linear append head/position; full hash recomputation; causal DAG manifest; fresh process detects tamper/fork/splice/missing bytes |
+| R81 | H1–H7 and cockpit can become a synchronous technical review queue | reuse Ledger decision events + existing cockpit/attention projections | reserved effect alone blocks; technical incident contains/repairs autonomously; cockpit partitions read-only review from sovereign attention; valid issued decision resumes after replay; no new queue/wait |
+| R82 | Spec Floor/authority roles allow self-composed or self-expanded authority | reuse SpecSourceIndependence, witness resolvers, SovereignSpecFloor, VerificationCourt and Decision roles | same independence floor all modes; subject/executor cannot issue/expand own authority; author/judge/governor/revoker conflicts fail before provider |
 
 R75–R82 are hard, reuse-only blockers. None may be waived into DONE.
+
+### 7.6 v10 cycle-4 survivors R83–R86
+
+Cycle 4 used 13 lens-distinct specialist passes and a final anti-duplication judge. Root merged operator/authority/state/cockpit findings into R15/R45/R53/R57/R62/R70/R75–R82 and rejected new stores, state machines, queues, outboxes, retry owners and compliance organs. Four cross-cutting gaps could not be represented truthfully by an older residual.
+
+| ID | New blocker | Existing owners reused | Hard done condition |
+|---|---|---|---|
+| R83 | crashes and real concurrency can split Git/Ledger settlement, queue/lease/report, Forge cycle/provider lifecycle, Dev repair and the first Ledger head | native Git trailer/artifact, AtlasEvidenceLedger, TaskServing lease/queue repositories, Forge cycle/state, Dev ReceiptStorage | deterministic fault injection at every cutpoint; restart converges to exactly one effect and one absorbing terminal or precise `release_uncertain`; Postgres unique constraints/locks prove real races; no second outbox/store |
+| R84 | PHPUnit/fixtures/simulate-only services can manufacture “REAL_OPERATION” and certify their own receipts | native non-testing mode commands/runtimes produce; AtlasEvidenceLedger/artifact/Git/provider receipts persist; independent certifier verifies | producer runs outside PHPUnit on a controlled real workspace and durable DB with real provider/tool/effect where required; new process recomputes all truth; mutation testing and subtract-one invalidator matrix are hard vetoes; simulator/exit 0/test JSON never qualifies |
+| R85 | authority, cycle receipt and Ledger payload semantics would be mutated in place across mixed-version consumers | DecisionReceipt v3; cycle receipt v2; cycle-recorded payload v2; current Ledger envelope; existing readers and Code Intelligence census | expand→dual-read/shadow→canary writer→mutative cutover→contract; legacy stays historical/read-only; unsupported worker fails before provider/effect; rollback preserves signed/event bytes; migration preflight, Postgres proof and consumer census green |
+| R86 | AAEOS/provider/context/fan-out/retry amplification can be hidden or “optimized” by punishing useful repair | Ledger commissioning roots, EngineeringOutcome, Maestro cost aggregator, native planners/repair owners | ITT left join includes every root and all burn; AAEOS adds zero provider/context/retry/worker/mutation hops; useful retries never hurt OneShot/quality; identical no-delta retries stop before provider; signed root budget survives id changes/handoffs; fan-out deduped and bounded |
+
+R83–R86 are hard blockers. They deepen existing durable facts and owners; they authorize no new runtime organ.
+
+### 7.6 v10 cycle-4 consolidation + strategic reach R83–R93
+
+Cycle-4 attacked v9 for accretion, executability and the strategic M-frontier, and re-verified every claimed owner on disk (all present). Root REJECTED the over-fusion of R54/R66/R75/R80 into one row (it would launder four distinct owner+phase done-conditions) and accepted only the genuinely-redundant R44 fold plus reuse-wires whose owners exist. AAEOS is repositioned as the mother block of governance/LAW (§0/§1.3): thin in muscle, central and non-bypassable in law; M is made falsifiable (R84).
+
+| ID | Gap surpassing v9 | Existing owner reused / deleted | Hard done condition |
+|---|---|---|---|
+| R83 | the AiProviderManager governance/bypass owner — the operator-named structural M-lever — is absent from the §3.2 map; muscle may spawn a provider ungoverned | reuse ProviderGovernanceCoverageLedger + ProviderGovernanceConsult + GovernanceConsultSkipCounter (schema atlas.ai.governance.provider_coverage.v1) | §3.2 names the owner; every muscle provider spawn is recorded covered (governed) or bypass; no second bypass meter |
+| R84 | M — the multiplier that is the plan's reason to exist — has no falsifiable instrument; v7–v9 deleted the N×M framing | reuse ProviderGovernanceCoverageLedger coverage rate + EngineeringOutcome | §6 emits governed_spawn_coverage = governed_provider_spawns / total_provider_spawns (unknown-not-zero; empty ledger = honest 0.0); M is governed reach + provider-proposal refuse/repair rate, never a vanity score |
+| R85 | H4 authorizes delegated learning but names no owner; the memory-M seam is unfenced | reuse AtlasMemoryLearningPromotionService + AtlasHeldEvidenceMinerService + AtlasOpenBrainContextPackService | H4 + §3.2 name the delegated-learning owner (reversible, auditable, propose-only); §11 forbids a second memory promoter / evidence→memory bridge under AAEOS |
+| R86 | §4 SETTLE names "compensation as applicable" with no owner; a landed-then-proven-bad release has no path | reuse AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (+ revert()) | a green-settled release later proven bad is compensated through that owner with its own authorized action + evidence; AAEOS never actuates a revert |
+| R87 | Dev OneShot is blocked if the AAEOS Dev path invokes the operator plan-approval gate (a routine technical action) | name AtlasDevPlanApprovalGate + AtlasDevProviderExecutionBlock read-only; AAEOS Dev routes the gate-free AtlasDevExecutionService path | §8 P1a names both read-only; a test proves the AAEOS Dev journey reaches provider execution with zero operator approval action (OneShot preserved) while the direct CLI path keeps its gate |
+| R88 | P2's five sub-slices declare no order; three edit AtlasEvidenceLedger.php | declare the ordered DAG over the existing P2a–P2e structure | §8 P2 states P2a (ledger/evidence foundation) first, then dependent slices; same-file/same-owner commit rule applies; no new phase |
+| R89 | AaeosHygieneLegacyAliases::register() eager-autoloads 40 AEOS canonical classes at every boot with zero legacy-FQCN consumers | reuse the lazy spl_autoload_register pattern proven in sibling RootSinglesLegacyAliases | register() is lazy; boot loads no AEOS canonical class until a legacy FQCN is resolved; R73 partition guard asserts it; no alias removed (respects R26) |
+| R90 | the 2026 verification moat is not first-class: atlas:review:deep (the operator-verdict command) is unmentioned; only the passive cockpit readout exists | reuse AtlasReviewDeepCommand (atlas.review.deep_packet.v1) + the R75 journey-manifest projection shared with atlas:cli:cockpit | the operator verification artifact = observer-minted effect + proof + admission + journey manifest, derived by ONE verification read model both cockpit and review:deep consume; review:deep's independent risk-derivation path is deleted |
+| R91 | R76's OneShot capture of "reserved decisions" contradicts the zero-touch Autônomos invariant and P4's zero-touch gauntlet | reuse R81/§4.4 AtlasEvidenceLedger escalation events (DecisionDrafted/EscalationRequested/DecisionIssued) | reserved-decision captures in the OneShot ledger are DERIVED FROM the §4.4 escalation events, not counted as operator per-task actions; zero-touch Autônomos stays consistent |
+| R92 | R75's terminal-status enum has no stated boundary against R79 repair-continuation (is a repair a new journey?) | reuse AtlasRepairOrchestrator, Forge cycle owner, TaskServing give-back already named in R79 | every repair/replan/re-review (R79) is an intra-journey continuation appended to R75's single-root ordered manifest, never a new journey/root; a repaired journey has one root and one qualifying terminal state |
+| R93 | duplicate/latent-duplicate accounting and over-fusion risk in the evidence-integrity family | reuse §6/§10 single fresh-process readback; §7 residual discipline | R44 folded into R66 (single stronger bar); R66 CONSUMES R80's non-circular readback rather than re-asserting it (R66 keeps only the spine-gate-site hole); NO-FUSE GUARD: theme-shared rows with distinct owner+phase+done-condition (R54/R66/R75/R80; R68/R82; R70/R78) stay distinct and independently closable |
+
+R83–R93 reuse or delete existing owners only; R93 removes one row (R44) and forbids future laundering. None may be waived into DONE.
 
 ## 8. Single implementation plan
 
@@ -471,7 +539,7 @@ Production paths:
 - app/Console/Commands/AtlasAaeosCycleCommand.php
 - app/Console/Commands/AtlasAaeosScorecardCommand.php
 - app/Console/Commands/AtlasAaeosCertifyCommand.php
-- app/Services/Ai/Aaeos/Control/AaeosRunApplication.php (new only as a deep unifying use case)
+- app/Services/Ai/Aaeos/Control/AaeosRunApplication.php (NEW; one deep unifying use case)
 - app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php
 - app/Services/Ai/Aaeos/Control/AaeosIntentCompiler.php
 - app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php
@@ -484,6 +552,7 @@ Production paths:
 Test paths:
 
 - tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php (existing; extend)
+- tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php (existing; invert false-success assertions)
 - tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php (NEW)
 - tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php (NEW)
 - tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php (NEW)
@@ -492,11 +561,13 @@ Test paths:
 - tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php (NEW)
 - tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php (NEW)
 - tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php (NEW)
+- tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php (existing; dry-write and empty-Spine assertions)
 
 P0 exit:
 
 - run/cycle share one application use case and parity matrix;
 - dry run performs zero runtime writes;
+- neither command calls AaeosCycleOutcomeRecorder in dry mode; dispatch_failed exits non-zero in both ports;
 - runtime_write_performed is derived;
 - prepared/claimed/mutated are distinct;
 - zero authoritative human_in_engineering_loop read/write;
@@ -526,23 +597,30 @@ Production paths:
 - app/Services/Ai/Programming/AtlasDev/Execution/DevIntent.php
 - app/Services/Ai/Programming/AtlasDev/Execution/ConfirmedDevRun.php
 - app/Services/Ai/Programming/AtlasDev/Execution/DevPlanRunFacade.php
+- app/Services/Ai/Programming/AtlasDev/Execution/AtlasDevExecutionService.php
+- app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php
 - app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutor.php
+- app/Providers/AtlasDevServiceProvider.php
 - app/Services/Ai/Programming/Forge/Execution/ForgeCommissioning.php
 - app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php
 - app/Services/Ai/SelfConstruction/ContinuousRuntime/AtlasSelfConstructionContinuousRuntimeCycleRunner.php
 - app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycle.php
+- app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionNativeActionExecutor.php
+- app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerProductionCallbacks.php
 - app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php
+- app/Console/Commands/AtlasSelfConstructionRuntimeDaemonCommand.php
 
 Required behavior:
 
-- Dev accepts native DevIntent/ConfirmedDevRun lineage, delegates the journey to the existing senior-loop owner and attempts to DevPlanRunFacade; it never injects Kernel or owns retry directly.
+- Dev accepts native DevIntent/ConfirmedDevRun lineage, preserves the productive SeniorEngineerLoopExecutor→KernelRunExecutor→AtlasDevExecutionService chain and its current provider binding; it never injects Kernel or owns retry directly.
 - Forge constructs strict ForgeCommissioning in its native owner, rejects unknown/malformed packet data, calls ForgeObraRuntime and returns the Obra ref; P1a does not enable provider execution before P1b authority replay is green.
-- Autônomos invokes one existing native scheduler/daemon-cycle entry, not Artisan and not a step-by-step AAEOS orchestration; it returns native cycle/task refs.
+- Autônomos invokes the productive native daemon composition through one typed service seam extracted from the existing command owner, not Artisan and not a step-by-step AAEOS orchestration; it returns native cycle/task refs. The extraction may move command-private composition but may not create another runtime.
 - brain scope is positional with a documented default;
 - seed uses only real signature fields;
 - task next is task_claimed, never worker_executed;
 - already_done is deduplicated/refused, never new origination;
 - handlers return native refs and precise failure causes.
+- synthetic session/intake packs, `recommended_flow`, `next_commands` and `provider_opt_in_noted` are deleted after native parity; the operator receives a result/ref, not a worklist.
 
 Test paths:
 
@@ -584,21 +662,29 @@ Slice P1b.2 — native code actuator:
 - app/Services/Ai/EngineeringKernel/AuthorizedMergeAction.php
 - app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php
 - app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php
+- app/Services/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortAdapter.php
+- app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionNativeActionExecutor.php
+- app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunner.php
+- app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php
+- app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyService.php
+- app/Support/AtlasSecurity.php
 
 Exit:
 
 - declared read_only cannot downgrade an observed write;
 - changed paths/SHA/tool action determine observed effect;
 - authorization is replayed before commit under the relevant lock;
+- provider/model/tool argv/cwd/env/timeout and canonical repo-relative paths match the signed server-owned authorization at every boundary;
+- `commitAuthority=operator` or a caller actor/observer string never authorizes effect;
 - landed and settlement events bind order, decision, lease/fencing, candidate, write-set and outcome;
 - mismatch receives zero claim credit and triggers the existing rollback/settlement path;
 - external effects remain unsupported and blocked.
 
 Slice P1b.3 — AAEOS projection:
 
-- AaeosCycleRuntime.php
-- AaeosAdmissionPolicy.php
-- AaeosScorecardProjector.php
+- app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php
+- app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php
+- app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php
 
 Exit: AAEOS projects canonical authorization/observation refs; it cannot self-mint observed authority.
 
@@ -621,6 +707,13 @@ Test paths:
 - tests/Feature/Ai/AtlasTaskScopedCommitterTest.php (existing; extend)
 - tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosAuthorityReplayToctouTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosAuthorityLaunderingTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosProviderToolBoundaryInjectionTest.php (NEW)
+- tests/Unit/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunnerTest.php (existing; extend)
+- tests/Unit/Ai/Brain2/AtlasNativeWorkerCommandPlanRunnerHardeningTest.php (existing; extend)
+- tests/Unit/Ai/SoftwareCompanyStewardship/AgentExecution/AgentExecutionProviderPortServiceTest.php (existing; extend)
+- tests/Unit/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyServiceTest.php (existing; extend)
+- tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionNativeActionExecutorTest.php (existing; extend)
 
 No AaeosActionEffectClassifier, SovereigntyPort, generic action registry or second ledger may be created.
 
@@ -902,8 +995,8 @@ No phase auto-authorizes the next.
 The MT is DONE only if every item below is proven:
 
 1. P0, P1a, P1b, P2, P3 and P4 receipts exist and are green.
-2. R1–R82 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
-3. R43, R44, R46 and R51–R82 are closed; none may be waived as debt.
+2. R1–R93 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
+3. R43, R46 and R51–R93 are closed; none may be waived as debt (R44 is folded into R66, not separately closable — R93).
 4. Dev, Forge and Autônomos each have a completed REAL_OPERATION journey through their native owner chain; internal retries, reviews and repairs are preserved in evidence.
 5. runtime_write_performed, effect and proof claims match canonical events and fresh readback.
 6. every adverse terminal state has a precise failure_reason.
@@ -953,7 +1046,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | 1 | v6 RSS+CRES | runtime ownership; enterprise authority; SOTA claims; plan logic; Dev; Forge; Autônomos; evidence/durability; security; minimalism; economics; adversarial falsifier; user-provided six-critic panel; user-provided Claude 11-agent panel | accepted reuse/authority split; rejected land-only CRES, ModeExecutor, new classifier, duplicate axes/metrics and debt-laundered DONE | v7 |
 | 2 | v7 zero-duplicate authority | 15 lenses: admission totality; effect×proof seal; axis collapse; economy; model-family collusion; verification cockpit; AEOS duplication; land-observer disk; measure-first teeth; capability_proof dedup; delete-dormant; efficiency/hops; new-tier observer; spine-effect fusion; adversary | accepted 11 reuse/delete/fuse survivors (R64–R74); rejected capability_proof-dedup, axis-collapse and cockpit-render as already-in-v7, and the 6-state admission enum / new observer service / new economy fields as duplication | v8 |
 | 3 | v8 reuse/delete survivors | 9 specialized disk-grounded lenses: native Dev, Forge and Autônomos; evidence durability; security/authority; enterprise architecture; SOTA claims; plan logic; OneShot falsification | accepted journey manifest/status, canonical operator-event proof, typed native ingress, signed/revocable mandate, native repair continuation, non-circular receipt binding, async H1–H7 and equal Spec Floor; rejected new Autônomos application/store and caller counters; amended accepted-only economy | v9 |
-| 4 | current | pending | pending | pending |
+| 4 | v9 | 14-lens anti-accretion/executability/strategic panel + adversary; independent disk re-verification of all owners | mother-block-of-law repositioning; provider-governance M-lever (ProviderGovernanceCoverageLedger) + falsifiable governed_spawn_coverage; memory-M seam; post-settle compensation owner; Dev approval-gate boundary; P2 DAG; lazy alias autoload; review:deep first-class; R76↔R81 & R75↔R79 coherence; R44 folded into R66 + no-fuse guard. Rejected CEIC over-fusion (launders done-conditions), token-economy wrong-owner, projection-law row-deletion | v10 |
 | 5 | current | pending | pending | pending |
 | 6 | current | pending | pending | pending |
 | 7 | current | pending | pending | pending |
