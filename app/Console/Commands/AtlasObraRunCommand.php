@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\YesNo;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
@@ -165,6 +166,6 @@ class AtlasObraRunCommand extends Command
 
     private function yesNo(mixed $v): string
     {
-        return $v ? 'yes' : 'no';
+        return YesNo::format($v);
     }
 }

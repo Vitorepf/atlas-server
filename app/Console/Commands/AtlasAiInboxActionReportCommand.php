@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\YesNo;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
@@ -318,6 +319,6 @@ class AtlasAiInboxActionReportCommand extends Command
 
     private function yesNo(bool $value): string
     {
-        return $value ? 'yes' : 'no';
+        return YesNo::format($value);
     }
 }

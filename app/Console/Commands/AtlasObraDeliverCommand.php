@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\YesNo;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\AtlasObraPlanService;
@@ -229,6 +230,6 @@ class AtlasObraDeliverCommand extends Command
 
     private function yesNo(mixed $v): string
     {
-        return $v ? 'yes' : 'no';
+        return YesNo::format($v);
     }
 }

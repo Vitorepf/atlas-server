@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\YesNo;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Semantic\AtlasVaultCommandInput;
@@ -346,7 +347,7 @@ class AtlasVaultCommand extends Command
 
     private function yesNo(bool $value): string
     {
-        return $value ? 'yes' : 'no';
+        return YesNo::format($value);
     }
 
     private function notFoundMessage(string $action): string

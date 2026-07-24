@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\YesNo;
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use Illuminate\Console\Command;
 
@@ -90,6 +91,6 @@ class AtlasMissionDeliverCommand extends Command
 
     private function yesNo(mixed $v): string
     {
-        return $v ? 'yes' : 'no';
+        return YesNo::format($v);
     }
 }
