@@ -388,8 +388,16 @@ class AtlasEvidenceLedger
     public function eventById(string $eventId, ?string $tenantId = null): ?AtlasLedgerEvent
     {
         $tenantId = $this->proofTenant($tenantId);
-        if ($tenantId === null || ! $this->tableAvailable()) {
+        if (! $this->tableAvailable()) {
             return null;
+        }
+
+        if ($tenantId === null) {
+            $tenantIds = $this->ledgerQuery()->whereKey($eventId)->distinct()->pluck('tenant_id')->filter()->values();
+            if ($tenantIds->count() !== 1) {
+                return null;
+            }
+            $tenantId = (string) $tenantIds->first();
         }
 
         return $this->ledgerQuery()
@@ -404,8 +412,22 @@ class AtlasEvidenceLedger
         ?string $tenantId = null,
     ): ?AtlasLedgerEvent {
         $tenantId = $this->proofTenant($tenantId);
-        if ($tenantId === null || ! $this->tableAvailable()) {
+        if (! $this->tableAvailable()) {
             return null;
+        }
+
+        if ($tenantId === null) {
+            $tenantIds = $this->ledgerQuery()
+                ->where('correlation_id', $correlationId)
+                ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
+                ->distinct()
+                ->pluck('tenant_id')
+                ->filter()
+                ->values();
+            if ($tenantIds->count() !== 1) {
+                return null;
+            }
+            $tenantId = (string) $tenantIds->first();
         }
 
         return $this->ledgerQuery()
