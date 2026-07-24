@@ -489,6 +489,38 @@ final class AtlasTaskServingService
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
+    /**
+     * Success without scoped commit (legacy dry-run complete path).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function reportSuccessDryRun(string $clientId, string $taskPacketId, string $leaseId, array $payload): array
+    {
+        $result = $this->orchestrator->completeDryRun($taskPacketId, $leaseId, (array) ($payload['evidence'] ?? []));
+        $event = (string) ($result['event'] ?? '');
+        $closed = str_contains($event, 'completed') && ! str_contains($event, 'blocked');
+        $scope = $this->orchestrator->taskScope($taskPacketId);
+
+        return $this->reportEnvelope('reported', $clientId, [
+            'outcome' => 'success',
+            'lease_closed' => $closed,
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'orchestrator_event' => $event,
+            'result' => $result,
+            'verified' => false,
+            'evidence' => (array) ($payload['evidence'] ?? []),
+            'outcome_spine' => $this->recordServerSideOutcomeSpine(
+                $taskPacketId,
+                is_array($scope) ? $scope : [],
+                [],
+                null,
+                false,
+            ),
+        ]);
+    }
+
     private function reportSuccessWithCommit(string $clientId, string $taskPacketId, string $leaseId, array $payload): array
     {
         $scope = $this->orchestrator->taskScope($taskPacketId);
@@ -917,28 +949,7 @@ final class AtlasTaskServingService
 
 
         if ($outcome === 'success') {
-            $result = $this->orchestrator->completeDryRun($taskPacketId, $leaseId, (array) ($payload['evidence'] ?? []));
-            $event = (string) ($result['event'] ?? '');
-            $closed = str_contains($event, 'completed') && ! str_contains($event, 'blocked');
-            $scope = $this->orchestrator->taskScope($taskPacketId);
-
-            return $this->reportEnvelope('reported', $clientId, [
-                'outcome' => 'success',
-                'lease_closed' => $closed,
-                'task_packet_id' => $taskPacketId,
-                'lease_id' => $leaseId,
-                'orchestrator_event' => $event,
-                'result' => $result,
-                'verified' => false,
-                'evidence' => (array) ($payload['evidence'] ?? []),
-                'outcome_spine' => $this->recordServerSideOutcomeSpine(
-                    $taskPacketId,
-                    is_array($scope) ? $scope : [],
-                    [],
-                    null,
-                    false,
-                ),
-            ]);
+            return $this->reportSuccessDryRun($clientId, $taskPacketId, $leaseId, $payload);
         }
 
         // GOVERNED SCOPE EXPANSION — a give_back that carries a structured expansion request

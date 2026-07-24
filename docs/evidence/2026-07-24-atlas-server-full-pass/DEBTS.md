@@ -35,6 +35,7 @@
 - [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
 - [x] AtlasTaskServingService::report intake validateReportIntake peel (8 unit tests green)
 - [x] AtlasTaskServingService::reportSuccessWithCommit peel (8 unit green; evidence contract suite pre-existing fails unrelated)
+- [x] AtlasTaskServingService::reportSuccessDryRun peel
 - [ ] AtlasTaskServingService::report give_back/failed branches further stages
 - [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
