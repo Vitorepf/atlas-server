@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliVersionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:version {--json}';
 
     protected $description = 'Show Atlas CLI version, commit and branch.';
@@ -24,7 +27,7 @@ class AtlasCliVersionCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Atlas CLI', (string) $payload['version']);
             $this->components->twoColumnDetail('Branch', (string) $payload['branch']);

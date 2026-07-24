@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasAgenticRagFrameworkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAgenticRagFrameworkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:agentic-rag
         {--query= : Objective/query to plan agentic retrieval for}
         {--task-type=direct : Task type}
@@ -28,7 +31,7 @@ final class AtlasAgenticRagFrameworkCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

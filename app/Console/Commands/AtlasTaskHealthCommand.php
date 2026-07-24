@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroQueueHealthInterventionRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PART 2 · axis 10 — the read-only coordination health front door. `atlas:task:health [--json]` prints the
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTaskHealthCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:health {--json : Print machine-readable JSON}';
 
     protected $description = 'Coordination health of the task-serving stack (read-only): queue distribution, leases, recoverable backlog, integrity flags, and ranked interventions.';
@@ -33,7 +36,7 @@ class AtlasTaskHealthCommand extends Command
 
         if ($this->option('json')) {
             $output = array_merge($snapshot, ['interventions' => $interventionPlan]);
-            $this->line((string) json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($output));
 
             return self::SUCCESS;
         }

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityReflectiveStatusService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L-inf (ONE promoted fragment: R2 epistemic humility) — read-only REFLECTIVE
@@ -23,6 +24,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityReflectiveStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-reflective-status
         {--json : Emit canonical JSON}';
 
@@ -33,7 +36,7 @@ class AtlasDocumentationRealityReflectiveStatusCommand extends Command
         $payload = $service->selfAssessment() + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

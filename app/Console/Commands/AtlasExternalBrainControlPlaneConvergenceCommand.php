@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlan
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneIntegrationGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneStopGoBridge;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only convergence audit: uses {@see AtlasExternalBrainControlPlaneIntegrationGate} to check
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainControlPlaneConvergenceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:control-plane-convergence
         {--input= : Path to a JSON file with integration_gate and stop_go_bridge sections}';
@@ -90,7 +93,7 @@ final class AtlasExternalBrainControlPlaneConvergenceCommand extends Command
             'blocked_organ_ratio' => $runtimeSignals['blocked_organ_ratio'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

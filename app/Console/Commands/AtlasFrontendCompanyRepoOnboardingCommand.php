@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyRepoOnboardingService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendCompanyRepoOnboardingCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:onboard
         {--task= : Company frontend/product/design task}
         {--workspace= : Local company/product frontend repository path}
@@ -48,7 +51,7 @@ class AtlasFrontendCompanyRepoOnboardingCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Onboarding: '.$payload['status']);
         }

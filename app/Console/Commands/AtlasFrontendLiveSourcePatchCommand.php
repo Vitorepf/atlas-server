@@ -6,9 +6,12 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendLiveSourcePatchRuntimeServ
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendLiveSourcePatchCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:live
         {action : prepare, accept, discard, recover or status}
         {--workspace= : Workspace root}
@@ -53,7 +56,7 @@ class AtlasFrontendLiveSourcePatchCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Live Source Patch: '.($payload['status'] ?? 'unknown'));
         }

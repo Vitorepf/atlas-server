@@ -7,9 +7,12 @@ use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryGovernanceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private ?MemoryQueryInput $memoryInput = null;
 
     protected $signature = 'atlas:memory:govern
@@ -48,7 +51,7 @@ class AtlasMemoryGovernanceCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

@@ -7,9 +7,12 @@ use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringVisualBaselineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:visual-baseline
         {action=list : list, promote or history}
         {--workspace= : Target workspace path. Defaults to current directory}
@@ -34,7 +37,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'failed' ? self::FAILURE : self::SUCCESS;
         }

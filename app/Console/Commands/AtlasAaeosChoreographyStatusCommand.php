@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Runtime surface for the AAEOS Cross-Department Choreography state machine —
@@ -15,6 +16,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosChoreographyStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aeos:choreography-status
         {--veto= : Evaluate a veto raised by a department (security|architect|review|operator)}
         {--repair-iteration= : Evaluate the repair-loop decision at this iteration}
@@ -54,7 +57,7 @@ class AtlasAaeosChoreographyStatusCommand extends Command
     private function emit(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendProviderInstructionPacketCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:provider-packet
         {--task= : Frontend task or intent}
         {--workspace= : Local company/product frontend repository path}
@@ -47,7 +50,7 @@ class AtlasFrontendProviderInstructionPacketCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Provider Packet: '.$payload['status']);
         }

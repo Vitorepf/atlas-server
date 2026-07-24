@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolCostQualityRouter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolIndependenceGate;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator entry point combining {@see AtlasExternalBrainProviderPoolCapabilityContract},
@@ -30,6 +31,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainProviderIndependenceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:provider-independence
         {--input= : Path to a JSON file with provider_pools, router and providers sections}';
@@ -83,7 +86,7 @@ final class AtlasExternalBrainProviderIndependenceCommand extends Command
             'ready_for_production' => $readyForProduction,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

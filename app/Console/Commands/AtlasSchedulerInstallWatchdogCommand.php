@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Support\AtlasPhpBinary;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Install/uninstall the EXTERNAL scheduler watchdog launchd agent (EVI-01).
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSchedulerInstallWatchdogCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const LABEL = 'com.atlas.scheduler-watchdog';
 
     public const LEGACY_HEALTH_LABEL = 'com.atlas.ai-health';
@@ -238,7 +241,7 @@ PLIST;
     private function emit(array $payload, bool $json): void
     {
         if ($json) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

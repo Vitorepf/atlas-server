@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCognitiveFunctionDecomposeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognitive-function:decompose
         {input : Natural language request to decompose}
         {--role= : Operator role hint (engineer|auditor|writer|researcher|...)}
@@ -28,7 +31,7 @@ class AtlasCognitiveFunctionDecomposeCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($env, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($env));
 
             return self::SUCCESS;
         }

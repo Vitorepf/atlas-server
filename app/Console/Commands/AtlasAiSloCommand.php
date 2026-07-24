@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiSloCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:slo
         {--hours=24 : Window size in hours}
         {--domain= : Filter by SLO domain dimension}
@@ -46,7 +49,7 @@ class AtlasAiSloCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

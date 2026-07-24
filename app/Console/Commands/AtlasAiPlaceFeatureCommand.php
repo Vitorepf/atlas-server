@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiPlaceFeatureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:place-feature
         {feature : Feature, bug, question or capability to place in the Atlas architecture}
         {--hint=* : Optional key=value hints}
@@ -35,7 +38,7 @@ class AtlasAiPlaceFeatureCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $gate->cliExitCode($payload, (bool) $this->option('strict'));
         }

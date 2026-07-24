@@ -8,6 +8,7 @@ use App\Models\AiInboxItem;
 use App\Services\Ai\Mobile\InboxActionRegistry;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * O5 · batch verdict for autonomous-landing reviews — the operator approves/rejects N
@@ -18,6 +19,8 @@ use Throwable;
  */
 class AtlasTaskReviewDecideCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:review:decide
         {targets* : Um ou mais alvos — inbox item id, commit sha ou task_packet_id}
         {--reject : Rejeitar em vez de aprovar}
@@ -83,7 +86,7 @@ class AtlasTaskReviewDecideCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             foreach ($results as $r) {
                 $this->line(sprintf(

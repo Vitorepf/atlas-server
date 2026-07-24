@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\Lineage\AtlasRollbackCascadeExecutor;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-11 — cascade rollback executor CLI.
@@ -23,6 +24,8 @@ use App\Support\YesNo;
  */
 final class AtlasRollbackCascadeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:rollback:cascade
         {--decision-id= : The decision_id whose closure should be reverted}
         {--dry-run : Report the closure without touching disk (default)}
@@ -51,7 +54,7 @@ final class AtlasRollbackCascadeCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

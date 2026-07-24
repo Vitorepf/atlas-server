@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionN
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativeScopedPatchApplyRunner;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read/write CLI for the native implementation release pipeline. Four verbs:
@@ -22,6 +23,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionNativeImplementationReleaseCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:native-implementation-release {action : preflight|apply|verify|rollback} {--payload=} {--json}';
 
@@ -40,7 +43,7 @@ final class AtlasSelfConstructionNativeImplementationReleaseCommand extends Comm
             'rollback' => $this->rollback($payload),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($result));
 
         return ($result['status'] ?? 'ok') === 'ok' || ! isset($result['status']) ? self::SUCCESS : self::FAILURE;
     }

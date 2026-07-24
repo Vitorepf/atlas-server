@@ -7,9 +7,12 @@ use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasDreyfusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dreyfus
         {node? : Knowledge node UUID or topic string}
         {--domain=learning : Domain for the overlay}
@@ -131,7 +134,7 @@ class AtlasDreyfusCommand extends Command
     private function render(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

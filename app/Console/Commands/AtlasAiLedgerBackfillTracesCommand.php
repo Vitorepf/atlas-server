@@ -9,9 +9,12 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiLedgerBackfillTracesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:ledger-backfill-traces
         {--hours=720 : Backfill traces created in the last N hours}
         {--limit=100 : Maximum traces to inspect}
@@ -115,7 +118,7 @@ class AtlasAiLedgerBackfillTracesCommand extends Command
     private function render(array $payload, int $defaultExit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : $defaultExit;
         }

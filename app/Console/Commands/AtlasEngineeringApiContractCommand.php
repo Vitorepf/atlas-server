@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\EngineeringApiContractService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringApiContractCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:api-contract
         {--workspace= : Target workspace path. Defaults to current directory}
         {--spec= : OpenAPI JSON/YAML path relative to workspace}
@@ -28,7 +31,7 @@ class AtlasEngineeringApiContractCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
         }

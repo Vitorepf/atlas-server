@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AcosProgram\AcosProgramCockpitService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosCockpitCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acos:cockpit
         {--scoreboard= : Override ACOS Max scoreboard path}
         {--json : Emit machine-readable JSON}';
@@ -20,7 +23,7 @@ final class AtlasAcosCockpitCommand extends Command
         $payload = $service->report($this->scoreboardPath());
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

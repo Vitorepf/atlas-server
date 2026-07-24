@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasTask;
 use App\Services\Engineering\PostgresEngineeringReviewService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasDbReviewCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:db:review {--task-id=} {--workspace=} {--file=*} {--json}';
 
     protected $description = 'Run deterministic Postgres engineering review for a task.';
@@ -41,7 +44,7 @@ class AtlasDbReviewCommand extends Command
     protected function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Postgres review', (string) $payload['status']);
             foreach ((array) $payload['findings'] as $finding) {

@@ -8,9 +8,12 @@ use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryLiveManifestS
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryMutationCoverageRunner;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasEngineeringQualityFoundryManifestsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:quality-foundry-manifests
         {--mutation : Run the real scoped Infection mutation battery}
         {--mutation-only : Emit only the real mutation evidence; skip mode readiness subprocesses}
@@ -27,7 +30,7 @@ final class AtlasEngineeringQualityFoundryManifestsCommand extends Command
                 ->run('quality-foundry-mutation-only', $surface);
 
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $this->line($this->encode($payload));
             } else {
                 $this->line('[atlas:engineering:quality-foundry-manifests] mutation_status='.$payload['status']);
                 $this->line('  mutation_score_percent='.(string) ($payload['mutation_score_percent'] ?? 'n/a'));
@@ -43,7 +46,7 @@ final class AtlasEngineeringQualityFoundryManifestsCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

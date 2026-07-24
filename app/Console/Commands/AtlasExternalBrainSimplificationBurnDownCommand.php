@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganSprawlReductionPlanner;
 use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationExecutionSafetyRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator entry point for {@see AtlasExternalBrainOrganSprawlReductionPlanner}.
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:simplification-burndown
         {--input= : Path to a JSON file with an organs list}';
@@ -83,7 +86,7 @@ final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
             'execution_safety' => $executionSafetyByOrgan,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

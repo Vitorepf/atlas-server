@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLanePromotionService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:integration-lane-promote
         {--lane-ref= : Integration lane ref under atlas/integration/*}
         {--base-ref=main : Base ref to fast-forward (e.g. main)}
@@ -43,7 +46,7 @@ final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === StewardshipIntegrationLanePromotionService::STATUS_BLOCKED
                 ? self::FAILURE

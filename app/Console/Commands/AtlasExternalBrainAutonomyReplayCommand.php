@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlan
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEndToEndAutonomyReplayHarness;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderIndependenceProofRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only end-to-end autonomy replay runner. Replays the full external-brain
@@ -35,6 +36,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainAutonomyReplayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:autonomy-replay
         {--input= : Path to a JSON file with scenario, optional control_plane_snapshot, optional cycle_replay_facts}';
@@ -111,7 +114,7 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
             $payload['provider_independence'] = $independenceProof;
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $overallReady ? self::SUCCESS : self::FAILURE;
     }

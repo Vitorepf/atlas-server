@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiDomainsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:domains
         {--domain= : Filter by domain id}
         {--flow= : Filter by flow id}
@@ -43,7 +46,7 @@ class AtlasAiDomainsCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
         }

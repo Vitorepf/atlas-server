@@ -9,6 +9,7 @@ use App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder;
 use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
 use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Daily AAEOS operate port — intent-first (P2f).
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos:run
         {intent? : Free-text engineering objective}
         {--autonomos : Force Autônomos (zero human eng loop)}
@@ -84,7 +87,7 @@ class AtlasAaeosRunCommand extends Command
         $receipt['p2f_technical_dials_stripped'] = true;
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($receipt);
 
             return $this->exitCode($receipt);
         }
@@ -147,7 +150,7 @@ class AtlasAaeosRunCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->error("atlas:aaeos:run --{$flag} removed (P2f intent-first).");
             $this->line($guidance);

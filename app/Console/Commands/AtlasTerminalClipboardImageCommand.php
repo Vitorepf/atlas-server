@@ -4,12 +4,15 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Capture macOS clipboard image for Atlas Terminal (TUI paste / AAP attachments).
  */
 class AtlasTerminalClipboardImageCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:terminal:clipboard-image
         {--workspace= : Workspace path}
         {--json : Machine JSON}';
@@ -39,7 +42,7 @@ class AtlasTerminalClipboardImageCommand extends Command
                 'workspace' => $workspace,
             ];
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->info('clipboard image: '.($payload['attachment']['path'] ?? '?'));
             }
@@ -52,7 +55,7 @@ class AtlasTerminalClipboardImageCommand extends Command
                 'error' => $e->getMessage(),
             ];
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->error($e->getMessage());
             }

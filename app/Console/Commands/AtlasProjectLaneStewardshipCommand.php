@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneAdmissionPolic
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneContextFreshnessGate;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only Atlas-native CLI for inspecting project-lane admission and stewardship health. Three verbs:
@@ -19,6 +20,8 @@ use Throwable;
  */
 final class AtlasProjectLaneStewardshipCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:task:project-lanes {action : inspect|admit|health} {--manifest=} {--json}';
 
@@ -36,7 +39,7 @@ final class AtlasProjectLaneStewardshipCommand extends Command
             default => ['schema_version' => 'atlas.multiproject.lane_cli.error.v1', 'status' => 'unknown_action', 'action' => $action],
         };
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         $ok = in_array((string) ($payload['status'] ?? 'ok'), ['ok'], true) || ! isset($payload['status']);
 

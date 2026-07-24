@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityB
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Console\Command;
 use JsonException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-790 · reliable 24h autonomous loop runner CLI.
@@ -18,6 +19,8 @@ use JsonException;
  */
 final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:reliable-24h-loop
         {--area=agentic_engineering_os : Canonical area_id}
         {--focus=dev_forge : Area focus slice}
@@ -205,7 +208,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

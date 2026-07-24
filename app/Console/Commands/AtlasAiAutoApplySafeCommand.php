@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Autonomy\AtlasAutonomousLearningApplier;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * "Hermes mode" for self-learning: autonomously auto-approve + auto-apply the SAFE
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiAutoApplySafeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:auto-apply-safe
         {--limit=50 : Max proposals to process this run}
         {--json : Print machine-readable JSON}';
@@ -24,7 +27,7 @@ class AtlasAiAutoApplySafeCommand extends Command
         $report = $applier->run((int) $this->option('limit'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

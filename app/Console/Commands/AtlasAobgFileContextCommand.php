@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasOpenBrainFileContextService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N2.F1 — `atlas:aobg:file-context`: the ACTIVE brain's PostToolUse surface.
@@ -30,6 +31,8 @@ use App\Support\YesNo;
  */
 class AtlasAobgFileContextCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.file_context_command.v1';
 
     protected $signature = 'atlas:aobg:file-context
@@ -57,7 +60,7 @@ class AtlasAobgFileContextCommand extends Command
         $delta = $service->contextFor($path, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($delta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($delta));
 
             return self::SUCCESS;
         }

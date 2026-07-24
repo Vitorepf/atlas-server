@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\MarketingDomain\Campaign\KeywordScalingDiagnostic;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI da decisão de ESCALA ("escalar MILHÕES") — o operador digita os números reais do painel do Google Ads
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingKeywordScaleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:keyword-scale
         {--roas= : ROAS atual da campanha (ex.: 4.5)}
         {--target-roas= : ROAS-alvo (ex.: 3.0)}
@@ -35,7 +38,7 @@ class AtlasAiMarketingKeywordScaleCommand extends Command
         ]);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($r));
 
             return self::SUCCESS;
         }

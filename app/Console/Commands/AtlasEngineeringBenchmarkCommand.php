@@ -9,9 +9,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:benchmark
         {--suite= : Suite slug or id}
         {--workspace= : Workspace path for cases without a persisted workspace}
@@ -169,7 +172,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
         $payload = $benchmarks->runPayload($benchmarkRun);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $benchmarkRun->status === 'passed' ? self::SUCCESS : self::FAILURE;
         }
@@ -203,7 +206,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }

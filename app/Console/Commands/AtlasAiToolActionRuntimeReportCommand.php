@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use App\Services\Ai\Runtime\ToolActionRuntimeReadModel;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiToolActionRuntimeReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:tool-action-runtime-report
         {--hours=24 : Window size in hours}
         {--workspace= : Target workspace path. Defaults to current application base path}
@@ -37,7 +40,7 @@ class AtlasAiToolActionRuntimeReportCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

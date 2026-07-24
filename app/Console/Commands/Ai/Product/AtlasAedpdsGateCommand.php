@@ -5,9 +5,12 @@ namespace App\Console\Commands\Ai\Product;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAedpdsGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aedpds:gate
         {--task= : Task text}
         {--surface=atlas_ai : Surface}
@@ -43,7 +46,7 @@ class AtlasAedpdsGateCommand extends Command
             'evidence' => AiStringListNormalizer::trimmedScalarValues($this->option('evidence')),
             'ux_expectations' => AiStringListNormalizer::trimmedScalarValues($this->option('ux')),
         ]);
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return (bool) $this->option('strict') && ($payload['status'] ?? null) === 'blocked'
             ? self::FAILURE

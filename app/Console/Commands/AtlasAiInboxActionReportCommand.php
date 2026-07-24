@@ -6,9 +6,12 @@ use App\Support\YesNo;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiInboxActionReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:inbox-action-report
         {--hours=24 : Window size in hours}
         {--action= : Filter by Inbox action}
@@ -57,7 +60,7 @@ class AtlasAiInboxActionReportCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

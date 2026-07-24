@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasVerifiedEvolutionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:verified-evolution
         {action=evolution-envelope : intent-lock|boundary-contract|proof-plan|execution-contract|drift-watch|patch-simulation|outcome-bridge|quality-score|evolution-envelope}
         {--objective= : Evolution objective}
@@ -47,7 +50,7 @@ final class AtlasVerifiedEvolutionCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $this->exitCode($payload);
         }

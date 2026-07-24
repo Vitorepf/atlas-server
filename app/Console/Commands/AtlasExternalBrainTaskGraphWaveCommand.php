@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphPr
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphReleaseGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphRoiScheduler;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only critical-path execution manifest. Composes:
@@ -30,6 +31,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainTaskGraphWaveCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:task-graph-wave
         {--input= : Path to a JSON file with roi_scheduler, prerequisite_detector, wave_manifest, release_gate sections}';
@@ -89,7 +92,7 @@ final class AtlasExternalBrainTaskGraphWaveCommand extends Command
             'release_reasons' => $gateResult['release_reasons'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

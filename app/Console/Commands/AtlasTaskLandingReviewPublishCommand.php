@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskLandingReviewPublisher;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * GAP-COCKPIT-01 surface · pulls the latest LIVE autonomous landings (resolved receipts)
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTaskLandingReviewPublishCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:review:publish
         {--limit=10 : How many recent landed-task receipts to scan}
         {--json : Print machine-readable JSON}';
@@ -25,7 +28,7 @@ class AtlasTaskLandingReviewPublishCommand extends Command
         $result = $publisher->publish(max(1, (int) $this->option('limit')));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

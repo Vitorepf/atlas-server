@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorS
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorThemeSaturationMeter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitNoGapRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:external-brain:originator-stop-pivot
@@ -36,6 +37,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.originator_stop_pivot.v1';
 
     /** @var string */
@@ -104,7 +107,7 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
             'post_commit_no_gap' => $postCommitNoGap,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

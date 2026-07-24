@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\RuntimeReleaseGate\AtlasAiRuntimeReleaseGateService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas AI Runtime Release Gate Aggregator CLI.
@@ -20,6 +21,8 @@ use Throwable;
  */
 class AtlasAiRuntimeReleaseGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:runtime-release-gate
         {--strict : Exit 3 quando status != ready (CI release gate)}
         {--json : Machine-readable JSON output}';
@@ -48,7 +51,7 @@ class AtlasAiRuntimeReleaseGateCommand extends Command
         ];
 
         if ($this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }
@@ -90,7 +93,7 @@ class AtlasAiRuntimeReleaseGateCommand extends Command
             'message' => $exception->getMessage(),
         ];
         if ($this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->error('[atlas:ai:runtime-release-gate] exception: '.$exception->getMessage());
         }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Pilar 1 · Plan Execution · E2E entry.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasPlanExecutionE2eCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:plan-execution:e2e
         {--doc= : Path to the build-plan markdown document}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -48,7 +51,7 @@ class AtlasPlanExecutionE2eCommand extends Command
         $status = (string) ($result['orchestration_status'] ?? '');
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Plan Execution', 'e2e');
             $this->components->twoColumnDetail('Plan', (string) ($result['plan_id'] ?? '?'));

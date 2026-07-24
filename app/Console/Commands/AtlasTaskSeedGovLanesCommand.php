@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Lead-authoring surface — loads a reviewed batch of Autonomous-Government lane packet specs into the live
@@ -27,6 +28,8 @@ use Throwable;
  */
 final class AtlasTaskSeedGovLanesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:task:seed-gov-lanes {--specs= : path to the JSON specs file} {--dry-run} {--json}';
 
@@ -174,7 +177,7 @@ final class AtlasTaskSeedGovLanesCommand extends Command
     /** @param array<string,mixed> $payload */
     private function emit(array $payload, int $code): int
     {
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $code;
     }

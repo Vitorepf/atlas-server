@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Patamar4\AtlasNightlyCounterfactualsService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Nightly Counterfactuals CLI.
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasNightlyCounterfactualsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:nightly:counterfactuals
         {--action=run : run|inbox|list|latest}
         {--actor=cron_nightly}
@@ -62,7 +65,7 @@ class AtlasNightlyCounterfactualsCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) || $v === null ? "{$k}: ".var_export($v, true) : "{$k}: ".json_encode($v));

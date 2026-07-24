@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyPromo
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyRuntimeLedger;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI for Atlas Self-Construction autonomy ladder. Verbs:
@@ -25,6 +26,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionAutonomyLevelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:autonomy-level {action : levels|promote|degrade|cycle|history} {--facts=} {--json}';
 
@@ -44,7 +47,7 @@ final class AtlasSelfConstructionAutonomyLevelCommand extends Command
             'history' => $this->history($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($result));
 
         return ($result['status'] ?? 'ok') === 'ok' || ! isset($result['status']) ? self::SUCCESS : self::FAILURE;
     }

@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductDeliveryControlPlaneService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryControlPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:control-plane
         {request? : Human request to inspect}
         {--workspace=atlas-server : Workspace slug/path}
@@ -40,7 +43,7 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Product Delivery Control Plane', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('status', (string) $payload['status']);

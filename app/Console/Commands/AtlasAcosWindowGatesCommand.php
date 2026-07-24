@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * D (Obra #18/#19) — honest live-window gate panel. Surfaces measured value +
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAcosWindowGatesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acos:window-gates {--json : machine-readable output}';
 
     protected $description = 'ACOS live-window gate panel (D3/D4/D5 + long-horizon receipts) — measured or aguardando-janela, honesto.';
@@ -23,7 +26,7 @@ class AtlasAcosWindowGatesCommand extends Command
         $status = $gates->status();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($status));
 
             return self::SUCCESS;
         }

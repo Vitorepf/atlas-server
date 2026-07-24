@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductDeliveryCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:certify
         {--json : Print JSON}
         {--strict : Exit non-zero unless status === ready}';
@@ -20,7 +23,7 @@ class AtlasProductDeliveryCertifyCommand extends Command
         $report = $service->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('AEDPDS Product Delivery Certification', (string) $report['schema_version']);
             $this->components->twoColumnDetail('status', (string) $report['status']);

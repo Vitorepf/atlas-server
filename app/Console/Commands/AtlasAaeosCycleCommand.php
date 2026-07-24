@@ -9,12 +9,15 @@ use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
 use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AAEOS GOD/SOTA control-plane cycle surface.
  */
 class AtlasAaeosCycleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos:cycle
         {intent? : Free-text objective / intent}
         {--autonomos : Force zero-operator Autonomos mode}
@@ -53,7 +56,7 @@ class AtlasAaeosCycleCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($receipt);
 
             return $this->exitCode($receipt);
         }

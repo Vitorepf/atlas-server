@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:dev:minimax-worker:run — drop-in replacement for atlas:dev:senior-loop:run
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasDevMinimaxWorkerRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:minimax-worker:run
         {--finding-json= : JSON-encoded finding array (required)}
         {--allowed-files= : Comma-separated relative file paths the worker may modify}
@@ -80,7 +83,7 @@ final class AtlasDevMinimaxWorkerRunCommand extends Command
             'max_repairs'         => max(0, (int) $this->option('max-repairs')),
         ]);
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($result));
 
         return ($result['status'] ?? '') === 'completed' ? self::SUCCESS : self::FAILURE;
     }

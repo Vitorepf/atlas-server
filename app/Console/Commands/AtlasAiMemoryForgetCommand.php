@@ -6,6 +6,7 @@ use App\Models\AtlasMemoryEntry;
 use Illuminate\Console\Command;
 use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The operator's "prune from the Sunday digest" handle: ARCHIVE a memory entry the
@@ -15,6 +16,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasAiMemoryForgetCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:memory-forget
         {id : AtlasMemoryEntry id to archive (or restore)}
         {--restore : Restore a previously archived entry instead of archiving it}
@@ -64,7 +67,7 @@ class AtlasAiMemoryForgetCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

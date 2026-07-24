@@ -8,9 +8,12 @@ use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
 use App\Services\Ai\OperatorIntelligence\OperatorProfileFeedbackService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasOperatorProfileContextCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:operator-profile
@@ -50,7 +53,7 @@ class AtlasOperatorProfileContextCommand extends Command
             $payload = ['ok' => false, 'error' => 'exception', 'message' => $e->getMessage(), 'type' => $e::class];
         }
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
 
         return ($payload['ok'] ?? true) === false ? self::FAILURE : self::SUCCESS;
     }

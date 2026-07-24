@@ -8,9 +8,12 @@ use App\Services\Ai\TerminalDev\Superiority\TerminalSuperiorityService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\ExecutableFinder;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasTerminalDoctorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:terminal:doctor
         {--workspace= : Workspace path}
         {--json : Machine JSON}';
@@ -95,7 +98,7 @@ class AtlasTerminalDoctorCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         } else {
             $this->info($payload['ok'] ? 'Terminal doctor OK' : 'Terminal doctor has issues');
             $this->line('Hermes: '.json_encode($payload['hermes']));

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Obra\AtlasObraService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N3.F4 — `atlas:obra:status`: inspect a commissioned obra (READ ONLY, cost-free).
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AtlasObraStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.obra.status_command.v1';
 
     protected $signature = 'atlas:obra:status
@@ -46,7 +49,7 @@ class AtlasObraStatusCommand extends Command
         $status = $service->status($obraId);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($status));
 
             return ($status['found'] ?? false) ? self::SUCCESS : self::FAILURE;
         }

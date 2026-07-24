@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusForgeObraMaterializerService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Area Focus Loop · Forge Obra Materializer CLI (S2).
@@ -22,6 +23,8 @@ use App\Support\YesNo;
  */
 class AtlasAreaFocusForgeMaterializeObraCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:area-focus-materialize-obra
         {--actor= : operator_actor (required)}
         {--decision-receipt= : AP-724 accept receipt as inline JSON or a path to a JSON file (required)}
@@ -54,7 +57,7 @@ class AtlasAreaFocusForgeMaterializeObraCommand extends Command
         $blocked = ($result['status'] ?? '') === AreaFocusForgeObraMaterializerService::STATUS_BLOCKED;
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return $blocked ? self::FAILURE : self::SUCCESS;
         }

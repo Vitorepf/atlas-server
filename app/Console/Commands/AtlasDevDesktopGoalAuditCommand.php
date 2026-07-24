@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopGoalAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:goal-audit
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero when the goal is not fully proven}
@@ -58,7 +61,7 @@ final class AtlasDevDesktopGoalAuditCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop goal audit', (string) $payload['status']);
             foreach ($criteria as $criterion) {

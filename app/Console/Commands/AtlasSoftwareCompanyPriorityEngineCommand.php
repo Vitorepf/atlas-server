@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareCompanyPriorityEngineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:priority-engine
         {--area=agentic_engineering_os : Stewardship area id}
         {--focus=dev_forge : Stewardship focus}
@@ -41,7 +44,7 @@ final class AtlasSoftwareCompanyPriorityEngineCommand extends Command
         $payload = $service->rank($input);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === StewardshipPriorityEngineService::STATUS_BLOCKED
                 ? self::FAILURE
@@ -81,7 +84,7 @@ final class AtlasSoftwareCompanyPriorityEngineCommand extends Command
             'detail' => $detail,
         ];
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::FAILURE;
     }

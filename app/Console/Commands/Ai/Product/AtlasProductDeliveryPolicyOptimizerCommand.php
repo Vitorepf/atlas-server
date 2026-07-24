@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductDeliveryPolicyOptimizerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryPolicyOptimizerCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:policy-optimizer
         {--receipt-limit=25 : Runtime receipt replay limit}
         {--fitness-limit=100 : Outcome memory fitness sample limit}
@@ -27,7 +30,7 @@ class AtlasProductDeliveryPolicyOptimizerCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Product Policy Optimizer', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('status', (string) $payload['status']);

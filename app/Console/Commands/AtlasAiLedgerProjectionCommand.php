@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiLedgerProjectionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:ledger-project
         {--hours= : Only project ledger events from the last N hours}
         {--limit=500 : Maximum source events to inspect}
@@ -29,7 +32,7 @@ class AtlasAiLedgerProjectionCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
         }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasSystemStructureService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSystemStructureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:system-structure
         {--area= : Drill into a single top area, e.g. app/Services/Ai}
         {--json : Emit canonical JSON}
@@ -26,7 +29,7 @@ final class AtlasSystemStructureCommand extends Command
             : $service->deriveStructure();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $this->exitCode($payload);
         }

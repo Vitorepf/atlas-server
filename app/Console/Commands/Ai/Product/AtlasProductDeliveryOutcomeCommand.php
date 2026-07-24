@@ -7,9 +7,12 @@ use App\Services\Ai\Product\AtlasProductDeliveryEnforcementService;
 use App\Services\Ai\Product\AtlasProductDeliveryOutcomeMemoryService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryOutcomeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:outcome
         {request : Human product/delivery request}
         {--workspace= : Workspace slug/path}
@@ -75,7 +78,7 @@ class AtlasProductDeliveryOutcomeCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return 0;
         }

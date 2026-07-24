@@ -7,6 +7,7 @@ use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L5-3 — auto-cura da suíte real: gravador SEMANAL do número REAL de vermelhos.
@@ -22,6 +23,8 @@ use App\Support\YesNo;
  */
 class AtlasFailureWeeklyRedSnapshotCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:failure:weekly-red-snapshot
         {--domain= : Domínio (default config atlas.ai.suite_red_snapshot.domain)}
         {--test-report= : Caminho do relatório real (default config report_path)}
@@ -85,7 +88,7 @@ class AtlasFailureWeeklyRedSnapshotCommand extends Command
     private function emit(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

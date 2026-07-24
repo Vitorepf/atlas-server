@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilDecisio
 use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilRoadmapCandidateFilter;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Self-Construction Strategy Council surface.
@@ -22,6 +23,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionStrategyCouncilCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:strategy-council {action : inspect|filter|rank|ambition|history} {--candidates=} {--facts=} {--ledger=} {--json}';
 
@@ -39,7 +42,7 @@ final class AtlasSelfConstructionStrategyCouncilCommand extends Command
             'history' => $this->history(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

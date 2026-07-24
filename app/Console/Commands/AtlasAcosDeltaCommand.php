@@ -12,6 +12,7 @@ use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L2-7 / EVI-09 — medidor one-shot do ACOS: compara HOJE vs Marco Zero congelado.
@@ -20,6 +21,8 @@ use Throwable;
  */
 class AtlasAcosDeltaCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var list<string> */
     protected $aliases = ['atlas:fable:delta'];
 
@@ -97,7 +100,7 @@ class AtlasAcosDeltaCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

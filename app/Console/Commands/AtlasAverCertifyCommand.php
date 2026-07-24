@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAverCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aver:certify {--json : Emit JSON} {--strict : Exit non-zero unless passed}';
 
     protected $description = 'Certify AVER, the Atlas Verified Execution Runtime.';
@@ -16,7 +19,7 @@ class AtlasAverCertifyCommand extends Command
         $payload = $certification->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('AVER certification', (string) $payload['status']);
             $this->components->twoColumnDetail('Checks', ($payload['summary']['pass'] ?? 0).'/'.($payload['summary']['total'] ?? 0));

@@ -7,6 +7,7 @@ use App\Services\Ai\OperatorIntelligence\OperatorPatternDetector;
 use App\Services\Ai\OperatorIntelligence\OperatorSkillProposalBridge;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * "Atlas notices you repeat X → it prepares for you." Detects genuine recurring operator
@@ -17,6 +18,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasOperatorPatternsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:operator-patterns
         {--operator= : operator id (default from config)}
         {--window= : lookback window in days}
@@ -87,7 +90,7 @@ class AtlasOperatorPatternsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

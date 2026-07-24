@@ -8,9 +8,12 @@ use App\Services\Ai\LongHorizon\LongHorizonContinuityPackEmitterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasLongHorizonContinuityPackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:long-horizon:continuity-pack
         {--scope-type=long_horizon : Long-horizon scope type}
         {--scope-id=fable-lista-6 : Long-horizon scope id}
@@ -52,7 +55,7 @@ final class AtlasLongHorizonContinuityPackCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

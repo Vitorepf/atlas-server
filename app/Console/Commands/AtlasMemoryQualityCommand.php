@@ -6,9 +6,12 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryQualityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:quality
         {action=scorecard : scorecard, history or snapshot}
         {--workspace= : Workspace path}
@@ -55,7 +58,7 @@ class AtlasMemoryQualityCommand extends Command
         $payload = ['memory_quality_check' => $report];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Memory Quality Check</>', (string) ($report['status'] ?? 'unknown'));
             foreach ((array) ($report['checks'] ?? []) as $check) {
@@ -85,7 +88,7 @@ class AtlasMemoryQualityCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -146,7 +149,7 @@ class AtlasMemoryQualityCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

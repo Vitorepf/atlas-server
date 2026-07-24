@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Autonomy\AtlasWeeklyMemoryDigestService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The Sunday memory digest — reports EVERYTHING Atlas saved to memory in the window
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiWeeklyMemoryDigestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:weekly-memory-digest
         {--days=7 : Lookback window in days}
         {--json : Print machine-readable JSON}';
@@ -24,7 +27,7 @@ class AtlasAiWeeklyMemoryDigestCommand extends Command
         $report = $digest->digest((int) $this->option('days'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

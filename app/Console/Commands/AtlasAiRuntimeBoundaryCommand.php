@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiRuntimeBoundaryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:runtime-boundary {--json : Print machine-readable JSON}';
 
     protected $description = 'Report Atlas AI runtime language boundary status for Laravel, Python, Go and Swift.';
@@ -18,7 +21,7 @@ class AtlasAiRuntimeBoundaryCommand extends Command
         $violations = (array) data_get($payload, 'boundary.violations', []);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $valid ? self::SUCCESS : self::FAILURE;
         }

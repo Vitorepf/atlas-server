@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRepoIntakeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendRepoIntakeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:intake
         {--workspace= : Local company/product frontend repository path}
         {--json : Emit canonical JSON payload}
@@ -19,7 +22,7 @@ class AtlasFrontendRepoIntakeCommand extends Command
         $payload = $intake->inspect((string) ($this->option('workspace') ?? ''));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Repo Intake: '.$payload['status']);
         }

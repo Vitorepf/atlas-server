@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\OperatorIntelligence\AtlasProjectStackLearner;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * "Atlas learns your projects, fast." Reads a project's real manifests + docs and records
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasLearnProjectCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:learn-project
         {path? : project root (default: current working directory)}
         {--persist : write the learned project knowledge to a reversible artifact}
@@ -37,7 +40,7 @@ class AtlasLearnProjectCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($knowledge, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($knowledge));
 
             return self::SUCCESS;
         }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendDesignRuntimePlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:plan
         {--task= : Frontend task or user intent}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
@@ -24,7 +27,7 @@ class AtlasFrontendDesignRuntimePlanCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'ready' ? self::SUCCESS : self::FAILURE;
         }

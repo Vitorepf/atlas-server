@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionT
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L5-4 · Bridge recurrent capability gaps from the Loop loss-observer into the
@@ -19,6 +20,8 @@ use App\Support\YesNo;
  */
 final class AtlasSelfConstructionToolGapBridgeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:self-construction:tool-gap-bridge
@@ -45,7 +48,7 @@ final class AtlasSelfConstructionToolGapBridgeCommand extends Command
         } catch (QueryException) {
             $payload = ['status' => 'runtime_refused', 'reason' => 'loop_db_unavailable'];
             if ($this->option('json')) {
-                $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->error('tool-gap-bridge: loop-funnel DB unavailable ('.$e->getMessage().')');
             }
@@ -54,7 +57,7 @@ final class AtlasSelfConstructionToolGapBridgeCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->info('Self-construction tool-gap bridge (L5-4)');
             $this->components->twoColumnDetail('Status', (string) $result['status']);

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAweosCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aweos
         {action=control-plane : run|event|certify-outcome|control-plane}
         {--objective= : Objective/prompt to execute}
@@ -51,7 +54,7 @@ class AtlasAweosCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasAutonomousWorkExecutionService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

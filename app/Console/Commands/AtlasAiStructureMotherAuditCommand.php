@@ -6,9 +6,12 @@ use App\Services\Ai\Kernel\Architecture\AtlasStructureMotherAuditReadModel;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiStructureMotherAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:structure-mother-audit
         {--hours=720 : Window size in hours}
         {--workspace= : Workspace path}
@@ -28,7 +31,7 @@ class AtlasAiStructureMotherAuditCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

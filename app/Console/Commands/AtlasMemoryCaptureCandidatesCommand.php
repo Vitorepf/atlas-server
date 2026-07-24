@@ -6,9 +6,12 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\AtlasMemoryCandidateGateService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryCaptureCandidatesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:capture-candidates
         {--source= : Real source path to extract from}
         {--title= : Candidate title}
@@ -58,7 +61,7 @@ class AtlasMemoryCaptureCandidatesCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

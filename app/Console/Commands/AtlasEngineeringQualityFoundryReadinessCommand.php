@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryReadinessManifest;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasEngineeringQualityFoundryReadinessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:quality-foundry-readiness
         {--evidence= : JSON evidence bundle produced by independent runtime owners}
         {--json : Machine-readable JSON}';
@@ -27,7 +30,7 @@ final class AtlasEngineeringQualityFoundryReadinessCommand extends Command
         $payload = $manifest->build($evidence);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

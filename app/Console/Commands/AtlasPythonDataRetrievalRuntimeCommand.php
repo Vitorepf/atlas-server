@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasPythonDataRetrievalRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasPythonDataRetrievalRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:python-data
         {--workspace= : Workspace root}
         {--file=* : Relative files to analyze}
@@ -36,7 +39,7 @@ final class AtlasPythonDataRetrievalRuntimeCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return in_array((string) ($payload['status'] ?? ''), ['blocked', 'failed'], true) ? self::FAILURE : self::SUCCESS;
         }

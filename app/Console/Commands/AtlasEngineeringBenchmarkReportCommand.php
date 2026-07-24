@@ -7,9 +7,12 @@ use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:benchmark:report
         {--suite=atlas-core-smoke : Suite slug or id}
         {--limit=20 : Maximum recent Fair Claude runs to include}
@@ -49,7 +52,7 @@ class AtlasEngineeringBenchmarkReportCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

@@ -11,6 +11,7 @@ use App\Services\Ai\LongHorizon\Replay\LongHorizonReplayManifestBuilder;
 use App\Services\Ai\LongHorizon\Replay\ReplayManifestReader;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * TEOS-I2 · Replay Manifest CLI.
@@ -28,6 +29,8 @@ use Throwable;
  */
 final class AtlasLongHorizonReplayManifestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:long-horizon:replay-manifest
         {action : build|show|read|list}
         {--continuation-pack= : continuation pack uuid for build}
@@ -242,7 +245,7 @@ final class AtlasLongHorizonReplayManifestCommand extends Command
      */
     private function emit(array $payload, int $exit = 0): int
     {
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return $exit;
     }

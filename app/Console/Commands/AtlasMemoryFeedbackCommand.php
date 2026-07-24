@@ -10,9 +10,12 @@ use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasMemoryFeedbackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const EXPLICIT_NEGATIVE_ACTIONS = [
         'not_useful',
         'wrong_context',
@@ -141,7 +144,7 @@ final class AtlasMemoryFeedbackCommand extends Command
     private function emit(array $payload, int $code): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line(($payload['ok'] ?? false)
                 ? sprintf('<info>memory feedback</info> %s -> %s%s', $payload['memory_entry_id'] ?? '', $payload['feedback_action'] ?? '', ($payload['dry_run'] ?? false) ? ' (dry-run)' : '')

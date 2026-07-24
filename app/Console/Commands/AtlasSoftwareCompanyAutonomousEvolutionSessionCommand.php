@@ -8,9 +8,12 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityBootstrapService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** Canonical AP-786 owner-flow chain that must be the authority for provider execution. */
     private const OWNER_FLOW_CHAIN = ['AP-747', 'AP-756', 'AP-757', 'AP-749', 'AP-758', 'AP-759', 'AP-750'];
 
@@ -152,7 +155,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         $payload['anti_fake_proof'] = $antiFake;
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === AutonomousEvolutionSessionService::STATUS_BLOCKED
                 ? self::FAILURE

@@ -9,9 +9,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiLongRunningWorkDeclareBaselineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:long-running-work-declare-baseline
         {--apply : Persist disabled baseline schedule declarations}
         {--workspace= : Workspace path used only for a hash in the baseline contract}
@@ -251,7 +254,7 @@ TXT;
     private function render(array $payload, int $exitCode = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

@@ -7,9 +7,12 @@ use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliSkillsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:skills
         {action=list : list, show, validate, doctor or trust}
         {name? : Skill name for show or validate}
@@ -230,7 +233,7 @@ class AtlasCliSkillsCommand extends Command
     private function printPayload(array $payload, int $status = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } elseif (($payload['trusted'] ?? false) === true) {
             $this->line('Workspace confiavel para skills locais: '.$payload['workspace']);
         }

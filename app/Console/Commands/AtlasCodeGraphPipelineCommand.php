@@ -7,6 +7,7 @@ use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-815 · W-4 — the per-workspace AWIS code-graph pipeline, as ONE governed flow.
@@ -33,6 +34,8 @@ use Throwable;
  */
 class AtlasCodeGraphPipelineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code-graph:pipeline
         {--workspace= : Workspace path or id to run the pipeline for (defaults to the primary atlas-server)}
         {--prune : Archive read-model rows no longer present in the workspace}
@@ -120,7 +123,7 @@ class AtlasCodeGraphPipelineCommand extends Command
     private function emit(array $summary, int $exitCode): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return $exitCode;
         }

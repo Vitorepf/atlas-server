@@ -11,6 +11,7 @@ use App\Services\Ai\Brain\AtlasEvolutionDiary;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * WO-17-T0.2 — MEDIR o guard de decisão que JÁ existe (não reconstruir).
@@ -32,6 +33,8 @@ use Throwable;
  */
 final class AtlasAobgGuardHitRateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aobg:guard-hitrate
         {--workspace= : workspace id/path scoping the decisions and the guard}
         {--limit=12 : candidate-set LIMIT to measure the blind vs query-aware cut}
@@ -118,7 +121,7 @@ final class AtlasAobgGuardHitRateCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->table(['decisão', 'cego', 'query-aware', 'arquivo', 'guard'], $rows);
             $this->line(sprintf(

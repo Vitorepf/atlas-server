@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\AtlasTokenEconomyRuntimeService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Compatibility input alias for the Atlas Token Economy Runtime.
@@ -13,6 +14,8 @@ use Throwable;
  */
 class AtlasTokenEconomyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:token-economy:input
         {--input= : JSON input for the optimization pass}
         {--json : Print machine-readable JSON}';
@@ -34,7 +37,7 @@ class AtlasTokenEconomyCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($result);
 
             return self::SUCCESS;
         }

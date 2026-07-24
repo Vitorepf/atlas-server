@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerExecutionEnve
 use App\Services\Ai\SelfConstruction\WorkerSwarm\AtlasSelfConstructionWorkerCapabilityContract;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Worker Swarm surface. Four verbs:
@@ -20,6 +21,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionWorkersCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:workers {action : capability|match|envelope|normalize} {--facts=} {--json}';
 
@@ -38,7 +41,7 @@ final class AtlasSelfConstructionWorkersCommand extends Command
             'normalize' => $this->normalize($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

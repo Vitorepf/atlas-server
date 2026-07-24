@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueuePressu
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphQualityRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerDrainRateForecaster;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:external-brain:queue-pressure
@@ -30,6 +31,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainQueuePressureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.queue_pressure.v1';
 
     /** @var string */
@@ -133,7 +136,7 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
             'recommended_batch_size' => $recommendedBatchSize,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

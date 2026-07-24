@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasDecide\AtlasSelfModelReadModelService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-13 — `atlas:decide:self-model --category=X --json`
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasDecideSelfModelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:decide:self-model
         {--category= : task_category to query (required)}
         {--window-days=30 : recall window (days)}
@@ -40,7 +43,7 @@ final class AtlasDecideSelfModelCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

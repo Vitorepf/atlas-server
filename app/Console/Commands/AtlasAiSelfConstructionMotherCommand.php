@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessSer
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Self-Construction OS — the read-only "mother" command.
@@ -27,6 +28,8 @@ use App\Support\YesNo;
  */
 class AtlasAiSelfConstructionMotherCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $name = 'atlas:ai:self-construction';
 
     protected $description = 'Atlas Self-Construction OS — read-only advisory projections (Phase 2 gap report).';
@@ -1460,7 +1463,7 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         $payload = $service->{$method}($serviceOptions);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

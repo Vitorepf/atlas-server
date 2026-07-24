@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Compounding\AtlasLearningProposalDecisionService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator entry point for the Learning Proposals decision contract.
@@ -21,6 +22,8 @@ use Throwable;
  */
 final class AtlasLearningProposalsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:learning:proposals-decision {--json : Machine-readable JSON output}';
 
     protected $description = 'Decide learning-proposal rules: evidence-gated admission, weak-signal hold, justification/risk/action output, and the critical-change no-auto-apply review gate. [was atlas:aaeos:*; TRI-HYGIENE rename]';
@@ -83,7 +86,7 @@ final class AtlasLearningProposalsCommand extends Command
             return self::FAILURE;
         }
 
-        $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($result));
 
         return self::SUCCESS;
     }

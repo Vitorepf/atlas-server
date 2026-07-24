@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasAucriOptimizationAuditService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAucriOptimizeAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aucri:optimize-audit
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero unless status is ready}';
@@ -20,7 +23,7 @@ final class AtlasAucriOptimizeAuditCommand extends Command
         $payload = $service->audit();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas AUCRI Optimization Audit', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('Status', (string) $payload['status']);

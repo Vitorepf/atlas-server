@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgentGovernance\AtlasAgentReconciler;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Run the BABÁ once: converge the real fleet toward the operator's desired-state. Starts desired+gated agents
@@ -15,6 +16,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasAgentsReconcileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:agents:reconcile {--json}';
 
     protected $description = 'The babá: converge the running fleet toward the operator desired-state (start desired, stop unsanctioned).';
@@ -24,7 +27,7 @@ final class AtlasAgentsReconcileCommand extends Command
         $report = $reconciler->reconcile();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

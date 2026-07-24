@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyStopGoGovernor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only autonomy stop/go decision runner. Drives
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasSelfConstructionAutonomyStopGoCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:autonomy-stop-go
         {--queue-health= : healthy|degraded|dry (default healthy)}
@@ -37,7 +40,7 @@ final class AtlasSelfConstructionAutonomyStopGoCommand extends Command
     {
         $decision = $governor->decide($this->buildInputs());
 
-        $this->line((string) json_encode($decision, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($decision));
 
         return self::SUCCESS;
     }

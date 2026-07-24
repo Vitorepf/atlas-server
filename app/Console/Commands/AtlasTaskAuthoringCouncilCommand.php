@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskAuthoringGovernanceChain;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasTaskAuthoringCouncilCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:authoring-council {--json}';
 
     protected $description = 'Run the authoring governance chain (Strategy + Architecture councils) over a comprehension snapshot.';
@@ -23,7 +26,7 @@ final class AtlasTaskAuthoringCouncilCommand extends Command
         $envelope = $chain->govern($snapshot);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($envelope));
         } else {
             $this->info('mode='.($envelope['mode'] ?? '').' recorded='.($envelope['recorded'] ?? '').' error='.($envelope['error'] ?? ''));
         }

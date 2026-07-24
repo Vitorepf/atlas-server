@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cli\AtlasCliInstallService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliInstallCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:install
         {--target= : Symlink target. Defaults to ~/.local/bin/atlas}
         {--force : Replace an existing target}
@@ -38,7 +41,7 @@ class AtlasCliInstallCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($plan));
 
             return $plan['ok'] ? self::SUCCESS : self::FAILURE;
         }

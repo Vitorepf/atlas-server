@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskLandingDeepReviewService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * GAP-COCKPIT-04 surface · "rode um review sobre ESTA landing e mostre findings".
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTaskLandingDeepReviewCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:review:deep
         {ref : Commit sha da landing OU task_packet_id (resolvido via receipts)}
         {--semantic : Também pedir review semântico do diff ao provider governado (opt-in; fail-open)}
@@ -26,7 +29,7 @@ class AtlasTaskLandingDeepReviewCommand extends Command
         $packet = $service->review(trim((string) $this->argument('ref')), (bool) $this->option('semantic'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($packet));
 
             return $packet['risk_level'] === 'blocking' ? self::FAILURE : self::SUCCESS;
         }

@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\DB;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiPerformanceSmokeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:performance:smoke
         {--date= : Local report date. Defaults to yesterday in the configured timezone}
         {--timezone= : Report timezone. Defaults to atlas.ai_metrics.performance_report_timezone}
@@ -178,7 +181,7 @@ class AiPerformanceSmokeCommand extends Command
     private function outputPayload(array $payload, int $exitCode): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

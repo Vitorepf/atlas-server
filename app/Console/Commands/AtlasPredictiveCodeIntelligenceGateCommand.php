@@ -8,9 +8,12 @@ use App\Services\Ai\Learning\PredictiveFailure\PredictiveCodeIntelligenceCorrela
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasPredictiveCodeIntelligenceGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:predictive-code-intelligence-gate
         {--fixture=live : live, mature, zero-outcomes or stale-code}
         {--domain=learning : Predictive-failure domain}
@@ -44,7 +47,7 @@ final class AtlasPredictiveCodeIntelligenceGateCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

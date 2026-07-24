@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * R1 — backfill REAL embeddings for existing vector-backed Atlas memory rows so
@@ -32,6 +33,8 @@ use Throwable;
  */
 class AtlasMemoryEmbedBackfillCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:embed-backfill
         {--only= : Limit to one table: entries|verbatim|notes|attachments}
         {--missing-only : Only rows whose embedding is still NULL (default)}
@@ -267,7 +270,7 @@ class AtlasMemoryEmbedBackfillCommand extends Command
     private function report(array $payload, int $exit): int
     {
         if ($this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $exit;
         }

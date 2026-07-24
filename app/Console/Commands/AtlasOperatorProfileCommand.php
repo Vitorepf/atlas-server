@@ -6,6 +6,7 @@ use App\Models\OperatorProfileItem;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The operator's undo handle for everything Atlas learned about them — list what is
@@ -15,6 +16,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasOperatorProfileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:operator-profile
         {action : list|archive|restore}
         {id? : profile item id (for archive/restore)}
@@ -103,7 +106,7 @@ class AtlasOperatorProfileCommand extends Command
 
         $payload = ['ok' => true, 'action' => $verb, 'id' => $id, 'from' => $before, 'to' => $toStatus, 'reversible' => true];
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

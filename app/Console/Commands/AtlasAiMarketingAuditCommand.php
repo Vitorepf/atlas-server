@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\MarketingDomain\Content\ConversionAuditor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:audit — runs the unified Conversion-OS x-ray on any page (HTML file or raw text)
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:audit
         {target : path to an HTML/text file OR raw inline text}
         {--niche= : niche para o painel de personas + pesos aprendidos (weight_loss, finance, relationship, …)}
@@ -32,7 +35,7 @@ class AtlasAiMarketingAuditCommand extends Command
         $audit = $auditor->audit($copy, $html, (string) ($this->option('niche') ?? ''));
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($audit, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($audit));
 
             return self::SUCCESS;
         }

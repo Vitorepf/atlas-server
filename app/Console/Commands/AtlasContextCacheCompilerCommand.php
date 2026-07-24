@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextCacheCompilerRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextCacheCompilerCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:cache-warm
         {--flow-id=atlas_dev : Flow id}
         {--provider=gpt : Provider}
@@ -34,7 +37,7 @@ final class AtlasContextCacheCompilerCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasContextCacheCompilerRuntimeService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

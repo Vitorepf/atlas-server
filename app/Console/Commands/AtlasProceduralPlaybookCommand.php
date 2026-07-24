@@ -9,6 +9,7 @@ use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookLedger;
 use App\Services\Ai\Kernel\Procedural\ProceduralPlaybook;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ATLAS BUILD #3 — operator/loop surface for the general procedural playbook
@@ -22,6 +23,8 @@ use App\Support\YesNo;
  */
 class AtlasProceduralPlaybookCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:playbook
         {action : define|show|apply|outcome|correct|rate|cadence}
         {category? : task category (for show|apply|rate)}
@@ -166,7 +169,7 @@ class AtlasProceduralPlaybookCommand extends Command
     private function report(array $report, string $human): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }
@@ -210,7 +213,7 @@ class AtlasProceduralPlaybookCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

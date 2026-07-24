@@ -6,9 +6,12 @@ use App\Services\Ai\Kernel\Architecture\AtlasQualitativeLevelsReadModel;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiQualitativeLevelsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:qualitative-levels
         {--hours=720 : Window size in hours}
         {--json : Print machine-readable JSON}';
@@ -26,7 +29,7 @@ class AtlasAiQualitativeLevelsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

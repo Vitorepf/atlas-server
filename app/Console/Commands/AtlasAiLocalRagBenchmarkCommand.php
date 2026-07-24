@@ -8,9 +8,12 @@ use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAiLocalRagBenchmarkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:ai:local-rag-benchmark
@@ -53,7 +56,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload['emitted_external_vector_rag_preflight_inbox_item'] = $this->emitExternalRetrievalPreflightInbox($payload, $inbox);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -175,7 +178,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload = self::rivalsShadowCaseContract();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -196,7 +199,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload['emitted_inbox_item'] = $this->emitRetrievalRivalsShadowInbox($payload, $inbox);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -703,7 +706,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload['emitted_inbox_item'] = $this->emitRetrievalRivalsInbox($payload, $inbox);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -798,7 +801,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $payload = self::schedulePlan();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

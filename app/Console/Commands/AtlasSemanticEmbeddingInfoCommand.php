@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI surface for the runtime described by the canonical doc — the service
@@ -15,6 +16,8 @@ use Throwable;
  */
 class AtlasSemanticEmbeddingInfoCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:semantic:embedding-info {--json}';
 
     protected $description = 'Show the last embedding info from the semantic embedding foundation.';
@@ -28,7 +31,7 @@ class AtlasSemanticEmbeddingInfoCommand extends Command
             $result = ['error' => $e::class, 'message' => $e->getMessage()];
         }
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($result);
 
         return self::SUCCESS;
     }

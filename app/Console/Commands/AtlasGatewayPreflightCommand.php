@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Gateway Preflight CLI.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasGatewayPreflightCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:gateway:preflight
         {--action=preflight : preflight|latest|list}
         {--input= : operator input text (for preflight)}
@@ -69,7 +72,7 @@ class AtlasGatewayPreflightCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) || $v === null ? "{$k}: ".var_export($v, true) : "{$k}: ".json_encode($v));

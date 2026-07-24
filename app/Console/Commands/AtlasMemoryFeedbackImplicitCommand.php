@@ -9,6 +9,7 @@ use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * D4 (Obra #18) — implicit feedback: 18 320 recall usages carried ZERO feedback
@@ -26,6 +27,8 @@ use Illuminate\Support\Facades\Process;
  */
 class AtlasMemoryFeedbackImplicitCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:feedback-implicit
         {--diff= : path to a unified diff / changed content (default: `git diff HEAD`)}
         {--since=24 : window (hours) of recall usages to consider}
@@ -234,7 +237,7 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
     private function emit(array $payload, int $code): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line(sprintf(
                 '%s · scanned=%s marked_useful=%s dominant=%s%s',

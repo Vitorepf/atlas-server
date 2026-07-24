@@ -10,9 +10,12 @@ use App\Models\AiTrace;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\SchemaDriftAuditor;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiDoctorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:doctor {--hours=24 : Observation window in hours} {--json : Print machine-readable JSON}';
 
     protected $description = 'Summarize Atlas operational health, quality scores and pending remediation actions.';
@@ -48,7 +51,7 @@ class AiDoctorCommand extends Command
         $exit = $drift['missing'] === [] ? self::SUCCESS : self::FAILURE;
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($data));
 
             return $exit;
         }

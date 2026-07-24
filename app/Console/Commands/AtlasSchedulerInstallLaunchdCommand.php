@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Installs/uninstalls launchd agent that runs `php artisan schedule:run`
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSchedulerInstallLaunchdCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scheduler:install-launchd
         {--uninstall : Remove the launchd agent}
         {--dry-run : Print plist without writing or loading}
@@ -146,7 +149,7 @@ PLIST;
     private function emit(array $payload, bool $json): void
     {
         if ($json) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

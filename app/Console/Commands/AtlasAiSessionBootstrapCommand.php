@@ -11,9 +11,12 @@ use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Engineering\AtlasDocumentationRealityReflectiveStatusService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiSessionBootstrapCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:session-bootstrap
         {--task= : Task, feature, bug or question this session will handle}
         {--workspace= : Workspace root used for provider projection status}
@@ -45,7 +48,7 @@ class AtlasAiSessionBootstrapCommand extends Command
         $payload['ops_room'] = $this->opsRoom();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $gate->cliExitCode($payload, (bool) $this->option('strict'));
         }

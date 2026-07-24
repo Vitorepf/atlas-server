@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N1.F3 — `atlas:aobg:workspace`: the CLI mirror of the multi-project surface, for
@@ -34,6 +35,8 @@ use App\Support\YesNo;
  */
 class AtlasAobgWorkspaceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.workspace_command.v1';
 
     protected $signature = 'atlas:aobg:workspace
@@ -60,7 +63,7 @@ class AtlasAobgWorkspaceCommand extends Command
         // superfície com o status read-only; --dry-run dá a paridade segura sem serviço novo.
         if ((bool) $this->option('dry-run') && in_array($action, ['activate', 'activate-all', 'activate_all', 'all', 'onboard'], true)) {
             $result = ['dry_run' => true, 'would_run' => $action, 'writes_skipped' => ['provider_bootstrap', 'index', 'receipt'], 'status' => $service->status($opts)];
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -93,7 +96,7 @@ class AtlasAobgWorkspaceCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

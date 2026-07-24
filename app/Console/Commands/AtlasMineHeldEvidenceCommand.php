@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Compounding\AtlasHeldEvidenceMinerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Mine held governed evidence (stamped by atlas:ai:bridge-evidence) into
@@ -11,6 +12,8 @@ use Illuminate\Console\Command;
  */
 class AtlasMineHeldEvidenceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:mine-held-evidence
         {--hours=24 : Look-back window in hours}
         {--min-corroboration=1 : Minimum same-kind held events to mint a proposal}
@@ -23,7 +26,7 @@ class AtlasMineHeldEvidenceCommand extends Command
         $report = $miner->mine((int) $this->option('hours'), (int) $this->option('min-corroboration'));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

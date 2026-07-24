@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelCapabi
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelTierGovernanceRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldOverfitDetector;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator entry point combining {@see AtlasExternalBrainModelCapabilityAmplifier}
@@ -26,6 +27,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainModelAmplifierCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:model-amplifier
         {--input= : Path to a JSON file with amplifier, scaffold_metrics, and model_tier sections}';
@@ -78,7 +81,7 @@ final class AtlasExternalBrainModelAmplifierCommand extends Command
             'safe_to_operate_autonomously' => $safeToOperateAutonomously,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

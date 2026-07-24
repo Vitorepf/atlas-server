@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAutonomyAdmissionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomy:admit
         {--change-json= : JSON envelope of the proposed change}
         {--list : List recorded tickets instead of admitting a new change}
@@ -56,7 +59,7 @@ class AtlasAutonomyAdmissionCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasAaeosAcosSimplifyCyc
 use App\Services\Ai\SelfConstruction\Governance\AtlasAaeosAcosLaneScope;
 use App\Services\Ai\SelfConstruction\Simplification\AtlasAaeosAcosSimplificationLane;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AAEOS+ACOS elite simplify cycle — bounded orchestration tick.
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasAaeosAcosSimplifyCycleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aaeos_acos.simplify_cycle.cli.v1';
 
     protected $signature = 'atlas:acos:simplify-cycle
@@ -53,7 +56,7 @@ final class AtlasAaeosAcosSimplifyCycleCommand extends Command
         }
 
         if ($json) {
-            $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             $this->info('scope='.AtlasAaeosAcosLaneScope::SLUG.' dry_run='.(($payload['plan']['dry_run'] ?? true) ? '1' : '0'));
             foreach ((array) ($payload['plan']['executable_steps'] ?? []) as $step) {

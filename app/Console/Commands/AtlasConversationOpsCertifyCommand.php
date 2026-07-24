@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasConversationOpsCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:conversation-ops:certify
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero unless status is passed}';
@@ -20,7 +23,7 @@ final class AtlasConversationOpsCertifyCommand extends Command
         $payload = $certification->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Conversation Operations Layer', (string) ($payload['schema_version'] ?? 'unknown'));
             $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));

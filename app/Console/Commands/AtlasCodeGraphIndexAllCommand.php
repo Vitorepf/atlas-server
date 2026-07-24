@@ -14,6 +14,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Throwable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-815 — index-all: the MULTI-REPO orchestration on top of the per-workspace engine.
@@ -26,6 +27,8 @@ use Illuminate\Console\Command;
  */
 class AtlasCodeGraphIndexAllCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** Source extensions the indexer actually ingests (the secret pre-scan checks these). */
     private const INGESTED = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
 
@@ -208,7 +211,7 @@ class AtlasCodeGraphIndexAllCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

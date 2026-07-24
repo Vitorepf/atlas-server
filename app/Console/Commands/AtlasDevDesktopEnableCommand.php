@@ -8,9 +8,12 @@ use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationSer
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevReadinessService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopEnableCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:enable
         {--env-path= : Custom .env path for tests or controlled setup}
         {--dry-run : Show the env updates without writing}
@@ -62,7 +65,7 @@ final class AtlasDevDesktopEnableCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['readiness']['status'] === 'passed' && $payload['certification']['status'] === 'passed'
                 ? self::SUCCESS

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\MarketingDomain\Content\FunnelContinuityAuditor;
 use App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:continuity — structural-truth congruence across the funnel chain. Pass the funnel
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingContinuityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:continuity
         {--ad= : top-of-funnel copy/headline (file path or inline text)}
         {--bridge= : bridge/advertorial copy (file or text)}
@@ -44,7 +47,7 @@ class AtlasAiMarketingContinuityCommand extends Command
         $result = $auditor->audit($stages);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

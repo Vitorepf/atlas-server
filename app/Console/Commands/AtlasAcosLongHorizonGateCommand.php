@@ -8,9 +8,12 @@ use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosLongHorizonGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:acos-long-horizon-gate
         {--fixture=live : live, mature or short-window}
         {--series= : Override Fable delta-series JSONL path}
@@ -44,7 +47,7 @@ final class AtlasAcosLongHorizonGateCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

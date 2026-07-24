@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * TEOS-I2 M10 · Long-Horizon Continuity Certification CLI.
@@ -30,6 +31,8 @@ use Throwable;
  */
 class AtlasLongHorizonContinuityCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:long-horizon:continuity-certify
@@ -100,6 +103,6 @@ class AtlasLongHorizonContinuityCertifyCommand extends Command
      */
     private function emit(array $payload): void
     {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
     }
 }

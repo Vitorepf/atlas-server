@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationV2Reader;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-12 — read-only per-actor concentration reader (v2).
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasMemoryConcentrationV2Command extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:concentration-v2
         {--window-days=45 : recall window (days)}
         {--min-recalls=100 : minimum total recalls for signal}
@@ -34,7 +37,7 @@ final class AtlasMemoryConcentrationV2Command extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

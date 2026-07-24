@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Area Focus Loop · Operational Certification CLI (AP-722).
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAreaFocusCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:night-shift:area-focus-certify
         {--area=agentic_engineering_os : Canonical area_id}
         {--no-evidence : Read-only structural certification (skip the append-only evidence cycle)}
@@ -35,7 +38,7 @@ class AtlasAreaFocusCertifyCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === AreaFocusLoopOperationalCertificationService::STATUS_BLOCKED
                 ? self::FAILURE

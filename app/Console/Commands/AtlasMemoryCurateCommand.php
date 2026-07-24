@@ -8,9 +8,12 @@ use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryCurateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:curate
         {id : Atlas memory entry id}
         {--summary= : Reviewed summary}
@@ -105,7 +108,7 @@ class AtlasMemoryCurateCommand extends Command
     private function print(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

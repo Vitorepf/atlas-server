@@ -6,9 +6,12 @@ use App\Models\AtlasProject;
 use App\Services\Engineering\EngineeringProjectBlueprintService;
 use App\Services\Engineering\EngineeringTaskGenerationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProjectTasksGenerateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:project:tasks:generate {--project-id=} {--from-blueprint=} {--force} {--json}';
 
     protected $description = 'Generate engineering tasks from a frozen project blueprint.';
@@ -39,7 +42,7 @@ class AtlasProjectTasksGenerateCommand extends Command
 
         $payload = $tasks->generate($record, ['force' => (bool) $this->option('force')]);
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Tasks criadas', (string) $payload['created_count']);
             $this->components->twoColumnDetail('Tasks atualizadas', (string) $payload['updated_count']);

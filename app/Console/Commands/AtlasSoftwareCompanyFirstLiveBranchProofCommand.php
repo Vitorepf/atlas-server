@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipFirstLiveBranchProofService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareCompanyFirstLiveBranchProofCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:first-live-branch-proof
         {--area=agentic_engineering_os : Stewardship area id}
         {--repo-root= : Git repository root; defaults to the app base path}
@@ -33,7 +36,7 @@ final class AtlasSoftwareCompanyFirstLiveBranchProofCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === StewardshipFirstLiveBranchProofService::STATUS_BLOCKED
                 ? self::FAILURE

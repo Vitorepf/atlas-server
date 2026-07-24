@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorJudgmentCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:judgment-certify
         {--json : Emit JSON}
         {--strict : Exit non-zero unless passed}';
@@ -20,7 +23,7 @@ class AtlasAemorJudgmentCertifyCommand extends Command
         $payload['scope']['covers'] = 'AEMOR Judgment & Learning Guard smoke, anti-false-learning gate and policy safety.';
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AEMOR judgment certify', (string) ($payload['status'] ?? 'unknown'));
         }

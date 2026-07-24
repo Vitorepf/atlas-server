@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendFrameworkAdapterRuntimeService;
 use Illuminate\Console\Command;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendFrameworkAdapterCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:adapters
         {inspect : Inspect frontend framework adapter}
         {--workspace= : Workspace root}
@@ -31,7 +34,7 @@ class AtlasFrontendFrameworkAdapterCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Adapter: '.data_get($payload, 'adapter.framework', $payload['status'] ?? 'unknown'));
         }

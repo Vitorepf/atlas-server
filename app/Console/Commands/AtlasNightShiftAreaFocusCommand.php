@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Night Shift · Area Focus Loop · read-only read model (slice 1).
@@ -16,6 +17,8 @@ use Illuminate\Console\Command;
  */
 class AtlasNightShiftAreaFocusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:night-shift:area-focus
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--hours=24 : Self-Directed Evolution gap window in hours}
@@ -37,7 +40,7 @@ class AtlasNightShiftAreaFocusCommand extends Command
         $payload = $readModel->project($input);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === AreaFocusLoopReadModelService::STATUS_BLOCKED
                 ? self::FAILURE

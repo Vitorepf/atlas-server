@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessCanon;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiProgrammingRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:programming-runtime
         {--action=readiness : readiness}
         {--json : output JSON only}';
@@ -26,7 +29,7 @@ class AtlasAiProgrammingRuntimeCommand extends Command
         $report = $readiness->report();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->renderHuman($report);
         }

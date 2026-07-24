@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:provider:coverage — report the REAL provider-governance bypass rate.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasProviderCoverageCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:provider:coverage
         {--json : Emit the raw summary as JSON}
         {--reset : Clear the ledger to start a fresh measurement window}';
@@ -36,7 +39,7 @@ final class AtlasProviderCoverageCommand extends Command
         $summary = $ledger->summary();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return self::SUCCESS;
         }

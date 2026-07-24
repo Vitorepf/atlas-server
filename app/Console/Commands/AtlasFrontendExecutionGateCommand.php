@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendExecutionGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:gate
         {--task= : Frontend task or user intent}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
@@ -49,7 +52,7 @@ class AtlasFrontendExecutionGateCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Gate: '.($payload['status'] ?? 'unknown'));
             $this->line('Execution: '.(($payload['execution_allowed'] ?? false) ? 'allowed' : 'blocked'));

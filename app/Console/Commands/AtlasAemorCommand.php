@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor
         {action=control-plane : episode-open|observe|close-outcome|distill|memory-audit|replay|control-plane}
         {--episode= : AEMOR episode id}
@@ -76,7 +79,7 @@ class AtlasAemorCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return;
         }

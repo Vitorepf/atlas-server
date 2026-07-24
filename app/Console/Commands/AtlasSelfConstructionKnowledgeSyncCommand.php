@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncDocsDriftGa
 use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncRequiredArtifactMap;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * READ-ONLY CLI for the Knowledge Sync surface. Four verbs:
@@ -18,6 +19,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionKnowledgeSyncCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:knowledge-sync {action : inspect|artifacts|gate|plan} {--candidate=} {--observed=} {--json}';
 
@@ -34,7 +37,7 @@ final class AtlasSelfConstructionKnowledgeSyncCommand extends Command
             'plan' => $this->plan(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

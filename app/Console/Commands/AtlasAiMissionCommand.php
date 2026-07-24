@@ -9,6 +9,7 @@ use App\Services\Ai\Mission\MissionFollowThroughService;
 use App\Services\Ai\Mission\MissionModeService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas AI Mission Mode CLI.
@@ -26,6 +27,8 @@ use Throwable;
  */
 class AtlasAiMissionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:mission
         {action : create|show|certify|list|detect|run}
         {--goal= : Raw operator prompt for create/detect}
@@ -242,13 +245,13 @@ class AtlasAiMissionCommand extends Command
     private function emit(array $payload, int $exit = 0): int
     {
         if ($this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }
 
         $this->line('[atlas:ai:mission] '.($payload['action'] ?? 'unknown'));
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return $exit;
     }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Digital\RizeApiClient;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class RizeInspectCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:rize:inspect {--raw : Print the raw GraphQL introspection payload}';
 
     protected $description = 'Inspect the authenticated Rize GraphQL query fields.';
@@ -16,7 +19,7 @@ class RizeInspectCommand extends Command
         $fields = $client->inspectQueryFields();
 
         if ($this->option('raw')) {
-            $this->line(json_encode($fields, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($fields));
 
             return self::SUCCESS;
         }

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * O6 · reproducible latency harness for the terminal product surface: measures wall-clock
@@ -16,6 +17,8 @@ use Throwable;
  */
 class AtlasApiPerfCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const P50_BUDGET_MS = 3000;
 
     protected $signature = 'atlas:api:perf
@@ -72,7 +75,7 @@ class AtlasApiPerfCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->table(
                 ['area', 'p50 ms', 'p95 ms', 'orçamento'],

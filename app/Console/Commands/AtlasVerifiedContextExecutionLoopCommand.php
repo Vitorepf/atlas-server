@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\VerifiedContextExecution\AtlasVerifiedContextExecutionLoopService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasVerifiedContextExecutionLoopCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:verified-context-execution
         {action=certify : certify|shadow}
         {--flow-id=atlas_dev : Flow id}
@@ -72,7 +75,7 @@ final class AtlasVerifiedContextExecutionLoopCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasVerifiedContextExecutionLoopService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

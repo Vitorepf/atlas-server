@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasHybridRetrievalInfrastructureService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasHybridRetrievalInfrastructureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:hybrid-retrieval
         {--query= : Objective/query to plan retrieval for}
         {--task-type=direct : Task type}
@@ -28,7 +31,7 @@ final class AtlasHybridRetrievalInfrastructureCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

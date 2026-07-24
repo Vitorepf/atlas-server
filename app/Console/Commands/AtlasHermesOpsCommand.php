@@ -9,6 +9,7 @@ use App\Services\Ai\Hermes\Mesh\HermesSessionEvidenceImporter;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Exception\ExceptionInterface as ProcessException;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operational surface for the Hermes Executive Runtime.
@@ -25,6 +26,8 @@ use Symfony\Component\Process\Process;
  */
 class AtlasHermesOpsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:hermes:ops
         {action=preflight : preflight|sessions}
         {--json : Emit JSON}';
@@ -135,7 +138,7 @@ class AtlasHermesOpsCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return;
         }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\StrategicOperatingSystem\AtlasStrategicOperatingSystemRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasStrategicOperatingSystemCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:strategic-os
         {action=snapshot : snapshot|feedback|experiment|organization|portfolio|governance|certify}
         {--workspace= : Workspace path}
@@ -45,7 +48,7 @@ final class AtlasStrategicOperatingSystemCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $this->exitCode($payload);
         }

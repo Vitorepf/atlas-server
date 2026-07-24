@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasProject;
 use App\Services\Engineering\EngineeringProjectBlueprintService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProjectBlueprintPrepareCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:project:blueprint:prepare {--project-id=} {--json}';
 
     protected $description = 'Prepare a project-level engineering blueprint draft without persisting it.';
@@ -42,7 +45,7 @@ class AtlasProjectBlueprintPrepareCommand extends Command
     protected function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Project blueprint', (string) data_get($payload, 'validation.status', 'unknown'));
             foreach ((array) data_get($payload, 'validation.errors', []) as $error) {

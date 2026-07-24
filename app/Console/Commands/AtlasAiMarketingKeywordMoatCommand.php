@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\MarketingDomain\Campaign\KeywordOsRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI do MOAT (regra #8 da dissecação) — fabrica o re-finder de amanhã. Dado o ingrediente/benefício da
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingKeywordMoatCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:keyword-moat
         {--ingredient=* : ingrediente/benefício/cor coined pela VSL (ex.: gelatin, "blue salt", coffee)}
         {--category=* : categoria/órgão pra matriz de descritor (ex.: "weight loss", bariatric)}
@@ -35,7 +38,7 @@ class AtlasAiMarketingKeywordMoatCommand extends Command
         ]);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($r));
 
             return self::SUCCESS;
         }

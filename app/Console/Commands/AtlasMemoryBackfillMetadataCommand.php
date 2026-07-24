@@ -8,9 +8,12 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasMemoryBackfillMetadataCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SOURCE = 'atlas:memory:backfill-metadata';
 
     protected $signature = 'atlas:memory:backfill-metadata
@@ -200,7 +203,7 @@ final class AtlasMemoryBackfillMetadataCommand extends Command
     private function report(array $payload): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

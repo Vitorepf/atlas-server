@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Obra #14 H3.2 · S49 — operator-only tier promotion CLI.
@@ -16,6 +17,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAutonomyPromoteCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomy:promote
         {area : Canonical area_id (e.g. agentic_engineering_os)}
         {--tier=1 : Requested autonomy tier}
@@ -32,7 +35,7 @@ class AtlasAutonomyPromoteCommand extends Command
         $result = $chain->promote($receipt, (string) $this->argument('area'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Decision', strtoupper((string) $result['decision']));
             $this->components->twoColumnDetail('Area', (string) $result['area_id']);

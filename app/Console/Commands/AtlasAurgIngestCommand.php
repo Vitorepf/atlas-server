@@ -9,6 +9,7 @@ use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AURG Phase-2 / F1 — fused-store ingestion (Salto 1, "AURG vivo").
@@ -29,6 +30,8 @@ use Throwable;
  */
 class AtlasAurgIngestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aurg:ingest
         {--source=all : Which source to sync (all|memory|code|domains|evidence|strategic)}
         {--prune : Remove brain nodes whose source row vanished (scoped to the synced source kinds)}
@@ -100,7 +103,7 @@ class AtlasAurgIngestCommand extends Command
         $payload = ['status' => 'ok'] + $stats + ($temporal !== null ? ['temporal' => $temporal] : []);
 
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

@@ -9,9 +9,12 @@ use App\Services\Ai\Learning\Pattern\ProcessPatternRepository;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasPatternCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:pattern
         {actionOrName? : Pattern name or action: catalog|matcher|author|apply}
         {subject? : Problem description for matcher, pattern name for apply/author}
@@ -104,7 +107,7 @@ class AtlasPatternCommand extends Command
     private function render(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Learning\Failure\FailureAutoFeedHarvester;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-819 F1 — colhe falhas reais de runtime para o corpus failure_signatures.
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasFailureAutoFeedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:failure:auto-feed
         {--window-hours= : Janela de colheita em horas (default config)}
         {--limit= : Máximo de linhas por execução (default config)}
@@ -29,7 +32,7 @@ class AtlasFailureAutoFeedCommand extends Command
         $report = $harvester->harvest($windowHours, $limit, (bool) $this->option('force'));
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

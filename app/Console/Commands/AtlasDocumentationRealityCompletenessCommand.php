@@ -8,6 +8,7 @@ use App\Services\Engineering\AtlasDocumentationRealityCompletenessService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ADRS RUNTIME COMPLETENESS — read-only, honest, DISAMBIGUATED completeness check.
@@ -28,6 +29,8 @@ use App\Support\YesNo;
  */
 class AtlasDocumentationRealityCompletenessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-completeness
         {--json : Emit canonical JSON}';
 
@@ -38,7 +41,7 @@ class AtlasDocumentationRealityCompletenessCommand extends Command
         $payload = $service->assess() + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

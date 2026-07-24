@@ -12,9 +12,12 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringVisualSmokeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:visual-smoke
         {--workspace= : Target workspace path. Defaults to current directory}
         {--start-command= : Command that starts the local web app; port, host and workspace placeholders are expanded}
@@ -135,7 +138,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         $this->recordToolRuntimeEvidence($toolEvidence, $workspace, $artifactRoot, $manifest);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($manifest));
         } elseif ($ok) {
             $this->info('Atlas visual smoke passed: '.$baseUrl);
         } else {

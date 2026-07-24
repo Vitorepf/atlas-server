@@ -7,9 +7,12 @@ use App\Services\Ai\Learning\SRL\SRLEpisodeRepository;
 use App\Services\Ai\Learning\SRL\SRLOrchestrator;
 use App\Services\Ai\Learning\SRL\SRLPreferenceService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasSRLCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:srl
         {action=status : on|off|status|start|observe|reflect|episode|history}
         {subject? : Episode id or target flow}
@@ -88,7 +91,7 @@ class AtlasSRLCommand extends Command
     private function render(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

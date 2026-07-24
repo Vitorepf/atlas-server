@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI surface for the runtime described by the canonical doc — the service
@@ -15,6 +16,8 @@ use Throwable;
  */
 class AtlasSelfConstructionClosureExecutionPackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:self-construction:closure-execution-pack {--json}';
 
     protected $description = 'Build the human completion receipt closure execution pack envelope.';
@@ -27,7 +30,7 @@ class AtlasSelfConstructionClosureExecutionPackCommand extends Command
             $result = ['error' => $e::class, 'message' => $e->getMessage()];
         }
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($result);
 
         return self::SUCCESS;
     }

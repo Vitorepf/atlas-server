@@ -9,9 +9,12 @@ use App\Support\AtlasSecurity;
 use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliStartCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ResolvesGitProjectRoot;
 
     protected $signature = 'atlas:cli:start
@@ -27,7 +30,7 @@ class AtlasCliStartCommand extends Command
         $briefing = $start->briefing($workspace);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($briefing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($briefing));
 
             return self::SUCCESS;
         }

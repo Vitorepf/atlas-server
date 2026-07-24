@@ -8,12 +8,15 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasDevBeatTestReportService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L4-9 · Honest Atlas Dev beat-test report.
  */
 final class AtlasDevBeatTestReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:dev:beat-test
@@ -44,7 +47,7 @@ final class AtlasDevBeatTestReportCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

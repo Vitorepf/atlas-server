@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorI
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRoadmapCoverageGapGovernor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainSurfaceSaturationMeter;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:external-brain:originator-coverage
@@ -32,6 +33,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainOriginatorCoverageCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.originator_coverage.v1';
 
     /** @var string */
@@ -109,7 +112,7 @@ final class AtlasExternalBrainOriginatorCoverageCommand extends Command
             'impact_diversity' => $impactDiversity,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextHygi
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskQueueSelfHealingRespecPlanner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:task:self-heal
@@ -32,6 +33,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasTaskQueueSelfHealCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.task.self_heal.v1';
 
     /** @var string */
@@ -122,7 +125,7 @@ final class AtlasTaskQueueSelfHealCommand extends Command
             'context_hygiene_task_plan' => $contextHygieneResult['task_plan'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

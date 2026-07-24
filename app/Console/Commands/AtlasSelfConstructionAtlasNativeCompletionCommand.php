@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomySoa
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalEvidenceSourceRegistry;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas-native completion CLI for Self-Construction OS closure.
@@ -24,6 +25,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:atlas-native-completion {action : verify|gate|dossier|readiness|soak} {--facts=} {--json}';
 
@@ -37,7 +40,7 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
         $facts = $this->readJson($factsPath);
         if ($factsPath !== '' && $facts === null) {
             $payload = ['status' => 'usage_error', 'reason' => 'invalid_facts_path:'.$factsPath];
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }
@@ -51,7 +54,7 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
             'soak' => $this->soak($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' ? self::SUCCESS : self::FAILURE;
     }

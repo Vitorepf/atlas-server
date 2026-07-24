@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiDecisionReceiptReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:decision-receipt-report
         {--envelope= : Envelope id to replay}
         {--json : Print machine-readable JSON}';
@@ -48,7 +51,7 @@ class AtlasAiDecisionReceiptReportCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

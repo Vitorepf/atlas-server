@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AutonomosPreflightService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-06 — Autonomos muscle preflight. READ-ONLY.
@@ -18,6 +19,8 @@ use App\Support\YesNo;
  */
 final class AtlasAutonomosPreflightCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomos:preflight
         {--json : Emit canonical JSON payload}';
 
@@ -28,10 +31,7 @@ final class AtlasAutonomosPreflightCommand extends Command
         $report = $service->preflight();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode(
-                $report,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            ));
+            $this->line($this->encode($report));
         } else {
             $this->line(sprintf('schema=%s passed=%d/%d ready=%s', $report['schema'], (int) $report['passed'], (int) $report['total'], YesNo::trueFalse($report['ready'])));
             $rows = [];

@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainResearchDig
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainResearchSourceTrustRanker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainResearchToTaskDigestor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only research-to-task converter. Runs bounded research/frontier rows
@@ -40,6 +41,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainResearchToTaskCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:research-to-task
         {--input= : Path to a JSON file with frontier_rows, research_items, and/or research_ideas}';
@@ -123,7 +126,7 @@ final class AtlasExternalBrainResearchToTaskCommand extends Command
             'duplicate_family_warnings' => $triage['duplicate_family_warnings'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

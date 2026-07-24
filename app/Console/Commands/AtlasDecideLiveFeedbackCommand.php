@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Decide Live Feedback CLI.
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 class AtlasDecideLiveFeedbackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:atlas-decide:live-feedback
         {--action=stats : record|stats|signal|sweep|activate-sweep|list-outcomes}
         {--task-category= : task category (e.g., code_generation)}
@@ -136,7 +139,7 @@ class AtlasDecideLiveFeedbackCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) || $v === null ? "{$k}: ".var_export($v, true) : "{$k}: ".json_encode($v));

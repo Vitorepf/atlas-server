@@ -30,9 +30,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliDevCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     use ResolvesGitProjectRoot;
@@ -737,7 +740,7 @@ class AtlasCliDevCommand extends Command
         $payload = AtlasSecurity::redactArray($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }
@@ -1097,7 +1100,7 @@ class AtlasCliDevCommand extends Command
         ]);
 
         if ($json) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }

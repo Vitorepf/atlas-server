@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Obra #14 — as 3 notas da evolução do ACOS (Execução provada, Inteligência
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasCognitionEvolutionScoreCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:evolution-score
         {--json : Saída JSON canônica}';
 
@@ -23,7 +26,7 @@ class AtlasCognitionEvolutionScoreCommand extends Command
         $report = $service->build();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

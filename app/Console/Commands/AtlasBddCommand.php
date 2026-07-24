@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Bdd\AtlasBddAcceptanceRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasBddCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:bdd
         {--action=report : compile|execute|report|list-scenarios|list-executions}
         {--gherkin= : Gherkin source text for compile}
@@ -80,7 +83,7 @@ class AtlasBddCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

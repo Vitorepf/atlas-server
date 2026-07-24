@@ -6,9 +6,12 @@ use App\Services\Ai\Product\AtlasAutonomousProductDeliveryRuntimeService;
 use App\Services\Ai\Product\AtlasProductDeliveryPatchRequestContractService;
 use App\Services\Ai\Product\AtlasProductDeliveryRuntimeReceiptService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryPatchRequestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:patch-request
         {request : Human product/delivery request}
         {--workspace= : Workspace slug/path}
@@ -53,7 +56,7 @@ class AtlasProductDeliveryPatchRequestCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Patch request', (string) $payload['status']);
             $this->components->twoColumnDetail('target', (string) $payload['target']);

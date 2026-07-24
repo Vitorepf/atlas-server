@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneSnapshot;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only control plane inspector for the external-brain pipeline.
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainControlPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:control-plane
         {action=inspect : Action to perform (inspect|plan|audit|certify)}
@@ -51,7 +54,7 @@ final class AtlasExternalBrainControlPlaneCommand extends Command
             ],
         };
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $action === 'unknown' ? self::FAILURE : self::SUCCESS;
     }

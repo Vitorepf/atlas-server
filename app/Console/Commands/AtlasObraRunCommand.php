@@ -11,6 +11,7 @@ use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N3.F2 — `atlas:obra:run`: EXECUTE a planned obra onto ONE accumulating branch.
@@ -33,6 +34,8 @@ use Illuminate\Console\Command;
  */
 class AtlasObraRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:obra:run
         {plan : the persisted obra plan id (from atlas:obra:plan, e.g. obra-abc123)}
         {--provider= : provider key for the per-node generation step (defaults to the delivery default)}
@@ -62,7 +65,7 @@ class AtlasObraRunCommand extends Command
         if ((bool) $this->option('discard')) {
             $r = $executor->discardObra($repoDir ?? base_path(), $planId);
             if ((bool) $this->option('json')) {
-                $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $this->line($this->encode($r));
 
                 return ($r['discarded'] ?? false) ? self::SUCCESS : self::FAILURE;
             }
@@ -98,7 +101,7 @@ class AtlasObraRunCommand extends Command
         $result = $executor->executePlanId($planId, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return ($result['status'] ?? '') === AtlasObraExecutor::STATUS_DONE ? self::SUCCESS : self::FAILURE;
         }

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Scorecard mínimo e honesto do multiplicador M — só fatos de execução real:
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AtlasEngineeringMScorecardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:m-scorecard {--json : Machine-readable JSON} {--no-record : Do not append to history}';
 
     protected $description = 'Honest engineering-multiplier scorecard: real Dev run outcomes, repair conversion, task-serving flow and learning-memory liveness.';
@@ -34,7 +37,7 @@ class AtlasEngineeringMScorecardCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($data));
 
             return self::SUCCESS;
         }

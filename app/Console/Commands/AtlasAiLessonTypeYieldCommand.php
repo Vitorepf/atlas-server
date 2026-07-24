@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAiLessonTypeYieldCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:lesson-type-yield
         {--min-cases= : Minimum cases per lesson type; hard-floored at 8}
         {--json : Emit canonical JSON}
@@ -21,7 +24,7 @@ final class AtlasAiLessonTypeYieldCommand extends Command
         $report = $service->lessonTypeYieldReport(minCases: $this->intOption('min-cases'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Lesson Type Yield</>', (string) ($report['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Measure', (string) ($report['measure_id'] ?? AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID));

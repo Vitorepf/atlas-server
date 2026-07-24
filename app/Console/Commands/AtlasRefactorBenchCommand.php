@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The smallest REAL performance harness for optimize-kind tasks: run a command
@@ -20,6 +21,8 @@ use Symfony\Component\Process\Process;
  */
 class AtlasRefactorBenchCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:refactor:bench
         {cmd : the shell command to measure (quoted)}
         {--runs=5 : how many timed runs (first warm-up run is discarded)}
@@ -68,7 +71,7 @@ class AtlasRefactorBenchCommand extends Command
             'min_ms' => $samplesMs !== [] ? min($samplesMs) : null,
             'failed' => $failed,
         ];
-        $this->line((string) json_encode($envelope, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($envelope));
 
         return $failed === null ? self::SUCCESS : self::FAILURE;
     }

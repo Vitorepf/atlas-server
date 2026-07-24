@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\Control\AaeosScorecardProjector;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAaeosScorecardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos:scorecard
         {--json : Machine-readable JSON}';
 
@@ -19,7 +22,7 @@ class AtlasAaeosScorecardCommand extends Command
         $card = $projector->project();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($card, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($card);
 
             return ((bool) ($card['god_sota'] ?? false)) ? self::SUCCESS : self::FAILURE;
         }

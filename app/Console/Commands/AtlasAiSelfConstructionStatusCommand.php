@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\NamingPolicy\AtlasSelfConstructionNamingPolicyGate;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Self-Construction OS — `status` sub-command.
@@ -32,6 +33,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiSelfConstructionStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:self-construction:status
         {--json : Print machine-readable JSON}';
 
@@ -45,7 +48,7 @@ class AtlasAiSelfConstructionStatusCommand extends Command
 
         $payload = $this->buildPayload($readiness, $namingGate);
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+        $this->jsonLine($payload);
 
         // Status is `ok` when readiness reports valid AND no new naming
         // violations (existing grandfathered violations DO NOT block).

@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiProviderReleaseSourcesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:provider-release-sources
         {--provider= : Filter by provider}
         {--tier= : Filter by source tier}
@@ -26,7 +29,7 @@ class AtlasAiProviderReleaseSourcesCommand extends Command
         $payload = $this->payload($registry);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

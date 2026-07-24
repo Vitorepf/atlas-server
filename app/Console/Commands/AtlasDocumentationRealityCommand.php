@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasDocumentationRealityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality
         {action=score : score|sources|blocks|evaluations|acceptance}
         {--json : Emit canonical JSON}
@@ -67,7 +70,7 @@ class AtlasDocumentationRealityCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($output));
 
             return $this->exitCode($payload);
         }

@@ -9,12 +9,15 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-08 — Read-only PathYieldEwma exposure over the pattern-learning ledger.
  */
 final class AtlasBrainPathYieldCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:brain:path-yield
         {--alpha=0.3 : EWMA smoothing factor (0..1)}
         {--json : Emit canonical JSON payload}';
@@ -63,10 +66,7 @@ final class AtlasBrainPathYieldCommand extends Command
         $report['ledger_path'] = $ledger->path();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode(
-                $report,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            ));
+            $this->line($this->encode($report));
         } else {
             $this->line(sprintf('schema=%s status=%s alpha=%.2f', $report['schema'], $report['status'], (float) $report['alpha']));
             $rows = [];

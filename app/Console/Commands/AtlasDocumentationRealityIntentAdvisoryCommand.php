@@ -8,6 +8,7 @@ use App\Services\Engineering\AtlasDocumentationRealityIntentAdvisoryService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L2-O2 (first increment) — read-only Intent ADVISORY command.
@@ -25,6 +26,8 @@ use App\Support\YesNo;
  */
 final class AtlasDocumentationRealityIntentAdvisoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-intent-advisory
         {--kind=doc : Proposed artifact kind (doc|symbol)}
         {--slug= : Proposed doc slug}
@@ -44,7 +47,7 @@ final class AtlasDocumentationRealityIntentAdvisoryCommand extends Command
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             // ADVISORY, never a gate: always succeed.
             return self::SUCCESS;

@@ -8,6 +8,7 @@ use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Dry-run the capture quality gate over recent learning candidates and report how much
@@ -16,6 +17,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasAiCaptureQualityAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:capture-quality-audit
         {--days=7 : Lookback window in days}
         {--json : Print machine-readable JSON}';
@@ -66,7 +69,7 @@ class AtlasAiCaptureQualityAuditCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

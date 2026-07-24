@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeD
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas-native control surface for the final Self-Construction runtime daemon.
@@ -22,6 +23,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:runtime-daemon
         {action : status|plan|claim|tick|run-once|pause|resume|stop}
@@ -114,7 +117,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
      */
     private function emit(array $payload): void
     {
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\MarketingDomain\Content\WinningPatternScout;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:scout — scouts a winning page from the wild. Takes an HTML/text file (or inline
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingScoutCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:scout
         {target : path to an HTML/text file OR raw inline text}
         {--json : machine output}';
@@ -27,7 +30,7 @@ class AtlasAiMarketingScoutCommand extends Command
         $r = $scout->scout($html);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($r));
 
             return self::SUCCESS;
         }

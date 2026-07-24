@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAiLessonQualityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:lesson-quality
         {--min-cases= : Minimum measured cases per lesson-quality group}
         {--json : Emit canonical JSON}
@@ -21,7 +24,7 @@ final class AtlasAiLessonQualityCommand extends Command
         $report = $service->report(minCases: $this->intOption('min-cases'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Lesson Quality</>', (string) ($report['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Measure', (string) ($report['measure_id'] ?? AtlasLessonQualityService::MEASURE_ID));

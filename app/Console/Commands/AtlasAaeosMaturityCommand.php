@@ -7,6 +7,7 @@ use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthServic
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * R4 keystone command — computes machine-verified implementation_state for every
@@ -19,6 +20,8 @@ use Illuminate\Support\Str;
  */
 class AtlasAaeosMaturityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:aeos:maturity
@@ -52,7 +55,7 @@ class AtlasAaeosMaturityCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $exit;
         }
@@ -90,7 +93,7 @@ class AtlasAaeosMaturityCommand extends Command
         $coverage = $truth->coverage();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($coverage, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($coverage);
 
             return self::SUCCESS;
         }

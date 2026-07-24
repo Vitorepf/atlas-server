@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductDeliveryProviderMemoryFeedService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryProviderMemoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:provider-memory
         {--route= : Optional route filter}
         {--limit=100 : Receipt/outcome sample limit}
@@ -25,7 +28,7 @@ class AtlasProductDeliveryProviderMemoryCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Product Provider Memory', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('status', (string) $payload['status']);

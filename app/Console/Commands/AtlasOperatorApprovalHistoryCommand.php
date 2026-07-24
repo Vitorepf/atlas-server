@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasOperatorApprovalHistoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:operator-approval-history
         {--days= : Optional lookback window in days}
         {--json : Emit JSON}';
@@ -20,7 +23,7 @@ final class AtlasOperatorApprovalHistoryCommand extends Command
         $days = $this->option('days');
         $payload = $meter->report(is_numeric($days) ? (int) $days : null);
 
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasSemanticEmbeddingFoundationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSemanticEmbeddingFoundationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:semantic-foundation
         {--json : Emit canonical JSON}
         {--source=* : Optional local text/markdown file to inspect as read-only candidate source}';
@@ -23,7 +26,7 @@ final class AtlasSemanticEmbeddingFoundationCommand extends Command
             : $service->candidateSet($sources);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Night Shift · Area Focus Loop · Operational Orchestrator CLI (AP-722).
@@ -19,6 +20,8 @@ use App\Support\YesNo;
  */
 class AtlasNightShiftAreaFocusOperateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:night-shift:area-focus-operate
         {--area=agentic_engineering_os : Canonical area_id}
         {--hours=24 : Scan/gap window forwarded to the owners}
@@ -76,7 +79,7 @@ class AtlasNightShiftAreaFocusOperateCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

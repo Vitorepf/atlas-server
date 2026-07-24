@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Foundry\FoundryEvidenceVerifierService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Foundry AP-A · evidence verify.
@@ -20,6 +21,8 @@ use App\Support\YesNo;
  */
 class AtlasFoundryVerifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:foundry:verify {--dossier= : Path to a harvested dossier JSON (omit to read stdin)} {--json : Emit JSON}';
 
     protected $description = 'Verify a harvested Foundry dossier; confirm/refute anchors with reasons (AP-A, regenerates nothing).';
@@ -55,7 +58,7 @@ class AtlasFoundryVerifyCommand extends Command
         $result = $verifier->verify($dossier);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($result);
         } else {
             $this->components->twoColumnDetail('Anchors verified', (string) ($result['anchor_count'] ?? 0));
             $this->components->twoColumnDetail('Confirmed', (string) ($result['confirmed_count'] ?? 0));

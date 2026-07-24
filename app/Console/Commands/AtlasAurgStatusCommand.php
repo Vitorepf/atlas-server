@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Reality\AtlasRealityGraphStatusService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AURG Phase-2 / F4 — the brain's health surface (Salto 1, "AURG vivo").
@@ -20,6 +21,8 @@ use App\Support\YesNo;
  */
 class AtlasAurgStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aurg:status
         {--json : Emit the full JSON status report}';
 
@@ -30,7 +33,7 @@ class AtlasAurgStatusCommand extends Command
         $report = $status->status();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

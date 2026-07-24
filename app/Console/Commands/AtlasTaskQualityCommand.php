@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskRespecPlanBuilder;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskWorkerInstructionLint;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Atlas task-quality audit surface. Four verbs:
@@ -21,6 +22,8 @@ use Throwable;
  */
 final class AtlasTaskQualityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:task:quality {action : inspect|respec-plan|bulk-draft|lint} {--packet=} {--input=} {--json}';
 
@@ -39,7 +42,7 @@ final class AtlasTaskQualityCommand extends Command
             'lint' => $this->lint(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

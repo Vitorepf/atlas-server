@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\ProgrammingPatchVerifierBenchmarkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProgrammingPatchVerifierBenchmarkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:patch-verifier-benchmark
         {--json : Emit JSON output.}';
 
@@ -17,7 +20,7 @@ class AtlasProgrammingPatchVerifierBenchmarkCommand extends Command
         $report = $benchmark->run();
 
         if ($this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return ($report['status'] ?? null) === 'passed' ? self::SUCCESS : self::FAILURE;
         }

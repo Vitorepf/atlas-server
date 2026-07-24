@@ -9,12 +9,15 @@ use App\Services\Ai\Programming\AtlasForgeMultiNodeL410ProofService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L4-10: Forge multi-node proof report.
  */
 final class AtlasForgeMultiNodeL410ProofCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:forge:l4-10-proof
@@ -42,7 +45,7 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->renderHuman($report);
         }

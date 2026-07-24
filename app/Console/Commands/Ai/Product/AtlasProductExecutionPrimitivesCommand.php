@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductExecutionPrimitivesService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductExecutionPrimitivesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:primitives
         {request? : Human request to project into execution primitives}
         {--workspace= : Workspace slug}
@@ -39,7 +42,7 @@ class AtlasProductExecutionPrimitivesCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('Product Execution Primitives', (string) $report['schema_version']);
             $this->components->twoColumnDetail('status', (string) $report['status']);

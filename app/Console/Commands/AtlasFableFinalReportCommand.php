@@ -7,12 +7,15 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasFableFinalReportService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L4-13: final Fable N x M report plus tested cold-session handoff packet.
  */
 final class AtlasFableFinalReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:fable:final-report
@@ -49,7 +52,7 @@ final class AtlasFableFinalReportCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->renderHuman($payload);
         }

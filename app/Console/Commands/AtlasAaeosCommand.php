@@ -13,6 +13,7 @@ use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Agentic Engineering OS — operator entry point.
@@ -32,6 +33,8 @@ use App\Support\YesNo;
  */
 final class AtlasAaeosCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aeos:observe
         {action : runbook|phase-handoff|phase-skip|department-status|cockpit|universal-gates|http-path-status}
         {--intent= : intent_id used by phase-handoff/cockpit/universal-gates}
@@ -837,7 +840,7 @@ final class AtlasAaeosCommand extends Command
         $payload = $httpPath->telemetrySnapshot($configured);
 
         if ($json) {
-            $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -1825,7 +1828,7 @@ final class AtlasAaeosCommand extends Command
         // --json is currently the same pretty provider-safe encoding; flag kept
         // for callers/docs that already pass it.
         unset($json);
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($payload));
     }
 
     private function failWith(string $reason): int

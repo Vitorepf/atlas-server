@@ -14,6 +14,7 @@ use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Vox backend doctor (Onda V3.9 / Claude AC).
@@ -46,6 +47,8 @@ use Throwable;
  */
 final class AtlasVoxDoctorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.vox.backend_doctor.v1';
 
     public const STATUS_PASS = 'pass';
@@ -201,7 +204,7 @@ final class AtlasVoxDoctorCommand extends Command
                 'generated_at' => CarbonImmutable::now('UTC')->toIso8601String(),
             ];
             if ((bool) $this->option('json')) {
-                $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->error('atlas:vox:doctor fatal exception: '.$e->getMessage());
             }

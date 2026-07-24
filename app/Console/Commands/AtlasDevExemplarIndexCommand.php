@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevGreenRunExemplarRetriever;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * One-time (idempotent) backfill of the green-run exemplar index over the whole
@@ -15,6 +16,8 @@ use Illuminate\Console\Command;
  */
 class AtlasDevExemplarIndexCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:exemplar-index {--adopt-origin= : Workspace cujos green rows órfãos de identidade devem adotar o origin (inferência por files_touched existentes)} {--json : Print machine-readable JSON}';
 
     protected $description = 'Backfill the exemplar index (exemplar_index.jsonl) over the whole Dev receipts store.';
@@ -35,7 +38,7 @@ class AtlasDevExemplarIndexCommand extends Command
         }
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return self::SUCCESS;
         }

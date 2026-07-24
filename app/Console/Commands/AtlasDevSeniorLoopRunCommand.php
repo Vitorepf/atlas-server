@@ -8,9 +8,12 @@ use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevSeniorLoopRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:senior-loop:run
         {--workspace= : Existing workspace to mutate; defaults to an isolated fixture workspace}
         {--intent= : Intent to run; defaults to a scoped repair task}
@@ -80,7 +83,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Senior Engineer Loop run', (string) ($payload['status'] ?? 'unknown'));
         }

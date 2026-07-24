@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:pressure:status — the CADENCE reader for the Cognitive Pressure Layer. Reports, PER
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasPressureStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:pressure:status
         {--task-category= : filter to one task_category (default: all)}
         {--json : emit JSON}';
@@ -81,7 +84,7 @@ final class AtlasPressureStatusCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

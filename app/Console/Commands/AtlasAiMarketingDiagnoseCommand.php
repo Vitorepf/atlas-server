@@ -9,6 +9,7 @@ use App\Services\Ai\MarketingDomain\Content\AudiencePanelVerdict;
 use App\Services\Ai\MarketingDomain\Content\ConversionLeverageDiagnostic;
 use App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:diagnose — the 1→25 read for a page, in one command. Surfaces the highest-leverage
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingDiagnoseCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:diagnose
         {--page= : the landing/VSL page copy (file path or inline text)}
         {--niche= : niche (weight loss / finance / relationship …) for the persona panel}
@@ -62,7 +65,7 @@ class AtlasAiMarketingDiagnoseCommand extends Command
         $out = ['leverage' => $leverage, 'audience' => $verdict, 'abandon' => $abandonPoint, 'decision' => $decision];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($out));
 
             return self::SUCCESS;
         }

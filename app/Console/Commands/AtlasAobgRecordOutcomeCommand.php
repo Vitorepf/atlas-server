@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N1.F2 — `atlas:aobg:record-outcome`: the CLI mirror of the record_outcome
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAobgRecordOutcomeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.record_outcome_command.v1';
 
     protected $signature = 'atlas:aobg:record-outcome
@@ -63,7 +66,7 @@ class AtlasAobgRecordOutcomeCommand extends Command
         $result = $service->recordOutcome($input);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

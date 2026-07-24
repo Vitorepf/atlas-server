@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiAutonomousEngineeringCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:autonomous-engineering
         {action=readiness : readiness, run, control-plane, certify}
         {--goal= : Goal text for run}
@@ -38,7 +41,7 @@ class AtlasAiAutonomousEngineeringCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCodeFor($payload);
         }

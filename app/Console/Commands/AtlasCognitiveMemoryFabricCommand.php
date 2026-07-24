@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasCognitiveMemoryFabricService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasCognitiveMemoryFabricCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:cognitive-memory
         {--available-gb=12 : Available/reclaimable RAM in GB}
         {--total-gb=48 : Total physical RAM in GB}
@@ -30,7 +33,7 @@ final class AtlasCognitiveMemoryFabricCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

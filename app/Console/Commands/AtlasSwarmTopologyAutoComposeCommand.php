@@ -8,9 +8,12 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmTopologyAutoComposerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSwarmTopologyAutoComposeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:swarm:topology-auto-compose
         {--fixture=two-types : two-types, live or single-type}
         {--receipt= : Optional path to write receipt JSON}
@@ -38,7 +41,7 @@ final class AtlasSwarmTopologyAutoComposeCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

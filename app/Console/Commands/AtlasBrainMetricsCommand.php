@@ -21,6 +21,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * BRAIN METRICS — flat key=value export of the perception suite scalars. Cron/prometheus/textfile
@@ -29,6 +30,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasBrainMetricsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:metrics {--scope= : scope slug} {--format=textfile : textfile|json}';
 
@@ -101,7 +104,7 @@ final class AtlasBrainMetricsCommand extends Command
                 $base = (string) strstr($key, '{', true) ?: $key;
                 $json['metrics'][substr($base, strlen('atlas_brain_'))] = is_numeric($val) ? +$val : $val;
             }
-            $this->line((string) json_encode($json, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
+            $this->line($this->encode($json));
 
             return self::SUCCESS;
         }

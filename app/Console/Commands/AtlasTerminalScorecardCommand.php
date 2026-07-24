@@ -17,9 +17,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use ReflectionClass;
 use ReflectionMethod;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasTerminalScorecardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:terminal:scorecard {--json : Machine JSON}';
 
     protected $description = 'Terminal Dev capability scorecard (Grok parity + Atlas superiority).';
@@ -91,7 +94,7 @@ class AtlasTerminalScorecardCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         } else {
             $this->info(sprintf(
                 'Terminal scorecard %d/%d (%.1f/10) %s',

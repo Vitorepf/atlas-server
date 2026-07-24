@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductReleaseGateService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductReleaseGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:release-gate
         {request? : Human request to evaluate}
         {--workspace=atlas-server : Workspace slug/path}
@@ -48,7 +51,7 @@ class AtlasProductReleaseGateCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Product Release Gate', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('status', (string) $payload['status']);

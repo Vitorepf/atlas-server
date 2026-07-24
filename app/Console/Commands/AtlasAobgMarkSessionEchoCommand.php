@@ -8,6 +8,7 @@ use App\Models\AtlasAurgNode;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Obra #14 H2.5a — backfill do marker de proveniência nos mission nodes já
@@ -26,6 +27,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class AtlasAobgMarkSessionEchoCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aobg:mark-session-echo
         {--dry-run : Apenas relata o que seria marcado, sem escrever}
         {--json : Saída JSON canônica}';
@@ -99,7 +102,7 @@ class AtlasAobgMarkSessionEchoCommand extends Command
         $result = ['schema_version' => 'atlas.aobg.mark_session_echo.v1'] + $result;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Marcados', (string) ($result['marked'] ?? 0));
             $this->components->twoColumnDetail('Já marcados', (string) ($result['already_marked'] ?? 0));

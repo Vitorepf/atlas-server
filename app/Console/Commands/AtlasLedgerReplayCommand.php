@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\KernelLedgerEnvelopeReportService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasLedgerReplayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ledger:replay
         {--envelope= : Operation envelope id to replay}
         {--limit=100 : Maximum number of events to render}
@@ -53,7 +56,7 @@ class AtlasLedgerReplayCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCode($payload);
         }

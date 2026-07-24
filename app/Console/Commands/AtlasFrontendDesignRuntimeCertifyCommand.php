@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendDesignRuntimeCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:certify
         {--json : Emit canonical JSON payload}
         {--strict : Exit non-zero unless certification status is ready}';
@@ -18,7 +21,7 @@ class AtlasFrontendDesignRuntimeCertifyCommand extends Command
         $payload = $runtime->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Certification: '.($payload['status'] ?? 'unknown'));
             $this->line('Checks: '.data_get($payload, 'summary.pass', 0).'/'.data_get($payload, 'summary.total', 0));

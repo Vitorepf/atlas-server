@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AURG Phase-2 / F2 — brain query with provenance (Salto 1, "AURG vivo").
@@ -22,6 +23,8 @@ use App\Support\YesNo;
  */
 class AtlasAurgQueryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aurg:query
         {query : Natural multi-term query against the fused reality graph}
         {--depth= : BFS depth (default config atlas.aurg.query_depth, hard cap 3)}
@@ -66,7 +69,7 @@ class AtlasAurgQueryCommand extends Command
         $result = $service->query($query, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

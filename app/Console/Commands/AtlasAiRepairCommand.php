@@ -12,9 +12,12 @@ use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiRepairCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:repair
         {--envelope=repair_scaffold : Envelope id that owns the failure}
         {--receipt= : Decision receipt id associated with the failure}
@@ -89,7 +92,7 @@ class AtlasAiRepairCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

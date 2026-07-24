@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorDistillCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:distill {--episode=} {--outcome=} {--claim=} {--evidence=*} {--json}';
 
     protected $description = 'Distill an AEMOR outcome into learning candidates.';
@@ -19,7 +22,7 @@ class AtlasAemorDistillCommand extends Command
             'claim' => (string) ($this->option('claim') ?: 'AEMOR learning signal.'),
             'evidence_refs' => (array) $this->option('evidence'),
         ]);
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
 
         return ($payload['status'] ?? null) === 'blocked' ? self::FAILURE : self::SUCCESS;
     }

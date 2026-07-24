@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroQueueAgeHistogra
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroReplenishUrgencyClassifier;
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroWorkerIdlePredictor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The operator front door for the Maestro health LENSES — a single read-only Artisan command that routes to
@@ -32,6 +33,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasTaskHealthHistogramCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** The composite schema for the `histogram` action (which fuses the two distribution lenses). */
     public const HISTOGRAM_SCHEMA = 'atlas.maestro.health.histogram.v1';
 
@@ -58,7 +61,7 @@ final class AtlasTaskHealthHistogramCommand extends Command
         };
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

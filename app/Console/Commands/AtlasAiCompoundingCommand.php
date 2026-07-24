@@ -9,9 +9,12 @@ use App\Services\Ai\EngineeringKernel\Quality\QualityFoundryTemporalProjectionMa
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiCompoundingCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:compounding
         {action=certify : readiness, certify, simulate, run, temporal, temporal-rebuild}
         {--run-id= : Deterministic run id for simulate/run}
@@ -48,7 +51,7 @@ class AtlasAiCompoundingCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCodeFor($payload);
         }

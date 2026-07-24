@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAcmfSchemaEvolutionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acmf:schema-evolution
         {--action=propose : propose|list}
         {--input-json= : JSON envelope of the proposal input}
@@ -59,7 +62,7 @@ class AtlasAcmfSchemaEvolutionCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

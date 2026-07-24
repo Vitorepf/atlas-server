@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Obra\AtlasSpecCritiqueService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * WO-17-T2 — critique a spec against the brain BEFORE implementation (P3, no LLM).
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasSpecCritiqueCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:spec:critique
         {spec : path to a spec file, or "-" to read stdin}
         {--workspace= : scope id (default: atlas-server)}
@@ -40,7 +43,7 @@ final class AtlasSpecCritiqueCommand extends Command
         $critique = $service->critique($text, $workspace);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($critique, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($critique));
 
             return ($critique['concerns_count'] ?? 0) > 0 ? 2 : self::SUCCESS;
         }

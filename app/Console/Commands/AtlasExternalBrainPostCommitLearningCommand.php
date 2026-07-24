@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCommitToRoa
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCounterfactualBatchEvaluator;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitLearningFeedbackRouter;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only post-commit learning loop. Composes
@@ -31,6 +32,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainPostCommitLearningCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.post_commit_learning.v1';
 
     /** @var string */
@@ -107,7 +110,7 @@ final class AtlasExternalBrainPostCommitLearningCommand extends Command
             'transfer_recommendations' => $transfer['transfer_recommendations'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

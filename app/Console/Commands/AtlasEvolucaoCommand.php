@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * DIARIO-2 (Carta Regra 3) — `atlas:evolucao`, the operator's window into the
@@ -25,6 +26,8 @@ use Illuminate\Support\Str;
  */
 class AtlasEvolucaoCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:evolucao
         {acao=hoje : hoje|listar|ver|reverter}
         {id? : evolution id (ver/reverter)}
@@ -54,7 +57,7 @@ class AtlasEvolucaoCommand extends Command
         $grouped = $diary->today();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($grouped, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($grouped));
 
             return self::SUCCESS;
         }
@@ -83,7 +86,7 @@ class AtlasEvolucaoCommand extends Command
         );
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($entries, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($entries));
 
             return self::SUCCESS;
         }
@@ -112,7 +115,7 @@ class AtlasEvolucaoCommand extends Command
         }
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($entry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($entry));
 
             return self::SUCCESS;
         }

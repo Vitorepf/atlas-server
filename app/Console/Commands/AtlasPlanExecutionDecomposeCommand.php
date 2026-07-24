@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\BuildPlanDecomposerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Pilar 1 · Plan Execution · decompose stage.
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 class AtlasPlanExecutionDecomposeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:plan-execution:decompose
         {--doc= : Path to the build-plan markdown document}
         {--scope-profile= : Slice planner scope profile (balanced|factory_max)}
@@ -41,7 +44,7 @@ class AtlasPlanExecutionDecomposeCommand extends Command
         $status = (string) ($plan['decomposition_status'] ?? '');
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($plan));
         } else {
             $this->components->twoColumnDetail('Plan Execution', 'decompose');
             $this->components->twoColumnDetail('Plan', (string) ($plan['plan_id'] ?? '?'));

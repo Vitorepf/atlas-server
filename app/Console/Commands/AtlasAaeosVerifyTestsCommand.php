@@ -9,6 +9,7 @@ use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthServic
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * B3 / criterion C2 — the OPT-IN, EXPENSIVE step that turns an existence-only test
@@ -25,6 +26,8 @@ use Illuminate\Support\Str;
  */
 class AtlasAaeosVerifyTestsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:aeos:verify-tests
@@ -97,7 +100,7 @@ class AtlasAaeosVerifyTestsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

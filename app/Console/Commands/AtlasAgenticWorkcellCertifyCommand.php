@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAgenticWorkcellCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:agentic-workcell:certify {--json : Emit JSON} {--strict : Exit non-zero unless passed}';
 
     protected $description = 'Certify AAWR, the Atlas Agentic Workcell Runtime.';
@@ -15,7 +18,7 @@ class AtlasAgenticWorkcellCertifyCommand extends Command
     {
         $payload = $certification->certify();
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AAWR certification', (string) $payload['status']);
             $this->components->twoColumnDetail('Checks', $payload['summary']['pass'].'/'.$payload['summary']['total']);

@@ -11,9 +11,12 @@ use App\Services\Engineering\CodeGraph\CodeGraphReviewContextAssembler;
 use App\Services\Engineering\EngineeringReviewService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasReviewDeepCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:review:deep
         {--task-id=}
         {--finding=* : JSON finding payload}
@@ -43,7 +46,7 @@ class AtlasReviewDeepCommand extends Command
         $packet = $this->buildPacket($task, $review, $assembler);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($packet));
         } else {
             $this->components->twoColumnDetail('Deep review packet', $packet['risk_level']);
             $this->components->twoColumnDetail('Files reviewed', (string) count($packet['files_reviewed']));
@@ -221,7 +224,7 @@ class AtlasReviewDeepCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->error($message);
         }

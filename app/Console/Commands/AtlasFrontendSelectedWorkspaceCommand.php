@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendSelectedWorkspaceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:selected-workspace
         {--task= : Frontend task or operator intent to bind to the selected repository}
         {--workspace= : Operator-selected local company/product frontend repository path}
@@ -35,7 +38,7 @@ class AtlasFrontendSelectedWorkspaceCommand extends Command
             : $selectedWorkspace->resolve($input);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Selected Workspace: '.$payload['status']);
         }

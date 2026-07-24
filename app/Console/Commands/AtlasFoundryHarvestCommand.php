@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Foundry\FoundryEvidenceHarvesterService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Foundry AP-A · evidence harvest.
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 class AtlasFoundryHarvestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:foundry:harvest {--area=agentic_engineering_os : Area id to harvest} {--limit= : Max cycles to consider} {--json : Emit JSON}';
 
     protected $description = 'Harvest a read-only Foundry evidence dossier from real anchors (AP-A, generates nothing).';
@@ -33,7 +36,7 @@ class AtlasFoundryHarvestCommand extends Command
         $dossier = $harvester->harvest($input);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($dossier, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($dossier);
         } else {
             $anchors = (array) ($dossier['anchors'] ?? []);
             $blockers = (array) ($dossier['blockers'] ?? []);

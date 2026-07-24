@@ -7,12 +7,15 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasWeeklyEngineeringReportService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L5-14: weekly Atlas engineering report from resolved sources.
  */
 final class AtlasFableWeeklyReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:fable:weekly-report
@@ -70,7 +73,7 @@ final class AtlasFableWeeklyReportCommand extends Command
     private function emit(array $payload, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

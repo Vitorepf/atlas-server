@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleCapsuleLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainInternalizationPipeline;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CYCLE CAPSULE — the live operator/soak surface that WIRES the AtlasBrainCycleCapsule + Internalization
@@ -25,6 +26,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasBrainCycleCapsuleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:cycle-capsule
         {action : record|internalize|list}
@@ -48,7 +51,7 @@ final class AtlasBrainCycleCapsuleCommand extends Command
             default => ['status' => 'error', 'reason' => "unknown action '{$action}' (record|internalize|list)"],
         };
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'error' ? self::FAILURE : self::SUCCESS;
     }

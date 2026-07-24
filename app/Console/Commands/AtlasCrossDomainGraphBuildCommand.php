@@ -10,6 +10,7 @@ use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-814 · M-8 Fase-1 — build (read-only) the cross-domain entity graph from the
@@ -20,6 +21,8 @@ use Throwable;
  */
 class AtlasCrossDomainGraphBuildCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cross-domain:graph-build {--persist : Persist the assembled graph into the cross-domain world model (gated by atlas.cross_domain_graph.persist)} {--json : Emit a JSON report}';
 
     protected $description = 'AP-814 M-8: assemble the cross-domain entity graph (domains + handoffs + mesh edges + entities), run god-node analytics, and optionally persist into the cross-domain world model — flag-gated.';
@@ -81,7 +84,7 @@ class AtlasCrossDomainGraphBuildCommand extends Command
         }
 
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

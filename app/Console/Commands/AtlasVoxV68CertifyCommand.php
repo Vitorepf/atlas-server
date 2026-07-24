@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Vox\Gate\VoxV68CertificationService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasVoxV68CertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:vox:v6-8-certify
         {--json : Print machine-readable JSON envelope}
         {--strict : Treat warn as non-zero exit code}';
@@ -28,7 +31,7 @@ final class AtlasVoxV68CertifyCommand extends Command
 
         $status = (string) ($envelope['status'] ?? VoxV68CertificationService::STATUS_FAIL);
         if ($this->option('json')) {
-            $this->line(json_encode($envelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}');
+            $this->jsonLine($envelope);
         } else {
             $this->renderHuman($envelope);
         }

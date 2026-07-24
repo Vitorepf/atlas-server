@@ -11,9 +11,12 @@ use App\Services\Ai\Cognition\AcosProgram\AcosMaxWindowOrchestratorService;
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use DateTimeImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosWindowsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:windows
@@ -38,7 +41,7 @@ final class AtlasAcosWindowsCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

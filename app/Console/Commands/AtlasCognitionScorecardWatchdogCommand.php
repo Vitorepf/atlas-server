@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasCognitionScorecardWatchdogCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:scorecard:watchdog
         {--json : Emit canonical JSON}';
 
@@ -19,7 +22,7 @@ final class AtlasCognitionScorecardWatchdogCommand extends Command
         $payload = $health->pipelineStabilityReport();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('pipeline_score', (string) ($payload['pipeline_score_out_of_10'] ?? 0));

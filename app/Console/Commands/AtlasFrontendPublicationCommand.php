@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendPublicationAttestationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendPublicationVerifierService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendPublicationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:publish
         {action=verify : verify, attest or receipt-template}
         {--bundle= : Static product proof bundle directory for verify action}
@@ -40,7 +43,7 @@ class AtlasFrontendPublicationCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Publication: '.$payload['status']);
         }

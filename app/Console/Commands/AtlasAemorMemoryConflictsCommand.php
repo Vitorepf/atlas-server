@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorMemoryConflictsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:memory-conflicts
         {--scope-type= : Scope type}
         {--scope-id= : Scope id}
@@ -22,7 +25,7 @@ class AtlasAemorMemoryConflictsCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AEMOR memory conflicts', (string) ($payload['status'] ?? 'unknown'));
         }

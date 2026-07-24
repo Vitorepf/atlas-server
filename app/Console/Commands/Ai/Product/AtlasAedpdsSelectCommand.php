@@ -4,9 +4,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAedpdsSelectCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aedpds:select
         {--task= : Task text}
         {--surface=atlas_ai : Surface}
@@ -23,7 +26,7 @@ class AtlasAedpdsSelectCommand extends Command
             'workspace' => $this->option('workspace'),
             'code_changes_requested' => true,
         ]);
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Telemetry\AiMetricDailySnapshotService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiMetricSnapshotRefreshCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:metrics:snapshot-refresh
         {--date= : Local end date to refresh. Defaults to yesterday in the configured timezone}
         {--days=1 : Number of local days to refresh ending at --date}
@@ -24,7 +27,7 @@ class AiMetricSnapshotRefreshCommand extends Command
         $result = $snapshots->refreshRange($date, $days, $timezone);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return ($result['ok'] ?? false) ? self::SUCCESS : self::FAILURE;
         }

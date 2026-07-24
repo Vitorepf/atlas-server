@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDeliveryCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Pilar 1 · Plan Execution · certify stage.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasPlanExecutionCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:plan-execution:certify
         {--plan= : Decomposed plan_id}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -47,7 +50,7 @@ class AtlasPlanExecutionCertifyCommand extends Command
         $status = (string) ($cert['status'] ?? '');
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($cert, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($cert));
         } else {
             $this->components->twoColumnDetail('Plan Execution', 'certify');
             $this->components->twoColumnDetail('Plan', (string) ($cert['plan_id'] ?? $planId));

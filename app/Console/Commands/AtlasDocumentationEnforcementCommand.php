@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasDocumentationEnforcementService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDocumentationEnforcementCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation:enforce
         {--task= : Human task or implementation objective}
         {--feature= : Feature/runtime/doc capability being changed}
@@ -29,7 +32,7 @@ final class AtlasDocumentationEnforcementCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $this->exitCode($payload);
         }

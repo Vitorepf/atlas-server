@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncDocsDriftGa
 use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncPostMergePlan;
 use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncRequiredArtifactMap;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only knowledge-freshness runtime. Proves docs, code-index, memory projection, and
@@ -31,6 +32,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainKnowledgeFreshnessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:knowledge-freshness
         {--input= : Path to a JSON file with artifact_map, docs_drift, code_index, post_merge, queue_reality_refresh sections}';
@@ -95,7 +98,7 @@ final class AtlasExternalBrainKnowledgeFreshnessCommand extends Command
             'missing_refreshes' => $queueRefreshResult['missing_refreshes'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

@@ -8,6 +8,7 @@ use App\Services\Ai\OperatorIntelligence\OperatorComprehensionExtractor;
 use App\Services\Ai\OperatorIntelligence\OperatorSignalCaptureService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * The BATCH surface for the comprehension extractor — the smart place to run the LLM
@@ -18,6 +19,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasOperatorComprehendCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const DEDUP_LOOKBACK_DAYS = 14;
 
     protected $signature = 'atlas:ai:operator-comprehend
@@ -111,7 +114,7 @@ class AtlasOperatorComprehendCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

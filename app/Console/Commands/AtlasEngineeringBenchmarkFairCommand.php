@@ -14,9 +14,12 @@ use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:engineering:benchmark:claude-fair
@@ -140,7 +143,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         ];
 
         if ($json) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -182,7 +185,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -210,7 +213,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             ];
 
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->error($payload['message']);
             }
@@ -221,7 +224,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $payload = $benchmarks->verifyFairClaudeExportBundle($outputDir);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['verified'] ?? false) === true ? self::SUCCESS : self::FAILURE;
         }
@@ -358,7 +361,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             'next_action' => 'Create clean Atlas and baseline worktrees, review runbook, then request an explicit provider run.',
         ];
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }
@@ -374,7 +377,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $payload = $this->runbookPayload($report);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return empty($payload['start_blocking_reasons']) ? self::SUCCESS : self::FAILURE;
         }
@@ -797,7 +800,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->error($payload['message']);
             $this->line('Required flags: '.implode(' ', $payload['required_flags']));
@@ -837,7 +840,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->error($payload['message']);
             foreach ($blocking as $reason) {
@@ -918,7 +921,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
 
         $payload = $benchmarks->replayManifestPayload($benchmarkRun);
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'available' ? self::SUCCESS : self::FAILURE;
         }
@@ -955,7 +958,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
             ...$extra,
         ];
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::FAILURE;
     }
@@ -1041,7 +1044,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
     private function fairModeViolation(array $violation): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($violation, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($violation));
 
             return self::FAILURE;
         }

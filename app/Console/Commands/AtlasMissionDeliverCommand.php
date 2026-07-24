@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Support\YesNo;
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Mission e2e — "Atlas delivers from natural language". One command runs the full
@@ -25,6 +26,8 @@ use Illuminate\Console\Command;
  */
 class AtlasMissionDeliverCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:mission:deliver
         {request : the natural-language code request}
         {--provider=codex_cli : provider key for the generation step}
@@ -56,7 +59,7 @@ class AtlasMissionDeliverCommand extends Command
         $result = $mission->run($request, $options);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return ($result['delivered'] ?? false) ? self::SUCCESS : self::FAILURE;
         }

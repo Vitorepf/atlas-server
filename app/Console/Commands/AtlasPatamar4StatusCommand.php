@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Patamar4\AtlasPatamar4StateService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasPatamar4StatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:patamar4:status
         {--tail=5 : how many recent items per section}
         {--json : Emit JSON envelope}';
@@ -24,7 +27,7 @@ class AtlasPatamar4StatusCommand extends Command
         $state = $svc->snapshot($tail);
 
         if ($json) {
-            $this->line((string) json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($state));
 
             return self::SUCCESS;
         }

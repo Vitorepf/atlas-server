@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\EngineeringQualityScanService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringSecurityScanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:security-scan
         {--workspace= : Target workspace path. Defaults to current directory}
         {--profile=release : standard, release or deep}
@@ -31,7 +34,7 @@ class AtlasEngineeringSecurityScanCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
         }

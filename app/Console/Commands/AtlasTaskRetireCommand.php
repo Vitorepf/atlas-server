@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Retires repeated-give-back quarantined task-serving packets.
@@ -20,6 +21,8 @@ use App\Support\YesNo;
  */
 class AtlasTaskRetireCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:retire
         {--dry-run : Inspect and report only; do not mutate}
         {--limit=0 : Maximum doomed packets to retire; 0 means no cap}
@@ -105,7 +108,7 @@ class AtlasTaskRetireCommand extends Command
         ];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

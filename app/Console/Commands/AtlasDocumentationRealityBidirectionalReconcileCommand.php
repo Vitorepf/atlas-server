@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\AtlasDocumentationRealityBidirectionalReconciliationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L1-P2 (second increment) — read-only BIDIRECTIONAL doc<->code reconciliation
@@ -25,6 +26,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityBidirectionalReconcileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:documentation-reality-bidirectional-reconcile
@@ -42,7 +45,7 @@ class AtlasDocumentationRealityBidirectionalReconcileCommand extends Command
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

@@ -83,6 +83,7 @@ use App\Console\Commands\SoftwareCompanyStewardship\BranchGovernanceSection;
 use App\Console\Commands\SoftwareCompanyStewardship\RuntimeExecutionSection;
 use App\Console\Commands\SoftwareCompanyStewardship\PortfolioExecutiveEvolutionSection;
 use App\Console\Commands\SoftwareCompanyStewardship\LoopAssuranceSection;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Software Company Stewardship Stack · read-only CLI.
@@ -95,6 +96,8 @@ use App\Console\Commands\SoftwareCompanyStewardship\LoopAssuranceSection;
  */
 class AtlasSoftwareCompanyStewardshipCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use RendersContinuousStewardshipRunner;
     use AreaFocusSection;
     use BranchGovernanceSection;
@@ -606,7 +609,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     private function emit(array $payload, ?callable $human = null): void
     {
         if ((bool) $this->option('json') || $human === null) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }
@@ -698,7 +701,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'reason' => $reason,
             'detail' => $detail,
         ];
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::FAILURE;
     }

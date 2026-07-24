@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * T4-S7 (Obra #17) — consolidation re-ranker non-regression guard surface.
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasConsolidationGuardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acos:consolidation-guard
         {--freeze : stamp the current precision@k as the non-regression baseline}
         {--json : machine-readable output}';
@@ -25,7 +28,7 @@ class AtlasConsolidationGuardCommand extends Command
         $result = $this->option('freeze') ? $guard->freeze() : $guard->verdict();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorCloseOutcomeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:close-outcome {--episode=} {--status=succeeded} {--summary=} {--evidence=*} {--metrics-json=} {--json}';
 
     protected $description = 'Close an AEMOR outcome.';
@@ -32,7 +35,7 @@ class AtlasAemorCloseOutcomeCommand extends Command
             'metrics' => $metrics,
             'evidence_refs' => (array) $this->option('evidence'),
         ]);
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
 
         return ($payload['status'] ?? null) === 'blocked' ? self::FAILURE : self::SUCCESS;
     }

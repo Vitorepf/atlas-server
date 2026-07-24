@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextRankingSystemCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:rank
         {--query= : Objective/query to rank context for}
         {--task-type=direct : Task type}
@@ -48,7 +51,7 @@ final class AtlasContextRankingSystemCommand extends Command
         $payload = $service->rank($input);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

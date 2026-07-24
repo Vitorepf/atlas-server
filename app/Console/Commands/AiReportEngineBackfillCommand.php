@@ -7,9 +7,12 @@ use App\Services\Ai\Telemetry\AiTelemetryPerformanceReportService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiReportEngineBackfillCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:engine:backfill
         {--from= : First local report date, inclusive}
         {--to= : Last local report date, inclusive. Defaults to yesterday}
@@ -105,7 +108,7 @@ class AiReportEngineBackfillCommand extends Command
             ];
 
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
 
                 return self::SUCCESS;
             }

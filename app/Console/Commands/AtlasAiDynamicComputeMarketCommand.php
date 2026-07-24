@@ -6,9 +6,12 @@ use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiDynamicComputeMarketCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:dynamic-compute-market
         {--provider= : Selected provider to evaluate}
         {--model= : Selected model to evaluate}
@@ -61,7 +64,7 @@ class AtlasAiDynamicComputeMarketCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

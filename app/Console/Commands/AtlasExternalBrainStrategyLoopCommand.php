@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilRoadmap
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOutcomeSignalProjector;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only strategy-loop runtime. Pipes roadmap candidates through the
@@ -39,6 +40,8 @@ use Throwable;
  */
 final class AtlasExternalBrainStrategyLoopCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:strategy-loop
         {--input= : Path to a JSON file with candidates, ambition_facts, and optional ledger_path}';
@@ -148,7 +151,7 @@ final class AtlasExternalBrainStrategyLoopCommand extends Command
             'decision_skipped_reason' => $decisionSkippedReason,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

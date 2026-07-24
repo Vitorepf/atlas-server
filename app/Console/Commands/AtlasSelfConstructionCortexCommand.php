@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\Cortex\AtlasSelfConstructionCortexSnapshotC
 use App\Services\Ai\SelfConstruction\Cortex\AtlasSelfConstructionCortexSourceInventory;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Self-Construction Cortex observation surface. Four verbs:
@@ -23,6 +24,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionCortexCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:cortex {action : inventory|freshness|risk|snapshot} {--facts=} {--json}';
 
@@ -41,7 +44,7 @@ final class AtlasSelfConstructionCortexCommand extends Command
             'snapshot' => $this->snapshot($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

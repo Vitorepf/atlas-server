@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Area Focus Loop · Structural Certification CLI (AP-725).
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAreaFocusLoopCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:area-focus-certify
         {--area=agentic_engineering_os : Canonical area_id}
         {--json : Emit JSON}';
@@ -61,7 +64,7 @@ class AtlasAreaFocusLoopCertifyCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

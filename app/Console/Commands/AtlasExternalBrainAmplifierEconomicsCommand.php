@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCompression
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelEscalationEconomyPolicy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainValueGateBacktestReplay;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator entry point for model-amplifier economics: aggregates telemetry
@@ -27,6 +28,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainAmplifierEconomicsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:amplifier-economics
         {--input= : Path to a JSON file with telemetry, escalation, promotion and replay sections}';
@@ -83,7 +86,7 @@ final class AtlasExternalBrainAmplifierEconomicsCommand extends Command
             'safe_to_expand_autonomy_footprint' => $safeToExpandAutonomy,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

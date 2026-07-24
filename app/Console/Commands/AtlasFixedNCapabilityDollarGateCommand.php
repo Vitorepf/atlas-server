@@ -8,9 +8,12 @@ use App\Services\Ai\Compounding\FixedNCapabilityDollarSeriesGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasFixedNCapabilityDollarGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:compounding:fixed-n-capability-dollar-gate
         {--fixture=live : live, mature, short-window, flat-trend or missing-cost}
         {--series= : Override fixed-N capability-per-dollar JSONL path}
@@ -47,7 +50,7 @@ final class AtlasFixedNCapabilityDollarGateCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

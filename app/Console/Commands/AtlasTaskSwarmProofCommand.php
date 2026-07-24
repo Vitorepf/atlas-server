@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PART 2 · the SWARM PROOF harness (a Self-Construction tool the operator's loop explicitly asks for: "um
@@ -40,6 +41,8 @@ use Throwable;
  */
 class AtlasTaskSwarmProofCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:swarm-proof
         {--clients=8 : number of concurrent client processes per round}
         {--rounds=2 : independent contention rounds (fresh root each round)}
@@ -162,7 +165,7 @@ class AtlasTaskSwarmProofCommand extends Command
         }
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($xray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($xray));
         } else {
             $this->renderSummary($xray);
         }

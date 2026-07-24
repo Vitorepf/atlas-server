@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorEpisodeOpenCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:episode-open {--objective=} {--workspace=} {--domain=} {--flow=} {--provider=} {--evidence=*} {--json}';
 
     protected $description = 'Open an AEMOR execution episode.';
@@ -27,7 +30,7 @@ class AtlasAemorEpisodeOpenCommand extends Command
 
     private function emit(array $payload): int
     {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
 
         return ($payload['status'] ?? null) === 'blocked' ? self::FAILURE : self::SUCCESS;
     }

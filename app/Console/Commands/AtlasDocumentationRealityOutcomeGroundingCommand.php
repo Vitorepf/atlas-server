@@ -8,6 +8,7 @@ use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L2-O1 (first increment) — read-only Outcome-Grounding SCORER command.
@@ -23,6 +24,8 @@ use App\Support\YesNo;
  */
 class AtlasDocumentationRealityOutcomeGroundingCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-outcome-grounding
         {--capability= : Restrict to a single capability/doc id, slug or path substring}
         {--json : Emit canonical JSON}';
@@ -39,7 +42,7 @@ class AtlasDocumentationRealityOutcomeGroundingCommand extends Command
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

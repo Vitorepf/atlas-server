@@ -8,6 +8,7 @@ use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-815 · I-2 — `atlas:ctx`: natural-language-ish context retrieval from the CLI.
@@ -54,6 +55,8 @@ use Throwable;
  */
 class AtlasCodeGraphContextCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.code_graph.ctx_command.v1';
 
     /**
@@ -201,7 +204,7 @@ class AtlasCodeGraphContextCommand extends Command
             'pack' => $pack,
         ];
 
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
     }
 
     /**

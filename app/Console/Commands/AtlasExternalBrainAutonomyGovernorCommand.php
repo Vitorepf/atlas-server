@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueueSatura
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRunPolicyCompiler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskFamilyYieldModel;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only autonomy-governor report combining {@see AtlasExternalBrainRunPolicyCompiler}
@@ -30,6 +31,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainAutonomyGovernorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:autonomy-governor
         {--input= : Path to a JSON file with run_policy_config, run_state, saturation, families and throttle sections}';
@@ -105,7 +108,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
             'governor_action' => $governorAction,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

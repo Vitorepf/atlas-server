@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AtlasNativeConstitutionScanner;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasNativeConstitutionScanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:native:constitution-scan
         {--repo= : Path to atlas-native repo}
         {--json : Emit the versioned JSON report}
@@ -33,7 +36,7 @@ final class AtlasNativeConstitutionScanCommand extends Command
             }
 
             if ($this->option('json')) {
-                $this->line((string) json_encode($report, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($report));
             } else {
                 $this->info(sprintf('%d native constitution finding(s)', (int) $report['finding_count']));
                 foreach ((array) $report['findings'] as $finding) {

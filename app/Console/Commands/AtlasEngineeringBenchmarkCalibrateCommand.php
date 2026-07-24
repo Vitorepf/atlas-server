@@ -7,9 +7,12 @@ use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkCalibrateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:benchmark:calibrate
         {--suite=atlas-core-smoke : Suite slug or id}
         {--limit=200 : Maximum outcome-bearing runs used for calibration}
@@ -47,7 +50,7 @@ class AtlasEngineeringBenchmarkCalibrateCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

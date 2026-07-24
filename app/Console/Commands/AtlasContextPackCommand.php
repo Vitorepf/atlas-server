@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N1.F1 — `atlas:context-pack`: the unified context-pack front door from the CLI.
@@ -25,6 +26,8 @@ use Illuminate\Console\Command;
  */
 class AtlasContextPackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.context_pack_command.v1';
 
     protected $signature = 'atlas:context-pack
@@ -94,7 +97,7 @@ class AtlasContextPackCommand extends Command
         $pack = $service->packFor($task, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($pack, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($pack));
 
             return self::SUCCESS;
         }

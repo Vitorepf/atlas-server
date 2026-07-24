@@ -9,6 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Backfills missing AiQualityEvaluation rows for historical AiTraces.
@@ -37,6 +38,8 @@ use Throwable;
  */
 class AiQualityBackfillCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:quality:backfill
         {--since= : ISO date (YYYY-MM-DD); defaults to --hours window}
         {--hours=720 : Window in hours when --since is not given (default 30 days, max 8760 = 1y)}
@@ -121,7 +124,7 @@ class AiQualityBackfillCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $errors === 0 ? self::SUCCESS : self::FAILURE;
         }

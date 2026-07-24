@@ -7,9 +7,12 @@ use App\Services\Ai\Mobile\InsightWatcherService;
 use App\Services\Ai\Mobile\SelfDiagnosticEmitter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasInitiativesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:initiatives
         {operation=list : list or run}
         {initiative? : refactor-scan, self-diagnostic, insight-watch}
@@ -127,12 +130,12 @@ class AtlasInitiativesCommand extends Command
     private function printPayload(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

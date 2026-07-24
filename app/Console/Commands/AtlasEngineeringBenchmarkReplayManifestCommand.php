@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkReplayManifestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:benchmark:replay-manifest
         {run : Benchmark run id}
         {--json : Print machine-readable JSON}';
@@ -27,7 +30,7 @@ class AtlasEngineeringBenchmarkReplayManifestCommand extends Command
         $payload = $benchmarks->replayManifestPayload($run);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'available' ? self::SUCCESS : self::FAILURE;
         }

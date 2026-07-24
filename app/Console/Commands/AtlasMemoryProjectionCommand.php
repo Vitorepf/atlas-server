@@ -7,9 +7,12 @@ use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryProjectionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:memory:projection
@@ -57,7 +60,7 @@ class AtlasMemoryProjectionCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $action === 'apply' && ! (bool) ($payload['ok'] ?? false)
                 ? self::FAILURE

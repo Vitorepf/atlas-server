@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphDe
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphReleaseGate;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only task-graph orchestration runtime. Composes:
@@ -31,6 +32,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainTaskGraphOrchestratorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:task-graph-orchestrator
         {--input= : Path to a JSON file with critical_path_planner, staleness_auditor, prerequisite_detector, release_gate sections}';
@@ -96,7 +99,7 @@ final class AtlasExternalBrainTaskGraphOrchestratorCommand extends Command
             'release_reasons' => $gateResult['release_reasons'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

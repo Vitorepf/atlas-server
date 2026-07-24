@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProposalArena;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProposalReplayCourt;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only proposal arena runner. Pipes candidate proposals through
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainProposalArenaCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:proposal-arena
         {--input= : Path to a JSON file with proposals, existing_queue_targets, min_scaffold_score, require_evidence, max_blast_radius}';
@@ -101,7 +104,7 @@ final class AtlasExternalBrainProposalArenaCommand extends Command
             'arena_hash' => $arenaVerdict['arena_hash'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

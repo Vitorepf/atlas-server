@@ -17,9 +17,12 @@ use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliMobileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const PUSH_REPLAY_PRIOR_DRY_RUN_MAX_AGE_MINUTES = 15;
 
     protected $signature = 'atlas:cli:mobile
@@ -104,7 +107,7 @@ class AtlasCliMobileCommand extends Command
         $result = $pairing->initiate($label);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -198,7 +201,7 @@ class AtlasCliMobileCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $sent ? self::SUCCESS : self::FAILURE;
         }
@@ -256,7 +259,7 @@ class AtlasCliMobileCommand extends Command
         $this->recordReplayPushReceipt($audit, $result, $apply, $reason);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -275,7 +278,7 @@ class AtlasCliMobileCommand extends Command
         $payload = ['status' => $status, ...$extra];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }
@@ -343,7 +346,7 @@ class AtlasCliMobileCommand extends Command
         $result = $push->fetchReceipts((int) $this->option('limit'));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -359,7 +362,7 @@ class AtlasCliMobileCommand extends Command
         $result = $maintenance->expireStale(! $apply);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -376,7 +379,7 @@ class AtlasCliMobileCommand extends Command
         $result = $maintenance->cleanup(! $apply);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }
@@ -397,7 +400,7 @@ class AtlasCliMobileCommand extends Command
         $snapshot = $health->snapshot($userId);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($snapshot));
 
             return self::SUCCESS;
         }
@@ -436,7 +439,7 @@ class AtlasCliMobileCommand extends Command
         $result = $reliability->check($apply);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

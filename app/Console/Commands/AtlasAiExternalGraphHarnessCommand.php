@@ -8,9 +8,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use JsonException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiExternalGraphHarnessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:external-graph-harness
         {--candidate-file= : Optional external_graph_candidate.v1 JSON file to validate read-only}
         {--scan-root= : Optional allowed repo root to build a sandbox external_graph_candidate.v1 without runtime or writes}
@@ -45,7 +48,7 @@ class AtlasAiExternalGraphHarnessCommand extends Command
         $payload['emitted_inbox_item'] = $this->emitReviewInbox($payload['external_graph_harness'], $inbox);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

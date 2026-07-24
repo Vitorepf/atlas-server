@@ -10,9 +10,12 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliScheduleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:schedule
         {action=list : list, add, show, remove, pause, resume, run-now}
         {id? : task id, or title when action=add}
@@ -170,7 +173,7 @@ class AtlasCliScheduleCommand extends Command
     private function printPayload(array $payload, int $exitCode = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

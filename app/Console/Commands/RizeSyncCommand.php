@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Digital\RizeApiIngestor;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class RizeSyncCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:rize:sync
         {--from= : Inclusive start datetime for the Rize import window}
         {--to= : Exclusive end datetime for the Rize import window}
@@ -37,7 +40,7 @@ class RizeSyncCommand extends Command
             dryRun: (bool) $this->option('dry-run'),
         );
 
-        $this->line(json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($stats));
 
         return self::SUCCESS;
     }

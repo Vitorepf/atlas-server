@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Forge Parallel Durable CLI (AP-704 integration shim).
@@ -26,6 +27,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasForgeParallelDurableCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:parallel-durable
         {--tickets= : path to JSON file with the tickets list}
         {--agents= : path to JSON file with the agents list}
@@ -60,7 +63,7 @@ final class AtlasForgeParallelDurableCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($envelope));
 
             return self::SUCCESS;
         }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Records a heartbeat — invoked every minute by Laravel scheduler.
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSchedulerHeartbeatCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scheduler:heartbeat
         {--actor=scheduler_tick : Actor identifier}
         {--json : Emit machine-readable JSON}';
@@ -26,7 +29,7 @@ class AtlasSchedulerHeartbeatCommand extends Command
         $beat = $svc->recordHeartbeat($actor);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($beat, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($beat));
 
             return self::SUCCESS;
         }

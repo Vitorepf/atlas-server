@@ -18,6 +18,7 @@ use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N3.F4 — `atlas:obra:deliver`: ONE command commissions an obra.
@@ -44,6 +45,8 @@ use Illuminate\Console\Command;
  */
 class AtlasObraDeliverCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.obra.deliver_command.v1';
 
     protected $signature = 'atlas:obra:deliver
@@ -113,7 +116,7 @@ class AtlasObraDeliverCommand extends Command
         $obra = $service->commission($intent, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($obra, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($obra));
 
             return $this->exitFor((string) ($obra['status'] ?? ''));
         }

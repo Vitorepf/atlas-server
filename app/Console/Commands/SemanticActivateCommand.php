@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Semantic\ActivationEngine;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class SemanticActivateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:semantic:activate
         {--context=morning_briefing : Activation context type}
         {--signal=* : Extra trigger signal to include}';
@@ -20,7 +23,7 @@ class SemanticActivateCommand extends Command
             contextPayload: ['signals' => array_values((array) $this->option('signal'))],
         );
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line($this->encode($result));
 
         return self::SUCCESS;
     }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\RuntimeEfficiency\AtlasLocalVerificationEngineService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasLocalVerificationEngineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:local-verification:run
         {--flow-id=atlas_dev : Flow id}
         {--risk=medium : Risk level}
@@ -47,7 +50,7 @@ final class AtlasLocalVerificationEngineCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasLocalVerificationEngineService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

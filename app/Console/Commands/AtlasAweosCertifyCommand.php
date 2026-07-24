@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAweosCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aweos:certify {--json : Emit JSON} {--strict : Exit non-zero unless passed}';
 
     protected $description = 'Certify AWEOS, the Atlas Autonomous Work Execution OS.';
@@ -15,7 +18,7 @@ class AtlasAweosCertifyCommand extends Command
     {
         $payload = $certification->certify();
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AWEOS certification', (string) $payload['status']);
             $this->components->twoColumnDetail('Checks', $payload['summary']['pass'].'/'.$payload['summary']['total']);

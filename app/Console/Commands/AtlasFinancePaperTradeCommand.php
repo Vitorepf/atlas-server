@@ -15,6 +15,7 @@ use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendBreakoutStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendPullbackStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\VolumeBreakoutStrategy;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PAPER TRADING ao vivo (Binance spot, BTC/ETH) — a ponte pesquisa → dinheiro.
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasFinancePaperTradeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:finance:paper-trade
         {--symbol=BTCUSDT : BTCUSDT|ETHUSDT|...}
         {--interval=4h : 4h|1d}
@@ -145,7 +148,7 @@ final class AtlasFinancePaperTradeCommand extends Command
     private function emit(array $payload, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

@@ -19,6 +19,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * EXTERNAL BRAIN · the "seed" verb. Takes a JSON specs FILE (the packet specs `atlas:brain:next` emitted),
@@ -33,6 +34,8 @@ use Throwable;
  */
 final class AtlasBrainSeedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:seed {--specs= : path to the JSON specs file} {--scope= : scope slug — meta_harness comes from it (default: the configured default scope)} {--actor= : external brain actor/client id for provenance} {--require-actor : fail closed when no actor can be provided or inferred} {--cleanup-specs : remove the external-brain /tmp/brain-*.json specs file after a real enqueue} {--dry-run} {--no-heartbeat : skip dry-run heartbeat for observer probes} {--json}';
 
@@ -435,7 +438,7 @@ final class AtlasBrainSeedCommand extends Command
     /** @param array<string,mixed> $payload */
     private function emit(array $payload, int $code = self::SUCCESS): int
     {
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $code;
     }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * P5 (Obra #19, Frente P) — `atlas:golden freeze|check <name>`: the ad-hoc
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 class AtlasGoldenCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:golden
         {action : freeze|check}
         {name : golden set name}
@@ -139,7 +142,7 @@ class AtlasGoldenCommand extends Command
     private function emit(array $payload, int $code): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } elseif (($payload['ok'] ?? false) === true) {
             $this->info(sprintf('golden %s OK · %s (%s cases)', $payload['action'] ?? '?', $payload['name'] ?? '?', $payload['case_count'] ?? count((array) ($payload['changed_cases'] ?? []))));
         } else {

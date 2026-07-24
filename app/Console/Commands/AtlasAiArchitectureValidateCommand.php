@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiArchitectureValidateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:architecture-validate
         {--json : Print machine-readable JSON}';
 
@@ -17,7 +20,7 @@ class AtlasAiArchitectureValidateCommand extends Command
         $payload = $validation->payload();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
         }

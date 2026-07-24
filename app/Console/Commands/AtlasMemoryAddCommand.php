@@ -9,9 +9,12 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryAddCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:add
         {body?* : Memory body}
         {--type=technical_context : Memory type}
@@ -81,7 +84,7 @@ class AtlasMemoryAddCommand extends Command
 
         $payload = ['memory' => $this->row($entry)];
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

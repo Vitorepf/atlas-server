@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Learning\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
 use App\Services\Ai\Learning\PredictiveFailure\PredictiveFailureFlow;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasPredictCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:predict
         {action=failure : failure|history|metrics|resolve|record-loop}
         {subject? : Knowledge node/topic or insertion id}
@@ -104,7 +107,7 @@ class AtlasPredictCommand extends Command
     private function render(array $payload, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

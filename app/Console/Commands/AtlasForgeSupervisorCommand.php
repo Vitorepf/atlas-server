@@ -6,10 +6,13 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraSupervisor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /** Run the unattended Forge lease/heartbeat supervisor once. */
 final class AtlasForgeSupervisorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:supervise
         {--obra=* : Optional Obra intake ids to supervise}
         {--lease-seconds=900 : Lease renewal horizon}
@@ -25,7 +28,7 @@ final class AtlasForgeSupervisorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Forge supervisor', (string) $result['status']);
             $this->components->twoColumnDetail('Active Obras', (string) $result['active_obra_count']);

@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalCertif
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalityEvidenceBundle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalReadinessMap;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only final-95 readiness composer. Combines
@@ -35,6 +36,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainFinalReadinessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:final-readiness
         {--input= : Path to a JSON file with area_evidence, gaps, certification_evidence, finality_evidence}';
@@ -143,7 +146,7 @@ final class AtlasExternalBrainFinalReadinessCommand extends Command
             'blocker_ranked_closure_steps' => $closureSteps,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $overallReady ? self::SUCCESS : self::FAILURE;
     }

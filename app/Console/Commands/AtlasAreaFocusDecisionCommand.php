@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDe
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Area Focus Loop · Operator Decision CLI (AP-724).
@@ -21,6 +22,8 @@ use App\Support\YesNo;
  */
 class AtlasAreaFocusDecisionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:area-focus-decision
         {decision : accept|reject|defer|request_changes}
         {--actor= : operator_actor (required)}
@@ -56,13 +59,13 @@ class AtlasAreaFocusDecisionCommand extends Command
                 'reason' => explode(':', $e->getMessage(), 2)[0],
                 'detail' => $e->getMessage(),
             ];
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($receipt));
 
             return self::SUCCESS;
         }

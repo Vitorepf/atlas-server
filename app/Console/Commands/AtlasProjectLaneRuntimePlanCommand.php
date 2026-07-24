@@ -13,6 +13,7 @@ use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneReleaseGoverno
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneVerificationPolicy;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI exposing the multi-project lane RUNTIME PLAN for an admitted lane. Three verbs:
@@ -22,6 +23,8 @@ use Throwable;
  */
 final class AtlasProjectLaneRuntimePlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:task:project-lane-runtime-plan {action : inspect|plan|decision} {--manifest=} {--facts=} {--json}';
 
@@ -37,7 +40,7 @@ final class AtlasProjectLaneRuntimePlanCommand extends Command
             'decision' => $this->decision(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

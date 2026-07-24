@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextRankingHintsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:ranking-hints
         {--limit=20 : Maximum hint snapshots to list}
         {--json : Emit canonical JSON}';
@@ -35,7 +38,7 @@ final class AtlasContextRankingHintsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Patamar 4 · C5 · Flag Activation + Receipt.
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\File;
  */
 class AtlasPatamar4ActivateFlagsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:patamar4:activate-flags
         {--apply : Persist the changes to .env (default is dry-run)}
         {--off : Set the flags to false instead of true}
@@ -100,7 +103,7 @@ class AtlasPatamar4ActivateFlagsCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($receipt));
 
             return self::SUCCESS;
         }

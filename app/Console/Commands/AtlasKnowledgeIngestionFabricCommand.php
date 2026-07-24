@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasKnowledgeIngestionFabricService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasKnowledgeIngestionFabricCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:knowledge-ingestion
         {--source-type=text : text|pdf|image|youtube|repo_file|spreadsheet|url}
         {--origin-uri= : Source URI/path}
@@ -34,7 +37,7 @@ final class AtlasKnowledgeIngestionFabricCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

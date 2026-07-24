@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductDeliveryDoctrineFitnessService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryDoctrineFitnessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:doctrine-fitness
         {--limit=100 : Maximum outcome memories to inspect}
         {--json : Emit JSON}
@@ -23,7 +26,7 @@ class AtlasProductDeliveryDoctrineFitnessCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('Doctrine Fitness', (string) $payload['schema_version']);
             $this->components->twoColumnDetail('status', (string) $payload['status']);

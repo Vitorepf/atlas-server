@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextParetoFrontierRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextParetoFrontierCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:pareto-frontier
         {--hours=24 : Trace metric summary window in hours}
         {--json : Emit canonical JSON}';
@@ -20,7 +23,7 @@ final class AtlasContextParetoFrontierCommand extends Command
         $payload = $service->report((int) $this->option('hours'));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

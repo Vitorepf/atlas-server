@@ -4,9 +4,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasAedpdsInspectionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAedpdsCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aedpds:certify
         {--json : Print JSON}
         {--strict : Exit non-zero unless status === ready}';
@@ -16,7 +19,7 @@ class AtlasAedpdsCertifyCommand extends Command
     public function handle(AtlasAedpdsInspectionService $service): int
     {
         $payload = $service->certify();
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'ready'
             ? self::FAILURE

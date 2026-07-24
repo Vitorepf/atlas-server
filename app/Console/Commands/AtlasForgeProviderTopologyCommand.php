@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * CLI surface for the Forge provider topology read model — the doc described the
@@ -15,6 +16,8 @@ use Throwable;
  */
 class AtlasForgeProviderTopologyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:provider-topology {--json}';
 
     protected $description = 'Show the Forge adaptive provider topology read model.';
@@ -27,7 +30,7 @@ class AtlasForgeProviderTopologyCommand extends Command
             $result = ['error' => $e::class, 'message' => $e->getMessage()];
         }
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($result);
 
         return self::SUCCESS;
     }

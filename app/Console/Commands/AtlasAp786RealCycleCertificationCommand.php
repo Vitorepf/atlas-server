@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-786 real cycle certification + replay CLI.
@@ -17,6 +18,8 @@ use App\Support\YesNo;
  */
 final class AtlasAp786RealCycleCertificationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:ap786-cycle
         {action=certify : certify|replay}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -78,7 +81,7 @@ final class AtlasAp786RealCycleCertificationCommand extends Command
     private function emit(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCode($payload);
         }

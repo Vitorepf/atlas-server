@@ -15,9 +15,12 @@ use App\Services\Tools\AtlasToolRegistryService;
 use App\Services\Tools\AtlasToolReleaseGateService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasToolsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:tools
         {action=doctor : doctor, list, authority, authority-policies, set-authority-policy, revoke-authority-policy, status, commands, run, run-recipe, evidence, evidence-show, evidence-export, gate, release-gate, approve, revoke, waive-finding, revoke-finding-waiver or policies}
         {tool? : Tool slug for status/run, authority group for authority-policy actions, or run id for evidence-show/evidence-export}
@@ -123,7 +126,7 @@ class AtlasToolsCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -653,7 +656,7 @@ class AtlasToolsCommand extends Command
             return;
         }
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
     }
 
     private function workspace(): string

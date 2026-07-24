@@ -9,6 +9,7 @@ use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use Illuminate\Console\Command;
 use Throwable;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * G6 — run a structured analysis through the cross-domain judge panel +
@@ -18,6 +19,8 @@ use App\Support\YesNo;
  */
 class AtlasDomainAnalyzeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:domain:analyze
         {--input= : Path to a JSON file with the analysis payload}
         {--json : Print the full result as JSON}';
@@ -55,7 +58,7 @@ class AtlasDomainAnalyzeCommand extends Command
         $result['domain_resolution'] = $this->resolveDomain($domains, $analysis);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

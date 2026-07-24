@@ -33,6 +33,7 @@ use App\Services\Ai\Rivals\Support\RunPaths;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process as ProcessFacade;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Único entrypoint do Rivals (produto público: Rivals, versão 2.0; substitui
@@ -41,6 +42,8 @@ use Illuminate\Support\Facades\Process as ProcessFacade;
  */
 class AtlasRivalsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
@@ -101,7 +104,7 @@ class AtlasRivalsCommand extends Command
                 'error' => 'atlas_rivals_disabled',
                 'hint' => 'Set ATLAS_RIVALS2_ENABLED=true to mutate or run Rivals 2.0.',
             ];
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::FAILURE;
         }
@@ -191,9 +194,9 @@ class AtlasRivalsCommand extends Command
             || ($payload['verdict'] ?? 'valid') === 'invalid';
 
         if ($this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         } else {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         }
 
         return $isError ? self::FAILURE : self::SUCCESS;

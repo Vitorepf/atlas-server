@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostAggregator;
 use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostLedger;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator-facing observability surface for Maestro cost facts.
@@ -23,6 +24,8 @@ use Throwable;
  */
 final class AtlasTaskMaestroCostCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:task:maestro:cost
         {action : ledger|aggregate|budget|history}
@@ -184,7 +187,7 @@ final class AtlasTaskMaestroCostCommand extends Command
     {
         $envelope = ['payload' => $payload, 'schema' => $schema, 'status' => $status];
         ksort($envelope);
-        $this->line((string) json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($envelope));
 
         return $exit;
     }

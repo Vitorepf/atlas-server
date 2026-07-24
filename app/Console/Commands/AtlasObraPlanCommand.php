@@ -12,6 +12,7 @@ use App\Services\Ai\Obra\ProviderObraDecomposer;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N3.F1 — `atlas:obra:plan`: decompose an INTENT into a plan-DAG (PLAN ONLY).
@@ -32,6 +33,8 @@ use InvalidArgumentException;
  */
 class AtlasObraPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.obra.plan_command.v1';
 
     protected $signature = 'atlas:obra:plan
@@ -76,7 +79,7 @@ class AtlasObraPlanCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($plan));
 
             return self::SUCCESS;
         }

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityAntibodyProposerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L1-P3 (first increment) — read-only Self-Immunizing Antibody PROPOSER command.
@@ -22,6 +23,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityAntibodyProposalsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-antibody-proposals
         {--limit=20 : Max recent escaped-failure capsules to propose antibodies for}
         {--json : Emit canonical JSON}';
@@ -34,7 +37,7 @@ class AtlasDocumentationRealityAntibodyProposalsCommand extends Command
         $payload = $proposer->proposeRecent($limit) + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

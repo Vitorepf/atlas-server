@@ -9,6 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * SIS4 (Obra #20) — SQL as-of over the AURG edge graph. `AtlasAurgEdge::current($at)`
@@ -17,6 +18,8 @@ use Throwable;
  */
 class AtlasAurgEdgesAsOfCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aurg:edges-asof
         {--at= : ISO-8601 instant (default: now)}
         {--json : machine-readable output}';
@@ -45,7 +48,7 @@ class AtlasAurgEdgesAsOfCommand extends Command
         $payload = ['ok' => true, 'at' => $at->toIso8601String(), 'edges_as_of' => $asOf, 'edges_total' => $total];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

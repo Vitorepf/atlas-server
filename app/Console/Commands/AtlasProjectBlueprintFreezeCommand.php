@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\EngineeringProjectBlueprintService;
 use Illuminate\Validation\ValidationException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProjectBlueprintFreezeCommand extends AtlasProjectBlueprintPrepareCommand
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:project:blueprint:freeze
         {--project-id=}
         {--blueprint-version=}
@@ -35,7 +38,7 @@ class AtlasProjectBlueprintFreezeCommand extends AtlasProjectBlueprintPrepareCom
                 'errors' => $exception->errors(),
             ];
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 foreach ($exception->errors() as $messages) {
                     foreach ((array) $messages as $message) {

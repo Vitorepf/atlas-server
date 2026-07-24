@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendLivePreviewRelayService;
 use Illuminate\Console\Command;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendLivePreviewRelayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:relay
         {action : script, inject or remove}
         {--workspace= : Workspace root}
@@ -34,7 +37,7 @@ class AtlasFrontendLivePreviewRelayCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Live Preview Relay: '.($payload['status'] ?? $payload['mode'] ?? 'unknown'));
         }

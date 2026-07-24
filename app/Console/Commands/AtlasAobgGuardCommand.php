@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasOpenBrainGuardService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N2.F2 — `atlas:aobg:guard`: the SENTINEL's PreToolUse surface.
@@ -32,6 +33,8 @@ use App\Support\YesNo;
  */
 class AtlasAobgGuardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.guard_command.v1';
 
     protected $signature = 'atlas:aobg:guard
@@ -73,7 +76,7 @@ class AtlasAobgGuardCommand extends Command
         $verdict = $service->evaluate($path, $opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($verdict, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($verdict));
 
             return self::SUCCESS;
         }

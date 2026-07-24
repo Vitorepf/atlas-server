@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ADV-01 - read-only summary of external adversarial re-proof verdicts.
  */
 final class AtlasAcosAdvReproofCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA_VERSION = 'atlas.acos.adv_reproof.v1';
 
     private const MIN_VERDICTS = 6;
@@ -29,7 +32,7 @@ final class AtlasAcosAdvReproofCommand extends Command
         $payload = $this->report($path);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('status', (string) $payload['status']);
             $this->components->twoColumnDetail('path', (string) $payload['path']);

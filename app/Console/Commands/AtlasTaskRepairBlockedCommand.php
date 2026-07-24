@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\E2E\AtlasSelfConstructionSelfHealingQueueRepairPlan;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Repairs blocked task-serving packets instead of letting "blocked" become a graveyard. The first repair class
@@ -15,6 +16,8 @@ use App\Support\YesNo;
  */
 class AtlasTaskRepairBlockedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:repair-blocked
         {--limit=0 : Maximum blocked packets to repair; 0 uses the safety window}
         {--dry-run : Inspect and report only}
@@ -48,7 +51,7 @@ class AtlasTaskRepairBlockedCommand extends Command
                 'repair' => $blockedRepair,
             ];
             if ($this->option('json')) {
-                $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($result));
 
                 return self::FAILURE;
             }
@@ -66,7 +69,7 @@ class AtlasTaskRepairBlockedCommand extends Command
         $result = ['dry_run' => $dryRun, 'forbidden_self_target_repair' => $forbidden, 'scope_repair' => $scope, 'self_heal' => $selfHeal];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

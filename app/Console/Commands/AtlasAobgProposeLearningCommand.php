@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N1.F2 — `atlas:aobg:propose-learning`: the CLI mirror of the propose_learning
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAobgProposeLearningCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.propose_learning_command.v1';
 
     protected $signature = 'atlas:aobg:propose-learning
@@ -56,7 +59,7 @@ class AtlasAobgProposeLearningCommand extends Command
         $result = $service->proposeLearning($input);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

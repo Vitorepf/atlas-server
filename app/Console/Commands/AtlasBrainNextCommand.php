@@ -33,6 +33,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * EXTERNAL BRAIN · the "decide" verb. Mirrors `atlas:task next`: it PULLS the next originated evolution spec
@@ -47,6 +48,8 @@ use Throwable;
  */
 final class AtlasBrainNextCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:next {scope : the scope slug (e.g. loop)}
         {--repo= : repo root (default base_path)}
@@ -590,7 +593,7 @@ final class AtlasBrainNextCommand extends Command
             );
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return $code;
     }

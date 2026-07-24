@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasStrategicRealityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:strategic-reality
         {action=control-plane : scan|decide|control-plane}
         {--question= : Strategic question or objective}
@@ -32,7 +35,7 @@ class AtlasStrategicRealityCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

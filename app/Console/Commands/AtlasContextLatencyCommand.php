@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextLatencyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:latency
         {--day= : YYYY-MM-DD day to report}
         {--days=7 : Number of latest days to report when --day is omitted}
@@ -26,7 +29,7 @@ final class AtlasContextLatencyCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

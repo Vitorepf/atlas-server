@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopContractGapScanner;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * BRAIN CONTRACT-GAPS — read-only Mode-B surface over {@see AtlasLoopContractGapScanner}. Lists interfaces in a
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasBrainContractGapsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:contract-gaps {--scope=autonomous : the scope slug to scan} {--json}';
 
@@ -38,7 +41,7 @@ final class AtlasBrainContractGapsCommand extends Command
         $payload = ['scope' => $slug, 'count' => count($gaps), 'gaps' => $gaps];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

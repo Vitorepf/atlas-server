@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\AtlasRetrievalPrivacyTrustLayerService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasRetrievalPrivacyTrustLayerCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:privacy-trust
         {--query= : Optional context query}
         {--domain=atlas : Domain}
@@ -31,7 +34,7 @@ final class AtlasRetrievalPrivacyTrustLayerCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

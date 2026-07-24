@@ -9,9 +9,12 @@ use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosFreezeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA_VERSION = 'atlas.acos.measure_freeze.v1';
 
     public const JSONL_RELATIVE_PATH = 'app/atlas/evidence/acos-measure-freeze.jsonl';
@@ -283,7 +286,7 @@ final class AtlasAcosFreezeCommand extends Command
     /** @param array<string,mixed> $payload */
     private function emit(array $payload, int $code): int
     {
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return $code;
     }

@@ -9,6 +9,7 @@ use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L1 (Obra #19, Frente L) — `atlas:land`, the ONE door a model session uses to
@@ -28,6 +29,8 @@ use Illuminate\Support\Str;
  */
 class AtlasLandCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:land
         {paths* : scoped file paths to stage + commit (ONLY these — git add -A is impossible)}
         {--m= : short objective / commit summary (required)}
@@ -95,7 +98,7 @@ class AtlasLandCommand extends Command
         }
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($res, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($res));
         } elseif (($res['committed'] ?? false) === true) {
             $this->info(sprintf('landed %s → %s', implode(', ', $paths), substr((string) ($res['commit_sha'] ?? ''), 0, 10)));
             if ($diaryId !== null) {

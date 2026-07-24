@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainDomainWaveR
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEvidenceFreshnessBackfillPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityGapIndex;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:external-brain:domain-map
@@ -33,6 +34,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainDomainMapCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.domain_map.v1';
 
     /** @var string */
@@ -127,7 +130,7 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'breakthrough_plan' => $breakthroughPlan,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

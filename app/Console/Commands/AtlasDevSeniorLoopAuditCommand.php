@@ -8,9 +8,12 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevSeniorLoopAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:senior-loop:audit
         {--workspace= : Existing workspace to audit; defaults to an isolated fixture workspace}
         {--intent= : Intent to audit; defaults to a scoped repair task}
@@ -56,7 +59,7 @@ final class AtlasDevSeniorLoopAuditCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Senior Engineer Loop', (string) $payload['status']);
             foreach ((array) $payload['capabilities'] as $capability => $passed) {

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\RuntimeEfficiency\AtlasQualityPreservingEfficiencySystemService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasQualityPreservingEfficiencyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:efficiency
         {action=certify : certify|shadow|resources}
         {--prompt= : Prompt/objective for shadow}
@@ -53,7 +56,7 @@ final class AtlasQualityPreservingEfficiencyCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasQualityPreservingEfficiencySystemService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

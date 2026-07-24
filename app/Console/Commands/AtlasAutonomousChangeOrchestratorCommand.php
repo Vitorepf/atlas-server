@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasAutonomousChangeOrchestratorService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAutonomousChangeOrchestratorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomous-change-orchestrator
         {action=plan : plan}
         {--objective= : Change objective}
@@ -42,7 +45,7 @@ final class AtlasAutonomousChangeOrchestratorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $this->exitCode($payload);
         }

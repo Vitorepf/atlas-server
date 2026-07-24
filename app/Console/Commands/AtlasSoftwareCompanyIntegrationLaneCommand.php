@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareCompanyIntegrationLaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:integration-lane
         {--area=agentic_engineering_os : Stewardship area id}
         {--repo-root= : Git repository root; defaults to the app base path}
@@ -33,7 +36,7 @@ final class AtlasSoftwareCompanyIntegrationLaneCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? '') === StewardshipIntegrationLaneService::STATUS_BLOCKED
                 ? self::FAILURE

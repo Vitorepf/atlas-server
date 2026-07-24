@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Publishing\BlogEditorialPlannerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasBlogEditorialPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:blog:editorial-plan
         {--site= : Public site repository path}
         {--backlog=content/backlog/blog-first-month.yaml : Backlog path relative to the site root}
@@ -69,7 +72,7 @@ final class AtlasBlogEditorialPlanCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === 'failed' ? self::FAILURE : self::SUCCESS;
         }

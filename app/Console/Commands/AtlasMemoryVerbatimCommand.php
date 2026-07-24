@@ -11,9 +11,12 @@ use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryVerbatimCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private ?MemoryQueryInput $memoryInput = null;
 
     protected $signature = 'atlas:memory:verbatim
@@ -188,7 +191,7 @@ class AtlasMemoryVerbatimCommand extends Command
     private function outputPayload(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

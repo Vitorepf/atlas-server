@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\AtlasDocumentationRealityRepairProposerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L1-P2 (first increment) — read-only reconciliation repair PROPOSER command.
@@ -22,6 +23,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityRepairProposalsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:documentation-reality-repair-proposals
@@ -39,7 +42,7 @@ class AtlasDocumentationRealityRepairProposalsCommand extends Command
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

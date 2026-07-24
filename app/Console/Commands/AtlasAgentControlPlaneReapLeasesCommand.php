@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthServ
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PART 2 · A3/MF-05 — the SCHEDULED reaper that closes the dead-agent strand.
@@ -23,6 +24,8 @@ use Throwable;
  */
 class AtlasAgentControlPlaneReapLeasesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acp:reap-leases {--json : Print machine-readable JSON}';
 
     protected $description = 'Reap expired Agent Control Plane leases and return their stranded tasks to claimable (R2 dead-agent recovery).';
@@ -78,7 +81,7 @@ class AtlasAgentControlPlaneReapLeasesCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return;
         }

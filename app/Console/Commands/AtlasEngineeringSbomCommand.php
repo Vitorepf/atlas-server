@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\EngineeringQualityScanService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringSbomCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:sbom
         {--workspace= : Target workspace path. Defaults to current directory}
         {--profile=release : release or deep}
@@ -29,7 +32,7 @@ class AtlasEngineeringSbomCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
         }

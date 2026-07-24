@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\Maestro\Semantic\AtlasMaestroSemanticReject
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator/loop-callable front door for the Maestro SEMANTIC v+3 gate. The structural quality inspector stays
@@ -26,6 +27,8 @@ use Throwable;
  */
 final class AtlasTaskMaestroSemanticAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const RECEIPT_DIR = 'atlas/maestro/semantic-rejections';
 
     protected $signature = 'atlas:task:maestro-semantic-audit {--packet-file= : Path to a packet JSON file} {--packet-id= : task_packet_id to load from the serving queue} {--json : Emit machine-readable JSON instead of human text}';
@@ -69,7 +72,7 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
         if ($json) {
             $decoded = (array) json_decode($receipt, true, 512);
             $decoded['status'] = 'rejected';
-            $this->line((string) json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($decoded));
         } else {
             $this->line($receipt);
         }

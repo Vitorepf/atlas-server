@@ -6,9 +6,12 @@ use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliRollbackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:rollback
         {--to= : Version tag or commit sha}
         {--steps=1 : Number of commits back when --to is omitted}
@@ -102,7 +105,7 @@ class AtlasCliRollbackCommand extends Command
     private function finish(bool $ok, string $status, array $payload): int
     {
         $payload = AtlasSecurity::redactArray(['ok' => $ok, 'status' => $status] + $payload);
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return $ok ? self::SUCCESS : self::FAILURE;
     }

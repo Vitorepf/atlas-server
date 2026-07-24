@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesi
 use App\Services\Ai\SelfConstruction\OperatorInterface\AtlasSelfConstructionOperatorDependencyRegressionGate;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Self-Construction Autopoiesis surface.
@@ -29,6 +30,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionAutopoiesisCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:autopoiesis {action : hypothesize|generate|design|gate|interpret|guardrail} {--facts=} {--json}';
 
@@ -59,7 +62,7 @@ final class AtlasSelfConstructionAutopoiesisCommand extends Command
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $payload['governed_organ'] = self::GOVERNED_ORGAN_STATEMENT;
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

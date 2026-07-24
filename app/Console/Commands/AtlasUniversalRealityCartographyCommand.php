@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasUniversalRealityCartographyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:universal-reality-cartography
         {action=map : map|nodes|visual-scene|semantic-zoom|human-routes|task-simulator|human-clarity|navigation-slice}
         {--mode=universe : universe|system|flow|evidence|risk|implementation}
@@ -82,7 +85,7 @@ final class AtlasUniversalRealityCartographyCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($output);
 
             return $this->exitCode($output);
         }

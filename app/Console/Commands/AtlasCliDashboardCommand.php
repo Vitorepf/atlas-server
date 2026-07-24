@@ -6,9 +6,12 @@ use App\Services\Ai\Cli\AtlasCliDashboardService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliDashboardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:dashboard
         {--workspace= : Workspace path. Defaults to the current directory}
         {--refresh-index : Refresh workspace profile cache}
@@ -37,7 +40,7 @@ class AtlasCliDashboardCommand extends Command
         $data = $dashboard->build($workspace, (bool) $this->option('refresh-index'), (int) $this->option('limit'));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($data));
 
             return self::SUCCESS;
         }

@@ -10,6 +10,7 @@ use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionSe
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L2-9 — sobe a dimensão MAIS FRACA medida do scorecard ACOS (pipeline: 0/73 green-run
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 class AtlasCognitionMintPipelineReceiptsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:mint-pipeline-receipts
         {--limit=5 : Máximo de capabilities a verificar neste passe (cada teste custa segundos)}
         {--dry-run : Lista alvos sem executar testes nem persistir receipts}
@@ -305,7 +308,7 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return $bornStale === [] ? self::SUCCESS : self::FAILURE;
         }

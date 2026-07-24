@@ -7,9 +7,12 @@ use App\Services\Ai\Kernel\Pipeline\PipelineInput;
 use App\Services\Ai\Kernel\Pipeline\ScaffoldAtlasKernelPipeline;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiPipelineCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:pipeline
         {text? : Input text to plan through the kernel pipeline contract}
         {--surface=atlas_cli : Surface id for audit metadata}
@@ -52,7 +55,7 @@ class AtlasAiPipelineCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

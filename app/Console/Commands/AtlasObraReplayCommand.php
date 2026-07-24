@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasForge\AtlasObraDeterministicReplayService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Obra Deterministic Replay CLI (AP-705 integration shim).
@@ -22,6 +23,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasObraReplayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:obra:replay
         {--events= : path to JSONL file with one envelope per line}
         {--decision= : optional decision_id to extract its lineage}
@@ -62,7 +65,7 @@ final class AtlasObraReplayCommand extends Command
             : $replay->replay($events);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

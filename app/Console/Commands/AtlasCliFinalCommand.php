@@ -9,9 +9,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliFinalCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:final
         {--workspace= : Workspace path. Defaults to current directory}
         {--run-tests : Run detected test command through the doctor}
@@ -50,7 +53,7 @@ class AtlasCliFinalCommand extends Command
         $payload = AtlasSecurity::redactArray($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCode($payload);
         }

@@ -347,7 +347,7 @@ class AtlasEliteCompactionCommand extends Command
         if ((bool) $this->option('json')) {
             $this->jsonLine($payload);
         } else {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         }
     }
 

@@ -12,9 +12,12 @@ use App\Services\Ai\OperatorIntelligence\OperatorProfileRegistry;
 use App\Services\Ai\OperatorIntelligence\OperatorSignalCaptureService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasOperatorLearningCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:operator-learning
@@ -156,6 +159,6 @@ class AtlasOperatorLearningCommand extends Command
      */
     private function emit(array $payload): void
     {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($payload);
     }
 }

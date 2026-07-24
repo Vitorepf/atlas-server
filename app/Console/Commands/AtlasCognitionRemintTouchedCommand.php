@@ -10,9 +10,12 @@ use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCognitionRemintTouchedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognition:remint-touched
         {--paths= : Comma-separated touched paths}
         {--from-commit= : Resolve touched paths via git diff --name-only <sha>}
@@ -108,7 +111,7 @@ class AtlasCognitionRemintTouchedCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRiskClassif
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRollbackPlanGate;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * READ-ONLY CLI for inspecting Merge Governor readiness, dry-running an admission decision and
@@ -21,6 +22,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionMergeGovernorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:merge-governor {action : inspect|decide|history|enforce-readiness} {--candidate=} {--ledger=} {--since=} {--json}';
 
@@ -37,7 +40,7 @@ final class AtlasSelfConstructionMergeGovernorCommand extends Command
             'enforce-readiness' => $this->enforceReadiness(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

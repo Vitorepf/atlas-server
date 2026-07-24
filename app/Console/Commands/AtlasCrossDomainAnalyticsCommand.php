@@ -10,6 +10,7 @@ use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-814 · M-8 Fase-3 — run the EXISTING domain-agnostic python graph algorithms
@@ -31,6 +32,8 @@ use Throwable;
  */
 class AtlasCrossDomainAnalyticsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cross-domain:analytics
         {--op=betweenness : Domain-agnostic graph op to run (betweenness|communities)}
         {--json : Emit a JSON report}';
@@ -124,7 +127,7 @@ class AtlasCrossDomainAnalyticsCommand extends Command
         ];
 
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

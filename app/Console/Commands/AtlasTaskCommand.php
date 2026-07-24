@@ -15,6 +15,7 @@ use App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAut
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSimplicityContractAuditor;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PART 2 · A7 — the operator/agent-facing front door of THE CONTRACT. Two verbs over one fixed JSON schema:
@@ -28,6 +29,8 @@ use Throwable;
  */
 class AtlasTaskCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task {action : next|report|task-graph:replenish} {verb?}
         {--client= : Opaque client id (any AI/harness)}
         {--task= : task_packet_id (report)}
@@ -80,7 +83,7 @@ class AtlasTaskCommand extends Command
             $result = ['schema' => 'atlas.task_serving.error.v1', 'status' => 'error', 'error' => $e->getMessage()];
         }
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $this->jsonLine($result);
 
         $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled', 'waiting_on_dependencies', 'scope_expanded'], true);
 

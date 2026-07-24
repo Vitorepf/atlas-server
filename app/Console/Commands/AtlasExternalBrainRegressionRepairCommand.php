@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackRoo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRegressionRepairTaskSynthesizer;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator entry point turning gate regressions and repeated
@@ -34,6 +35,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainRegressionRepairCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:regression-repair
         {--input= : Path to a JSON file with audit, give_backs and diagnostics sections}';
@@ -114,7 +117,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
             $payload['cross_project_portability'] = $portabilityPlanner->plan($decoded['cross_project_portability']);
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

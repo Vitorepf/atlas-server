@@ -12,9 +12,12 @@ use App\Services\Ai\Mobile\InboxActionRegistry;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliInboxCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:cli:inbox
@@ -164,7 +167,7 @@ class AtlasCliInboxCommand extends Command
         $summary = (array) ($criticalReview['review_summary'] ?? []);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -226,7 +229,7 @@ class AtlasCliInboxCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
         $this->newLine();
         $this->line('<fg=bright-blue;options=bold>Comandos prontos para responder:</>');
         foreach ($this->buildResponseCommands($item) as $label => $command) {

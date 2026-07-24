@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorJudgmentCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:judgment
         {--episode= : AEMOR episode id}
         {--json : Emit JSON}';
@@ -18,7 +21,7 @@ class AtlasAemorJudgmentCommand extends Command
         $payload = $judgment->judge((string) ($this->option('episode') ?: ''));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AEMOR judgment', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Judgment hash', (string) ($payload['judgment_hash'] ?? 'missing'));

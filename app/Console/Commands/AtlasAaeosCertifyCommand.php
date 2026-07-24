@@ -11,12 +11,15 @@ use App\Services\Ai\Aaeos\Control\AaeosScorecardProjector;
 use App\Services\Ai\Aaeos\Spine\AaeosSpineGate;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Exit 0 only when AAEOS GOD/SOTA certification checks pass.
  */
 class AtlasAaeosCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos:certify
         {--json : Machine-readable JSON}';
 
@@ -77,7 +80,7 @@ class AtlasAaeosCertifyCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             foreach ($checks as $name => $ok) {
                 $this->components->twoColumnDetail($name, $ok ? 'PASS' : 'FAIL');

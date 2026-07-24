@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextFreshnessQualityGateService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextFreshnessQualityGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:freshness-quality
         {--query= : Objective/query to evaluate context freshness and quality for}
         {--task-type=direct : Task type}
@@ -30,7 +33,7 @@ final class AtlasContextFreshnessQualityGateCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

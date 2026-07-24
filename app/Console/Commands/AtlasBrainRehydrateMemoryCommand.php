@@ -8,6 +8,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * D1 (Obra #18 Frente D) — `atlas:brain:rehydrate-memory`.
@@ -26,6 +27,8 @@ use Throwable;
  */
 class AtlasBrainRehydrateMemoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:brain:rehydrate-memory
         {map : path to the re-hydration JSON map ({entries:[{id,body,summary?,title?,priority,confidence?,evidence_refs?}]})}
         {--apply : write the re-hydrations (default: dry-run)}
@@ -156,7 +159,7 @@ class AtlasBrainRehydrateMemoryCommand extends Command
     private function report(array $payload, int $exit = self::SUCCESS): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

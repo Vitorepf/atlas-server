@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\MarketingDomain\Content\MarketSpyHarvester;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:spy — feeds the MarketSpyHarvester. Receives a directory of HTML files (or a
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingSpyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:spy
         {path : directory of HTML files OR glob pattern (e.g. /tmp/winners/*.html)}
         {--threshold=0 : K — pattern must appear in K+ pages to count as trend (0 = auto, ceil(N/2))}
@@ -35,7 +38,7 @@ class AtlasAiMarketingSpyCommand extends Command
         $r = $harvester->harvest($pages, (int) $this->option('threshold'));
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($r));
 
             return self::SUCCESS;
         }

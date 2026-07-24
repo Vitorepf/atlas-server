@@ -8,6 +8,7 @@ use App\Services\Ai\Finance\SpotExec\BinanceSpotOrderClient;
 use App\Services\Ai\Finance\SpotExec\SpotExecGate;
 use Illuminate\Console\Command;
 use App\Support\UtcIsoTimestamp;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Executor LIVE de Binance spot (Fase B) — o ÚNICO comando que envia ordem real.
@@ -22,6 +23,8 @@ use App\Support\UtcIsoTimestamp;
  */
 final class AtlasFinanceSpotExecCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:finance:spot-exec
         {action : preflight|status|buy|sell}
         {--symbol=BTCUSDT : BTCUSDT|ETHUSDT}
@@ -160,7 +163,7 @@ final class AtlasFinanceSpotExecCommand extends Command
     private function emit(array $payload, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

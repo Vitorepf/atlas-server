@@ -7,9 +7,12 @@ use App\Services\Ai\Memory\AtlasMemoryReviewQueueService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasMemoryReviewQueueCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:review-queue
         {--area=* : memory, verbatim, relations, semantic_curation, memory_delta or memory_quality}
         {--scope-type= : global, project, task, engineering_run, workspace, user or session}
@@ -38,7 +41,7 @@ class AtlasMemoryReviewQueueCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

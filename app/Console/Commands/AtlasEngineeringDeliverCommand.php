@@ -8,6 +8,7 @@ use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\AtlasRepoVerifiedDeliveryService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator entrypoint for a REAL code delivery — a provider turns a
@@ -21,6 +22,8 @@ use App\Support\YesNo;
  */
 class AtlasEngineeringDeliverCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:deliver
         {goal : Natural-language code goal}
         {--provider=codex_cli : Provider that generates the code (read-only)}
@@ -65,7 +68,7 @@ class AtlasEngineeringDeliverCommand extends Command
         }
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($envelope, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($envelope));
         } else {
             $this->info(sprintf(
                 'Delivery [%s] provider=%s target=%s certified=%s',

@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityM
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityGapIndex;
 use App\Services\Ai\SelfConstruction\MultiAgentLoopCertification\AtlasMultiAgentLoopCertificationRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only combined final-95 blocker + domain-drift report. Merges
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainMaturityGapCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:maturity-gap
         {--input= : Path to a JSON file with rubric, control_plane_snapshot, map_entries, queued_areas, outcomes}';
@@ -80,7 +83,7 @@ final class AtlasExternalBrainMaturityGapCommand extends Command
             'multi_agent_loop_certification' => $certificationVerdict,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

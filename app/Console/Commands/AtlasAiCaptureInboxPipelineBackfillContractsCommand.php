@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Capture\CaptureInboxPipelineContractBackfill;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiCaptureInboxPipelineBackfillContractsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:capture-inbox-pipeline-backfill-contracts
         {--hours=720 : Window size in hours}
         {--write : Apply the planned conservative metadata repairs}
@@ -25,7 +28,7 @@ class AtlasAiCaptureInboxPipelineBackfillContractsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'storage_unavailable' ? self::FAILURE : self::SUCCESS;
         }

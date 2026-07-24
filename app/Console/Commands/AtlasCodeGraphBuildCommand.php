@@ -12,6 +12,7 @@ use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-811: build the REAL code graph end-to-end and populate it into the
@@ -26,6 +27,8 @@ use Illuminate\Support\Str;
  */
 class AtlasCodeGraphBuildCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code-graph:build
         {--world-model= : Specific world_model_id (defaults to the most recent)}
         {--fresh : Seed a new code-graph world model + module nodes from Code Intelligence}
@@ -56,7 +59,7 @@ class AtlasCodeGraphBuildCommand extends Command
         $summary = $builder->build($model);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return self::SUCCESS;
         }
@@ -81,7 +84,7 @@ class AtlasCodeGraphBuildCommand extends Command
         $summary = app(CodeGraphSymbolBuilder::class)->build($this->resolvedWorkspaceId());
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return self::SUCCESS;
         }

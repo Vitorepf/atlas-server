@@ -13,9 +13,12 @@ use Illuminate\Console\Command;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiVoiceRealtimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
 
     protected $signature = 'atlas:ai:voice
@@ -57,7 +60,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             ];
 
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
 
                 return self::FAILURE;
             }
@@ -127,7 +130,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

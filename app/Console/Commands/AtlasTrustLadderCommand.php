@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Inspect or accrue the Self-Construction trust ladder for a change class: record a
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTrustLadderCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:trust-ladder
         {change_class : The change class to inspect/accrue}
         {--record= : Record an evidence: frozen_judge_pass | clean_promotion | revert}
@@ -43,7 +46,7 @@ class AtlasTrustLadderCommand extends Command
         $snapshot = $ladder->snapshot($class);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($snapshot));
 
             return self::SUCCESS;
         }

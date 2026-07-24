@@ -16,9 +16,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Throwable;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopRealSmokeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:real-smoke
         {--workspace= : Existing workspace to mutate; defaults to an isolated temporary smoke workspace}
         {--provider-timeout=120 : Maximum seconds allowed for the provider call}
@@ -276,7 +279,7 @@ PHP);
         $payload = $this->persistAcceptanceEvidence($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop real smoke', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('External provider call', YesNo::format($payload['external_provider_call'] ?? false));

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\SufficiencyCalibrationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * MAXC-06 — Read-only ex-post calibration of the sufficiency sensor.
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasContextSufficiencyCalibrationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:sufficiency-calibration
         {--days=14 : Window in days over which to join delivered pack ledger × ARFL measured events}
         {--json : Emit canonical JSON payload}';
@@ -26,10 +29,7 @@ final class AtlasContextSufficiencyCalibrationCommand extends Command
         $report = $service->report($windowDays);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode(
-                $report,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            ));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

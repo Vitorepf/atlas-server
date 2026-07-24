@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AutonomosAutoApplyPreflightService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * ASI-07 — Read-only preflight for the autonomous auto-apply floor.
@@ -17,6 +18,8 @@ use App\Support\YesNo;
  */
 final class AtlasAutonomosAutoApplyPreflightCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomos:auto-apply-preflight
         {--json : Emit canonical JSON payload}';
 
@@ -27,10 +30,7 @@ final class AtlasAutonomosAutoApplyPreflightCommand extends Command
         $report = $service->preflight();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode(
-                $report,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-            ));
+            $this->line($this->encode($report));
         } else {
             $this->line(sprintf(
                 'schema=%s passed=%d/%d ready=%s',

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Vox\Gate\VoxV5CertificationService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Vox V5 · certify command.
@@ -29,6 +30,8 @@ use Throwable;
  */
 final class AtlasVoxV5CertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:vox:v5-certify
         {--json : Print machine-readable JSON envelope}
         {--strict : Treat warn as non-zero exit code (for CI gates)}';
@@ -48,7 +51,7 @@ final class AtlasVoxV5CertifyCommand extends Command
         $status = (string) ($envelope['status'] ?? VoxV5CertificationService::STATUS_FAIL);
 
         if ($this->option('json')) {
-            $this->line(json_encode($envelope, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}');
+            $this->jsonLine($envelope);
         } else {
             $this->renderHuman($envelope);
         }

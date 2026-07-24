@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Thin daily-facing router for `atlas:aaeos` (TRI-HYGIENE W3).
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Artisan;
  */
 final class AtlasAaeosRouterCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos
         {action? : Optional AEOS action — forwarded to atlas:aeos:observe}
         {--json : Machine-readable help when no action}';
@@ -38,7 +41,7 @@ final class AtlasAaeosRouterCommand extends Command
                 'map' => 'docs/engineering-knowledge-base/atlas-cli-daily-map.md',
             ];
             if ((bool) $this->option('json')) {
-                $this->line((string) json_encode($help, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $this->line($this->encode($help));
             } else {
                 $this->components->info('AAEOS router (thin)');
                 $this->line('Daily:  atlas:aaeos:run | cycle | scorecard | certify | atlas:cli:cockpit');

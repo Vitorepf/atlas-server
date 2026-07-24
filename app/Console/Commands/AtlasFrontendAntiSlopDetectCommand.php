@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendAntiSlopDetectorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendAntiSlopDetectCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:detect
         {--path= : File or directory to inspect. Defaults to current workspace}
         {--strict : Exit non-zero when high severity findings exist}
@@ -20,7 +23,7 @@ class AtlasFrontendAntiSlopDetectCommand extends Command
         $payload = $detector->inspectPath($path, (bool) $this->option('strict'));
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Anti-Slop Detector: '.($payload['status'] ?? 'unknown'));
             $this->line('Findings: '.($payload['finding_count'] ?? 0));

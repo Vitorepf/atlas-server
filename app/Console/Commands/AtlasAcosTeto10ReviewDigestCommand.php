@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosTeto10ReviewDigestCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const DEFAULT_INPUT_RELATIVE_PATH = 'app/atlas/acos/teto10-review-digest-items.jsonl';
 
     protected $signature = 'atlas:acos:teto10-review-digest
@@ -27,7 +30,7 @@ final class AtlasAcosTeto10ReviewDigestCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($digest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($digest));
 
             return self::SUCCESS;
         }

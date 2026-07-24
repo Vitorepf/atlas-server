@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Maintenance front door for old malformed task-serving backlog. It uses the same packet-quality inspector as
@@ -14,6 +15,8 @@ use App\Support\YesNo;
  */
 class AtlasTaskSweepMalformedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:sweep-malformed
         {--limit=0 : Maximum malformed packets to quarantine; 0 uses the safety window}
         {--dry-run : Inspect and report only}
@@ -31,7 +34,7 @@ class AtlasTaskSweepMalformedCommand extends Command
         );
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return (string) ($result['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityI
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainComprehensionDeepeningMap;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolSafetyRunner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only combined capability proof map. Merges {@see AtlasExternalBrainCapabilityIntegrationMap}
@@ -28,6 +29,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainCapabilityProofMapCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.capability_proof_map.v1';
 
     public const FINAL_STATUS_NOT_IMPLEMENTED = 'not_implemented';
@@ -157,7 +160,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
             'comprehension_gap_rankings' => $comprehensionGapRankings,
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

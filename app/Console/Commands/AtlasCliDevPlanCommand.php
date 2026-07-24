@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanApprovalGate;
 use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanProjectionService;
 use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanTelemetry;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas CLI — Atlas Dev A2 (Plan Visible) entry.
@@ -37,6 +38,8 @@ use Illuminate\Console\Command;
  */
 class AtlasCliDevPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:dev:plan
         {action=inspect : project|approve|reject|inspect|telemetry}
         {--task= : Programming work item UUID}
@@ -229,10 +232,10 @@ class AtlasCliDevPlanCommand extends Command
     private function printOut(array $payload, bool $json): void
     {
         if ($json) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+            $this->jsonLine($payload);
 
             return;
         }
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+        $this->jsonLine($payload);
     }
 }

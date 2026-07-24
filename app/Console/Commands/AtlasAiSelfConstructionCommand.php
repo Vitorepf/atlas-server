@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Self-Construction OS sub-command shell (placeholder).
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiSelfConstructionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:self-construction:shell-placeholder {--json : machine-readable}';
 
     protected $description = 'Atlas Self-Construction OS — unassigned placeholder shell (no family wired).';
@@ -37,7 +40,7 @@ class AtlasAiSelfConstructionCommand extends Command
                 'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
             ],
         ];
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}');
+        $this->jsonLine($payload);
 
         return self::SUCCESS;
     }

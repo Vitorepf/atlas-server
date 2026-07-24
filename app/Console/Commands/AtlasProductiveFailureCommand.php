@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Learning\ProductiveFailure\ProductiveFailureFlow;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductiveFailureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:productive-failure
         {actionOrTopic? : Topic, or action: status|history|transfer-tests|resume|attempt|compare|articulate|complete}
         {subject? : Session id for phase actions}
@@ -87,7 +90,7 @@ class AtlasProductiveFailureCommand extends Command
     private function render(array $payload, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

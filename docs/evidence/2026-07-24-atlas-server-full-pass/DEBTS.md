@@ -17,7 +17,7 @@
 - [x] YesNo::format mass adoption (~309 sites / 138 files)
 - [x] YesNo::trueFalse adoption (~154 sites / 78 files)
 - [x] UtcIsoTimestamp::now() + mass gmdate('c') (~83 / 47 files)
-- [ ] EmitsCanonicalJson residual (~75 pretty json_encode)
+- [x] EmitsCanonicalJson mass adoption on Command line(json_encode) (~705; residual complex remains)
 - [x] Finish ReadsNonEmptyStringOption trait-equivalent (7 cmds)
 - [ ] Remaining behavior-sensitive stringOption (~11: no-trim / keep-untrimmed variants)
 - [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
@@ -26,7 +26,7 @@
 
 ### Density / elevate
 
-- [ ] EnterpriseReportDashboardHtml::render (~1400L HTML monolog)
+- [x] EnterpriseReportDashboardHtml shell → Template class (host ~552L)
 - [ ] CertificationWorkbenchDelegators → catalog (~1985L pure tables)
 - [ ] OpenBrainMcpToolCatalog::definitions domain split (~1099L)
 - [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)

@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProgrammingCompletionAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:completion-audit
         {--workspace= : Workspace to audit. Defaults to the Laravel base path.}
         {--refresh-local-benchmarks : Recompute local programming benchmarks instead of using process-memory cache.}
@@ -24,7 +27,7 @@ class AtlasProgrammingCompletionAuditCommand extends Command
         $report = $audit->report($workspace, (bool) $this->option('refresh-local-benchmarks'));
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return ($report['status'] ?? null) === 'complete' ? self::SUCCESS : self::FAILURE;
         }

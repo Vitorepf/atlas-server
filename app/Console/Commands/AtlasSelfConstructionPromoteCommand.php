@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionPromotionExecutorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * G4 — promove um scaffold STAGED de self-construction para um BRANCH novo do
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSelfConstructionPromoteCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:self-construction:promote
         {proposal : Proposal id (staged)}
         {hash : Proposal hash}
@@ -34,7 +37,7 @@ class AtlasSelfConstructionPromoteCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return $result['promoted'] ? self::SUCCESS : self::FAILURE;
         }

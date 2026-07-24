@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSkillEvolutionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:skills:evolve
         {action=propose : propose|refactor-plan}
         {--workspace= : Workspace path}
@@ -46,7 +49,7 @@ final class AtlasSkillEvolutionCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Skill Evolution', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Schema', (string) ($payload['schema_version'] ?? 'unknown'));

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskClaimableFarmAuditor;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Thin CLI surface over {@see AtlasTaskClaimableFarmAuditor}. Dry mode (default) reports
@@ -15,6 +16,8 @@ use App\Support\YesNo;
  */
 class AtlasTaskFarmAuditCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:farm-audit
         {--apply : Move retired_candidate packets to blocked (default: dry-run, mutates nothing)}
         {--json : Print machine-readable JSON}';
@@ -26,7 +29,7 @@ class AtlasTaskFarmAuditCommand extends Command
         $result = (new AtlasTaskClaimableFarmAuditor)->audit((bool) $this->option('apply'));
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasEngineeringRun;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringBenchmarkSeedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:benchmark:seed
         {--suite=atlas-core-smoke : Suite slug to create or update}
         {--name= : Suite display name}
@@ -90,7 +93,7 @@ class AtlasEngineeringBenchmarkSeedCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

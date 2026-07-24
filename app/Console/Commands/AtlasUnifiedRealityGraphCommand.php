@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasUnifiedRealityGraphService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasUnifiedRealityGraphCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:reality-graph
         {--hours=720 : Snapshot window in hours}
         {--limit=100 : Maximum entities/edges}
@@ -26,7 +29,7 @@ final class AtlasUnifiedRealityGraphCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

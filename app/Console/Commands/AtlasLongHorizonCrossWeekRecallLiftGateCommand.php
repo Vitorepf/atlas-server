@@ -8,9 +8,12 @@ use App\Services\Ai\LongHorizon\LongHorizonCrossWeekRecallLiftGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasLongHorizonCrossWeekRecallLiftGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:long-horizon:cross-week-recall-lift-gate
         {--scope-type= : Long-horizon scope type}
         {--scope-id= : Long-horizon scope id}
@@ -52,7 +55,7 @@ final class AtlasLongHorizonCrossWeekRecallLiftGateCommand extends Command
             : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

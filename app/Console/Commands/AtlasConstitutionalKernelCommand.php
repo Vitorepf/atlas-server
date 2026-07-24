@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Constitutional Kernel — CLI read/validate interface (Patamar 4 · 4.0).
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 class AtlasConstitutionalKernelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:constitutional:kernel
         {--action=list-invariants : list-invariants|validate|list-violations|kernel-hash|elastic-state|flip-elastic|runtime-state|tune-runtime|runtime-windows}
         {--class= : petreo|elastic|runtime (for list-invariants)}
@@ -183,7 +186,7 @@ class AtlasConstitutionalKernelCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

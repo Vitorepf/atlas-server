@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Obra\AtlasBlastRadiusService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * WO-17-T3 — deterministic blast radius for a change.
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasBlastRadiusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:blast-radius
         {files?* : repo-relative files the change touches}
         {--measure-dir= : dir of *-slice-descriptor.json to measure coverage over}
@@ -43,7 +46,7 @@ final class AtlasBlastRadiusCommand extends Command
 
         $radius = $service->radiusFor($files);
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($radius, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($radius));
 
             return self::SUCCESS;
         }
@@ -88,7 +91,7 @@ final class AtlasBlastRadiusCommand extends Command
         $result = ['slices_measured' => count($rows), 'avg_coverage' => $avg, 'gate_85pct' => $meetsGate, 'per_slice' => $rows];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

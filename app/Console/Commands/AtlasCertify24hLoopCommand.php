@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-792 · read-only 24h loop certification harness CLI.
@@ -17,6 +18,8 @@ use App\Support\YesNo;
  */
 final class AtlasCertify24hLoopCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:certify-24h-loop
         {--area=agentic_engineering_os : Canonical area_id}
         {--scenario= : Certify a single scenario by key}
@@ -39,7 +42,7 @@ final class AtlasCertify24hLoopCommand extends Command
             && in_array($status, [Loop24hCertificationHarnessService::STATUS_PARTIAL, Loop24hCertificationHarnessService::STATUS_BLOCKED], true);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCode($status, $strictFail);
         }

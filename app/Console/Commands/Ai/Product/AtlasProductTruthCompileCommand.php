@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasProductTruthCompilerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductTruthCompileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-truth:compile
         {request? : Human request to compile}
         {--workspace= : Workspace slug}
@@ -26,7 +29,7 @@ class AtlasProductTruthCompileCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

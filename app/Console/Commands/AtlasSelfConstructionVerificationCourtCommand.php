@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtGat
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * READ-ONLY CLI for the Verification Court surface. Four verbs:
@@ -21,6 +22,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionVerificationCourtCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:verification-court {action : inspect|plan|verdict|history} {--evidence=} {--replay=} {--ledger=} {--json}';
 
@@ -37,7 +40,7 @@ final class AtlasSelfConstructionVerificationCourtCommand extends Command
             'history' => $this->history(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

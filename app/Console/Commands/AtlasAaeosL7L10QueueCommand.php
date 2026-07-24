@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\L7L10
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Governed L7-L10 queue consumer CLI (operator mandate, 2026-06-01).
@@ -21,6 +22,8 @@ use App\Support\YesNo;
  */
 final class AtlasAaeosL7L10QueueCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:l7-l10-queue
         {--doc=docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md : Source backlog doc carrying the L7-L10 trail}
         {--repo-root= : Repo root; defaults to base_path()}
@@ -90,7 +93,7 @@ final class AtlasAaeosL7L10QueueCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

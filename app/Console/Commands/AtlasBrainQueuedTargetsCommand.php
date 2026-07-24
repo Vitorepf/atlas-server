@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * BRAIN QUEUED-TARGETS — read-only. Lists the target files inside a scope that ALREADY have a LIVE task packet
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasBrainQueuedTargetsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:brain:queued-targets {--scope=autonomous : the scope slug to filter targets to} {--json}';
 
@@ -62,7 +65,7 @@ final class AtlasBrainQueuedTargetsCommand extends Command
         ];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

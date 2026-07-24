@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealitySelfImprovementModelingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L-inf (ONE promoted fragment: R3 self-improving modeling / meta-learning) —
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealitySelfImprovementModelingCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-self-improvement-modeling
         {--json : Emit canonical JSON}';
 
@@ -34,7 +37,7 @@ class AtlasDocumentationRealitySelfImprovementModelingCommand extends Command
         $payload = $service->proposeModelingImprovements() + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

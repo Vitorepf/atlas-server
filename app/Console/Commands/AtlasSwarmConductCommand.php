@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator entrypoint for one governed, provider-agnostic engineering run that
@@ -29,6 +30,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSwarmConductCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:swarm:conduct
         {task : Natural-language engineering task / task_category}
         {--role=primary : Role used for routing}
@@ -110,7 +113,7 @@ class AtlasSwarmConductCommand extends Command
         $envelope = $conductor->run($work, $options);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($envelope, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($envelope));
         } else {
             $this->renderHuman($envelope);
         }

@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCompounding
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLearningRetentionRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerFeedbackInbox;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only strict cycle-closure audit. Composes
@@ -27,6 +28,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainLearningCompletenessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.learning_completeness.v1';
 
     /** @var string */
@@ -93,7 +96,7 @@ final class AtlasExternalBrainLearningCompletenessCommand extends Command
             'next_repair_task_hint' => $completeness['next_repair_task_hint'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

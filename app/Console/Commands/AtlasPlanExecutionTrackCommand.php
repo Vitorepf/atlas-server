@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Pilar 1 · Plan Execution · track stage.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasPlanExecutionTrackCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:plan-execution:track
         {--plan= : Decomposed plan_id}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -39,7 +42,7 @@ class AtlasPlanExecutionTrackCommand extends Command
         $status = (string) ($ledger['status'] ?? '');
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($ledger, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($ledger));
         } else {
             $this->components->twoColumnDetail('Plan Execution', 'track');
             $this->components->twoColumnDetail('Plan', (string) ($ledger['plan_id'] ?? $planId));

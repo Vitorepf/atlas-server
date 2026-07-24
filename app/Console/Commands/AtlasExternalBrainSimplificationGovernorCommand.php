@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganSprawl
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainSimplificationRoiLedger;
 use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationCampaignControlPlane;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only simplification governor. Composes
@@ -29,6 +30,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainSimplificationGovernorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.external_brain.simplification_governor.v1';
 
     /** @var string */
@@ -105,7 +108,7 @@ final class AtlasExternalBrainSimplificationGovernorCommand extends Command
             $payload['self_construction_control_plane'] = $selfConstructionControlPlane;
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

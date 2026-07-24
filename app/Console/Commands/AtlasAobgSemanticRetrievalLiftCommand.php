@@ -7,12 +7,15 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\AobgSemanticRetrievalLiftService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L4-11: measured AOBG semantic retrieval activation decision.
  */
 final class AtlasAobgSemanticRetrievalLiftCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aobg:semantic-lift
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero unless measured lift recommends enabling semantic retrieval}';
@@ -24,7 +27,7 @@ final class AtlasAobgSemanticRetrievalLiftCommand extends Command
         $report = $service->report();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->renderHuman($report);
         }

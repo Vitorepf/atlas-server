@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGapClosureSnapshot;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator-facing gap-closure snapshot. Exposes
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainGapClosureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:gap-closure
         {--input= : Path to a JSON file with cycles, spine_sections, queue_repair_summary, outcome_feedback_summary}
@@ -65,7 +68,7 @@ final class AtlasExternalBrainGapClosureCommand extends Command
             'recommended_next_action'  => $snapshot['recommended_next_action'],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

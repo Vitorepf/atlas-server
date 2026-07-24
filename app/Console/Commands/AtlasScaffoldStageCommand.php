@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionScaffoldStagingExecutorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasScaffoldStageCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scaffold:stage
         {--action=stage : stage|list}
         {--proposal-id= : proposal_id from ASCB to stage}
@@ -56,7 +59,7 @@ class AtlasScaffoldStageCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

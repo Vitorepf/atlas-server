@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\AtlasDev\Regression\CallerTestSelectionService;
 use App\Services\Ai\Programming\ProgrammingTestImpactAnalyzer;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * P2 (Obra #19, Frente P) — `atlas:test:impacted <paths...>`: the changed paths →
@@ -28,6 +29,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTestImpactedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:test:impacted
         {paths* : changed file paths}
         {--risk=medium : critical|high|medium|low}
@@ -56,7 +59,7 @@ class AtlasTestImpactedCommand extends Command
         $receipt['advisory'] = true;
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($receipt));
 
             return self::SUCCESS;
         }

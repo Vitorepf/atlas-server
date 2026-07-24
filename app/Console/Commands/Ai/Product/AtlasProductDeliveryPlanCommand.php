@@ -6,9 +6,12 @@ namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasAutonomousProductDeliveryRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:plan
         {request? : Human request to plan}
         {--workspace= : Workspace slug}
@@ -37,7 +40,7 @@ class AtlasProductDeliveryPlanCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('Product Delivery', (string) $report['schema_version']);
             $this->components->twoColumnDetail('status', (string) $report['status']);

@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeS
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeSoakScenarioBuilder;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Virtual daemon endurance proof CLI. Bounded, dry-run by default, never sleeps for real time,
@@ -22,6 +23,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionRuntimeSoakCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:runtime-soak
         {action : scenario|dry-run|run|audit}
@@ -47,7 +50,7 @@ final class AtlasSelfConstructionRuntimeSoakCommand extends Command
             'audit' => $this->audit($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' ? self::SUCCESS : self::FAILURE;
     }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasDocumentationRealityAutoHealService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator entrypoint for the C4 commit-boundary auto-heal
@@ -26,6 +27,8 @@ use Illuminate\Console\Command;
  */
 class AtlasDocumentationRealityAutoHealCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-auto-heal
         {--staged : Heal the staged canonical docs (the default and only scope)}
         {--root= : The repo root to operate on (defaults to the current repo root)}
@@ -46,7 +49,7 @@ class AtlasDocumentationRealityAutoHealCommand extends Command
         $result = $healer->heal($root, $dryRun);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

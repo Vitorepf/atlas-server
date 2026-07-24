@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\MarketingDomain\Content\FunnelCongruenceAuditor;
 use App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:ai:marketing:funnel — whole-funnel structural X-ray. Pass the stages in order; reports per-hop
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAiMarketingFunnelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:funnel
         {--ad= : top-of-funnel copy (file path or inline text)}
         {--bridge= : bridge/advertorial copy}
@@ -43,7 +46,7 @@ class AtlasAiMarketingFunnelCommand extends Command
         $r = $auditor->audit($stages);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($r));
 
             return self::SUCCESS;
         }

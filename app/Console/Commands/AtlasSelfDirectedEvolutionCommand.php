@@ -9,9 +9,12 @@ use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelServi
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedSpecProposalAdapter;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasSelfDirectedEvolutionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:self-directed-evolution
         {action=gap-read-model : gap-read-model|curation-inbox|spec-draft}
         {--hours=24 : AAEL control-plane window in hours}
@@ -152,7 +155,7 @@ class AtlasSelfDirectedEvolutionCommand extends Command
     private function emit(array $payload, ?callable $human = null): void
     {
         if ((bool) $this->option('json') || $human === null) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }
@@ -167,7 +170,7 @@ class AtlasSelfDirectedEvolutionCommand extends Command
             'reason' => $reason,
             'detail' => $detail,
         ];
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::FAILURE;
     }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * P3 (Obra #19, Frente P) — the receipt-cached test gate. Before spending a test
@@ -21,6 +22,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTestCachedCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:test:cached
         {capability : receipt scope (capability id)}
         {test : test ref (Class or Class::method)}
@@ -92,7 +95,7 @@ class AtlasTestCachedCommand extends Command
     private function out(array $payload, int $code): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $code;
         }

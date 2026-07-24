@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextObservabilityPlaneService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextObservabilityPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:observability
         {--domain=atlas : Domain}
         {--task-type=direct : Task type}
@@ -28,7 +31,7 @@ final class AtlasContextObservabilityPlaneCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

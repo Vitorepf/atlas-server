@@ -11,6 +11,7 @@ use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * GAP-CLI-01 + GAP-COCKPIT-03 · the ONE terminal cockpit of the LIVE engine: answers
@@ -23,6 +24,8 @@ use Throwable;
  */
 class AtlasCliCockpitCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:cockpit
         {--landings=8 : Quantas landings recentes do autônomo mostrar}
         {--json : Print machine-readable JSON}';
@@ -44,7 +47,7 @@ class AtlasCliCockpitCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

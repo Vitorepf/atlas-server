@@ -9,9 +9,12 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringVisualDriverCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:visual-driver
         {action=status : status, doctor or install}
         {--runtime-dir= : Atlas-managed Playwright runtime root. Defaults to storage/app/engineering-playwright}
@@ -55,7 +58,7 @@ class AtlasEngineeringVisualDriverCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return $exitCode;
         }

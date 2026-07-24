@@ -11,9 +11,12 @@ use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFailureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:failure
         {action=recent : record|recent|diversity|signature|alerts|ack|review|recurrence|red-triage}
         {subject? : Message, signature id, alert id, or review subject}
@@ -274,7 +277,7 @@ class AtlasFailureCommand extends Command
     private function render(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

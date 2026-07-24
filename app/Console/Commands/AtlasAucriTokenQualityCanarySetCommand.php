@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasAucriTokenQualityCanarySetService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAucriTokenQualityCanarySetCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aucri:token-quality-canaries
         {--json : Emit canonical JSON}';
 
@@ -19,7 +22,7 @@ final class AtlasAucriTokenQualityCanarySetCommand extends Command
         $payload = $service->report();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

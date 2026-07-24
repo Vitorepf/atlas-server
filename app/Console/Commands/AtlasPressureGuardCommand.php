@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:pressure:guard — run ONE of the 3 Cognitive Pressure Layer advisory guards
@@ -19,6 +20,8 @@ use App\Support\YesNo;
  */
 final class AtlasPressureGuardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:pressure:guard
         {guard : runtime_verifier|context_cartographer|boundary_wiring_guard}
         {--target= : rel path of the organ (runtime_verifier)}
@@ -70,7 +73,7 @@ final class AtlasPressureGuardCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('guard', (string) $verdict['guard']);
             $this->components->twoColumnDetail('pass', YesNo::format($verdict['pass']));

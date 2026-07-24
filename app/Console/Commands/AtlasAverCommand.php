@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAverCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aver
         {action=control-plane : plan|plan-from-verified-evolution|run-command|run-test|fixture-cycle|certify|control-plane}
         {--objective= : Execution objective}
@@ -38,11 +41,11 @@ class AtlasAverCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('AVER action', $action);
             $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         }
 
         return ($payload['status'] ?? null) === AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;

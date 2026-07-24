@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\LaneProviderRoutingService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-804 · inspect the per-lane provider plan for the multi-agent Stewardship
@@ -13,6 +14,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAgentExecutionLaneProviderPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:agent-execution:lane-provider-plan
         {--topology-file= : Path to a JSON file with an Atlas Decide / injected provider topology}
         {--json : Emit JSON}';
@@ -46,7 +49,7 @@ class AtlasAgentExecutionLaneProviderPlanCommand extends Command
         $plan = $routing->route(['lanes' => $lanes, 'provider_topology' => $topology]);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($plan));
 
             return self::SUCCESS;
         }

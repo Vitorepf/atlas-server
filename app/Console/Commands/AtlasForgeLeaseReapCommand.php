@@ -6,10 +6,13 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /** Reclaims expired Forge scope leases while preserving fencing history. */
 final class AtlasForgeLeaseReapCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:reap-leases {--json : Emit machine-readable JSON}';
 
     protected $description = 'Reap expired Forge scope leases through the canonical reservation owner.';
@@ -23,7 +26,7 @@ final class AtlasForgeLeaseReapCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Forge leases reaped', (string) $result['result']['reaped_count']);
         }

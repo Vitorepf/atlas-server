@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecor
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusEvidencePackService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Night Shift · Area Focus Loop · Durable Cycle + Evidence Pack (AP-720).
@@ -19,6 +20,8 @@ use App\Support\YesNo;
  */
 class AtlasNightShiftAreaFocusCycleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:night-shift:area-focus-cycle
         {action=record : record|replay|list|evidence-pack}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -138,7 +141,7 @@ class AtlasNightShiftAreaFocusCycleCommand extends Command
     private function emit(array $payload, ?callable $human = null): void
     {
         if ((bool) $this->option('json') || $human === null) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

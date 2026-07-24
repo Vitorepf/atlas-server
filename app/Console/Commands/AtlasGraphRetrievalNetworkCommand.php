@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasGraphRetrievalNetworkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasGraphRetrievalNetworkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:graph-retrieval
         {--query= : Objective/query for bounded graph retrieval}
         {--task-type=direct : Task type}
@@ -40,7 +43,7 @@ final class AtlasGraphRetrievalNetworkCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

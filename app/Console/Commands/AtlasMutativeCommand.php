@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Cognition Operating System — Absorcao 3 (Doctor + Repair Modes 3-Tier).
@@ -46,6 +47,8 @@ use Illuminate\Support\Str;
  */
 abstract class AtlasMutativeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const MODE_PLAN = 'plan';
     public const MODE_DRY_RUN = 'dry-run';
     public const MODE_APPLY = 'apply';
@@ -264,7 +267,7 @@ abstract class AtlasMutativeCommand extends Command
     protected function emit(array $envelope, bool $jsonOutput, int $exitCode): int
     {
         if ($jsonOutput) {
-            $this->line(json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: '{}');
+            $this->jsonLine($envelope);
 
             return $exitCode;
         }

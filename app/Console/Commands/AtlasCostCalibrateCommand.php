@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Caching\AtlasCostCalibrationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Report the percentile distribution of observed provider pre-cost so the operator
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 class AtlasCostCalibrateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:cost-calibrate
         {--log= : Telemetry JSONL path (default: storage/app/atlas-cost-telemetry.jsonl)}
         {--json : Print machine-readable JSON}';
@@ -24,7 +27,7 @@ class AtlasCostCalibrateCommand extends Command
         $report = $calibration->calibrate($log);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Code Forge Work Intake CLI.
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeForgeWorkIntakeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:code:forge-intake
@@ -117,7 +120,7 @@ final class AtlasCodeForgeWorkIntakeCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

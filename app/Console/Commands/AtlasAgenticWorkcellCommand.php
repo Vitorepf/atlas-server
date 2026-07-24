@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAgenticWorkcellCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:agentic-workcell
         {action=control-plane : design|event|outcome|control-plane}
         {--objective= : Objective/prompt to organize}
@@ -53,7 +56,7 @@ class AtlasAgenticWorkcellCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasAgenticWorkcellRuntimeService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

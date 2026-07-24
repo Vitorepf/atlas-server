@@ -6,9 +6,12 @@ use App\Services\Ai\Programming\ProgrammingResumeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProgrammingResumeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:resume
         {parent_plan_id : Parent programming plan id to resume from}
         {--plan-id= : Optional child plan id}
@@ -48,7 +51,7 @@ class AtlasProgrammingResumeCommand extends Command
     private function render(array $payload, int $exitCode): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $exitCode;
         }

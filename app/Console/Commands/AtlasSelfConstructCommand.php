@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
 use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Self-construction loop — "Atlas builds Atlas". Detects improvement signals in the
@@ -35,6 +36,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSelfConstructCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:self-construct
         {--max=1 : maximum improvement signals to act on this run}
         {--request=* : explicit operator improvement request(s), merged ahead of code markers}
@@ -111,7 +114,7 @@ class AtlasSelfConstructCommand extends Command
         $status = $meta->status();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($status));
 
             return self::SUCCESS;
         }
@@ -165,7 +168,7 @@ class AtlasSelfConstructCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return;
         }

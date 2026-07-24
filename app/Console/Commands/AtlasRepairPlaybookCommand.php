@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Repair\AtlasRepairPlaybookLedger;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * T4-S3 (Obra #17) — reader for the repair procedural playbook (the consumer
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasRepairPlaybookCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:repair:playbook
         {domain : failure domain (e.g. rag_gate, world_model, compilation)}
         {--json : machine-readable output}';
@@ -25,7 +28,7 @@ class AtlasRepairPlaybookCommand extends Command
         $report = $playbook->playbookFor((string) $this->argument('domain'));
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($report));
 
             return self::SUCCESS;
         }

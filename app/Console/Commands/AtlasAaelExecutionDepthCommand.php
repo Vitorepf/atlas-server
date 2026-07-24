@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionPlanSem
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionSafeStateRecoverer;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AAEL Execution Depth CLI — one subaction per packet 01-04 class.
@@ -20,6 +21,8 @@ use Throwable;
  */
 final class AtlasAaelExecutionDepthCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:aael:depth
         {action : prove|invariants|abort|recover}
@@ -144,7 +147,7 @@ final class AtlasAaelExecutionDepthCommand extends Command
     private function emit(bool $json, array $payload): void
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
 
             return;
         }

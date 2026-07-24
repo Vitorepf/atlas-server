@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgentGovernance\AtlasAgentRegistry;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * THE single window into the fleet for the operator + the apps: every autonomous agent, what is actually
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasAgentsStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:agents:status {--json} {--active : Only the agents actually running now}';
 
     protected $description = 'Show every autonomous Atlas agent: running/desired/off, which account it spends, uptime, TTL.';
@@ -23,7 +26,7 @@ final class AtlasAgentsStatusCommand extends Command
         $snap = (bool) $this->option('active') ? $registry->active() : $registry->snapshot();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($snap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($snap));
 
             return self::SUCCESS;
         }

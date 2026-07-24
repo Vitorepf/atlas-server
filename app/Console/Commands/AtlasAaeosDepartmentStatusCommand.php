@@ -15,6 +15,7 @@ use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarServi
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationWatchdog;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Runtime surface for the AAEOS department maturity + quality-bar matrices —
@@ -28,6 +29,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosDepartmentStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aeos:department-status
         {--quality-bar : Include the quality-bar breach signal emission}
         {--claim-file= : Path to a JSON completion claim to validate against the Definition of Done}
@@ -136,7 +139,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

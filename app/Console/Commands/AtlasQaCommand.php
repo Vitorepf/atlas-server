@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasTask;
 use App\Services\Engineering\EngineeringQaService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasQaCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:qa
         {--task-id=}
         {--status=needs_review}
@@ -45,7 +48,7 @@ class AtlasQaCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('QA', (string) data_get($payload, 'qa.status'));
         }

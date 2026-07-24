@@ -10,9 +10,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use JsonException;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryRepairExecuteCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:repair-execute
         {request : Human product/delivery request}
         {--workspace= : Workspace slug/path}
@@ -114,7 +117,7 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
     private function emitPayload(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

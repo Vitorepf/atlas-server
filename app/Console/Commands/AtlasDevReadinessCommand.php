@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevReadinessService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevReadinessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:readiness
         {--json : Emit machine-readable JSON}
         {--strict : Treat warnings as blockers}
@@ -24,7 +27,7 @@ final class AtlasDevReadinessCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return $payload['status'] === 'passed' ? self::SUCCESS : self::FAILURE;
         }

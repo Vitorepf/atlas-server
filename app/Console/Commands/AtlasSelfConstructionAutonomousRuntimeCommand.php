@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\AutonomousRuntime\AtlasAutonomousRuntimeOrg
 use App\Services\Ai\SelfConstruction\AutonomousRuntime\AtlasAutonomousRuntimeSafetyStopGate;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Operator-visible CLI for the Atlas-native autonomous runtime plan.
@@ -23,6 +24,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:runtime {action : inspect|cycle|safety|heartbeat|heartbeat-ledger|plan} {--facts=} {--ledger=} {--json}';
 
@@ -41,7 +44,7 @@ final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
             'heartbeat-ledger' => $this->heartbeatLedger(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * O2 · the APP-READY surface catalog — the machine-readable front door a sibling surface
@@ -19,6 +20,8 @@ use Throwable;
  */
 class AtlasApiDescribeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:api:describe
         {--check : Run every runnable entry and report live JSON conformance}
         {--json : Print machine-readable JSON (default; text renders a table)}';
@@ -74,7 +77,7 @@ class AtlasApiDescribeCommand extends Command
         }
 
         if ((bool) $this->option('json') || true) { // JSON é o default deste comando (catálogo é pra máquinas)
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         }
 
         $failed = collect($payload['check']['results'] ?? [])->where('ok', false)->count();

@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionNativeRepl
 use App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionQueueTopUpPolicy;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Self-Construction native replenisher pipeline. Five verbs:
@@ -25,6 +26,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionNativeReplenisherCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:native-replenisher {action : contract|draft|preflight|top-up|run} {--facts=} {--json}';
 
@@ -44,7 +47,7 @@ final class AtlasSelfConstructionNativeReplenisherCommand extends Command
             'run' => $this->runPipeline($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

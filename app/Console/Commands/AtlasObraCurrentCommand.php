@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Obra\AtlasObraStateService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * WO-17-T1 — the EXPLICIT active-obra pointer. The active obra is NEVER inferred
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasObraCurrentCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:obra:current
         {--set= : set the active obra id (explicit; never inferred)}
         {--clear : clear the active obra}
@@ -63,7 +66,7 @@ final class AtlasObraCurrentCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

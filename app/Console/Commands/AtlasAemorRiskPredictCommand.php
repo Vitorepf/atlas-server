@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAemorRiskPredictCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aemor:risk-predict
         {--goal= : Goal/prompt}
         {--scope-type=workspace : Scope type}
@@ -23,7 +26,7 @@ class AtlasAemorRiskPredictCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AEMOR risk', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Similar failures', (string) count((array) ($payload['similar_failures'] ?? [])));

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasRuntimeEfficiencyGovernorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:runtime-efficiency
         {action=control-plane : govern|outcome|compile-policy|replay|control-plane}
         {--prompt= : Prompt/objective to govern}
@@ -59,7 +62,7 @@ class AtlasRuntimeEfficiencyGovernorCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return ($payload['status'] ?? null) === AtlasRuntimeEfficiencyGovernorService::STATUS_BLOCKED ? self::FAILURE : self::SUCCESS;
         }

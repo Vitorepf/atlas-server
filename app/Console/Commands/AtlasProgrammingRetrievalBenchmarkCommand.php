@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\ProgrammingRetrievalBenchmarkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProgrammingRetrievalBenchmarkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:retrieval-benchmark
         {--workspace= : Workspace to benchmark. Defaults to the Laravel base path.}
         {--refresh : Recompute benchmark instead of using process-memory cache.}
@@ -23,7 +26,7 @@ class AtlasProgrammingRetrievalBenchmarkCommand extends Command
         $report = $benchmark->run($workspace, (bool) $this->option('refresh'));
 
         if ($this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return ($report['status'] ?? null) === 'passed' ? self::SUCCESS : self::FAILURE;
         }

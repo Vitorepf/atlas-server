@@ -7,6 +7,7 @@ use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas AI Operator Approval Gate CLI.
@@ -21,6 +22,8 @@ use Throwable;
  */
 class AtlasAiApprovalCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:approval
         {action : list|show|decide|expire|control-plane}
         {--approval= : Approval uuid for show/decide}
@@ -205,7 +208,7 @@ class AtlasAiApprovalCommand extends Command
      */
     private function emit(array $payload, int $exit = 0): int
     {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return $exit;
     }

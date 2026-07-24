@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Memory\AtlasMemoryCognitiveImmuneLearningKernelService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Memory Cognitive Immune And Learning Kernel CLI.
@@ -22,6 +23,8 @@ use Throwable;
  */
 class AtlasMemoryCognitiveImmuneLearningKernelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:cognitive-immune-kernel
         {--class=strategic_insight_candidate : Input Class to classify}
         {--scope=session : candidate scope (global|workspace|project|task|domain|session|policy)}
@@ -61,7 +64,7 @@ class AtlasMemoryCognitiveImmuneLearningKernelCommand extends Command
                 'non_negotiable_rules' => $service->nonNegotiableRules(),
             ];
 
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         } catch (Throwable $e) {

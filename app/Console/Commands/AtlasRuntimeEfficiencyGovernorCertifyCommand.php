@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasRuntimeEfficiencyGovernorCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:runtime-efficiency:certify
         {--json : Emit JSON}
         {--strict : Exit non-zero unless passed}';
@@ -18,7 +21,7 @@ class AtlasRuntimeEfficiencyGovernorCertifyCommand extends Command
         $payload = $certification->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('AREG certify', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Certification hash', (string) ($payload['certification_hash'] ?? 'missing'));

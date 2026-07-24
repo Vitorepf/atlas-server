@@ -27,6 +27,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjec
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only originator-quality runtime. Pipes candidate opportunities
@@ -55,6 +56,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainOriginatorQualityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:originator-quality
         {--input= : Path to a JSON file with opportunities and optional max_batch}';
@@ -351,7 +354,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
             $payload['cognition_cascade'] = $cascadeOutput;
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

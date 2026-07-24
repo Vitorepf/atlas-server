@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Reports scheduler health — silent_alarm if last heartbeat too old.
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasSchedulerStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scheduler:status
         {--threshold=300 : Silent alarm threshold in seconds}
         {--strict : Exit 3 if silent_alarm=true}
@@ -27,7 +30,7 @@ class AtlasSchedulerStatusCommand extends Command
         $status = $svc->status($threshold);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($status));
         } else {
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Scheduler</>', $status['silent_alarm'] ? '<fg=red>silent</>' : '<fg=green>alive</>');
             $this->components->twoColumnDetail('Last heartbeat', (string) ($status['last_heartbeat_at'] ?? 'never'));

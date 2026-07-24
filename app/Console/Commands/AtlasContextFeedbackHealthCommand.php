@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextFeedbackHealthCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:feedback-health
         {--json : Emit canonical JSON}';
 
@@ -19,7 +22,7 @@ final class AtlasContextFeedbackHealthCommand extends Command
         $payload = $health->contextFeedbackHealthReport();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('total_event_count', (string) data_get($payload, 'window.total_event_count', 0));

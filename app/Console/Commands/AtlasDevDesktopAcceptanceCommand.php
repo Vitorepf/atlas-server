@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopAcceptanceEvidenceService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopAcceptanceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:acceptance
         {--json : Emit canonical JSON}
         {--strict : Return non-zero when evidence gate is blocked}
@@ -25,7 +28,7 @@ final class AtlasDevDesktopAcceptanceCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop acceptance evidence', (string) $payload['status']);
             $this->components->twoColumnDetail('Records', (string) data_get($payload, 'summary.records_found', 0));

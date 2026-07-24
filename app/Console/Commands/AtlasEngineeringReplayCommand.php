@@ -9,9 +9,12 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
 use Illuminate\Console\Command;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringReplayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:replay
         {run : Source engineering run id to replay}
         {--workspace= : Workspace path. Defaults to current directory}
@@ -55,7 +58,7 @@ class AtlasEngineeringReplayCommand extends Command
         $awisBlock = $this->awisReplayMutationBlock($workspacePaths, $workspaceGate);
         if ($awisBlock !== null) {
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($awisBlock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($awisBlock));
             } else {
                 $this->error((string) ($awisBlock['message'] ?? 'AWIS bloqueou replay mutativo.'));
             }
@@ -98,7 +101,7 @@ class AtlasEngineeringReplayCommand extends Command
             : $runner->replay($sourceRun, $options);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->successExit($payload);
         }

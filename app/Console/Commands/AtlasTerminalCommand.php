@@ -6,6 +6,7 @@ use App\Services\Ai\TerminalDev\Protocol\AapSchema;
 use App\Services\Ai\TerminalDev\Session\AtlasTerminalSessionRuntime;
 use App\Services\Ai\TerminalDev\Session\AtlasTerminalSessionStore;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Terminal Dev — multi-turn agent session (Grok-class surface).
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTerminalCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:terminal
         {task?* : Initial prompt (oneshot if provided; else interactive REPL)}
         {--workspace= : Workspace path (default: cwd)}
@@ -175,7 +178,7 @@ class AtlasTerminalCommand extends Command
     ): int {
         if ($json) {
             foreach ($events as $event) {
-                $this->line(json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($event));
             }
             if ($oneshot) {
                 $this->line(json_encode([
@@ -238,7 +241,7 @@ class AtlasTerminalCommand extends Command
             'protocol_version' => AapSchema::VERSION,
         ];
         if ($json) {
-            $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->info('session '.$session['id']);
             $this->line(json_encode($payload['session'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -337,7 +340,7 @@ class AtlasTerminalCommand extends Command
                         'attachments' => is_array($attach) ? $attach : [],
                     ]);
                     foreach ($events as $event) {
-                        $this->line(json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                        $this->line($this->encode($event));
                     }
                     $this->line(json_encode(AapSchema::response($id, [
                         'ok' => true,

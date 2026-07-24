@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Domain\LearningPlanService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasStudyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:study
         {topic : Topic or skill to study}
         {--objective= : Learning objective}
@@ -41,7 +44,7 @@ class AtlasStudyCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

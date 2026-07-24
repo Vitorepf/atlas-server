@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\EngineeringDockerHarnessService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringDockerCleanupCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:docker-cleanup
         {--cache-retention-days= : Override Docker dependency cache retention window}
         {--artifact-retention-days= : Override Docker test artifact retention window}
@@ -23,7 +26,7 @@ class AtlasEngineeringDockerCleanupCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

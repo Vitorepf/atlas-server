@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\Receipts\AtlasSelfConstructionReceiptMemory
 use App\Services\Ai\SelfConstruction\TaskFabric\AtlasTaskFabricGiveBackLearningIntegrator;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only CLI for the Learning Transfer surface. Four verbs:
@@ -20,6 +21,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionLearningTransferCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:self-construction:learning-transfer {action : classify|gate|plan|template} {--facts=} {--json}';
 
@@ -49,7 +52,7 @@ final class AtlasSelfConstructionLearningTransferCommand extends Command
             'template' => $this->template(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return ($payload['status'] ?? 'ok') === 'ok' || ! isset($payload['status']) ? self::SUCCESS : self::FAILURE;
     }

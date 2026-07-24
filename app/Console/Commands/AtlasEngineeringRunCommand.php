@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Models\AtlasTask;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasEngineeringRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:engineering:run
         {--task-id= : Atlas task id to execute}
         {--workspace= : Workspace path. Defaults to current directory}
@@ -106,7 +109,7 @@ class AtlasEngineeringRunCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->successExit($payload);
         }

@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignSystemInventoryService;
 use Illuminate\Console\Command;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendDesignSystemInventoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:inventory
         {inspect : Inspect frontend design-system inventory}
         {--workspace= : Workspace root}
@@ -31,7 +34,7 @@ class AtlasFrontendDesignSystemInventoryCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Frontend Inventory: '.($payload['status'] ?? 'unknown'));
         }

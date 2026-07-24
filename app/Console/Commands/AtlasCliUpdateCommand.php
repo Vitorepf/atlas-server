@@ -6,9 +6,12 @@ use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliUpdateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cli:update
         {--channel=stable : stable or beta}
         {--allow-dirty}
@@ -106,9 +109,9 @@ class AtlasCliUpdateCommand extends Command
     {
         $payload = AtlasSecurity::redactArray(['ok' => $ok, 'status' => $status] + $payload);
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         }
 
         return $ok ? self::SUCCESS : self::FAILURE;

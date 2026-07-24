@@ -6,6 +6,7 @@ use App\Models\AiLearningProposal;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Apply (or reverse) an APPROVED learning proposal to runtime behaviour — the last
@@ -13,6 +14,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 class AtlasApplyLearningCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:apply-learning
         {proposal : Learning proposal id or hash}
         {--operator= : Operator id applying the change}
@@ -43,7 +46,7 @@ class AtlasApplyLearningCommand extends Command
             : $applier->apply($proposal, $operator);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return (($result['applied'] ?? false) || ($result['reversed'] ?? false)) ? self::SUCCESS : self::FAILURE;
         }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasPersistentContextRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:persistent-context
         {action=build : build|outcome}
         {--prompt= : Prompt/task to contextualize}
@@ -51,7 +54,7 @@ class AtlasPersistentContextRuntimeCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'blocked' ? 1 : 0;
         }

@@ -7,9 +7,12 @@ use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiTelemetryPerformanceReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:telemetry:performance-report
         {--date= : Local report date. Defaults to yesterday in the configured timezone}
         {--timezone= : Report timezone. Defaults to atlas.ai_metrics.performance_report_timezone}
@@ -76,7 +79,7 @@ class AiTelemetryPerformanceReportCommand extends Command
             ];
 
             if ((bool) $this->option('json')) {
-                $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
 
                 return self::SUCCESS;
             }

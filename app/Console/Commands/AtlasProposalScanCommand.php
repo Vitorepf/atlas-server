@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Mobile\AutoImprovementProposalScanner;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProposalScanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:proposal:scan
         {--workspace= : Workspace/repo que sera analisado}
         {--emit : Cria proposals no Inbox; sem isso roda dry-run}
@@ -26,7 +29,7 @@ class AtlasProposalScanCommand extends Command
 
         $result = $scanner->scan($workspace, $emit, $limit);
 
-        $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($result));
 
         return self::SUCCESS;
     }

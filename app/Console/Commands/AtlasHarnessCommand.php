@@ -6,6 +6,7 @@ use App\Services\Ai\Learning\Harness\AtlasHarnessFrozenSuite;
 use App\Services\Ai\Learning\Harness\AtlasHarnessProposalBridge;
 use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AP-819 Obra B — superfície do harness + ponte cluster→proposta + suite congelada.
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasHarnessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:harness
         {action=surface : surface|propose|suite|reverse|autopilot}
         {key? : Surface key for reverse mode}
@@ -53,7 +56,7 @@ class AtlasHarnessCommand extends Command
             return self::FAILURE;
         }
 
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasPromotionsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:promotions
         {--flag= : Managed flag id to flip}
         {--to= : Target state: off, shadow, live, rolled_back, suspended_pending_evidence}
@@ -35,7 +38,7 @@ final class AtlasPromotionsCommand extends Command
             : $protocol->report();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

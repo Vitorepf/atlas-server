@@ -11,6 +11,7 @@ use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * End-to-end smoke of the entire Patamar 4 loop.
@@ -28,6 +29,8 @@ use Illuminate\Console\Command;
  */
 class AtlasPatamar4RunLoopOnceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:patamar4:run-loop-once
         {--group=cognitive_immune : Group to drive reconciliation against (operator-forced)}
         {--privacy=public : Privacy class for all gated operations}
@@ -126,7 +129,7 @@ class AtlasPatamar4RunLoopOnceCommand extends Command
         ];
 
         if ($json) {
-            $this->line((string) json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($summary));
         } else {
             $this->line('Patamar 4 loop end-to-end smoke completed.');
             $this->line('  reconciliation.outcome    = '.$summary['fired']['reconciliation_outcome']);

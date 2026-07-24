@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Atlas Code Forge Review & Completion Gate v1 · CLI.
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeForgeReviewCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:code:forge-review
@@ -151,7 +154,7 @@ final class AtlasCodeForgeReviewCommand extends Command
     private function emit(array $payload): void
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

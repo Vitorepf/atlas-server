@@ -6,6 +6,7 @@ use App\Models\AiMarketingVslAsset;
 use App\Services\Ai\MarketingDomain\Campaign\KeywordOsRunner;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Capstone CLI do Keyword Intelligence OS — oferta → dossiê completo num passo. Monta os 3 feeds aterrados
@@ -15,6 +16,8 @@ use Throwable;
  */
 class AtlasAiMarketingKeywordOsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:keyword-os
         {--mechanism= : mecanismo coined da VSL (ex.: "Triple Hormone Drops Protocol")}
         {--trick= : truque/protocolo coined (ex.: "at-home retatrutide protocol")}
@@ -92,7 +95,7 @@ class AtlasAiMarketingKeywordOsCommand extends Command
         ];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

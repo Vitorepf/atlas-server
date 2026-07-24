@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * atlas:pressure:preland — ATLAS REDONDO SLICE 4. The PRE-LAND seam for the two weak-input
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasPressurePreLandCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:pressure:preland
         {--file=* : in-progress files about to be landed (their `use` imports are grounded)}
         {--declared=* : declared target rel path(s) (defaults to --file)}
@@ -72,7 +75,7 @@ final class AtlasPressurePreLandCommand extends Command
         $summary['referenced_symbols'] = $symbols;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($summary));
 
             return self::SUCCESS;
         }

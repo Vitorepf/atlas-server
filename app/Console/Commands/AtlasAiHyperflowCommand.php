@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Router\AtlasAiHyperflowCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiHyperflowCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:hyperflow
         {action=certify : certify}
         {--json : Print machine-readable JSON}';
@@ -35,7 +38,7 @@ class AtlasAiHyperflowCommand extends Command
         };
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $this->exitCodeFor($action, $payload);
         }

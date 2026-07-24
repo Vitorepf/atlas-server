@@ -7,9 +7,12 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiSelfImproveCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:self-improve
         {--flow=nightly_review : Self-improvement flow to run}
         {--hours=24 : Evidence Ledger lookback window}
@@ -102,7 +105,7 @@ class AtlasAiSelfImproveCommand extends Command
         $runtime = (array) ($payload['runtime'] ?? []);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
@@ -192,7 +195,7 @@ class AtlasAiSelfImproveCommand extends Command
         $exitCode = $this->schedulePlanExitCode($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }
@@ -235,7 +238,7 @@ class AtlasAiSelfImproveCommand extends Command
         $exitCode = $this->schedulePlanExitCode($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

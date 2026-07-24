@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AAEOS Deferred Phase async worker (AP-696..AP-699 wiring).
@@ -34,6 +35,8 @@ use Illuminate\Support\Facades\Log;
  */
 final class AtlasAaeosDeferredWorkerCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aeos:deferred-worker
         {--once : drain a single batch and exit}
         {--loop : run continuously with --interval sleep between batches}
@@ -90,7 +93,7 @@ final class AtlasAaeosDeferredWorkerCommand extends Command
         ];
 
         if ($json) {
-            $this->line(json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($summary));
         } else {
             $this->info(sprintf('Drained %d records · pending %d', $totalClaimed, $summary['pending_at_exit']));
         }

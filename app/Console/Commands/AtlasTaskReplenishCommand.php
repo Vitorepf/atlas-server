@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * PART 2 — the RUNTIME that keeps the list full from the brain. The Atlas reads its complete comprehension of a
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 class AtlasTaskReplenishCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:replenish
         {--scope= : the scope root the brain comprehends + structures tasks from (e.g. app/Services/Ai/AutonomousEvolution)}
         {--target=20 : keep the queue at >= this many claimable tasks}
@@ -108,7 +111,7 @@ class AtlasTaskReplenishCommand extends Command
     private function report(array $result): void
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($result));
 
             return;
         }

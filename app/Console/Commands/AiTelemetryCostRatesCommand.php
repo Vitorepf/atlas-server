@@ -8,9 +8,12 @@ use App\Services\Ai\Support\JsonFileStore;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiTelemetryCostRatesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:telemetry:cost-rates
         {--sync-config : Sync provider/model rates from ATLAS_AI_COST_RATES_JSON}
         {--import= : Import provider/model rates from a JSON file}
@@ -116,7 +119,7 @@ class AiTelemetryCostRatesCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

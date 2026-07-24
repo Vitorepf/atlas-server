@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasDocumentationRealityFlowService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only demonstration of the documented "Fluxo alvo para IA" of the ADRS
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasDocumentationRealityFlowCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-flow
         {--kind=doc : Proposed artifact kind (doc|symbol)}
         {--slug= : Proposed doc slug}
@@ -41,7 +44,7 @@ final class AtlasDocumentationRealityFlowCommand extends Command
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             // Read-only demonstration, never a gate: always succeed.
             return self::SUCCESS;

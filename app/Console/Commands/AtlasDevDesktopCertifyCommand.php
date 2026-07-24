@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:certify
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero when certification is not passed}';
@@ -21,7 +24,7 @@ final class AtlasDevDesktopCertifyCommand extends Command
         $report = $certification->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($report);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop', (string) $report['schema_version']);
             $this->components->twoColumnDetail('Status', (string) $report['status']);

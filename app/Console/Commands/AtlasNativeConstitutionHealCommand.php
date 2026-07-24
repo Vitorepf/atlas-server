@@ -8,9 +8,12 @@ use App\Services\Ai\SelfConstruction\AtlasNativeConstitutionHealer;
 use App\Services\Ai\SelfConstruction\AtlasNativeConstitutionScanner;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasNativeConstitutionHealCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:native:constitution-heal
         {--repo= : Path to atlas-native repo}
         {--finding-hash= : Finding hash from constitution-scan (sha1:…)}
@@ -36,7 +39,7 @@ final class AtlasNativeConstitutionHealCommand extends Command
             }
 
             if ($this->option('json')) {
-                $this->line((string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($receipt));
             } else {
                 $this->info(($receipt['status'] ?? '?').' · '.($receipt['finding_hash'] ?? $hash));
                 if (($receipt['reason'] ?? null) !== null) {

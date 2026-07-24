@@ -8,6 +8,7 @@ use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Promote ACOS intelligence features along offline → shadow → canary → default
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\File;
  */
 class AtlasIntelligenceRolloutPromoteCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:intelligence:rollout-promote
         {feature : unified_retrieval|fusion|gateway_consultation|engineering_outcome|all}
         {--to=shadow : Target mode (offline|shadow|canary|default)}
@@ -268,7 +271,7 @@ class AtlasIntelligenceRolloutPromoteCommand extends Command
     private function emit(array $receipt, int $exit): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($receipt));
 
             return $exit;
         }

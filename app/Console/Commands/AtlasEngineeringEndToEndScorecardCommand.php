@@ -16,9 +16,12 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGat
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasEngineeringEndToEndScorecardCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.engineering.end_to_end_scorecard.v1';
 
     private const MIN_REAL_EXECUTIONS_PER_EXECUTOR = 1;
@@ -73,7 +76,7 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

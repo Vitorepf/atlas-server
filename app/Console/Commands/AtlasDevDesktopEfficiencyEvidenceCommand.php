@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopEfficiencyEvidenceService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasDevDesktopEfficiencyEvidenceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:desktop:efficiency-evidence
         {--input= : Path to atlas.dev.desktop_efficiency_cases.v1 JSON}
         {--write-template= : Write an operator-fillable cases template to this path}
@@ -146,7 +149,7 @@ final class AtlasDevDesktopEfficiencyEvidenceCommand extends Command
     private function finish(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop efficiency evidence', (string) ($payload['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Measured multiplier', (string) ($payload['measured_multiplier'] ?? '0'));

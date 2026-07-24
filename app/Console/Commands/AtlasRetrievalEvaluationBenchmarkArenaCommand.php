@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasRetrievalEvaluationBenchmarkArenaCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:evaluate-retrieval
         {--risk=low : Risk level for the golden-set gate}
         {--json : Emit canonical JSON}';
@@ -22,7 +25,7 @@ final class AtlasRetrievalEvaluationBenchmarkArenaCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }

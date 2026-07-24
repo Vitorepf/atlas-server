@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextQualityCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasContextQualityCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:quality-certify
         {--cases=1200 : Synthetic context stress cases}
         {--target=9.8 : Minimum quality score}
@@ -25,7 +28,7 @@ final class AtlasContextQualityCertifyCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return (bool) $this->option('strict') && $payload['status'] !== 'ready'
                 ? self::FAILURE

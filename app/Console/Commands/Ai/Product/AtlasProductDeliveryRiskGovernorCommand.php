@@ -9,9 +9,12 @@ use App\Services\Ai\Product\AtlasProductDeliveryDoctrineFitnessService;
 use App\Services\Ai\Product\AtlasProductDeliveryEvidenceReplayLabService;
 use App\Services\Ai\Product\AtlasProductDeliveryRiskGovernorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProductDeliveryRiskGovernorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:product-delivery:risk-govern
         {request? : Human request to govern}
         {--workspace= : Workspace slug}
@@ -61,7 +64,7 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
         } else {
             $this->components->twoColumnDetail('Product Delivery Risk Governor', (string) $report['schema_version']);
             $this->components->twoColumnDetail('status', (string) $report['status']);

@@ -7,6 +7,7 @@ use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Write-bound entrypoint for the ADRS L0 enforcement gate. Resolves the touched
@@ -33,6 +34,8 @@ use Throwable;
  */
 class AtlasDocumentationRealityWriteGateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-write-gate
         {--staged : Resolve touched paths from the staged git diff}
         {--paths= : Comma-separated paths to evaluate}
@@ -57,7 +60,7 @@ class AtlasDocumentationRealityWriteGateCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($verdict, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($verdict));
 
             return $this->exitCode($verdict);
         }

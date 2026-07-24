@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\LocalRagReadinessService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAiLocalRagReadinessCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:local-rag-readiness {--json : Print machine-readable JSON}';
 
     protected $description = 'Report Local RAG readiness without creating a parallel memory/runtime brain.';
@@ -17,7 +20,7 @@ final class AtlasAiLocalRagReadinessCommand extends Command
         $payload = $readiness->report();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

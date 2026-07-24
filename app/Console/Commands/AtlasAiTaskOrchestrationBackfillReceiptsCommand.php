@@ -10,9 +10,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:task-orchestration-backfill-receipts
         {--hours=720 : Window size in hours}
         {--write : Persist repaired receipt/hash-chain payloads}
@@ -207,7 +210,7 @@ class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE;
         }

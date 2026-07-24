@@ -12,6 +12,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanE
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceCycleExecutor;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Pilar 1 · Plan Execution · DRIVE a build-plan to completion.
@@ -28,6 +29,8 @@ use App\Support\YesNo;
  */
 class AtlasPlanExecutionRunCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:plan-execution:run
         {--doc= : Path to the build-plan markdown document}
         {--area=agentic_engineering_os : Canonical area_id}
@@ -114,7 +117,7 @@ class AtlasPlanExecutionRunCommand extends Command
         $status = (string) ($result['status'] ?? '');
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
         } else {
             $this->components->twoColumnDetail('Plan Execution', $simulate ? 'run (SIMULATED)' : 'run (real owner flow)');
             $this->components->twoColumnDetail('Plan', (string) ($result['plan_id'] ?? '?'));
@@ -151,7 +154,7 @@ class AtlasPlanExecutionRunCommand extends Command
     private function renderBlockedDecomposition(array $plan): void
     {
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($plan));
 
             return;
         }

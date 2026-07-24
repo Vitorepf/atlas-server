@@ -9,9 +9,12 @@ use App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProven
 use App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceVerifier;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasTaskMaestroProvenanceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:task:maestro:provenance
         {action : trace|verify|history}
         {--packet= : packet id}
@@ -76,7 +79,7 @@ final class AtlasTaskMaestroProvenanceCommand extends Command
         $verdict = $verifier->verify($record);
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($verdict, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($verdict));
         } else {
             $this->info('ok='.(YesNo::trueFalse($verdict['ok'])).' reason_code='.$verdict['reason_code']
                 .(isset($verdict['broken_link_id']) ? ' broken_link_id='.$verdict['broken_link_id'] : ''));
@@ -98,7 +101,7 @@ final class AtlasTaskMaestroProvenanceCommand extends Command
             $rows = $ledger->tail($limit);
         }
         if ($this->option('json')) {
-            $this->line((string) json_encode($rows, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($rows));
         } else {
             foreach ($rows as $r) {
                 $this->info(sprintf('%s seq=%s packet=%s', (string) ($r['receipt_id'] ?? ''), (string) ($r['sequence_no'] ?? ''), (string) ($r['packet_id'] ?? '')));

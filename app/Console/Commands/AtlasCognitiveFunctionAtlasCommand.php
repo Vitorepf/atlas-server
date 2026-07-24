@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCognitiveFunctionAtlasCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:cognitive-function
         {--action=self-model : self-model|taxonomy|shape|gaps|owns|overloaded|subsystems-by-group}
         {--group= : group filter for subsystems-by-group / overloaded}
@@ -41,7 +44,7 @@ class AtlasCognitiveFunctionAtlasCommand extends Command
         }
 
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

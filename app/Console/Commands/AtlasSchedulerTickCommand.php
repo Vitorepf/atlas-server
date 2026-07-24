@@ -7,9 +7,12 @@ use App\Services\Ai\Scheduling\AtlasCliSchedulerService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasSchedulerTickCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scheduler:tick
         {--limit=25 : Maximum due tasks to claim}
         {--dry-run : Preview due tasks without claiming, advancing or dispatching}
@@ -55,7 +58,7 @@ class AtlasSchedulerTickCommand extends Command
     private function printPayload(array $payload, int $exitCode = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exitCode;
         }

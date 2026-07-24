@@ -7,9 +7,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasRetrievalFeedbackLoopCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:context:retrieval-feedback
         {--query= : Objective/query to evaluate retrieval feedback for}
         {--task-type=direct : Task type}
@@ -66,7 +69,7 @@ final class AtlasRetrievalFeedbackLoopCommand extends Command
         $payload = $service->capture($input);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

@@ -12,9 +12,12 @@ use App\Services\Semantic\CurationProposalService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class SemanticCurationReviewCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:semantic:curation-review
@@ -159,7 +162,7 @@ class SemanticCurationReviewCommand extends Command
     private function printPayload(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

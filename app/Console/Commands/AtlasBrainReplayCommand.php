@@ -8,6 +8,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * SIS8 (Obra #20) — `atlas:brain:replay`.
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class AtlasBrainReplayCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:brain:replay
         {--journal= : Journal path (defaults to config atlas.brain.journal.path)}
         {--dry-run : Verify the chain and report the digest without writing rows}
@@ -114,7 +117,7 @@ class AtlasBrainReplayCommand extends Command
     private function report(array $payload, int $exit): int
     {
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

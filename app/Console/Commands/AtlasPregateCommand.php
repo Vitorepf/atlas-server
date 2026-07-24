@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\AtlasArtisanBootSmokeGate;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * P1 (Obra #19, Frente P) — `atlas:pregate <paths...>`, the ≤3s pre-gate a model
@@ -26,6 +27,8 @@ use Symfony\Component\Process\Process;
  */
 class AtlasPregateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:pregate
         {paths* : php files to gate}
         {--skip-phpstan : run only php -l + pint (fastest)}
@@ -89,7 +92,7 @@ class AtlasPregateCommand extends Command
         $payload = ['ok' => $ok, 'elapsed_s' => $elapsed, 'within_budget' => $elapsed <= 3.0, 'checks' => array_values($checks), 'note' => $note ?: null];
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $ok ? self::SUCCESS : self::FAILURE;
         }

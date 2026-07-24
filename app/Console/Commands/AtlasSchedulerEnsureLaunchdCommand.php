@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use Illuminate\Console\Command;
 use App\Support\UtcIsoTimestamp;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Self-healing launchd probe (EVI-02). Runs via scheduler. Checks more than
@@ -18,6 +19,8 @@ use App\Support\UtcIsoTimestamp;
  */
 class AtlasSchedulerEnsureLaunchdCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:scheduler:ensure-launchd
         {--label=com.atlas.scheduler : launchd label to probe}
         {--json : Emit machine-readable JSON}';
@@ -207,7 +210,7 @@ class AtlasSchedulerEnsureLaunchdCommand extends Command
     private function emit(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

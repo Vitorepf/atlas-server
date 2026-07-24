@@ -12,9 +12,12 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliMemoryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:cli:memory
@@ -210,7 +213,7 @@ class AtlasCliMemoryCommand extends Command
     private function print(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

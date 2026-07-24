@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxObraRetroService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasAcosObraRetroCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acos:obra-retro
         {--lote= : ACOS Max lote number to close}
         {--json : Emit machine-readable JSON}';
@@ -22,7 +25,7 @@ final class AtlasAcosObraRetroCommand extends Command
         $code = ($payload['status'] ?? null) === 'recorded' ? self::SUCCESS : self::FAILURE;
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $code;
         }

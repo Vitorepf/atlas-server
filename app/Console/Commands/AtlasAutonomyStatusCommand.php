@@ -8,12 +8,15 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Obra #14 H3.2 — read-only autonomy tier status per registered area + chain readiness.
  */
 class AtlasAutonomyStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomy:status {--json : Emit JSON}';
 
     protected $description = 'Atlas Autônomos autonomy tier status: active tier per registered area + promotion chain readiness. Read-only.';
@@ -32,7 +35,7 @@ class AtlasAutonomyStatusCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }

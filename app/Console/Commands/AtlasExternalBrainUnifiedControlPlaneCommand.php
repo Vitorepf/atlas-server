@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainUnifiedControlPlaneSnapshot;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only unified control-plane snapshot for the external-brain pipeline.
@@ -22,6 +23,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasExternalBrainUnifiedControlPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     /** @var string */
     protected $signature = 'atlas:external-brain:unified-control-plane
         {--queue-pressure= : low|high (default low)}
@@ -45,7 +48,7 @@ final class AtlasExternalBrainUnifiedControlPlaneCommand extends Command
     {
         $snap = $snapshot->compose($this->buildInputs());
 
-        $this->line((string) json_encode($snap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($snap));
 
         return $snap['stop_go_verdict'] === AtlasExternalBrainUnifiedControlPlaneSnapshot::VERDICT_GO
             ? self::SUCCESS

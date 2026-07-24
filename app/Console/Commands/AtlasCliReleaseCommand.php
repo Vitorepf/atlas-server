@@ -9,9 +9,12 @@ use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliReleaseCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:cli:release
@@ -71,7 +74,7 @@ class AtlasCliReleaseCommand extends Command
         $payload = AtlasSecurity::redactArray($payload);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $payload['ok'] ? self::SUCCESS : self::FAILURE;
         }

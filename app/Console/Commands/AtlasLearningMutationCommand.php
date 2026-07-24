@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Compounding\AtlasLearningMutationRuntimeService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasLearningMutationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:learning:mutation
         {--action=list-evaluations : evaluate|apply|list-evaluations|list-applications}
         {--proposal-id= : proposal_id for evaluate/apply}
@@ -88,7 +91,7 @@ class AtlasLearningMutationCommand extends Command
     private function emit(array $payload, bool $json): int
     {
         if ($json) {
-            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $this->line($this->encode($payload));
         } else {
             foreach ($payload as $k => $v) {
                 $this->line(is_scalar($v) ? "{$k}: {$v}" : "{$k}: ".json_encode($v));

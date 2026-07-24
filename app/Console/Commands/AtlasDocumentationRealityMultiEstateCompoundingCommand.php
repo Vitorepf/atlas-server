@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityMultiEstateCompoundingService;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L2-O3 (first increment) — read-only cross-estate immunity propagation PROPOSER.
@@ -26,6 +27,8 @@ use App\Support\YesNo;
  */
 final class AtlasDocumentationRealityMultiEstateCompoundingCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-multi-estate
         {--data-class=internal : The antibody source sovereignty data class (public|internal|sensitive|secret|cyber)}
         {--estate=* : Target estate/domain to propose immunising (repeatable; empty = all active estates)}
@@ -42,7 +45,7 @@ final class AtlasDocumentationRealityMultiEstateCompoundingCommand extends Comma
             + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             // PROPOSER, never a gate: always succeed.
             return self::SUCCESS;

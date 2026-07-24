@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AcosProgram\AcosMaxLote2MeasureService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasMissionE2eRateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:mission:e2e
         {--days= : Optional lookback window in days}
         {--json : Emit JSON}';
@@ -19,7 +22,7 @@ final class AtlasMissionE2eRateCommand extends Command
     {
         $days = $this->option('days');
         $payload = $service->teto02MissionE2e(is_numeric($days) ? (int) $days : null);
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

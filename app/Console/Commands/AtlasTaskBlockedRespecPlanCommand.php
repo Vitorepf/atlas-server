@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedPacketFieldReco
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedQueueRespecDrafter;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedReplacementDraftCompleter;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Read-only operator surface: atlas:task:blocked-respec-plan
@@ -26,6 +27,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasTaskBlockedRespecPlanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private const SCHEMA = 'atlas.task.blocked_respec_plan.v1';
 
     private const DRAFT_REQUIRED_FIELDS = ['allowed_files', 'acceptance_criteria', 'required_evidence'];
@@ -184,7 +187,7 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
             ],
         ];
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

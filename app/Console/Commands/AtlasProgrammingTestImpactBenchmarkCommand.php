@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\ProgrammingTestImpactBenchmarkService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasProgrammingTestImpactBenchmarkCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:test-impact-benchmark
         {--json : Emit JSON output.}';
 
@@ -17,7 +20,7 @@ class AtlasProgrammingTestImpactBenchmarkCommand extends Command
         $report = $benchmark->run();
 
         if ($this->option('json')) {
-            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($report));
 
             return ($report['status'] ?? null) === 'passed' ? self::SUCCESS : self::FAILURE;
         }

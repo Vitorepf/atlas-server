@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Ai\Telemetry\Engine\RecommendationMeasurementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AiRecommendationMeasureCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:recommendations:measure
         {--now= : Override measurement clock for backfills/tests}
         {--limit=100 : Maximum applied recommendations to measure}
@@ -22,7 +25,7 @@ class AiRecommendationMeasureCommand extends Command
         $result = $measurements->measureDue($now, $limit);
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return ($result['ok'] ?? false) ? self::SUCCESS : self::FAILURE;
         }

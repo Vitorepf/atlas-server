@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityCausalSelfModelService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L-inf (ONE promoted fragment: R1 causal self-model) — read-only CAUSAL
@@ -23,6 +24,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityCausalSelfModelCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:documentation-reality-causal-self-model
         {--capability= : Explain one capability (id/slug or owner-doc path substring); omit to explain all}
         {--json : Emit canonical JSON}';
@@ -38,7 +41,7 @@ class AtlasDocumentationRealityCausalSelfModelCommand extends Command
             : $service->explainAll()) + ['generated_at' => now()->toJSON()];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

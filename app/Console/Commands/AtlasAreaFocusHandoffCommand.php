@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Area Focus Loop · Branch Sandbox Preflight + Handoff CLI (AP-726).
@@ -20,6 +21,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAreaFocusHandoffCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-company-stewardship:area-focus-handoff
         {--area=agentic_engineering_os : Canonical area_id}
         {--json : Emit JSON}';
@@ -80,7 +83,7 @@ class AtlasAreaFocusHandoffCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return;
         }

@@ -6,9 +6,12 @@ use App\Models\AtlasDevRunCertification;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRunCertificationService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasDevRunCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:dev:run-certify
         {--run= : Dev run id}
         {--task= : Dev task id}
@@ -22,7 +25,7 @@ class AtlasDevRunCertifyCommand extends Command
             $payload = $this->missingPayload('Atlas Dev run certification table is not migrated.');
 
             if ((bool) $this->option('json')) {
-                $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $this->line($this->encode($payload));
             } else {
                 $this->line('Atlas Dev Run Certification: blocked');
                 $this->line('Reason: Atlas Dev run certification table is not migrated.');
@@ -55,7 +58,7 @@ class AtlasDevRunCertifyCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line('Atlas Dev Run Certification: '.($payload['status'] ?? 'missing'));
             $this->line('Run: '.($payload['run_id'] ?? 'none'));

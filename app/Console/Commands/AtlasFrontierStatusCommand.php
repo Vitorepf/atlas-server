@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * E — #20 frontier ladder status. Etiqueta os 5 sistemas frontier (SIS2-7 +
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasFrontierStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:acos:frontier-status
         {--record= : record a real external event: wave:kind[:ref] (kinds: pack_diff_merged|contradiction_prevented_error|memory_cited_by_foreign_session)}
         {--json : machine-readable output}';
@@ -31,7 +34,7 @@ class AtlasFrontierStatusCommand extends Command
         $status = $ladder->status();
 
         if ($this->option('json')) {
-            $this->line((string) json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($status));
 
             return self::SUCCESS;
         }

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasSoftwareTwinVerifiedEvolutionCertificationService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 final class AtlasSoftwareTwinVerifiedEvolutionCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:software-twin-verified-evolution:certify
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero unless ready}';
@@ -20,7 +23,7 @@ final class AtlasSoftwareTwinVerifiedEvolutionCertifyCommand extends Command
         $payload = $service->certify();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
         } else {
             $this->components->twoColumnDetail('ASTR/AVEOR certification', (string) $payload['status']);
             $this->components->twoColumnDetail('Checks', ($payload['summary']['passed'] ?? 0).'/'.($payload['summary']['total'] ?? 0));

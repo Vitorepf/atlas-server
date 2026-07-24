@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompetitiveRubricService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasFrontendCompetitiveRubricCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:frontend:rubric
         {--json : Emit canonical JSON payload}';
 
@@ -17,7 +20,7 @@ class AtlasFrontendCompetitiveRubricCommand extends Command
         $payload = $rubric->rubric();
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
         } else {
             $this->line(sprintf('Atlas Frontend Competitive Rubric: %s/%s dimensions', count($payload['dimensions']), $payload['score_max']));
         }

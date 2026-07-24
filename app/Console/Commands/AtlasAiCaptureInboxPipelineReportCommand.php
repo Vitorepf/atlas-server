@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Capture\CaptureInboxPipelineReadModel;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiCaptureInboxPipelineReportCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:capture-inbox-pipeline-report
         {--hours=24 : Window size in hours}
         {--json : Print machine-readable JSON}';
@@ -32,7 +35,7 @@ class AtlasAiCaptureInboxPipelineReportCommand extends Command
     private function render(array $payload): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return ($payload['status'] ?? null) === 'storage_unavailable' ? self::FAILURE : self::SUCCESS;
         }

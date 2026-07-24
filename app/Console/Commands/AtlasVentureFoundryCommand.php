@@ -18,9 +18,12 @@ use App\Services\Ai\Company\Ventures\VentureRegistryService;
 use App\Services\Ai\Company\Ventures\VentureResearchHandoffService;
 use App\Services\Ai\Company\Ventures\VentureStrategistService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasVentureFoundryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:venture
         {action : idea-register|idea-list|ideate-from-radar|ideate-generate|promote|venture-list|venture-show|link|rule-add|rule-list|metric-record|ladder|strategist-review|review-cycle|comprehend|comprehension-report|comprehension-findings|assess|assessment-report|questions|focus|data-readiness|question-catalog|research-handoff|bridge-execution|status}
         {--dimension-filter= : Filter answers by dimension (questions)}
@@ -591,7 +594,7 @@ class AtlasVentureFoundryCommand extends Command
     private function output_(array $payload): int
     {
         $payload = array_merge(['schema_version' => 'atlas.ai.venture_foundry.report.v1', 'status' => 'ok'], $payload);
-        $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->line($this->encode($payload));
 
         return self::SUCCESS;
     }

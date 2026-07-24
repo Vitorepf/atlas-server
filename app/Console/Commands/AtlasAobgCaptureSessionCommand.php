@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainSessionCaptureService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * AOBG N2.F3 — `atlas:aobg:capture-session`: STRUCTURAL capture.
@@ -28,6 +29,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAobgCaptureSessionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     public const SCHEMA = 'atlas.aobg.capture_session_command.v1';
 
     protected $signature = 'atlas:aobg:capture-session
@@ -61,7 +64,7 @@ class AtlasAobgCaptureSessionCommand extends Command
         $result = $service->captureSession($opts);
 
         if ((bool) $this->option('json')) {
-            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($result));
 
             return self::SUCCESS;
         }

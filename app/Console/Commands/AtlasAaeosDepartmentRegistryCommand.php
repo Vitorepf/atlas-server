@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * Runtime surface for the AAEOS Department Contract registry. Without args it
@@ -15,6 +16,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAaeosDepartmentRegistryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aeos:department-registry
         {--registry= : JSON list of department contracts to validate}
         {--json : Print machine-readable JSON}';
@@ -46,7 +49,7 @@ class AtlasAaeosDepartmentRegistryCommand extends Command
     private function emit(array $payload, bool $ok): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }

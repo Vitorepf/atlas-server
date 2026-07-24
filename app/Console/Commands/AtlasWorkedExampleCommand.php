@@ -13,9 +13,12 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Gates\WorkedExampleAppropriateForStageGate;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasWorkedExampleCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:worked-example
         {actionOrTopic? : Topic, or action: list|show|author|extract|personal}
         {subject? : Example id for show, or topic for author}
@@ -317,7 +320,7 @@ class AtlasWorkedExampleCommand extends Command
     private function render(array $payload, int $exit = self::SUCCESS): int
     {
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return $exit;
         }

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use Illuminate\Console\Command;
+use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiArchitectureOperationsCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:architecture-operations
         {--id= : Filter by stable operation id}
         {--kind= : Filter by operation kind}
@@ -25,7 +28,7 @@ class AtlasAiArchitectureOperationsCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line($this->encode($payload));
 
             return self::SUCCESS;
         }
