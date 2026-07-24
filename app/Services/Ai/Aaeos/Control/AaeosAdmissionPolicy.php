@@ -33,7 +33,7 @@ final class AaeosAdmissionPolicy
         $level = (int) ($difficulty['level'] ?? AaeosDifficultyLevel::L1);
 
         if (! AaeosExecutorMode::isValid($mode)) {
-            return $this->pack(AaeosAdmissionVerdict::HALT_SOVEREIGN, ['invalid_mode'], $mode, $level);
+            return $this->pack(AaeosAdmissionVerdict::REPAIR_REQUIRED, ['invalid_mode'], $mode, $level);
         }
 
         if ((bool) ($objective['irreversible'] ?? false)) {

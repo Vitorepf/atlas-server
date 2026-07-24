@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Control;
 
 use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Throwable;
 
 /**
  * Read-only AAEOS scorecard for GOD/SOTA certification.
@@ -16,6 +19,7 @@ final class AaeosScorecardProjector
     public function __construct(
         private readonly AaeosOrgStateProjector $org = new AaeosOrgStateProjector,
         private readonly AaeosEngineeringSpine $spine = new AaeosEngineeringSpine,
+        private readonly ?AtlasEvidenceLedger $ledger = null,
     ) {}
 
     /**
@@ -27,20 +31,12 @@ final class AaeosScorecardProjector
         $quarantineImports = $this->countQuarantineImports();
         $tree = $this->aaeosTreePurity();
         $orphanGeneratedTests = $this->countOrphanGeneratedTests();
-        $dimensions = [
-            'thesis_clarity' => 9.5,
-            'elite_same_bar' => 9.5,
-            'control_plane' => 9.2,
-            'operate_path_wiring' => (float) ($runtimeHints['operate_path_wiring'] ?? 9.0),
-            'spine_enforced' => (float) ($runtimeHints['spine_enforced'] ?? 9.0),
-            'antifragile_loop' => (float) ($runtimeHints['antifragile_loop'] ?? 9.0),
-            'quarantine_clean' => $quarantineImports === 0 ? 10.0 : 5.0,
-            'density_live' => $tree['pure'] ? 10.0 : 6.0,
-            'aaeos_tree_pure' => $tree['pure'] ? 10.0 : 4.0,
-            'orphan_generated_tests_clean' => $orphanGeneratedTests === 0 ? 10.0 : 3.0,
-        ];
-
-        $composite = array_sum($dimensions) / count($dimensions);
+        $measurement = $this->verifiedMeasurements($runtimeHints);
+        $dimensions = $measurement['dimensions'];
+        $unknownDimensions = $measurement['unknown_dimensions'];
+        $measurementSources = $measurement['sources'];
+        $fullyMeasured = $unknownDimensions === [];
+        $composite = $fullyMeasured ? array_sum($dimensions) / count($dimensions) : null;
         $purityOk = $tree['pure'] && $orphanGeneratedTests === 0;
 
         return [
@@ -52,8 +48,11 @@ final class AaeosScorecardProjector
             'aaeos_tree' => $tree,
             'orphan_generated_tests' => $orphanGeneratedTests,
             'dimensions' => $dimensions,
-            'composite' => round($composite, 2),
-            'god_sota' => $composite >= 9.0 && $quarantineImports === 0 && $purityOk,
+            'measurement_status' => $fullyMeasured ? 'measured' : 'unknown',
+            'measurement_sources' => $measurementSources,
+            'unknown_dimensions' => $unknownDimensions,
+            'composite' => $composite === null ? null : round($composite, 2),
+            'god_sota' => $composite !== null && $composite >= 9.0 && $quarantineImports === 0 && $purityOk,
             'target_composite' => 9.0,
             'runtime_write_performed' => false,
             'counters' => [
@@ -101,6 +100,70 @@ final class AaeosScorecardProjector
         }
 
         return $count;
+    }
+
+    /**
+     * Runtime hints are untrusted until they resolve to an integrity-valid ledger event.
+     *
+     * @param  array<string,mixed>  $runtimeHints
+     * @return array{dimensions:array<string,?float>,unknown_dimensions:list<string>,sources:list<string>}
+     */
+    private function verifiedMeasurements(array $runtimeHints): array
+    {
+        $keys = ['operate_path_wiring', 'spine_enforced', 'antifragile_loop'];
+        $unknown = [
+            'dimensions' => array_fill_keys($keys, null),
+            'unknown_dimensions' => $keys,
+            'sources' => [],
+        ];
+        $eventId = $runtimeHints['measurement_event_id'] ?? null;
+        if (! is_string($eventId) || $eventId === '' || $this->ledger === null) {
+            return $unknown;
+        }
+
+        try {
+            $event = $this->ledger->eventById($eventId);
+            if ($event === null
+                || ! $this->ledger->eventIntegrityValid($event)
+                || (string) $event->getAttribute('event_type') !== LedgerEventType::AaeosCycleRecorded->value) {
+                return $unknown;
+            }
+
+            $payload = $event->payload;
+            if (! is_array($payload)
+                || ($payload['schema'] ?? null) !== 'atlas.aaeos.scorecard_measurement.v1') {
+                return $unknown;
+            }
+            $measurements = $payload['measurements'] ?? null;
+            $sources = $payload['measurement_sources'] ?? null;
+            if (! is_array($measurements) || ! is_array($sources) || $sources === []) {
+                return $unknown;
+            }
+
+            $dimensions = [];
+            foreach ($keys as $key) {
+                $value = $measurements[$key] ?? null;
+                if ((! is_int($value) && ! is_float($value)) || $value < 0 || $value > 10) {
+                    return $unknown;
+                }
+                $dimensions[$key] = (float) $value;
+            }
+            $normalizedSources = array_values(array_filter(
+                $sources,
+                static fn (mixed $source): bool => is_string($source) && $source !== '',
+            ));
+            if ($normalizedSources === []) {
+                return $unknown;
+            }
+
+            return [
+                'dimensions' => $dimensions,
+                'unknown_dimensions' => [],
+                'sources' => $normalizedSources,
+            ];
+        } catch (Throwable) {
+            return $unknown;
+        }
     }
 
     /**

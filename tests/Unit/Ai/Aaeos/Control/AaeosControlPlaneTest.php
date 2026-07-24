@@ -28,10 +28,10 @@ final class AaeosControlPlaneTest extends TestCase
 
         $this->assertSame(AaeosCycleRuntime::SCHEMA, $receipt['schema']);
         $this->assertSame('dispatched', $receipt['status']);
-        $this->assertTrue($receipt['runtime_write_performed']);
+        $this->assertFalse($receipt['runtime_write_performed']);
         $this->assertTrue($receipt['dry_run']);
         $this->assertSame(AaeosExecutorMode::AUTONOMOS, $receipt['mode']['mode']);
-        $this->assertFalse($receipt['human_in_engineering_loop']);
+        $this->assertArrayNotHasKey('human_in_engineering_loop', $receipt);
         $this->assertTrue($receipt['admission']['allows_execution']);
         $this->assertContains('atlas:brain:next', $receipt['dispatch']['operate_path']);
         $this->assertContains('atlas:task next', $receipt['dispatch']['operate_path']);
@@ -50,7 +50,7 @@ final class AaeosControlPlaneTest extends TestCase
         ], [], true);
 
         $this->assertSame(AaeosExecutorMode::DEV, $receipt['mode']['mode']);
-        $this->assertTrue($receipt['human_in_engineering_loop']);
+        $this->assertArrayNotHasKey('human_in_engineering_loop', $receipt);
         $this->assertTrue($receipt['elite_same_bar']);
     }
 

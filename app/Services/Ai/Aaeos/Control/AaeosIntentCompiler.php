@@ -22,6 +22,7 @@ final class AaeosIntentCompiler
      *   multi_packet:bool,
      *   self_evolve:bool,
      *   irreversible:bool,
+     *   irreversibility_suspected:bool,
      *   business_ambiguous:bool,
      *   modules_hint:int,
      *   raw_length:int
@@ -44,9 +45,13 @@ final class AaeosIntentCompiler
             : in_array($source, ['brain', 'autonomos', 'night', 'queue'], true)
                 || (bool) preg_match('/\b(self[- ]?evolv|night[- ]?shift|autonom)/i', $objective);
 
-        $irreversible = array_key_exists('irreversible', $hints)
-            ? (bool) $hints['irreversible']
-            : (bool) preg_match('/\b(prod(uction)?\s*wipe|drop\s+database|force[- ]?push|legal|compliance|billing|payment)\b/i', $objective);
+        // Text matching is a suspicion signal only. A sovereign caller must explicitly
+        // assert irreversibility before AdmissionPolicy may mint a sovereign halt.
+        $irreversibilitySuspected = (bool) preg_match(
+            '/\b(prod(uction)?\s*wipe|drop\s+database|force[- ]?push|legal|compliance|billing|payment)\b/i',
+            $objective,
+        );
+        $irreversible = (bool) ($hints['irreversible'] ?? false);
 
         $bizAmbiguous = array_key_exists('business_ambiguous', $hints)
             ? (bool) $hints['business_ambiguous']
@@ -65,6 +70,7 @@ final class AaeosIntentCompiler
             'multi_packet' => $multi,
             'self_evolve' => $selfEvolve,
             'irreversible' => $irreversible,
+            'irreversibility_suspected' => $irreversibilitySuspected,
             'business_ambiguous' => $bizAmbiguous,
             'modules_hint' => max(0, $modules),
             'raw_length' => strlen($raw),

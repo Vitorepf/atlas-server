@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Maps cycle outcomes to provider-safe learning candidates (never auto-promotes).
  */
-final class AaeosCycleOutcomeRecorder
+class AaeosCycleOutcomeRecorder
 {
     public const SCHEMA = 'atlas.aaeos.learning_candidate.v1';
 
@@ -29,14 +29,18 @@ final class AaeosCycleOutcomeRecorder
         $verdict = (string) ($receipt['admission']['verdict'] ?? '');
         $mode = (string) ($receipt['mode']['mode'] ?? '');
 
-        $shouldLearn = $status === 'halted'
+        $technicalFailure = $status === 'repair_required'
+            || $verdict === AaeosAdmissionVerdict::REPAIR_REQUIRED;
+        $shouldLearn = $technicalFailure
+            || $status === 'halted'
             || $verdict === AaeosAdmissionVerdict::HALT_SOVEREIGN
             || $verdict === AaeosAdmissionVerdict::AUTO_NOTIFY;
 
         $candidate = [
             'schema' => self::SCHEMA,
-            'status' => $shouldLearn ? 'pending_review' : 'not_applicable',
+            'status' => $technicalFailure ? 'technical_failure' : ($shouldLearn ? 'pending_review' : 'not_applicable'),
             'auto_promoted' => false,
+            'failure_class' => $technicalFailure ? 'repair_required' : null,
             'mode' => $mode,
             'cycle_status' => $status,
             'admission' => $verdict,
@@ -68,7 +72,7 @@ final class AaeosCycleOutcomeRecorder
                 LedgerEventType::AaeosLearningCandidateRecorded,
                 [
                     'schema' => self::SCHEMA,
-                    'status' => 'pending_review',
+                    'status' => $candidate['status'],
                     'auto_promoted' => false,
                     'mode' => $mode,
                     'admission' => $verdict,

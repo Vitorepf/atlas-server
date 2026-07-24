@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder;
 use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
+use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use Illuminate\Console\Command;
 
 /**
@@ -35,16 +36,25 @@ class AtlasAaeosCycleCommand extends Command
             'live_dispatch' => (bool) $this->option('live') && ! $dryRun,
             'max_seeds' => (int) $this->option('max-seeds'),
         ];
+        $autonomosHints = array_merge($hints, [
+            'source' => 'autonomos',
+            'interactive' => false,
+            'self_evolve' => true,
+        ]);
         $receipt = $autonomos
-            ? $runtime->runAutonomosCycle($intent, $hints, $dryRun)
+            ? $runtime->runAutonomosCycle($intent, $autonomosHints, $dryRun)
             : $runtime->runCycle($intent, $hints, [], $dryRun);
 
-        $receipt['learning'] = $outcomes->record($receipt);
+        if (! $dryRun) {
+            $receipt['learning'] = $outcomes->record($receipt);
+        } else {
+            $receipt['learning'] = ['status' => 'skipped_dry_run'];
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
 
-            return ($receipt['status'] ?? '') === 'halted' ? self::FAILURE : self::SUCCESS;
+            return $this->exitCode($receipt);
         }
 
         $this->components->twoColumnDetail('status', (string) ($receipt['status'] ?? ''));
@@ -59,6 +69,21 @@ class AtlasAaeosCycleCommand extends Command
             $this->line('operate_path: '.implode(' → ', $path));
         }
 
-        return ($receipt['status'] ?? '') === 'halted' ? self::FAILURE : self::SUCCESS;
+        return $this->exitCode($receipt);
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function exitCode(array $receipt): int
+    {
+        $status = (string) ($receipt['status'] ?? '');
+        if (in_array($status, ['halted', 'dispatch_failed', 'repair_required', 'blocked'], true)) {
+            return self::FAILURE;
+        }
+
+        return (string) data_get($receipt, 'admission.verdict', '') === AaeosAdmissionVerdict::REPAIR_REQUIRED
+            ? self::FAILURE
+            : self::SUCCESS;
     }
 }

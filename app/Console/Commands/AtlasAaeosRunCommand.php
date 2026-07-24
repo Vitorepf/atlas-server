@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder;
 use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
+use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
 use Illuminate\Console\Command;
 
@@ -60,12 +61,16 @@ class AtlasAaeosRunCommand extends Command
             $world['force_mode'] = AaeosExecutorMode::AUTONOMOS;
             $hints['self_evolve'] = true;
             $hints['interactive'] = false;
-        } elseif (in_array($modeOpt, [AaeosExecutorMode::DEV, AaeosExecutorMode::FORGE, AaeosExecutorMode::AUTONOMOS], true)) {
+        } elseif ($modeOpt !== '') {
             $world['force_mode'] = $modeOpt;
         }
 
         $receipt = $runtime->runCycle($intent, $hints, $world, $dryRun);
-        $receipt['learning'] = $outcomes->record($receipt);
+        if (! $dryRun) {
+            $receipt['learning'] = $outcomes->record($receipt);
+        } else {
+            $receipt['learning'] = ['status' => 'skipped_dry_run'];
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
@@ -113,7 +118,11 @@ class AtlasAaeosRunCommand extends Command
     {
         $status = (string) ($receipt['status'] ?? '');
 
-        return in_array($status, ['halted', 'dispatch_failed'], true)
+        if (in_array($status, ['halted', 'dispatch_failed', 'repair_required', 'blocked'], true)) {
+            return self::FAILURE;
+        }
+
+        return (string) data_get($receipt, 'admission.verdict', '') === AaeosAdmissionVerdict::REPAIR_REQUIRED
             ? self::FAILURE
             : self::SUCCESS;
     }

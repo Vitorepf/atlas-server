@@ -29,6 +29,10 @@ summary: "Mapa mental da superfície CLI (~926 commands). Diário = Dev/Forge/Au
 - `atlas:aaeos:scorecard`
 - `atlas:aaeos:certify`
 
+`scorecard` é observação de medidas: ausência de amostra fica `unknown` e não recebe nota
+inventada. `certify` só sai verde quando os predicados possuem evidência medida; nunca trate
+um número estático ou a palavra GOD_SOTA como prova de operação.
+
 ## Renomes TRI-HYGIENE (maturity saiu de aaeos)
 
 | Antigo | Novo |

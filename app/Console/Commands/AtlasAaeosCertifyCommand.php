@@ -30,8 +30,7 @@ class AtlasAaeosCertifyCommand extends Command
         $checks = [];
 
         $auto = $runtime->runAutonomosCycle('certify autonomos path', [], true);
-        $checks['autonomos_zero_human'] = ($auto['mode']['mode'] ?? null) === AaeosExecutorMode::AUTONOMOS
-            && ($auto['human_in_engineering_loop'] ?? true) === false
+        $checks['autonomos_same_bar'] = ($auto['mode']['mode'] ?? null) === AaeosExecutorMode::AUTONOMOS
             && ($auto['elite_same_bar'] ?? false) === true;
 
         $halt = $runtime->runCycle('production wipe of billing database', [
@@ -63,11 +62,7 @@ class AtlasAaeosCertifyCommand extends Command
             true,
         );
 
-        $card = $scorecard->project([
-            'operate_path_wiring' => 9.2,
-            'spine_enforced' => 9.2,
-            'antifragile_loop' => 9.0,
-        ]);
+        $card = $scorecard->project();
         $checks['scorecard_god_sota'] = (bool) ($card['god_sota'] ?? false);
         $checks['quarantine_imports_zero'] = ((int) ($card['quarantine_production_imports'] ?? 1)) === 0;
 

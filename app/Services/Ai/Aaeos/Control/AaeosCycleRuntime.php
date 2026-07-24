@@ -59,6 +59,16 @@ final class AaeosCycleRuntime
         $objective = $this->intents->compile($rawIntent, $hints);
         $difficulty = $this->difficulty->classify($objective);
         $mode = $this->modes->select($objective, $difficulty, $worldArray);
+        $forcedMode = strtolower(trim((string) ($worldArray['force_mode'] ?? '')));
+        if ($forcedMode !== '' && ! AaeosExecutorMode::isValid($forcedMode)) {
+            $mode = [
+                'schema' => AaeosModeSelector::SCHEMA,
+                'mode' => $forcedMode,
+                'reason' => 'invalid_forced_mode',
+                'same_bar' => true,
+                'difficulty_level' => (int) ($difficulty['level'] ?? AaeosDifficultyLevel::L1),
+            ];
+        }
         $admit = $this->admission->admit($objective, $difficulty, $mode, $worldArray);
 
         $liveDispatch = ! $dryRun && (bool) ($hints['live_dispatch'] ?? false);
@@ -71,10 +81,12 @@ final class AaeosCycleRuntime
             'live_dispatch' => $liveDispatch,
         ];
 
-        $dispatch = $this->dispatch((string) ($mode['mode'] ?? ''), $admit, $cyclePlan, $hints);
+        $dispatch = $this->dispatch((string) ($mode['mode'] ?? ''), $admit, $cyclePlan, $hints, $dryRun);
         $spineAssert = $this->spine->assertShared((string) ($mode['mode'] ?? 'dev'), []);
 
-        $status = 'halted';
+        $status = (string) ($admit['verdict'] ?? '') === AaeosAdmissionVerdict::REPAIR_REQUIRED
+            ? 'repair_required'
+            : 'halted';
         if ((bool) ($admit['allows_execution'] ?? false)) {
             $liveStatus = (string) ($dispatch['live']['status'] ?? '');
             $status = match ($liveStatus) {
@@ -90,8 +102,8 @@ final class AaeosCycleRuntime
             'status' => $status,
             'dry_run' => $dryRun,
             'live_dispatch' => $liveDispatch,
-            'runtime_write_performed' => true,
-            'runtime_write_kind' => 'aaeos_cycle_receipt',
+            'runtime_write_performed' => false,
+            'runtime_write_kind' => null,
             'objective' => $objective,
             'difficulty' => $difficulty,
             'mode' => $mode,
@@ -104,14 +116,18 @@ final class AaeosCycleRuntime
                 'assert' => $spineAssert,
             ],
             'elite_same_bar' => true,
-            'human_in_engineering_loop' => ($mode['mode'] ?? '') === AaeosExecutorMode::DEV,
             'evidence_status' => 'skipped',
             'next_commands' => (array) ($dispatch['live']['next_commands'] ?? $dispatch['operate_path'] ?? []),
         ];
 
         if (! $dryRun) {
-            $receipt['evidence_status'] = $this->recordEvidence($receipt);
+            $evidence = $this->recordEvidence($receipt);
+            $receipt['evidence_status'] = $evidence['status'];
+            $receipt['runtime_write_performed'] = $evidence['written'];
+            $receipt['runtime_write_kind'] = $evidence['written'] ? 'aaeos_cycle_receipt' : null;
         }
+
+        $receipt['effect_level'] = $this->effectLevel($receipt);
 
         return $receipt;
     }
@@ -140,7 +156,7 @@ final class AaeosCycleRuntime
      * @param  array<string,mixed>  $hints
      * @return array<string,mixed>
      */
-    private function dispatch(string $mode, array $admit, array $cyclePlan, array $hints = []): array
+    private function dispatch(string $mode, array $admit, array $cyclePlan, array $hints = [], bool $dryRun = false): array
     {
         if (! (bool) ($admit['allows_execution'] ?? false)) {
             return [
@@ -165,6 +181,30 @@ final class AaeosCycleRuntime
         $accept = $adapter->accept($cyclePlan);
         $cyclePlan['adapter_accept'] = $accept;
 
+        if ($dryRun) {
+            $dryProjection = [
+                'schema' => AaeosLiveDispatchGateway::SCHEMA,
+                'status' => 'plan_only',
+                'mode' => $mode,
+                'live' => false,
+                'effects' => [],
+                'next_commands' => (array) ($accept['operate_path'] ?? []),
+                'dualcore' => [
+                    'recorded' => false,
+                    'status' => 'not_attempted_dry_run',
+                ],
+                'adapter' => $accept,
+                'provider_calls' => 0,
+                'reason' => 'dry_run_no_gateway_dispatch',
+            ];
+
+            return array_merge($accept, [
+                'live' => $dryProjection,
+                'dualcore' => $dryProjection['dualcore'],
+                'effects' => [],
+            ]);
+        }
+
         $liveOptions = [
             'live' => (bool) ($cyclePlan['live_dispatch'] ?? false),
             'plan_only' => ! (bool) ($cyclePlan['live_dispatch'] ?? false),
@@ -186,8 +226,9 @@ final class AaeosCycleRuntime
 
     /**
      * @param  array<string,mixed>  $receipt
+     * @return array{status:string,written:bool}
      */
-    private function recordEvidence(array $receipt): string
+    private function recordEvidence(array $receipt): array
     {
         $ledger = $this->ledger;
         if ($ledger === null) {
@@ -196,12 +237,12 @@ final class AaeosCycleRuntime
                     $ledger = app(AtlasEvidenceLedger::class);
                 }
             } catch (Throwable) {
-                return 'skipped_no_container';
+                return ['status' => 'skipped_no_container', 'written' => false];
             }
         }
 
         if ($ledger === null) {
-            return 'skipped_no_ledger';
+            return ['status' => 'skipped_no_ledger', 'written' => false];
         }
 
         try {
@@ -225,9 +266,49 @@ final class AaeosCycleRuntime
                 ],
             );
 
-            return $event === null ? 'skipped_table_missing' : 'recorded';
+            return $event === null
+                ? ['status' => 'skipped_table_missing', 'written' => false]
+                : ['status' => 'recorded', 'written' => true];
         } catch (Throwable) {
-            return 'skipped_error';
+            return ['status' => 'skipped_error', 'written' => false];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function effectLevel(array $receipt): string
+    {
+        if ((bool) ($receipt['dry_run'] ?? false)) {
+            return 'none';
+        }
+
+        return match ((string) ($receipt['status'] ?? '')) {
+            'halted', 'repair_required', 'dispatch_failed', 'blocked' => 'blocked',
+            'dispatched_live' => $this->hasDurableMutationProof($receipt)
+                ? 'mutated'
+                : ((bool) ($receipt['runtime_write_performed'] ?? false) ? 'claimed' : 'prepared'),
+            'dispatched' => 'prepared',
+            default => 'blocked',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function hasDurableMutationProof(array $receipt): bool
+    {
+        $proof = data_get($receipt, 'dispatch.live.mutation_proof');
+        if (! is_array($proof)) {
+            return false;
+        }
+
+        $reference = $proof['durable_ref'] ?? null;
+        $hash = $proof['sha256'] ?? null;
+
+        return is_string($reference)
+            && $reference !== ''
+            && is_string($hash)
+            && preg_match('/^[a-f0-9]{64}$/', $hash) === 1;
     }
 }

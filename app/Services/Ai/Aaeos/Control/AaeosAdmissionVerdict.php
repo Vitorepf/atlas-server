@@ -18,11 +18,15 @@ final class AaeosAdmissionVerdict
     /** Stop for sovereign decision (irreversible / legal / ambiguous objective). */
     public const HALT_SOVEREIGN = 'halt_sovereign';
 
+    /** Stop for a repairable technical contract failure. */
+    public const REPAIR_REQUIRED = 'repair_required';
+
     /** @var list<string> */
     public const ALL = [
         self::AUTO,
         self::AUTO_NOTIFY,
         self::HALT_SOVEREIGN,
+        self::REPAIR_REQUIRED,
     ];
 
     public static function isValid(string $verdict): bool

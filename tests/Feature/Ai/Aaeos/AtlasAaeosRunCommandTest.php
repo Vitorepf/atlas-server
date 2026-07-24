@@ -9,56 +9,36 @@ use App\Services\Ai\Aaeos\Control\Dispatch\AaeosLiveDispatchGateway;
 use App\Services\Ai\Aaeos\Control\Dispatch\AaeosModeLiveDispatcher;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
-use Illuminate\Support\Facades\Artisan;
 use Mockery;
 use Tests\TestCase;
 
-class AtlasAaeosCycleCommandTest extends TestCase
+class AtlasAaeosRunCommandTest extends TestCase
 {
-    public function test_autonomos_cycle_json_dispatch(): void
+    public function test_dry_run_port_emits_a_defined_successful_json_receipt(): void
     {
-        $exit = Artisan::call('atlas:aaeos:cycle', [
-            'intent' => 'evolve quality with proof',
-            '--autonomos' => true,
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p0 dry run',
             '--dry-run' => true,
             '--json' => true,
-        ]);
-        $receipt = json_decode(trim(Artisan::output()), true);
-
-        $this->assertSame(0, $exit);
-        $this->assertIsArray($receipt);
-        $this->assertSame('autonomos', $receipt['objective']['source']);
-        $this->assertFalse($receipt['objective']['interactive']);
-        $this->assertTrue($receipt['objective']['self_evolve']);
-    }
-
-    public function test_irreversibility_regex_is_suspicion_only_without_an_explicit_sovereign_reason(): void
-    {
-        $this->artisan('atlas:aaeos:cycle', [
-            'intent' => 'production wipe of billing database',
-            '--json' => true,
-            '--dry-run' => true,
         ])->assertSuccessful();
     }
 
-    public function test_scorecard_command_runs(): void
+    public function test_invalid_mode_is_a_non_zero_repair_required_run_receipt(): void
     {
-        $this->artisan('atlas:aaeos:scorecard', ['--json' => true])
-            ->assertFailed();
-    }
-
-    public function test_certify_command_does_not_claim_god_sota_without_measurements(): void
-    {
-        $this->artisan('atlas:aaeos:certify', ['--json' => true])
-            ->assertFailed();
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p0 invalid mode',
+            '--mode' => 'not_a_mode',
+            '--dry-run' => true,
+            '--json' => true,
+        ])->assertFailed();
     }
 
     public function test_live_dispatch_failure_exits_non_zero(): void
     {
         $this->app->instance(AaeosCycleRuntime::class, $this->dispatchFailingRuntime());
 
-        $this->artisan('atlas:aaeos:cycle', [
-            'intent' => 'p0 cycle dispatch failure',
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p0 run dispatch failure',
             '--live' => true,
             '--json' => true,
         ])->assertFailed();
@@ -86,7 +66,7 @@ class AtlasAaeosCycleCommandTest extends TestCase
         };
         $decision = new AiDualCoreRouteDecision;
         $decision->setAttribute('id', 1);
-        $decision->setAttribute('uuid', 'test-dualcore-cycle');
+        $decision->setAttribute('uuid', 'test-dualcore-run');
         $dualCore = Mockery::mock(DualCoreRouteDecisionService::class);
         $dualCore->shouldReceive('record')->once()->andReturn($decision);
         $ledger = Mockery::mock(AtlasEvidenceLedger::class);
