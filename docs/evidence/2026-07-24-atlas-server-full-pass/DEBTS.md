@@ -62,6 +62,7 @@
 - [ ] AppServiceProvider further domain peels (Organism/Vox/Swarm/…)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
+- [x] routes/api/patamar4.php split
 - [ ] routes/api.php remaining (voice/mobile/middleware core/…)
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
