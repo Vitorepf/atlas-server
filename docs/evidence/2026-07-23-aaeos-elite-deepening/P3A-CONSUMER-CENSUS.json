@@ -1,0 +1,198 @@
+{
+    "schema": "atlas.aaeos.p3a.consumer_census.v1",
+    "phase": "P3a",
+    "policy": "no_mass_delete",
+    "mass_delete_forbidden": true,
+    "delete_authorized_in_p3a": false,
+    "p3b_requires_master_amendment": true,
+    "p3b_requires_dual_gate_evaluated": true,
+    "families": {
+        "PipelineRunExecutor_family": {
+            "owners": [
+                "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/BestOfNSection.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/DeterministicPatchSection.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/GovernanceSection.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/ProviderExecutionSection.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/ProviderResultSupport.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/RepairProjectionSection.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/ResolverSupport.php",
+                "app/Http/Controllers/AtlasDev/Support/PipelineRun/WorkspaceGitSupport.php"
+            ],
+            "production_consumers_frozen": [
+                "app/Http/Controllers/AtlasDev/Support/CompactSddUnavailableException.php",
+                "app/Services/Ai/Context/AtlasAucriOptimizationAuditService.php",
+                "app/Services/Ai/Context/AtlasAucriRuntimeEnforcementService.php",
+                "app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryLiveManifestService.php",
+                "app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryMutationCoverageRunner.php",
+                "app/Services/Ai/Governance/GovernanceConsultSkipCounter.php",
+                "app/Services/Ai/Governance/ProviderGovernanceCoverageLedger.php",
+                "app/Services/Ai/Programming/AtlasDev/Differential/CandidateDivergenceVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Differential/Shadow/ShadowDiffVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Gate/CompletionStateGate.php",
+                "app/Services/Ai/Programming/AtlasDev/Mutation/MutationScoreVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Pipeline/SpecComposer.php",
+                "app/Services/Ai/Programming/AtlasDev/Probe/IntentFalsificationProbe.php",
+                "app/Services/Ai/Programming/AtlasDev/Regression/RegressionVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopCertificationService.php",
+                "app/Services/Ai/Programming/AtlasForgeHermesCliInvocationDriver.php",
+                "app/Services/Ai/Programming/HermesWorkspaceDefaults.php",
+                "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceExecutionBoundaryAuditService.php",
+                "app/Services/Engineering/CodeRealityUsageIntelligence/CodeRealityDuplicateClassSection.php",
+                "config/atlas.php",
+                "config/atlas_dev.php",
+                "scripts/rivals-atlas-dev-bridge.php"
+            ],
+            "production_consumers_live": [
+                "app/Http/Controllers/AtlasDev/Support/CompactSddUnavailableException.php",
+                "app/Services/Ai/Context/AtlasAucriOptimizationAuditService.php",
+                "app/Services/Ai/Context/AtlasAucriRuntimeEnforcementService.php",
+                "app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryLiveManifestService.php",
+                "app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryMutationCoverageRunner.php",
+                "app/Services/Ai/Governance/GovernanceConsultSkipCounter.php",
+                "app/Services/Ai/Governance/ProviderGovernanceCoverageLedger.php",
+                "app/Services/Ai/Programming/AtlasDev/Differential/CandidateDivergenceVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Differential/Shadow/ShadowDiffVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Gate/CompletionStateGate.php",
+                "app/Services/Ai/Programming/AtlasDev/Mutation/MutationScoreVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Pipeline/SpecComposer.php",
+                "app/Services/Ai/Programming/AtlasDev/Probe/IntentFalsificationProbe.php",
+                "app/Services/Ai/Programming/AtlasDev/Regression/RegressionVerdict.php",
+                "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopCertificationService.php",
+                "app/Services/Ai/Programming/AtlasForgeHermesCliInvocationDriver.php",
+                "app/Services/Ai/Programming/HermesWorkspaceDefaults.php",
+                "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceExecutionBoundaryAuditService.php",
+                "app/Services/Engineering/CodeRealityUsageIntelligence/CodeRealityDuplicateClassSection.php",
+                "config/atlas.php",
+                "config/atlas_dev.php",
+                "scripts/rivals-atlas-dev-bridge.php"
+            ],
+            "production_consumer_count": 22,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": false,
+            "retain_reason": "R103 retain until full port amendment; 22 production consumers"
+        },
+        "AaeosOrgStateProjector": {
+            "owners": [
+                "app/Services/Ai/Aaeos/Control/AaeosOrgStateProjector.php"
+            ],
+            "production_consumers_frozen": [
+                "app/Console/Commands/AtlasCliCockpitCommand.php",
+                "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+                "app/Services/Ai/CODEMAP.md"
+            ],
+            "production_consumers_live": [
+                "app/Console/Commands/AtlasCliCockpitCommand.php",
+                "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+                "app/Services/Ai/CODEMAP.md"
+            ],
+            "production_consumer_count": 3,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": false,
+            "retain_reason": "cockpit + scorecard production readers (3)"
+        },
+        "AaeosCycleOutcomeRecorder": {
+            "owners": [
+                "app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php"
+            ],
+            "production_consumers_frozen": [
+                "app/Console/Commands/AtlasAaeosCycleCommand.php",
+                "app/Console/Commands/AtlasAaeosRunCommand.php",
+                "app/Services/Ai/CODEMAP.md"
+            ],
+            "production_consumers_live": [
+                "app/Console/Commands/AtlasAaeosCycleCommand.php",
+                "app/Console/Commands/AtlasAaeosRunCommand.php",
+                "app/Services/Ai/CODEMAP.md"
+            ],
+            "production_consumer_count": 3,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": false,
+            "retain_reason": "run/cycle command production readers (3)"
+        },
+        "AaeosTriHygieneScorecardProjector": {
+            "owners": [
+                "app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php"
+            ],
+            "production_consumers_frozen": [
+                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
+            ],
+            "production_consumers_live": [
+                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
+            ],
+            "production_consumer_count": 1,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": true,
+            "retain_reason": "only TriHygiene command consumer \u2014 P3b candidate with command"
+        },
+        "AtlasTriHygieneScorecardCommand": {
+            "owners": [
+                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
+            ],
+            "production_consumers_frozen": [],
+            "production_consumers_live": [],
+            "production_consumer_count": 0,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": true,
+            "retain_reason": "zero external production references \u2014 P3b candidate after cold-neg"
+        },
+        "AaeosHygieneLegacyAliases": {
+            "owners": [
+                "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php"
+            ],
+            "production_consumers_frozen": [
+                "composer.json"
+            ],
+            "production_consumers_live": [
+                "composer.json"
+            ],
+            "production_consumer_count": 1,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": true,
+            "retain_reason": "composer files autoload only \u2014 P3b after cold-process negative resolution"
+        },
+        "AaeosScorecardProjector": {
+            "owners": [
+                "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php"
+            ],
+            "production_consumers_frozen": [
+                "app/Console/Commands/AtlasAaeosCertifyCommand.php",
+                "app/Console/Commands/AtlasAaeosScorecardCommand.php",
+                "app/Console/Commands/AtlasCliCockpitCommand.php"
+            ],
+            "production_consumers_live": [
+                "app/Console/Commands/AtlasAaeosCertifyCommand.php",
+                "app/Console/Commands/AtlasAaeosScorecardCommand.php",
+                "app/Console/Commands/AtlasCliCockpitCommand.php"
+            ],
+            "production_consumer_count": 3,
+            "new_on_disk_not_in_freeze": [],
+            "frozen_missing_on_disk": [],
+            "delete_authorized_in_p3a": false,
+            "p3b_candidate_hint": false,
+            "retain_reason": "CLI scorecard/certify/cockpit production readers (3)"
+        }
+    },
+    "unknown_production_consumers": [],
+    "missing_owners": [],
+    "freeze_matches_live": true,
+    "pipeline_run_executor_retain": true,
+    "notes": [
+        "P3a is census-only. No production deletion in this phase.",
+        "PipelineRunExecutor family retained until R103 port amendment.",
+        "OrgState/OutcomeRecorder retain while production readers > 0.",
+        "TriHygiene + HygieneLegacyAliases are P3b candidates after cold-process negative resolution."
+    ]
+}
