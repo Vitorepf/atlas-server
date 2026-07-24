@@ -409,7 +409,9 @@ class EngineeringQualityScanService
             'category' => 'quality',
             'available' => $shellcheck !== null,
             'applicable' => $shellFiles !== [],
-            'command' => array_values(array_filter([$shellcheck ?: 'shellcheck', '--format=json', ...$shellFiles])),
+            // ShellCheck emits informational guidance with a non-zero exit code;
+            // the harness gate should block only actionable shell errors.
+            'command' => array_values(array_filter([$shellcheck ?: 'shellcheck', '--format=json', '--severity=error', ...$shellFiles])),
             'missing_reason' => $shellFiles === [] ? 'no_shell_files' : 'shellcheck_not_found_in_path',
             'parser' => 'shellcheck',
             'required' => false,
