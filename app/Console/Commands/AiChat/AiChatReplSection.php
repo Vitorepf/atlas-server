@@ -14,6 +14,7 @@ use App\Services\Ai\Cli\Repl\ReplMessages;
 use App\Services\Ai\Cli\Repl\ReplRenderer;
 use App\Services\Ai\Cli\Repl\StatusBarFormatter;
 use App\Services\Ai\ConversationOps\AiSessionStateService;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
@@ -1287,7 +1288,12 @@ class AiChatReplSection
 
     public function providerSupportsCliImages(?string $provider): bool
     {
-        return $provider === null || in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true);
+        // minimax_m27_cli is invocation-eligible but not on the CLI image path yet.
+        if ($provider === null) {
+            return true;
+        }
+
+        return ProviderCatalog::isInvocationProvider($provider) && $provider !== 'minimax_m27_cli';
     }
 
     /**
