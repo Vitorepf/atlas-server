@@ -301,6 +301,7 @@ class HarnessRunnerSupport
                 ->map(fn (array $entry): array => $this->compactSingleProviderRun($entry))
                 ->values()
                 ->all(),
+            'stdout_excerpt' => isset($providerRun['stdout']) ? Str::limit((string) $providerRun['stdout'], 1200) : null,
             'stderr_excerpt' => isset($providerRun['stderr']) ? Str::limit((string) $providerRun['stderr'], 1200) : null,
         ];
     }
