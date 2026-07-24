@@ -21,6 +21,7 @@
 | Aaeos observe projectors catalog | 2 tests / 4545 asserts green; command 1851→1094 |
 | projects/semantic routes peel | route:list 1388 stable; api.php →293 |
 | ai-platform + ai-runtime routes | route:list 1388; api.php →101 thin shell |
+| inbox-tasks routes | route:list 1388; api.php →~90 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

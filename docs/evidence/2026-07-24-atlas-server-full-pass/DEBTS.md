@@ -76,7 +76,7 @@
 - [x] routes/api engineering (runs/tools/knowledge/benchmarks + task eng) (api.php →411)
 - [x] routes/api projects-routines + semantic-and-lifestyle (api.php →293)
 - [x] routes/api ai-platform + ai-runtime (api.php 762→101 thin shell + requires)
-- [ ] routes/api.php residual polish only (inbox/tasks agenda still inline; optional)
+- [x] routes/api inbox-tasks (api.php →~90 shell; route inventory 1388)
 - [x] ProviderCatalog adopt in AiDecisionController + AtlasAiDecideCommand + PlansGatewayDecision
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
