@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Control\Dispatch;
 
 use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
+use App\Services\Ai\Aaeos\Control\AaeosSelfEvolutionQualityLoop;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemon;
 
 /**
@@ -44,7 +45,7 @@ final class AutonomosLiveDispatcher implements AaeosModeLiveDispatcher
         $claimed = (string) ($claim['status'] ?? '') === 'claimed';
         $planned = (string) ($claim['status'] ?? '') === 'planned';
 
-        return [
+        $result = [
             'status' => $claimed ? 'claimed' : ($planned ? 'plan_only' : 'dispatch_refused'),
             'effects' => [[
                 'kind' => $claimed ? 'native_task_claimed' : ($planned ? 'native_task_claim_planned' : 'native_task_claim_refused'),
@@ -67,6 +68,19 @@ final class AutonomosLiveDispatcher implements AaeosModeLiveDispatcher
             'mutation_performed' => false,
             ...($claimed || $planned ? [] : ['error' => (string) ($claim['reason'] ?? 'native_claim_refused')]),
         ];
+
+        // P2g-EVOL: optional measure ingress → structured quality evolution plan (pure, no enqueue).
+        $measure = $cyclePlan['excellence_measure']
+            ?? $options['excellence_measure']
+            ?? null;
+        if (is_array($measure) && $measure !== []) {
+            $loopContext = is_array($cyclePlan['self_evolution_context'] ?? null)
+                ? $cyclePlan['self_evolution_context']
+                : (is_array($options['self_evolution_context'] ?? null) ? $options['self_evolution_context'] : []);
+            $result['self_evolution_plan'] = AaeosSelfEvolutionQualityLoop::planFromMeasure($measure, $loopContext);
+        }
+
+        return $result;
     }
 
     /** @param array<string,mixed> $options */
