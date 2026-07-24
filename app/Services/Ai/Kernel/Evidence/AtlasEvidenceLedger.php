@@ -47,7 +47,7 @@ class AtlasEvidenceLedger
         array $payload,
         array $context = [],
     ): ?AtlasLedgerEvent {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return null;
         }
 
@@ -74,13 +74,13 @@ class AtlasEvidenceLedger
         $scopeId = $this->nullableString($context['scope_id'] ?? data_get($payload, 'scope_id'), 80);
         $payloadHash = $this->payloadHash($payload);
 
-        $hasScopeType = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type');
-        $hasScopeId = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
-        $hasEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash');
-        $hasPrevEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'prev_event_hash');
-        $hasChainBasis = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis');
-        $hasChainKeyHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_key_hash');
-        $hasChainPosition = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_position');
+        $hasScopeType = $this->columnAvailable('scope_type');
+        $hasScopeId = $this->columnAvailable('scope_id');
+        $hasEventHash = $this->columnAvailable('event_hash');
+        $hasPrevEventHash = $this->columnAvailable('prev_event_hash');
+        $hasChainBasis = $this->columnAvailable('chain_basis');
+        $hasChainKeyHash = $this->columnAvailable('chain_key_hash');
+        $hasChainPosition = $this->columnAvailable('chain_position');
         $writesV2 = $hasEventHash
             && $hasPrevEventHash
             && $hasChainBasis
@@ -148,7 +148,7 @@ class AtlasEvidenceLedger
                 $row['chain_position'] = $previous === null
                     ? 1
                     : ((int) $previous->chain_position + 1);
-                $row['event_hash'] = self::computeEventHash(self::fullEnvelopeHashBasis($row));
+                $row['event_hash'] = self::computeV2EnvelopeHash(self::fullEnvelopeHashBasis($row));
             } elseif ($hasPrevEventHash) {
                 $row['prev_event_hash'] = $this->previousEventHashForChain($tenantId, $scopeType, $scopeId, $correlationId);
             }
@@ -167,11 +167,11 @@ class AtlasEvidenceLedger
                 ]);
             }
 
-            return AtlasLedgerEvent::query()->create($row);
+            return $this->ledgerQuery()->create($row);
         };
 
         if ($writesV2 || ($hasPrevEventHash && $hasEventHash)) {
-            return DB::transaction($write);
+            return $this->ledgerConnection()->transaction($write);
         }
 
         if ($hasEventHash) {
@@ -189,7 +189,7 @@ class AtlasEvidenceLedger
             ]);
         }
 
-        return AtlasLedgerEvent::query()->create($row);
+        return $this->ledgerQuery()->create($row);
     }
 
     /**
@@ -206,11 +206,26 @@ class AtlasEvidenceLedger
             $envelope,
             static fn (mixed $value): bool => $value !== null && $value !== '',
         );
-        $filtered = self::canonicalizeHashValue($filtered);
+        return hash('sha256', self::canonicalJson($filtered));
+    }
 
-        return hash(
-            'sha256',
-            json_encode($filtered, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+    /**
+     * V2 seals every field in the full envelope, including the distinction
+     * between absent, null, and empty values. Legacy V1 hashing deliberately
+     * retains its historical omission behaviour in computeEventHash().
+     *
+     * @param  array<string,mixed>  $envelope
+     */
+    public static function computeV2EnvelopeHash(array $envelope): string
+    {
+        return hash('sha256', self::canonicalJson($envelope));
+    }
+
+    public static function canonicalJson(mixed $value): string
+    {
+        return json_encode(
+            self::canonicalizeHashValue($value),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         );
     }
 
@@ -267,16 +282,17 @@ class AtlasEvidenceLedger
 
     private function serializeChainHead(string $tenantId, string $chainKeyHash): void
     {
-        if (DB::connection()->getDriverName() !== 'pgsql') {
+        $connection = $this->ledgerConnection();
+        if ($connection->getDriverName() !== 'pgsql') {
             return;
         }
 
-        DB::select('SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))', [$tenantId, $chainKeyHash]);
+        $connection->select('SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))', [$tenantId, $chainKeyHash]);
     }
 
     private function previousV2EventForChain(string $tenantId, string $chainKeyHash): ?AtlasLedgerEvent
     {
-        return AtlasLedgerEvent::query()
+        return $this->ledgerQuery()
             ->where('tenant_id', $tenantId)
             ->where('chain_key_hash', $chainKeyHash)
             ->where('schema_version', self::SCHEMA_VERSION_V2)
@@ -290,7 +306,7 @@ class AtlasEvidenceLedger
         ?string $scopeId,
         string $correlationId,
     ): ?string {
-        $query = AtlasLedgerEvent::query()
+        $query = $this->ledgerQuery()
             ->where('tenant_id', $tenantId)
             ->whereNotNull('event_hash')
             ->where('event_hash', '<>', '')
@@ -298,14 +314,14 @@ class AtlasEvidenceLedger
             ->orderByDesc('event_id')
             ->lockForUpdate();
 
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis')) {
+        if ($this->columnAvailable('chain_basis')) {
             $query->where('chain_basis', self::CHAIN_BASIS_HASH_CHAINED);
         }
 
         if ($scopeType !== null
             && $scopeId !== null
-            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
-            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+            && $this->columnAvailable('scope_type')
+            && $this->columnAvailable('scope_id')) {
             $query->where('scope_type', $scopeType)->where('scope_id', $scopeId);
         } else {
             $query->where('correlation_id', $correlationId);
@@ -326,14 +342,16 @@ class AtlasEvidenceLedger
         int $limit = 100,
         ?string $tenantId = null,
     ): array {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null
+            || ! $this->tableAvailable()
+            || ! $this->columnAvailable('scope_type')
+            || ! $this->columnAvailable('scope_id')) {
             return [];
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('scope_type', $scopeType)
             ->where('scope_id', $scopeId)
             ->orderBy('occurred_at')
@@ -350,12 +368,13 @@ class AtlasEvidenceLedger
      */
     public function eventsForCorrelation(string $correlationId, int $limit = 100, ?string $tenantId = null): array
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null || ! $this->tableAvailable()) {
             return [];
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('correlation_id', $correlationId)
             ->orderBy('occurred_at')
             ->orderBy('event_id')
@@ -368,12 +387,13 @@ class AtlasEvidenceLedger
 
     public function eventById(string $eventId, ?string $tenantId = null): ?AtlasLedgerEvent
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null || ! $this->tableAvailable()) {
             return null;
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->whereKey($eventId)
             ->first();
     }
@@ -383,12 +403,13 @@ class AtlasEvidenceLedger
         ?string $eventName = null,
         ?string $tenantId = null,
     ): ?AtlasLedgerEvent {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null || ! $this->tableAvailable()) {
             return null;
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('correlation_id', $correlationId)
             ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
             ->orderByDesc('occurred_at')
@@ -402,14 +423,16 @@ class AtlasEvidenceLedger
         ?string $eventName = null,
         ?string $tenantId = null,
     ): ?AtlasLedgerEvent {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null
+            || ! $this->tableAvailable()
+            || ! $this->columnAvailable('scope_type')
+            || ! $this->columnAvailable('scope_id')) {
             return null;
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('scope_type', $scopeType)
             ->where('scope_id', $scopeId)
             ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
@@ -418,15 +441,23 @@ class AtlasEvidenceLedger
             ->first();
     }
 
-    public function engineeringOutcomeEvent(string $deliveryId, string $orderHash, string $outcomeHash): ?AtlasLedgerEvent
+    public function engineeringOutcomeEvent(
+        string $deliveryId,
+        string $orderHash,
+        string $outcomeHash,
+        ?string $tenantId = null,
+    ): ?AtlasLedgerEvent
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
-            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null
+            || ! $this->tableAvailable()
+            || ! $this->columnAvailable('scope_type')
+            || ! $this->columnAvailable('scope_id')) {
             return null;
         }
 
-        return AtlasLedgerEvent::query()
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('scope_type', 'engineering_delivery')
             ->where('scope_id', $deliveryId)
             ->where('payload->event_name', 'engineering.outcome.recorded')
@@ -439,10 +470,7 @@ class AtlasEvidenceLedger
 
     public function eventIntegrityValid(AtlasLedgerEvent $event): bool
     {
-        return in_array($this->eventIntegrityStatus($event), [
-            'verified',
-            self::INTEGRITY_LEGACY_UNVERIFIED,
-        ], true);
+        return $this->eventIntegrityStatus($event) === 'verified';
     }
 
     public function eventIntegrityStatus(AtlasLedgerEvent $event): string
@@ -467,7 +495,7 @@ class AtlasEvidenceLedger
             return 'v2_envelope_invalid';
         }
 
-        $expected = self::computeEventHash(self::fullEnvelopeHashBasis(array_merge(
+        $expected = self::computeV2EnvelopeHash(self::fullEnvelopeHashBasis(array_merge(
             $event->getAttributes(),
             ['payload' => $payload],
         )));
@@ -1152,12 +1180,13 @@ class AtlasEvidenceLedger
      */
     public function eventsForEnvelope(string $envelopeId, ?string $tenantId = null): array
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null || ! $this->tableAvailable()) {
             return [];
         }
 
-        return AtlasLedgerEvent::query()
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
             ->where('envelope_id', $envelopeId)
             ->orderBy('occurred_at')
             ->orderBy('event_id')
@@ -1165,6 +1194,68 @@ class AtlasEvidenceLedger
             ->map(fn (AtlasLedgerEvent $event): array => $event->toArray())
             ->values()
             ->all();
+    }
+
+    private function tableAvailable(): bool
+    {
+        if (! $this->roleEnforcementEnabled()) {
+            return DatabaseTableAvailability::has('atlas_ledger_events');
+        }
+
+        return $this->ledgerConnection()->getSchemaBuilder()->hasTable('atlas_ledger_events');
+    }
+
+    private function columnAvailable(string $column): bool
+    {
+        if (! $this->roleEnforcementEnabled()) {
+            return DatabaseTableAvailability::hasColumn('atlas_ledger_events', $column);
+        }
+
+        return $this->ledgerConnection()->getSchemaBuilder()->hasColumn('atlas_ledger_events', $column);
+    }
+
+    private function ledgerQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $connectionName = $this->runtimeConnectionName();
+
+        return $connectionName === null
+            ? AtlasLedgerEvent::query()
+            : AtlasLedgerEvent::on($connectionName);
+    }
+
+    private function ledgerConnection(): \Illuminate\Database\ConnectionInterface
+    {
+        return DB::connection($this->runtimeConnectionName());
+    }
+
+    private function runtimeConnectionName(): ?string
+    {
+        if (! $this->roleEnforcementEnabled()) {
+            return null;
+        }
+
+        $connectionName = trim((string) config('database.ledger_roles.runtime_connection', ''));
+        $connection = config('database.connections.'.$connectionName);
+        if ($connectionName === ''
+            || ! is_array($connection)
+            || ($connection['driver'] ?? null) !== 'pgsql'
+            || trim((string) ($connection['username'] ?? '')) === '') {
+            throw new \LogicException('atlas_ledger_runtime_role_configuration_invalid');
+        }
+
+        return $connectionName;
+    }
+
+    private function roleEnforcementEnabled(): bool
+    {
+        return filter_var(config('database.ledger_roles.enforced', false), FILTER_VALIDATE_BOOL);
+    }
+
+    private function proofTenant(?string $tenantId): ?string
+    {
+        $tenantId = trim((string) $tenantId);
+
+        return $tenantId !== '' ? $tenantId : null;
     }
 
     /**

@@ -150,6 +150,41 @@ return [
             'application_name' => 'atlas_p2a1_verifier',
         ],
 
+        // Production ledger identities are deliberately separate from the
+        // application's broad database connection. They are inert until the
+        // deployment opts into role-enforced evidence I/O below.
+        'atlas_ledger_runtime' => [
+            'driver' => 'pgsql',
+            'url' => env('ATLAS_LEDGER_RUNTIME_URL'),
+            'host' => env('ATLAS_LEDGER_RUNTIME_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('ATLAS_LEDGER_RUNTIME_PORT', env('DB_PORT', '5432')),
+            'database' => env('ATLAS_LEDGER_RUNTIME_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('ATLAS_LEDGER_RUNTIME_USERNAME', ''),
+            'password' => env('ATLAS_LEDGER_RUNTIME_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_LEDGER_RUNTIME_SSLMODE', env('DB_SSLMODE', 'prefer')),
+            'application_name' => 'atlas_ledger_runtime',
+        ],
+
+        'atlas_ledger_verifier' => [
+            'driver' => 'pgsql',
+            'url' => env('ATLAS_LEDGER_VERIFIER_URL'),
+            'host' => env('ATLAS_LEDGER_VERIFIER_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('ATLAS_LEDGER_VERIFIER_PORT', env('DB_PORT', '5432')),
+            'database' => env('ATLAS_LEDGER_VERIFIER_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('ATLAS_LEDGER_VERIFIER_USERNAME', ''),
+            'password' => env('ATLAS_LEDGER_VERIFIER_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_LEDGER_VERIFIER_SSLMODE', env('DB_SSLMODE', 'prefer')),
+            'application_name' => 'atlas_ledger_verifier',
+        ],
+
         // Nivor / Blackink tracker — READ-ONLY (additive; never write to this connection).
         'nivor' => [
             'driver' => 'pgsql',
@@ -180,6 +215,15 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+    ],
+
+    // When enabled, evidence writes and proof verification must use these
+    // PostgreSQL identities. An incomplete role configuration is a hard fail,
+    // never a fallback to the application's default connection.
+    'ledger_roles' => [
+        'enforced' => env('ATLAS_LEDGER_ROLE_ENFORCED', false),
+        'runtime_connection' => env('ATLAS_LEDGER_RUNTIME_CONNECTION', 'atlas_ledger_runtime'),
+        'verifier_connection' => env('ATLAS_LEDGER_VERIFIER_CONNECTION', 'atlas_ledger_verifier'),
     ],
 
     /*

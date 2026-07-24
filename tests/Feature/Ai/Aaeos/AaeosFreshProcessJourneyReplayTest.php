@@ -9,6 +9,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 final class AaeosFreshProcessJourneyReplayTest extends TestCase
@@ -48,7 +49,7 @@ final class AaeosFreshProcessJourneyReplayTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_new_database_connection_recomputes_the_sealed_journey_without_object_cache(): void
+    public function test_fresh_laravel_process_recomputes_the_sealed_journey_without_object_cache(): void
     {
         $ledger = app(AtlasEvidenceLedger::class);
         $first = $ledger->record(LedgerEventType::AaeosCycleRecorded, ['step' => 1], $this->context(1));
@@ -61,13 +62,50 @@ final class AaeosFreshProcessJourneyReplayTest extends TestCase
         self::assertNotNull($cutoff);
         $manifest = $replay->journeyManifestForTenantChain('tenant-fresh', (string) $first->chain_key_hash, $cutoff);
 
-        DB::disconnect('atlas_p2a1_fresh');
-        DB::purge('atlas_p2a1_fresh');
-        $this->app->forgetInstance(AtlasEvidenceLedger::class);
-        $this->app->forgetInstance(AtlasLedgerReplayService::class);
+        $directory = storage_path('framework/testing/atlas-p2a1-fresh-'.bin2hex(random_bytes(6)));
+        mkdir($directory, 0777, true);
+        $manifestPath = $directory.'/manifest.json';
+        $scriptPath = $directory.'/verify.php';
+        file_put_contents($manifestPath, json_encode($manifest, JSON_THROW_ON_ERROR));
+        file_put_contents($scriptPath, <<<'PHP'
+<?php
+require $argv[1].'/vendor/autoload.php';
+$app = require $argv[1].'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+config([
+    'database.connections.atlas_p2a1_fresh_child' => [
+        'driver' => 'sqlite',
+        'database' => $argv[2],
+        'prefix' => '',
+        'foreign_key_constraints' => true,
+    ],
+    'database.default' => 'atlas_p2a1_fresh_child',
+    'database.ledger_roles.enforced' => false,
+]);
+Illuminate\Support\Facades\DB::purge('atlas_p2a1_fresh_child');
+Illuminate\Support\Facades\DB::setDefaultConnection('atlas_p2a1_fresh_child');
+$manifest = json_decode((string) file_get_contents($argv[3]), true, flags: JSON_THROW_ON_ERROR);
+$result = app(App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService::class)->verifyJourneyManifest($manifest);
+echo json_encode(['pid' => getmypid(), 'result' => $result], JSON_THROW_ON_ERROR);
+PHP);
 
-        $freshReplay = app(AtlasLedgerReplayService::class);
-        $verified = $freshReplay->verifyJourneyManifest($manifest);
+        try {
+            $process = new Process(
+                [PHP_BINARY, $scriptPath, base_path(), $this->databaseFile, $manifestPath],
+                base_path(),
+                ['APP_KEY' => (string) config('app.key')],
+            );
+            $process->setTimeout(20);
+            $process->mustRun();
+            $fresh = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        } finally {
+            @unlink($manifestPath);
+            @unlink($scriptPath);
+            @rmdir($directory);
+        }
+
+        self::assertNotSame(getmypid(), $fresh['pid']);
+        $verified = $fresh['result'];
 
         self::assertTrue($verified['valid']);
         self::assertSame(2, $verified['event_count']);

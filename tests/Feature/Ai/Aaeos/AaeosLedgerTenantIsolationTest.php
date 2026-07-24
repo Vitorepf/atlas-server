@@ -68,6 +68,7 @@ final class AaeosLedgerTenantIsolationTest extends TestCase
         self::assertSame($tenantA->event_hash, $tenantASecond?->prev_event_hash);
         self::assertCount(2, $ledger->eventsForEnvelope('envelope-shared', 'tenant-a'));
         self::assertCount(1, $ledger->eventsForEnvelope('envelope-shared', 'tenant-b'));
+        self::assertSame([], $ledger->eventsForEnvelope('envelope-shared'));
 
         $replay = app(AtlasLedgerReplayService::class);
         $cutoffB = $replay->authenticatedCutoffForTenantChain('tenant-b', (string) $tenantB->chain_key_hash);
@@ -77,5 +78,42 @@ final class AaeosLedgerTenantIsolationTest extends TestCase
             'cutoff_scope_mismatch',
             $replay->verifyTenantChain('tenant-a', (string) $tenantB->chain_key_hash, $cutoffB)['failure_reason'],
         );
+    }
+
+    public function test_proof_reads_fail_closed_when_tenant_is_omitted_and_never_cross_tenant_boundaries(): void
+    {
+        $ledger = app(AtlasEvidenceLedger::class);
+        $orderHash = str_repeat('a', 64);
+        $outcomeHash = str_repeat('b', 64);
+        $event = $ledger->record(
+            LedgerEventType::AaeosCycleRecorded,
+            [
+                'event_name' => 'engineering.outcome.recorded',
+                'order_hash' => $orderHash,
+                'outcome' => ['outcome_hash' => $outcomeHash],
+            ],
+            [
+                'tenant_id' => 'tenant-b',
+                'operator_id' => 'operator-b',
+                'envelope_id' => 'envelope-b',
+                'correlation_id' => 'correlation-shared',
+                'scope_type' => 'engineering_delivery',
+                'scope_id' => 'delivery-shared',
+            ],
+        );
+        self::assertNotNull($event);
+
+        self::assertNull($ledger->eventById((string) $event->event_id));
+        self::assertNull($ledger->eventById((string) $event->event_id, 'tenant-a'));
+        self::assertNotNull($ledger->eventById((string) $event->event_id, 'tenant-b'));
+        self::assertSame([], $ledger->eventsForCorrelation('correlation-shared'));
+        self::assertSame([], $ledger->eventsForCorrelation('correlation-shared', 100, 'tenant-a'));
+        self::assertCount(1, $ledger->eventsForCorrelation('correlation-shared', 100, 'tenant-b'));
+        self::assertSame([], $ledger->eventsForScope('engineering_delivery', 'delivery-shared'));
+        self::assertSame([], $ledger->eventsForScope('engineering_delivery', 'delivery-shared', 100, 'tenant-a'));
+        self::assertCount(1, $ledger->eventsForScope('engineering_delivery', 'delivery-shared', 100, 'tenant-b'));
+        self::assertNull($ledger->engineeringOutcomeEvent('delivery-shared', $orderHash, $outcomeHash));
+        self::assertNull($ledger->engineeringOutcomeEvent('delivery-shared', $orderHash, $outcomeHash, 'tenant-a'));
+        self::assertNotNull($ledger->engineeringOutcomeEvent('delivery-shared', $orderHash, $outcomeHash, 'tenant-b'));
     }
 }

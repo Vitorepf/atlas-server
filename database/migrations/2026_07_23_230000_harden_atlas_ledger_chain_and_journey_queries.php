@@ -124,28 +124,100 @@ return new class extends Migration
             REVOKE ALL ON TABLE atlas_ledger_events FROM PUBLIC;
         SQL);
 
-        $this->configureRole((string) config('database.connections.atlas_p2_pg_runtime.username'), true);
-        $this->configureRole((string) config('database.connections.atlas_p2_pg_verifier.username'), false);
+        $enforced = filter_var(config('database.ledger_roles.enforced', false), FILTER_VALIDATE_BOOL);
+        $runtimeRole = $this->configuredRole('runtime_connection', $enforced);
+        $verifierRole = $this->configuredRole('verifier_connection', $enforced);
+        if ($enforced && ($runtimeRole === null || $verifierRole === null || $runtimeRole === $verifierRole)) {
+            throw new RuntimeException('Atlas ledger role enforcement requires distinct runtime and verifier identities.');
+        }
+
+        $this->configureRole($runtimeRole, true, $enforced);
+        $this->configureRole($verifierRole, false, $enforced);
     }
 
-    private function configureRole(string $role, bool $mayInsert): void
+    private function configuredRole(string $connectionKey, bool $required): ?string
     {
-        $role = trim($role);
+        $connectionName = trim((string) config('database.ledger_roles.'.$connectionKey, ''));
+        $connection = config('database.connections.'.$connectionName);
+        $role = is_array($connection) ? trim((string) ($connection['username'] ?? '')) : '';
         if ($role === '' || preg_match('/^[a-z_][a-z0-9_]{0,62}$/', $role) !== 1) {
+            if ($required) {
+                throw new RuntimeException("Atlas ledger {$connectionKey} is missing or invalid.");
+            }
+
+            return null;
+        }
+
+        return $role;
+    }
+
+    private function configureRole(?string $role, bool $mayInsert, bool $required): void
+    {
+        if ($role === null) {
             return;
         }
 
         $exists = DB::table('pg_roles')->where('rolname', $role)->exists();
         if (! $exists) {
+            if ($required) {
+                throw new RuntimeException("Atlas ledger role {$role} does not exist.");
+            }
+
             return;
         }
 
         $quoted = '"'.str_replace('"', '""', $role).'"';
+        $database = (string) DB::scalar('SELECT current_database()');
+        $quotedDatabase = '"'.str_replace('"', '""', $database).'"';
+
+        // A role can SET ROLE to every granted membership even with NOINHERIT.
+        // Remove every direct membership before granting its narrow ledger rights.
+        $memberships = DB::select(<<<'SQL'
+            SELECT parent.rolname
+            FROM pg_auth_members membership
+            INNER JOIN pg_roles parent ON parent.oid = membership.roleid
+            INNER JOIN pg_roles member ON member.oid = membership.member
+            WHERE member.rolname = ?
+        SQL, [$role]);
+        foreach ($memberships as $membership) {
+            $parent = trim((string) ($membership->rolname ?? ''));
+            if ($parent !== '' && preg_match('/^[a-z_][a-z0-9_]{0,62}$/', $parent) === 1) {
+                $quotedParent = '"'.str_replace('"', '""', $parent).'"';
+                DB::statement("REVOKE {$quotedParent} FROM {$quoted}");
+            }
+        }
+
+        DB::statement("ALTER ROLE {$quoted} NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS");
+        DB::statement("REVOKE ALL PRIVILEGES ON DATABASE {$quotedDatabase} FROM {$quoted}");
+        DB::statement("GRANT CONNECT ON DATABASE {$quotedDatabase} TO {$quoted}");
+        DB::statement("REVOKE CREATE ON SCHEMA public FROM {$quoted}");
         DB::statement("GRANT USAGE ON SCHEMA public TO {$quoted}");
         DB::statement("REVOKE ALL ON TABLE atlas_ledger_events FROM {$quoted}");
+        DB::statement("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {$quoted}");
         DB::statement("GRANT SELECT ON TABLE atlas_ledger_events TO {$quoted}");
         if ($mayInsert) {
             DB::statement("GRANT INSERT ON TABLE atlas_ledger_events TO {$quoted}");
+        }
+
+        if (! $required) {
+            return;
+        }
+
+        $attributes = (array) DB::selectOne(
+            'SELECT rolsuper, rolcreatedb, rolcreaterole, rolinherit, rolbypassrls FROM pg_roles WHERE rolname = ?',
+            [$role],
+        );
+        $stillMember = DB::table('pg_auth_members as membership')
+            ->join('pg_roles as member', 'member.oid', '=', 'membership.member')
+            ->where('member.rolname', $role)
+            ->exists();
+        if (($attributes['rolsuper'] ?? true)
+            || ($attributes['rolcreatedb'] ?? true)
+            || ($attributes['rolcreaterole'] ?? true)
+            || ($attributes['rolinherit'] ?? true)
+            || ($attributes['rolbypassrls'] ?? true)
+            || $stillMember) {
+            throw new RuntimeException("Atlas ledger role {$role} did not converge to least privilege.");
         }
     }
 };

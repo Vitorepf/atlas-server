@@ -66,7 +66,7 @@ class EvidenceLedgerTest extends TestCase
             'operator_id' => 'operator-a',
         ]);
 
-        $events = app(AtlasEvidenceLedger::class)->eventsForEnvelope($envelope->envelopeId);
+        $events = app(AtlasEvidenceLedger::class)->eventsForEnvelope($envelope->envelopeId, 'tenant-a');
 
         $this->assertCount(2, $events);
         $this->assertSame('ENVELOPE_CREATED', $events[0]['event_type']);
@@ -121,10 +121,7 @@ class EvidenceLedgerTest extends TestCase
         self::assertSame('verified', $ledger->eventIntegrityStatus($event));
         self::assertSame(
             $event->event_hash,
-            AtlasEvidenceLedger::computeEventHash(AtlasEvidenceLedger::fullEnvelopeHashBasis(array_merge(
-                $event->getAttributes(),
-                ['payload' => $event->payload],
-            ))),
+            $this->independentV2EnvelopeHash($this->independentV2Envelope($event)),
         );
 
         $legacyHash = hash('sha256', 'historical-v1-bytes');
@@ -148,7 +145,44 @@ class EvidenceLedgerTest extends TestCase
 
         $legacy = AtlasLedgerEvent::query()->findOrFail('01JAAEOSLEGACYV1EVENT00001');
         self::assertSame(AtlasEvidenceLedger::INTEGRITY_LEGACY_UNVERIFIED, $ledger->eventIntegrityStatus($legacy));
+        self::assertFalse($ledger->eventIntegrityValid($legacy));
         self::assertSame($legacyHash, $legacy->event_hash);
+    }
+
+    public function test_v2_independent_oracle_preserves_null_empty_tenant_and_principal_distinctions(): void
+    {
+        $base = [
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION_V2,
+            'event_id' => 'event-null-empty',
+            'tenant_id' => 'tenant-a',
+            'operator_id' => 'operator-a',
+            'envelope_id' => 'envelope-a',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'correlation-a',
+            'causation_id' => null,
+            'event_type' => LedgerEventType::ContextComposed->value,
+            'emitter_stage' => 'oracle',
+            'emitter_version' => 'v2',
+            'scope_type' => null,
+            'scope_id' => null,
+            'chain_basis' => AtlasEvidenceLedger::CHAIN_BASIS_FULL_ENVELOPE_V2,
+            'chain_key_hash' => str_repeat('a', 64),
+            'chain_position' => 1,
+            'prev_event_hash' => null,
+            'payload' => ['empty' => '', 'nullable' => null],
+            'payload_hash' => str_repeat('b', 64),
+            'occurred_at' => '2026-07-24T12:34:56Z',
+        ];
+
+        $nullReceipt = $this->independentV2EnvelopeHash($base);
+        $emptyReceipt = $this->independentV2EnvelopeHash([...$base, 'receipt_id' => '']);
+        $otherTenant = $this->independentV2EnvelopeHash([...$base, 'tenant_id' => 'tenant-b']);
+        $otherPrincipal = $this->independentV2EnvelopeHash([...$base, 'operator_id' => 'operator-b']);
+
+        self::assertNotSame($nullReceipt, $emptyReceipt);
+        self::assertNotSame($nullReceipt, $otherTenant);
+        self::assertNotSame($nullReceipt, $otherPrincipal);
     }
 
     public function test_records_classified_failure_as_canonical_ledger_event(): void
@@ -593,5 +627,59 @@ class EvidenceLedgerTest extends TestCase
 
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
         (require database_path('migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php'))->up();
+    }
+
+    /** @return array<string,mixed> */
+    private function independentV2Envelope(AtlasLedgerEvent $event): array
+    {
+        return [
+            'schema_version' => $event->schema_version,
+            'event_id' => $event->event_id,
+            'tenant_id' => $event->tenant_id,
+            'operator_id' => $event->operator_id,
+            'envelope_id' => $event->envelope_id,
+            'receipt_id' => $event->receipt_id,
+            'trace_id' => $event->trace_id,
+            'correlation_id' => $event->correlation_id,
+            'causation_id' => $event->causation_id,
+            'event_type' => $event->event_type,
+            'emitter_stage' => $event->emitter_stage,
+            'emitter_version' => $event->emitter_version,
+            'scope_type' => $event->scope_type,
+            'scope_id' => $event->scope_id,
+            'chain_basis' => $event->chain_basis,
+            'chain_key_hash' => $event->chain_key_hash,
+            'chain_position' => $event->chain_position,
+            'prev_event_hash' => $event->prev_event_hash,
+            'payload' => $event->payload,
+            'payload_hash' => $event->payload_hash,
+            'occurred_at' => $event->occurred_at?->utc()->format('Y-m-d\\TH:i:s\\Z'),
+        ];
+    }
+
+    /** @param array<string,mixed> $envelope */
+    private function independentV2EnvelopeHash(array $envelope): string
+    {
+        return hash('sha256', json_encode(
+            $this->independentCanonicalize($envelope),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
+    }
+
+    private function independentCanonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $list = array_is_list($value);
+        if (! $list) {
+            ksort($value);
+        }
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->independentCanonicalize($item);
+        }
+
+        return $list ? array_values($value) : $value;
     }
 }

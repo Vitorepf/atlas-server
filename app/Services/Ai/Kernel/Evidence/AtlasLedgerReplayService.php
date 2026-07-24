@@ -10,10 +10,17 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
 class AtlasLedgerReplayService
 {
+    private const CUTOFF_SCHEMA = 'atlas.ledger_cutoff.v2';
+
+    private const JOURNEY_MANIFEST_SCHEMA = 'atlas.aaeos.journey_manifest.v2';
+
+    private const HMAC_ALGORITHM = 'sha256';
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
         private readonly LedgerReplaySupport $support,
@@ -24,7 +31,20 @@ class AtlasLedgerReplayService
      */
     public function eventsForEnvelope(string $envelopeId, ?string $tenantId = null): array
     {
-        return $this->ledger->eventsForEnvelope($envelopeId, $tenantId);
+        $tenantId = $this->proofTenant($tenantId);
+        if ($tenantId === null || ! $this->tableAvailable()) {
+            return [];
+        }
+
+        return $this->ledgerQuery()
+            ->where('tenant_id', $tenantId)
+            ->where('envelope_id', $envelopeId)
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $event->toArray())
+            ->values()
+            ->all();
     }
 
     /**
@@ -42,8 +62,8 @@ class AtlasLedgerReplayService
         /** @var AtlasLedgerEvent $head */
         $head = $events->last();
 
-        return [
-            'schema' => 'atlas.ledger_cutoff.v1',
+        $core = [
+            'schema' => self::CUTOFF_SCHEMA,
             'tenant_id' => $tenantId,
             'chain_key_hash' => $chainKeyHash,
             'anchor_position' => (int) $anchor->chain_position,
@@ -51,6 +71,16 @@ class AtlasLedgerReplayService
             'head_position' => (int) $head->chain_position,
             'head_event_hash' => (string) $head->event_hash,
             'event_count' => $events->count(),
+        ];
+
+        $authenticated = [
+            ...$core,
+            'authentication' => $this->authenticationDescriptor(),
+        ];
+
+        return [
+            ...$authenticated,
+            'authentication_tag' => $this->artifactSignature('atlas.ledger.cutoff.v2', $authenticated),
         ];
     }
 
@@ -63,8 +93,28 @@ class AtlasLedgerReplayService
      */
     public function verifyTenantChain(string $tenantId, string $chainKeyHash, array $cutoff): array
     {
-        if (($cutoff['schema'] ?? null) !== 'atlas.ledger_cutoff.v1'
-            || ($cutoff['tenant_id'] ?? null) !== $tenantId
+        if (($cutoff['schema'] ?? null) !== self::CUTOFF_SCHEMA) {
+            return $this->chainFailure('cutoff_unauthenticated');
+        }
+
+        $cutoffBody = $cutoff;
+        $authenticationTag = (string) ($cutoffBody['authentication_tag'] ?? '');
+        unset($cutoffBody['authentication_tag']);
+        if (preg_match('/^[a-f0-9]{64}$/', $authenticationTag) !== 1) {
+            return $this->chainFailure('cutoff_authentication_invalid');
+        }
+        try {
+            if (! hash_equals(
+                $this->artifactSignature('atlas.ledger.cutoff.v2', $cutoffBody),
+                $authenticationTag,
+            )) {
+                return $this->chainFailure('cutoff_authentication_invalid');
+            }
+        } catch (\LogicException) {
+            return $this->chainFailure('cutoff_authentication_unavailable');
+        }
+
+        if (($cutoff['tenant_id'] ?? null) !== $tenantId
             || ($cutoff['chain_key_hash'] ?? null) !== $chainKeyHash) {
             return $this->chainFailure('cutoff_scope_mismatch');
         }
@@ -170,7 +220,7 @@ class AtlasLedgerReplayService
         $verification = $this->verifyTenantChain($tenantId, $chainKeyHash, $cutoff);
         if (! ($verification['valid'] ?? false)) {
             return [
-                'schema' => 'atlas.aaeos.journey_manifest.v1',
+                'schema' => self::JOURNEY_MANIFEST_SCHEMA,
                 'status' => 'failed',
                 'failure_reason' => $verification['failure_reason'] ?? 'chain_verification_failed',
             ];
@@ -186,7 +236,7 @@ class AtlasLedgerReplayService
             ->values()
             ->all();
         $core = [
-            'schema' => 'atlas.aaeos.journey_manifest.v1',
+            'schema' => self::JOURNEY_MANIFEST_SCHEMA,
             'status' => 'sealed',
             'tenant_id' => $tenantId,
             'chain_key_hash' => $chainKeyHash,
@@ -195,9 +245,20 @@ class AtlasLedgerReplayService
             'events' => $events,
         ];
 
-        return [
+        $authenticated = [
             ...$core,
-            'journey_manifest_hash' => AtlasEvidenceLedger::computeEventHash($core),
+            'authentication' => $this->authenticationDescriptor(),
+        ];
+
+        $journeyManifestHash = AtlasEvidenceLedger::computeV2EnvelopeHash($authenticated);
+        $signedManifest = [
+            ...$authenticated,
+            'journey_manifest_hash' => $journeyManifestHash,
+        ];
+
+        return [
+            ...$signedManifest,
+            'authentication_tag' => $this->artifactSignature('atlas.aaeos.journey_manifest.v2', $signedManifest),
         ];
     }
 
@@ -208,11 +269,31 @@ class AtlasLedgerReplayService
     public function verifyJourneyManifest(array $manifest): array
     {
         $providedHash = (string) ($manifest['journey_manifest_hash'] ?? '');
+        $authenticationTag = (string) ($manifest['authentication_tag'] ?? '');
         $core = $manifest;
-        unset($core['journey_manifest_hash']);
-        if (($core['schema'] ?? null) !== 'atlas.aaeos.journey_manifest.v1'
-            || preg_match('/^[a-f0-9]{64}$/', $providedHash) !== 1
-            || ! hash_equals(AtlasEvidenceLedger::computeEventHash($core), $providedHash)) {
+        unset($core['journey_manifest_hash'], $core['authentication_tag']);
+        if (($core['schema'] ?? null) !== self::JOURNEY_MANIFEST_SCHEMA) {
+            return $this->journeyFailure('journey_manifest_unauthenticated');
+        }
+        if (preg_match('/^[a-f0-9]{64}$/', $authenticationTag) !== 1) {
+            return $this->journeyFailure('journey_manifest_authentication_invalid');
+        }
+        $authenticated = [
+            ...$core,
+            'journey_manifest_hash' => $providedHash,
+        ];
+        try {
+            if (! hash_equals(
+                $this->artifactSignature('atlas.aaeos.journey_manifest.v2', $authenticated),
+                $authenticationTag,
+            )) {
+                return $this->journeyFailure('journey_manifest_authentication_invalid');
+            }
+        } catch (\LogicException) {
+            return $this->journeyFailure('journey_manifest_authentication_unavailable');
+        }
+        if (preg_match('/^[a-f0-9]{64}$/', $providedHash) !== 1
+            || ! hash_equals(AtlasEvidenceLedger::computeV2EnvelopeHash($core), $providedHash)) {
             return $this->journeyFailure('journey_manifest_hash_mismatch');
         }
 
@@ -374,7 +455,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->support->normalizedKernelPipelineFilters($filters);
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -388,7 +469,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->whereIn('event_type', [
                 LedgerEventType::KernelPipelineAccepted->value,
                 LedgerEventType::KernelPipelineRejected->value,
@@ -446,7 +527,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->support->normalizedRepairFilters($filters);
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -460,7 +541,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->whereIn('event_type', [
                 LedgerEventType::RepairInitiated->value,
                 LedgerEventType::RepairCompleted->value,
@@ -498,7 +579,7 @@ class AtlasLedgerReplayService
     {
         $until ??= now();
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -510,7 +591,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->where('event_type', LedgerEventType::SelfImprovementScheduleObserved->value)
             ->whereBetween('occurred_at', [$since, $until])
             ->orderBy('occurred_at')
@@ -559,7 +640,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->support->normalizedInboxActionFilters($filters);
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -573,7 +654,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->where('event_type', LedgerEventType::InboxActionRecorded->value)
             ->whereBetween('occurred_at', [$since, $until])
             ->orderBy('occurred_at')
@@ -610,7 +691,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->support->normalizedAgentBehaviorFilters($filters);
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -624,7 +705,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->where('event_type', LedgerEventType::GateEvaluated->value)
             ->where('emitter_stage', 'atlas.agent_behavior_quality_gate')
             ->whereBetween('occurred_at', [$since, $until])
@@ -677,7 +758,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->support->normalizedDimensionFilters($filters);
 
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! $this->tableAvailable()) {
             return [
                 'available' => false,
                 'window' => [
@@ -691,7 +772,7 @@ class AtlasLedgerReplayService
             ];
         }
 
-        $events = AtlasLedgerEvent::query()
+        $events = $this->ledgerQuery()
             ->where('event_type', LedgerEventType::SloObserved->value)
             ->whereBetween('occurred_at', [$since, $until])
             ->orderBy('occurred_at')
@@ -1191,7 +1272,7 @@ class AtlasLedgerReplayService
      */
     private function selfImprovementCompletionByEnvelope(CarbonInterface $since, CarbonInterface $until): array
     {
-        return AtlasLedgerEvent::query()
+        return $this->ledgerQuery()
             ->where('event_type', LedgerEventType::OperationCompleted->value)
             ->where('emitter_stage', 'atlas.self_improvement')
             ->whereBetween('occurred_at', [$since, $until])
@@ -1983,9 +2064,102 @@ class AtlasLedgerReplayService
         ];
     }
 
+    private function tableAvailable(): bool
+    {
+        if (! $this->roleEnforcementEnabled()) {
+            return DatabaseTableAvailability::has('atlas_ledger_events');
+        }
+
+        return $this->ledgerConnection()->getSchemaBuilder()->hasTable('atlas_ledger_events');
+    }
+
+    private function ledgerQuery(): Builder
+    {
+        $connectionName = $this->verifierConnectionName();
+
+        return $connectionName === null
+            ? AtlasLedgerEvent::query()
+            : AtlasLedgerEvent::on($connectionName);
+    }
+
+    private function ledgerConnection(): \Illuminate\Database\ConnectionInterface
+    {
+        return DB::connection($this->verifierConnectionName());
+    }
+
+    private function verifierConnectionName(): ?string
+    {
+        if (! $this->roleEnforcementEnabled()) {
+            return null;
+        }
+
+        $connectionName = trim((string) config('database.ledger_roles.verifier_connection', ''));
+        $connection = config('database.connections.'.$connectionName);
+        if ($connectionName === ''
+            || ! is_array($connection)
+            || ($connection['driver'] ?? null) !== 'pgsql'
+            || trim((string) ($connection['username'] ?? '')) === '') {
+            throw new \LogicException('atlas_ledger_verifier_role_configuration_invalid');
+        }
+
+        return $connectionName;
+    }
+
+    private function roleEnforcementEnabled(): bool
+    {
+        return filter_var(config('database.ledger_roles.enforced', false), FILTER_VALIDATE_BOOL);
+    }
+
+    private function proofTenant(?string $tenantId): ?string
+    {
+        $tenantId = trim((string) $tenantId);
+
+        return $tenantId !== '' ? $tenantId : null;
+    }
+
+    /** @return array{algorithm:string,key_id:string} */
+    private function authenticationDescriptor(): array
+    {
+        return [
+            'algorithm' => 'hmac-sha256',
+            'key_id' => substr(hash('sha256', $this->artifactKeyMaterial()), 0, 24),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $body
+     */
+    private function artifactSignature(string $domain, array $body): string
+    {
+        return hash_hmac(
+            self::HMAC_ALGORITHM,
+            $domain.'|'.AtlasEvidenceLedger::canonicalJson($body),
+            $this->artifactKeyMaterial(),
+        );
+    }
+
+    private function artifactKeyMaterial(): string
+    {
+        $configured = trim((string) config('atlas.ledger.artifact_secret', ''));
+        $source = $configured !== '' ? $configured : trim((string) config('app.key', ''));
+        if ($source === '') {
+            throw new \LogicException('atlas_ledger_artifact_authentication_key_unavailable');
+        }
+
+        if (str_starts_with($source, 'base64:')) {
+            $decoded = base64_decode(substr($source, 7), true);
+            if ($decoded === false || $decoded === '') {
+                throw new \LogicException('atlas_ledger_artifact_authentication_key_invalid');
+            }
+            $source = $decoded;
+        }
+
+        return hash_hmac(self::HMAC_ALGORITHM, 'atlas.ledger.artifact.key.v1', $source, true);
+    }
+
     private function v2ChainQuery(string $tenantId, string $chainKeyHash): Builder
     {
-        return AtlasLedgerEvent::query()
+        return $this->ledgerQuery()
             ->where('tenant_id', $tenantId)
             ->where('chain_key_hash', $chainKeyHash)
             ->where('schema_version', AtlasEvidenceLedger::SCHEMA_VERSION_V2)

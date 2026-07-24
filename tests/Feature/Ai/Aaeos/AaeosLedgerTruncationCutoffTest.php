@@ -37,6 +37,12 @@ final class AaeosLedgerTruncationCutoffTest extends TestCase
         $chainKey = (string) $events[0]->chain_key_hash;
 
         self::assertTrue($replay->verifyTenantChain('tenant-cutoff', $chainKey, $cutoff)['valid']);
+        $unsigned = $cutoff;
+        unset($unsigned['authentication_tag']);
+        self::assertSame(
+            'cutoff_authentication_invalid',
+            $replay->verifyTenantChain('tenant-cutoff', $chainKey, $unsigned)['failure_reason'],
+        );
 
         DB::table('atlas_ledger_events')->where('event_id', $events[0]->event_id)->delete();
         self::assertSame(
