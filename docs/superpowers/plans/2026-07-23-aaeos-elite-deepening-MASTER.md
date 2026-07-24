@@ -1,20 +1,23 @@
 # AAEOS — CANONICAL IMPLEMENTATION COOKBOOK (vFINAL-COOKBOOK)
 
-> **Status:** CANONICAL · PLAN_ONLY · implementer follows this file like a script  
-> **Edition:** **vFINAL-COOKBOOK** (supersedes vFINAL-EXEC sparsity; fuses constitution + full v16 body + step recipes)  
+> **Status:** CANONICAL · PLAN_ONLY · **GO for `EXECUTE P0` after this GO-fix commit**  
+> **Edition:** **vFINAL-COOKBOOK** + **GO-fix** (Codex NO-GO blockers closed: receipt order, single-master, proof, scope halt)  
 > **Authority:** sole master. Satellites only: LEDGER.md + SCOREBOARD.md  
 > **Branch:** local `main` only · scoped `git add -- <paths>` · never `git add -A`  
 > **Evidence dir:** `docs/evidence/2026-07-23-aaeos-elite-deepening/`  
-> **Archive (reference only):** `docs/superpowers/plans/archive/aaeos-elite-deepening-2026-07-23/`  
-> **Freeze:** no plan cycle-10 unless NEW residual discovered on disk during implement  
+> **Archive:** NON-NORMATIVE historical only (never law). All hard-done R64–R103 live **in this file §3.1**.  
+> **Planning cycles:** cycles 1–9 completed in plan history; **cycle-10 planning is EXPLICITLY WAIVED** unless a NEW residual is discovered on disk during implement (then stop and report — human amends MASTER).  
 
 ```text
 AI RULE #0 — DO NOT THINK, FOLLOW
 1. Read ONLY the slice named by the operator EXECUTE phrase.
-2. Edit ONLY the closed path list of that slice.
-3. Write RED tests first → production fixes → GREEN → PHASE receipt → LEDGER/SCOREBOARD → scoped commit → STOP.
-4. If a RED needs an unlisted path: STOP. Do not freestyle. Report path; human amends MASTER first.
-5. Never invent architecture, second ledger, AaeosRunApplication, Mission, WorkGraph, SovereigntyPort, ModeExecutor.
+2. Edit ONLY the closed path list of that slice (authorization = list, not examples).
+3. Preflight WIP → RED → production fixes → GREEN → two-commit ritual (§0) → STOP.
+4. Unlisted path needed: STOP immediately. Report exact path + why. Do NOT edit it.
+   Do NOT amend this MASTER. Do NOT self-expand scope. Wait for operator re-authorization
+   after a human commits a MASTER amendment (new EXECUTE phrase).
+5. Never invent architecture, second ledger, AaeosRunApplication, Mission, WorkGraph,
+   SovereigntyPort, ModeExecutor, or extra evidence files (no receipt.md).
 ```
 
 ```text
@@ -36,6 +39,8 @@ Conflict order: (1) live code + durable evidence (2) this phase's closed paths +
 
 ## 0. Universal ritual (copy every slice)
 
+### 0.0 Preflight WIP + identity (before any edit)
+
 ```bash
 set -euo pipefail
 cd /Users/vitorepf/develop/Atlas/atlas-server
@@ -44,43 +49,82 @@ git status --short
 BASE=$(git rev-parse HEAD)
 echo "BASE=$BASE"
 
-# optional baseline (do not "fix" unrelated dirt)
-/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control tests/Feature/Ai/Aaeos --no-coverage || true
-
-# === implement ONLY this slice's closed paths ===
-# RED tests first (must FAIL on HEAD)
-# production edits
-# GREEN tests
-# write PHASE-*.json
-# update LEDGER.md + SCOREBOARD.md
-
-git add -- <exact paths from closed list + evidence files>
-git status --short
-git diff --cached --stat   # must match only this slice
-git commit -m "<commit message from slice>"
-# STOP — do not start next slice
+# Classify every dirty/untracked path:
+#   - IN_SLICE  → only if it is on this slice closed list AND you will own it
+#   - FOREIGN_WIP → leave untouched; never stash/reset/sweep
+#   - OUT_OF_SCOPE → do not edit
+# If FOREIGN_WIP overlaps a closed path you must change: STOP and report conflict.
+# Optional (when multi-engine): atlas blackboard claim for each path you will edit.
 ```
 
-### 0.1 Closed evidence artifacts (only these)
+### 0.1 Closed evidence artifacts (only these — no receipt.md)
 
-`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus LEDGER.md + SCOREBOARD.md.
+Under `docs/evidence/2026-07-23-aaeos-elite-deepening/` only:
 
-### 0.2 Universal PHASE receipt schema
+`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
+
+**Forbidden:** any `*receipt*.md`, extra PHASE files, screenshots-as-proof, second ledgers.
+
+### 0.2 Two-commit ritual (kills receipt self-reference)
+
+**Never** put `implementation_commit` equal to a commit that also contains the PHASE file that names it as itself in a circular way. Order is binding:
+
+```text
+A) Implement slice (code + tests only)
+B) RED then GREEN (record exit codes)
+C) COMMIT 1 — implementation only
+   git add -- <production paths> <test paths> [deletes]
+   git commit -m "<slice implementation message>"
+   IMPLEMENTATION_COMMIT=$(git rev-parse HEAD)
+
+D) Write PHASE-*.json with:
+     base_commit = BASE
+     implementation_commit = IMPLEMENTATION_COMMIT   # commit of code/tests — NOT this evidence commit
+     evidence_commit = null                          # filled only in LEDGER line after COMMIT 2
+   Update LEDGER.md + SCOREBOARD.md (cursor + gates)
+
+E) COMMIT 2 — evidence only
+   git add -- docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-*.json \
+              docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md \
+              docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
+   git commit -m "docs(evidence): AAEOS-MT <slice> phase receipt"
+   EVIDENCE_COMMIT=$(git rev-parse HEAD)
+   # Optional one-line LEDGER append: evidence_commit=<EVIDENCE_COMMIT>
+   # Do NOT rewrite PHASE.implementation_commit. Do NOT require PHASE to contain EVIDENCE_COMMIT.
+
+F) STOP — next slice needs a new EXECUTE phrase.
+   Operator human review of diff is OPTIONAL AUDIT only — never a promotion gate.
+   Next slice is authorized when: PHASE status=GREEN + exit_checklist all true + GREEN tests recorded.
+```
+
+### 0.3 Universal PHASE receipt schema (non-circular)
 
 ```json
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
-  "phase": "<SLICE_ID>",
+  "phase": "P0",
   "status": "GREEN|RED|PARTIAL",
   "edition": "vFINAL-COOKBOOK",
-  "base_commit": "<BASE>",
-  "head_commit": "<after commit>",
   "branch": "main",
-  "allowed_paths": [],
-  "touched_paths": [],
-  "deleted_paths": [],
-  "tests_red_then_green": [{"path":"…","red_exit":1,"green_exit":0}],
-  "exit_checklist": {},
+  "base_commit": "<BASE before any edit>",
+  "implementation_commit": "<COMMIT 1 sha: production+tests only>",
+  "evidence_commit": null,
+  "allowed_paths": ["…exact closed list…"],
+  "touched_paths": ["…actually staged in COMMIT 1…"],
+  "deleted_paths": ["…or empty array…"],
+  "foreign_wip_left_untouched": ["…or empty…"],
+  "baseline_failures": [{"cmd":"…","exit":1,"note":"pre-existing / attributed"}],
+  "new_failures": [],
+  "tests_red_then_green": [
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "short fingerprint",
+      "green_failure_reason": null
+    }
+  ],
+  "exit_checklist": { "shared_cycle_runtime_no_run_application": true },
   "residuals_closed": [],
   "residuals_still_open": [],
   "forbidden_touched": false,
@@ -89,7 +133,9 @@ git commit -m "<commit message from slice>"
 }
 ```
 
-### 0.3 Hard bans (every slice)
+**Field law:** `implementation_commit` is the only “head of work” field. There is **no** `head_commit` field (removed — it caused self-reference). `evidence_commit` stays `null` inside PHASE; LEDGER may record the evidence commit SHA after COMMIT 2.
+
+### 0.4 Hard bans (every slice)
 
 - `git add -A` · force-push · work branch · stash-to-hide-WIP · merge/pull that creates merge  
 - New classes: `AaeosRunApplication`, `AaeosModeExecutor`, `SovereigntyPort`, second ledger, Mission/WorkGraph, Quarantine revive, ACDE  
@@ -98,8 +144,11 @@ git commit -m "<commit message from slice>"
 - Provider/tool/sandbox/mutation before P1b.2 gate (and never before P2b CUTOVER — R101)  
 - GOD_SOTA / REAL_OPERATION from PHPUnit or static scores  
 - Hardcode `human_in_engineering_loop=false` as identity  
+- Self-amending MASTER / self-expanding closed path lists  
+- Extra evidence files beyond §0.1  
+- Treating operator “review diff” as a required gate
 
-### 0.4 Binding DAG (do not reorder)
+### 0.5 Binding DAG (do not reorder)
 
 ```text
 P0
@@ -187,7 +236,9 @@ rg -n 'operate_path_wiring|9\.2' app/Console/Commands/AtlasAaeosCertifyCommand.p
 
 ## 3. Residual index (binding)
 
-Phase column = earliest close. Full hard-done text for R64–R103 is in **§3.1** below (copied from v16). Phase exits win if conflict with prose.
+Phase column = earliest close. Full hard-done text for R64–R103 is in **§3.1 below (normative, in this file)**.  
+Archive `MASTER-v16-pre-final.md` is **not** a second master and is **not** required to implement.  
+Phase exits in SLICE sections win if conflict with residual prose.
 
 | ID | Gap | Phase |
 |---|---|---|
@@ -366,7 +417,7 @@ No cycle-5 survivor creates a fourth executor, new scheduler, new Ledger, outbox
 **Objective:** remove false success; unify ports on CycleRuntime; honest projection.  
 **Does NOT:** fix Brain args (R33), seed (R35), provider, Decision v3, Ledger chain.
 
-## P0 closed production paths
+## P0 closed production paths (COMMIT 1 may touch only these + tests)
 
 ```
 app/Console/Commands/AtlasAaeosRunCommand.php
@@ -385,42 +436,57 @@ app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php
 app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php
 docs/engineering-knowledge-base/atlas-cli-daily-map.md
 docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md
-docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md
-docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
-docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P0.json
 ```
 
-**Delete only after zero production consumers:**
+**`AtlasEvidenceLedger.php` P0 scope (hard):** **read-only / measurement API only** if touched at all.  
+Allowed: add/clarify a bounded read helper used by scorecard/honesty tests.  
+**Forbidden in P0:** chain hash changes, migrations, append semantics, tenant roles, envelope v2 (those are P2a.1).  
+If honesty needs no ledger code change, leave the file untouched and list it under `allowed_paths` with note `not_touched`.
+
+**Delete only after zero production consumers (COMMIT 1 delete):**
 ```
 app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php
 ```
 ```bash
 rg -n 'AaeosOperateScorecardProjector' app tests --glob '!**/AaeosOperateScorecardProjector.php'
-# must be 0 production refs
+# must be 0 production refs before delete
+```
+
+## P0 closed evidence paths (COMMIT 2 only — never in COMMIT 1)
+
+```
+docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P0.json
+docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md
+docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
 ```
 
 ## P0 closed test paths
 
 ```
-tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php
-tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php
-tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php
-tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php
+tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php          # EXISTING — extend
+tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php       # EXISTING — invert false-success asserts
+tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php            # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php        # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php        # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php     # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php  # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php     # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php  # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php  # NEW
+tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php          # EXISTING — extend dry-write asserts
+tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php  # NEW — both CLI dry paths never call recorder
 ```
 
 ## P0 ordered steps (do in order)
 
 ### P0.0 Preflight
 ```bash
-git branch --show-current
+git branch --show-current   # main
+git status --short          # classify FOREIGN_WIP — do not touch
 BASE=$(git rev-parse HEAD)
+# baseline suite (attribute failures; do not "fix" foreign dirt)
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control tests/Feature/Ai/Aaeos --no-coverage \
+  | tee /tmp/aaeos-p0-baseline.txt || true
 /opt/homebrew/bin/php artisan atlas:aaeos:certify --json | tee /tmp/aaeos-cert-before.json || true
 /opt/homebrew/bin/php artisan atlas:aaeos:scorecard --json | tee /tmp/aaeos-score-before.json || true
 ```
@@ -461,15 +527,29 @@ Same normalized intent + dry:
 - `dispatch_failed` → non-zero exit both
 - dry → neither path should claim success via OutcomeRecorder ledger write
 
+#### `tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php` (NEW) — hard proof
+Prove **both** `atlas:aaeos:run --dry-run` and `atlas:aaeos:cycle --dry-run` never call `AaeosCycleOutcomeRecorder::record` (mock/spy/partial mock: `shouldNotReceive('record')` or equivalent).  
+Also assert dry CLI exit is defined and does not require ledger success.
+
+#### `tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php` (NEW)
+If scorecard reads ledger: empty store → unknown/null measures (no static 9.x). If P0 leaves ledger file untouched, test the projector path only.
+
 #### `tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php` (NEW)
 IntentCompiler regex may set suspicion flags only; alone never authorizes effect / never forces HALT without sovereign reasons.
 
-#### Invert `AaeosGodSotaCertificationTest` / extend CycleCommandTest
+#### `tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php` (NEW)
+Feature coverage for run port: dry JSON, non-zero on dispatch_failed/repair_required.
+
+#### Invert `AaeosGodSotaCertificationTest` / extend CycleCommandTest (EXISTING)
 Remove/invert asserts that require inject 9.2 or human_in_loop gate for success.
 
 ```bash
-/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php --no-coverage
-# expect RED (fail) on HEAD before production edit
+# Each NEW/extended test must FAIL (non-zero) on HEAD before production edit.
+# Record red_exit + red_failure_reason per path into the future PHASE-P0.json notes/buffer.
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php --no-coverage; echo EXIT:$?
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php --no-coverage; echo EXIT:$?
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php --no-coverage; echo EXIT:$?
+# …repeat for every NEW test path; do not proceed to P0.2 until REDs exist and fail for the right reason
 ```
 
 ### P0.2 Production recipes (exact)
@@ -550,20 +630,91 @@ Document/comment: irreversibility regex = **suspicion only**. Ensure admission s
 #### (10) `AaeosCycleOutcomeRecorder.php`
 If it treats all non-auto as halt: ensure `repair_required` is recorded as technical failure, not sovereign success.
 
-### P0.3 GREEN
+### P0.3 GREEN (complete suite — every path exit 0)
+
 ```bash
-/opt/homebrew/bin/php artisan test \
+GREEN_CMD='/opt/homebrew/bin/php artisan test \
   tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php \
   tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php \
   tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php \
   tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php \
   tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php \
-  --no-coverage
+  --no-coverage'
+eval $GREEN_CMD; echo GREEN_EXIT:$?
+# REQUIRED: GREEN_EXIT=0
+# Compare to baseline: new_failures MUST be []. Baseline-only failures stay in baseline_failures.
+# Optional CLI smoke (not a substitute for unit proof):
+/opt/homebrew/bin/php artisan atlas:aaeos:run "p0 dry" --dry-run --json; echo RUN_DRY_EXIT:$?
+/opt/homebrew/bin/php artisan atlas:aaeos:cycle "p0 dry" --dry-run --json; echo CYCLE_DRY_EXIT:$?
+```
+
+### P0.4 COMMIT 1 — implementation only
+
+```bash
+git add -- \
+  app/Console/Commands/AtlasAaeosRunCommand.php \
+  app/Console/Commands/AtlasAaeosCycleCommand.php \
+  app/Console/Commands/AtlasAaeosScorecardCommand.php \
+  app/Console/Commands/AtlasAaeosCertifyCommand.php \
+  app/Console/Commands/AtlasCliCockpitCommand.php \
+  app/Console/Commands/AtlasAaeosRouterCommand.php \
+  app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php \
+  app/Services/Ai/Aaeos/Control/AaeosIntentCompiler.php \
+  app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php \
+  app/Services/Ai/Aaeos/Control/AaeosAdmissionVerdict.php \
+  app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php \
+  app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php \
+  app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php \
+  docs/engineering-knowledge-base/atlas-cli-daily-map.md \
+  docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md \
+  tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php \
+  tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php \
+  tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php \
+  tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php
+# add AtlasEvidenceLedger.php ONLY if actually edited under read-only scope
+git status --short
+git diff --cached --stat
+git commit -m "feat(core): AAEOS-MT P0 honesty port admission and measured projection"
+IMPLEMENTATION_COMMIT=$(git rev-parse HEAD)
+```
+
+Optional second **implementation** commit only if measured-reader must split owners — still no evidence files in implementation commits.
+
+### P0.5 Write PHASE-P0.json + LEDGER + SCOREBOARD (then COMMIT 2)
+
+Fill schema §0.3 with:
+- `base_commit` = BASE  
+- `implementation_commit` = IMPLEMENTATION_COMMIT  
+- `evidence_commit` = null  
+- `allowed_paths` = full P0 closed production+test lists  
+- `touched_paths` / `deleted_paths` exact  
+- `tests_red_then_green` with red_exit/green_exit/failure_reason  
+- `baseline_failures` / `new_failures`  
+- `exit_checklist` all true  
+- `next_phase_authorized` = false  
+
+```bash
+git add -- \
+  docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P0.json \
+  docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md \
+  docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
+git commit -m "docs(evidence): AAEOS-MT P0 phase receipt"
+# optional LEDGER one-liner: evidence_commit=$(git rev-parse HEAD)
 ```
 
 ### P0 exit checklist (all true)
@@ -571,7 +722,7 @@ If it treats all non-auto as halt: ensure `repair_required` is recorded as techn
 - [ ] No class `AaeosRunApplication` created  
 - [ ] Run+Cycle call `AaeosCycleRuntime` only  
 - [ ] dry → `runtime_write_performed===false`  
-- [ ] dry → no OutcomeRecorder ledger write  
+- [ ] dry → **both** CLI ports never call `OutcomeRecorder::record` (test proof)  
 - [ ] `dispatch_failed` / `repair_required` → non-zero both ports  
 - [ ] rwp derived not hardcoded  
 - [ ] invalid_mode → `repair_required`  
@@ -579,16 +730,15 @@ If it treats all non-auto as halt: ensure `repair_required` is recorded as techn
 - [ ] no static 9.2 inject; no vanity GOD_SOTA  
 - [ ] regex suspicion only  
 - [ ] OperateScorecardProjector deleted or proven still-needed with consumers  
-- [ ] PHASE-P0.json + LEDGER + SCOREBOARD updated  
-
-### P0 commit
-```
-feat(core): AAEOS-MT P0 honesty port admission and measured projection
-```
-Prefer one commit; optional second if measured-reader huge.
+- [ ] Ledger file either untouched or read-only-only  
+- [ ] PHASE-P0.json uses `implementation_commit` (not self-referential head)  
+- [ ] LEDGER P0=GREEN; SCOREBOARD P0 gates flipped  
+- [ ] two commits (impl + evidence); FOREIGN_WIP untouched  
 
 ### P0 STOP
-Write `PHASE-P0.json`. Set LEDGER P0=GREEN. Do **not** start P1a.
+Do **not** start P1a.  
+**Promotion to P1a** requires only: PHASE-P0 `status=GREEN` + checklist + GREEN_EXIT=0.  
+Human diff review = **optional audit**, not a gate.
 
 ---
 
@@ -692,7 +842,8 @@ private function brainNextArgs(array $options): array
 Verify against real command signature:
 ```bash
 /opt/homebrew/bin/php artisan atlas:brain:next --help
-# confirm positional scope name; if different, amend MASTER with exact name before inventing
+# confirm positional scope name; if Artisan signature differs from this recipe: STOP and report.
+# Do not invent a flag name. Do not amend MASTER yourself.
 ```
 
 ### P1a.3 Fix seed (R35)
@@ -828,7 +979,7 @@ feat(core): AAEOS-MT P1b.2 native act settlement and provider coverage
 **Exit:** AAEOS projects authorization/observation refs only; cannot self-mint observed authority.  
 **Commit:** `feat(core): AAEOS-MT P1b.3 aaeos projection of native refs`
 
-### P1b tests (all slices; amend MASTER if new path)
+### P1b tests (all slices; unlisted path → STOP + report, never self-amend)
 ```
 tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php
 tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php
@@ -1153,7 +1304,7 @@ feat(core): AAEOS-MT P2f operator census and intent-first daily port
 ## P3a census
 **Gate:** `EXECUTE P3a`  
 **Receipt:** `PHASE-P3A.json`  
-Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeRecorder + aliases. **No mass delete.** Amend MASTER with every consumer path found.
+Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeRecorder + aliases. **No mass delete.** Report every consumer path in PHASE-P3A; human amends MASTER before P3b may delete.
 
 ## P3b deletion/alignment
 **Gate:** `EXECUTE P3b` only after P3a census paths listed in MASTER amendment  
@@ -1364,11 +1515,25 @@ Architecture regressions always:
 
 1. Operator says one EXECUTE phrase.  
 2. Open **this file**, jump to that SLICE.  
-3. Follow ordered steps only.  
-4. PHASE + LEDGER + SCOREBOARD + scoped commit.  
-5. STOP.
+3. Preflight WIP → follow ordered steps only.  
+4. Two-commit ritual (§0.2): implementation then evidence.  
+5. STOP. Operator review is optional audit.
 
-**Prompt file:** `docs/prompts/atlas-aaeos-mt-EXECUTE-P0-CODEX.md` (extend phrase for later slices).
+**Prompt file:** `docs/prompts/atlas-aaeos-mt-EXECUTE-P0-CODEX.md`
 
+### GO-fix record (planning)
+
+| Blocker | Fix |
+|---|---|
+| Receipt self-ref `head_commit` | Removed; `implementation_commit` + two-commit ritual |
+| Ghost receipt.md | Closed manifest only PHASE JSON + LEDGER + SCOREBOARD |
+| Self-amend MASTER | STOP + report; human amends; new EXECUTE |
+| Weak P0 proof | Full GREEN list, exit codes, dry OutcomeRecorder test, baseline/new_failures |
+| NEW test tags + ledger scope | Closed list marks NEW/EXISTING; ledger read-only in P0 |
+| Operator as technical gate | Optional audit only |
+| Dual master / v16 dependence | §3.1 normative in this file; archive non-normative |
+| Cycle-10 missing | Explicitly waived as planning cycle unless NEW disk residual |
+
+**Verdict after GO-fix:** ready for operator `EXECUTE P0`.  
 **This is the executable god-SOTA cookbook of record.**  
 **System god-SOTA starts when PHASE receipts are green on disk.**

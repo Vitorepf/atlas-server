@@ -1,35 +1,56 @@
-# Codex / any-IA handoff — AAEOS Elite Deepening (vFINAL-COOKBOOK)
+# Codex / any-IA handoff — AAEOS Elite Deepening (vFINAL-COOKBOOK + GO-fix)
 
-> **Lei:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-> **Modo:** a IA **só segue o plano**. Não inventa arquitetura. Não reordena o DAG.  
-> **Gate:** frase EXECUTE literal do operador.
+> **Lei única:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
+> **Modo:** a IA **só segue o plano**. Zero auto-escopo. Zero auto-amend do MASTER.  
+> **Gate:** frase EXECUTE literal do operador.  
+> **Promoção de fatia:** PHASE `status=GREEN` + checklist + testes — **não** “humano revisou diff”.
 
 ---
 
-## BLOCO GENÉRICO (qualquer slice)
+## BLOCO GENÉRICO
 
 ```
 You are implementing AAEOS Elite Deepening on local main only.
 
-RULE #0: Open and FOLLOW exactly:
+RULE #0 — follow MASTER only:
   docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
-Jump to the SLICE named by the operator EXECUTE phrase below.
-Edit ONLY that slice's closed production + test paths.
-If a RED needs an unlisted path: STOP and report — do not freestyle.
-No AaeosRunApplication. No second ledger. No Mission/WorkGraph/SovereigntyPort.
-Scoped git add -- paths only. Branch must be main.
-After GREEN: write the exact PHASE-*.json, update LEDGER + SCOREBOARD, commit, STOP.
+Jump to the SLICE named by the operator EXECUTE phrase.
+Edit ONLY that slice's closed paths.
 
-OPERATOR GATE (only one slice):
+Preflight (mandatory):
+  git branch --show-current  # must be main
+  git status --short
+  Classify every dirty path as FOREIGN_WIP / IN_SLICE / OUT_OF_SCOPE.
+  Never stash, reset, or touch FOREIGN_WIP.
+  If FOREIGN_WIP overlaps a path you must change: STOP and report.
+  Optional multi-engine: blackboard claim targets before edit.
+
+Unlisted path needed:
+  STOP. Report exact path + reason.
+  Do NOT edit it. Do NOT amend MASTER. Do NOT self-authorize.
+  Wait for human MASTER amendment + new EXECUTE phrase.
+
+Two-commit ritual (binding — kills receipt self-reference):
+  COMMIT 1 = production + tests only → IMPLEMENTATION_COMMIT
+  Write PHASE-*.json with:
+    base_commit, implementation_commit=IMPLEMENTATION_COMMIT, evidence_commit=null
+    allowed_paths, touched_paths, deleted_paths
+    tests_red_then_green (red_exit, green_exit, failure_reason)
+    baseline_failures, new_failures
+  Update LEDGER + SCOREBOARD
+  COMMIT 2 = PHASE + LEDGER + SCOREBOARD only
+  Do NOT put implementation_commit equal to the evidence commit.
+  No receipt.md. No extra evidence files.
+
+Never: AaeosRunApplication, second ledger, Mission/WorkGraph/SovereigntyPort, git add -A.
+
+OPERATOR GATE (one slice only):
 EXECUTE P0
 ```
 
-Substitua a última linha por outra frase do MASTER quando for a fatia seguinte, ex.:
-`EXECUTE P1a` · `EXECUTE P2a.1` · `EXECUTE P2b-CUTOVER` · `EXECUTE P4-DEV` …
-
 ---
 
-## BLOCO P0 (primeiro — copie inteiro)
+## BLOCO P0 (copie inteiro)
 
 ```
 EXECUTE P0
@@ -37,33 +58,38 @@ EXECUTE P0
 Open docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
 Implement ONLY "# SLICE P0 — truth before capability".
 
-Follow P0 ordered steps exactly:
-  P0.0 preflight
-  P0.1 RED tests first (must fail on HEAD)
-  P0.2 production recipes (literal before→after in the MASTER)
-  P0.3 GREEN suite
-  exit checklist all true
-  write PHASE-P0.json (schema in MASTER §0.2)
-  update LEDGER + SCOREBOARD
-  scoped commit:
-    feat(core): AAEOS-MT P0 honesty port admission and measured projection
+Follow in order:
+  P0.0 preflight (WIP classify + baseline)
+  P0.1 RED tests first — every NEW test must fail for the right reason on HEAD
+  P0.2 production recipes (literal before→after in MASTER)
+  P0.3 GREEN suite (GREEN_EXIT=0; record all exit codes)
+  P0.4 COMMIT 1 implementation only
+       feat(core): AAEOS-MT P0 honesty port admission and measured projection
+  P0.5 write PHASE-P0.json (schema §0.3) + LEDGER + SCOREBOARD → COMMIT 2
+       docs(evidence): AAEOS-MT P0 phase receipt
   STOP — do not start P1a
 
-Disk anchors the plan names (must still be broken before your fix):
-  AaeosCycleRuntime.php:93 runtime_write_performed true
-  AaeosAdmissionPolicy.php invalid_mode → HALT_SOVEREIGN
-  AtlasAaeosCertifyCommand.php 9.2 injects + human_in_loop gate
-  Run/Cycle OutcomeRecorder on dry / exit taxonomy
+P0 hard proofs required:
+  - both dry CLIs never call OutcomeRecorder::record
+    (AaeosDryOutcomeRecorderAbsenceTest)
+  - runtime_write_performed false on dry
+  - invalid_mode → repair_required
+  - no static 9.2 / vanity GOD_SOTA
+  - AtlasEvidenceLedger.php only if read-only measurement touch; else leave untouched
+  - no AaeosRunApplication
 
 Forbidden in P0:
-  AaeosRunApplication, R33 brain args, R34/R35, provider/effect, Decision v3
+  R33 brain args, R34/R35, provider/effect, Decision v3, ledger chain harden,
+  self-amend MASTER, receipt.md, single commit that mixes impl+self-ref head
+
+Promotion: PHASE-P0 GREEN + checklist. Human diff review is optional audit only.
 ```
 
 ---
 
 ## Operador
 
-1. `main` limpa o suficiente para commit escopado (não stash de obra alheia).  
-2. Cole o bloco com **uma** frase EXECUTE.  
-3. Revise PHASE + diff.  
-4. Só então a próxima frase EXECUTE.
+1. Branch `main`. Aceite FOREIGN_WIP alheio (não mande a IA limpar).  
+2. Cole **um** bloco EXECUTE.  
+3. Opcional: olhe o diff (auditoria) — **não** é gate.  
+4. Próxima fatia só com nova frase EXECUTE após PHASE GREEN.
