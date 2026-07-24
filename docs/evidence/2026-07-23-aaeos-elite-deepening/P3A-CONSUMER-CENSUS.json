@@ -116,53 +116,6 @@
             "p3b_candidate_hint": false,
             "retain_reason": "run/cycle command production readers (3)"
         },
-        "AaeosTriHygieneScorecardProjector": {
-            "owners": [
-                "app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php"
-            ],
-            "production_consumers_frozen": [
-                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
-            ],
-            "production_consumers_live": [
-                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
-            ],
-            "production_consumer_count": 1,
-            "new_on_disk_not_in_freeze": [],
-            "frozen_missing_on_disk": [],
-            "delete_authorized_in_p3a": false,
-            "p3b_candidate_hint": true,
-            "retain_reason": "only TriHygiene command consumer \u2014 P3b candidate with command"
-        },
-        "AtlasTriHygieneScorecardCommand": {
-            "owners": [
-                "app/Console/Commands/AtlasTriHygieneScorecardCommand.php"
-            ],
-            "production_consumers_frozen": [],
-            "production_consumers_live": [],
-            "production_consumer_count": 0,
-            "new_on_disk_not_in_freeze": [],
-            "frozen_missing_on_disk": [],
-            "delete_authorized_in_p3a": false,
-            "p3b_candidate_hint": true,
-            "retain_reason": "zero external production references \u2014 P3b candidate after cold-neg"
-        },
-        "AaeosHygieneLegacyAliases": {
-            "owners": [
-                "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php"
-            ],
-            "production_consumers_frozen": [
-                "composer.json"
-            ],
-            "production_consumers_live": [
-                "composer.json"
-            ],
-            "production_consumer_count": 1,
-            "new_on_disk_not_in_freeze": [],
-            "frozen_missing_on_disk": [],
-            "delete_authorized_in_p3a": false,
-            "p3b_candidate_hint": true,
-            "retain_reason": "composer files autoload only \u2014 P3b after cold-process negative resolution"
-        },
         "AaeosScorecardProjector": {
             "owners": [
                 "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php"
@@ -189,6 +142,11 @@
     "missing_owners": [],
     "freeze_matches_live": true,
     "pipeline_run_executor_retain": true,
+    "deleted_in_p3b": [
+        "AaeosTriHygieneScorecardProjector",
+        "AtlasTriHygieneScorecardCommand",
+        "AaeosHygieneLegacyAliases"
+    ],
     "notes": [
         "P3a is census-only. No production deletion in this phase.",
         "PipelineRunExecutor family retained until R103 port amendment.",

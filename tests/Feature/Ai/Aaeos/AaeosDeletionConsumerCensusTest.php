@@ -75,23 +75,16 @@ final class AaeosDeletionConsumerCensusTest extends TestCase
         $this->assertContains('app/Console/Commands/AtlasAaeosCycleCommand.php', $rec['production_consumers_frozen']);
     }
 
-    public function test_trihygiene_and_aliases_are_p3b_candidates_not_deleted_in_p3a(): void
+    public function test_p3b_deleted_families_are_recorded_and_absent_from_live_families(): void
     {
         $report = AaeosDeletionConsumerCensus::report();
 
-        foreach (['AaeosTriHygieneScorecardProjector', 'AtlasTriHygieneScorecardCommand', 'AaeosHygieneLegacyAliases'] as $family) {
-            $row = $report['families'][$family];
-            $this->assertFalse($row['delete_authorized_in_p3a']);
-            $this->assertTrue($row['p3b_candidate_hint'], $family);
-            foreach ($row['owners'] as $owner) {
-                $this->assertFileExists(base_path($owner));
-            }
+        foreach (AaeosDeletionConsumerCensus::DELETED_IN_P3B as $family) {
+            $this->assertContains($family, $report['deleted_in_p3b']);
+            $this->assertArrayNotHasKey($family, $report['families']);
         }
-
-        $this->assertContains(
-            'composer.json',
-            $report['families']['AaeosHygieneLegacyAliases']['production_consumers_frozen'],
-        );
+        $this->assertFileDoesNotExist(base_path('app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php'));
+        $this->assertFileDoesNotExist(base_path('app/Console/Commands/AtlasTriHygieneScorecardCommand.php'));
     }
 
     public function test_owners_still_exist_on_disk_no_silent_delete(): void

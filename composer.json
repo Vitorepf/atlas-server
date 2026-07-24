@@ -30,8 +30,7 @@
     },
     "autoload": {
         "files": [
-            "app/Services/Ai/Compat/RootSinglesLegacyAliases.php",
-            "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php"
+            "app/Services/Ai/Compat/RootSinglesLegacyAliases.php"
         ],
         "psr-4": {
             "App\\": "app/",

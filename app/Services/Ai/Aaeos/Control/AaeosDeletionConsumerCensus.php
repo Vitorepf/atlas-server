@@ -15,6 +15,18 @@ final class AaeosDeletionConsumerCensus
     public const SCHEMA = 'atlas.aaeos.p3a.consumer_census.v1';
 
     /**
+     * Families deleted in P3b under amendment p3b-trihygiene-aliases-delete-v1.
+     *
+     * @var list<string>
+     */
+    public const DELETED_IN_P3B = [
+        'AaeosTriHygieneScorecardProjector',
+        'AtlasTriHygieneScorecardCommand',
+        'AaeosHygieneLegacyAliases',
+    ];
+
+
+    /**
      * Frozen production consumers discovered at P3a (sorted). Update only with
      * PHASE residual honesty when new consumers appear.
      *
@@ -55,15 +67,6 @@ final class AaeosDeletionConsumerCensus
             'app/Console/Commands/AtlasAaeosRunCommand.php',
             'app/Services/Ai/CODEMAP.md',
         ],
-        'AaeosTriHygieneScorecardProjector' => [
-            'app/Console/Commands/AtlasTriHygieneScorecardCommand.php',
-        ],
-        'AtlasTriHygieneScorecardCommand' => [
-            // Laravel auto-discovers the command class; no other production references.
-        ],
-        'AaeosHygieneLegacyAliases' => [
-            'composer.json',
-        ],
         'AaeosScorecardProjector' => [
             'app/Console/Commands/AtlasAaeosCertifyCommand.php',
             'app/Console/Commands/AtlasAaeosScorecardCommand.php',
@@ -94,15 +97,6 @@ final class AaeosDeletionConsumerCensus
         'AaeosCycleOutcomeRecorder' => [
             'app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php',
         ],
-        'AaeosTriHygieneScorecardProjector' => [
-            'app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php',
-        ],
-        'AtlasTriHygieneScorecardCommand' => [
-            'app/Console/Commands/AtlasTriHygieneScorecardCommand.php',
-        ],
-        'AaeosHygieneLegacyAliases' => [
-            'app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php',
-        ],
         'AaeosScorecardProjector' => [
             'app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php',
         ],
@@ -121,9 +115,6 @@ final class AaeosDeletionConsumerCensus
         ],
         'AaeosOrgStateProjector' => ['AaeosOrgStateProjector'],
         'AaeosCycleOutcomeRecorder' => ['AaeosCycleOutcomeRecorder'],
-        'AaeosTriHygieneScorecardProjector' => ['AaeosTriHygieneScorecardProjector'],
-        'AtlasTriHygieneScorecardCommand' => ['AtlasTriHygieneScorecardCommand'],
-        'AaeosHygieneLegacyAliases' => ['AaeosHygieneLegacyAliases'],
         'AaeosScorecardProjector' => ['AaeosScorecardProjector'],
     ];
 
@@ -160,11 +151,7 @@ final class AaeosDeletionConsumerCensus
             }
 
             $prodCount = count($frozenSorted);
-            $p3bCandidate = in_array($family, [
-                'AtlasTriHygieneScorecardCommand',
-                'AaeosHygieneLegacyAliases',
-                'AaeosTriHygieneScorecardProjector',
-            ], true) && $prodCount <= 1;
+            $p3bCandidate = false;
 
             $families[$family] = [
                 'owners' => $owners,
@@ -192,6 +179,7 @@ final class AaeosDeletionConsumerCensus
             'missing_owners' => $missingOwners,
             'freeze_matches_live' => $unknown === [] && $missingOwners === [],
             'pipeline_run_executor_retain' => true,
+            'deleted_in_p3b' => self::DELETED_IN_P3B,
             'notes' => [
                 'P3a is census-only. No production deletion in this phase.',
                 'PipelineRunExecutor family retained until R103 port amendment.',
@@ -276,9 +264,6 @@ final class AaeosDeletionConsumerCensus
             'PipelineRunExecutor_family' => 'R103 retain until full port amendment; '.$prodCount.' production consumers',
             'AaeosOrgStateProjector' => 'cockpit + scorecard production readers ('.$prodCount.')',
             'AaeosCycleOutcomeRecorder' => 'run/cycle command production readers ('.$prodCount.')',
-            'AaeosTriHygieneScorecardProjector' => 'only TriHygiene command consumer — P3b candidate with command',
-            'AtlasTriHygieneScorecardCommand' => 'zero external production references — P3b candidate after cold-neg',
-            'AaeosHygieneLegacyAliases' => 'composer files autoload only — P3b after cold-process negative resolution',
             'AaeosScorecardProjector' => 'CLI scorecard/certify/cockpit production readers ('.$prodCount.')',
             default => 'retain pending amendment',
         };
