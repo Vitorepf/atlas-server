@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\MemoryLimitBytes;
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use App\Services\Vault\GraphAssembler;
 use App\Services\Vault\ObsidianVaultReader;
@@ -117,20 +118,7 @@ final class AtlasCartographyController extends Controller
 
     private function memoryLimitToBytes(string $value): int
     {
-        $value = trim($value);
-        if ($value === '') {
-            return 0;
-        }
-
-        $unit = strtolower(substr($value, -1));
-        $amount = (int) $value;
-
-        return match ($unit) {
-            'g' => $amount * 1024 * 1024 * 1024,
-            'm' => $amount * 1024 * 1024,
-            'k' => $amount * 1024,
-            default => $amount,
-        };
+        return MemoryLimitBytes::parse($value);
     }
 
     public function humanClarity(Request $request): JsonResponse

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
+use App\Support\MemoryLimitBytes;
 use App\Services\Ai\Kernel\Capability\AtlasCapabilityRegistry;
 use App\Services\Ai\Kernel\Capability\SurfaceCapabilityParityService;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
@@ -482,19 +483,6 @@ class AtlasAiArchitectureValidationService
 
     private function memoryLimitToBytes(string $value): int
     {
-        $value = trim($value);
-        if ($value === '') {
-            return 0;
-        }
-
-        $unit = strtolower(substr($value, -1));
-        $amount = (int) $value;
-
-        return match ($unit) {
-            'g' => $amount * 1024 * 1024 * 1024,
-            'm' => $amount * 1024 * 1024,
-            'k' => $amount * 1024,
-            default => $amount,
-        };
+        return MemoryLimitBytes::parse($value);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering;
 
+use App\Support\MemoryLimitBytes;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
@@ -260,20 +261,7 @@ class EngineeringCodeIntelligenceService
 
     private function memoryLimitToBytes(string $value): int
     {
-        $normalized = trim($value);
-        if ($normalized === '') {
-            return 0;
-        }
-
-        $unit = strtolower(substr($normalized, -1));
-        $number = (int) $normalized;
-
-        return match ($unit) {
-            'g' => $number * 1024 * 1024 * 1024,
-            'm' => $number * 1024 * 1024,
-            'k' => $number * 1024,
-            default => (int) $normalized,
-        };
+        return MemoryLimitBytes::parse($value);
     }
 
 

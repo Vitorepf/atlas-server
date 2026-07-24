@@ -827,21 +827,6 @@ class AtlasOpenBrainFileContextService
     /**
      * @param  array<string,mixed>  $opts
      */
-    private function intOpt(array $opts, string $key, int $default): int
-    {
-        $raw = $opts[$key] ?? null;
-        if (is_int($raw)) {
-            return max(0, $raw);
-        }
-        if (is_string($raw)) {
-            $numeric = AiValueNormalizer::finiteFloatOrNull(trim($raw));
-            if ($numeric !== null) {
-                return (int) max(0, (int) floor($numeric));
-            }
-        }
-
-        return max(0, $default);
-    }
 
     /**
      * @param  array<string,mixed>  $opts

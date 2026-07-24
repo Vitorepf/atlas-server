@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -16,6 +17,8 @@ use Throwable;
  */
 final class AtlasSelfImprovementInvariantLockCommand extends Command
 {
+    use ResolvesSilentJsonOption;
+
     protected $signature = 'atlas:self-improvement:invariant-lock
         {--after-snapshot= : Inline JSON or @path with after snapshot (audit + system state)}
         {--diff= : Inline JSON or @path with the implementation diff descriptor}
@@ -46,28 +49,6 @@ final class AtlasSelfImprovementInvariantLockCommand extends Command
     /**
      * @return array<string,mixed>|null
      */
-    private function resolveJsonOption(string $key): ?array
-    {
-        $raw = $this->option($key);
-        if (! is_string($raw) || trim($raw) === '') {
-            return null;
-        }
-        $raw = trim($raw);
-        if (str_starts_with($raw, '@')) {
-            $path = substr($raw, 1);
-            if (! is_file($path)) {
-                return null;
-            }
-            $raw = (string) file_get_contents($path);
-        }
-        try {
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return null;
-        }
-
-        return is_array($decoded) ? $decoded : null;
-    }
 
     /**
      * @param  array<string,mixed>  $payload
