@@ -150,6 +150,60 @@ return [
             'application_name' => 'atlas_p2a1_verifier',
         ],
 
+        // P4 REAL_OPERATION durable identities. Prefer full URLs
+        // (ATLAS_P4_PG_PRODUCER_URL / ATLAS_P4_PG_VERIFIER_URL). Component envs
+        // are fallbacks for local docker provisioners.
+        'atlas_p4_pg_setup' => [
+            'driver' => 'pgsql',
+            'url' => env('ATLAS_P4_PG_SETUP_URL'),
+            'host' => env('ATLAS_P4_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_P4_PG_PORT', '5432'),
+            'database' => env('ATLAS_P4_PG_DATABASE', 'atlas_p4_missing'),
+            'username' => env('ATLAS_P4_PG_SETUP_USERNAME', 'postgres'),
+            'password' => env('ATLAS_P4_PG_SETUP_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_P4_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p4_setup',
+        ],
+
+        'atlas_p4_pg_producer' => [
+            'driver' => 'pgsql',
+            'url' => env('ATLAS_P4_PG_PRODUCER_URL'),
+            'host' => env('ATLAS_P4_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_P4_PG_PORT', '5432'),
+            'database' => env('ATLAS_P4_PG_DATABASE', 'atlas_p4_missing'),
+            'username' => env('ATLAS_P4_PG_PRODUCER_USERNAME', 'atlas_p4_producer'),
+            'password' => env('ATLAS_P4_PG_PRODUCER_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_P4_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p4_producer',
+        ],
+
+        'atlas_p4_pg_verifier' => [
+            'driver' => 'pgsql',
+            'url' => env('ATLAS_P4_PG_VERIFIER_URL'),
+            'host' => env('ATLAS_P4_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_P4_PG_PORT', '5432'),
+            'database' => env('ATLAS_P4_PG_DATABASE', 'atlas_p4_missing'),
+            'username' => env('ATLAS_P4_PG_VERIFIER_USERNAME', 'atlas_p4_verifier'),
+            'password' => env('ATLAS_P4_PG_VERIFIER_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_P4_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p4_verifier',
+            'options' => extension_loaded('pdo_pgsql') ? [
+                // Prefer read-only session when driver supports it.
+            ] : [],
+        ],
+
         // Production ledger identities are deliberately separate from the
         // application's broad database connection. They are inert until the
         // deployment opts into role-enforced evidence I/O below.
