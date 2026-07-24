@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aemor;
 
+use App\Support\FirstNonEmptyString;
 use App\Models\AiRunOutcome;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator;
@@ -520,16 +521,6 @@ class AtlasEngineeringOutcomeRecorder
      */
     private function firstNonEmptyString(array $values): string
     {
-        foreach ($values as $value) {
-            if (! is_scalar($value)) {
-                continue;
-            }
-            $trimmed = trim((string) $value);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-
-        return '';
+        return FirstNonEmptyString::from($values);
     }
 }

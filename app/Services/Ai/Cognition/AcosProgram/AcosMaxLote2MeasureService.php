@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\AcosProgram;
 
+use App\Support\FirstNonEmptyString;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -688,14 +689,7 @@ final class AcosMaxLote2MeasureService
      */
     private function firstNonEmpty(array $values): string
     {
-        foreach ($values as $value) {
-            $string = AiValueNormalizer::trimmedStringOrNull($value) ?? '';
-            if ($string !== '') {
-                return $string;
-            }
-        }
-
-        return '';
+        return FirstNonEmptyString::from($values);
     }
 
     private function secondsBetween(string $start, string $end): int
