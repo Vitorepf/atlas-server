@@ -1839,6 +1839,6 @@ HTML;
 
     private function isNoise(string $modelId): bool
     {
-        return in_array($modelId, ['local_fake_model', 'mockllm', 'harness_null', 'harness_golden'], true);
+        return EnterpriseReportNoiseModels::isNoise($modelId);
     }
 }
