@@ -146,6 +146,16 @@ class ProgrammingRetrievalExecutor
             $encoded = json_encode($rankedRefs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]';
         }
 
+        // Resume receipts are authoritative continuity evidence. Keep them in
+        // the professional pack even when the reranker fills the budget with
+        // lexical/code refs; otherwise Forge cannot safely resume a prior plan.
+        if ($previousReceipts !== [] && collect($rankedRefs)->where('source', 'stage_receipts')->isEmpty()) {
+            $resumeRefs = collect((array) ($legacyPack['ranked_refs'] ?? []))
+                ->filter(fn (array $ref): bool => ($ref['source'] ?? null) === 'stage_receipts')
+                ->values();
+            $rankedRefs = $resumeRefs->concat($rankedRefs)->take($maxRefs)->values()->all();
+        }
+
         $sourceCounts = collect($rankedRefs)->countBy('source')->all();
         $contextPackHash = hash('sha256', json_encode([
             'schema_version' => self::PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION,
