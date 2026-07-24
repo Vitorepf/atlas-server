@@ -1,0 +1,265 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P0",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "24165705e65fc45d6314afb26b20cb4694294b47",
+  "implementation_commit": "4979520f4675e3162952598a1b5c2dfd8784fa58",
+  "dirty_before": [
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/cycle-workflow.mjs",
+    "docs/prompts/atlas-aaeos-mt-improve-AGENDA-COPY.md"
+  ],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Console/Commands/AtlasAaeosRunCommand.php",
+    "app/Console/Commands/AtlasAaeosCycleCommand.php",
+    "app/Console/Commands/AtlasAaeosScorecardCommand.php",
+    "app/Console/Commands/AtlasAaeosCertifyCommand.php",
+    "app/Console/Commands/AtlasCliCockpitCommand.php",
+    "app/Console/Commands/AtlasAaeosRouterCommand.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Aaeos/Control/AaeosIntentCompiler.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionVerdict.php",
+    "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php",
+    "app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php",
+    "docs/engineering-knowledge-base/atlas-cli-daily-map.md",
+    "docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P0.json",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md"
+  ],
+  "touched_paths": [
+    "app/Console/Commands/AtlasAaeosCertifyCommand.php",
+    "app/Console/Commands/AtlasAaeosCycleCommand.php",
+    "app/Console/Commands/AtlasAaeosRunCommand.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionVerdict.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Aaeos/Control/AaeosIntentCompiler.php",
+    "app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php",
+    "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+    "docs/engineering-knowledge-base/atlas-cli-daily-map.md",
+    "tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php"
+  ],
+  "deleted_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosOperateScorecardProjector.php"
+  ],
+  "foreign_wip_left_untouched": [
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/cycle-workflow.mjs",
+    "docs/prompts/atlas-aaeos-mt-improve-AGENDA-COPY.md"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Dry cycle receipt reported a runtime or evidence write before P0 honesty behavior.",
+      "output_fingerprint_or_ref": "red_sha256:d873ded6df1ce511340442568dc62c1e48485a74a2e6b7aa6805f3ecb2011737;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Invalid mode was classified as sovereign halt rather than repair_required.",
+      "output_fingerprint_or_ref": "red_sha256:8247cd0364ff5eca56128d8c2604993c64c31fc0feaed0cdbac58cc51a684b7c;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosMeasuredScorecardTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Absent measurements were represented by static score values and could mint a success composite.",
+      "output_fingerprint_or_ref": "red_sha256:5f4e955a788cbd3120b9c18e6ae51ad376c9cbcc67f42613370b0fbd87b669f1;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Empty measurement input did not remain unknown or null in the scorecard projection.",
+      "output_fingerprint_or_ref": "red_sha256:5ebe7b7fd588750178a1c30df3c51da699bee1d3ac136fcd3cc89c0caa615342;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosHumanLoopFieldRetirementTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Certification or receipt assembly still treated the human-loop field as authoritative.",
+      "output_fingerprint_or_ref": "red_sha256:94a4ea76dc8712ebf8146dad67519a5343abc26d0878d40de7442983deeb689e;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Run and cycle ports did not share the required dry and dispatch-failure semantics.",
+      "output_fingerprint_or_ref": "red_sha256:a730893f26533d223d90ef211eaec2d36f1955312193d9530bac06d677f07b45;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "A dry CLI path invoked AaeosCycleOutcomeRecorder::record.",
+      "output_fingerprint_or_ref": "red_sha256:ead2353c95e514c5c27e0d42ed965f8f1ef1af96c072384297e4f961482e7576;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosIrreversibilitySuspicionCharacterizationTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Regex suspicion was not isolated as a non-authoritative flag.",
+      "output_fingerprint_or_ref": "red_sha256:1abdb08368873d6a5ba318e5278a70471ccdb6fc07fb3940d73b887e8419843f;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Dry control-plane execution still reported a runtime write.",
+      "output_fingerprint_or_ref": "red_sha256:d00c5ea433ce0ffa57c2f4ea86d3ef4327cff6836e73c8687145a14b54e8602d;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Cycle command dry and failure behavior did not satisfy the P0 port contract.",
+      "output_fingerprint_or_ref": "red_sha256:b48c5319d7c3ec664637d0420b6c5f80668e2fce456a6abd7a93e3a489875a4e;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Run command lacked the required dry JSON and non-zero failure semantics.",
+      "output_fingerprint_or_ref": "red_sha256:7d8a235599631c5409290d3c98b188f3b30e62dbde3c02e54b5c244ececb606b;green_ref:controller-verification/aaeos-p0-green-suite"
+    },
+    {
+      "path": "tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosGodSotaCertificationTest.php --no-coverage",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_failure_reason": "Certification accepted static score injection or a human-loop condition as green evidence.",
+      "output_fingerprint_or_ref": "red_sha256:f269a8db139f09577821dbe15abc7f343e4a1c03f88e19ed42b77a6e3b33a0fc;green_ref:controller-verification/aaeos-p0-green-suite"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "controller-verification/aaeos-p0-baseline-43-tests-198-assertions-exit-0",
+    "controller-verification/aaeos-p0-certify-before-exit-0-static-god-sota",
+    "controller-verification/aaeos-p0-scorecard-before-exit-0-static-god-sota",
+    "controller-verification/aaeos-p0-green-suite-40-tests-133-assertions-exit-0",
+    "controller-verification/aaeos-p0-run-dry-exit-0-rwp-false-evidence-skipped-effect-none",
+    "controller-verification/aaeos-p0-cycle-dry-exit-0-rwp-false-evidence-skipped-effect-none",
+    "controller-verification/aaeos-p0-empty-measurement-scorecard-certify-unknown-nonzero-absent",
+    "controller-verification/aaeos-p0-operate-scorecard-consumer-census-zero"
+  ],
+  "exit_checklist": {
+    "no_aaeos_run_application_created": true,
+    "run_and_cycle_call_cycle_runtime_only": true,
+    "dry_runtime_write_performed_false": true,
+    "dry_cli_ports_never_call_outcome_recorder": true,
+    "dispatch_failed_and_repair_required_nonzero_both_ports": true,
+    "runtime_write_performed_is_derived": true,
+    "invalid_mode_is_repair_required": true,
+    "authoritative_human_loop_readers_absent": true,
+    "no_static_9_2_or_vanity_god_sota": true,
+    "regex_suspicion_only": true,
+    "operate_scorecard_projector_deleted_after_zero_consumer_census": true,
+    "ledger_untouched_or_read_only_measurement_scope": true,
+    "implementation_commit_is_non_self_referential": true,
+    "ledger_measurement_reader_red_and_green_recorded": true,
+    "p0_evidence_draft_updates_ledger_and_scoreboard": true,
+    "p0_preflight_foreign_wip_untouched": true
+  },
+  "residuals_closed": [
+    "P0 false dry-write claims",
+    "P0 static score and vanity certification claims",
+    "P0 authoritative human-loop certification field",
+    "P0 invalid_mode sovereign classification",
+    "P0 run/cycle dry OutcomeRecorder invocation",
+    "P0 obsolete OperateScorecardProjector after zero-consumer census"
+  ],
+  "residuals_still_open": [
+    "Evidence COMMIT 2 is intentionally pending independent existing-ledger review events and controller committed-tree validation; this is not a product residual."
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "sha256": "6ab8140e14fdc00e791366c61df3e23cc22b9332f96d97f965048aeb99990e0f",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "ledger_content_sha256": "c63d1fc31f6001e4cc13013c4591a8799108626f0dc32444480e323a80cacd6e",
+    "scoreboard_content_sha256": "cf7165f72f6eb141a41c0b88aca935043bda6435a056a90b4f9015df703dd0a8"
+  },
+  "review_attestation_refs": [
+    {
+      "ledger_event_id": "01KY92SWJAMJTZ86PY8MDF0TQV",
+      "event_hash": "2297a8adcb3adc61b9a7f43f33c9f0dbbc8df781c59b63634b5acb92d3781f82",
+      "payload_hash": "a888b0e326e8453c647ae235e6d08bd3e7213b017fbeb7bfded50dcff60f5252",
+      "role": "specification",
+      "review_basis_sha256": "6ab8140e14fdc00e791366c61df3e23cc22b9332f96d97f965048aeb99990e0f"
+    },
+    {
+      "ledger_event_id": "01KY92SCJ8899G189MBCAF65HC",
+      "event_hash": "f63a74c7d98361de2337cde43d9063eddcc9925886a955928b13fe52b9283310",
+      "payload_hash": "645b88675f2968514ada84d868ef3055fc41132393c0d14e0ec94a598585f664",
+      "role": "governance_quality",
+      "review_basis_sha256": "6ab8140e14fdc00e791366c61df3e23cc22b9332f96d97f965048aeb99990e0f"
+    }
+  ],
+  "next_phase_authorized": {
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": true,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P0 implementation proof is GREEN. This is a pre-COMMIT-2 draft: no review event, evidence-commit SHA, or next-slice activation is asserted. P0.0 captured the two listed untracked foreign paths and no staged path; subsequent concurrent foreign WIP is outside that historical capture and absent from the P0 implementation commit."
+}
