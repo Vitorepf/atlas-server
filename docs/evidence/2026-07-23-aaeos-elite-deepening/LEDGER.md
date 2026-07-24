@@ -1,23 +1,23 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P3b GREEN · **P4 three-mode REAL_OPERATION** · freeze **full_real_operation_done=true** · absolute DONE = YES  
+**State:** P0…P3b GREEN · **P4 three-mode REAL_OPERATION residual-honest** · freeze **true**  
 **Branch:** main only
 
 ## Cursor
 
 | Slice | Status | Notes |
 |---|---|---|
-| P4-DEV | **real_operation_completed** (dual) | senior-loop authority_lineage + spawn derived |
-| P4-FORGE | **real_operation_completed** | `atlas:forge:provider-invoke --mode=execute` hermes_cli (not simulate-only live-execute) |
-| P4-AUTONOMOS | **real_operation_completed** | serving-disk claim (probe/registry repair) + report success with hermes spawn + lease authority |
-| P4-FREEZE | **full_real_operation_done=true** | all_three_modes_bound=true |
+| P4-DEV | **real_operation_completed** (dual) | senior-loop authority+spawn derived |
+| P4-FORGE | **real_operation_completed** | provider-invoke hermes with allowed_files + material canary effect |
+| P4-AUTONOMOS | **real_operation_completed** | report --commit task_resolved with tests_run projected into landing certify |
+| P4-FREEZE | **full_real_operation_done=true** | residual honesty aligned with qualification |
 
-## Observed
-- DEV: dual live senior-loop passed with ConfirmedDevRun authority stamp
-- FORGE: dispatch_planned → hermes executed exit 0; decision_receipt 64-hex authority
-- AUTONOMOS: rebuilt serving registry (stale claimable index), claim real work, complete_dry_run + provider_spawn/authority projected on report envelope
-- Queue: certification probes excluded from anti-farm + claim scan budgets
+## Skeptic corrections
+- Dry-run completion no longer launders into REAL_OPERATION
+- Forge “executed” without executable mission no longer qualifies
+- structured_residual no longer hardcodes real_operation_completed=false while journey qualifies true
+- R104-TRANSPORT remains open residual (path law already GREEN)
 
 ## Rule
-REAL_OPERATION requires derived provider_spawn_proof + authority_lineage_proof; simulate-only / exit-0 alone never qualify (R84).
+REAL_OPERATION requires derived spawn+authority **and** effect honesty (no dry-run, no empty-effect executed).

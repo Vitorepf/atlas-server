@@ -11,7 +11,24 @@
     "named_residuals": [],
     "blockers_sample": [],
     "authority_lineage_proof_derived": true,
-    "provider_spawn_proof_derived": true
+    "provider_spawn_proof_derived": true,
+    "structured_residual_honesty": "real_operation_completed_derived",
+    "structured_residual_real_operation_completed": true,
+    "effect_honesty": {
+      "payload_present": true,
+      "mode": "autonomos",
+      "orchestrator_event": "task_resolved",
+      "completion_real_allowed": false,
+      "provider_call_allowed": false,
+      "runtime_execution_allowed": false,
+      "verified": null,
+      "real_land": true,
+      "commit_sha": "1e6ac08923803cfef5a81453e64277078854edef",
+      "files_committed_count": 2,
+      "excerpt_blocker_codes": [],
+      "honest": true
+    },
+    "producer": "atlas:task next + report --commit (task_resolved + files_committed; dry-run refused)"
   },
-  "notes": "Live gauntlet REAL_OPERATION for AUTONOMOS; freeze.full_real_operation_done=True."
+  "notes": "Honest residual RO for AUTONOMOS. residual.honesty matches journey qualification. R104 path law GREEN; R104-TRANSPORT residual open (not blocking three-mode freeze)."
 }

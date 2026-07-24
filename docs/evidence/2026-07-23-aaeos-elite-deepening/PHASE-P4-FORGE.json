@@ -11,7 +11,24 @@
     "named_residuals": [],
     "blockers_sample": [],
     "authority_lineage_proof_derived": true,
-    "provider_spawn_proof_derived": true
+    "provider_spawn_proof_derived": true,
+    "structured_residual_honesty": "real_operation_completed_derived",
+    "structured_residual_real_operation_completed": true,
+    "effect_honesty": {
+      "payload_present": true,
+      "mode": "forge",
+      "orchestrator_event": null,
+      "completion_real_allowed": null,
+      "provider_call_allowed": null,
+      "runtime_execution_allowed": null,
+      "verified": null,
+      "real_land": false,
+      "commit_sha": null,
+      "files_committed_count": 0,
+      "excerpt_blocker_codes": [],
+      "honest": true
+    },
+    "producer": "atlas:forge:provider-invoke --mode=execute (hermes; non-simulate; material effect required)"
   },
-  "notes": "Live gauntlet REAL_OPERATION for FORGE; freeze.full_real_operation_done=True."
+  "notes": "Honest residual RO for FORGE. residual.honesty matches journey qualification. R104 path law GREEN; R104-TRANSPORT residual open (not blocking three-mode freeze)."
 }
