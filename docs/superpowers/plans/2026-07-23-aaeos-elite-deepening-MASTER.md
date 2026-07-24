@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v15 — cycle-8 operator-experience/anti-Goodhart convergence; six OneShot/product invariants merged, zero new IDs or organs
+> Version: v16 — cycle-9 adversarial security convergence; authority, provenance, resource, filesystem, Ledger and recovery invariants deepened, zero new IDs or organs
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -637,6 +637,20 @@ Cycle 8 applied thirteen lenses to cognitive load, Dev live intent, Forge planni
 
 Zero new notification, learning, attention, fan-out, marketing or claim service is authorized.
 
+### 7.13 v16 cycle-9 adversarial security convergence — zero new residual IDs
+
+Cycle 9 applied thirteen abuse lenses to tenant/confused-deputy identity, delegated capability replay, secret egress, filesystem races, command/environment injection, provider-result forgery, Ledger tamper/truncation, PostgreSQL role/restore integrity, executable/dependency supply chain, resource exhaustion, instruction/memory poisoning, multi-engine dirty-main ownership and incident/compensation recovery. The anti-dup judge rejected every R104+ proposal and merged the security obligations into existing owners:
+
+- R52–R54/R59/R70/R75/R77/R78/R83/R84/R86/R101/R102: authenticated tenant/principal/mode/producer are signed and fail-unknown; child authority validates the complete acyclic ancestor chain, cascades revocation and atomically consumes parent nonce/budget. Workspace identity binds root, device/inode, tenant, workspace id and base SHA; operation-time no-follow checks plus base-blob/exact-delta observation defeat symlink, hardlink, index and foreign-hunk races.
+- R53/R63/R77/R78/R84/R87/R101: provider, tool and process boundaries accept structured argv only; canonical executable realpath/version/hash plus interpreter/script and installed dependency materialization are rechecked immediately pre-exec under a clean allowlisted environment. Secret refs are signed names, resolved only at the final process boundary, and the provider-egress census covers prompt/context/argv/cwd/env/stdin/stdout/stderr/exceptions/artifacts/Ledger/API without recording raw values.
+- R54/R62/R66/R68/R75/R78/R80/R82/R83–R85/R87/R88/R101/R103: provider consultation, observer-minted spawn, result and EngineeringOutcome sets must be equal; provider text cannot certify its own success. Ledger v2 has one exact full-envelope hash and verifies an independently authenticated cutoff/head/position/count, refusing empty, prefix/suffix-truncated, forked, spliced, stale or anchor-missing histories. PostgreSQL proof asserts actual session/current role and grants, forbids role escalation, and includes a real dump/restore refusal drill.
+- R53/R69/R77/R79/R83/R86/R87/R101: one signed root ceiling atomically reserves and reconciles tokens, cost, wall/context and concurrent spawns across children, retries, handoffs and restart. Governance absence/error is `unknown` with zero mutative/qualifying spawn; useful repair is allowed until the root ceiling is honestly exhausted, then one precise adverse terminal is emitted.
+- R53/R77/R78/R82/R85/R89/R101: instruction provenance and precedence are server-owned and signed. Conversation turns, compactions, retrieval, memory, provider handoffs, tool output and artifacts remain cited data; promotion preserves origin/content hash, signer/reviewer, supersession head and `instruction_allowed=false`, so echo, encoding, stale memory or self-citation cannot mint authority.
+- R52/R53/R57/R70/R75/R78/R79/R83/R103: AOBG blackboard claims remain advisory and fail-open for coordination, never execution authority. The native lease, allowed write-set, base/index/worktree and exact preimage→postimage delta are recomputed under the existing integration/commit lock; overlapping or unattributed dirty content refuses while disjoint work proceeds.
+- R23/R65/R75/R77/R80/R83/R84/R90/R94/R97: incident handling first revokes/inhibits authority and descendants, then appends original effect, compensation attempt, late settlements and residual uncertainty to the same causal Ledger fold. Compensation never rewrites history or resurrects DONE; current claims remain stale/false until new independent certification.
+
+No new security gateway, budget meter, prompt-policy service, ownership store, incident store, signer, Ledger or verifier is authorized.
+
 ## 8. Single implementation plan
 
 Every phase begins with branch/status, current hash, dirty ownership, residual revalidation and RED characterization. Every commit is scoped. No phase may absorb the next phase. The production and test path lists below are authorization manifests, not examples: `*`, “if needed” and unnamed native owners are forbidden. If a RED proves that an unlisted path must change, execution stops and this MASTER is amended before that path is edited.
@@ -827,12 +841,15 @@ Exit:
 - authorization is replayed before commit under the relevant lock;
 - provider/model/tool argv/cwd/env/timeout and canonical repo-relative paths match the signed server-owned authorization at every boundary;
 - the signed basis explicitly binds provider/model-family allowlist, tool id/version and argv schema, cwd/workspace identity, environment-name allowlist with secret refs rather than secret values, timeout, canonical realpaths/target, effect budget and nonce;
+- only structured argv reaches a canonical absolute executable whose realpath, version, SHA-256, interpreter/script digest, lockfile and installed dependency/autoload materialization are rechecked immediately before spawn; shell/response-file/option smuggling and loader/control environment variables are denied by default;
+- workspace mutation rechecks root device/inode, tenant/workspace id, base SHA, no-follow target ancestry, index/worktree and the authorized base-blob/exact patch under the existing lock; symlink/hardlink swaps, foreign hunks or unattributed dirty entries refuse before staging/effect;
+- secret refs are signed names and resolve only at the final process boundary under a mandatory clean-baseline allowlist; raw values never enter authorization, receipts or provider-bound evidence, and rotation/revocation forces fresh resolution;
 - `commitAuthority=operator` or a caller actor/observer string never authorizes effect;
 - landed and settlement events bind order, decision, lease/fencing, candidate, write-set and outcome;
 - mismatch receives zero claim credit and triggers the existing rollback/settlement path;
 - external effects remain unsupported and blocked.
 - `attachPath` may set `is_redacted=true` only for a canonical in-root, symlink-safe redacted copy whose stored hash/size/preview bind the transformed bytes; raw or untransformable artifacts are refused or explicitly unredacted, non-provider-bound and non-qualifying.
-- provider coverage records actual spawn grain, is reconciled with independently emitted provider-result/EngineeringOutcome egress, and becomes `unknown` on write loss or mismatch; manager resolution is diagnostic, never a spawn denominator.
+- provider coverage records observer-minted actual-spawn grain and proves set equality across governance consult→spawn→provider result→EngineeringOutcome; provider output cannot self-certify success, and write loss/mismatch becomes `unknown` with zero qualifying credit. Manager resolution is diagnostic, never a spawn denominator.
 
 Slice P1b.3 — AAEOS projection:
 
@@ -874,6 +891,9 @@ Test paths:
 - tests/Unit/CodeGraph/CodeGraphWorkspaceAccessPolicyTest.php (existing; extend caller-widening negatives)
 - tests/Feature/Tools/AtlasToolEvidenceStoreArtifactRedactionTest.php (NEW)
 - tests/Feature/Ai/Runtime/AiToolProcessRunnerAuthorityBoundaryTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosProviderSpawnSetEqualityTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosFilesystemOperationIdentityTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosExecutableMaterializationAttestationTest.php (NEW)
 
 No AaeosActionEffectClassifier, SovereigntyPort, generic action registry or second ledger may be created.
 
@@ -896,6 +916,7 @@ P2a — evidence/outcome integrity:
 - implement the non-circular receipt-core/event binding and ordered journey manifest from R75/R80;
 - assign one transactional chain position/head under concurrent first writers and recompute event hash, predecessor and causal DAG rather than trusting caller time;
 - emit `atlas.ledger_event.v2` for new rows with a canonical full-envelope hash basis covering tenant/principal/receipt/trace/emitter/schema/time/position/predecessor/payload; v1 bytes remain dual-readable `legacy_unverified` and are never updated, rehashed or resigned;
+- verify that exact envelope against an independently authenticated tenant cutoff/head/position/count and anchor; empty, prefix/suffix-truncated, forked, spliced, stale, missing-anchor or alternative predecessor-omitting histories fail rather than becoming a shorter valid chain;
 - serialize even the empty-chain first append with an existing PostgreSQL transaction/advisory lock and unique `(tenant_id, chain_key_hash, chain_position)`; install a PostgreSQL runtime-role guard that refuses `UPDATE`/`DELETE` after the migration/backfill window, without a head table or outbox;
 - bind every EngineeringOutcome status to authority;
 - expand `atlas.engineering_outcome.v3` before any adverse writer cutover; require stable `failure_reason_code` plus precise `failure_reason` for adverse terminal outcomes; v2 bytes remain historical/read-only and are never inferred/backfilled;
@@ -914,9 +935,11 @@ P2a — evidence/outcome integrity:
   - tests/Feature/Ai/Aaeos/AaeosEngineeringOutcomeSchemaRolloutTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosJourneyStateMachinePropertyTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosJourneyManifestDagPropertyTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosLedgerTruncationCutoffTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosPostgresRestoreIdentityTest.php (NEW)
   - tests/Unit/Ai/EngineeringKernel/EngineeringOutcomeAdverseReasonTest.php (NEW)
 
-P2a.1 runs Ledger v2/tenant/role expansion and P2a.2 runs EngineeringOutcome v3 expand→dual-read→shadow before its canary writer. The required PostgreSQL contract command uses `ATLAS_ALLOW_LIVE_DB_TESTS=1` plus `ATLAS_TEST_PG_HOST`, `ATLAS_TEST_PG_PORT`, `ATLAS_TEST_PG_DATABASE`, `ATLAS_TEST_PG_USERNAME`, `ATLAS_TEST_PG_PASSWORD`; database must match the guarded `atlas_test_` prefix. Missing variables, SQLite, skipped tests, zero tests or a non-PostgreSQL backend fails the phase. Setup/migrate/test/teardown commands and queried backend/user/application identities are recorded in PHASE-P2A1; no secret value is recorded.
+P2a.1 runs Ledger v2/tenant/role expansion and P2a.2 runs EngineeringOutcome v3 expand→dual-read→shadow before its canary writer. The required PostgreSQL contract command uses `ATLAS_ALLOW_LIVE_DB_TESTS=1` plus `ATLAS_TEST_PG_HOST`, `ATLAS_TEST_PG_PORT`, `ATLAS_TEST_PG_DATABASE`, `ATLAS_TEST_PG_USERNAME`, `ATLAS_TEST_PG_PASSWORD`; database must match the guarded `atlas_test_` prefix. Missing variables, SQLite, skipped tests, zero tests or a non-PostgreSQL backend fails the phase. Setup/migrate/test/teardown commands and queried backend/user/application identities are recorded in PHASE-P2A1; no secret value is recorded. The contract asserts `session_user`, `current_user`, active role, application/backend identity and effective grants, forbids `SET ROLE`, ownership, superuser and `BYPASSRLS`, then performs a real dump→fresh-restore→replay drill through a separate ephemeral setup role; the verifier is never broadened and stale, truncated or wrong-identity restoration refuses.
 
 P2b — independence and sovereignty receipts:
 
@@ -935,6 +958,8 @@ P2b — independence and sovereignty receipts:
   - app/Services/Ai/Memory/AtlasMemoryLearningPromotionService.php
   - app/Services/Ai/Compounding/AtlasHeldEvidenceMinerService.php
   - app/Services/Ai/AtlasOpenBrainContextPackService.php
+  - app/Services/Ai/Context/AiConversationContextBuilder.php
+  - app/Services/Ai/Context/AiContextPackBuilder.php
   - app/Services/Ai/Kernel/Decision/Reversibility/ReceiptReversibilityConsentGate.php
   - app/Services/AtlasCode/HumanDecisionReceiptSigner.php
   - app/Services/Ai/EngineeringKernel/Spec/SpecSourceIndependence.php
@@ -951,17 +976,18 @@ P2b — independence and sovereignty receipts:
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php
   - app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php
   - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
-- use principal_id, capability_id/version, issuer_key_id and producer path from trusted issuance;
+- use authenticated tenant_id, principal_id, mode, capability_id/version, issuer_key_id and producer path from trusted issuance; missing or placeholder identities such as `default`/`system` refuse every authority-bearing boundary;
 - prevent the same capability from minting author + judge + governor;
 - reuse/promote the existing Ed25519 signer/verifier into the Decision owner;
 - sign every authority-bearing payload field listed in §5.1 and fail closed when receipt/revocation head is absent, stale or mismatched;
 - resolve issuer_key_id through the trusted keyring; bind model-family from trusted issuance; enforce the Decision v3 dual-read/canary/contract rollout and mixed-worker block-before-effect matrix;
 - `AtlasDecideService` and the refresh writer issue canonical `receipt_v3`; immutable `receipt_v2` remains a historical read alias only. Runtime guard dispatches by schema and boundary (`read_projection|provider|tool|sandbox|effect`): missing/unknown/newer/v2 at a mutative boundary fails before work;
 - writer rollout is `legacy|shadow|canary|v3`, starts legacy, vetoes on any shadow contradiction, rolls back the writer without changing persisted v2/v3 bytes, and contracts only after old-worker drain;
-- child authority equals the intersection of the current parent ceiling and server-resolved action; it binds mode/deputy/owner/root/target/action/nonce, and parent revoke/supersede/expire cascades at mint and immediately pre-effect;
+- child authority equals the intersection of the current parent ceiling and server-resolved action; it binds tenant/mode/deputy/owner/root/target/action/nonce, validates the complete acyclic signed ancestor chain at mint and immediately pre-effect, atomically consumes the parent budget/nonce across siblings, and cascades any ancestor revoke/supersede/expire;
 - AWIS receives the signed native mode unchanged; `dev|forge|autonomos` mutative surfaces are explicit, unknown is fail-closed, and TaskServing cannot present Autônomos as Dev or downgrade it to conversation;
 - wire the existing ReceiptReversibilityConsentGate only for true H3/unrecoverable effects;
-- derive scoped ephemeral capabilities mechanically inside an active authority ceiling.
+- derive scoped ephemeral capabilities mechanically inside an active authority ceiling;
+- make instruction provenance an authority field with signed precedence: system/operator/Decision instructions are distinct from conversation, compaction, retrieval, memory, provider and tool/artifact data. Unknown/foreign sources refuse provider/effect, and memory promotion/recall preserves origin/content hash, signer/reviewer, supersession and `instruction_allowed=false` instead of upgrading quoted or echoed data.
 
 P2b is five serial checkpoints over the same owners: EXPAND, SHADOW, CANARY, CUTOVER and CONTRACT. Each has its exact receipt and scoped commit. P1b.1 may begin only after CUTOVER is green and all active mutative consumers understand/refuse v3 correctly; CONTRACT waits for measured old-worker drain and can occur later, but is mandatory before P4. Rollback changes only writer selection and never rewrites authority bytes.
 - Test paths:
@@ -984,6 +1010,8 @@ P2b is five serial checkpoints over the same owners: EXPAND, SHADOW, CANARY, CUT
   - tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php (existing; extend)
   - tests/Feature/Ai/Aaeos/AaeosAwisModeIdentityParityTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosAuthorityAncestorChainTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosInstructionProvenanceTest.php (NEW)
 
 P2c — unattended durability:
 
@@ -1014,6 +1042,7 @@ P2c — unattended durability:
   - app/Services/Ai/Programming/Forge/ForgeLongHorizonStateService.php
   - app/Services/Ai/Programming/Forge/ForgeScopeReservationService.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
+  - app/Services/Ai/Programming/AtlasForgeProviderProcessRunner.php
   - database/migrations/2026_07_23_231000_harden_ai_forge_execution_atomicity.php (NEW; after Ledger/Decision expansion)
 - add a RED stale-resume/revocation test first;
 - bind the exact authority ref/hash/revision from native origination through packet and lease without remint;
@@ -1022,6 +1051,7 @@ P2c — unattended durability:
 - make Dev's existing RepairOrchestrator the retry owner through the productive KernelRunExecutor/AtlasDevExecutionService chain; persist prepared/observed attempts in existing ReceiptStorage; SeniorEngineerLoopExecutor owns the journey;
 - eliminate routine `human_action_required`, `needs_review` and operator-next exits: 0..N technical failures route from the exact failure capsule through RepairOrchestrator, back through the same Court, under one DevIntent/ConfirmedDevRun + Decision v3 revision/root/budget until accepted or precisely exhausted;
 - derive remaining retry/tick budget from the canonical signed journey manifest; caller snapshots, new tick ids, handoffs or successor episodes cannot reset consumed burn, and only an authenticated sovereign authority event may add incremental budget;
+- atomically reserve and reconcile cumulative root tokens, cost, wall/context and active-spawn capacity under the existing lease/effect lock across siblings, retries, handoffs and restarts; governance unavailable/error means `unknown` and zero mutative/qualifying spawn, while exhaustion yields one precise `resource_budget_unavailable|resource_budget_exhausted` adverse terminal rather than a retry storm;
 - default to one candidate/worker; fan-out requires server-observed disjoint/decomposable width plus signed budget headroom, binds every child to parent consumed burn, and deduplicates semantically equivalent candidate hashes before provider use;
 - after a Dev root or sealed Forge Obra is acknowledged, client/terminal disconnect is not cancellation: fresh-process recovery continues to one terminal result without `--yes`, ship/reject, status answer or `atlas continue`; later attach is read-only audit;
 - reconcile commit→queue→lease/report and lease-file→derived-registry crash splits before accepting another claim/effect;
@@ -1054,6 +1084,8 @@ P2c — unattended durability:
   - tests/Feature/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeSchedulerIntegrationTest.php (created in P1a; extend restart/empty-queue proof)
   - tests/Feature/Ai/Aaeos/AaeosPublicClientDetachContinuationTest.php (NEW; direct+routed Dev/Forge)
   - tests/Feature/Ai/Aaeos/AaeosSignedFanoutBudgetInvariantTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosRootResourceBudgetConcurrencyTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosMultiEngineDirtyMainIsolationTest.php (NEW)
   - tests/Feature/Ai/Aaeos/ForgeWorkPacketExecutionCycleMigrationTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosLedgerJourneyMigrationTest.php (NEW)
 
@@ -1314,9 +1346,9 @@ In the producer profile, plan-only, blocked, partial, unknown, failed, missing-f
 
 PHPUnit, SQLite `:memory:`, fixtures, fake providers and simulate-only services may test readers/invalidators but may not create, copy or promote qualifying receipts. A second OS process with a new boot identity, code SHA and read-only PostgreSQL credential runs a strictly read-only certifier against a terminal cutoff/snapshot; it has no provider, tool, workspace-write or Ledger-append capability. Cockpit is optional fail-open presentation and never a verifier. The real command line, environment attestation, workspace base/result SHA, DB/backend/session identity hash, producer PID/boot ref, provider/tool receipt and exit code are recorded.
 
-The exact P4 DB profile is resolved through `ATLAS_P4_PG_PRODUCER_URL` and `ATLAS_P4_PG_VERIFIER_URL` in `config/database.php`; secrets are never copied into receipts. Setup refuses a database outside the `atlas_p4_` prefix, creates distinct PostgreSQL users/application names, migrates with the producer role, grants only required runtime rights, makes Ledger append-only for that role, and enforces `default_transaction_read_only=on` plus SELECT-only for the verifier. Before certification, negative assertions prove verifier DML/DDL/Ledger append fail and that the certifier has no provider/tool/workspace capability. Teardown revokes both ephemeral roles. Missing URLs, same user/session/application identity, excessive grants, skipped assertions or teardown failure keeps P4 incomplete.
+The exact P4 DB profile is resolved through `ATLAS_P4_PG_PRODUCER_URL` and `ATLAS_P4_PG_VERIFIER_URL` in `config/database.php`; secrets are never copied into receipts. Setup refuses a database outside the `atlas_p4_` prefix, creates distinct PostgreSQL users/application names, migrates with the producer role, grants only required runtime rights, makes Ledger append-only for that role, and enforces `default_transaction_read_only=on` plus SELECT-only for the verifier. Before certification, negative assertions prove verifier DML/DDL/Ledger append fail, `SET ROLE`/owner/superuser/`BYPASSRLS` are absent, session/current identities match the attested roles, and the certifier has no provider/tool/workspace capability. A separate ephemeral setup role performs a real dump into a fresh database; the unchanged read-only verifier must replay the exact authenticated cutoff/head/position/count, while stale/truncated/wrong-role restores refuse. Teardown revokes all ephemeral roles. Missing URLs, same user/session/application identity, excessive grants, skipped assertions or teardown failure keeps P4 incomplete.
 
-The invalidator matrix is not subtract-one only: it also replaces, splices, reorders and replays fixture labels, roots, modes, workspaces, attempt refs, provider/tool refs, environment attestations and stale/same-process receipts. Every mutant returns non-zero with a precise failure_reason and causes zero additional effect.
+The invalidator matrix is not subtract-one only: it also replaces, splices, truncates, reorders and replays fixture labels, roots, modes, workspaces, attempt refs, provider/tool refs, instruction provenance, dependency/executable digests, environment attestations, Ledger cutoff/head/position/count and stale/same-process receipts. Every mutant returns non-zero with a precise failure_reason and causes zero additional effect.
 
 P4 exit status is `aaeos_mt_real_journey_verified` only when all three mode journeys qualify. The separate derived UX label `operator_experience=oneshot` requires one commissioning episode, complete event capture and zero routine technical request/action; any allowed intent clarification is typed and enumerated, while Autônomos remains strict zero-touch. Sustained and comparative remain `not_claimed` unless their separate evidence actually exists.
 
@@ -1327,6 +1359,7 @@ Freeze:
 - archive predecessor receipts as historical;
 - retain zero Quarantine/ACDE imports;
 - recompute current claim through every event after the freeze cutoff: open effect/release uncertainty, canary failure, revocation, compensation/revert, fork/tamper or artifact drift makes current DONE false/stale until re-certified, without rewriting historical terminals;
+- on incident, append revoke/inhibit before compensation, block descendant/new effects, retain the original observed effect and record compensation/late-settlement/residual-uncertainty edges; even a successful revert cannot restore DONE without a new independent certification;
 - set SCOREBOARD from that current replay, not prose or frozen booleans.
 
 ## 9. Verification and evidence discipline
@@ -1462,7 +1495,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | 6 | v12 | 13 lenses: formal state/terminal; property/model; Byzantine independence; failure taxonomy; proof lattice; tenant/workspace isolation; secrets/privacy; supply chain/sandbox; incident recovery; phase DAG; exact PG/live profiles; compatibility/deletion; OneShot/public acceptance — plus anti-dup judge | accepted five hard strengthenings into R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected all proposed R104+ and all new privacy/identity/credential/incident/proof stores | v13 |
 | 7 | v13 | 13 lenses: complete Dev, Forge, Autônomos; direct/routed parity; 0..N repair; crash cutpoints; PostgreSQL races; authority TOCTOU; budget across restart; real producer/certifier; operator census; scheduler cold-start; freeze/late invalidation — plus anti-dup judge | accepted six journey/recovery/freeze strengthenings into existing residuals; rejected every R104+ and any new scheduler/worker/reporter/repair/verifier/freeze store | v14 |
 | 8 | v14 | 13 lenses: cognitive load, Dev live intent, Forge planning boundary, Autônomos zero-touch, daily entry, cockpit/inbox, H1–H7 UX, elective controls, elapsed status, n=1/fan-out, learning, public help/API, ambition/claims — plus anti-dup judge | accepted six operator-experience/anti-Goodhart strengthenings into existing residuals; rejected every R104+ and new notification/learning/attention/fan-out/marketing/claim owner | v15 |
-| 9 | current | pending | pending | pending |
+| 9 | v15 | 13 lenses: tenant/confused deputy; capability replay/revocation; secret egress; filesystem races; command/env injection; provider forgery; Ledger tamper/truncation; PostgreSQL role/restore; executable/dependency supply chain; resource exhaustion; instruction/memory poisoning; multi-engine dirty-main; incident/compensation — plus anti-dup judge | accepted seven security clusters into existing authority/evidence/resource/context/commit/recovery residuals; rejected every R104+ and new security gateway, budget/prompt/ownership/incident store, signer, Ledger or verifier | v16 |
 | 10 | current | pending | pending | pending |
 
 ## 13. Changelog
@@ -1481,6 +1514,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | v13 | cycle-6 convergence with zero new residual IDs: EngineeringOutcome v3 rollout, tenant-safe Ledger, caller-narrow-only CodeGraph sovereignty, truthful artifact redaction and exact PostgreSQL producer/verifier roles deepen existing owners; formal terminal/permutation/claim-set semantics and serial rollout receipts added |
 | v14 | cycle-7 convergence with zero new residual IDs: Autônomos land-before-report, Forge Ledger-bound certification/forward driver, Dev single-root repair, strict producer/verifier separation, durable scheduler cold-start and globally invalidatable freeze deepen native owners |
 | v15 | cycle-8 convergence with zero new residual IDs: detached continuation, closed clarification/missing-intent contract, one causal H1–H7 schema, honest unknown elapsed/effort, signed n=1/fan-out budget and stale-aware conjunctive claims make OneShot executable at the operator surface |
+| v16 | cycle-9 adversarial security convergence with zero new residual IDs: tenant and transitive capability truth, operation-time filesystem/process integrity, observer-minted provider evidence, authenticated Ledger cutoffs, PostgreSQL restore/role proof, cumulative root budgets, instruction provenance, exact dirty-main deltas and revoke-before-compensate incident folds deepen existing owners |
 
 ## 14. Handoff
 

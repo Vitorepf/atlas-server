@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
-**Current plan:** v15 — operator-experience/anti-Goodhart convergence with zero new residual IDs
+**Current plan:** v16 — adversarial security convergence with zero new residual IDs
 **State:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Code authorization:** absent; requires literal EXECUTE P0
@@ -21,7 +21,7 @@ v6 correctly separated engineering from sovereignty and rejected Mission Runtime
 - allowed critical authority residuals to become debt while still claiming DONE;
 - used one-shot language as if it could describe one technical attempt.
 
-v7–v15 replace those points with:
+v7–v16 replace those points with:
 
 - native owner chain and existing dispatcher interface;
 - PRE-AUTHORIZE → ACT → POST-ATTEST → SETTLE at concrete effect owners;
@@ -51,6 +51,9 @@ v7–v15 replace those points with:
 - strict public producer vs read-only certifier identity, durable scheduler cold-start and a global freeze invalidated by later incidents/drift.
 - detached Dev/Forge continuation after client exit, closed clarification/missing-intent semantics and one causal H1–H7 payload;
 - unknown elapsed/effort never imputed as zero, n=1/fan-out sharing the signed root budget, and public help/claims conforming to the same stale-aware contract.
+- signed tenant and complete ancestor authority, atomic root budgets and operation-time filesystem/process identity checks;
+- observer-minted provider evidence, authenticated Ledger cutoff completeness, effective PostgreSQL role plus restore proof and installed dependency materialization;
+- server-owned instruction provenance, native-lock dirty-main isolation and revoke-before-compensate incident folds that require independent recertification.
 
 ## OneShot invariant
 
@@ -130,7 +133,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | 6 | v12 | 13 formal/enterprise/buildability lenses plus anti-dup judge | accepted five hard strengthenings into existing R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected every R104+ and any new privacy/identity/credential/incident/proof store | v13 |
 | 7 | v13 | 13 complete-journey, recovery, producer/census/scheduler/freeze lenses plus anti-dup judge | accepted six strengthenings into existing mode/evidence residuals; rejected every R104+ and new scheduler/worker/reporter/repair/verifier/freeze store | v14 |
 | 8 | v14 | 13 operator/product/anti-Goodhart lenses plus anti-dup judge | accepted six strengthenings into existing OneShot/authority/economy/claim residuals; rejected every R104+ and new notification/learning/attention/fan-out/marketing/claim owner | v15 |
-| 9 | current | pending | pending | pending |
+| 9 | v15 | 13 adversarial security lenses across identity/delegation, egress, filesystem/process, provider/Ledger/DB/supply chain, resources, instruction provenance, dirty-main concurrency and incident recovery plus anti-dup judge | merged seven security clusters into existing residuals; rejected every R104+ and new security/budget/prompt/ownership/incident/signing/evidence organ | v16 |
 | 10 | current | pending | pending | pending |
 
 ## Changelog
@@ -149,6 +152,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | 2026-07-23 | v13 cycle-6 adds no residual IDs: EngineeringOutcome v3, tenant-safe Ledger, CodeGraph authority narrowing, truthful artifact redaction, exact PostgreSQL roles and serial rollout checkpoints deepen existing residuals; no code executed |
 | 2026-07-23 | v14 cycle-7 adds no residual IDs: native journey convergence, land-before-report, Forge/Dev continuation, strict producer/certifier, durable cold-start and late-invalidatable global freeze; no code executed |
 | 2026-07-23 | v15 cycle-8 adds no residual IDs: detached continuation, closed intent/clarification, causal H1–H7, honest unknown timing, signed n=1/fan-out and stale-aware claims; no code executed |
+| 2026-07-23 | v16 cycle-9 adds no residual IDs: transitive tenant-bound authority, exact process/filesystem/dependency identity, observer-minted provider sets, authenticated Ledger cutoff/restore, cumulative budgets, instruction provenance, dirty-main isolation and revoke-first incidents deepen existing owners; no code executed |
 
 ## Honest next state
 

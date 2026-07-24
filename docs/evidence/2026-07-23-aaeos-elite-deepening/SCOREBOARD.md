@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** v15
+**Plan:** v16
 **Program:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Measured composite:** null
@@ -163,6 +163,23 @@ No average, 9.x value or checkbox certifies this program.
 | absent timing/effort is null+unknown, never instant/free zero | FAIL | EngineeringOutcome/kernel writers |
 | default n=1; fan-out requires disjoint width + shared signed budget + pre-provider dedupe | NOT_PROVEN | ExecutionOrder/native scheduler/budget owners |
 | help/completion/API/presenters conform to one public intent contract and stale-aware claim set | FAIL | current public guidance and hardcoded graders diverge |
+
+## Cycle-9 (v16) adversarial security convergence — zero new residual IDs
+
+| Gate | State | Existing owner reused |
+|---|---|---|
+| authenticated tenant/principal/mode/producer; no default/system authority fallback | FAIL | Decision v3 + native lineage + AWIS (R53/R77/R78/R101/R102) |
+| complete acyclic ancestor validation, cascade revoke and atomic sibling nonce/budget | NOT_PROVEN | Decision issuer/guard + root budget/Ledger (R59/R77/R83/R86) |
+| operation-time no-follow workspace identity and exact preimage→postimage delta | FAIL | native lease + committer/merge actuator (R52/R70/R78/R83) |
+| structured argv, clean environment, executable/script/dependency materialization rechecked pre-exec | NOT_PROVEN | process/tool runners + Decision authority (R53/R78/R84/R101) |
+| secret refs resolve only at final process boundary; complete provider-egress census | NOT_PROVEN | AtlasSecurity + evidence/context/provider owners (R63/R77/R78/R87) |
+| observer-minted consult→spawn→result→Outcome set equality; provider cannot self-certify | NOT_MEASURED | ProviderGovernance coverage + EngineeringOutcome/Court (R66/R68/R84/R87/R88) |
+| exact Ledger envelope plus authenticated cutoff/head/position/count rejects truncation/fork/splice | NOT_PROVEN | AtlasEvidenceLedger + replay/certifier (R54/R75/R80/R83–R85) |
+| effective PostgreSQL role/grants and dump→fresh-restore replay | MISSING | P2/P4 producer/setup/verifier roles (R62/R80/R83–R85/R103) |
+| cumulative root tokens/cost/wall/context/concurrency survive retry/child/restart | NOT_PROVEN | signed root budget + native lease/settlement (R69/R77/R79/R83/R86) |
+| signed instruction provenance keeps conversation/memory/provider/tool content data-only | FAIL | Decision + context/memory/Open Brain owners (R53/R78/R82/R89/R101) |
+| blackboard remains advisory; native lock refuses overlapping/unattributed dirty content | NOT_PROVEN | native lease/fencing + scoped committer (R52/R57/R70/R78/R83) |
+| incident revokes first; compensation cannot restore current claim without recertification | NOT_PROVEN | Ledger + AuthorizedRevertAction + current-claim verifier (R75/R77/R80/R83/R90/R97) |
 
 ## OneShot operator experience
 
