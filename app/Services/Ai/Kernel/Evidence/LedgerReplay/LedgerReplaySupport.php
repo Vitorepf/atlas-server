@@ -4,6 +4,7 @@ namespace App\Services\Ai\Kernel\Evidence\LedgerReplay;
 
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 
 /**
@@ -1216,6 +1217,99 @@ class LedgerReplaySupport
                 'breach_rejection_rate' => $breachThreshold,
             ],
             'reasons' => $reasons,
+        ];
+    }
+
+    public function selfImprovementScheduleEventSummary(Collection $events): array
+    {
+        $latest = $events->last();
+        $issueCounts = $events->pluck('issues')->flatten()->filter()->countBy()->all();
+        $emittedInboxItemIds = $events
+            ->pluck('emitted_inbox_item_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $emittedInboxItems = $events
+            ->pluck('emitted_inbox_items')
+            ->flatten(1)
+            ->filter()
+            ->unique('id')
+            ->values()
+            ->all();
+        $missingInboxItemIds = $events
+            ->pluck('emitted_inbox_item_missing_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $warningCount = $events->filter(fn (array $event): bool => in_array($event['health_status'] ?? null, ['warning', 'disabled'], true)
+            || ($event['scheduler_status'] ?? null) === 'skipped'
+            || (int) ($event['invalid_flow_count'] ?? 0) > 0)->count();
+        $reviewSignal = $this->selfImprovementScheduleReviewSignal($events, $warningCount, $issueCounts);
+
+        return [
+            'schedule_observation_count' => $events->count(),
+            'envelope_count' => $events->pluck('envelope_id')->filter()->unique()->count(),
+            'health_status_counts' => $events->pluck('health_status')->filter()->countBy()->all(),
+            'scheduler_status_counts' => $events->pluck('scheduler_status')->filter()->countBy()->all(),
+            'issue_counts' => $issueCounts,
+            'warning_count' => $warningCount,
+            'completed_count' => $events->where('completed', true)->count(),
+            'emitted_count' => $events->sum(fn (array $event): int => (int) ($event['emitted_count'] ?? 0)),
+            'emitted_inbox_item_ids' => $emittedInboxItemIds,
+            'emitted_inbox_items' => $emittedInboxItems,
+            'emitted_inbox_item_hydration_available' => DatabaseTableAvailability::has('ai_inbox_items'),
+            'emitted_inbox_item_missing_ids' => $missingInboxItemIds,
+            'latest_health_status' => is_array($latest) ? ($latest['health_status'] ?? null) : null,
+            'latest_scheduler_status' => is_array($latest) ? ($latest['scheduler_status'] ?? null) : null,
+            'latest_plan_hash' => is_array($latest) ? ($latest['plan_hash'] ?? null) : null,
+            'latest_next_run_at' => is_array($latest) ? ($latest['next_run_at'] ?? null) : null,
+            'review_required' => $warningCount > 0,
+            'health' => [
+                'status' => $warningCount > 0 ? 'warning' : ($events->isEmpty() ? 'unknown' : 'ok'),
+                'reasons' => $warningCount > 0 ? array_keys($issueCounts + ['self_improvement_schedule_warning_observed' => 1]) : ($events->isEmpty() ? ['no_self_improvement_schedule_observations_in_window'] : []),
+            ],
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
+
+    public function selfImprovementScheduleReviewSignal(Collection $events, int $warningCount, array $issueCounts): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_self_improvement_schedule_observations_in_window'],
+                'recommended_action' => 'wait_for_next_self_improvement_cycle',
+            ];
+        }
+
+        if ($warningCount === 0) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => [],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        $reasons = array_keys($issueCounts + ['self_improvement_schedule_warning_observed' => 1]);
+        $hasSkippedScheduler = $events->contains(fn (array $event): bool => ($event['scheduler_status'] ?? null) === 'skipped');
+        $hasInvalidFlows = $events->contains(fn (array $event): bool => (int) ($event['invalid_flow_count'] ?? 0) > 0);
+        $severity = $hasSkippedScheduler ? 'high' : ($hasInvalidFlows || $warningCount > 1 ? 'medium' : 'low');
+
+        return [
+            'status' => 'warning',
+            'severity' => $severity,
+            'review_required' => true,
+            'reasons' => $reasons,
+            'recommended_action' => 'open_reviewable_self_improvement_schedule_proposal',
         ];
     }
 

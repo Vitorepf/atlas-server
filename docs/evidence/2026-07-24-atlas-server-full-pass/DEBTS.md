@@ -43,6 +43,7 @@
 - [x] AtlasLedgerReplayService SLO + repair summary/review → LedgerReplaySupport (22 unit green)
 - [x] AtlasLedgerReplayService agent/decision/inbox summary+review → Support (careful multi-arg; 22 unit green)
 - [x] AtlasLedgerReplayService kernel pipeline summary/health/review → Support (22 unit green)
+- [x] AtlasLedgerReplayService selfImprovement schedule summary/review → Support
 - [x] AtlasDecideService pure helpers → DecideProviderNormalization (confidence/quality/mode/research/task-type)
 - [x] AtlasDecideService operationalDecision stages (resolveSelection/buildExplanation/assemble; 39 unit green)
 - [x] AtlasDecideService executionGraph strategy peels (scout/council/single; 39 unit green)
