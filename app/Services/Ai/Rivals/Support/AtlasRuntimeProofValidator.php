@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Support;
 
+use App\Support\IsNonEmptyString;
 /** Structural verifier shared by receipt attachment and uplift comparison. */
 final class AtlasRuntimeProofValidator
 {
@@ -112,7 +113,7 @@ final class AtlasRuntimeProofValidator
 
     private function nonEmpty(mixed $value): bool
     {
-        return is_string($value) && trim($value) !== '';
+        return IsNonEmptyString::check($value);
     }
 
     private function readableStream(?string $runDir, string $relativePath): bool
