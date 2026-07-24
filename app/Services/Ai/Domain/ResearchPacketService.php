@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class ResearchPacketService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.research.packet.v1';
 
     public function __construct(
@@ -242,10 +244,4 @@ class ResearchPacketService
             'reason' => $reason,
         ];
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

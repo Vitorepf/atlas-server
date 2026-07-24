@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class WritingDraftService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.writing.packet.v1';
 
     public function __construct(
@@ -237,10 +239,4 @@ class WritingDraftService
             'reason' => $reason,
         ];
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

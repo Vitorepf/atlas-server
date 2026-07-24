@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class HealthReviewService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.health.packet.v1';
 
     public function __construct(
@@ -261,10 +263,4 @@ class HealthReviewService
 
         return array_values(array_unique($flags));
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

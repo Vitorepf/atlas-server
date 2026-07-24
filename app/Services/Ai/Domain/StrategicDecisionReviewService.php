@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class StrategicDecisionReviewService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.strategic_decision.review_packet.v1';
 
     public function __construct(
@@ -200,11 +202,6 @@ class StrategicDecisionReviewService
                 ])),
             ],
         ];
-    }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
     }
 
     private function impact(mixed $value): string

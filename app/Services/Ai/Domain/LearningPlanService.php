@@ -2,11 +2,6 @@
 
 namespace App\Services\Ai\Domain;
 
-use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyPromptBuilder;
-use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyResolver;
-use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
-use App\Services\Ai\Learning\WorkedExample\WorkedExampleRenderer;
-use App\Services\Ai\Learning\WorkedExample\WorkedExampleSelector;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DreyfusReceiptExtensionContract;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
@@ -14,10 +9,17 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Gates\PedagogyMatchesStageGate;
 use App\Services\Ai\Kernel\Gates\WorkedExampleAppropriateForStageGate;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyPromptBuilder;
+use App\Services\Ai\Learning\Dreyfus\DreyfusPedagogyResolver;
+use App\Services\Ai\Learning\WorkedExample\ProcessFadingScheduler;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleRenderer;
+use App\Services\Ai\Learning\WorkedExample\WorkedExampleSelector;
 use App\Services\Ai\Support\AiStringListNormalizer;
 
 class LearningPlanService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.learning.packet.v1';
 
     public function __construct(
@@ -405,10 +407,4 @@ class LearningPlanService
             'reason' => $reason,
         ];
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

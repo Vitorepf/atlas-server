@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class GeneralAnswerService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.general.packet.v1';
 
     public function __construct(
@@ -231,10 +233,4 @@ class GeneralAnswerService
             default => 'general',
         };
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

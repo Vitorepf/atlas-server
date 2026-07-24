@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class MarketingDraftService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.marketing.draft_packet.v1';
 
     public function __construct(
@@ -244,10 +246,4 @@ class MarketingDraftService
             default => ['brief' => true, 'review_packet_required' => true],
         };
     }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }

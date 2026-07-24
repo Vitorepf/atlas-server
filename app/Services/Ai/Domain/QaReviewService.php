@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 
 class QaReviewService
 {
+    use DomainInputNormalization;
+
     public const SCHEMA_VERSION = 'atlas.qa.packet.v1';
 
     public function __construct(
@@ -262,16 +264,4 @@ class QaReviewService
     /**
      * @param  array<string,mixed>  $packet
      */
-    private function risk(array $packet): string
-    {
-        $risk = strtolower((string) data_get($packet, 'brief.risk_class', 'medium'));
-
-        return in_array($risk, ['low', 'medium', 'high', 'critical'], true) ? $risk : 'medium';
-    }
-
-    private function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
 }
