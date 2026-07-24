@@ -6,7 +6,9 @@ use App\Providers\AtlasAcosWatchdogServiceProvider;
 use App\Providers\AtlasLegacyNamespaceAliasServiceProvider;
 use App\Providers\AtlasCompressionServiceProvider;
 use App\Providers\AtlasCrossDomainGraphServiceProvider;
+use App\Providers\AtlasMaestroPriorityServiceProvider;
 use App\Providers\AtlasMissionServiceProvider;
+use App\Providers\AtlasStewardshipBindingsServiceProvider;
 use App\Providers\AtlasProviderManagerWiringServiceProvider;
 use App\Providers\AtlasOrganismServiceProvider;
 use App\Providers\AtlasPatamar4ServiceProvider;
@@ -23,6 +25,8 @@ return [
     AtlasSwarmServiceProvider::class,
     AtlasPatamar4ServiceProvider::class,
     AtlasMissionServiceProvider::class,
+    AtlasMaestroPriorityServiceProvider::class,
+    AtlasStewardshipBindingsServiceProvider::class,
     AtlasCompressionServiceProvider::class,
     AtlasCrossDomainGraphServiceProvider::class,
     AtlasProviderManagerWiringServiceProvider::class,

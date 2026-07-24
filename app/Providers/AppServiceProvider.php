@@ -11,8 +11,6 @@ use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
 use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
-use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
@@ -20,10 +18,6 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
-use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
-use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
-use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
-use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
 use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
@@ -43,47 +37,15 @@ use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
-use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe;
-use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
-use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry;
 use App\Services\Ai\Skills\SkillBundleStore;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CyclePhpTierRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchPlanner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\RepairValidationRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ShellRepairValidationRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ShellCyclePhpTierRunner;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
@@ -215,35 +177,7 @@ class AppServiceProvider extends ServiceProvider
             SemanticRetrievalRuntime::class,
             SemanticRagRuntimeClient::class,
         );
-        $this->app->bind(AreaFocusBranchSandboxMaterializer::class, AreaFocusBranchSandboxMaterializerService::class);
-        $this->app->bind(
-            CyclePhpTierRunner::class,
-            ShellCyclePhpTierRunner::class,
-        );
-        $this->app->bind(StewardshipBranchMergeGovernor::class, StewardshipBranchMergeGovernorService::class);
-        $this->app->bind(StewardshipPriorityRanker::class, StewardshipPriorityEngineService::class);
-        $this->app->bind(StewardshipRuntimeResultProjector::class, StewardshipRuntimeResultBridgeService::class);
-
-        // AP-786 full owner-runtime flow seams: bind each owner-flow port to its
-        // canonical service so AP-786 composes the real AP-747 -> AP-750 chain
-        // and never falls back to a direct provider driver.
-        $this->app->bind(OwnerQueueReleaseGate::class, AreaFocusDevForgeReleaseService::class);
-        $this->app->bind(StewardshipOutcomeProjector::class, StewardshipOutcomeEvidenceBridgeService::class);
-        $this->app->bind(OwnerQueueConsumptionGate::class, AreaFocusOwnerQueueConsumptionGateService::class);
-        $this->app->bind(OwnerRuntimeExecutionAdapter::class, StewardshipOwnerRuntimeExecutionAdapterService::class);
-        $this->app->bind(OwnerSandboxRuntimeRunner::class, StewardshipOwnerSandboxRuntimeRunnerService::class);
-        $this->app->bind(OwnerRuntimeResultProjector::class, StewardshipOwnerRuntimeResultBridgeService::class);
-        $this->app->bind(Ap786OwnerFlowRunner::class, Ap786OwnerFlowExecutor::class);
-        // AP-786 repair-agent pre-return validation gate: run the declared
-        // validation command inside the AP-756 worktree before claiming a repair.
-        $this->app->bind(RepairValidationRunner::class, ShellRepairValidationRunner::class);
-        // AP-787 Forge owner runtime dispatch planner seam.
-        $this->app->bind(ForgeOwnerRuntimeDispatchPlanner::class, ForgeOwnerRuntimeDispatchBridge::class);
-        // AP-789 Forge live authority bootstrap ports -> REAL services only.
-        $this->app->bind(ForgeProviderTopologyPort::class, AtlasForgeProviderTopologyService::class);
-        $this->app->bind(ForgeLiveDecideReceiptPort::class, AtlasDecideService::class);
-        $this->app->bind(AwisExecutionGatePort::class, AtlasWorkspaceIntelligenceExecutionGateService::class);
-        $this->app->bind(AwisHandoffPackPort::class, AtlasWorkspaceHandoffPackService::class);
+        // Stewardship/forge authority binds peeled to AtlasStewardshipBindingsServiceProvider (full-pass).
 
         // AOBG N3 (AObra) — the decomposer seam. Default = the deterministic,
         // cost-free decomposer so the container can build AtlasObraPlanService /
@@ -288,7 +222,7 @@ class AppServiceProvider extends ServiceProvider
         // Compression + cross-domain + provider manager wiring peeled to domain SPs (full-pass).
 
         $this->registerLoopSentinels();
-        $this->registerLoopIntentResolverWiring();
+        // Maestro/AAEL peeled to AtlasMaestroPriorityServiceProvider (full-pass).
         // Cortex Council lens wiring: o condicional legado (`cortex.council.lenses`) foi
         // superseded pelo registry sempre-bound e pré-populado com as 5 lentes (gate upstream
         // em config('atlas.cortex.council.enabled')). O re-singleton() cru do legado REBINDAVA
@@ -309,42 +243,6 @@ class AppServiceProvider extends ServiceProvider
 
     }
 
-    private function registerLoopIntentResolverWiring(): void
-    {
-        $this->app->singleton(AtlasMaestroPriorityReshaper::class, function () {
-            $configured = config('atlas.maestro.priority.sequence_path');
-            $path = is_string($configured) && $configured !== ''
-                ? $configured
-                : storage_path('app/atlas/maestro/dynamic-priority');
-
-            return new AtlasMaestroPriorityReshaper($path);
-        });
-
-        $this->app->singleton(AtlasMaestroPriorityFactSnapshotter::class, function () {
-            $emptySource = static fn (): array => [];
-            $snapshotsPath = (string) config(
-                'atlas.maestro.priority.snapshots_path',
-                storage_path('app/atlas/maestro/dynamic-priority/snapshots.jsonl'),
-            );
-
-            return new AtlasMaestroPriorityFactSnapshotter(
-                pendingPacketsSource: $emptySource,
-                leaseHistorySource: $emptySource,
-                currentInFlightSource: $emptySource,
-                snapshotsPath: $snapshotsPath,
-            );
-        });
-
-        $this->app->singleton(AtlasAaelInFlightReceiptLedger::class, function () {
-            $configured = config('atlas.aael.inflight.ledger_path');
-            $path = is_string($configured) && $configured !== ''
-                ? $configured
-                : storage_path('app/atlas/aael/inflight/receipts.jsonl');
-
-            return new AtlasAaelInFlightReceiptLedger($path);
-        });
-
-    }
 
     /**
      * Bootstrap any application services.

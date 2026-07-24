@@ -73,7 +73,9 @@
 - [x] AppServiceProvider CCR/compression → AtlasCompressionServiceProvider
 - [x] AppServiceProvider cross-domain graph → AtlasCrossDomainGraphServiceProvider
 - [x] AppServiceProvider AiProviderManager wiring → AtlasProviderManagerWiringServiceProvider (ASP →375)
-- [ ] AppServiceProvider further residual (maestro priority/AAEL/sentinels/stewardship binds)
+- [x] AppServiceProvider Maestro priority + AAEL → AtlasMaestroPriorityServiceProvider
+- [x] AppServiceProvider stewardship/forge authority binds → AtlasStewardshipBindingsServiceProvider (ASP →273)
+- [ ] AppServiceProvider residual (memory substrate, obra, fleet, sentinels, boot)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
 - [x] routes/api/patamar4.php split
