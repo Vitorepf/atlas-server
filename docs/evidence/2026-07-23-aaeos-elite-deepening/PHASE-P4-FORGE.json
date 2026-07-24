@@ -70,37 +70,43 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "reason": "durable_pg_roles_missing"
+    "reason": "durable_pg_roles_missing",
+    "caller_set_capability_flags": "forbidden"
   },
-  "notes": "P4-FORGE GREEN residual-honest: bin/atlas forge entry driven; durable PG missing.",
+  "notes": "P4-FORGE GREEN residual-honest only. Not absolute MASTER DONE. No fabricated real_operation_completed. Live upgrade requires ATLAS_P4_PG_* + derived proofs.",
+  "residual_honest": true,
+  "absolute_master_done": false,
   "review_basis": {
     "schema": "atlas.aaeos.mt.review_basis.v1",
+    "sha256": "7053979e8e4bc82ee7adf35756e1eba5fb6838ec51d9a51e7660a691ab0f62da",
     "phase_payload_excludes": [
       "review_basis",
       "review_attestation_refs",
       "next_phase_authorized",
       "next_phase_authorization_basis"
     ],
-    "phase_payload_sha256": "5307a65b3c26330c832100ca2f5297c0962a0c69552019ad6df3560bcbad04f3",
-    "ledger_content_sha256": "98fc974e4243dd7ee2e67592d5b2afdda8f907903bf06d44e64ed4ac21169bc7",
-    "scoreboard_content_sha256": "1a1c12176501d2a8fa015781191d516b95bba4c56367fb76e0664e56e786b6d1",
-    "sha256": "11cfe38debad1ac6f98d4d182e4c9706eadfa752aec935cc6db1d0c3f93f18ad"
+    "ledger_content_sha256": "f32c3b2e63571cb9bf6159bbb42784ed01d42242dc80fbdd9707e4e8c896f098",
+    "scoreboard_content_sha256": "4bcb12a5ca1c36e9adc72dc888f89bebbe56d02eab509cc58d0d2e1ef831b2c4",
+    "phase_payload_sha256": "ce6052eb0b8a0211c70c97df604498368ac29e4af04d4bc48c1dad1e44345c18"
   },
   "review_attestation_refs": [],
-  "next_phase_authorized": {
-    "phase": "P4-AUTONOMOS",
-    "precommit_predicates_satisfied": true,
-    "evidence_commit_required": true,
-    "effective_only_when_read_from_committed_evidence_tree": true
-  },
   "next_phase_authorization_basis": {
     "serial_predecessor_green": true,
     "exit_checklist_all_true": true,
     "tests_green": true,
-    "spec_review_approved": true,
-    "quality_review_approved": true,
+    "spec_review_approved": false,
+    "quality_review_approved": false,
     "review_attestation_refs_valid": false,
     "evidence_commit_required": true,
-    "committed_evidence_tree_required": true
+    "committed_evidence_tree_required": true,
+    "absolute_done_authorized": false
+  },
+  "next_phase_authorized": {
+    "phase": "P4-AUTONOMOS",
+    "precommit_predicates_satisfied": false,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true,
+    "residual_honest_only": true,
+    "absolute_real_operation_not_claimed": true
   }
 }

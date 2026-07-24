@@ -1978,7 +1978,7 @@ Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeReco
 ### P3b authorized delete set (PHASE-P3A census + amendment basis)
 **Amendment id:** `p3b-trihygiene-aliases-delete-v1`  
 **Basis:** `docs/evidence/2026-07-23-aaeos-elite-deepening/P3B-MASTER-AMENDMENT-BASIS.json`  
-**GateEvaluated refs:** `p3b-amend-spec-56f3019b99c0efd9` (specification_reviewer APPROVED) · `p3b-amend-gov-bc20a29e0f4abb9a` (governance_quality_reviewer APPROVED)
+**GateEvaluated refs:** `p3b-v2-spec-7e759de027d15037` (specification_reviewer APPROVED) · `p3b-v2-gov-35f748ec9381dd0f` (governance_quality_reviewer APPROVED)
 
 Exact delete-only paths (already on production list; zero/low production readers per census):
 ```

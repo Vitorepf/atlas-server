@@ -48,6 +48,14 @@
       "green_exit": 0,
       "red_failure_reason": "GREEN P3b matrix",
       "output_fingerprint_or_ref": "controller-verification/P3b:13-passed-95-assertions"
+    },
+    {
+      "path": "P3b GateEvaluated integrity",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosP3bGateEvaluatedIntegrityTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN integrity",
+      "output_fingerprint_or_ref": "controller-verification/P3b-gate:1-passed-17-assertions"
     }
   ],
   "artifact_hashes_or_refs": [
@@ -81,37 +89,36 @@
   "forbidden_touched": [],
   "failure_reason_code": null,
   "failure_reason": null,
-  "review_attestation_refs": [
-    {
-      "ledger_event_id": "p3b-amend-spec-56f3019b99c0efd9",
-      "role": "specification_reviewer",
-      "verdict": "APPROVED"
-    },
-    {
-      "ledger_event_id": "p3b-amend-gov-bc20a29e0f4abb9a",
-      "role": "governance_quality_reviewer",
-      "verdict": "APPROVED"
-    }
-  ],
+  "notes": "P3b GREEN with dual v2 GateEvaluated integrity-verified. PipelineRunExecutor retained. Next P4 residual-honest only until live PG.",
   "review_basis": {
     "schema": "atlas.aaeos.mt.review_basis.v1",
+    "sha256": "e94998308126cff93788fb9f7952fe69c7399af9643d48740451c734cb34d907",
     "phase_payload_excludes": [
       "review_basis",
       "review_attestation_refs",
       "next_phase_authorized",
       "next_phase_authorization_basis"
     ],
-    "phase_payload_sha256": "56dcff59982e69c40fd7c381a837593bf0e22940f125744de8723642a57c708b",
-    "ledger_content_sha256": "e3dfb4eb9782c463a81a6648f2d04e67165286bdd2e49c446ad1b67e349a0286",
-    "scoreboard_content_sha256": "b53d4cc25f559ee0ae19e59fcc5db7213d589b4479c7eede8fa7d31668364ee5",
-    "sha256": "2cdee8d50106394a5d6d57bece946bb0ef0474f646afbf5c2280877228ed0336"
+    "ledger_content_sha256": "f32c3b2e63571cb9bf6159bbb42784ed01d42242dc80fbdd9707e4e8c896f098",
+    "scoreboard_content_sha256": "4bcb12a5ca1c36e9adc72dc888f89bebbe56d02eab509cc58d0d2e1ef831b2c4",
+    "phase_payload_sha256": "438312bd980e02e28b2aafc9e900803a95124cfebf44366554405e79b4651738"
   },
-  "next_phase_authorized": {
-    "phase": "P4-DEV",
-    "precommit_predicates_satisfied": true,
-    "evidence_commit_required": true,
-    "effective_only_when_read_from_committed_evidence_tree": true
-  },
+  "review_attestation_refs": [
+    {
+      "ledger_event_id": "p3b-v2-spec-7e759de027d15037",
+      "event_hash": "2bce34a7cba5b4ce1770e9fa1cbbdafdaf13fb3d20008fc3e9d8df050fe0a55a",
+      "payload_hash": "c74562960d951ddc27d7dcc2f17a24a4d8353f415cffc72fba09f7d4fde5d00e",
+      "role": "specification",
+      "review_basis_sha256": "6c2f25695cac5a2c1efa439d0e287a4247a7da00e8e7e6e5a5376333e0e4b942"
+    },
+    {
+      "ledger_event_id": "p3b-v2-gov-35f748ec9381dd0f",
+      "event_hash": "c57743f4ee9bb141fce7862d86ca9b03dc82f8846c2d15f7e0d17a5b059e8905",
+      "payload_hash": "2656d234dd7e205eb19dbccfba495a40063e8377c7433b0e8bf897fd0cfaab34",
+      "role": "governance_quality",
+      "review_basis_sha256": "6c2f25695cac5a2c1efa439d0e287a4247a7da00e8e7e6e5a5376333e0e4b942"
+    }
+  ],
   "next_phase_authorization_basis": {
     "serial_predecessor_green": true,
     "exit_checklist_all_true": true,
@@ -120,7 +127,13 @@
     "quality_review_approved": true,
     "review_attestation_refs_valid": true,
     "evidence_commit_required": true,
-    "committed_evidence_tree_required": true
+    "committed_evidence_tree_required": true,
+    "review_basis_sha256_note": "attestation binds amendment review basis (P3B-MASTER-AMENDMENT-BASIS), not phase payload self-hash"
   },
-  "notes": "P3b GREEN. Authorized deletes complete. Next EXECUTE P4-DEV REAL_OPERATION gauntlet."
+  "next_phase_authorized": {
+    "phase": "P4-DEV",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  }
 }

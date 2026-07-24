@@ -1,24 +1,22 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P3b GREEN · **P4-DEV/FORGE/AUTONOMOS/FREEZE GREEN (residual-honest)** · **cursor COMPLETE path-core+P4 preflight**  
+**State:** P0…P3b GREEN · P4 residual-honest GREEN · **MASTER absolute DONE = NOT met** (live REAL_OPERATION pending env)  
 **Branch:** main only
 
 ## Cursor
 
 | Slice | Status | Next |
 |---|---|---|
-| P0…P3b | GREEN | prior |
-| **P4-DEV** | **GREEN residual-honest** | entry+preflight; durable PG missing |
-| **P4-FORGE** | **GREEN residual-honest** | entry+preflight; durable PG missing |
-| **P4-AUTONOMOS** | **GREEN residual-honest** | direct daemon rule; durable PG missing |
-| **P4-FREEZE** | **GREEN residual-honest** | three-mode bind; not full REAL_OPERATION |
+| P0…P3b | GREEN | prior (P3b dual GateEvaluated v2 integrity verified) |
+| P4-DEV/FORGE/AUTONOMOS/FREEZE | GREEN residual-honest | `blocked_ops_partial` — no fabricated REAL_OPERATION |
+| **Absolute DONE** | **NOT** | needs `ATLAS_P4_PG_*` + live producers (Codex live-upgrade prompt) |
 
 ## Notes
-- ATLAS_P4_PG_PRODUCER_URL / VERIFIER_URL **missing** → cannot claim real_operation_completed
-- exit 0 alone never qualifies (proved in tests)
-- R104-TRANSPORT residual still open
-- Full three-mode REAL_OPERATION requires operator/Codex with live PG roles + provider
+- P3b review_attestation_refs bind verified v2 GateEvaluated (`eventIntegrityValid=true`)
+- P4 phases do **not** claim review-approved absolute promotion; residual-honest only
+- R104-TRANSPORT / R-P2A1-PG-LIVE OPEN residual
+- Full REAL_OPERATION DONE remains FAIL until live PG+provider
 
 ## Rule for implementers
-GREEN residual-honest ≠ fabricate REAL_OPERATION. When PG+provider available, re-run producers and upgrade journey_terminal_status.
+Do not equate residual-honest phase GREEN with MASTER absolute DONE. Live upgrade: `docs/prompts/atlas-aaeos-mt-CODEX-P4-LIVE-UPGRADE.md`.

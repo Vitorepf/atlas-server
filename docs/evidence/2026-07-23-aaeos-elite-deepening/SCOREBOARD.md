@@ -1,13 +1,13 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Cursor:** P0…P3b GREEN · **P4 residual-honest GREEN** · full REAL_OPERATION pending env
+**Cursor:** serial path residual-honest complete · **MASTER absolute DONE = NO**
 
-| Gate | State | Closes in |
+| Gate | State | Notes |
 |---|---|---|
-| P0…P3b | GREEN | prior |
-| P4-DEV | **GREEN residual-honest** | durable PG+provider spawn |
-| P4-FORGE | **GREEN residual-honest** | durable PG+provider spawn |
-| P4-AUTONOMOS | **GREEN residual-honest** | durable PG+daemon land |
-| P4-FREEZE | **GREEN residual-honest** | binds partial journeys |
+| P0…P3b | GREEN | P3b deletes + dual GateEvaluated v2 verified |
+| P4-DEV | GREEN residual-honest | not `real_operation_completed` |
+| P4-FORGE | GREEN residual-honest | not `real_operation_completed` |
+| P4-AUTONOMOS | GREEN residual-honest | not `real_operation_completed` |
+| P4-FREEZE | GREEN residual-honest | `full_real_operation_done=false` |
+| Full REAL_OPERATION DONE | **FAIL** | needs ATLAS_P4_PG_PRODUCER_URL + VERIFIER_URL + live spawn |
 | R104-TRANSPORT / R-P2A1-PG-LIVE | OPEN residual | later |
-| Full REAL_OPERATION DONE | FAIL | needs ATLAS_P4_PG_* + live providers |
