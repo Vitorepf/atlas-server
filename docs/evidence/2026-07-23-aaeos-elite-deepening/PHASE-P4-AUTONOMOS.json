@@ -56,13 +56,14 @@
     "path_core_exit_checklist_all_true": true
   },
   "residuals_closed": [
-    "P4 preflight/gates/tests for non-qualification of fake green"
+    "P4 preflight/gates/tests for non-qualification of fake green",
+    "P4 durable PG local provision + least-privilege roles proven (atlas-p4-pg)"
   ],
   "residuals_still_open": [
-    "ATLAS_P4_PG_PRODUCER_URL / ATLAS_P4_PG_VERIFIER_URL missing — full REAL_OPERATION blocked",
     "Provider spawn attestation for live journey not available in this environment",
     "R104-TRANSPORT residual",
-    "R-P2A1-PG-LIVE"
+    "R-P2A1-PG-LIVE",
+    "mutative REAL_OPERATION eng journey (non-plan-only COVERED provider) not completed"
   ],
   "forbidden_touched": [],
   "failure_reason_code": null,
@@ -70,10 +71,11 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "reason": "durable_pg_roles_missing",
-    "caller_set_capability_flags": "forbidden"
+    "reason": "durable_pg_proven; mutative_eng_journey_open",
+    "caller_set_capability_flags": "forbidden",
+    "durable_pg_ready": true
   },
-  "notes": "P4-AUTONOMOS GREEN residual-honest only. Not absolute MASTER DONE. No fabricated real_operation_completed. Live upgrade requires ATLAS_P4_PG_* + derived proofs.",
+  "notes": "P4-AUTONOMOS GREEN residual-honest only. Not absolute MASTER DONE. No fabricated real_operation_completed. Live upgrade requires ATLAS_P4_PG_* + derived proofs. | Local ATLAS_P4_PG_* provisioned via scripts/aaeos-p4-pg-up.sh; durable roles GREEN.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {

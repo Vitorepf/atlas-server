@@ -1,0 +1,18 @@
+{
+  "schema": "atlas.aaeos.p4.local_provision.v1",
+  "container": "atlas-p4-pg",
+  "port": 55449,
+  "database": "atlas_p4_main",
+  "producer_role": "atlas_p4_producer",
+  "verifier_role": "atlas_p4_verifier",
+  "preflight_durable_pg_ready": true,
+  "durable_roles_test": "1-passed-26-assertions",
+  "pg_test_fingerprint": "91998462444c3cb273a46365f7970db2aa8ff298a44d48de6f09dee915fb1ac1",
+  "real_dev_plan_only_fingerprint": "25ed8ac0ef25f80d16593ecc97a11f3fc38420372e6321dc738cdb1baa172aae",
+  "real_operation_completed": false,
+  "reason": "durable_pg_and_plan_only_entry_proven; mutative_provider_eng_journey_not_run",
+  "urls_present_without_secrets": {
+    "producer": "pgsql://atlas_p4_producer@127.0.0.1:55449/atlas_p4_main",
+    "verifier": "pgsql://atlas_p4_verifier@127.0.0.1:55449/atlas_p4_main"
+  }
+}
