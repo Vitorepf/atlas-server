@@ -81,10 +81,102 @@ final class AaeosEngineeringSpine
             $violations[] = 'parallel_ledger_forbidden';
         }
 
+        // P2d / R66: critical N11 only via settlement-emitted effect receipt (ledger readback).
+        $settlement = $this->assertSettlementEffectEvidence($declared);
+        $violations = array_values(array_unique(array_merge($violations, $settlement['violations'])));
+        $contract['settlement_evidence'] = $settlement;
+
         return [
             'ok' => $violations === [],
             'violations' => $violations,
             'contract' => $contract,
+        ];
+    }
+
+    /**
+     * R66: applicable N11 site is satisfied only by settlement-emitted effect receipt
+     * (observer identity + changed-files hash + landed SHA) via ledger readback.
+     * Caller-declared/empty refs fail closed.
+     *
+     * @param  array<string,mixed>  $declared
+     * @return array{applicable:bool,ok:bool,violations:list<string>,refs_checked:int}
+     */
+    public function assertSettlementEffectEvidence(array $declared = []): array
+    {
+        $applicable = (bool) ($declared['n11_applicable'] ?? false)
+            || (bool) ($declared['requires_settlement_effect'] ?? false)
+            || array_key_exists('settlement_effect_refs', $declared)
+            || array_key_exists('effect_receipt_refs', $declared);
+
+        if (! $applicable) {
+            return [
+                'applicable' => false,
+                'ok' => true,
+                'violations' => [],
+                'refs_checked' => 0,
+                'rule' => 'R66',
+            ];
+        }
+
+        $violations = [];
+        $refs = $declared['settlement_effect_refs'] ?? $declared['effect_receipt_refs'] ?? null;
+
+        if (! is_array($refs) || $refs === []) {
+            $violations[] = 'n11_settlement_effect_refs_required';
+
+            return [
+                'applicable' => true,
+                'ok' => false,
+                'violations' => $violations,
+                'refs_checked' => 0,
+                'rule' => 'R66',
+            ];
+        }
+
+        $checked = 0;
+        foreach ($refs as $index => $ref) {
+            $checked++;
+            if (! is_array($ref)) {
+                $violations[] = 'n11_settlement_ref_invalid:'.$index;
+
+                continue;
+            }
+            if ((bool) ($ref['empty'] ?? false)
+                || (bool) ($ref['caller_declared_only'] ?? false)
+                || (bool) ($ref['declared_without_ledger'] ?? false)) {
+                $violations[] = 'n11_empty_or_declared_only_ref_forbidden';
+            }
+            foreach (['observer_identity', 'changed_files_hash', 'landed_sha', 'ledger_event_id'] as $field) {
+                if (trim((string) ($ref[$field] ?? '')) === '') {
+                    $violations[] = 'n11_settlement_ref_missing_'.$field;
+                }
+            }
+            $hash = (string) ($ref['changed_files_hash'] ?? '');
+            if ($hash !== '' && preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+                $violations[] = 'n11_changed_files_hash_invalid';
+            }
+            $sha = (string) ($ref['landed_sha'] ?? '');
+            if ($sha !== '' && preg_match('/^[a-f0-9]{40,64}$/', $sha) !== 1) {
+                $violations[] = 'n11_landed_sha_invalid';
+            }
+            // Ledger readback: must be verified (caller reloaded event from shared N11 ledger).
+            if (! (bool) ($ref['ledger_readback_verified'] ?? false)) {
+                $violations[] = 'n11_settlement_ledger_readback_required';
+            }
+            // Self-green from empty payload is forbidden.
+            if (array_key_exists('payload', $ref) && $ref['payload'] === []) {
+                $violations[] = 'n11_empty_payload_self_green_forbidden';
+            }
+        }
+
+        $violations = array_values(array_unique($violations));
+
+        return [
+            'applicable' => true,
+            'ok' => $violations === [],
+            'violations' => $violations,
+            'refs_checked' => $checked,
+            'rule' => 'R66',
         ];
     }
 
