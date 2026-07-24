@@ -57,7 +57,8 @@
 - [ ] ProviderCatalog adopt in Manager/Forge residual
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
 - [ ] AppServiceProvider further domain peels (Organism/Vox/Swarm/…)
-- [ ] routes/api.php domain split
+- [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
+- [ ] routes/api.php remaining domain splits (voice/mobile/stewardship/…)
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
 
