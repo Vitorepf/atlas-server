@@ -34,6 +34,7 @@ maintenance:
   - Manter `industrial-suite --json` sincronizado com counts reais do registry.
   - Nao reduzir claim gates, replay obrigatorio ou evidence lock para obter score.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsIndustrialBenchmarkSuiteService.php
   - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
@@ -98,6 +99,18 @@ updated_at: 2026-05-17
 
 
 # Atlas Forge Rivals Industrial Benchmark Suite v1
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 ## Resumo
 

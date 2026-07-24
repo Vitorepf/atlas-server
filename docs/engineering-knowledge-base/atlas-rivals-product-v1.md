@@ -23,6 +23,7 @@ maintenance:
   - Atualizar quando o escopo do produto ou as invariantes de claim mudarem.
   - Manter alinhado com atlas-rivals-structure-v1 e config/atlas_rivals.php.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - docs/engineering-knowledge-base/atlas-rivals-structure-v1.md
   - docs/engineering-knowledge-base/atlas-rivals-external-suites-v1.md
   - docs/engineering-knowledge-base/atlas-rivals-internal-corpus-v1.md
@@ -75,6 +76,18 @@ next_actions:
 ---
 
 # Atlas Rivals — Product Definition v1
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 ## Resumo
 

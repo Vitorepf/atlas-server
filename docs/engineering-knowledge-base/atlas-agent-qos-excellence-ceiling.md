@@ -18,11 +18,24 @@ tags:
 
 # Atlas Agent QoS — Excellence Ceiling + Multiplicador ≥ 50×
 
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
+
 > **Programa:** AAEOS residual **R106** (path law) · **R107** (measured M ≥ 50×) · fatia **`EXECUTE P2g-QOS`** + prova Rivals  
 > **Premissa:** operador **sempre fora do loop de engenharia**; só soberania.  
 > **Tempo:** secundário. **Qualidade:** primária.  
 > **Alvo de produto (operador):** mesmo modelo (ex. **Kimi K2.7 / K7-class**) **sem Atlas** vs **com Atlas** → Atlas entrega **≥ 50×** no instrumento de excelência abaixo.  
-> **Proibido:** órgão novo; dial vanity; claim “50×” sem suite preregistrada e braços simétricos.
+> **Proibido:** órgão novo; dial vanity; claim “50×” sem suite preregistrada e braços simétricos.  
+> **PÉTRO anti-falácia:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md` — 80–100% = nível escolar, **nunca** teto do modelo; subir currículo.
 
 ---
 

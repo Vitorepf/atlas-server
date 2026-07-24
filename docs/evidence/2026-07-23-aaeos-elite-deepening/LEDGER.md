@@ -71,3 +71,7 @@ Law: multi-loop excellence; server-resolved depth; no vanity dial; operator out 
 Target: same model (e.g. Kimi) raw vs Atlas → M_excellence ≥ 50 on **S_frontier** (school curriculum).
 S_sanity = levels already mastered (parity/regression). Saturated frontier → promote next level — never “raw 80% = model ceiling”.
 Law: atlas-agent-qos-excellence-ceiling.md §0.4. Path: R106. Channel: R104. Claim: Rivals only.
+
+## Canon anti-ceiling (all IAs)
+
+`docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md` — 80–100% = school level pass; elevate curriculum; never “50× forever impossible”.

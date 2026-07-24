@@ -35,6 +35,7 @@ maintenance:
   - Atualize este doc antes de mudar identidade Dev/Forge/Autônomos ou a ladder L0–L5.
   - Dual-Core, glossary, Autonomos live, AAEOS e projections AGENTS/CLAUDE devem apontar para cá como owner da identidade dos três.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-autonomos-live-system.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
@@ -88,6 +89,18 @@ ai_entrypoints:
 ---
 
 # Atlas Elite Executors — Dev · Forge · Autônomos
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 ## Resumo
 

@@ -53,6 +53,7 @@ maintenance:
   - Atualizar antes de alterar sanity gates, validity_class, confidence_level_v1 ou release_trusted.
   - Manter testes de adjudicator e battery report cobrindo qualquer novo blocker de fairness.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReportService.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorScoringSanityV1Test.php
@@ -94,6 +95,18 @@ repo_paths:
 
 
 # Atlas Forge Rivals · Scoring Sanity, Fairness & Confidence v1
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 **Status:** active · canon · 2026-05-16
 **Owner:** ForgeRivals adjudicator pipeline

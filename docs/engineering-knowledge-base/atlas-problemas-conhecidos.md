@@ -11,6 +11,7 @@ summary: "ÍNDICE CURADO dos problemas ABERTOS e recém-fechados do Atlas com pr
 tags: [atlas-ai, problemas, gap-ledger, output-contract, governor, hermes, rivals, honesty]
 capabilities: [known_problems_index, honest_failure_map]
 decisions:
+  - Curriculum ladder / anti-ceiling fallacy is petreo (atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy).
   - Só entra problema com PROVA (evidência runtime ou commit); opinião/suspeita não entra.
   - Cada entrada carrega STATUS (ABERTO / MITIGADO / FECHADO+commit) e o caminho de conserto.
   - Este doc é o índice curado; o histórico exaustivo vive no atlas-open-gaps-regressions-ledger.md.
@@ -31,6 +32,18 @@ technical_name: atlas-problemas-conhecidos
 ---
 
 # Atlas — Problemas Conhecidos (índice curado)
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 Regra de leitura: tudo aqui tem PROVA (recibo, commit, medição ao vivo). Severidade: 🔴 degrada resultado/produto agora · 🟠 degrada medição/operação · 🟡 ruído/risco latente. O histórico exaustivo (100+ entradas com file:line) vive em `atlas-open-gaps-regressions-ledger.md`.
 

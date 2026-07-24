@@ -25,6 +25,7 @@ maintenance:
   - Rodar o readiness do Quality Foundry, a bateria Rivals e docs-health após alterações.
   - Nunca substituir lacunas RED por claims sintéticos ou congelar a dívida documental global.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - docs/superpowers/plans/quality-foundry/07-rivals-world-engineering-trial.md
   - app/Services/Ai/Rivals/Core/WorldTrialReadiness.php
   - app/Services/Ai/Rivals/Core/TrialOutcomeReader.php
@@ -68,6 +69,18 @@ next_actions:
 ---
 
 # Atlas Rivals Quality Foundry — baseline executado
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 Data do baseline: 2026-07-12.
 

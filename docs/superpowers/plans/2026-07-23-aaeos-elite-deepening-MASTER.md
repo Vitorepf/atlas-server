@@ -280,7 +280,7 @@ CycleRuntime: `runtime_write_performed => true` hardcode line ~93; `human_in_eng
 P0 removes all as measured truth.
 
 ### 1.7 M
-`enforced_governed_coverage = COVERED/total` (not ledger `governed` that folds consulted). Comparative SOTA = Rivals only.
+`enforced_governed_coverage = COVERED/total` (not ledger `governed` that folds consulted). Comparative SOTA = Rivals only. **Curriculum ladder / anti-ceiling fallacy is pétreo:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md` (80–100% = nível escolar, não teto; promover frontier).
 
 ### 1.8 Signing / Autônomos zero-touch
 Standing mandate pre-signed (Ed25519 `HumanDecisionReceiptSigner`). Journey roots **derive** mandate id/hash/revision — operator does not sign every Autônomos root. P4: key custodied off journey process.
@@ -447,7 +447,7 @@ Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` 
 
 | ID | Gap | Owners | Hard done |
 |---|---|---|---|
-| R107 | Claim “Atlas multiplica modelo ≥50×” sem instrumento | Rivals preregistration + dual arm raw vs Atlas; EXCELLENCE_PASS suite `S_50`; R104 channel symmetry; R106 path; no vanity organ | (1) S_sanity + S_frontier preregistered; (2) same μ; (3) R104; (4) M≥50 only on non-saturated S_frontier; (5) raw domain of frontier → promote L_k+1 (school), never “50× forever impossible”; (6) M&lt;50 on valid frontier forbids claim; (7) no certify 50× without Rivals; (8) Atlas S_sanity fail = regression |
+| R107 | Claim “Atlas multiplica modelo ≥50×” sem instrumento | Rivals preregistration + dual arm raw vs Atlas; curriculum S_sanity/S_frontier/S_horizon; R104; R106; no vanity | (1) S_sanity + S_frontier preregistered; (2) same μ; (3) R104; (4) M≥50 only on non-saturated S_frontier; (5) raw domain of frontier → promote L_k+1 (school), never “50× forever impossible”; (6) M&lt;50 on valid frontier forbids claim; (7) no certify 50× without Rivals; (8) Atlas S_sanity fail = regression |
 
 
 ### 3.1 Residual hard-done detail (R64–R103)
@@ -1846,7 +1846,7 @@ Full DONE only if:
 4. No second ledger/organ; Quarantine/ACDE clean; scoped main commits  
 5. capability_proof derived not caller-set  
 
-**Not DONE:** SUSTAINED, comparative 50×, company 100% Atlas.
+**Not DONE:** SUSTAINED; **comparative ≥50× only with R107 on non-saturated S_frontier** (school ladder — never treat 80% on easy suite as model ceiling); company 100% Atlas.
 
 ---
 

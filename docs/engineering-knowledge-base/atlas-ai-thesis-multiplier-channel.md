@@ -28,6 +28,7 @@ maintenance:
   - Keep this parent compact; expand child specs under thesis/.
   - Full historical source is archived in archive/source-material/atlas-ai-thesis-multiplier-channel-full-2026-05-08.md.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - docs/engineering-knowledge-base/thesis/README.md
   - docs/engineering-knowledge-base/thesis/multiplier-channel.md
   - docs/engineering-knowledge-base/thesis/provider-antifragility.md
@@ -125,6 +126,18 @@ next_actions:
   - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
 ---
 # Atlas AI - Tese Central do Multiplicador / Canal Soberano
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 Status: constitutional Layer -1. The concept is immutable; wording and examples
 can evolve.

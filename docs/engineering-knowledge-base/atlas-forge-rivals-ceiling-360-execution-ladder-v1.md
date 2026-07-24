@@ -43,6 +43,7 @@ maintenance:
   - Update when ceiling-360 size, canonical pairs, coverage policy or provider signal schema changes.
   - Keep in sync with next runner architecture, Provider Arena readiness and Report v3 tests.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-next-runner-architecture-v1.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderArenaReadinessService.php
@@ -85,6 +86,18 @@ risk_level: high
 
 
 # Atlas Forge Rivals Ceiling 360 Execution Ladder v1
+
+## PÉTRO — Curriculum ladder / anti-ceiling fallacy
+
+**Canon:** `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`
+
+- **80–100% num teste = aprovação de NÍVEL escolar**, nunca teto do modelo, do Atlas, nem “inteligência suprema”.
+- Suite saturada → **S_sanity** (regressão/paridade). Multiplicador e claim forte → só em **S_frontier** não saturado.
+- Raw ou Atlas dominou o frontier → **promover L_{k+1}** (próximo livro). **Proibido** dizer “50× / N×M impossível para sempre porque já faz 80%”.
+- **2026 ≠ 2030 ≠ 2040 ≠ 2050**; o currículo **sobe**. Atlas 80% em teste medíocre = **inútil como meta final** — elevar o nível.
+- Essência Rivals: medir com/sem Atlas e **sempre melhorar o Atlas no frontier**, não congelar tabuada.
+
+
 
 ## Papel no Atlas
 
