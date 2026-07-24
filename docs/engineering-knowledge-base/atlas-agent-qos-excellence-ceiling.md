@@ -454,49 +454,42 @@ Internamente: **0..N** repairs/replans sob o mesmo root.
 
 | Item | Valor |
 |---|---|
-| Residual | **R106** |
-| Gate | **`EXECUTE P2g-QOS`** |
-| Receipt | `PHASE-P2G-QOS.json` |
-| DAG | após **P2c** (repair continuum), antes **P2d** |
-| Predecessores culturais | **R104/P1-JSON** (não destruir N); **P2b CUTOVER** (authority) |
-| Non-waivable | se o programa reivindica excellence ceiling / full elite DONE |
-
-Implementação = **compor e enforçar** o spine existente no Kernel/Dev/Forge/Autônomos — não novo cérebro.
+| Path law | **R106** · `EXECUTE P2g-QOS` · `PHASE-P2G-QOS.json` |
+| Multiplicador ≥50× | **R107** · suite S_50 · Rivals dual-arm · sem vanity certify |
+| DAG path | após **P2c**, antes **P2d** |
+| Predecessores | **R104** (canal); **P2b** (authority) |
+| Non-waivable | R106 se excellence path claimed; **R107** se claim Atlas≥50× |
 
 ---
 
-## 10. Acceptance tests mínimos (slice)
+## 10. Acceptance tests mínimos (slice + 50×)
 
-1. Server-resolved max raise-only  
-2. Architecture path refuse mutate  
-3. Implementation without FREEZE → no land  
-4. Floor any-blocker sozinho impede promote  
-5. Court facts missing → refuse  
-6. Same-family + mechanical court rule  
-7. Repair continuum mesmo root + lock  
-8. Infinite loop stop (same signature / no-delta)  
-9. Timeout ≠ promote  
-10. review:deep non-gating  
-11. Mode parity Dev/Forge/Autônomos  
-12. Mutation semantic veto  
-13. No new organ census  
-14. R104 orthogonality  
+**Path (R106):** raise-only depth; C_ARCH refuse mutate; FREEZE; Court+Floor; repair lock; timeout≠promote; review non-gating; mode parity; no new organ; R104 ortho.
+
+**Multiplier (R107):**
+15. S_50 preregistered before run  
+16. Same μ both arms (e.g. Kimi)  
+17. Channel symmetry (R104)  
+18. EXCELLENCE_PASS conjunctive applied equally where defined  
+19. Report `M_excellence`; if &lt;50 claim blocked  
+20. Certify/cockpit cannot display 50× without Rivals receipt  
 
 ---
 
-## 11. Ordem de valor para o operador
+## 11. Ordem de valor para o operador (rumo a 50×)
 
 ```text
-1. Fechar R104 (P1-JSON) — parar de perder do cru por encoding
-2. P2b Decision/courts + P2c repair — estrutura de julgamento
-3. P2g-QOS (R106) — tornar multi-loop excellence LEI do path
-4. P3 verification surface — moat sem humano técnico
-5. P4 REAL_OPERATION — provar jornada
-6. Rivals — provar Atlas ≥ cru no que importa
+1. R104 (P1-JSON)     — M_channel ≥ 1 (sem isso, 50× é impossível)
+2. P2b + P2c          — authority + repair
+3. P2g-QOS / R106     — máquina multi-loop = lei
+4. Calibrar S_50      — suite hard onde Kimi cru colapsa
+5. Rivals dual-arm    — Kimi cru vs Kimi+Atlas
+6. R107               — claim M_excellence ≥ 50 só medido
+7. P4                 — REAL_OPERATION além da suite
 ```
 
 ---
 
 ## 12. Uma frase
 
-**Agent QoS de excelência = multi-loop agentic com Court+Floor+Repair+Settle sob mandato soberano, tempo irrelevante, dial vanity proibido, M falsificável — Atlas como fábrica de julgamento e prova, não chat com fricção.**
+**Agent QoS = máquina multi-loop que torna `M_excellence ≥ 50` (ex. Kimi cru vs Atlas) mensurável e atingível — claim só com suite S_50 preregistrada e braços simétricos; nunca vanity.**
