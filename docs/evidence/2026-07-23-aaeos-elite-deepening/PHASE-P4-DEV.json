@@ -1,0 +1,106 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P4-DEV",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "181daae1f9cd44cb55ac708c0f61382286671a9e",
+  "implementation_commit": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosP4RealOperationGauntlet.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php",
+    "bin/atlas"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosP4RealOperationGauntlet.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P4 gauntlet matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P4 matrix",
+      "output_fingerprint_or_ref": "controller-verification/P4:11-passed-35-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.aaeos.p4.real_operation_gauntlet.v1",
+    "P4-JOURNEY-RECEIPTS.json",
+    "blocked_ops_partial",
+    "phpunit_alone_never_qualifies",
+    "code_sha:1eab1983f6c1"
+  ],
+  "exit_checklist": {
+    "real_entry_point_driven": true,
+    "exit_zero_alone_never_qualifies": true,
+    "durable_pg_preflight_enforced": true,
+    "residual_honesty_when_pg_missing": true,
+    "no_fabricated_real_operation_completed": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "P4 preflight/gates/tests for non-qualification of fake green"
+  ],
+  "residuals_still_open": [
+    "ATLAS_P4_PG_PRODUCER_URL / ATLAS_P4_PG_VERIFIER_URL missing — full REAL_OPERATION blocked",
+    "Provider spawn attestation for live journey not available in this environment",
+    "R104-TRANSPORT residual",
+    "R-P2A1-PG-LIVE"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "real_operation": {
+    "qualified": false,
+    "journey_terminal_status": "blocked_ops_partial",
+    "reason": "durable_pg_roles_missing"
+  },
+  "notes": "P4-DEV GREEN residual-honest: bin/atlas dev entry driven; durable PG missing blocks real_operation_completed.",
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "404a7852d09bfb0a79e82f987bf55a2ce4a9cceacce6820338953b2d54a8bcf0",
+    "ledger_content_sha256": "98fc974e4243dd7ee2e67592d5b2afdda8f907903bf06d44e64ed4ac21169bc7",
+    "scoreboard_content_sha256": "1a1c12176501d2a8fa015781191d516b95bba4c56367fb76e0664e56e786b6d1",
+    "sha256": "313874d984bbc745efc28eb4b647f05d3aa54f564ecf861854f85f3bc29a891a"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P4-FORGE",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  }
+}

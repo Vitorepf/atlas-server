@@ -1,0 +1,147 @@
+{
+  "dev": {
+    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.journey",
+    "mode": "dev",
+    "journey_terminal_status": "blocked_ops_partial",
+    "real_operation_qualified": false,
+    "exit_code": 0,
+    "exit_zero_alone_never_qualifies": true,
+    "command": "bin/atlas dev --help",
+    "stdout_fingerprint": "106a5842fc5fce6f663176285ed1516dbb1e3d15c05abab12fdca46d60b539b7",
+    "plan_only": true,
+    "aaeos_initiated": false,
+    "preflight": {
+      "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.preflight",
+      "durable_pg_ready": false,
+      "producer_configured": false,
+      "verifier_configured": false,
+      "blockers": [
+        "atlas_p4_pg_producer_url_missing",
+        "atlas_p4_pg_verifier_url_missing"
+      ],
+      "phpunit_alone_never_qualifies": true,
+      "secrets_in_receipt_forbidden": true
+    },
+    "blockers": [
+      "atlas_p4_pg_producer_url_missing",
+      "atlas_p4_pg_verifier_url_missing",
+      "plan_only_not_real_operation",
+      "durable_pg_roles_required_for_real_operation"
+    ],
+    "authority_lineage_present": false,
+    "provider_spawn_attested": false,
+    "operator_task_causal_count": 0,
+    "r104_transport_open": true,
+    "code_sha": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9"
+  },
+  "forge": {
+    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.journey",
+    "mode": "forge",
+    "journey_terminal_status": "blocked_ops_partial",
+    "real_operation_qualified": false,
+    "exit_code": 0,
+    "exit_zero_alone_never_qualifies": true,
+    "command": "bin/atlas forge --help",
+    "stdout_fingerprint": "106a5842fc5fce6f663176285ed1516dbb1e3d15c05abab12fdca46d60b539b7",
+    "plan_only": true,
+    "aaeos_initiated": false,
+    "preflight": {
+      "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.preflight",
+      "durable_pg_ready": false,
+      "producer_configured": false,
+      "verifier_configured": false,
+      "blockers": [
+        "atlas_p4_pg_producer_url_missing",
+        "atlas_p4_pg_verifier_url_missing"
+      ],
+      "phpunit_alone_never_qualifies": true,
+      "secrets_in_receipt_forbidden": true
+    },
+    "blockers": [
+      "atlas_p4_pg_producer_url_missing",
+      "atlas_p4_pg_verifier_url_missing",
+      "plan_only_not_real_operation",
+      "durable_pg_roles_required_for_real_operation"
+    ],
+    "authority_lineage_present": false,
+    "provider_spawn_attested": false,
+    "operator_task_causal_count": 0,
+    "r104_transport_open": true,
+    "code_sha": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9"
+  },
+  "autonomos": {
+    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.journey",
+    "mode": "autonomos",
+    "journey_terminal_status": "blocked_ops_partial",
+    "real_operation_qualified": false,
+    "exit_code": 0,
+    "exit_zero_alone_never_qualifies": true,
+    "command": "php artisan list",
+    "stdout_fingerprint": "65aa84d2be80be6e88286fc58293ff55934de31e4031b10852bf53a167777dc0",
+    "plan_only": true,
+    "aaeos_initiated": false,
+    "preflight": {
+      "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.preflight",
+      "durable_pg_ready": false,
+      "producer_configured": false,
+      "verifier_configured": false,
+      "blockers": [
+        "atlas_p4_pg_producer_url_missing",
+        "atlas_p4_pg_verifier_url_missing"
+      ],
+      "phpunit_alone_never_qualifies": true,
+      "secrets_in_receipt_forbidden": true
+    },
+    "blockers": [
+      "atlas_p4_pg_producer_url_missing",
+      "atlas_p4_pg_verifier_url_missing",
+      "plan_only_not_real_operation",
+      "durable_pg_roles_required_for_real_operation"
+    ],
+    "authority_lineage_present": false,
+    "provider_spawn_attested": false,
+    "operator_task_causal_count": 0,
+    "r104_transport_open": true,
+    "code_sha": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9"
+  },
+  "freeze": {
+    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
+    "code_sha": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9",
+    "ledger_cutoff": null,
+    "modes": {
+      "dev": {
+        "present": true,
+        "journey_terminal_status": "blocked_ops_partial",
+        "real_operation_qualified": false,
+        "receipt_fingerprint": "01384d432cb15c8d882b762d04d45f00db41af735de21361af1dcaa5b06896a3"
+      },
+      "forge": {
+        "present": true,
+        "journey_terminal_status": "blocked_ops_partial",
+        "real_operation_qualified": false,
+        "receipt_fingerprint": "03eb273e0509e6d8227f2136486c1ef6b14c75fbb2fef5194bed78ddf4d3d3f9"
+      },
+      "autonomos": {
+        "present": true,
+        "journey_terminal_status": "blocked_ops_partial",
+        "real_operation_qualified": false,
+        "receipt_fingerprint": "336f455cc678390af00241f4668e4df504fbe23f2564f0b0fd621fc14fe500cc"
+      }
+    },
+    "all_three_modes_bound": true,
+    "full_real_operation_done": false,
+    "phpunit_alone_never_qualifies": true
+  },
+  "preflight": {
+    "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.preflight",
+    "durable_pg_ready": false,
+    "producer_configured": false,
+    "verifier_configured": false,
+    "blockers": [
+      "atlas_p4_pg_producer_url_missing",
+      "atlas_p4_pg_verifier_url_missing"
+    ],
+    "phpunit_alone_never_qualifies": true,
+    "secrets_in_receipt_forbidden": true
+  }
+}
