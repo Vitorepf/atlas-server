@@ -47,7 +47,8 @@
 - [x] config/atlas.php: loop → atlas_loop_legacy.php (~1704L extracted; atlas.php 5409→3707)
 - [x] ProviderCatalog SSOT for invocation/auto-live/council (Gateway+Routes wired; config overrides optional)
 - [ ] ProviderCatalog adopt in Decide/Manager/Forge hard lists residual
-- [ ] AppServiceProvider domain providers
+- [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
+- [ ] AppServiceProvider further domain peels (Organism/Vox/Swarm/…)
 - [ ] routes/api.php domain split
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref

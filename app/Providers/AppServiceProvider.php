@@ -7,7 +7,6 @@ use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Models\AtlasMemoryEntry;
 use App\Observers\AtlasMemoryRecallCacheObserver;
-use App\Services\Ai\AcosMaxNamespaceAlias;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
@@ -52,7 +51,6 @@ use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatch
 use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
-use App\Services\Ai\CognitiveNamespaceAlias;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compression\AtlasCcrStore;
@@ -213,8 +211,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        AcosMaxNamespaceAlias::register();
-        CognitiveNamespaceAlias::register();
 
         $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
