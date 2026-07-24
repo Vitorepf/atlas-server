@@ -28,6 +28,7 @@
 | Compression/cross-domain/provider ASP peels | Compression unit 106 green; ASP →375 |
 | Maestro/stewardship ASP peels | Maestro priority 41 unit green; ASP →273 |
 | Memory/runtime/obra ASP peels | TaskServing 17 unit green; ASP →73 shell |
+| Aaeos JSON observe support | projectors 2/4545 + targeted feature 2 green |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

@@ -42,7 +42,7 @@
 - [x] AtlasTaskServingService::reportGiveBackOrFailure peel (report() ~23L orchestrator)
 - [x] AtlasAaeosCommand::universalGatesObserveProjectors table peel (~808→~56L method + dense table)
 - [x] AaeosUniversalGatesObserveProjectors catalog class (command 1851→1094; projector unit 2 tests / 4545 asserts)
-- [ ] AtlasAaeosCommand further thin (loadSignals/appendOptionalJsonObserve residual)
+- [x] AtlasAaeosCommand further thin → AaeosUniversalGatesJsonObserveSupport (loadSignals/loadJson/appendObserve)
 - [x] AtlasLedgerReplayService SLO summary/review → LedgerReplaySupport (22 unit tests)
 - [x] AtlasLedgerReplayService SLO + repair summary/review → LedgerReplaySupport (22 unit green)
 - [x] AtlasLedgerReplayService agent/decision/inbox summary+review → Support (careful multi-arg; 22 unit green)

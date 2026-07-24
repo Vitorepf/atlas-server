@@ -8,6 +8,7 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosPhaseHandoffService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasAaeosHttpPathFacadeService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Gates\AaeosUniversalGatesJsonObserveSupport;
 use App\Services\Ai\AgenticEngineeringOs\Gates\AaeosUniversalGatesObserveProjectors;
 use App\Services\Ai\AgenticEngineeringOs\DepartmentContractRuntime;
 use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
@@ -958,7 +959,7 @@ final class AtlasAaeosCommand extends Command
         if ($intent === '') {
             return $this->failWith('cockpit requires --intent');
         }
-        $signals = $this->loadSignals();
+        $signals = AaeosUniversalGatesJsonObserveSupport::loadSignalsFromPath((string) ($this->option('signals') ?? ''));
         $snapshot = $cockpit->snapshot(
             intentId: $intent,
             phaseEnvelopes: [],
@@ -986,10 +987,10 @@ final class AtlasAaeosCommand extends Command
         if ($intent === '') {
             return $this->failWith('universal-gates requires --intent');
         }
-        $signals = $this->loadSignals();
+        $signals = AaeosUniversalGatesJsonObserveSupport::loadSignalsFromPath((string) ($this->option('signals') ?? ''));
         $deliveryPackPath = (string) ($this->option('delivery-pack') ?? '');
         if ($deliveryPackPath !== '') {
-            $composition = $this->loadJsonFile($deliveryPackPath);
+            $composition = AaeosUniversalGatesJsonObserveSupport::loadJsonFile($deliveryPackPath);
             if ($composition === null) {
                 return $this->failWith('universal-gates --delivery-pack must be a readable JSON object');
             }
@@ -1005,7 +1006,7 @@ final class AtlasAaeosCommand extends Command
 
         $specPath = (string) ($this->option('spec') ?? '');
         if ($specPath !== '') {
-            $spec = $this->loadJsonFile($specPath);
+            $spec = AaeosUniversalGatesJsonObserveSupport::loadJsonFile($specPath);
             if ($spec === null) {
                 return $this->failWith('universal-gates --spec must be a readable JSON object');
             }
@@ -1020,61 +1021,21 @@ final class AtlasAaeosCommand extends Command
 
         // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
         foreach ($this->universalGatesObserveProjectors($gates) as [$option, $observeKey, $projector]) {
-
-            $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
-            if ($failed !== null) {
-                return $failed;
+            [$report, $failReason] = AaeosUniversalGatesJsonObserveSupport::appendOptionalJsonObserve(
+                $report,
+                (string) ($this->option($option) ?? ''),
+                $observeKey,
+                $projector,
+                $option,
+            );
+            if ($failReason !== null) {
+                return $this->failWith($failReason);
             }
         }
 
         $this->emit($report, $json);
 
         return $report['outcome'] === 'green' || $report['outcome'] === 'exception' ? self::SUCCESS : self::FAILURE;
-    }
-
-    /**
-     * @param  array<string,mixed>  $report
-     * @param  callable(array<string,mixed>):mixed  $projector
-     */
-    private function appendOptionalJsonObserve(array &$report, string $option, string $observeKey, callable $projector): ?int
-    {
-        $path = (string) ($this->option($option) ?? '');
-        if ($path === '') {
-            return null;
-        }
-        $payload = $this->loadJsonFile($path);
-        if ($payload === null) {
-            return $this->failWith('universal-gates --'.$option.' must be a readable JSON object');
-        }
-        $report['observe'] = array_merge(
-            AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
-            [$observeKey => $projector($payload)],
-        );
-
-        return null;
-    }
-
-    /** @return array<string,bool|string|null> */
-    private function loadSignals(): array
-    {
-        $path = (string) ($this->option('signals') ?? '');
-        if ($path === '') {
-            return [];
-        }
-        $decoded = $this->loadJsonFile($path);
-
-        return AiValueNormalizer::arrayOrEmpty($decoded);
-    }
-
-    /** @return array<string,mixed>|null */
-    private function loadJsonFile(string $path): ?array
-    {
-        if ($path === '' || ! is_file($path)) {
-            return null;
-        }
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : null;
     }
 
     private function emit(mixed $payload, bool $json): void
