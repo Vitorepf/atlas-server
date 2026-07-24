@@ -95,28 +95,27 @@ class EngineeringWorkspaceService
             ]);
         }
 
-        // Provider commands re-enter AWIS using the execution path. Register
-        // the clean worktree so fresh-process certification does not resolve
-        // back to the dirty parent workspace.
+        $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
+
+        // Register only after bootstrap: AWIS inventory/brain readiness must
+        // observe the complete isolated workspace, not its pre-bootstrap tree.
         $parentProfile = $this->workspaceProfiles->findContainingPath((string) $base['original_workspace']);
         if (Schema::hasTable('atlas_workspace_profiles')) {
             $this->workspaceProfiles->upsertPersistedProfile([
-            'slug' => 'engineering-run-'.$run->id,
-            'name' => 'Engineering run '.$run->id,
-            'kind' => 'isolated',
-            'workspace_path' => $worktreePath,
-            'repo_root' => $worktreePath,
-            'production_status' => (string) ($parentProfile['production_status'] ?? 'development'),
-            'docs_status' => (string) ($parentProfile['docs_status'] ?? 'unknown'),
-            'default_risk' => (string) ($parentProfile['default_risk'] ?? 'medium'),
-            'test_commands' => (array) ($parentProfile['test_commands'] ?? []),
-            'critical_areas' => (array) ($parentProfile['critical_areas'] ?? []),
-            'source' => 'engineering_workspace_service',
-            'status' => 'active',
+                'slug' => 'engineering-run-'.$run->id,
+                'name' => 'Engineering run '.$run->id,
+                'kind' => 'isolated',
+                'workspace_path' => $worktreePath,
+                'repo_root' => $worktreePath,
+                'production_status' => (string) ($parentProfile['production_status'] ?? 'development'),
+                'docs_status' => (string) ($parentProfile['docs_status'] ?? 'unknown'),
+                'default_risk' => (string) ($parentProfile['default_risk'] ?? 'medium'),
+                'test_commands' => (array) ($parentProfile['test_commands'] ?? []),
+                'critical_areas' => (array) ($parentProfile['critical_areas'] ?? []),
+                'source' => 'engineering_workspace_service',
+                'status' => 'active',
             ]);
         }
-
-        $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
 
         return array_merge($base, [
             'status' => 'ready',
