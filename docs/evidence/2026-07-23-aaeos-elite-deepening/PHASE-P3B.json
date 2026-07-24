@@ -1,0 +1,126 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P3b",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "1c7f182cb0f7eb511702a27f45ab93d877147a85",
+  "implementation_commit": "6052343226ce8e0e04e2173e7143cdab030cd7de",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php",
+    "app/Console/Commands/AtlasTriHygieneScorecardCommand.php",
+    "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php",
+    "composer.json",
+    "app/Services/Ai/Aaeos/Control/AaeosDeletionConsumerCensus.php",
+    "tests/Feature/Ai/Aaeos/AaeosP3bDeletionColdNegativeTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDeletionConsumerCensusTest.php",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/P3A-CONSUMER-CENSUS.json",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/P3B-MASTER-AMENDMENT-BASIS.json",
+    "docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php",
+    "app/Console/Commands/AtlasTriHygieneScorecardCommand.php",
+    "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php",
+    "composer.json",
+    "app/Services/Ai/Aaeos/Control/AaeosDeletionConsumerCensus.php",
+    "tests/Feature/Ai/Aaeos/AaeosP3bDeletionColdNegativeTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDeletionConsumerCensusTest.php",
+    "docs/evidence/2026-07-23-aaeos-elite-deepening/P3A-CONSUMER-CENSUS.json"
+  ],
+  "deleted_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosTriHygieneScorecardProjector.php",
+    "app/Console/Commands/AtlasTriHygieneScorecardCommand.php",
+    "app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php"
+  ],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P3b cold-negative + census",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosDeletionConsumerCensusTest.php tests/Feature/Ai/Aaeos/AaeosP3bDeletionColdNegativeTest.php tests/Unit/Console/TriHygieneCliRenameTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P3b matrix",
+      "output_fingerprint_or_ref": "controller-verification/P3b:13-passed-95-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "p3b-trihygiene-aliases-delete-v1",
+    "p3b-amend-spec-56f3019b99c0efd9",
+    "p3b-amend-gov-bc20a29e0f4abb9a",
+    "deleted:TriHygiene+HygieneLegacyAliases",
+    "retained:PipelineRunExecutor+OrgState+Outcome+Scorecard"
+  ],
+  "exit_checklist": {
+    "amendment_basis_present": true,
+    "dual_gate_evaluated_refs": true,
+    "only_authorized_paths_deleted": true,
+    "pipeline_run_executor_retained": true,
+    "org_outcome_scorecard_retained": true,
+    "cold_negative_tests_green": true,
+    "no_mass_delete": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "R72 TriHygiene projector+command deleted",
+    "R93 HygieneLegacyAliases cold-negative (file+composer entry removed)"
+  ],
+  "residuals_still_open": [
+    "R103 PipelineRunExecutor port not started (retained with 22 consumers)",
+    "R104-TRANSPORT residual",
+    "R-P2A1-PG-LIVE",
+    "P4 REAL_OPERATION"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_attestation_refs": [
+    {
+      "ledger_event_id": "p3b-amend-spec-56f3019b99c0efd9",
+      "role": "specification_reviewer",
+      "verdict": "APPROVED"
+    },
+    {
+      "ledger_event_id": "p3b-amend-gov-bc20a29e0f4abb9a",
+      "role": "governance_quality_reviewer",
+      "verdict": "APPROVED"
+    }
+  ],
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "56dcff59982e69c40fd7c381a837593bf0e22940f125744de8723642a57c708b",
+    "ledger_content_sha256": "e3dfb4eb9782c463a81a6648f2d04e67165286bdd2e49c446ad1b67e349a0286",
+    "scoreboard_content_sha256": "b53d4cc25f559ee0ae19e59fcc5db7213d589b4479c7eede8fa7d31668364ee5",
+    "sha256": "2cdee8d50106394a5d6d57bece946bb0ef0474f646afbf5c2280877228ed0336"
+  },
+  "next_phase_authorized": {
+    "phase": "P4-DEV",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": true,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P3b GREEN. Authorized deletes complete. Next EXECUTE P4-DEV REAL_OPERATION gauntlet."
+}
