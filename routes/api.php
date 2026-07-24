@@ -13,11 +13,9 @@ use App\Http\Controllers\AiQualityActionController;
 use App\Http\Controllers\AiTelemetryController;
 use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
-use App\Http\Controllers\AtlasAgentGovernanceController;
 use App\Http\Controllers\AtlasAiAgentBehaviorReportController;
 use App\Http\Controllers\AtlasAiArchitectureOperationsController;
 use App\Http\Controllers\AtlasAiArchitectureValidateController;
-use App\Http\Controllers\AtlasAiControlPlaneController;
 use App\Http\Controllers\AtlasAiDecisionReceiptReportController;
 use App\Http\Controllers\AtlasAiDomainCatalogController;
 use App\Http\Controllers\AtlasAiDynamicComputeMarketController;
@@ -45,59 +43,8 @@ use App\Http\Controllers\AtlasAiSelfImprovementScheduleReportController;
 use App\Http\Controllers\AtlasAiSloController;
 use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiStructureMotherAuditController;
-
 use App\Http\Controllers\AtlasBlogEditorialController;
 use App\Http\Controllers\AtlasCalendarBlockController;
-use App\Http\Controllers\AtlasCartographyController;
-use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
-use App\Http\Controllers\AtlasCodeBootController;
-use App\Http\Controllers\AtlasCodeCheckpointController;
-use App\Http\Controllers\AtlasCodeDevToForgePromotionController;
-use App\Http\Controllers\AtlasCodeDiffController;
-use App\Http\Controllers\AtlasCodeEnterpriseCertificationController;
-use App\Http\Controllers\AtlasCodeEvidenceController;
-use App\Http\Controllers\AtlasCodeForgeExecutionController;
-use App\Http\Controllers\AtlasCodeForgeFastPathController;
-use App\Http\Controllers\AtlasCodeForgeFastPathStatusController;
-use App\Http\Controllers\AtlasCodeForgeProviderCapacityController;
-use App\Http\Controllers\AtlasCodeForgeProviderInvocationController;
-use App\Http\Controllers\AtlasCodeForgeProviderTopologyController;
-use App\Http\Controllers\AtlasCodeForgeReviewCompletionController;
-use App\Http\Controllers\AtlasCodeForgeReviewController;
-use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
-use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
-use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
-use App\Http\Controllers\AtlasCodeGraphController;
-use App\Http\Controllers\AtlasCodeMirrorController;
-use App\Http\Controllers\AtlasCodeReposController;
-use App\Http\Controllers\AtlasCodeHealController;
-use App\Http\Controllers\AtlasCodePreflightController;
-use App\Http\Controllers\AtlasCodeProvenanceController;
-use App\Http\Controllers\AtlasCodeAskController;
-use App\Http\Controllers\AtlasCodeReviewController;
-use App\Http\Controllers\AtlasCodeViolationController;
-use App\Http\Controllers\AtlasCodeWeekController;
-use App\Http\Controllers\AtlasCodeWhyController;
-use App\Http\Controllers\AtlasCodeMcpStatusController;
-use App\Http\Controllers\AtlasCodeObraCommandCenterController;
-use App\Http\Controllers\AtlasCodeObservedSessionController;
-use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
-use App\Http\Controllers\AtlasCodeProviderGovernanceController;
-use App\Http\Controllers\AtlasCodeProviderOperatingRoomController;
-use App\Http\Controllers\AtlasCodeReceiptController;
-use App\Http\Controllers\AtlasCodeReceiptShowController;
-use App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController;
-use App\Http\Controllers\AtlasCodeSelfImprovementClosedLoopController;
-use App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController;
-use App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController;
-use App\Http\Controllers\AtlasCodeSelfImprovementNextCycleController;
-use App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController;
-use App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController;
-use App\Http\Controllers\AtlasCodeSessionController;
-use App\Http\Controllers\AtlasCodeThreadController;
-use App\Http\Controllers\AtlasCodeWorkController;
-use App\Http\Controllers\AtlasCodeWorkPacketController;
-use App\Http\Controllers\AtlasCodeWorkspaceController;
 use App\Http\Controllers\AtlasConstelacaoController;
 use App\Http\Controllers\AtlasDev\CancelController;
 use App\Http\Controllers\AtlasDev\IndexController as AtlasDevIndexController;
@@ -107,36 +54,14 @@ use App\Http\Controllers\AtlasDev\RunController;
 use App\Http\Controllers\AtlasDev\ShowController;
 use App\Http\Controllers\AtlasDev\StreamController;
 use App\Http\Controllers\AtlasDomainController;
-use App\Http\Controllers\AtlasFrontendWorkspaceController;
 use App\Http\Controllers\AtlasMemoryController;
-use App\Http\Controllers\AtlasMemoryMaintenanceController;
-use App\Http\Controllers\AtlasMemoryRecallController;
 use App\Http\Controllers\AtlasMobilePushReplayController;
-use App\Http\Controllers\AtlasOpenBrainController;
-use App\Http\Controllers\AtlasOpenBrainMcpController;
-use App\Http\Controllers\AtlasOperatorIntelligenceController;
-use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
-use App\Http\Controllers\Ai\AtlasObraReplayController;
-use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusLoopCommandController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AutonomosDigestController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ExecutiveDecisionInboxController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeCockpitController;
-use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeOperationalInboxController;
-use App\Http\Controllers\ArenaRunController;
-use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
 use App\Http\Controllers\AtlasRoutineController;
-use App\Http\Controllers\AtlasSddAgentRoleController;
-use App\Http\Controllers\AtlasSddController;
-use App\Http\Controllers\AtlasSddMcpResourceController;
 use App\Http\Controllers\AtlasTaskController;
 use App\Http\Controllers\AtlasToolRuntimeController;
-use App\Http\Controllers\AtlasVaultController;
-use App\Http\Controllers\AtlasWorkspaceIntelligenceController;
 use App\Http\Controllers\AuditEventController;
 use App\Http\Controllers\AuditSuggestionController;
 use App\Http\Controllers\BehaviorController;
@@ -158,7 +83,6 @@ use App\Http\Controllers\EngineeringToolScanController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HealthSnapshotController;
 use App\Http\Controllers\InboxController;
-
 use App\Http\Controllers\PassiveSignalController;
 use App\Http\Controllers\ProcrastinationEventController;
 use App\Http\Controllers\RizeWebhookController;
@@ -182,46 +106,9 @@ $registerAtlasVoiceRoutes = require __DIR__.'/api/atlas-voice.php';
 Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
 
-    Route::get('/arena/composite', [ArenaRunController::class, 'composite']);
-    Route::get('/arena/scoreboard', [ArenaRunController::class, 'scoreboard']);
-    Route::get('/arena/capabilities', [ArenaRunController::class, 'capabilities']);
-    Route::get('/arena/runs/live', [ArenaRunController::class, 'live']);
-    Route::get('/arena/engines', [ArenaRunController::class, 'engines']);
-    Route::get('/arena/report', [ArenaRunController::class, 'report']);
-    Route::post('/arena/runs', [ArenaRunController::class, 'store']);
-    Route::post('/arena/measurements/{measurement}/stop', [ArenaRunController::class, 'stop']);
-
-    // Atlas Código C22 · local-first, read-only Git topology for the native app.
-    Route::get('/code/graph', AtlasCodeGraphController::class);
-    // M3 radar · a frota de repositórios por exceção (read-only).
-    Route::get('/code/repos', AtlasCodeReposController::class);
-    // M5 espelho · estado do envio + varredura de segredos (read-only).
-    Route::get('/code/mirror', AtlasCodeMirrorController::class);
-    Route::match(['get', 'post'], '/code/preflight', AtlasCodePreflightController::class);
-    Route::match(['get', 'post'], '/code/heals/tick', [AtlasCodeHealController::class, 'tick']);
-    Route::post('/code/heals/{healId}/undo', [AtlasCodeHealController::class, 'undo'])
-        ->where('healId', '[0-9A-Z]{20,32}');
-    Route::get('/code/provenance/{hash}', AtlasCodeProvenanceController::class)
-        ->where('hash', '[0-9a-fA-F]{7,64}');
-    // H1 · biografia do arquivo: Git --follow + proveniência C23.
-    Route::get('/code/why', AtlasCodeWhyController::class);
-    Route::get('/code/violations', AtlasCodeViolationController::class);
-    Route::get('/code/week', AtlasCodeWeekController::class);
-    // H6 pílula · pergunta em linguagem humana sobre o grafo (read-only).
-    Route::post('/code/ask', AtlasCodeAskController::class);
-    // H6 · estado dos agentes que revisam, por commit (read-only; quem manda
-    // revisar é a pílula, porque mandar é uma frase, não um botão).
-    Route::get('/code/review', AtlasCodeReviewController::class);
-
-    // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
-    // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the
-    // off-all panic) — there is deliberately no turn-ON endpoint, so a tapped app can only reduce spend.
-    Route::get('/agents/active', [AtlasAgentGovernanceController::class, 'active']);
-    Route::get('/agents/status', [AtlasAgentGovernanceController::class, 'status']);
-    Route::get('/agents/history', [AtlasAgentGovernanceController::class, 'history']);
-    Route::get('/agents/task-health', [AtlasAgentGovernanceController::class, 'taskHealth']);
-    Route::post('/agents/off-all', [AtlasAgentGovernanceController::class, 'offAll']);
-    Route::post('/agents/{key}/off', [AtlasAgentGovernanceController::class, 'off']);
+    (require __DIR__.'/api/arena.php')();
+    (require __DIR__.'/api/code-native.php')();
+    (require __DIR__.'/api/agent-governance.php')();
     Route::get('/inbox', [InboxController::class, 'index']);
     Route::get('/inbox/health', [InboxController::class, 'health']);
     Route::post('/inbox/bulk', [InboxController::class, 'bulk']);
@@ -445,49 +332,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/slo', AtlasAiSloController::class);
     Route::post('/ai/strategic-decision/review', AtlasAiStrategicDecisionController::class);
     $registerAtlasVoiceRoutes();
-    Route::get('/ai/memory', [AtlasMemoryController::class, 'index']);
-    Route::post('/ai/memory', [AtlasMemoryController::class, 'store']);
-    Route::post('/ai/memory/recall', AtlasMemoryRecallController::class);
-    Route::post('/ai/memory/maintain', AtlasMemoryMaintenanceController::class);
-    Route::post('/ai/open-brain/context-pack', [AtlasOpenBrainController::class, 'contextPack']);
-    Route::get('/ai/open-brain/audits', [AtlasOpenBrainController::class, 'audits']);
-    Route::match(['GET', 'POST'], '/ai/open-brain/mcp', AtlasOpenBrainMcpController::class);
-    Route::get('/ai/memory/audit/traces/{trace}', [AtlasMemoryController::class, 'auditTrace']);
-    Route::get('/ai/memory/deltas', [AtlasMemoryController::class, 'indexDeltas']);
-    Route::get('/ai/memory/deltas/{delta}', [AtlasMemoryController::class, 'showDelta']);
-    Route::post('/ai/memory/deltas/{delta}/review', [AtlasMemoryController::class, 'reviewDelta']);
-    Route::post('/ai/memory/deltas/{delta}/promote', [AtlasMemoryController::class, 'promoteDelta']);
-    Route::post('/ai/memory/governance/scan', [AtlasMemoryController::class, 'scanGovernance']);
-    Route::post('/ai/memory/privacy/scan', [AtlasMemoryController::class, 'scanPrivacy']);
-    Route::get('/ai/memory/review-queue', [AtlasMemoryController::class, 'reviewQueue']);
-    Route::get('/ai/memory/provider-projection/status', [AtlasMemoryController::class, 'providerProjectionStatus']);
-    Route::get('/ai/memory/provider-projection/review', [AtlasMemoryController::class, 'providerProjectionReview']);
-    Route::get('/ai/memory/provider-projection/audits/summary', [AtlasMemoryController::class, 'providerProjectionAuditSummary']);
-    Route::post('/ai/memory/provider-projection/audits/purge', [AtlasMemoryController::class, 'providerProjectionAuditPurge']);
-    Route::get('/ai/memory/provider-projection/audits', [AtlasMemoryController::class, 'providerProjectionAudits']);
-    Route::post('/ai/memory/provider-projection/apply', [AtlasMemoryController::class, 'providerProjectionApply']);
-    Route::get('/ai/memory/relations', [AtlasMemoryController::class, 'indexRelations']);
-    Route::post('/ai/memory/relations/{relation}/review', [AtlasMemoryController::class, 'reviewRelation']);
-    Route::get('/ai/memory/quality/history', [AtlasMemoryController::class, 'qualityHistory']);
-    Route::post('/ai/memory/quality/snapshots', [AtlasMemoryController::class, 'qualitySnapshot']);
-    Route::get('/ai/memory/quality', [AtlasMemoryController::class, 'quality']);
-    Route::get('/ai/memory/verbatim', [AtlasMemoryController::class, 'indexVerbatim']);
-    Route::post('/ai/memory/verbatim', [AtlasMemoryController::class, 'storeVerbatim']);
-    Route::post('/ai/memory/verbatim/{verbatimMemory}/review', [AtlasMemoryController::class, 'reviewVerbatim']);
-    Route::get('/ai/memory/verbatim/{verbatimMemory}', [AtlasMemoryController::class, 'showVerbatim']);
-    Route::patch('/ai/memory/verbatim/{verbatimMemory}', [AtlasMemoryController::class, 'updateVerbatim']);
-    Route::post('/ai/memory/usages/{usage}/feedback', [AtlasMemoryController::class, 'feedbackUsage']);
-    Route::get('/ai/memory/{memoryEntry}', [AtlasMemoryController::class, 'show']);
-    Route::post('/ai/memory/{memoryEntry}/privacy', [AtlasMemoryController::class, 'reviewPrivacy']);
-    Route::get('/ai/memory/{memoryEntry}/governance', [AtlasMemoryController::class, 'governance']);
-    Route::patch('/ai/memory/{memoryEntry}', [AtlasMemoryController::class, 'update']);
-    Route::get('/ai/vault/status', [AtlasVaultController::class, 'status']);
-    Route::post('/ai/vault/import', [AtlasVaultController::class, 'import']);
-    Route::post('/ai/vault/export-semantic', [AtlasVaultController::class, 'exportSemantic']);
-    Route::post('/ai/vault/sync', [AtlasVaultController::class, 'sync']);
-    Route::get('/ai/vault/conflicts', [AtlasVaultController::class, 'conflicts']);
-    Route::get('/ai/vault/conflicts/{item}', [AtlasVaultController::class, 'item']);
-    Route::post('/ai/vault/conflicts/{item}/resolve', [AtlasVaultController::class, 'resolve']);
+    (require __DIR__.'/api/memory-vault.php')();
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
 
     // YouTube canonical capability · paste-time prewarm + live status read.

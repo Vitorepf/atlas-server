@@ -15,6 +15,7 @@
 |---|---|
 | voice/mobile/vox route split + Organism/Vox ASP | Organism+Vox readiness/confirmation + mobile telemetry filter · 64 tests / 1000 asserts green |
 | Swarm ASP peel | AtlasSwarm* unit 60 tests / 139 asserts green |
+| arena/code/agents/memory-vault routes | route:list 1388; mobile telemetry 1 green; api.php 643→488 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

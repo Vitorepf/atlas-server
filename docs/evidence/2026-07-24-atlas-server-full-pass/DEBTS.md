@@ -69,7 +69,8 @@
 - [x] routes/api/patamar4.php split
 - [x] routes/api control-plane + hermes-hooks splits
 - [x] routes/api voice + mobile + vox splits (api.php 762→643)
-- [ ] routes/api.php remaining (middleware core/arena/…)
+- [x] routes/api arena + code-native + agent-governance + memory-vault (api.php →488; 74 dead imports pruned)
+- [ ] routes/api.php remaining (engineering/tools/projects/ai interactions core)
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
 
