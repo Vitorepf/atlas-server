@@ -41,7 +41,7 @@
 ### Architecture
 
 - [ ] PipelineRunExecutor leave Http + test port (live DI already KernelRunExecutor)
-- [ ] config/atlas.php multi-file split (loop ~1726 legacy first)
+- [x] config/atlas.php: loop → atlas_loop_legacy.php (~1704L extracted; atlas.php 5409→3707)
 - [ ] ProviderCatalog single source (Decide/Gateway/Manager/Forge)
 - [ ] AppServiceProvider domain providers
 - [ ] routes/api.php domain split
