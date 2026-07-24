@@ -1,0 +1,114 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2g-CURR",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "6f66a7e0d804e264ea403904a23e71aa073fd80e",
+  "implementation_commit": "66d3b12b8fc2054b8b1c6bef84973d8f30ff3a51",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Rivals/Core/RivalsCurriculumLadder.php",
+    "app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php",
+    "app/Services/Ai/Rivals/Core/Preregistration.php",
+    "app/Services/Ai/Rivals/Core/Adjudicator.php",
+    "app/Services/Ai/Rivals/Core/ReportBuilder.php",
+    "config/atlas_rivals.php",
+    "tests/Feature/Ai/Rivals/AaeosRivalsCurriculumLadderMetadataTest.php",
+    "tests/Feature/Ai/Rivals/AaeosRivalsSaturatedFrontierBlocks50xClaimTest.php",
+    "tests/Unit/Ai/Rivals/RivalsClaimAuthorityCurriculumTest.php",
+    "docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md",
+    "docs/engineering-knowledge-base/atlas-rivals-internal-corpus-v1.md"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Rivals/Core/RivalsCurriculumLadder.php",
+    "app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php",
+    "config/atlas_rivals.php",
+    "tests/Feature/Ai/Rivals/AaeosRivalsCurriculumLadderMetadataTest.php",
+    "tests/Feature/Ai/Rivals/AaeosRivalsSaturatedFrontierBlocks50xClaimTest.php",
+    "tests/Unit/Ai/Rivals/RivalsClaimAuthorityCurriculumTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2g-CURR curriculum ladder + claim gate",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Rivals/AaeosRivalsCurriculumLadderMetadataTest.php tests/Feature/Ai/Rivals/AaeosRivalsSaturatedFrontierBlocks50xClaimTest.php tests/Unit/Ai/Rivals/RivalsClaimAuthorityCurriculumTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2g-CURR matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2g-CURR:14-passed-46-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.rivals.curriculum_ladder.v1",
+    "claim_on_sanity_forbidden",
+    "claim_on_saturated_frontier_forbidden",
+    "anti_ceiling_fallacy",
+    "curriculum_level_promoted",
+    "L0_sanity_smoke",
+    "L1_frontier_engineering"
+  ],
+  "exit_checklist": {
+    "sanity_vs_frontier_metadata_exists": true,
+    "strong_claim_blocked_on_sanity_or_saturated_frontier": true,
+    "promotion_rule_testable_pure": true,
+    "anti_ceiling_fallacy_cannot_pass_claim_gate": true,
+    "legacy_world_10x_path_preserved": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Curriculum role metadata in config + pure law",
+    "Multiplier claim blocked on sanity/saturated frontier",
+    "Anti-ceiling fallacy claim gate",
+    "Promotion pure receipt facts"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual (channel packaging)",
+    "R-P2A1-PG-LIVE multi-process residual",
+    "P2g-MEAS dual-arm M_excellence measure",
+    "Adjudicator/ReportBuilder full curriculum field projection (path-core law+claim only)",
+    "Internal corpus case-set file tags beyond config levels"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "6db19089aaa7af4b6f988dfd9d6dd42adb94ca4ed3c6aee457371a4c13927761",
+    "ledger_content_sha256": "392768cc8fa5f3e484bf59ddefd0af207d4f97036fb301b220ff8adf517b78b3",
+    "scoreboard_content_sha256": "3d9cf2de869626c36ff35b2b5889c576765c9c2a5c08fb030ee11f5c161f59b6",
+    "sha256": "b314264db34a68abb845ec7b858ebbe57af022f535da03a64f497b98f615ab3d"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2g-MEAS",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2g-CURR GREEN path-core. RivalsCurriculumLadder + claim authority gate. Next EXECUTE P2g-MEAS (dual-arm M_excellence). R104 residual honesty open."
+}
