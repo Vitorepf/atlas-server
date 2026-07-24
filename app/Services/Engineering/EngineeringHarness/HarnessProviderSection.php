@@ -71,7 +71,10 @@ class HarnessProviderSection
 
         $hostCommand = [
             AtlasPhpBinary::path(),
-            base_path('artisan'),
+            // Execute the nested CLI from the isolated worktree. Using the
+            // controller checkout's artisan makes AWIS resolve the wrong
+            // workspace and silently downgrades the provider run to read-only.
+            rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'artisan',
             'atlas:cli:dev',
             // The nested CLI still validates that an efficient run has a
             // positional task description. Keep the durable task id for
