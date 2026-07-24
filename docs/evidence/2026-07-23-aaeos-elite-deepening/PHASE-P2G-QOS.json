@@ -1,0 +1,121 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2g-QOS",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "4c1ae7be77e224aa1479b169a28f97414e5c446d",
+  "implementation_commit": "9f9baa79c227c9fbcaa07024de52b1fbc9247bb7",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/EngineeringKernel/AgentQosExcellenceLaw.php",
+    "app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php",
+    "app/Console/Commands/AtlasReviewDeepCommand.php",
+    "tests/Unit/Ai/EngineeringKernel/AgentQosServerResolvedDepthTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosArchitectureRefuseMutateTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosMaxMultiLoopTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosTimeoutNeverPromotesTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosReviewDeepNonGatingTest.php",
+    "docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md",
+    "docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/EngineeringKernel/AgentQosExcellenceLaw.php",
+    "app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php",
+    "app/Console/Commands/AtlasReviewDeepCommand.php",
+    "tests/Unit/Ai/EngineeringKernel/AgentQosServerResolvedDepthTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosArchitectureRefuseMutateTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosMaxMultiLoopTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosTimeoutNeverPromotesTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosAgentQosReviewDeepNonGatingTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2g-QOS AgentQos law + kernel + review:deep",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/EngineeringKernel/AgentQosServerResolvedDepthTest.php tests/Feature/Ai/Aaeos/AaeosAgentQosArchitectureRefuseMutateTest.php tests/Feature/Ai/Aaeos/AaeosAgentQosMaxMultiLoopTest.php tests/Feature/Ai/Aaeos/AaeosAgentQosTimeoutNeverPromotesTest.php tests/Feature/Ai/Aaeos/AaeosAgentQosReviewDeepNonGatingTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2g-QOS matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2g-QOS:19-passed-44-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.agent_qos.excellence_law.v1",
+    "architecture_mutate_refused",
+    "architecture_under_sampled",
+    "timeout_never_promotes",
+    "vanity_quality_ceiling_dial_forbidden",
+    "review_deep_non_gating",
+    "raise_only_depth"
+  ],
+  "exit_checklist": {
+    "no_vanity_dial_depth_server_resolved": true,
+    "multi_loop_law_enforced_for_max_depth": true,
+    "class_depth_matrix_c_arch_min_candidates": true,
+    "architecture_cannot_land_product_code": true,
+    "timeout_never_promotes": true,
+    "operator_technical_gates_absent": true,
+    "review_deep_non_gating": true,
+    "r106_path_core_closed": true,
+    "r104_residual_honesty_stamped": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "R106 multi-loop excellence path law (path-core)",
+    "C_ARCH mutate refuse + under-sampled",
+    "timeout/budget never promotes",
+    "vanity quality_ceiling dial forbidden",
+    "review:deep non-gating surface stamp"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual (channel packaging; excellence claims must stay residual-honest)",
+    "R-P2A1-PG-LIVE multi-process residual",
+    "P2g-CURR curriculum ladder wiring",
+    "P2g-MEAS measured 50x / R107",
+    "Full Court+Floor composition binding at max depth beyond law blockers",
+    "Kill-tests K1-K10 exhaustive catalog as PHASE residual partial"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "d43d9ab82e7f1f14b81b8c9a8765ce071fc86ddf3f6fab28e94eacac0807ee41",
+    "ledger_content_sha256": "924fd289b34028d80dcaa81461af6bdac235376ba596ef2d9a496dd21a4fc30d",
+    "scoreboard_content_sha256": "c05c34b04e98d7e61a31032238693ccc1f576738694c1259dae546000c2c1ffb",
+    "sha256": "eab2b41ec2933c2bf0868fe9f0fe1d4a7d0650e9dd442a5a3dbd6a3b6e61c4f4"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2g-CURR",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2g-QOS GREEN path-core. AgentQosExcellenceLaw + EliteExecutorKernel mutative blockers + review:deep non-gating. R104-TRANSPORT residual honesty open. Next EXECUTE P2g-CURR (curriculum ladder). Map: atlas-agent-qos-excellence-ceiling.md."
+}
