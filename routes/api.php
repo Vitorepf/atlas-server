@@ -719,16 +719,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
  * Atlas Truth Cartography — read-only HTTP surface for the live cartography UI.
  * The cartography never writes; these endpoints are GET-only by design.
  */
-Route::prefix('atlas-cartography')->group(function () {
-    Route::get('/graph', [AtlasCartographyController::class, 'graph']);
-    Route::get('/human-clarity', [AtlasCartographyController::class, 'humanClarity']);
-    Route::get('/note/{graph_id}', [AtlasCartographyController::class, 'note'])->where('graph_id', '.*');
-    Route::get('/recent-changes', [AtlasCartographyController::class, 'recentChanges']);
-    // SSE · live-doc stream. Heartbeat every 15s + emit `graph_changed` when
-    // the assembler's checksum moves. Connections close after 25s so the
-    // `php artisan serve` single-thread worker recycles; client reconnects.
-    Route::get('/stream', [AtlasCartographyController::class, 'stream']);
-});
+(require __DIR__.'/api/atlas-cartography.php')();
+
 
 /*
  * Atlas Code · MVP endpoints consumed by the atlas-desktop bridge.
@@ -757,33 +749,8 @@ Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::cla
 // Atlas Software Company Stewardship Stack · Area Focus Product Mode read surface (AP-721, AP-712).
 // Read-only Desktop-ready read model. No mutation, no execution, no merge/deploy/secrets.
 // canon: docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
-Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->group(function (): void {
-    Route::get('/area-focus/{area}', [AreaFocusController::class, 'show']);
-    Route::get('/executive-decision-inbox/{portfolio}', [ExecutiveDecisionInboxController::class, 'show']);
-    Route::get('/product-mode-cockpit/{portfolio}', [ProductModeCockpitController::class, 'show']);
-    Route::get('/operational-inbox/{portfolio}', [ProductModeOperationalInboxController::class, 'show']);
-    // Atlas Loop Command Surface (mobile READ live state + WRITE human commands). Read-only GETs compose
-    // existing read models; POSTs wrap existing owner services (AP-724 decision) or write the runner's own
-    // signal files atomically. No new selection/execution/merge logic; never invokes a provider.
-    // NOTE: register the static `/loop/areas` before `/loop/{area}/...` so the picker route is never
-    // captured as an area id. DEPLOY: after editing this file run `docker exec atlas-backend php
-    // artisan route:clear` — route:cache is baked into the bootstrap/cache volume at boot, so new
-    // routes 404 over HTTP until cleared.
-    // NOTE (god-debulk step 5): the POST /loop/{area}/start-run write-surface (which enqueued the
-    // second-engine SoftwareCompanyLoopRunJob) was RETIRED. The runner read-model still backs the GETs.
-    Route::get('/loop/areas', [AreaFocusLoopCommandController::class, 'areas']);
-    Route::get('/loop/{area}/live', [AreaFocusLoopCommandController::class, 'live']);
-    Route::get('/loop/{area}/cycles', [AreaFocusLoopCommandController::class, 'cycles']);
-    Route::get('/loop/{area}/backlog', [AreaFocusLoopCommandController::class, 'backlog']);
-    Route::get('/loop/{area}/done', [AreaFocusLoopCommandController::class, 'done']);
-    Route::get('/loop/{area}/transfer/{handoffId}', [AreaFocusLoopCommandController::class, 'transferStatus']);
-    Route::get('/autonomos/digest', AutonomosDigestController::class);
-    Route::post('/autonomos/{area}/cycles/{cycle}/revert', [AreaFocusLoopCommandController::class, 'revertCycle']);
-    Route::post('/loop/{area}/transfer', [AreaFocusLoopCommandController::class, 'transfer']);
-    Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);
-    Route::post('/loop/{area}/run-control', [AreaFocusLoopCommandController::class, 'runControl']);
-    Route::post('/loop/{area}/directive', [AreaFocusLoopCommandController::class, 'directive']);
-});
+(require __DIR__.'/api/software-company-stewardship.php')();
+
 
 // Atlas Patamar 4 · live aggregator (Kernel · Admission · CFA · Reconciliation · TEOS-I4 · Swarm · TDC)
 Route::get('/atlas/patamar4/state', App\Http\Controllers\AtlasPatamar4StateController::class);
@@ -808,12 +775,5 @@ Route::post('/atlas/patamar4/conduct', [App\Http\Controllers\AtlasPatamar4Surfac
 Route::post('/internal/hermes/hooks/{trace}', App\Http\Controllers\HermesHookSinkController::class);
 
 // Operator Intelligence Layer · profile learning, review, context and private projection.
-Route::prefix('atlas/operator-intelligence')->middleware('atlas.token')->group(function (): void {
-    Route::post('/capture', [AtlasOperatorIntelligenceController::class, 'capture']);
-    Route::get('/review-queue', [AtlasOperatorIntelligenceController::class, 'reviewQueue']);
-    Route::post('/candidates/{candidate}/review', [AtlasOperatorIntelligenceController::class, 'review']);
-    Route::get('/profile', [AtlasOperatorIntelligenceController::class, 'profile']);
-    Route::get('/context', [AtlasOperatorIntelligenceController::class, 'context']);
-    Route::get('/digest', [AtlasOperatorIntelligenceController::class, 'digest']);
-    Route::post('/project', [AtlasOperatorIntelligenceController::class, 'project']);
-});
+(require __DIR__.'/api/operator-intelligence.php')();
+

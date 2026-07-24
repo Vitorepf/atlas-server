@@ -58,7 +58,8 @@
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
 - [ ] AppServiceProvider further domain peels (Organism/Vox/Swarm/…)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
-- [ ] routes/api.php remaining domain splits (voice/mobile/stewardship/…)
+- [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
+- [ ] routes/api.php remaining (voice/mobile/middleware core/…)
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
 
