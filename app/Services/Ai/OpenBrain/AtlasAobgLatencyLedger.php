@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrain;
 
+use App\Support\RoundOrNull;
 use App\Support\ArrayPercentile;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -315,6 +316,6 @@ final class AtlasAobgLatencyLedger
 
     private function roundOrNull(?float $value): ?float
     {
-        return $value === null ? null : round($value, 3);
+        return RoundOrNull::of($value);
     }
 }

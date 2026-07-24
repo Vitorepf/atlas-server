@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Support\RoundOrNull;
 use App\Support\ArrayPercentile;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -351,6 +352,6 @@ final class AtlasDeliveredPackLedger
 
     private function roundOrNull(?float $value): ?float
     {
-        return $value === null ? null : round($value, 3);
+        return RoundOrNull::of($value);
     }
 }
