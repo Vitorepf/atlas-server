@@ -36,7 +36,7 @@
 - [x] AtlasTaskServingService::report intake validateReportIntake peel (8 unit tests green)
 - [x] AtlasTaskServingService::reportSuccessWithCommit peel (8 unit green; evidence contract suite pre-existing fails unrelated)
 - [x] AtlasTaskServingService::reportSuccessDryRun peel
-- [ ] AtlasTaskServingService::report give_back/failed branches further stages
+- [x] AtlasTaskServingService::reportGiveBackOrFailure peel (report() ~23L orchestrator)
 - [x] AtlasAaeosCommand::universalGatesObserveProjectors table peel (~808→~56L method + dense table)
 - [ ] AtlasAaeosCommand further thin (loadSignals/service extract residual)
 - [x] AtlasLedgerReplayService SLO summary/review → LedgerReplaySupport (22 unit tests)

@@ -931,27 +931,14 @@ final class AtlasTaskServingService
             $refactorProof !== null ? ['refactor_proof' => $refactorProof] : []));
     }
 
-    public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
+    /**
+     * Scope expansion + give_back/failed anti-loop release path.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function reportGiveBackOrFailure(string $clientId, string $taskPacketId, string $leaseId, string $outcome, array $payload): array
     {
-        $intake = $this->validateReportIntake($clientId, $taskPacketId, $leaseId, $payload);
-        if (($intake['status'] ?? null) === 'blocked') {
-            return $intake['envelope'];
-        }
-        $clientId = $intake['client_id'];
-        $outcome = $intake['outcome'];
-
-        // SHARED-MAIN resolve: commit EXACTLY this task's allowed_files (server-truth scope) as the AI's own
-        // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
-        // dry-run path stays intact.
-        if ($outcome === 'success' && (bool) ($payload['commit'] ?? false)) {
-            return $this->reportSuccessWithCommit($clientId, $taskPacketId, $leaseId, $payload);
-        }
-
-
-        if ($outcome === 'success') {
-            return $this->reportSuccessDryRun($clientId, $taskPacketId, $leaseId, $payload);
-        }
-
         // GOVERNED SCOPE EXPANSION — a give_back that carries a structured expansion request
         // (files + justification) is a discovery, not a failure: the seam needs files the
         // packet did not anticipate. Granted, the packet is rebuilt with the wider scope and
@@ -1066,6 +1053,30 @@ final class AtlasTaskServingService
             'lease_id' => $leaseId,
             'result' => $result,
         ], $autoRepair === null ? [] : ['auto_repair' => $autoRepair]));
+    }
+
+    public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
+    {
+        $intake = $this->validateReportIntake($clientId, $taskPacketId, $leaseId, $payload);
+        if (($intake['status'] ?? null) === 'blocked') {
+            return $intake['envelope'];
+        }
+        $clientId = $intake['client_id'];
+        $outcome = $intake['outcome'];
+
+        // SHARED-MAIN resolve: commit EXACTLY this task's allowed_files (server-truth scope) as the AI's own
+        // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
+        // dry-run path stays intact.
+        if ($outcome === 'success' && (bool) ($payload['commit'] ?? false)) {
+            return $this->reportSuccessWithCommit($clientId, $taskPacketId, $leaseId, $payload);
+        }
+
+
+        if ($outcome === 'success') {
+            return $this->reportSuccessDryRun($clientId, $taskPacketId, $leaseId, $payload);
+        }
+
+        return $this->reportGiveBackOrFailure($clientId, $taskPacketId, $leaseId, $outcome, $payload);
     }
 
     /**
