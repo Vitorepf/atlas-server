@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityIntentAdvisoryService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * L2-O2 (first increment) — read-only Intent ADVISORY command.
@@ -52,9 +53,9 @@ final class AtlasDocumentationRealityIntentAdvisoryCommand extends Command
         $this->components->twoColumnDetail('Intent Advisory (L2-O2)', 'ADVISORY OPINION — the operator decides');
         $this->components->twoColumnDetail('advisory recommendation', (string) data_get($payload, 'advisory_recommendation.value', ''));
         $this->components->twoColumnDetail('is a decision', data_get($payload, 'advisory_recommendation.is_a_decision') ? 'yes' : 'NO (advisory only)');
-        $this->components->twoColumnDetail('never overrides operator', data_get($payload, 'sovereignty.never_overrides_operator') ? 'true' : 'false');
+        $this->components->twoColumnDetail('never overrides operator', data_getYesNo::trueFalse($payload, 'sovereignty.never_overrides_operator'));
         $this->components->twoColumnDetail('technical signal verdict', (string) data_get($payload, 'technical_signal.verdict', ''));
-        $this->components->twoColumnDetail('objective stated', data_get($payload, 'proposal.objective_stated') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('objective stated', data_getYesNo::format($payload, 'proposal.objective_stated'));
         $this->components->twoColumnDetail('writes / auto-acts', 'false / false');
 
         $this->newLine();

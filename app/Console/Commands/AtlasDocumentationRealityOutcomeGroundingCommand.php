@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityOutcomeGroundingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * L2-O1 (first increment) — read-only Outcome-Grounding SCORER command.
@@ -63,7 +64,7 @@ class AtlasDocumentationRealityOutcomeGroundingCommand extends Command
                 Str::limit((string) ($g['capability_id'] ?? ''), 44),
                 (string) ($g['computed_state'] ?? ''),
                 (string) ($g['grade'] ?? ''),
-                ($g['outcome_grounded'] ?? false) ? 'yes' : 'no',
+                YesNo::format($g['outcome_grounded'] ?? false),
                 (string) count((array) ($g['outcome_signals'] ?? [])),
             ])->all(),
         );

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Atlas CognitiveFunctionAtlas — Patamar 4 · 4.2 (self-model read-only).
@@ -130,7 +131,7 @@ class AtlasCognitiveFunctionAtlasService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SELF_MODEL_SCHEMA,
-            self::FIELD_GENERATED_AT => $scorecard[self::FIELD_GENERATED_AT] ?? gmdate('c'),
+            self::FIELD_GENERATED_AT => $scorecard[self::FIELD_GENERATED_AT] ?? UtcIsoTimestamp::now(),
             self::FIELD_SUBSYSTEM_COUNT => count($subs),
             self::FIELD_GROUP_COUNT => count($groups),
             self::FIELD_GROUPS => $groups,

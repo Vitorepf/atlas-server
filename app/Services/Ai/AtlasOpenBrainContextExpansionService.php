@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\YesNo;
 
 final class AtlasOpenBrainContextExpansionService
 {
@@ -364,7 +365,7 @@ final class AtlasOpenBrainContextExpansionService
         if (isset($expansion['selected_ref_count'])) {
             $lines[] = '- selected_refs: '.(int) $expansion['selected_ref_count']
                 .'; excluded_refs='.(int) ($expansion['excluded_ref_count'] ?? 0)
-                .'; required_source_covered='.(($expansion['required_source_covered'] ?? false) ? 'true' : 'false');
+                .'; required_source_covered='.(YesNo::trueFalse($expansion['required_source_covered'] ?? false));
         }
         if (isset($expansion['selected_symbol_count'])) {
             $lines[] = '- selected_symbols: '.(int) $expansion['selected_symbol_count'];

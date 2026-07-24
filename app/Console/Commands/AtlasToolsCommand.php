@@ -14,6 +14,7 @@ use App\Services\Tools\AtlasToolGateService;
 use App\Services\Tools\AtlasToolRegistryService;
 use App\Services\Tools\AtlasToolReleaseGateService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasToolsCommand extends Command
 {
@@ -543,8 +544,8 @@ class AtlasToolsCommand extends Command
                 $this->table(['name', 'category', 'dry-run', 'blocks', 'tier', 'sandbox', 'command'], collect($payload['commands'])->map(fn (array $command): array => [
                     $command['name'] ?? '-',
                     $command['category'] ?? '-',
-                    (bool) ($command['dry_run_default'] ?? false) ? 'yes' : 'no',
-                    (bool) ($command['blocking_capable'] ?? false) ? 'yes' : 'no',
+                    (bool) YesNo::format($command['dry_run_default'] ?? false),
+                    (bool) YesNo::format($command['blocking_capable'] ?? false),
                     $command['max_execution_tier'] ?? '-',
                     $command['sandbox_mode'] ?? '-',
                     implode(' ', (array) ($command['command'] ?? [])),
@@ -635,7 +636,7 @@ class AtlasToolsCommand extends Command
             $this->table(['tool', 'scope', 'enabled', 'approval', 'until'], collect($payload['policies'])->map(fn (array $policy): array => [
                 $policy['tool_slug'] ?? '-',
                 $policy['scope_type'] ?? '-',
-                (bool) ($policy['enabled'] ?? false) ? 'yes' : 'no',
+                (bool) YesNo::format($policy['enabled'] ?? false),
                 $policy['approval_status'] ?? '-',
                 data_get($policy, 'metadata.approved_until', '-'),
             ])->all());

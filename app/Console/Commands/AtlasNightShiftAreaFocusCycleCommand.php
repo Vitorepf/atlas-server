@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecorderService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusEvidencePackService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Night Shift · Area Focus Loop · Durable Cycle + Evidence Pack (AP-720).
@@ -108,8 +109,8 @@ class AtlasNightShiftAreaFocusCycleCommand extends Command
         $this->emit($pack, function (array $p): void {
             $this->components->twoColumnDetail('Evidence pack', (string) ($p['pack_id'] ?? '?'));
             $this->components->twoColumnDetail('Cycle', (string) ($p['cycle_id'] ?? '?'));
-            $this->components->twoColumnDetail('Complete', ($p['completeness']['complete'] ?? false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Morning Inbox ready', ($p['morning_inbox_ready'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Complete', YesNo::format($p['completeness']['complete'] ?? false));
+            $this->components->twoColumnDetail('Morning Inbox ready', YesNo::format($p['morning_inbox_ready'] ?? false));
         });
 
         return self::SUCCESS;

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\LongHorizon\LongHorizonCrossWeekRecallLiftGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasLongHorizonCrossWeekRecallLiftGateCommand extends Command
 {
@@ -57,7 +58,7 @@ final class AtlasLongHorizonCrossWeekRecallLiftGateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Cross-week recall lift', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Calendar span (days)', (string) data_get($payload, 'measurement.calendar_span_days', 'n/a'));
         $this->components->twoColumnDetail('Max recall age (days)', (string) data_get($payload, 'measurement.max_recall_age_days', 'n/a'));
         $this->components->twoColumnDetail('Recall lift', (string) (data_get($payload, 'measurement.ab.recall_lift') ?? 'n/a'));

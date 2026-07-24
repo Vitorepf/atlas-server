@@ -13,6 +13,7 @@ use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use SplFileInfo;
+use App\Support\YesNo;
 
 class AtlasFeaturePlacementService
 {
@@ -401,7 +402,7 @@ class AtlasFeaturePlacementService
             ->unique()
             ->map(fn (string $path): array => [
                 'path' => $path,
-                'exists' => File::exists(base_path($path)) ? 'yes' : 'no',
+                'exists' => File::existsYesNo::format(base_path($path)),
             ])
             ->values()
             ->all();

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Support\YesNo;
+
 /**
  * Pure policy that decides whether queue saturation should stop origination.
  *
@@ -109,7 +111,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         if ($isSaturated) {
             return $this->envelope(self::ACTION_CONTINUE_SELECTIVE, [
                 'saturated:' . $claimable . '>=' . $threshold,
-                'paths_remain: frontier=' . $highValueFrontier . ' research=' . ($researchPath ? 'yes' : 'no') . ' simplification=' . ($simplificationPath ? 'yes' : 'no'),
+                'paths_remain: frontier=' . $highValueFrontier . ' research=' . (YesNo::format($researchPath)) . ' simplification=' . (YesNo::format($simplificationPath)),
                 'shift_to_higher_selectivity',
             ]);
         }

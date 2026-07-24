@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiLedgerProjectionCommand extends Command
 {
@@ -34,7 +35,7 @@ class AtlasAiLedgerProjectionCommand extends Command
         }
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Ledger Projection</>', (string) $payload['status']);
-        $this->components->twoColumnDetail('Dry run', ($report['dry_run'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', YesNo::format($report['dry_run'] ?? false));
         $this->components->twoColumnDetail('Events inspected', (string) ($report['event_count'] ?? 0));
         $this->components->twoColumnDetail('Projected', (string) ($report['projected_count'] ?? 0));
         $this->components->twoColumnDetail('Skipped', (string) ($report['skipped_count'] ?? 0));

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryLiveManifestService;
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryMutationCoverageRunner;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasEngineeringQualityFoundryManifestsCommand extends Command
 {
@@ -50,7 +51,7 @@ final class AtlasEngineeringQualityFoundryManifestsCommand extends Command
         $this->line('[atlas:engineering:quality-foundry-manifests] status='.$payload['status']);
         $this->line('  operational_status='.$payload['operational_status']);
         $this->line('  ready_modes='.$payload['summary']['ready_modes'].'/'.$payload['summary']['required_modes']);
-        $this->line('  completion_allowed='.($payload['completion_allowed'] ? 'true' : 'false'));
+        $this->line('  completion_allowed='.(YesNo::trueFalse($payload['completion_allowed'])));
 
         return self::SUCCESS;
     }

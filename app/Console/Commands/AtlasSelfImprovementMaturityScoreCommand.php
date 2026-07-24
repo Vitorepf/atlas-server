@@ -9,6 +9,7 @@ use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 final class AtlasSelfImprovementMaturityScoreCommand extends Command
 {
@@ -68,6 +69,6 @@ final class AtlasSelfImprovementMaturityScoreCommand extends Command
         $this->components->twoColumnDetail('capability', (string) ($payload['capability'] ?? '—'));
         $this->components->twoColumnDetail('achieved_level', (string) ($payload['achieved_level'] ?? '—'));
         $this->components->twoColumnDetail('expected_level', (string) ($payload['expected_level'] ?? '—'));
-        $this->components->twoColumnDetail('meets_expected', $payload['meets_expected'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('meets_expected', YesNo::format($payload['meets_expected']));
     }
 }

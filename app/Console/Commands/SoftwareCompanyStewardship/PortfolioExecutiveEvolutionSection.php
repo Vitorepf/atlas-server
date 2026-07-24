@@ -17,6 +17,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\NewAreaProposalGate
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwareCompanyService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Support\YesNo;
 
 trait PortfolioExecutiveEvolutionSection
 {
@@ -43,7 +44,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('Tick', (string) ($p['tick_id'] ?? ''));
             $this->components->twoColumnDetail('AP-744 operation', (string) ($p['active_operation_status'] ?? 'not_run'));
             $this->components->twoColumnDetail('Recorded', ((bool) ($p['record_continuous_cycle_requested'] ?? false)) ? 'requested' : 'projection-only');
-            $this->components->twoColumnDetail('Enabled', ((bool) data_get($p, 'policy.enabled', false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Enabled', YesNo::format((bool) data_get($p, 'policy.enabled', false)));
             $this->components->twoColumnDetail('Kill switch', ((bool) data_get($p, 'policy.kill_switch_active', false)) ? 'active' : 'clear');
             foreach ((array) ($p['blockers'] ?? []) as $blocker) {
                 $this->warn('  blocker: '.(string) $blocker);
@@ -90,7 +91,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('AP-745 tick', (string) ($p['tick_status'] ?? data_get($p, 'continuous_loop.status', 'not_run')));
             $this->components->twoColumnDetail('Scheduler record', ((bool) ($p['record_scheduler_run_requested'] ?? false)) ? 'requested' : 'projection-only');
             $this->components->twoColumnDetail('Continuous record', ((bool) ($p['record_continuous_cycle_requested'] ?? false)) ? 'requested' : 'projection-only');
-            $this->components->twoColumnDetail('Scheduler enabled', ((bool) data_get($p, 'policy.scheduler_enabled', false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Scheduler enabled', YesNo::format((bool) data_get($p, 'policy.scheduler_enabled', false)));
             $this->components->twoColumnDetail('Kill switch', ((bool) data_get($p, 'policy.kill_switch_active', false)) ? 'active' : 'clear');
             foreach ((array) ($p['blockers'] ?? []) as $blocker) {
                 $this->warn('  blocker: '.(string) $blocker);
@@ -437,7 +438,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('AP-734 decision', (string) ($p['decision_id'] ?? ''));
             $this->components->twoColumnDetail('Target', (string) ($p['target_type'] ?? '').' · '.(string) ($p['target_id'] ?? ''));
             $this->components->twoColumnDetail('Decision', (string) ($p['decision'] ?? ''));
-            $this->components->twoColumnDetail('Executed', ((bool) ($p['executed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executed', YesNo::format((bool) ($p['executed'] ?? false)));
         });
 
         return self::SUCCESS;
@@ -557,7 +558,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('AP-735 decision', (string) ($p['decision_id'] ?? ''));
             $this->components->twoColumnDetail('Target', (string) ($p['target_type'] ?? '').' · '.(string) ($p['target_id'] ?? ''));
             $this->components->twoColumnDetail('Decision', (string) ($p['decision'] ?? ''));
-            $this->components->twoColumnDetail('Executed', ((bool) ($p['executed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executed', YesNo::format((bool) ($p['executed'] ?? false)));
         });
 
         return self::SUCCESS;
@@ -751,7 +752,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('Target', (string) ($p['target_type'] ?? '').' · '.(string) ($p['target_id'] ?? ''));
             $this->components->twoColumnDetail('Decision', (string) ($p['decision'] ?? ''));
             $this->components->twoColumnDetail('Next', (string) ($p['next_allowed_action'] ?? ''));
-            $this->components->twoColumnDetail('Executed', ((bool) ($p['executed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executed', YesNo::format((bool) ($p['executed'] ?? false)));
         });
 
         return self::SUCCESS;
@@ -809,7 +810,7 @@ trait PortfolioExecutiveEvolutionSection
             $this->components->twoColumnDetail('AP-731 decision', (string) ($p['decision_id'] ?? ''));
             $this->components->twoColumnDetail('Target', (string) ($p['target_type'] ?? '').' · '.(string) ($p['target_id'] ?? ''));
             $this->components->twoColumnDetail('Decision', (string) ($p['decision'] ?? ''));
-            $this->components->twoColumnDetail('Executed', ((bool) ($p['executed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executed', YesNo::format((bool) ($p['executed'] ?? false)));
         });
 
         return self::SUCCESS;

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiRealEngineeringKernelCommand extends Command
 {
@@ -54,7 +55,7 @@ class AtlasAiRealEngineeringKernelCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Real Engineering Execution Kernel</>', $action);
         $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Writes', ($payload['writes'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes'] ?? false));
 
         return $this->exitCodeFor($payload);
     }

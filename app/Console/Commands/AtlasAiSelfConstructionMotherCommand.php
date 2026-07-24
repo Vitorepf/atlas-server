@@ -8,6 +8,7 @@ use App\Console\Commands\Support\AtlasSelfConstructionMotherCommandSurface;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
+use App\Support\YesNo;
 
 /**
  * Atlas Self-Construction OS — the read-only "mother" command.
@@ -1594,7 +1595,7 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     private function fmt(mixed $value): string
     {
         if (is_bool($value)) {
-            return $value ? 'yes' : 'no';
+            return YesNo::format($value);
         }
         if ($value === null) {
             return '-';

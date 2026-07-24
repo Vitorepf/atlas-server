@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 /**
  * Composes a repair-attempt {@see ProviderPromptProjection} from the
@@ -177,7 +178,7 @@ final class RepairPromptComposer
             sprintf('- provider_lock: %s/%s (fallback_allowed=%s)',
                 $contract->providerLock->provider,
                 $contract->providerLock->modelFamily,
-                $contract->providerLock->fallbackAllowed ? 'true' : 'false',
+                YesNo::trueFalse($contract->providerLock->fallbackAllowed),
             ),
             '',
             '# Primary Error (normalized)',

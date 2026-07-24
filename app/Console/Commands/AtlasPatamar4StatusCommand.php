@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Patamar4\AtlasPatamar4StateService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasPatamar4StatusCommand extends Command
 {
@@ -59,7 +60,7 @@ class AtlasPatamar4StatusCommand extends Command
         $this->line('');
         $this->line('claim_policy:');
         foreach ($state['claim_policy'] as $k => $v) {
-            $this->line("  {$k}: ".(is_bool($v) ? ($v ? 'true' : 'false') : (string) $v));
+            $this->line("  {$k}: ".(is_bool($v) ? (YesNo::trueFalse($v)) : (string) $v));
         }
 
         return self::SUCCESS;

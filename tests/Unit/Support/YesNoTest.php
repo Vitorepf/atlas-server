@@ -14,5 +14,15 @@ final class YesNoTest extends TestCase
         $this->assertSame('yes', YesNo::format(true));
         $this->assertSame('no', YesNo::format(false));
         $this->assertSame('yes', YesNo::format(1));
+        $this->assertSame('no', YesNo::format(0));
+        $this->assertSame('no', YesNo::format(null));
+    }
+
+    public function test_true_false(): void
+    {
+        $this->assertSame('true', YesNo::trueFalse(true));
+        $this->assertSame('false', YesNo::trueFalse(false));
+        $this->assertSame('true', YesNo::trueFalse(1));
+        $this->assertSame('false', YesNo::trueFalse(''));
     }
 }

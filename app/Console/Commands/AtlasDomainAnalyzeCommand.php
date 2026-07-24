@@ -8,6 +8,7 @@ use App\Services\Ai\Analysis\AnalysisJudgePanelService;
 use App\Services\Ai\Policy\AtlasDomainProfileRegistry;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * G6 — run a structured analysis through the cross-domain judge panel +
@@ -60,7 +61,7 @@ class AtlasDomainAnalyzeCommand extends Command
         }
 
         $this->line('decision: '.$result['decision']);
-        $this->line('certified: '.($result['certified'] ? 'yes' : 'no'));
+        $this->line('certified: '.(YesNo::format($result['certified'])));
         $this->line('metric_family: '.$result['honesty']['metric_family']);
         $this->line(sprintf(
             'panel: %d accept / %d refute (majority threshold %d)',

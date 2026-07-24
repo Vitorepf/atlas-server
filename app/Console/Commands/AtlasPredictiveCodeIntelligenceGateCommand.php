@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Learning\PredictiveFailure\PredictiveCodeIntelligenceCorrelationGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasPredictiveCodeIntelligenceGateCommand extends Command
 {
@@ -49,7 +50,7 @@ final class AtlasPredictiveCodeIntelligenceGateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Predictive code intelligence', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Code gate', (string) data_get($payload, 'assessment.code_gate_status', 'unknown'));
         $this->components->twoColumnDetail('Outcomes', (string) data_get($payload, 'assessment.outcomes_recorded', 0));
         $this->components->twoColumnDetail('Failure signatures', (string) data_get($payload, 'assessment.failure_signature_outcomes', 0));

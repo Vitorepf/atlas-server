@@ -11,6 +11,7 @@ use App\Services\Ai\Kernel\Repair\RepairRequest;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiRepairCommand extends Command
 {
@@ -102,13 +103,13 @@ class AtlasAiRepairCommand extends Command
         $this->components->twoColumnDetail('Failure', $request->failure->domain->value);
         $this->components->twoColumnDetail('Decision', (string) ($decision['status'] ?? '-'));
         $this->components->twoColumnDetail('Strategy', (string) ($decision['strategy'] ?? '-'));
-        $this->components->twoColumnDetail('Dry run', $request->dryRun ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', YesNo::format($request->dryRun));
         $this->components->twoColumnDetail('Repair execution', data_get($repairPayload, 'executed', false) ? 'attempted' : 'disabled');
         $this->components->twoColumnDetail('Compliance', data_get($payload, 'compliance.ok') ? 'ok' : 'failed');
 
         if ($attempt !== []) {
             $this->components->twoColumnDetail('Attempt number', (string) ($attempt['attempt_number'] ?? '-'));
-            $this->components->twoColumnDetail('Attempt executed', ($attempt['executed'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Attempt executed', YesNo::format($attempt['executed'] ?? false));
         }
 
         $reasons = (array) ($attempt['reasons'] ?? $decision['reasons'] ?? []);

@@ -271,7 +271,7 @@ class CodeGraphInferredGuard
             return 0.0;
         }
 
-        return $this->clamp01($value);
+        return Clamp01::of($value);
     }
 
     /**
@@ -282,13 +282,13 @@ class CodeGraphInferredGuard
         if (array_key_exists('min_score', $opts)) {
             $candidate = $this->numericOrNull($opts['min_score']);
             if ($candidate !== null) {
-                return $this->clamp01($candidate);
+                return Clamp01::of($candidate);
             }
         }
 
         $configured = $this->numericOrNull(config('atlas.code_graph.min_inferred_score', 0.2));
 
-        return $this->clamp01($configured ?? 0.2);
+        return Clamp01::of($configured ?? 0.2);
     }
 
     /**
@@ -326,10 +326,6 @@ class CodeGraphInferredGuard
     }
 
     /** Clamp to [0,1]. */
-    private function clamp01(float $value): float
-    {
-        return Clamp01::of($value);
-    }
 
     /**
      * Clamp a ratio cap to [0, 1). It must stay strictly below 1 so the closed-form

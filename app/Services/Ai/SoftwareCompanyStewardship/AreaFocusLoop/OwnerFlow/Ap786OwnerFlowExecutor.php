@@ -20,6 +20,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786Owne
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowIntentSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowPreflightSignalsSection;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlow\Ap786OwnerFlowReportSection;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AP-786 full owner-runtime flow executor.
@@ -506,7 +507,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'blockers' => $blockers,
             'blocker_details' => $blockerReport['details'],
             'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
         ];
     }
 

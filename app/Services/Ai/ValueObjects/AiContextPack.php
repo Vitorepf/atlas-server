@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\ValueObjects;
 
+use App\Support\YesNo;
+
 class AiContextPack
 {
     private readonly array $data;
@@ -201,7 +203,7 @@ class AiContextPack
                 $lines[] = '- '.($source['type'] ?? 'unknown')
                     .'; reason='.($source['reason'] ?? 'n/a')
                     .'; limit='.($source['limit'] ?? 'n/a')
-                    .'; required='.(($source['required'] ?? false) ? 'true' : 'false');
+                    .'; required='.(YesNo::trueFalse($source['required'] ?? false));
             }
         }
 
@@ -558,7 +560,7 @@ class AiContextPack
                 $lines[] = '- '.($source['type'] ?? 'unknown')
                     .'; reason='.($source['reason'] ?? 'n/a')
                     .'; limit='.($source['limit'] ?? 'n/a')
-                    .'; required='.(($source['required'] ?? false) ? 'true' : 'false');
+                    .'; required='.(YesNo::trueFalse($source['required'] ?? false));
             }
         }
 

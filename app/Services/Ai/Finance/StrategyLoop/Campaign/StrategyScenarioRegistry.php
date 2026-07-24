@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * Scenario map for sequential research. It records which market/timeframe/family
  * was studied without starting multiple loops or pretending one strategy is universal.
@@ -48,12 +50,12 @@ final class StrategyScenarioRegistry
             'latest_status' => $campaign['status'] ?? 'running',
             'active_holdout_generation' => data_get($campaign, 'data_manifest.holdout_generation', data_get($campaign, 'pre_registered_budget.holdout_generation')),
             'active_max_holdout_generation' => data_get($campaign, 'data_manifest.max_holdout_generation', data_get($campaign, 'pre_registered_budget.max_holdout_generation')),
-            'updated_at' => gmdate('c'),
+            'updated_at' => UtcIsoTimestamp::now(),
             'parallelism_policy' => 'one_active_campaign_at_a_time',
             'strategy_universality_policy' => 'do_not_assume_transfer_between_assets_timeframes_or_regimes',
         ]);
         $registry['scenario_knowledge_matrix'] = $this->scenarioKnowledgeMatrix($registry);
-        $registry['updated_at'] = gmdate('c');
+        $registry['updated_at'] = UtcIsoTimestamp::now();
         $this->save($registry);
     }
 
@@ -97,7 +99,7 @@ final class StrategyScenarioRegistry
             $scenario['latest_raw_verdict'] = $rawVerdict;
             $scenario['latest_verdict_normalized_reason'] = 'terminal_null_requires_at_least_one_tested_candidate';
         }
-        $scenario['updated_at'] = gmdate('c');
+        $scenario['updated_at'] = UtcIsoTimestamp::now();
         $scenario['family_exhausted'] = $verdict === 'NULL_FAMILY_EXHAUSTED';
         $scenario['research_history'] = array_values(array_slice([
             [
@@ -119,7 +121,7 @@ final class StrategyScenarioRegistry
                 'data_sha' => $summary['data_sha'] ?? data_get($report, 'data_manifest.sha256'),
                 'cost_profile_hash' => $summary['cost_profile_hash'] ?? data_get($report, 'cost_profile.cost_profile_hash'),
                 'negative_conclusion' => $report['negative_conclusion'] ?? null,
-                'recorded_at' => gmdate('c'),
+                'recorded_at' => UtcIsoTimestamp::now(),
             ],
             ...array_values((array) ($scenario['research_history'] ?? [])),
         ], 0, 20));
@@ -144,7 +146,7 @@ final class StrategyScenarioRegistry
         $scenario['knowledge_note'] = data_get($report, 'scenario_profile.knowledge_note', 'Scenario knowledge is research-only and not an executable signal.');
         $registry['scenarios'][$key] = $scenario;
         $registry['scenario_knowledge_matrix'] = $this->scenarioKnowledgeMatrix($registry);
-        $registry['updated_at'] = gmdate('c');
+        $registry['updated_at'] = UtcIsoTimestamp::now();
         $this->save($registry);
     }
 
@@ -337,8 +339,8 @@ final class StrategyScenarioRegistry
 
         return [
             'schema_version' => 'atlas.finance.strategy_scenario_registry.v1',
-            'created_at' => gmdate('c'),
-            'updated_at' => gmdate('c'),
+            'created_at' => UtcIsoTimestamp::now(),
+            'updated_at' => UtcIsoTimestamp::now(),
             'strategy_families' => $families,
             'feature_sets' => array_combine(
                 $featureProfiler->activeFeatureSetIds(),
@@ -523,7 +525,7 @@ final class StrategyScenarioRegistry
         $registry += [
             'schema_version' => $default['schema_version'],
             'created_at' => $default['created_at'],
-            'updated_at' => gmdate('c'),
+            'updated_at' => UtcIsoTimestamp::now(),
             'strategy_families' => $default['strategy_families'],
             'feature_sets' => $default['feature_sets'],
             'feature_set_activation_roadmap' => $default['feature_set_activation_roadmap'],
@@ -701,7 +703,7 @@ final class StrategyScenarioRegistry
                 'current_best_research_observation' => null,
                 'knowledge_policy' => 'research_only_not_an_executable_signal',
                 'transfer_policy' => 'do_not_transfer_between_assets_timeframes_families_or_feature_sets_without_new_campaign',
-                'updated_at' => gmdate('c'),
+                'updated_at' => UtcIsoTimestamp::now(),
             ];
             $groups[$scopeKey]['families'][$family] = [
                 'strategy_family' => $family,

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition;
 use App\Services\Ai\Context\LocalRagPrecisionCorpusService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * T4-S7 (Obra #17) — the consolidation re-ranker NON-REGRESSION guard.
@@ -87,7 +88,7 @@ final class AtlasConsolidationRerankGuard
         $baseline = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_PRECISION_AT_K => round($precision, 4),
-            self::FIELD_FROZEN_AT => gmdate('c'),
+            self::FIELD_FROZEN_AT => UtcIsoTimestamp::now(),
         ];
         $baseline[self::FIELD_HASH] = 'sha256:'.hash(self::FIELD_SHA256, (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
 

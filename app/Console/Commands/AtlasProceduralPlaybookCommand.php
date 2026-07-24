@@ -8,6 +8,7 @@ use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookApplier;
 use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookLedger;
 use App\Services\Ai\Kernel\Procedural\ProceduralPlaybook;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ATLAS BUILD #3 — operator/loop surface for the general procedural playbook
@@ -137,9 +138,9 @@ class AtlasProceduralPlaybookCommand extends Command
         return $this->report(['application_id' => $applicationId, 'status' => $status] + $verdict,
             sprintf('[playbook] outcome id=%s status=%s proven_real=%s fake_green=%s credited=%s reason=%s',
                 $applicationId, $status,
-                $verdict['proven_real'] ? 'true' : 'false',
-                $verdict['fake_green'] ? 'true' : 'false',
-                $verdict['credited'] ? 'true' : 'false',
+                YesNo::trueFalse($verdict['proven_real']),
+                YesNo::trueFalse($verdict['fake_green']),
+                YesNo::trueFalse($verdict['credited']),
                 $verdict['reason']));
     }
 

@@ -8,6 +8,7 @@ use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionCurationInboxServ
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedSpecProposalAdapter;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasSelfDirectedEvolutionCommand extends Command
 {
@@ -105,8 +106,8 @@ class AtlasSelfDirectedEvolutionCommand extends Command
             $this->components->twoColumnDetail('Spec proposal draft', (string) ($d['proposed_doc_kind'] ?? '?'));
             $this->components->twoColumnDetail('Title', (string) ($d['title'] ?? ''));
             $this->components->twoColumnDetail('Proposed path (NOT written)', (string) ($d['proposed_doc_path'] ?? ''));
-            $this->components->twoColumnDetail('Canonical write allowed', $d['canonical_doc_write_allowed'] ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Operator approval required', $d['operator_approval_required'] ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Canonical write allowed', YesNo::format($d['canonical_doc_write_allowed']));
+            $this->components->twoColumnDetail('Operator approval required', YesNo::format($d['operator_approval_required']));
         });
 
         return self::SUCCESS;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\SpotExec;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * O GATE da ordem real — fail-closed em TODAS as camadas. Uma ordem só passa se
  * TODAS as condições valem simultaneamente; qualquer dúvida = recusa com razão.
@@ -111,7 +113,7 @@ final class SpotExecGate
         file_put_contents($file, json_encode([
             'date_utc' => gmdate('Y-m-d'),
             'spent_usd' => $current + max(0.0, $quoteUsd),
-            'updated_at' => gmdate('c'),
+            'updated_at' => UtcIsoTimestamp::now(),
         ], JSON_PRETTY_PRINT));
     }
 

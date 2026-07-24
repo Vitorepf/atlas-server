@@ -9,6 +9,7 @@ use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * MAXL-04 — Série v2 por-área do scorecard ACOS.
@@ -185,7 +186,7 @@ class AtlasAcosDeltaSeriesV2Command extends Command
 
         return [
             'date' => $date,
-            'recorded_at' => gmdate('c'),
+            'recorded_at' => UtcIsoTimestamp::now(),
             'schema_version' => self::SCHEMA_VERSION,
             'provenance' => 'resolved-evidence',
             'aggregate' => [

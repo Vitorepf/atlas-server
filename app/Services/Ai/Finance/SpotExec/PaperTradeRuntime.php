@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Finance\SpotExec;
 
 use App\Services\Ai\Finance\StrategyLoop\Strategy\StrategyRunner;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * PAPER TRADING em dados ao vivo — a ponte entre a pesquisa (backtest congelado)
@@ -57,7 +58,7 @@ final class PaperTradeRuntime
             'entry_at' => null,
             'last_close_time' => 0,
             'fills' => 0,
-            'started_at' => gmdate('c'),
+            'started_at' => UtcIsoTimestamp::now(),
         ];
 
         $last = $bars[count($bars) - 1];
@@ -89,11 +90,11 @@ final class PaperTradeRuntime
                 $state['cash'] = (float) $state['cash'] - $notional - $fee;
                 $state['units'] = $qty;
                 $state['entry_price'] = $fill;
-                $state['entry_at'] = gmdate('c');
+                $state['entry_at'] = UtcIsoTimestamp::now();
                 $state['fills'] = (int) $state['fills'] + 1;
                 $action = 'buy';
                 $this->appendRow($id, 'fills.jsonl', [
-                    'at' => gmdate('c'), 'side' => 'buy', 'price' => $fill, 'qty' => $qty,
+                    'at' => UtcIsoTimestamp::now(), 'side' => 'buy', 'price' => $fill, 'qty' => $qty,
                     'fee' => $fee, 'bar_close_time' => $last->closeTime, 'signal' => $result->pendingAction ?? 'reconcile',
                 ]);
             }
@@ -106,7 +107,7 @@ final class PaperTradeRuntime
             $action = 'sell';
             $state['fills'] = (int) $state['fills'] + 1;
             $this->appendRow($id, 'fills.jsonl', [
-                'at' => gmdate('c'), 'side' => 'sell', 'price' => $fill, 'qty' => $state['units'],
+                'at' => UtcIsoTimestamp::now(), 'side' => 'sell', 'price' => $fill, 'qty' => $state['units'],
                 'fee' => $fee, 'return' => $tradeReturn, 'bar_close_time' => $last->closeTime,
                 'signal' => $result->pendingAction ?? 'reconcile',
             ]);
@@ -118,10 +119,10 @@ final class PaperTradeRuntime
         $equity = (float) $state['cash'] + (float) $state['units'] * $mid;
         $state['last_close_time'] = $last->closeTime;
         $state['equity'] = $equity;
-        $state['updated_at'] = gmdate('c');
+        $state['updated_at'] = UtcIsoTimestamp::now();
         $this->writeState($id, $state);
         $this->appendRow($id, 'equity.jsonl', [
-            'at' => gmdate('c'), 'bar_close_time' => $last->closeTime, 'equity' => $equity,
+            'at' => UtcIsoTimestamp::now(), 'bar_close_time' => $last->closeTime, 'equity' => $equity,
             'action' => $action, 'mid' => $mid, 'desired_long' => $desiredLong,
             'pending_action' => $result->pendingAction, 'engine_open' => $result->openPosition !== null,
         ]);

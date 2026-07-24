@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiSelfImprovementScheduleReportCommand extends Command
 {
@@ -52,7 +53,7 @@ class AtlasAiSelfImprovementScheduleReportCommand extends Command
         $this->components->twoColumnDetail('Latest health', (string) ($report['latest_health_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest scheduler', (string) ($report['latest_scheduler_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest plan hash', (string) ($report['latest_plan_hash'] ?? '-'));
-        $this->components->twoColumnDetail('Review required', ($report['review_required'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Review required', YesNo::format($report['review_required'] ?? false));
         $this->components->twoColumnDetail('Health', (string) data_get($report, 'health.status', 'unknown'));
         $this->components->twoColumnDetail('Review signal', (string) data_get($report, 'review_signal.status', 'unknown'));
         $this->components->twoColumnDetail('Review severity', (string) data_get($report, 'review_signal.severity', 'unknown'));
@@ -81,7 +82,7 @@ class AtlasAiSelfImprovementScheduleReportCommand extends Command
                 $event['flow'] ?? '-',
                 $event['registered_command_count'] ?? 0,
                 $event['invalid_flow_count'] ?? 0,
-                ($event['completed'] ?? false) ? 'yes' : 'no',
+                YesNo::format($event['completed'] ?? false),
                 $event['emitted_count'] ?? 0,
                 $this->compactList((array) ($event['emitted_inbox_item_ids'] ?? [])),
                 $this->compactInboxItems((array) ($event['emitted_inbox_items'] ?? [])),

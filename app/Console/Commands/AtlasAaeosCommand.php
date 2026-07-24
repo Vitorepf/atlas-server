@@ -12,6 +12,7 @@ use App\Services\Ai\AgenticEngineeringOs\DepartmentContractRuntime;
 use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Agentic Engineering OS — operator entry point.
@@ -842,7 +843,7 @@ final class AtlasAaeosCommand extends Command
         }
 
         $this->info('AAEOS HTTP Path · '.$configured);
-        $this->line('  facade_active: '.($payload['facade_active'] ? 'yes' : 'no'));
+        $this->line('  facade_active: '.(YesNo::format($payload['facade_active'])));
         foreach ($payload['counters'] as $name => $value) {
             $this->line(sprintf('  counter.%s: %d', $name, $value));
         }

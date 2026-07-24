@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeObraCommandCenterService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Code Obra Command Center CLI.
@@ -61,9 +62,9 @@ final class AtlasCodeObraCommandCenterCommand extends Command
         $this->components->twoColumnDetail('Next safe action', (string) ($payload['next_safe_action'] ?? '—'));
         $this->components->twoColumnDetail('Readiness', $this->percentLabel($payload, 'readiness_progress'));
         $this->components->twoColumnDetail('Proven delivery', $this->percentLabel($payload, 'proven_delivery_progress'));
-        $this->components->twoColumnDetail('External provider call', $payload['external_provider_call'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Completion claim promoted', $payload['completion_claim_promoted'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Review gate preserved', $payload['review_gate_preserved'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('External provider call', YesNo::format($payload['external_provider_call']));
+        $this->components->twoColumnDetail('Completion claim promoted', YesNo::format($payload['completion_claim_promoted']));
+        $this->components->twoColumnDetail('Review gate preserved', YesNo::format($payload['review_gate_preserved']));
 
         $decisions = (array) ($payload['decision_inbox'] ?? []);
         if ($decisions !== []) {

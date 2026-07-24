@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AutonomosPreflightService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ASI-06 — Autonomos muscle preflight. READ-ONLY.
@@ -32,7 +33,7 @@ final class AtlasAutonomosPreflightCommand extends Command
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
             ));
         } else {
-            $this->line(sprintf('schema=%s passed=%d/%d ready=%s', $report['schema'], (int) $report['passed'], (int) $report['total'], $report['ready'] ? 'true' : 'false'));
+            $this->line(sprintf('schema=%s passed=%d/%d ready=%s', $report['schema'], (int) $report['passed'], (int) $report['total'], YesNo::trueFalse($report['ready'])));
             $rows = [];
             foreach ((array) $report['checks'] as $check) {
                 $rows[] = [

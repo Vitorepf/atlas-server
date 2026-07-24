@@ -7,6 +7,7 @@ use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use JsonException;
+use App\Support\YesNo;
 
 class AtlasAiExternalGraphHarnessCommand extends Command
 {
@@ -55,8 +56,8 @@ class AtlasAiExternalGraphHarnessCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas External Graph Harness</>', $report['status']);
         $this->components->twoColumnDetail('Mode', $report['mode']);
         $this->components->twoColumnDetail('Authority', data_get($report, 'contract.authority'));
-        $this->components->twoColumnDetail('Writes memory', data_get($report, 'contract.guardrails.writes_memory_registry') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Provider calls', data_get($report, 'contract.guardrails.provider_calls_enabled') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes memory', data_getYesNo::format($report, 'contract.guardrails.writes_memory_registry'));
+        $this->components->twoColumnDetail('Provider calls', data_getYesNo::format($report, 'contract.guardrails.provider_calls_enabled'));
 
         if (is_array($validation)) {
             $this->components->twoColumnDetail('Candidate', $validation['status']);

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanSwarmService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Operator + automation surface for the Atlas-governed Hermes Kanban SWARM
@@ -68,7 +69,7 @@ class AtlasHermesKanbanCommand extends Command
         }
 
         foreach ($payload as $k => $v) {
-            $this->components->twoColumnDetail($k, is_bool($v) ? ($v ? 'yes' : 'no') : (string) $v);
+            $this->components->twoColumnDetail($k, is_bool($v) ? (YesNo::format($v)) : (string) $v);
         }
 
         return self::SUCCESS;
@@ -133,7 +134,7 @@ class AtlasHermesKanbanCommand extends Command
         }
 
         $this->components->twoColumnDetail('aggregate status', (string) ($result['aggregate_status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('ran', ($result['ran'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('ran', YesNo::format($result['ran'] ?? false));
         $this->components->twoColumnDetail('blocked reason', (string) ($result['blocked_reason'] ?? '—'));
         $this->components->twoColumnDetail('done', (string) data_get($result, 'reconciliation.done', 0));
         $this->components->twoColumnDetail('task total', (string) data_get($result, 'reconciliation.task_total', 0));
@@ -149,8 +150,8 @@ class AtlasHermesKanbanCommand extends Command
     {
         $this->components->twoColumnDetail('action', 'plan');
         $this->components->twoColumnDetail('board', (string) ($plan['board_slug'] ?? '—'));
-        $this->components->twoColumnDetail('structural valid', ($plan['structural_valid'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('dispatch allowed now', ($plan['dispatch_allowed_now'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('structural valid', YesNo::format($plan['structural_valid'] ?? false));
+        $this->components->twoColumnDetail('dispatch allowed now', YesNo::format($plan['dispatch_allowed_now'] ?? false));
         $this->components->twoColumnDetail('blocked reason', (string) ($plan['blocked_reason'] ?? '—'));
         $this->components->twoColumnDetail('workers', (string) ($plan['worker_count'] ?? 0));
         $this->components->twoColumnDetail('verifier', (string) ($plan['verifier'] ?? '—'));

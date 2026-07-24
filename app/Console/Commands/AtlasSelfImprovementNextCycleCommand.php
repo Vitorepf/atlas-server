@@ -9,6 +9,7 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementNextCycleRecommendationS
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Self-Improvement Next Cycle Recommendation CLI (Level 7).
@@ -83,7 +84,7 @@ final class AtlasSelfImprovementNextCycleCommand extends Command
         $this->components->twoColumnDetail('recommendation', (string) ($payload['recommendation'] ?? '—'));
         $this->components->twoColumnDetail('rationale', (string) ($payload['rationale'] ?? '—'));
         $this->components->twoColumnDetail('confidence', (string) ($payload['confidence'] ?? '—'));
-        $this->components->twoColumnDetail('human_approval_required', ($payload['human_approval_required'] ?? false) ? 'true' : 'false');
+        $this->components->twoColumnDetail('human_approval_required', YesNo::trueFalse($payload['human_approval_required'] ?? false));
     }
 
 }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusForgeObraMaterializerService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Area Focus Loop · Forge Obra Materializer CLI (S2).
@@ -67,7 +68,7 @@ class AtlasAreaFocusForgeMaterializeObraCommand extends Command
             return self::FAILURE;
         }
         $this->components->twoColumnDetail('Obra id', (string) ($result['created_obra_id'] ?? ''));
-        $this->components->twoColumnDetail('Idempotent', ($result['idempotent'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Idempotent', YesNo::format($result['idempotent'] ?? false));
         $this->components->twoColumnDetail('Forge executed', $result['forge_executed'] ? 'no (Obra created only)' : 'no (Obra created only)');
         $this->components->twoColumnDetail('Next allowed action', (string) ($result['next_allowed_action'] ?? ''));
         $this->components->twoColumnDetail('Materialization hash', (string) ($result['materialization_hash'] ?? ''));

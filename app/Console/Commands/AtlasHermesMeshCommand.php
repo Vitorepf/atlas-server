@@ -10,6 +10,7 @@ use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
 use App\Services\Ai\Hermes\Mesh\HermesMeshProcessWorkerFactory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Operator + automation surface for the Atlas Executive Mesh — the governed
@@ -73,7 +74,7 @@ class AtlasHermesMeshCommand extends Command
         }
 
         foreach ($payload as $key => $value) {
-            $this->components->twoColumnDetail((string) $key, is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
+            $this->components->twoColumnDetail((string) $key, is_bool($value) ? (YesNo::trueFalse($value)) : (string) $value);
         }
 
         return self::SUCCESS;
@@ -143,7 +144,7 @@ class AtlasHermesMeshCommand extends Command
         $this->newLine();
         $this->components->twoColumnDetail('dispatched', (string) ($result['run']['dispatched_count'] ?? 0));
         $this->components->twoColumnDetail('aggregate status', (string) ($result['reconciliation']['aggregate_status'] ?? 'empty'));
-        $this->components->twoColumnDetail('reconciliation allowed', ($result['reconciliation']['reconciliation_allowed_now'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('reconciliation allowed', YesNo::format($result['reconciliation']['reconciliation_allowed_now'] ?? false));
 
         return self::SUCCESS;
     }
@@ -217,8 +218,8 @@ class AtlasHermesMeshCommand extends Command
     private function renderPlan(string $action, array $plan): void
     {
         $this->components->twoColumnDetail('action', $action);
-        $this->components->twoColumnDetail('mesh enabled', ($plan['mesh_enabled'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('dispatch allowed now', ($plan['dispatch_allowed_now'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('mesh enabled', YesNo::format($plan['mesh_enabled'] ?? false));
+        $this->components->twoColumnDetail('dispatch allowed now', YesNo::format($plan['dispatch_allowed_now'] ?? false));
         $this->components->twoColumnDetail('blocked reason', (string) ($plan['blocked_reason'] ?? '—'));
         $this->components->twoColumnDetail('child count', (string) ($plan['child_count'] ?? 0));
         $this->components->twoColumnDetail('max parallel workers', (string) ($plan['max_parallel_workers'] ?? 0));
@@ -233,8 +234,8 @@ class AtlasHermesMeshCommand extends Command
             collect($children)->map(static fn (array $c): array => [
                 (string) ($c['index'] ?? ''),
                 Str::limit((string) ($c['role'] ?? ''), 20),
-                ($c['assigned_worktree'] ?? false) ? 'yes' : 'no',
-                ($c['checkpoint_before'] ?? false) ? 'yes' : 'no',
+                YesNo::format($c['assigned_worktree'] ?? false),
+                YesNo::format($c['checkpoint_before'] ?? false),
                 Str::limit(implode(',', (array) data_get($c, 'profile.toolsets', [])), 30),
             ])->all(),
         );

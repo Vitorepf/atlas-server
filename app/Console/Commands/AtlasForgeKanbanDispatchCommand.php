@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Forge\ForgeKanbanSwarmDispatcher;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Operator + automation surface for the Forge → Kanban consumer call-path:
@@ -57,7 +58,7 @@ class AtlasForgeKanbanDispatchCommand extends Command
                 return self::SUCCESS;
             }
             $this->components->twoColumnDetail('action', 'dry_run (nothing created/launched)');
-            $this->components->twoColumnDetail('forge dispatch allowed', ($preview['forge_dispatch_allowed'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('forge dispatch allowed', YesNo::format($preview['forge_dispatch_allowed'] ?? false));
             $this->components->twoColumnDetail('block reason', (string) ($preview['forge_block_reason'] ?? '—'));
             $this->components->twoColumnDetail('workers', (string) ($preview['worker_count'] ?? 0));
             $this->line('  swarm: '.implode(' ', (array) data_get($preview, 'preview.swarm_argv', [])));
@@ -74,7 +75,7 @@ class AtlasForgeKanbanDispatchCommand extends Command
         }
 
         $this->components->twoColumnDetail('status', (string) ($result['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('dispatched', ($result['dispatched'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('dispatched', YesNo::format($result['dispatched'] ?? false));
         $this->components->twoColumnDetail('block reason', (string) ($result['blocked_reason'] ?? '—'));
         $this->components->twoColumnDetail('workers', (string) ($result['worker_count'] ?? 0));
 

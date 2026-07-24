@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskClaimableFarmAuditor;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Thin CLI surface over {@see AtlasTaskClaimableFarmAuditor}. Dry mode (default) reports
@@ -31,7 +32,7 @@ class AtlasTaskFarmAuditCommand extends Command
         }
 
         $this->line('');
-        $this->line('  <fg=cyan>TASK FARM AUDIT</>  dry_run='.($result['dry_run'] ? 'yes' : 'no').'  clusters='.count($result['clusters']));
+        $this->line('  <fg=cyan>TASK FARM AUDIT</>  dry_run='.(YesNo::format($result['dry_run'])).'  clusters='.count($result['clusters']));
         foreach ($result['clusters'] as $cluster) {
             $this->line('    kept='.$cluster['kept'].'  retired=['.implode(', ', $cluster['retired_candidates']).']');
         }

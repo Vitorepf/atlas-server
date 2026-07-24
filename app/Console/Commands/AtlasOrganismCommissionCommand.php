@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 /**
  * AOBG N4.F3 — `atlas:organism:commission`: an INTENT that SPANS domains → a cross-domain
@@ -117,7 +118,7 @@ class AtlasOrganismCommissionCommand extends Command
                         '      PROPOSED · metric=%s value=%s passed=%s',
                         (string) ($validation['metric'] ?? '?'),
                         $validation['value'] === null ? 'null' : (string) $validation['value'],
-                        ($validation['passed'] ?? false) ? 'yes' : 'no',
+                        YesNo::format($validation['passed'] ?? false),
                     ));
                     $this->line('      method:  '.(string) ($validation['method'] ?? ''));
                     break;

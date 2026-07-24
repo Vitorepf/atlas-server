@@ -8,6 +8,7 @@ use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
 use App\Services\Ai\EngineeringKernel\Quality\QualityFoundryTemporalProjectionMaterializer;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiCompoundingCommand extends Command
 {
@@ -54,7 +55,7 @@ class AtlasAiCompoundingCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Compounding</>', $action);
         $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Writes', ($payload['writes'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes'] ?? false));
 
         return $this->exitCodeFor($payload);
     }

@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /** C25 · policy-gated executor with append-only step receipts and undo refs. */
 final class AtlasCodeHealService
@@ -167,8 +168,8 @@ final class AtlasCodeHealService
             'repo' => $repo,
             'step' => 'undo',
             'action' => 'undo:heal',
-            'started_at' => gmdate('c'),
-            'finished_at' => gmdate('c'),
+            'started_at' => UtcIsoTimestamp::now(),
+            'finished_at' => UtcIsoTimestamp::now(),
             'status' => 'completed',
             'result' => 'restored '.count($receipts).' step(s): '.implode(' | ', array_map('trim', $results)),
             'undo_ref' => ['restored_steps' => (string) count($receipts), 'state' => 'byte_for_byte'],
@@ -182,7 +183,7 @@ final class AtlasCodeHealService
     /** @return array<string,mixed> */
     private function executeStep(string $cwd, string $repo, string $healId, int $step, string $action, string $ruleId, string $target): array
     {
-        $startedAt = gmdate('c');
+        $startedAt = UtcIsoTimestamp::now();
         $undoRef = ['action' => $action];
         try {
             $result = match ($action) {
@@ -203,7 +204,7 @@ final class AtlasCodeHealService
                 'rule_id' => $ruleId,
                 'target' => $target,
                 'started_at' => $startedAt,
-                'finished_at' => gmdate('c'),
+                'finished_at' => UtcIsoTimestamp::now(),
                 'status' => 'completed',
                 'result' => trim($result) !== '' ? trim($result) : 'completed',
                 'undo_ref' => $undoRef,
@@ -220,7 +221,7 @@ final class AtlasCodeHealService
                 'rule_id' => $ruleId,
                 'target' => $target,
                 'started_at' => $startedAt,
-                'finished_at' => gmdate('c'),
+                'finished_at' => UtcIsoTimestamp::now(),
                 'status' => 'failed',
                 'result' => $exception->getMessage(),
                 'undo_ref' => $undoRef,

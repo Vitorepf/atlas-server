@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
 use App\Console\Commands\AtlasFinanceStrategySearchCommand;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Requirement-by-requirement audit for the final scientific campaign plan.
@@ -103,7 +104,7 @@ final class StrategyLoopPlanCompletionAudit
 
         return [
             'schema_version' => 'atlas.finance.strategy_loop_plan_completion_audit.v1',
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'status' => $passed ? 'pass' : 'fail',
             'score' => [
                 'passed' => count(array_filter($checks, static fn (array $check): bool => (bool) $check['passed'])),

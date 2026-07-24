@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasProgrammingCompletionAuditCommand extends Command
 {
@@ -42,20 +43,20 @@ class AtlasProgrammingCompletionAuditCommand extends Command
         $this->components->twoColumnDetail('Semantic code graph', data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_semantic_code_graph') ? 'required' : 'missing');
         $this->components->twoColumnDetail('Verifier/Test Impact', data_get($report, 'artifact_coverage.professional_operating_standard.checks.requires_patch_verifier_and_test_impact') ? 'required' : 'missing');
         $this->components->twoColumnDetail('Repair Loop benchmark', (string) data_get($report, 'verification_evidence.local_benchmarks.repair_loop.status', 'unknown'));
-        $this->components->twoColumnDetail('Provider dispatch now', data_get($report, 'executive_report.safety_summary.provider_dispatches_now') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Spend provider tokens now', data_get($report, 'executive_report.safety_summary.spend_provider_tokens_now') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider dispatch now', data_getYesNo::format($report, 'executive_report.safety_summary.provider_dispatches_now'));
+        $this->components->twoColumnDetail('Spend provider tokens now', data_getYesNo::format($report, 'executive_report.safety_summary.spend_provider_tokens_now'));
         $this->components->twoColumnDetail('Synthetic scores', data_get($report, 'executive_report.safety_summary.synthetic_scores_allowed') ? 'allowed' : 'blocked');
         $this->components->twoColumnDetail('Fair Claude result', (string) data_get($report, 'verification_evidence.fair_claude_result_integrity.status', 'unknown'));
-        $this->components->twoColumnDetail('Claim winner admitted', data_get($report, 'verification_evidence.fair_claude_result_integrity.claim_winner_admitted') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Claim winner admitted', data_getYesNo::format($report, 'verification_evidence.fair_claude_result_integrity.claim_winner_admitted'));
         $this->components->twoColumnDetail('Render winner in UI', data_get($report, 'verification_evidence.fair_claude_result_integrity.ui_contract.must_not_render_winner') ? 'no' : 'yes');
         $this->components->twoColumnDetail('API battery guard', data_get($report, 'artifact_coverage.api_rivals_battery_guard.covered') ? 'passed' : 'blocked');
-        $this->components->twoColumnDetail('API blocks dirty/non-Git', data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_dirty_atlas_workspace') && data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_non_git_baseline_workspace') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('API blocks invalid rerun', data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_historical_invalid_battery') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('API blocks dirty/non-Git', data_get($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_dirty_atlas_workspace') && data_getYesNo::format($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_non_git_baseline_workspace'));
+        $this->components->twoColumnDetail('API blocks invalid rerun', data_getYesNo::format($report, 'artifact_coverage.api_rivals_battery_guard.checks.blocks_historical_invalid_battery'));
         $this->components->twoColumnDetail('Invalid battery quarantine', data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.covered') ? 'passed' : 'blocked');
         $this->components->twoColumnDetail('Quarantine admits score', data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_score_admitted') ? 'no' : 'unknown');
         $this->components->twoColumnDetail('Quarantine deletes history', data_get($report, 'artifact_coverage.rivals_invalid_battery_quarantine.checks.declares_no_history_deleted') ? 'no' : 'unknown');
         $this->components->twoColumnDetail('Current workspace', (string) data_get($report, 'verification_evidence.current_workspace_preflight.status', 'unknown'));
-        $this->components->twoColumnDetail('Workspace ready for Rivals', data_get($report, 'verification_evidence.current_workspace_preflight.ready_for_provider_battery') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Workspace ready for Rivals', data_getYesNo::format($report, 'verification_evidence.current_workspace_preflight.ready_for_provider_battery'));
         $this->components->twoColumnDetail('Workspace dirty files', (string) data_get($report, 'verification_evidence.current_workspace_preflight.dirty_count', 0));
         $this->newLine();
         foreach ((array) data_get($report, 'executive_report.key_metrics', []) as $metric) {
@@ -84,7 +85,7 @@ class AtlasProgrammingCompletionAuditCommand extends Command
             $this->newLine();
             $this->components->twoColumnDetail('Invalid battery triage', (string) ($triage['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Rerun provider battery', data_get($triage, 'rerun_provider_battery_allowed_now') ? 'allowed' : 'blocked');
-            $this->components->twoColumnDetail('Spend provider tokens now', data_get($triage, 'provider_budget_policy.spend_more_provider_tokens_now') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Spend provider tokens now', data_getYesNo::format($triage, 'provider_budget_policy.spend_more_provider_tokens_now'));
             $this->components->twoColumnDetail('Current rerun preconditions', (string) data_get($triage, 'current_rerun_preconditions.current_workspace_status', 'unknown'));
             $this->components->twoColumnDetail('Rerun precondition dispatch', data_get($triage, 'current_rerun_preconditions.provider_dispatch_allowed_now') ? 'allowed' : 'blocked');
             $this->components->twoColumnDetail('Current local rechecks', (string) data_get($triage, 'current_rerun_preconditions.current_local_rechecks.status', 'unknown'));

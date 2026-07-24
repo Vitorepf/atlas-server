@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  * ledger. Operations themselves must obey the same invariants.
  */
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Support\YesNo;
 
 final class AgentControlPlaneCertificationMutationGuard
 {
@@ -112,8 +113,8 @@ final class AgentControlPlaneCertificationMutationGuard
         }
         if ($runtimeSafetyMutated) {
             $forbiddenMutations[] = 'runtime_safety_all_false_changed_from_'
-                .($before['runtime_safety_all_false'] ? 'true' : 'false')
-                .'_to_'.($after['runtime_safety_all_false'] ? 'true' : 'false');
+                .(YesNo::trueFalse($before['runtime_safety_all_false']))
+                .'_to_'.(YesNo::trueFalse($after['runtime_safety_all_false']));
         }
         if ($ledgerMutated) {
             $forbiddenMutations[] = 'ledger_count_changed_from_'

@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AP-799 · Repair Agent and Failure Capsule planner.
@@ -163,7 +164,7 @@ final class MultiAgentRepairPlannerService
         ];
 
         $plan['repair_plan_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($plan));
-        $plan['generated_at'] = gmdate('c');
+        $plan['generated_at'] = UtcIsoTimestamp::now();
 
         return $plan;
     }

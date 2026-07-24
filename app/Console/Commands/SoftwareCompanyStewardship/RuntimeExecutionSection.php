@@ -16,6 +16,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 trait RuntimeExecutionSection
 {
@@ -474,7 +475,7 @@ trait RuntimeExecutionSection
             $this->components->twoColumnDetail('AP-754 Product Mode controls', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
             $this->components->twoColumnDetail('Repo', (string) data_get($p, 'repo_onboarding.repository', ''));
-            $this->components->twoColumnDetail('Repo authorized', ((bool) data_get($p, 'repo_onboarding.is_authorized', false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Repo authorized', YesNo::format((bool) data_get($p, 'repo_onboarding.is_authorized', false)));
             $this->components->twoColumnDetail('Autonomy tier', (string) data_get($p, 'autonomy_tiers.current_tier', 0).' / max '.(string) data_get($p, 'autonomy_tiers.max_allowed_tier', 0));
             $this->components->twoColumnDetail('Kill switch', ((bool) data_get($p, 'safety_controls.kill_switch_active', false)) ? 'active' : 'clear');
             $this->components->twoColumnDetail('Evidence', (string) data_get($p, 'evidence_inspector.inspector_status', 'unknown'));
@@ -512,7 +513,7 @@ trait RuntimeExecutionSection
             $this->components->twoColumnDetail('Control', (string) data_get($p, 'target_payload.control_type', ''));
             $this->components->twoColumnDetail('Repo', (string) data_get($p, 'target_payload.repo', ''));
             $this->components->twoColumnDetail('Decision', (string) ($p['decision'] ?? ''));
-            $this->components->twoColumnDetail('Executed', ((bool) ($p['executed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Executed', YesNo::format((bool) ($p['executed'] ?? false)));
         });
 
         return self::SUCCESS;

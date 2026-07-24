@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Vox\Gate\VoxV6CertificationService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Atlas Vox V6 · certify command (FINAL).
@@ -179,7 +180,7 @@ final class AtlasVoxV6CertifyCommand extends Command
             $this->line(sprintf(
                 '  status: %s · would_unlock_if_doctrine_allowed=%s',
                 ($v7['unlocked'] ?? false) ? '<info>destravada</info>' : '<error>bloqueada</error>',
-                ($v7['would_unlock_if_doctrine_allowed'] ?? false) ? 'true' : 'false',
+                YesNo::trueFalse($v7['would_unlock_if_doctrine_allowed'] ?? false),
             ));
             $blockers = $v7['blockers_pt_br'] ?? [];
             if (is_array($blockers) && $blockers !== []) {

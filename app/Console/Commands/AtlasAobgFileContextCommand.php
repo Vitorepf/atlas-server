@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainFileContextService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AOBG N2.F1 — `atlas:aobg:file-context`: the ACTIVE brain's PostToolUse surface.
@@ -66,7 +67,7 @@ class AtlasAobgFileContextCommand extends Command
             'atlas:aobg:file-context  file=%s  workspace=%s  provider-bound=yes  has_context=%s  defined=%d  consumers=%d  paths=%d  memory=%d  ~%d/%d chars  %dms',
             (string) ($delta['path'] ?? ''),
             (string) ($delta['workspace'] ?? ''),
-            ($delta['has_context'] ?? false) ? 'yes' : 'no',
+            YesNo::format($delta['has_context'] ?? false),
             (int) ($counts['defined_symbols'] ?? 0),
             (int) ($counts['consumers'] ?? 0),
             (int) ($counts['reality_graph_paths'] ?? 0),

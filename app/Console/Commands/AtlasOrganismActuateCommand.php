@@ -9,6 +9,7 @@ use App\Services\Ai\Organism\DomainProposal;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * AOBG N4.F4 — `atlas:organism:actuate`: drive a domain proposal through the HARDENED
@@ -83,7 +84,7 @@ class AtlasOrganismActuateCommand extends Command
         $audit = (array) ($result['audit'] ?? []);
         $this->line(sprintf(
             '  audit:        recorded=%s  receipt=%s%s',
-            ($audit['recorded'] ?? false) ? 'yes' : 'no',
+            YesNo::format($audit['recorded'] ?? false),
             (string) ($audit['receipt_ref'] ?? ''),
             isset($audit['reason']) ? '  reason='.(string) $audit['reason'] : '',
         ));

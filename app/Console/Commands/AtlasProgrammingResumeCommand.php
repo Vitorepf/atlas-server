@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Programming\ProgrammingResumeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasProgrammingResumeCommand extends Command
 {
@@ -52,7 +53,7 @@ class AtlasProgrammingResumeCommand extends Command
             return $exitCode;
         }
 
-        $this->components->twoColumnDetail('ok', ($payload['ok'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('ok', YesNo::format($payload['ok'] ?? false));
         $this->components->twoColumnDetail('next action', (string) ($payload['next_action'] ?? '-'));
 
         return $exitCode;

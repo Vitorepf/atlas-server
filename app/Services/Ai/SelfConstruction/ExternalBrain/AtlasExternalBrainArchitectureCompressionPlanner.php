@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Support\YesNo;
+
 /**
  * Pure planner. Turns an organ inventory into ranked consolidation candidates.
  *
@@ -185,9 +187,9 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'impacted_files'          => $files,
                         'expected_line_delta'     => 0,
                         'risk_level'              => 'high',
-                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? true ? 'true' : 'false')
-                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? true ? 'true' : 'false')
-                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? true ? 'true' : 'false'),
+                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? YesNo::trueFalse(true))
+                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? YesNo::trueFalse(true))
+                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? YesNo::trueFalse(true)),
                         'reason'                  => 'missing_proof_gate_evidence',
                         'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
                         'expected_line_reduction' => 0,
@@ -279,9 +281,9 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'impacted_files'          => $files,
                         'expected_line_delta'     => 0,
                         'risk_level'              => 'high',
-                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? true ? 'true' : 'false')
-                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? true ? 'true' : 'false')
-                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? true ? 'true' : 'false'),
+                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? YesNo::trueFalse(true))
+                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? YesNo::trueFalse(true))
+                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? YesNo::trueFalse(true)),
                         'reason'                  => 'missing_proof_gate_evidence',
                         'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
                         'expected_line_reduction' => 0,

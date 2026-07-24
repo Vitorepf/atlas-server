@@ -135,7 +135,7 @@ class CodeGraphCoverageEdgeParser
         foreach ($rawFiles as $file) {
             $total = $file['total'];
             $covered = $file['covered'];
-            $ratio = $total > 0 ? $this->clamp01($covered / $total) : 0.0;
+            $ratio = $total > 0 ? Clamp01::of($covered / $total) : 0.0;
             $ratioSum += $ratio;
 
             $files[] = [
@@ -154,7 +154,7 @@ class CodeGraphCoverageEdgeParser
         }
 
         $count = count($files);
-        $avgRatio = $count > 0 ? $this->clamp01($ratioSum / $count) : 0.0;
+        $avgRatio = $count > 0 ? Clamp01::of($ratioSum / $count) : 0.0;
 
         return [
             'files' => $files,
@@ -513,10 +513,6 @@ class CodeGraphCoverageEdgeParser
     }
 
     /** Clamp to [0,1]; NaN/INF degrade to 0.0 (the over-claim-safe direction). */
-    private function clamp01(float $value): float
-    {
-        return Clamp01::of($value);
-    }
 
     /** Round reported floats so stats are stable for assertions and audit. */
     private function round(float $value): float

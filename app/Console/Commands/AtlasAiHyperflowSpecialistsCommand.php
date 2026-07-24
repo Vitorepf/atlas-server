@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\RouterRuntime\AtlasHyperflowSpecialistFlowsReadinessService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Etapa 1 — Atlas AI Hyperflow + Specialist Flows readiness gate.
@@ -67,8 +68,8 @@ class AtlasAiHyperflowSpecialistsCommand extends Command
         ));
         $this->line(sprintf(
             'claim_policy: benchmark_not_run=%s allows_external_superiority_claim=%s',
-            ($report['claim_policy']['benchmark_not_run'] ?? true) ? 'true' : 'false',
-            ($report['claim_policy']['allows_external_superiority_claim'] ?? false) ? 'true' : 'false',
+            YesNo::trueFalse($report['claim_policy']['benchmark_not_run'] ?? true),
+            YesNo::trueFalse($report['claim_policy']['allows_external_superiority_claim'] ?? false),
         ));
         foreach ((array) ($report['checks'] ?? []) as $check) {
             $this->line(sprintf(

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Atlas Decide · Meta-Learning recommendations CLI.
@@ -91,7 +92,7 @@ class AtlasDecideMetaLearningCommand extends Command
                 $r['recommended_model'] ?? '—',
                 $r['signal'] ?? '—',
                 $r['confidence'] ?? '—',
-                ($r['actionable'] ?? false) ? 'yes' : 'no',
+                YesNo::format($r['actionable'] ?? false),
                 $r['mode'] ?? '—',
             ));
         }

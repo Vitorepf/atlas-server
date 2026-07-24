@@ -12,6 +12,7 @@ use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
+use App\Support\YesNo;
 
 class AtlasAiVoiceRealtimeCommand extends Command
 {
@@ -135,8 +136,8 @@ class AtlasAiVoiceRealtimeCommand extends Command
         $this->components->twoColumnDetail('Schema', (string) ($payload['schema_version'] ?? 'unknown'));
         $this->components->twoColumnDetail('Surface', (string) ($payload['surface_id'] ?? 'voice_realtime'));
         $this->components->twoColumnDetail('Runtime', (string) ($payload['runtime_id'] ?? $this->option('runtime')));
-        $this->components->twoColumnDetail('Mobile first', data_get($payload, 'mobile_first', false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Kernel decides', data_get($payload, 'kernel_is_decision_authority', true) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Mobile first', data_getYesNo::format($payload, 'mobile_first', false));
+        $this->components->twoColumnDetail('Kernel decides', data_getYesNo::format($payload, 'kernel_is_decision_authority', true));
         $this->components->twoColumnDetail('Internal auth', (string) data_get($payload, 'auth_contract.internal_api.middleware', 'atlas.token'));
         $this->components->twoColumnDetail('Mobile auth', (string) data_get($payload, 'auth_contract.mobile_api.middleware', 'atlas.mobile.bearer'));
         $this->components->twoColumnDetail('Raw audio persistence', data_get($payload, 'contract.raw_audio_persistence_allowed', false) ? 'allowed' : 'forbidden');
@@ -162,40 +163,40 @@ class AtlasAiVoiceRealtimeCommand extends Command
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.dependency_install_plan.v1') {
             $this->components->twoColumnDetail('Dependency install plan', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Requirements', (string) data_get($payload, 'requirements_file'));
-            $this->components->twoColumnDetail('Pip executed', data_get($payload, 'pip_execution_attempted', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('SDK imported', data_get($payload, 'sdk_imported', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Pip executed', data_getYesNo::format($payload, 'pip_execution_attempted', true));
+            $this->components->twoColumnDetail('SDK imported', data_getYesNo::format($payload, 'sdk_imported', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
             $this->line((string) data_get($payload, 'install_command'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.preflight_command.v1') {
             $this->components->twoColumnDetail('Runtime preflight', (string) data_get($payload, 'preflight.status'));
-            $this->components->twoColumnDetail('Require SDK', data_get($payload, 'require_sdk', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Require SDK', data_getYesNo::format($payload, 'require_sdk', false));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'preflight.next_action'));
             $this->line((string) data_get($payload, 'command'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.activation_command.v1') {
             $this->components->twoColumnDetail('Activation contract', (string) data_get($payload, 'activation.status'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'activation.next_action'));
-            $this->components->twoColumnDetail('SDK ready', data_get($payload, 'activation.gates.sdk_ready', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Worker allowed', data_get($payload, 'activation.gates.worker_plan_allows_start', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('SDK ready', data_getYesNo::format($payload, 'activation.gates.sdk_ready', false));
+            $this->components->twoColumnDetail('Worker allowed', data_getYesNo::format($payload, 'activation.gates.worker_plan_allows_start', false));
             $this->line((string) data_get($payload, 'command'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.scripted_smoke.v1') {
-            $this->components->twoColumnDetail('Mock Kernel', data_get($payload, 'mock_kernel', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Mock Kernel', data_getYesNo::format($payload, 'mock_kernel', false));
             $this->components->twoColumnDetail('Example', (string) data_get($payload, 'example_path'));
             $this->components->twoColumnDetail('Result count', (string) data_get($payload, 'scripted_worker.result_count', '0'));
             $this->components->twoColumnDetail('Active sessions', (string) data_get($payload, 'scripted_worker.active_session_count', '0'));
             $this->line((string) data_get($payload, 'command'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.callback_smoke.v1') {
-            $this->components->twoColumnDetail('Mock Kernel', data_get($payload, 'mock_kernel', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Mock Kernel', data_getYesNo::format($payload, 'mock_kernel', false));
             $this->components->twoColumnDetail('Example', (string) data_get($payload, 'example_path'));
             $this->components->twoColumnDetail('Callback status', (string) data_get($payload, 'callback.status'));
             $this->components->twoColumnDetail('Active sessions', (string) data_get($payload, 'callback.active_session_count', '0'));
             $this->line((string) data_get($payload, 'command'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.callback_sequence_smoke.v1') {
-            $this->components->twoColumnDetail('Mock Kernel', data_get($payload, 'mock_kernel', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Mock Kernel', data_getYesNo::format($payload, 'mock_kernel', false));
             $this->components->twoColumnDetail('Example', (string) data_get($payload, 'example_path'));
             $this->components->twoColumnDetail('Sequence status', (string) data_get($payload, 'callback_sequence.status'));
             $this->components->twoColumnDetail('Result count', (string) data_get($payload, 'callback_sequence.result_count', '0'));
@@ -209,40 +210,40 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.sdk_check.v1') {
-            $this->components->twoColumnDetail('LiveKit', data_get($payload, 'packages.livekit', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('LiveKit Agents', data_get($payload, 'packages.livekit.agents', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('LiveKit', data_getYesNo::format($payload, 'packages.livekit', false));
+            $this->components->twoColumnDetail('LiveKit Agents', data_getYesNo::format($payload, 'packages.livekit.agents', false));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.livekit_token_issuer_config_plan.v1') {
             $this->components->twoColumnDetail('Token issuer plan', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Secrets exposed', data_get($payload, 'security_contract.secrets_exposed', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Writes env', data_get($payload, 'security_contract.writes_env_file', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Starts daemon', data_get($payload, 'security_contract.starts_daemon', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Secrets exposed', data_getYesNo::format($payload, 'security_contract.secrets_exposed', true));
+            $this->components->twoColumnDetail('Writes env', data_getYesNo::format($payload, 'security_contract.writes_env_file', true));
+            $this->components->twoColumnDetail('Starts daemon', data_getYesNo::format($payload, 'security_contract.starts_daemon', true));
             $this->components->twoColumnDetail('Missing env', implode(', ', (array) data_get($payload, 'missing_env', [])) ?: 'none');
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.livekit_token_issuer_smoke.v1') {
             $this->components->twoColumnDetail('Token issuer smoke', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Ephemeral test config', data_get($payload, 'ephemeral_test_config', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Ephemeral test config', data_getYesNo::format($payload, 'ephemeral_test_config', false));
             $this->components->twoColumnDetail('Production readiness', (string) data_get($payload, 'production_readiness'));
-            $this->components->twoColumnDetail('Token issued', data_get($payload, 'token_issued', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Access token exposed', data_get($payload, 'access_token_exposed', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Starts daemon', data_get($payload, 'security_contract.starts_daemon', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Token issued', data_getYesNo::format($payload, 'token_issued', false));
+            $this->components->twoColumnDetail('Access token exposed', data_getYesNo::format($payload, 'access_token_exposed', true));
+            $this->components->twoColumnDetail('Starts daemon', data_getYesNo::format($payload, 'security_contract.starts_daemon', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.livekit_server_probe.v1') {
             $this->components->twoColumnDetail('LiveKit server probe', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Configured', data_get($payload, 'configured', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Configured', data_getYesNo::format($payload, 'configured', false));
             $this->components->twoColumnDetail('URL', (string) data_get($payload, 'livekit_url_redacted', 'missing'));
-            $this->components->twoColumnDetail('Reachable', data_get($payload, 'probe.reachable', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Secrets exposed', data_get($payload, 'security_contract.secrets_exposed', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'security_contract.daemon_started', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Reachable', data_getYesNo::format($payload, 'probe.reachable', false));
+            $this->components->twoColumnDetail('Secrets exposed', data_getYesNo::format($payload, 'security_contract.secrets_exposed', true));
+            $this->components->twoColumnDetail('Daemon started', data_getYesNo::format($payload, 'security_contract.daemon_started', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.worker_plan.v1') {
             $this->components->twoColumnDetail('Worker adapter', (string) data_get($payload, 'entrypoint.worker_adapter'));
             $this->components->twoColumnDetail('SDK adapter', (string) data_get($payload, 'entrypoint.sdk_adapter'));
-            $this->components->twoColumnDetail('Can start worker', data_get($payload, 'activation.can_start_long_running_worker', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Can start worker', data_getYesNo::format($payload, 'activation.can_start_long_running_worker', false));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.production_loop_plan.v1') {
@@ -253,41 +254,41 @@ class AtlasAiVoiceRealtimeCommand extends Command
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.product_loop_check.v1') {
             $this->components->twoColumnDetail('Product loop check', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('SDK probe safe', data_get($payload, 'gates.sdk_probe_import_safe', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Kernel normalizer required', data_get($payload, 'gates.sdk_kernel_normalizer_required', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Promotion blocked', data_get($payload, 'gates.production_promotion_blocked', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon started', data_getYesNo::format($payload, 'daemon_started', false));
+            $this->components->twoColumnDetail('SDK probe safe', data_getYesNo::format($payload, 'gates.sdk_probe_import_safe', false));
+            $this->components->twoColumnDetail('Kernel normalizer required', data_getYesNo::format($payload, 'gates.sdk_kernel_normalizer_required', false));
+            $this->components->twoColumnDetail('Promotion blocked', data_getYesNo::format($payload, 'gates.production_promotion_blocked', false));
             $this->components->twoColumnDetail('Supervised start plan', (string) data_get($payload, 'supervised_start_plan.status', 'unknown'));
             $this->components->twoColumnDetail('Supervisor health snapshot', (string) data_get($payload, 'supervised_start_plan.supervisor_health_snapshot.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Supervisor daemon started', data_get($payload, 'supervised_start_plan.supervisor_health_snapshot.daemon_started', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervisor daemon started', data_getYesNo::format($payload, 'supervised_start_plan.supervisor_health_snapshot.daemon_started', true));
             $this->components->twoColumnDetail('Daemon supervisor execution', (string) data_get($payload, 'daemon_supervisor_execution.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Daemon supervisor launch attempted', data_get($payload, 'daemon_supervisor_execution.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon supervisor launch attempted', data_getYesNo::format($payload, 'daemon_supervisor_execution.process_launch_attempted', true));
             $this->components->twoColumnDetail('Process adapter blueprint', (string) data_get($payload, 'daemon_supervisor_execution.process_adapter_blueprint.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Process adapter launch allowed', data_get($payload, 'daemon_supervisor_execution.process_adapter_blueprint.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Process adapter launch allowed', data_getYesNo::format($payload, 'daemon_supervisor_execution.process_adapter_blueprint.launch_allowed', true));
             $this->components->twoColumnDetail('Supervised process adapter', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.process_launch_attempted', true));
             $this->components->twoColumnDetail('Managed env contract', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env write attempted', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env write attempted', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Launch authorization contract', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Launch allowed', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Launch allowed', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.launch_allowed', true));
             $this->components->twoColumnDetail('Managed env writer', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env writer wrote file', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env writer wrote file', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Supervised launch execution', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.schema_version', 'missing'));
             $this->components->twoColumnDetail('Supervised launch status', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.status', 'unknown'));
-            $this->components->twoColumnDetail('Supervised launch attempted', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks available', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks executed', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised launch attempted', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true));
+            $this->components->twoColumnDetail('Pre-start health checks available', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false));
+            $this->components->twoColumnDetail('Pre-start health checks executed', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true));
             $this->components->twoColumnDetail('Subprocess start contract', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.schema_version', 'missing'));
             $this->components->twoColumnDetail('Subprocess start status', (string) data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.status', 'unknown'));
-            $this->components->twoColumnDetail('Subprocess start attempted', data_get($payload, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Subprocess start attempted', data_getYesNo::format($payload, 'daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.pre_start_health_checks_smoke.v1') {
             $this->components->twoColumnDetail('Pre-start smoke', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Smoke only', data_get($payload, 'smoke_only', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Smoke only', data_getYesNo::format($payload, 'smoke_only', false));
             $this->components->twoColumnDetail('Production readiness', (string) data_get($payload, 'production_readiness'));
-            $this->components->twoColumnDetail('Temporary env removed', data_get($payload, 'temporary_env_file_removed_after_smoke', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Process launch attempted', data_get($payload, 'process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Temporary env removed', data_getYesNo::format($payload, 'temporary_env_file_removed_after_smoke', false));
+            $this->components->twoColumnDetail('Process launch attempted', data_getYesNo::format($payload, 'process_launch_attempted', true));
             $this->components->twoColumnDetail('Pre-start checks', (string) data_get($payload, 'pre_start_health_checks.status'));
             $this->components->twoColumnDetail('Subprocess start contract', (string) data_get($payload, 'subprocess_start_contract.status'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
@@ -295,85 +296,85 @@ class AtlasAiVoiceRealtimeCommand extends Command
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.daemon_supervisor_execution.v1') {
             $this->components->twoColumnDetail('Daemon supervisor execution', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Execution mode', (string) data_get($payload, 'execution_mode'));
-            $this->components->twoColumnDetail('Process launch attempted', data_get($payload, 'process_launch_attempted', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Start allowed', data_get($payload, 'start_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Process launch attempted', data_getYesNo::format($payload, 'process_launch_attempted', true));
+            $this->components->twoColumnDetail('Daemon started', data_getYesNo::format($payload, 'daemon_started', true));
+            $this->components->twoColumnDetail('Start allowed', data_getYesNo::format($payload, 'start_allowed', true));
             $this->components->twoColumnDetail('Process adapter blueprint', (string) data_get($payload, 'process_adapter_blueprint.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Process adapter launch allowed', data_get($payload, 'process_adapter_blueprint.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Process adapter launch allowed', data_getYesNo::format($payload, 'process_adapter_blueprint.launch_allowed', true));
             $this->components->twoColumnDetail('Supervised process adapter', (string) data_get($payload, 'supervised_process_adapter.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_get($payload, 'supervised_process_adapter.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_getYesNo::format($payload, 'supervised_process_adapter.process_launch_attempted', true));
             $this->components->twoColumnDetail('Managed env contract', (string) data_get($payload, 'supervised_process_adapter.managed_environment_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env write attempted', data_get($payload, 'supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env write attempted', data_getYesNo::format($payload, 'supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Launch authorization contract', (string) data_get($payload, 'supervised_process_adapter.launch_authorization_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Launch allowed', data_get($payload, 'supervised_process_adapter.launch_authorization_contract.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Launch allowed', data_getYesNo::format($payload, 'supervised_process_adapter.launch_authorization_contract.launch_allowed', true));
             $this->components->twoColumnDetail('Managed env writer', (string) data_get($payload, 'supervised_process_adapter.managed_env_writer.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env writer wrote file', data_get($payload, 'supervised_process_adapter.managed_env_writer.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env writer wrote file', data_getYesNo::format($payload, 'supervised_process_adapter.managed_env_writer.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Supervised launch execution', (string) data_get($payload, 'supervised_process_adapter.supervised_launch_execution.schema_version', 'missing'));
             $this->components->twoColumnDetail('Supervised launch status', (string) data_get($payload, 'supervised_process_adapter.supervised_launch_execution.status', 'unknown'));
-            $this->components->twoColumnDetail('Supervised launch attempted', data_get($payload, 'supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks available', data_get($payload, 'supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks executed', data_get($payload, 'supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised launch attempted', data_getYesNo::format($payload, 'supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true));
+            $this->components->twoColumnDetail('Pre-start health checks available', data_getYesNo::format($payload, 'supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false));
+            $this->components->twoColumnDetail('Pre-start health checks executed', data_getYesNo::format($payload, 'supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true));
             $this->components->twoColumnDetail('Subprocess start contract', (string) data_get($payload, 'supervised_process_adapter.subprocess_start_contract.schema_version', 'missing'));
             $this->components->twoColumnDetail('Subprocess start status', (string) data_get($payload, 'supervised_process_adapter.subprocess_start_contract.status', 'unknown'));
-            $this->components->twoColumnDetail('Subprocess start attempted', data_get($payload, 'supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Subprocess start attempted', data_getYesNo::format($payload, 'supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.production_loop_smoke.v1') {
             $this->components->twoColumnDetail('Production loop smoke', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Daemon started', data_get($payload, 'daemon_started', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('SDK imported', data_get($payload, 'sdk_imported', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon started', data_getYesNo::format($payload, 'daemon_started', false));
+            $this->components->twoColumnDetail('SDK imported', data_getYesNo::format($payload, 'sdk_imported', false));
             $this->components->twoColumnDetail('Result count', (string) data_get($payload, 'result_count', '0'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.worker_start.v1') {
-            $this->components->twoColumnDetail('Started', data_get($payload, 'started', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Started', data_getYesNo::format($payload, 'started', false));
             $this->components->twoColumnDetail('Reason', (string) data_get($payload, 'reason'));
             $this->components->twoColumnDetail('Plan status', (string) data_get($payload, 'worker_plan.status'));
             $this->components->twoColumnDetail('Production loop status', (string) data_get($payload, 'production_loop_plan.status'));
-            $this->components->twoColumnDetail('Human review approved', data_get($payload, 'production_promotion.human_review_approved', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Review receipt valid', data_get($payload, 'production_promotion.review_receipt_valid', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Daemon review valid', data_get($payload, 'daemon_implementation.review_receipt_valid', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Human review approved', data_getYesNo::format($payload, 'production_promotion.human_review_approved', false));
+            $this->components->twoColumnDetail('Review receipt valid', data_getYesNo::format($payload, 'production_promotion.review_receipt_valid', false));
+            $this->components->twoColumnDetail('Daemon review valid', data_getYesNo::format($payload, 'daemon_implementation.review_receipt_valid', false));
             $this->components->twoColumnDetail('Supervised start plan', (string) data_get($payload, 'supervised_start_plan.status', 'unknown'));
-            $this->components->twoColumnDetail('Supervised start allowed', data_get($payload, 'supervised_start_plan.start_allowed', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised start allowed', data_getYesNo::format($payload, 'supervised_start_plan.start_allowed', false));
             $this->components->twoColumnDetail('Activation status', (string) data_get($payload, 'activation_contract.status'));
             $this->components->twoColumnDetail('Activation next action', (string) data_get($payload, 'activation_next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.runtime_event_normalizer.v1') {
             $this->components->twoColumnDetail('Normalizer', (string) data_get($payload, 'status'));
-            $this->components->twoColumnDetail('Valid', data_get($payload, 'valid', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Execution enabled', data_get($payload, 'contract.guardrails.runtime_execution_enabled', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Provider enabled', data_get($payload, 'contract.guardrails.provider_execution_enabled', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Valid', data_getYesNo::format($payload, 'valid', false));
+            $this->components->twoColumnDetail('Execution enabled', data_getYesNo::format($payload, 'contract.guardrails.runtime_execution_enabled', false));
+            $this->components->twoColumnDetail('Provider enabled', data_getYesNo::format($payload, 'contract.guardrails.provider_execution_enabled', false));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice_realtime.runtime_certification.v1') {
             $this->components->twoColumnDetail('Certification', (string) data_get($payload, 'status'));
             $this->components->twoColumnDetail('Passed gates', (string) data_get($payload, 'summary.passed_gates', '0'));
             $this->components->twoColumnDetail('Failed gates', (string) data_get($payload, 'summary.failed_gates', '0'));
-            $this->components->twoColumnDetail('Daemon start blocked safely', data_get($payload, 'gates.worker_start_blocked_safely.passed', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon start blocked safely', data_getYesNo::format($payload, 'gates.worker_start_blocked_safely.passed', false));
             $this->components->twoColumnDetail('Product loop check', (string) data_get($payload, 'artifacts.product_loop_check.status', 'unknown'));
             $this->components->twoColumnDetail('Product loop next action', (string) data_get($payload, 'artifacts.product_loop_check.next_action', 'unknown'));
             $this->components->twoColumnDetail('Supervisor health snapshot', (string) data_get($payload, 'artifacts.product_loop_check.supervised_start_plan.supervisor_health_snapshot.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Supervisor daemon started', data_get($payload, 'artifacts.product_loop_check.supervised_start_plan.supervisor_health_snapshot.daemon_started', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervisor daemon started', data_getYesNo::format($payload, 'artifacts.product_loop_check.supervised_start_plan.supervisor_health_snapshot.daemon_started', true));
             $this->components->twoColumnDetail('Daemon supervisor execution', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Daemon supervisor launch attempted', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Daemon supervisor launch attempted', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.process_launch_attempted', true));
             $this->components->twoColumnDetail('Process adapter blueprint', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.process_adapter_blueprint.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Process adapter launch allowed', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.process_adapter_blueprint.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Process adapter launch allowed', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.process_adapter_blueprint.launch_allowed', true));
             $this->components->twoColumnDetail('Supervised process adapter', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised adapter launch attempted', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.process_launch_attempted', true));
             $this->components->twoColumnDetail('Managed env contract', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env write attempted', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env write attempted', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_environment_contract.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Launch authorization contract', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Launch allowed', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.launch_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Launch allowed', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.launch_authorization_contract.launch_allowed', true));
             $this->components->twoColumnDetail('Managed env writer', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.schema_version', 'missing'));
-            $this->components->twoColumnDetail('Managed env writer wrote file', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Managed env writer wrote file', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.managed_env_writer.env_file_write_attempted', true));
             $this->components->twoColumnDetail('Supervised launch execution', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.schema_version', 'missing'));
             $this->components->twoColumnDetail('Supervised launch status', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.status', 'unknown'));
-            $this->components->twoColumnDetail('Supervised launch attempted', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks available', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Pre-start health checks executed', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Supervised launch attempted', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.process_launch_attempted', true));
+            $this->components->twoColumnDetail('Pre-start health checks available', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_execution_available', false));
+            $this->components->twoColumnDetail('Pre-start health checks executed', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.supervised_launch_execution.pre_start_health_checks_executed', true));
             $this->components->twoColumnDetail('Subprocess start contract', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.schema_version', 'missing'));
             $this->components->twoColumnDetail('Subprocess start status', (string) data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.status', 'unknown'));
-            $this->components->twoColumnDetail('Subprocess start attempted', data_get($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Subprocess start attempted', data_getYesNo::format($payload, 'artifacts.product_loop_check.daemon_supervisor_execution.supervised_process_adapter.subprocess_start_contract.process_launch_attempted', true));
             $this->components->twoColumnDetail('Production promotion', (string) data_get($payload, 'production_promotion_gate.status', 'unknown'));
-            $this->components->twoColumnDetail('Human review required', data_get($payload, 'production_promotion_gate.human_review_required', false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Human review required', data_getYesNo::format($payload, 'production_promotion_gate.human_review_required', false));
             $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'production_promotion_gate.review_packet.status', 'unknown'));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
@@ -383,8 +384,8 @@ class AtlasAiVoiceRealtimeCommand extends Command
             $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'review_packet.status', 'unknown'));
             $this->components->twoColumnDetail('Evidence count', (string) data_get($payload, 'summary.evidence_count', '0'));
             $this->components->twoColumnDetail('Bundle hash', (string) data_get($payload, 'bundle_hash'));
-            $this->components->twoColumnDetail('Promotion allowed', data_get($payload, 'promotion_allowed', true) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Auto promotion', data_get($payload, 'auto_promotion_allowed', true) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Promotion allowed', data_getYesNo::format($payload, 'promotion_allowed', true));
+            $this->components->twoColumnDetail('Auto promotion', data_getYesNo::format($payload, 'auto_promotion_allowed', true));
             $this->components->twoColumnDetail('Next action', (string) data_get($payload, 'next_action'));
         }
         if (($payload['schema_version'] ?? null) === 'atlas.voice.readiness.v1') {

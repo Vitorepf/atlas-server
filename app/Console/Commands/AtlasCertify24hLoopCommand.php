@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AP-792 · read-only 24h loop certification harness CLI.
@@ -45,7 +46,7 @@ final class AtlasCertify24hLoopCommand extends Command
 
         $this->components->twoColumnDetail('AP-792 24h loop cert', $status);
         $this->components->twoColumnDetail('Certification mode', (string) ($payload['certification_mode'] ?? ''));
-        $this->components->twoColumnDetail('Production certified', ($payload['production_certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Production certified', YesNo::format($payload['production_certified'] ?? false));
         $this->components->twoColumnDetail('Missing capabilities', implode(', ', (array) ($payload['missing_capabilities'] ?? [])) ?: '—');
         $this->components->twoColumnDetail('Missing real authority', implode(', ', (array) ($payload['missing_real_authority'] ?? [])) ?: '—');
 
@@ -55,7 +56,7 @@ final class AtlasCertify24hLoopCommand extends Command
                 (string) ($scenario['status'] ?? '?'),
                 (string) ($scenario['scenario'] ?? ''),
                 (string) ($scenario['evaluated_against'] ?? '?'),
-                ((bool) ($scenario['contract_self_test'] ?? false)) ? 'yes' : 'no',
+                YesNo::format((bool) ($scenario['contract_self_test'] ?? false)),
                 ($scenario['missing_capabilities'] ?? []) !== [] ? ' · missing='.implode(',', (array) $scenario['missing_capabilities']) : '',
             ));
         }

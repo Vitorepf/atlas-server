@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasContextRankingSystemCommand extends Command
 {
@@ -57,7 +58,7 @@ final class AtlasContextRankingSystemCommand extends Command
         $this->components->twoColumnDetail('Selected refs', (string) data_get($payload, 'rerank_result.metrics.selected_count', 0));
         $this->components->twoColumnDetail('Excluded refs', (string) data_get($payload, 'rerank_result.metrics.excluded_count', 0));
         $this->components->twoColumnDetail('Feedback hint', (string) data_get($payload, 'source_ranking_inputs.feedback_hint.status', 'inactive'));
-        $this->components->twoColumnDetail('Feedback changed selection', data_get($payload, 'rerank_result.feedback_impact_report.selected_set_changed') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Feedback changed selection', data_getYesNo::format($payload, 'rerank_result.feedback_impact_report.selected_set_changed'));
         $this->components->twoColumnDetail('Rerank hash', (string) $payload['rerank_result_hash']);
 
         return (string) ($payload['status'] ?? '') === 'blocked' ? self::FAILURE : self::SUCCESS;

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AURG Phase-2 / F2 — brain query with provenance (Salto 1, "AURG vivo").
@@ -73,7 +74,7 @@ class AtlasAurgQueryCommand extends Command
         $this->info('AURG brain query (F2)');
         $this->line('  query: '.$result['query']);
         $this->line('  terms: '.implode(', ', $result['terms']));
-        $this->line('  provider_bound: '.($result['provider_bound'] ? 'yes' : 'no').'  depth: '.$result['depth'].'  ranking: '.$result['ranking']);
+        $this->line('  provider_bound: '.(YesNo::format($result['provider_bound'])).'  depth: '.$result['depth'].'  ranking: '.$result['ranking']);
 
         $this->info('Seeds ('.count($result['seeds']).'):');
         foreach ($result['seeds'] as $seed) {

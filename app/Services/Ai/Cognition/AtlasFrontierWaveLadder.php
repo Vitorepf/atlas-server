@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * E — #20 frontier "escada de eventos externos" (obra20 §Fase-0 / linha 15).
@@ -162,7 +163,7 @@ final class AtlasFrontierWaveLadder
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_GENERATED_AT => UtcIsoTimestamp::now(),
             self::FIELD_EVENT_THRESHOLD => self::EVENT_THRESHOLD,
             self::FIELD_WAVES => $waves,
             self::FIELD_NOTE => self::FIELD_ATIVA__O_SEQUENCIAL_POR_EVENTOS_EXTERNOS_REAIS_NO_LEDGER___NENHUMA_FRENTE_DECLARA_SUCESSO_SOBRE_SI_MESMA__OBRA20__15___DESENHO_SPEC_PARALELOS__ATIVA__O_GATED_,

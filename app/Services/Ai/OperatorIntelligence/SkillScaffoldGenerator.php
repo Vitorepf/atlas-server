@@ -6,6 +6,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorPatternDetection;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Turns a detected recurring pattern into a real, valid SKILL.md — the artifact Atlas
@@ -102,7 +103,7 @@ final class SkillScaffoldGenerator
     private function scalar(mixed $value): string
     {
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return YesNo::trueFalse($value);
         }
         if (is_int($value) || is_float($value)) {
             return (string) $value;

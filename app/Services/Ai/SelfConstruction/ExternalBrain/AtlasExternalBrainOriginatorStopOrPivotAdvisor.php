@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Support\YesNo;
+
 /**
  * Combines queue depth, worker drain rate, recent batch value, theme saturation, impact
  * diversity, duplicate risk, and unresolved high-priority gaps into ONE honest next_action
@@ -100,16 +102,16 @@ final class AtlasExternalBrainOriginatorStopOrPivotAdvisor
         $evidence = [
             "claimable_depth:{$claimableDepth}",
             "target_min_claimable:{$targetMinClaimable}",
-            'queue_sufficient:'.($queueSufficient ? 'true' : 'false'),
+            'queue_sufficient:'.(YesNo::trueFalse($queueSufficient)),
             'claimable_per_worker:'.($claimablePerWorker ?? 'unknown'),
-            'drain_rate_low:'.($drainRateLow ? 'true' : 'false'),
+            'drain_rate_low:'.(YesNo::trueFalse($drainRateLow)),
             "batch_recommendation:{$batchRecommendation}",
-            'batch_low_value:'.($lowValue ? 'true' : 'false'),
-            'theme_saturation_high:'.($saturationHigh ? 'true' : 'false'),
+            'batch_low_value:'.(YesNo::trueFalse($lowValue)),
+            'theme_saturation_high:'.(YesNo::trueFalse($saturationHigh)),
             "impact_diversity_score:{$impactDiversityScore}",
-            'impact_diversity_low:'.($lowDiversity ? 'true' : 'false'),
+            'impact_diversity_low:'.(YesNo::trueFalse($lowDiversity)),
             "duplicate_risk:{$duplicateRisk}",
-            'duplicate_risk_high:'.($highDuplicateRisk ? 'true' : 'false'),
+            'duplicate_risk_high:'.(YesNo::trueFalse($highDuplicateRisk)),
             'unresolved_high_priority_gaps:'.implode(',', $unresolvedHighPriorityGaps),
         ];
 

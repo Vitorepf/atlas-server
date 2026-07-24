@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiKernelPipelineReportCommand extends Command
 {
@@ -70,10 +71,10 @@ class AtlasAiKernelPipelineReportCommand extends Command
         $this->components->twoColumnDetail('Accepted', (string) ($pipeline['accepted_count'] ?? 0));
         $this->components->twoColumnDetail('Rejected', (string) ($pipeline['rejected_count'] ?? 0));
         $this->components->twoColumnDetail('Latest status', (string) ($pipeline['latest_status'] ?? '-'));
-        $this->components->twoColumnDetail('Has rejections', ($pipeline['has_rejections'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Has rejections', YesNo::format($pipeline['has_rejections'] ?? false));
         $this->components->twoColumnDetail('Health', (string) data_get($pipeline, 'health.status', 'unknown'));
         $this->components->twoColumnDetail('Rejection rate', (string) data_get($pipeline, 'health.rejection_rate', 0));
-        $this->components->twoColumnDetail('Review required', data_get($pipeline, 'health.review_required', false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Review required', data_getYesNo::format($pipeline, 'health.review_required', false));
         $this->components->twoColumnDetail('Review signal', (string) data_get($pipeline, 'review_signal.status', 'unknown'));
         $this->components->twoColumnDetail('Review severity', (string) data_get($pipeline, 'review_signal.severity', 'unknown'));
         $this->components->twoColumnDetail('Recommended action', (string) data_get($pipeline, 'review_signal.recommended_action', 'none'));

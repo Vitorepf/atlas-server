@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasOpenBrainContextInjectionService
 {
@@ -1474,7 +1475,7 @@ class AtlasOpenBrainContextInjectionService
             $qualitySummary = $this->memoryQualitySummary($memoryQuality);
             $lines[] = '';
             $lines[] = '## Memory Quality Gate';
-            $lines[] = '- status: '.($qualitySummary['status'] ?? 'unknown').'; score='.($qualitySummary['score'] ?? 'n/a').'; ok='.(($qualitySummary['ok'] ?? false) ? 'true' : 'false');
+            $lines[] = '- status: '.($qualitySummary['status'] ?? 'unknown').'; score='.($qualitySummary['score'] ?? 'n/a').'; ok='.(YesNo::trueFalse($qualitySummary['ok'] ?? false));
             $lines[] = '- active: '.($qualitySummary['active'] ?? 'n/a').'; provider_safe_active='.($qualitySummary['provider_safe_active'] ?? 'n/a');
             if (is_array($qualitySummary['latest_snapshot'] ?? null) && $qualitySummary['latest_snapshot'] !== []) {
                 $snapshot = $qualitySummary['latest_snapshot'];
@@ -1519,15 +1520,15 @@ class AtlasOpenBrainContextInjectionService
             $lines[] = '## Programming Context';
             $lines[] = '- schema: '.($programming['schema_version'] ?? 'unknown');
             $lines[] = '- flow: '.($programming['flow'] ?: 'n/a').'; profile='.($programming['profile'] ?: 'n/a').'; intent='.($programming['intent'] ?: 'n/a');
-            $lines[] = '- resume: '.(data_get($programming, 'resume.resumed') ? 'true' : 'false')
+            $lines[] = '- resume: '.(data_getYesNo::trueFalse($programming, 'resume.resumed'))
                 .'; plan_id='.(data_get($programming, 'resume.plan_id') ?: 'n/a')
                 .'; parent_plan_id='.(data_get($programming, 'resume.parent_plan_id') ?: 'n/a');
             $stage = (array) ($programming['stage_contract'] ?? []);
-            $lines[] = '- stages: plan='.(($stage['plan'] ?? false) ? 'true' : 'false')
-                .'; review='.(($stage['review'] ?? false) ? 'true' : 'false')
-                .'; patch='.(($stage['patch'] ?? false) ? 'true' : 'false')
-                .'; test='.(($stage['test'] ?? false) ? 'true' : 'false')
-                .'; repair='.(($stage['repair'] ?? false) ? 'true' : 'false');
+            $lines[] = '- stages: plan='.(YesNo::trueFalse($stage['plan'] ?? false))
+                .'; review='.(YesNo::trueFalse($stage['review'] ?? false))
+                .'; patch='.(YesNo::trueFalse($stage['patch'] ?? false))
+                .'; test='.(YesNo::trueFalse($stage['test'] ?? false))
+                .'; repair='.(YesNo::trueFalse($stage['repair'] ?? false));
             if (is_array($programming['agentic_rag'] ?? null)) {
                 $rag = $programming['agentic_rag'];
                 $lines[] = '- agentic_rag: status='.($rag['status'] ?? 'unknown')
@@ -1640,7 +1641,7 @@ class AtlasOpenBrainContextInjectionService
                     ->implode(' -> ');
                 $confidenceMin = $ref['confidence_min'] ?? null;
                 $lines[] = '- '.(($ref['chain_label'] ?? '') !== '' ? $ref['chain_label'] : 'path').': '.$chain
-                    .'; cross_layer='.(($ref['cross_layer'] ?? false) ? 'true' : 'false')
+                    .'; cross_layer='.(YesNo::trueFalse($ref['cross_layer'] ?? false))
                     .'; confidence_min='.(is_numeric($confidenceMin) ? (string) $confidenceMin : 'n/a');
             }
         }

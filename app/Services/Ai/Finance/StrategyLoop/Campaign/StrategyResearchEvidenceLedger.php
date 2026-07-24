@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Durable research memory for strategy campaigns. Campaign reports are not just
@@ -29,7 +30,7 @@ final class StrategyResearchEvidenceLedger
         $verdict = (string) ($report['verdict'] ?? 'INCONCLUSIVE');
         $event = [
             'schema_version' => 'atlas.finance.strategy_research_evidence.v1',
-            'recorded_at' => gmdate('c'),
+            'recorded_at' => UtcIsoTimestamp::now(),
             'campaign_id' => $report['campaign_id'] ?? null,
             'symbol' => $report['symbol'] ?? null,
             'interval' => $report['interval'] ?? null,

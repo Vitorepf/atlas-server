@@ -14,12 +14,13 @@
 
 ### Wave A — cheap adoption (P0)
 
-- [ ] YesNo / TrueFalse adoption (~306 `? 'yes' : 'no'`)
-- [ ] UtcIsoTimestamp adoption (~85 `gmdate('c')`)
+- [x] YesNo::format mass adoption (~309 sites / 138 files)
+- [x] YesNo::trueFalse adoption (~154 sites / 78 files)
+- [x] UtcIsoTimestamp::now() + mass gmdate('c') (~83 / 47 files)
 - [ ] EmitsCanonicalJson residual (~75 pretty json_encode)
-- [x] Finish ReadsNonEmptyStringOption trait-equivalent (7 cmds: FastPath/Status, Forge live/certify, AcosWindows, MemoryProjection, OrganismStatus)
+- [x] Finish ReadsNonEmptyStringOption trait-equivalent (7 cmds)
 - [ ] Remaining behavior-sensitive stringOption (~11: no-trim / keep-untrimmed variants)
-- [ ] Drop thin shells: memoryLimitToBytes, clamp01, gitWorkspaceState wrappers
+- [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
 - [x] Empty Maestro ClosedLoop+Pinning dirs removed
 - [ ] ExternalBrain loadFacts / NativeImplementation loadJson trait variants
 

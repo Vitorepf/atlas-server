@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cli\AtlasCliInstallService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasCliInstallCommand extends Command
 {
@@ -56,7 +57,7 @@ class AtlasCliInstallCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas CLI Install</>', $plan['installed'] ? 'installed' : ($plan['dry_run'] ? 'dry-run' : 'planned'));
         $this->components->twoColumnDetail('Source', (string) $plan['source']);
         $this->components->twoColumnDetail('Target', (string) $plan['target']);
-        $this->components->twoColumnDetail('PATH ready', $plan['path_ready'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('PATH ready', YesNo::format($plan['path_ready']));
 
         if (isset($plan['shell_profile_write']) && is_array($plan['shell_profile_write'])) {
             $this->components->twoColumnDetail('Shell profile', (string) $plan['shell_profile_write']['profile_path']);

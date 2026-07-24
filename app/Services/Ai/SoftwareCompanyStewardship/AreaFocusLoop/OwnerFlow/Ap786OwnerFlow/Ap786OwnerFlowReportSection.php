@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap7
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AP-786 owner-flow REPORT / salvage section: blocked / preflight-skipped /
@@ -88,7 +89,7 @@ final class Ap786OwnerFlowReportSection
                 'reason' => $reason,
             ]],
             'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
         ];
     }
 
@@ -482,7 +483,7 @@ final class Ap786OwnerFlowReportSection
             'blockers' => [$reason],
             'steps' => $steps,
             'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
         ] + $extra;
     }
 
@@ -516,7 +517,7 @@ final class Ap786OwnerFlowReportSection
             'blockers' => $blockers,
             'steps' => $steps,
             'claim_policy' => $this->claimPolicy(),
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
         ];
     }
 

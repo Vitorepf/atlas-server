@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Area Focus Loop · Operational Certification (AP-722).
@@ -101,7 +102,7 @@ class AreaFocusLoopOperationalCertificationService
                 'read_model', 'AP-716', AreaFocusLoopReadModelService::class,
                 $rmStatus === AreaFocusLoopReadModelService::STATUS_BLOCKED ? self::CHECK_BLOCKED
                     : ($hasFindings ? self::CHECK_PASS : self::CHECK_DEGRADED),
-                "read model status={$rmStatus}, findings_key=".($hasFindings ? 'yes' : 'no'),
+                "read model status={$rmStatus}, findings_key=".(YesNo::format($hasFindings)),
                 ['report_hash' => (string) ($report['report_hash'] ?? '')],
             );
             $policies['read_model'] = $report['claim_policy'] ?? [];
@@ -120,7 +121,7 @@ class AreaFocusLoopOperationalCertificationService
             $checks[] = $this->check(
                 'inbox', 'AP-718', AreaFocusInboxService::class,
                 ($allGated && $noAuto) ? self::CHECK_PASS : self::CHECK_BLOCKED,
-                'inbox items='.count($items).', operator_gated='.($allGated ? 'yes' : 'no').', autoapproval='.($noAuto ? 'off' : 'ON'),
+                'inbox items='.count($items).', operator_gated='.(YesNo::format($allGated)).', autoapproval='.($noAuto ? 'off' : 'ON'),
                 ['inbox_hash' => (string) ($inbox['inbox_hash'] ?? '')],
             );
             $policies['inbox'] = $inbox['claim_policy'] ?? [];
@@ -162,7 +163,7 @@ class AreaFocusLoopOperationalCertificationService
                 $checks[] = $this->check(
                     'evidence_pack', 'AP-720', AreaFocusEvidencePackService::class,
                     $packComplete ? self::CHECK_PASS : self::CHECK_DEGRADED,
-                    'pack_id='.(string) ($pack['pack_id'] ?? '?').', complete='.($packComplete ? 'yes' : 'no').', morning_inbox_ready='.(($pack['morning_inbox_ready'] ?? false) ? 'yes' : 'no'),
+                    'pack_id='.(string) ($pack['pack_id'] ?? '?').', complete='.(YesNo::format($packComplete)).', morning_inbox_ready='.(YesNo::format($pack['morning_inbox_ready'] ?? false)),
                     ['pack_hash' => (string) ($pack['pack_hash'] ?? '')],
                 );
                 $policies['evidence_pack'] = $pack['claim_policy'] ?? [];

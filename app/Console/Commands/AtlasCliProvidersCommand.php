@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AiProviderHealthService;
 use App\Services\Ai\Cli\AtlasCliProviderStrategyService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasCliProvidersCommand extends Command
 {
@@ -33,7 +34,7 @@ class AtlasCliProvidersCommand extends Command
         $this->newLine();
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Provider Strategy</>', (string) $payload['recommended_provider']);
         $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
-        $this->components->twoColumnDetail('Critical', ((bool) $payload['critical']) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Critical', YesNo::format((bool) $payload['critical']));
         $this->components->twoColumnDetail('Fallback', (string) ($payload['fallback_provider'] ?: '-'));
         $this->line((string) $payload['reason']);
 

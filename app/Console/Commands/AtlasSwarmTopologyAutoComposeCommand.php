@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasDecide\AtlasSwarmTopologyAutoComposerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasSwarmTopologyAutoComposeCommand extends Command
 {
@@ -43,7 +44,7 @@ final class AtlasSwarmTopologyAutoComposeCommand extends Command
         }
 
         $this->components->twoColumnDetail('Swarm topology composer', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Task types', (string) data_get($payload, 'summary.task_type_count', 0));
         $this->components->twoColumnDetail('Topologies', (string) data_get($payload, 'summary.topology_count', 0));
         $this->components->twoColumnDetail('Converged', (string) data_get($payload, 'summary.converged_count', 0));

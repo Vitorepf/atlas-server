@@ -9,6 +9,7 @@ use App\Console\Commands\AtlasCodeForgeFastPathStatusCommand;
 use App\Console\Commands\AtlasCodeForgeReviewCommand;
 use App\Console\Commands\AtlasForgeLiveExecuteCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
+use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
 
 /**
  * Forge-Native Rivals Preflight v1.
@@ -147,7 +148,7 @@ class AtlasForgeNativeRivalsPreflightService
      */
     private function checkWorkspace(string $workspace): array
     {
-        $git = $this->gitWorkspaceState($workspace);
+        $git = GitWorkspaceStateReader::read($workspace);
         $isGit = (bool) ($git['is_git'] ?? false);
         $clean = (bool) ($git['clean'] ?? false);
         $bytecode = $this->workspaceHygiene->trackedPythonBytecode($workspace);
@@ -190,7 +191,7 @@ class AtlasForgeNativeRivalsPreflightService
         }
 
         $separate = rtrim($baselineWorkspace, DIRECTORY_SEPARATOR) !== rtrim($atlasWorkspace, DIRECTORY_SEPARATOR);
-        $git = $this->gitWorkspaceState($baselineWorkspace);
+        $git = GitWorkspaceStateReader::read($baselineWorkspace);
 
         $blockingReason = null;
         if (! $separate) {
@@ -464,9 +465,5 @@ class AtlasForgeNativeRivalsPreflightService
      * @return array<string,mixed>
      */
 
-    private function gitWorkspaceState(string $workspace): array
-    {
-        return \App\Services\Ai\Programming\Support\GitWorkspaceStateReader::read($workspace);
-    }
 
 }

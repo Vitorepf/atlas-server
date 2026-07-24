@@ -7,6 +7,7 @@ use App\Services\Ai\Domain\AtlasOperationsOrchestrator;
 use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiOperationsDomainCommand extends Command
 {
@@ -76,7 +77,7 @@ class AtlasAiOperationsDomainCommand extends Command
 
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('supported_flows', (string) $payload['supported_flow_count']);
         });
 
@@ -113,7 +114,7 @@ class AtlasAiOperationsDomainCommand extends Command
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('status', (string) $payload['status']);
             $this->components->twoColumnDetail('flow', (string) $payload['flow']);
-            $this->components->twoColumnDetail('diagnostic_only', $payload['diagnostic_only_until_operator_acceptance'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('diagnostic_only', YesNo::trueFalse($payload['diagnostic_only_until_operator_acceptance']));
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;

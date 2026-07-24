@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * End-to-end readiness audit for the scientific campaign platform.
  *
@@ -40,7 +42,7 @@ final class StrategyLoopScientificReadinessAudit
 
         return [
             'schema_version' => 'atlas.finance.strategy_loop_scientific_readiness_audit.v1',
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'status' => $passed ? 'pass' : 'fail',
             'score' => [
                 'passed' => count(array_filter($checks, static fn (array $check): bool => (bool) $check['passed'])),

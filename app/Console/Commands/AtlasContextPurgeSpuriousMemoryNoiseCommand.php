@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasSpuriousMemoryNoisePurgeService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasContextPurgeSpuriousMemoryNoiseCommand extends Command
 {
@@ -29,7 +30,7 @@ final class AtlasContextPurgeSpuriousMemoryNoiseCommand extends Command
             'spurious-memory-noise purge: matched=%d purged=%d dry_run=%s',
             $result['matched'],
             $result['purged'],
-            $result['dry_run'] ? 'true' : 'false',
+            YesNo::trueFalse($result['dry_run']),
         ));
 
         return self::SUCCESS;

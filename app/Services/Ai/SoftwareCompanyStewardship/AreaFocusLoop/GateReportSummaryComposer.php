@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Support\YesNo;
+
 final class GateReportSummaryComposer
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.gate_report_summary.v1';
@@ -99,7 +101,7 @@ final class GateReportSummaryComposer
         }
 
         if (is_bool($status)) {
-            return $status ? 'true' : 'false';
+            return YesNo::trueFalse($status);
         }
 
         if (is_string($status)) {

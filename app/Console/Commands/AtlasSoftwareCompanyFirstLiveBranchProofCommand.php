@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipFirstLiveBranchProofService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasSoftwareCompanyFirstLiveBranchProofCommand extends Command
 {
@@ -44,7 +45,7 @@ final class AtlasSoftwareCompanyFirstLiveBranchProofCommand extends Command
         $this->components->twoColumnDetail('Branch', (string) data_get($payload, 'branch.branch_ref', ''));
         $this->components->twoColumnDetail('Commit', (string) data_get($payload, 'branch.branch_commit', ''));
         $this->components->twoColumnDetail('Worktree', (string) data_get($payload, 'branch.worktree_path', ''));
-        $this->components->twoColumnDetail('Base untouched', ((bool) data_get($payload, 'repo.main_untouched', false)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Base untouched', YesNo::format((bool) data_get($payload, 'repo.main_untouched', false)));
         $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'branch_review_packet.status', ''));
 
         foreach ((array) ($payload['blockers'] ?? data_get($payload, 'branch_review_packet.blockers', [])) as $blocker) {

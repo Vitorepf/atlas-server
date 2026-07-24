@@ -6,6 +6,7 @@ use App\Services\Ai\Product\AtlasAutonomousProductDeliveryRuntimeService;
 use App\Services\Ai\Product\AtlasProductDeliveryEnforcementService;
 use App\Services\Ai\Product\AtlasProductDeliveryOutcomeMemoryService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasProductDeliveryOutcomeCommand extends Command
 {
@@ -80,7 +81,7 @@ class AtlasProductDeliveryOutcomeCommand extends Command
         }
 
         $this->components->twoColumnDetail('Product delivery outcome memory', $payload['outcome_status']);
-        $this->components->twoColumnDetail('Persisted', $payload['persisted'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Persisted', YesNo::format($payload['persisted']));
         $this->components->twoColumnDetail('Hash', (string) $payload['outcome_memory_hash']);
 
         return 0;

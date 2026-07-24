@@ -6,6 +6,7 @@ namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
 use App\Services\Ai\Finance\StrategyLoop\Bar;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * File-backed research campaign store for the finance strategy loop.
@@ -119,7 +120,7 @@ final class StrategyCampaignStore
         $campaign = [
             'schema_version' => 'atlas.finance.strategy_campaign.v1',
             'campaign_id' => $campaignId,
-            'created_at' => (string) ($previousCampaign['created_at'] ?? gmdate('c')),
+            'created_at' => (string) ($previousCampaign['created_at'] ?? UtcIsoTimestamp::now()),
             'flow' => 'finance.strategy_evolution',
             'status' => 'running',
             'symbol' => $symbol,
@@ -393,9 +394,9 @@ final class StrategyCampaignStore
             : 'completed';
         $campaign['verdict'] = $verdict;
         if ($campaign['status'] === 'completed') {
-            $campaign['completed_at'] = gmdate('c');
+            $campaign['completed_at'] = UtcIsoTimestamp::now();
         } else {
-            $campaign['paused_at'] = gmdate('c');
+            $campaign['paused_at'] = UtcIsoTimestamp::now();
         }
         $campaign['final_summary'] = $report['summary'] ?? [];
         $campaign['next_decision'] = $report['next_decision'] ?? null;

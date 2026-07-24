@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Finance\SpotExec\BinanceSpotOrderClient;
 use App\Services\Ai\Finance\SpotExec\SpotExecGate;
 use Illuminate\Console\Command;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Executor LIVE de Binance spot (Fase B) — o ÚNICO comando que envia ordem real.
@@ -131,7 +132,7 @@ final class AtlasFinanceSpotExecCommand extends Command
 
         $gate->recordSpend((float) ($res['quote_spent'] ?? $gateUsd));
         $receipt = [
-            'at' => gmdate('c'),
+            'at' => UtcIsoTimestamp::now(),
             'side' => $side,
             'symbol' => $symbol,
             'order_id' => $res['order_id'] ?? null,

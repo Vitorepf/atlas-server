@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * Records promoted/certified champion regions so a later independent campaign can
  * prove rediscovery. This is a hard anti-luck gate, not a ranking signal.
@@ -27,7 +29,7 @@ final class CandidateRediscoveryLedger
         @mkdir(dirname($this->path), 0o755, true);
         file_put_contents($this->path, json_encode([
             'schema_version' => 'atlas.finance.strategy_candidate_rediscovery.v1',
-            'recorded_at' => gmdate('c'),
+            'recorded_at' => UtcIsoTimestamp::now(),
             ...$event,
             'propose_only' => true,
             'live_trading' => 'forbidden',

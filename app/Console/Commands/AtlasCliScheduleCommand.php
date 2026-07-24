@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\File;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasCliScheduleCommand extends Command
 {
@@ -184,7 +185,7 @@ class AtlasCliScheduleCommand extends Command
             $this->table(['id', 'title', 'enabled', 'schedule', 'next_run_at', 'last_status'], collect($payload['scheduled_tasks'])->map(fn (array $task): array => [
                 Str::limit((string) $task['id'], 8, ''),
                 $task['title'],
-                $task['enabled'] ? 'yes' : 'no',
+                YesNo::format($task['enabled']),
                 $task['schedule'],
                 $task['next_run_at'] ?? '-',
                 $task['last_status'] ?? '-',
@@ -198,7 +199,7 @@ class AtlasCliScheduleCommand extends Command
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Scheduled Task</>', (string) $task['title']);
             $this->components->twoColumnDetail('ID', (string) $task['id']);
             $this->components->twoColumnDetail('Schedule', (string) $task['schedule']);
-            $this->components->twoColumnDetail('Enabled', $task['enabled'] ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Enabled', YesNo::format($task['enabled']));
             $this->components->twoColumnDetail('Next run', (string) ($task['next_run_at'] ?? '-'));
             $this->components->twoColumnDetail('Last status', (string) ($task['last_status'] ?? '-'));
             if (($task['last_output_tail'] ?? '') !== '') {

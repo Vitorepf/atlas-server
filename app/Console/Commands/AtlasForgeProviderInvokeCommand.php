@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Forge Governed Provider Invocation CLI.
@@ -56,7 +57,7 @@ final class AtlasForgeProviderInvokeCommand extends Command
                 foreach ((array) ($status['drivers'] ?? []) as $entry) {
                     $this->components->twoColumnDetail(
                         (string) ($entry['provider'] ?? '—'),
-                        sprintf('configured=%s runtime=%s auth=%s', $entry['configured'] ? 'yes' : 'no', $entry['runtime_present'] ? 'yes' : 'no', (string) ($entry['auth_state'] ?? '—')),
+                        sprintf('configured=%s runtime=%s auth=%s', YesNo::format($entry['configured']), YesNo::format($entry['runtime_present']), (string) ($entry['auth_state'] ?? '—')),
                     );
                 }
             }
@@ -136,12 +137,12 @@ final class AtlasForgeProviderInvokeCommand extends Command
         $this->components->twoColumnDetail('Invocation id', (string) ($payload['invocation_id'] ?? '—'));
         $this->components->twoColumnDetail('Role', (string) ($payload['role'] ?? '—'));
         $this->components->twoColumnDetail('Provider/Model', sprintf('%s / %s', (string) ($payload['provider'] ?? '—'), (string) ($payload['model'] ?? '—')));
-        $this->components->twoColumnDetail('Operator confirmed', $payload['operator_confirmed_provider_call'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Budget approved', $payload['budget_approved'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Provider called', $payload['provider_called'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('External provider call', $payload['external_provider_call'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Provider tokens spent', $payload['provider_tokens_spent'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Completion claim promoted', $payload['completion_claim_promoted'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Operator confirmed', YesNo::format($payload['operator_confirmed_provider_call']));
+        $this->components->twoColumnDetail('Budget approved', YesNo::format($payload['budget_approved']));
+        $this->components->twoColumnDetail('Provider called', YesNo::format($payload['provider_called']));
+        $this->components->twoColumnDetail('External provider call', YesNo::format($payload['external_provider_call']));
+        $this->components->twoColumnDetail('Provider tokens spent', YesNo::format($payload['provider_tokens_spent']));
+        $this->components->twoColumnDetail('Completion claim promoted', YesNo::format($payload['completion_claim_promoted']));
         $this->components->twoColumnDetail('Next action', (string) ($payload['next_action'] ?? '—'));
 
         $blockers = is_array($payload['blockers'] ?? null) ? $payload['blockers'] : [];

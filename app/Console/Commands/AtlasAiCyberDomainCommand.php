@@ -16,6 +16,7 @@ use App\Services\Ai\Cyber\GRCMappingService;
 use App\Services\Ai\Cyber\RemediationPlanService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiCyberDomainCommand extends Command
 {
@@ -85,7 +86,7 @@ class AtlasAiCyberDomainCommand extends Command
         $payload = $service->report();
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
             $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
         });
@@ -195,8 +196,8 @@ class AtlasAiCyberDomainCommand extends Command
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('engagement_status', (string) $payload['engagement_status']);
             $this->components->twoColumnDetail('bug_bounty_status', (string) ($payload['bug_bounty_status'] ?? ''));
-            $this->components->twoColumnDetail('evidence_chain_ok', $payload['evidence_chain_integrity_ok'] ? 'true' : 'false');
-            $this->components->twoColumnDetail('evidence_attached', ($payload['evidence_runtime']['attached'] ?? false) ? 'true' : 'false');
+            $this->components->twoColumnDetail('evidence_chain_ok', YesNo::trueFalse($payload['evidence_chain_integrity_ok']));
+            $this->components->twoColumnDetail('evidence_attached', YesNo::trueFalse($payload['evidence_runtime']['attached'] ?? false));
         });
 
         return self::SUCCESS;

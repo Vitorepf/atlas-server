@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Architecture\AtlasDocumentationSplitPlanService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiDocsSplitPlanCommand extends Command
 {
@@ -34,7 +35,7 @@ class AtlasAiDocsSplitPlanCommand extends Command
         $this->components->twoColumnDetail('Total docs with debt', (string) $payload['total_split_required_count']);
         $this->components->twoColumnDetail('Blocking', (string) $payload['blocking_count']);
         $this->components->twoColumnDetail('Grandfathered', (string) $payload['grandfathered_count']);
-        $this->components->twoColumnDetail('Ready for new docs', data_get($payload, 'summary.ready_for_new_docs') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Ready for new docs', data_getYesNo::format($payload, 'summary.ready_for_new_docs'));
         $this->components->twoColumnDetail('Next', (string) data_get($payload, 'recommended_actions.0', 'review_docs_split_plan'));
         $this->components->twoColumnDetail('Filters', collect($payload['filters'])
             ->filter()

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AutonomosAutoApplyPreflightService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ASI-07 — Read-only preflight for the autonomous auto-apply floor.
@@ -36,7 +37,7 @@ final class AtlasAutonomosAutoApplyPreflightCommand extends Command
                 $report['schema'],
                 (int) $report['passed'],
                 (int) $report['total'],
-                ($report['ready'] ?? false) ? 'true' : 'false',
+                YesNo::trueFalse($report['ready'] ?? false),
             ));
             foreach ((array) $report['checks'] as $check) {
                 $this->line(sprintf(

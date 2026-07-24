@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasAcosLongHorizonGateCommand extends Command
 {
@@ -49,7 +50,7 @@ final class AtlasAcosLongHorizonGateCommand extends Command
         }
 
         $this->components->twoColumnDetail('ACOS long-horizon gate', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Overall', (string) data_get($payload, 'assessment.overall_score', 'unknown'));
         $this->components->twoColumnDetail('Pipeline', (string) data_get($payload, 'assessment.pipeline_score', 'unknown'));
         $this->components->twoColumnDetail('Window', (string) data_get($payload, 'assessment.calendar_span_days', 0).' days');

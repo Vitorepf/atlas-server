@@ -29,6 +29,7 @@ use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use App\Support\YesNo;
 
 class AtlasCliDevCommand extends Command
 {
@@ -482,7 +483,7 @@ class AtlasCliDevCommand extends Command
         if (is_array($preflight['selected_model'] ?? null)) {
             $this->components->twoColumnDetail('Model', $this->modelSelectionNote((array) $preflight['selected_model']));
         }
-        $this->components->twoColumnDetail('Provider online', ((bool) data_get($preflight, 'provider_strategy.has_online_provider')) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider online', YesNo::format((bool) data_get($preflight, 'provider_strategy.has_online_provider')));
         $this->line((string) data_get($preflight, 'provider_strategy.reason'));
         $this->line('Preflight quality: '.data_get($preflight, 'preflight_quality.status'));
     }
@@ -985,7 +986,7 @@ class AtlasCliDevCommand extends Command
         $this->line('  task_kind        : '.(string) ($payload['task_kind'] ?? '-'));
         $this->line('  risk_level       : '.(string) ($payload['risk_level'] ?? '-'));
         $this->line('  mode             : '.(string) ($payload['mode'] ?? '-'));
-        $this->line('  operator_confirmed: '.((bool) ($payload['operator_confirmed'] ?? false) ? 'yes' : 'no'));
+        $this->line('  operator_confirmed: '.((bool) YesNo::format($payload['operator_confirmed'] ?? false)));
 
         if (! empty($payload['confirmation_required'])) {
             $this->warn(($payload['confirmation_hint'] ?? 'Re-run with --yes to execute.'));

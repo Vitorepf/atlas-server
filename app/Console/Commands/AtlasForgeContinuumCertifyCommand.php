@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Forge Continuum Certify CLI.
@@ -66,7 +67,7 @@ final class AtlasForgeContinuumCertifyCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Forge Continuum OS</>', (string) $payload['schema_version']);
         $this->components->twoColumnDetail('Status', (string) $payload['status']);
         $this->components->twoColumnDetail('Obra', (string) ($payload['obra_id'] ?? '—'));
-        $this->components->twoColumnDetail('Strict', $payload['strict'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Strict', YesNo::format($payload['strict']));
 
         $invariants = is_array($payload['invariants'] ?? null) ? $payload['invariants'] : [];
         foreach ($invariants as $name => $value) {
@@ -108,7 +109,7 @@ final class AtlasForgeContinuumCertifyCommand extends Command
             $this->components->twoColumnDetail('action', (string) ($lastEvent['action'] ?? '—'));
             $this->components->twoColumnDetail('blocker', (string) ($lastEvent['blocker'] ?? '—'));
             $this->components->twoColumnDetail('selected_fallback_role', (string) ($lastEvent['selected_fallback_role'] ?? '—'));
-            $this->components->twoColumnDetail('silent', $lastEvent['silent'] === true ? 'yes' : 'no');
+            $this->components->twoColumnDetail('silent', $lastEvent['silent'] === YesNo::format(true));
         }
     }
 

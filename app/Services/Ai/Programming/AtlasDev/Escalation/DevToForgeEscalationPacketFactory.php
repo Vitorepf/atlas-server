@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Wires an Atlas Dev {@see EscalationDecision} into the canonical
@@ -170,7 +171,7 @@ final class DevToForgeEscalationPacketFactory
         return sprintf(
             'risk_level=%s declared by EscalationDecisionEngine; human approval required=%s.',
             $decision->riskLevel,
-            $decision->humanActionRequired ? 'true' : 'false',
+            YesNo::trueFalse($decision->humanActionRequired),
         );
     }
 

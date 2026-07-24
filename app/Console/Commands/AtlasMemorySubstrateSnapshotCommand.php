@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateSnapshotService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ACOS Excellence SUB-01 — verified snapshot/backup of memory substrate.
@@ -48,7 +49,7 @@ final class AtlasMemorySubstrateSnapshotCommand extends Command
             foreach (['slice', 'destination', 'dump_hash_sha256', 'dump_ok', 'restore_proof_ok', 'event_id'] as $key) {
                 if (array_key_exists($key, $payload)) {
                     $value = $payload[$key];
-                    $this->components->twoColumnDetail($key, is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
+                    $this->components->twoColumnDetail($key, is_bool($value) ? (YesNo::trueFalse($value)) : (string) $value);
                 }
             }
         }

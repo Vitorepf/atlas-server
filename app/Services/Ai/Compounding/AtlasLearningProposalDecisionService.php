@@ -250,7 +250,7 @@ final class AtlasLearningProposalDecisionService
         $kind = $this->normalizeKind($signal[self::FIELD_KIND] ?? null);
         $evidence = AtlasStringListNormalizer::trimmedScalarValues($signal[self::FIELD_EVIDENCE_REFS] ?? []);
         $sampleSize = max(0, (int) ($signal[self::FIELD_SAMPLE_SIZE] ?? 0));
-        $effect = $this->clamp01((float) ($signal[self::FIELD_EFFECT_SIZE] ?? 0.0));
+        $effect = Clamp01::of((float) ($signal[self::FIELD_EFFECT_SIZE] ?? 0.0));
         $summary = $this->string($signal[self::FIELD_SUMMARY] ?? null) ?? self::FIELD_UNSPECIFIED_LEARNING_SIGNAL;
 
         $strength = $this->signalStrength($evidence, $sampleSize, $effect);
@@ -400,9 +400,9 @@ final class AtlasLearningProposalDecisionService
      */
     public function evaluateProviderComparison(array $comparison): array
     {
-        $winRate = $this->clamp01((float) ($comparison[self::FIELD_WIN_RATE] ?? 0.0));
+        $winRate = Clamp01::of((float) ($comparison[self::FIELD_WIN_RATE] ?? 0.0));
         // Effect size = how far the win rate is from a coin flip.
-        $effect = $this->clamp01(abs($winRate - 0.5) * 2.0);
+        $effect = Clamp01::of(abs($winRate - 0.5) * 2.0);
 
         $verdict = $this->evaluate([
             self::FIELD_KIND => self::FIELD_ROUTING,
@@ -438,11 +438,11 @@ final class AtlasLearningProposalDecisionService
     {
         $evidenceScore = count($evidenceRefs) > 0 ? min(1.0, count($evidenceRefs) / 3.0) : 0.0;
         $sampleScore = min(1.0, max(0, $sampleSize) / 30.0);
-        $effectScore = $this->clamp01($effectSize);
+        $effectScore = Clamp01::of($effectSize);
 
         $strength = ($evidenceScore + $sampleScore + $effectScore) / 3.0;
 
-        return round($this->clamp01($strength), 4);
+        return round(Clamp01::of($strength), 4);
     }
 
     // ---- internals ---------------------------------------------------------
@@ -520,8 +520,4 @@ final class AtlasLearningProposalDecisionService
         return AiValueNormalizer::trimmedScalarStringOrNull($value);
     }
 
-    private function clamp01(float $value): float
-    {
-        return Clamp01::of($value);
-    }
 }

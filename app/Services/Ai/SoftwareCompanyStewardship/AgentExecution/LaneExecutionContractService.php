@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Support\YesNo;
 
 /**
  * AP-802 · Lane Execution Contract hardening.
@@ -944,7 +945,7 @@ final class LaneExecutionContractService
             return $authority === '' ? '(empty)' : $authority;
         }
         if (is_bool($authority)) {
-            return $authority ? 'true' : 'false';
+            return YesNo::trueFalse($authority);
         }
 
         return gettype($authority);

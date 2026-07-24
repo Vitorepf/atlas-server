@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
+use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
 
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
@@ -452,8 +453,8 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         $baselineSeparate = $workspace !== null
             && $baselineWorkspace !== null
             && realpath($workspace) !== realpath($baselineWorkspace);
-        $workspaceGit = $workspaceOk ? $this->gitWorkspaceState((string) $workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
-        $baselineGit = $baselineWorkspaceOk ? $this->gitWorkspaceState((string) $baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
+        $workspaceGit = $workspaceOk ? GitWorkspaceStateReader::read((string) $workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
+        $baselineGit = $baselineWorkspaceOk ? GitWorkspaceStateReader::read((string) $baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => []];
         $workspaceRuntime = $workspaceOk ? $this->workspaceRuntimeState((string) $workspace) : $this->emptyWorkspaceRuntimeState();
         $baselineRuntime = $baselineWorkspaceOk ? $this->workspaceRuntimeState((string) $baselineWorkspace) : $this->emptyWorkspaceRuntimeState();
         $releaseCorpusCount = (int) data_get($report, 'readiness.release_corpus_case_count', 0);
@@ -885,10 +886,6 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
     /**
      * @return array{is_git:bool,clean:?bool,dirty_files:array<int,string>,status:string}
      */
-    private function gitWorkspaceState(string $workspace): array
-    {
-        return \App\Services\Ai\Programming\Support\GitWorkspaceStateReader::readBenchmarkShape($workspace);
-    }
 
     private function replay(EngineeringBenchmarkService $benchmarks): int
     {

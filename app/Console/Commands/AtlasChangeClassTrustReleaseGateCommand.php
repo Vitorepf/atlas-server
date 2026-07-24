@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Governance\ChangeClassTrustReleaseGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasChangeClassTrustReleaseGateCommand extends Command
 {
@@ -53,7 +54,7 @@ final class AtlasChangeClassTrustReleaseGateCommand extends Command
 
         $this->components->twoColumnDetail('Change class', (string) ($payload['change_class'] ?? ''));
         $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Clean streak', (string) data_get($payload, 'assessments.after.snapshot.clean_streak', 0));
         $this->components->twoColumnDetail('Earned autonomy', (string) data_get($payload, 'assessments.after.snapshot.earned_autonomy', ''));
         $this->components->twoColumnDetail('Admission', (string) data_get($payload, 'assessments.after.admission.decision', ''));

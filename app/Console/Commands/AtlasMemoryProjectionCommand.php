@@ -6,6 +6,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasMemoryProjectionCommand extends Command
 {
@@ -255,7 +256,7 @@ class AtlasMemoryProjectionCommand extends Command
     {
         $this->newLine();
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Provider Projection Audit</>', 'purge');
-        $this->components->twoColumnDetail('Dry run', (bool) ($payload['dry_run'] ?? true) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', (bool) YesNo::format($payload['dry_run'] ?? true));
         $this->components->twoColumnDetail('Retencao', (string) ($payload['older_than_days'] ?? '-').' dias');
         $this->components->twoColumnDetail('Encontrados', (string) ($payload['matched'] ?? 0));
         $this->components->twoColumnDetail('Removidos', (string) ($payload['deleted'] ?? 0));

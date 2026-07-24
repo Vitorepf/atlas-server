@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs\Maturity;
 
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\UtcIsoTimestamp;
 
 final class AtlasDepartmentQualityBarService
 {
@@ -106,7 +107,7 @@ final class AtlasDepartmentQualityBarService
             self::FIELD_BREACH_COUNT => count($breaches),
             self::FIELD_BREACHES => $breaches,
             self::FIELD_WORST_BREACH => $breaches[0] ?? null,
-            self::FIELD_EMITTED_AT => gmdate('c'),
+            self::FIELD_EMITTED_AT => UtcIsoTimestamp::now(),
         ];
     }
 

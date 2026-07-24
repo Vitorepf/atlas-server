@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 /**
  * Area Focus Loop · Operator Decision CLI (AP-724).
@@ -71,7 +72,7 @@ class AtlasAreaFocusDecisionCommand extends Command
         $this->components->twoColumnDetail('Actor', (string) $receipt['operator_actor']);
         $this->components->twoColumnDetail('Finding', (string) $receipt['finding_hash']);
         $this->components->twoColumnDetail('Next allowed action', (string) $receipt['next_allowed_action']);
-        $this->components->twoColumnDetail('Executed', $receipt['executed'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Executed', YesNo::format($receipt['executed']));
         $this->components->twoColumnDetail('Decision hash', (string) $receipt['decision_hash']);
 
         return self::SUCCESS;

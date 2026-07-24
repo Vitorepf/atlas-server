@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\PromptProjection;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use RuntimeException;
+use App\Support\YesNo;
 
 /**
  * Renders a ProviderPromptProjection text via the canonical Blade template.
@@ -353,7 +354,7 @@ final class PromptRenderer
         return [
             'provider' => $effectiveProvider,
             'model_family' => $effectiveModel,
-            'fallback_allowed' => $fallback ? 'true' : 'false',
+            'fallback_allowed' => YesNo::trueFalse($fallback),
         ];
     }
 
@@ -375,7 +376,7 @@ final class PromptRenderer
                 'path' => $path,
                 'sha256' => $sha,
                 'content' => $content,
-                'truncated' => (bool) ($excerpt['truncated'] ?? false) ? 'true' : 'false',
+                'truncated' => (bool) YesNo::trueFalse($excerpt['truncated'] ?? false),
             ];
         }
 

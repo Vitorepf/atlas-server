@@ -8,6 +8,7 @@ use App\Services\Ai\Autonomy\AtlasAutonomyDemoteWatchdog;
 use App\Services\Ai\Autonomy\AtlasAutonomyLadderRuntimeService;
 use App\Services\Ai\Autonomy\AtlasAutonomyMetricsAggregator;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Runtime surface for the Atlas Autonomy Ladder Promotion Runbook. Without args
@@ -79,7 +80,7 @@ class AtlasAutonomyLadderCommand extends Command
         $this->components->twoColumnDetail('current level', (string) $promotion['current_level']);
         $this->components->twoColumnDetail('next level', (string) ($promotion['next_level'] ?? '(top)'));
         $this->components->twoColumnDetail('decision', (string) $promotion['decision']);
-        $this->components->twoColumnDetail('eligible', ($promotion['eligible'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('eligible', YesNo::format($promotion['eligible'] ?? false));
         if (($promotion['unmet_criteria'] ?? []) !== []) {
             $this->table(
                 ['metric', 'need', 'threshold', 'observed'],

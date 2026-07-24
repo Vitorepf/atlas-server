@@ -12,6 +12,7 @@ use App\Services\Ai\Vox\VoxCompiler;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Atlas Vox V6 · Quality Bench — read-only, deterministic.
@@ -43,14 +44,18 @@ use Throwable;
 final class VoxV6QualityBenchService
 {
     public const SCHEMA = 'atlas.vox.v6_quality_bench.v1';
+
     public const VERSION = '0.1.0';
 
     public const STATUS_PASS = 'pass';
+
     public const STATUS_WARN = 'warn';
+
     public const STATUS_FAIL = 'fail';
 
     /** Limiar global: ≥ 0.85 → pass, ≥ 0.65 → warn, < 0.65 → fail. */
     public const PASS_THRESHOLD = 0.85;
+
     public const WARN_THRESHOLD = 0.65;
 
     /** Pesos canônicos dos 4 scores agregados. Somam 1.0. */
@@ -312,7 +317,7 @@ final class VoxV6QualityBenchService
             $isDestructiveBlock = $intervention === VoxInterlocutorPolicy::INTERVENTION_DISAGREE && $blocking;
             $observed['dangerous_blocked'] = $isDestructiveBlock;
             if (! $isDestructiveBlock) {
-                $notes[] = "esperava disagree+blocking, obteve intervention={$intervention}, blocking=".($blocking ? 'true' : 'false');
+                $notes[] = "esperava disagree+blocking, obteve intervention={$intervention}, blocking=".(YesNo::trueFalse($blocking));
             }
             if (! $observed['needs_confirmation']) {
                 $notes[] = 'auto router não pediu needs_confirmation';
@@ -380,8 +385,7 @@ final class VoxV6QualityBenchService
             'raw_audio_policy_ok' => $rawAudioPolicyOk,
             'audio_input_entitlement_ok' => $audioEntitlementOk,
             'uses_macos_default_input' => true,
-            'input_device_selection_hint_pt_br'
-                => 'O Atlas Vox grava sempre pelo microfone padrão do macOS. Para usar AirPods, selecione AirPods como Entrada em Ajustes do Sistema > Som > Entrada antes de gravar.',
+            'input_device_selection_hint_pt_br' => 'O Atlas Vox grava sempre pelo microfone padrão do macOS. Para usar AirPods, selecione AirPods como Entrada em Ajustes do Sistema > Som > Entrada antes de gravar.',
         ];
     }
 

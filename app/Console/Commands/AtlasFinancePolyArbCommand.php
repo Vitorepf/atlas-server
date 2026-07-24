@@ -12,6 +12,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Polymarket sum-of-legs inconsistency scanner — SHADOW ONLY.
@@ -330,7 +331,7 @@ final class AtlasFinancePolyArbCommand extends Command
                     $this->line(sprintf('[poly-arb] pass#%d scanned=%d eligible=%d shortlisted=%d verified=%d signals=%d budget_exhausted=%s skipped_too_many_legs=%d best_long_sum=%s best_short_sum=%s (%.1fs)',
                         $passes, $result['scanned_events'], $result['eligible_events'], $result['shortlisted'],
                         $result['verified'], count($result['signals']),
-                        ((bool) ($result['budget_exhausted'] ?? false)) ? 'yes' : 'no',
+                        YesNo::format((bool) ($result['budget_exhausted'] ?? false)),
                         (int) ($result['skipped_too_many_legs'] ?? 0),
                         $result['best_long_sum'] !== null ? sprintf('%.4f', $result['best_long_sum']) : 'n/a',
                         $result['best_short_sum'] !== null ? sprintf('%.4f', $result['best_short_sum']) : 'n/a',

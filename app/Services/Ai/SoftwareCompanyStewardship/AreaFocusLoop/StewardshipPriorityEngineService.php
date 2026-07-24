@@ -766,10 +766,6 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         return max(0, min(100, $value));
     }
 
-    private function clamp01(float $value): float
-    {
-        return Clamp01::of($value);
-    }
 
     /**
      * @param  list<array<string,mixed>>  $ranked

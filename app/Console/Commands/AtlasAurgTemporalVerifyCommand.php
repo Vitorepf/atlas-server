@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAurgTemporalVerifyCommand extends Command
 {
@@ -21,7 +22,7 @@ class AtlasAurgTemporalVerifyCommand extends Command
 
             return $report['chain_intact'] ? 0 : 3;
         }
-        $this->line('[atlas:aurg:temporal:verify] chain_intact='.($report['chain_intact'] ? 'yes' : 'no'));
+        $this->line('[atlas:aurg:temporal:verify] chain_intact='.(YesNo::format($report['chain_intact'])));
         $this->line('ticks_walked='.$report['ticks_walked']);
         if (! $report['chain_intact']) {
             $this->line('break_at='.$report['chain_break_at']);

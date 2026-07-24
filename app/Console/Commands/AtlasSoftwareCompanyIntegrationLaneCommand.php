@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasSoftwareCompanyIntegrationLaneCommand extends Command
 {
@@ -44,7 +45,7 @@ final class AtlasSoftwareCompanyIntegrationLaneCommand extends Command
         $this->components->twoColumnDetail('Candidate', (string) data_get($payload, 'candidate.branch_ref', ''));
         $this->components->twoColumnDetail('Lane', (string) data_get($payload, 'integration_lane.lane_ref', ''));
         $this->components->twoColumnDetail('Lane commit', (string) data_get($payload, 'integration_lane.lane_commit_after', ''));
-        $this->components->twoColumnDetail('Base untouched', ((bool) data_get($payload, 'repo.base_untouched', false)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Base untouched', YesNo::format((bool) data_get($payload, 'repo.base_untouched', false)));
         $this->components->twoColumnDetail('Review packet', (string) data_get($payload, 'branch_review_packet.status', ''));
 
         foreach ((array) ($payload['blockers'] ?? []) as $blocker) {

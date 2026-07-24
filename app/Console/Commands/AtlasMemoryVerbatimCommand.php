@@ -10,6 +10,7 @@ use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasMemoryVerbatimCommand extends Command
 {
@@ -200,7 +201,7 @@ class AtlasMemoryVerbatimCommand extends Command
                 ['scope', (string) ($memory['scope'] ?? '-')],
                 ['privacy', (string) ($memory['privacy_class'] ?? '-')],
                 ['redaction', (string) ($memory['redaction_status'] ?? '-')],
-                ['external_ai_allowed', ((bool) ($memory['external_ai_allowed'] ?? false)) ? 'yes' : 'no'],
+                ['external_ai_allowed', YesNo::format((bool) ($memory['external_ai_allowed'] ?? false))],
                 ['registry', (string) ($memory['memory_entry_id'] ?? '-')],
             ]);
 

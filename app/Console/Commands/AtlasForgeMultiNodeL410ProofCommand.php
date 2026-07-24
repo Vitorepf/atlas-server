@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasForgeMultiNodeL410ProofService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 /**
  * L4-10: Forge multi-node proof report.
@@ -60,11 +61,11 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
     {
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Forge L4-10 Proof</>', (string) ($report['schema_version'] ?? 'unknown'));
         $this->components->twoColumnDetail('Status', (string) ($report['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', ($report['certified'] ?? false) === true ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', ($report['certified'] ?? false) === YesNo::format(true));
         $this->components->twoColumnDetail('Planned nodes', (string) data_get($report, 'planned_obra.work_node_count', 0));
         $this->components->twoColumnDetail('Recommended agents', (string) data_get($report, 'planned_obra.schedule.recommended_agent_count', 0));
         $this->components->twoColumnDetail('Digest command', data_get($report, 'delivered_item.local_digest_command_available') ? 'available' : 'missing');
-        $this->components->twoColumnDetail('Provider dispatch now', data_get($report, 'claim_policy.provider_dispatches_now') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider dispatch now', data_getYesNo::format($report, 'claim_policy.provider_dispatches_now'));
 
         $blockers = array_values((array) ($report['blockers'] ?? []));
         if ($blockers !== []) {

@@ -11,6 +11,7 @@ use App\Services\Ai\Cli\AtlasCliSetupService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInstallService;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Output\OutputInterface;
+use App\Support\YesNo;
 
 class AtlasCliBootstrapCommand extends Command
 {
@@ -614,7 +615,7 @@ class AtlasCliBootstrapCommand extends Command
     {
         $this->newLine();
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas CLI Bootstrap</>', (string) $payload['status']);
-        $this->components->twoColumnDetail('Dry-run', $payload['dry_run'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry-run', YesNo::format($payload['dry_run']));
         $this->components->twoColumnDetail('Launcher', (string) data_get($payload, 'install.target'));
         $this->components->twoColumnDetail('Env', (string) data_get($payload, 'env_write.env_path', 'skipped'));
         $this->components->twoColumnDetail('Scheduler cron', (string) data_get($payload, 'scheduler_cron.command', 'skipped'));

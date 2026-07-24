@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Memory\LocalAgentIngestion\LocalAgentMemoryIngestionService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasLocalAgentMemoryIngestCommand extends Command
 {
@@ -54,7 +55,7 @@ class AtlasLocalAgentMemoryIngestCommand extends Command
         }
 
         $r = $result['receipt'];
-        $this->info(sprintf('Run %s — status=%s dry_run=%s', $r['run_uuid'], $r['status'], $r['dry_run'] ? 'true' : 'false'));
+        $this->info(sprintf('Run %s — status=%s dry_run=%s', $r['run_uuid'], $r['status'], YesNo::trueFalse($r['dry_run'])));
         if ($r['no_roots_configured'] ?? false) {
             $this->warn('No roots configured. Set config/atlas_local_agent_ingestion.php#roots before running.');
 

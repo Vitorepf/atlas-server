@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasSoftwareTwinRuntimeService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasSoftwareTwinCommand extends Command
 {
@@ -60,7 +61,7 @@ final class AtlasSoftwareTwinCommand extends Command
         if (isset($payload['prediction']['verdict'])) {
             $this->components->twoColumnDetail('Verdict', (string) $payload['prediction']['verdict']);
         }
-        $this->components->twoColumnDetail('Writes', $payload['writes'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes']));
         $this->components->twoColumnDetail('Hash', (string) $payload['certification_hash']);
 
         return $this->exitCode($payload);

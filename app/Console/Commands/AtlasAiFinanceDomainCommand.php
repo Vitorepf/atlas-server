@@ -11,6 +11,7 @@ use App\Services\Ai\Finance\Kernel\FinanceDomainSmokeService;
 use App\Services\Ai\Finance\Kernel\FinanceEnterpriseAnalysisService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiFinanceDomainCommand extends Command
 {
@@ -70,10 +71,10 @@ class AtlasAiFinanceDomainCommand extends Command
         $payload = $readiness->report();
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
             $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            $this->components->twoColumnDetail('live_trading_blocked_default', $payload['invariants']['live_trading_blocked_default'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('live_trading_blocked_default', YesNo::trueFalse($payload['invariants']['live_trading_blocked_default']));
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
@@ -92,7 +93,7 @@ class AtlasAiFinanceDomainCommand extends Command
             $this->components->twoColumnDetail('compliance_decision', (string) $payload['sections']['compliance_decision']);
             $this->components->twoColumnDetail('paper_trade_pnl', (string) $payload['sections']['paper_trade_pnl_cash_only']);
             $this->components->twoColumnDetail('certification_status', (string) $payload['certification']['status']);
-            $this->components->twoColumnDetail('live_trading_blocked_default', $payload['invariants']['live_trading_blocked_default'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('live_trading_blocked_default', YesNo::trueFalse($payload['invariants']['live_trading_blocked_default']));
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
@@ -108,7 +109,7 @@ class AtlasAiFinanceDomainCommand extends Command
                 $this->components->twoColumnDetail($k, is_array($v) ? json_encode($v) : (string) $v);
             }
             foreach ($payload['invariants'] as $k => $v) {
-                $this->components->twoColumnDetail('invariant:'.$k, is_array($v) ? json_encode($v) : (string) (is_bool($v) ? ($v ? 'true' : 'false') : $v));
+                $this->components->twoColumnDetail('invariant:'.$k, is_array($v) ? json_encode($v) : (string) (is_bool($v) ? (YesNo::trueFalse($v)) : $v));
             }
         });
 
@@ -125,7 +126,7 @@ class AtlasAiFinanceDomainCommand extends Command
             $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
             $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
             $this->components->twoColumnDetail('agents', (string) $payload['readiness']['agent_count']);
-            $this->components->twoColumnDetail('live_trading_blocked_default', $payload['invariants']['live_trading_blocked_default'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('live_trading_blocked_default', YesNo::trueFalse($payload['invariants']['live_trading_blocked_default']));
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;

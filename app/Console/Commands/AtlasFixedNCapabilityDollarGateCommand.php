@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Compounding\FixedNCapabilityDollarSeriesGateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasFixedNCapabilityDollarGateCommand extends Command
 {
@@ -52,7 +53,7 @@ final class AtlasFixedNCapabilityDollarGateCommand extends Command
         }
 
         $this->components->twoColumnDetail('Fixed-N capability / dollar', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Window', (string) data_get($payload, 'assessment.calendar_span_days', 0).' days');
         $this->components->twoColumnDetail('Measured cost days', (string) data_get($payload, 'assessment.measured_cost_day_count', 0));
         $this->components->twoColumnDetail('Trend', (string) data_get($payload, 'assessment.trend_direction', 'missing'));

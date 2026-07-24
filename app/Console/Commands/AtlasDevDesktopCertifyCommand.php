@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasDevDesktopCertifyCommand extends Command
 {
@@ -24,7 +25,7 @@ final class AtlasDevDesktopCertifyCommand extends Command
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop', (string) $report['schema_version']);
             $this->components->twoColumnDetail('Status', (string) $report['status']);
-            $this->components->twoColumnDetail('External provider call', $report['external_provider_call'] ? 'yes' : 'no');
+            $this->components->twoColumnDetail('External provider call', YesNo::format($report['external_provider_call']));
 
             foreach ((array) ($report['stages'] ?? []) as $stage) {
                 if (! is_array($stage)) {

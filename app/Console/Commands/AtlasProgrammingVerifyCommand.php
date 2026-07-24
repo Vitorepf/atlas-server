@@ -6,6 +6,7 @@ use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Run the Programming Governance gate pipeline for a work item.
@@ -46,7 +47,7 @@ class AtlasProgrammingVerifyCommand extends Command
         $summary = $payload['gate_summary'];
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Programming Verify</>', $payload['code']);
         $this->components->twoColumnDetail('Scope mode', $payload['scope_mode']);
-        $this->components->twoColumnDetail('All green', $summary['all_green'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('All green', YesNo::format($summary['all_green']));
         $this->components->twoColumnDetail('Passed / Failed / Skipped / Waived', sprintf(
             '%d / %d / %d / %d',
             $summary['totals']['passed'],
@@ -65,7 +66,7 @@ class AtlasProgrammingVerifyCommand extends Command
         $this->table(['gate', 'status', 'blocking', 'reason'], array_map(static fn (array $run): array => [
             $run['gate_name'],
             $run['status'],
-            $run['blocking'] ? 'yes' : 'no',
+            YesNo::format($run['blocking']),
             (string) ($run['reason'] ?? ''),
         ], $summary['gate_runs']));
 

@@ -15,6 +15,8 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
+use App\Support\YesNo;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Obra #14 — as 3 notas da evolução do ACOS pedidas pelo operador, RESOLVIDAS
@@ -192,7 +194,7 @@ class AtlasAcosEvolutionScoreService
 
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_GENERATED_AT => UtcIsoTimestamp::now(),
             self::FIELD_OVERALL_OUT_OF_10 => $overall,
             self::FIELD_DIMENSIONS => [
                 self::FIELD_EXECUCAO_PROVADA => $execucao,
@@ -280,7 +282,7 @@ class AtlasAcosEvolutionScoreService
                 (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
                 $withCount,
                 $withoutCount,
-                $measurementReady ? 'true' : 'false',
+                YesNo::trueFalse($measurementReady),
             ),
         ];
 

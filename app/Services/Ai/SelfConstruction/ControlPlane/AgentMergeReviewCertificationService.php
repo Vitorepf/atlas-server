@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use Carbon\CarbonImmutable;
+use App\Support\YesNo;
 
 /**
  * Aggregates merge review packet, scope verification, risk score,
@@ -245,8 +246,8 @@ final class AgentMergeReviewCertificationService
         return sprintf(
             'Agent Merge Review certification available (read-only). Risk band: %s. Approval eligible: %s. Rollback fully reversible: %s. promotion_allowed=false, completion_claim_allowed=false.',
             $band,
-            $approvalEligible ? 'yes' : 'no',
-            $allReversible ? 'yes' : 'no',
+            YesNo::format($approvalEligible),
+            YesNo::format($allReversible),
         );
     }
 

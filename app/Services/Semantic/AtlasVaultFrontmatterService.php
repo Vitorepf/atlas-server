@@ -5,6 +5,7 @@ namespace App\Services\Semantic;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasVaultFrontmatterService
 {
@@ -288,7 +289,7 @@ class AtlasVaultFrontmatterService
             return '';
         }
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return YesNo::trueFalse($value);
         }
         $string = (string) $value;
         if ($string === '' || preg_match('/[:\[\]#\n]/', $string)) {

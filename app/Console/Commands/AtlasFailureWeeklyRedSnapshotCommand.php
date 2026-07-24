@@ -6,6 +6,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * L5-3 — auto-cura da suíte real: gravador SEMANAL do número REAL de vermelhos.
@@ -90,7 +91,7 @@ class AtlasFailureWeeklyRedSnapshotCommand extends Command
         }
 
         $this->components->twoColumnDetail('Suite red snapshot', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Recorded', ($payload['recorded'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Recorded', YesNo::format($payload['recorded'] ?? false));
 
         return $exit;
     }

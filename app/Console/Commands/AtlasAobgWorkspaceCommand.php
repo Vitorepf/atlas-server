@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AOBG N1.F3 — `atlas:aobg:workspace`: the CLI mirror of the multi-project surface, for
@@ -111,9 +112,9 @@ class AtlasAobgWorkspaceCommand extends Command
         $this->info(sprintf(
             'workspace=%s  indexed=%s  symbols=%d  needs_onboarding=%s  auto_onboard=%s',
             (string) ($status['workspace_id'] ?? 'n/a'),
-            ($status['indexed'] ?? false) ? 'yes' : 'no',
+            YesNo::format($status['indexed'] ?? false),
             (int) ($status['symbols'] ?? 0),
-            ($status['needs_onboarding'] ?? false) ? 'yes' : 'no',
+            YesNo::format($status['needs_onboarding'] ?? false),
             ($status['auto_onboard'] ?? false) ? 'on' : 'off',
         ));
 
@@ -121,7 +122,7 @@ class AtlasAobgWorkspaceCommand extends Command
             $this->line(sprintf(
                 'action=%s  triggered_index=%s',
                 (string) ($result['action'] ?? 'n/a'),
-                ($result['triggered_index'] ?? false) ? 'yes' : 'no',
+                YesNo::format($result['triggered_index'] ?? false),
             ));
         }
 

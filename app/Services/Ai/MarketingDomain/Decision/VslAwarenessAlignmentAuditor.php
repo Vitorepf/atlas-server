@@ -4,6 +4,7 @@ namespace App\Services\Ai\MarketingDomain\Decision;
 
 use App\Models\AiMarketingVslAsset;
 use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
+use App\Support\YesNo;
 
 /**
  * VslAwarenessAlignmentAuditor — the awareness-router validator. VslPersuasionAuditService already
@@ -43,7 +44,7 @@ class VslAwarenessAlignmentAuditor
             : ($leadUsed === null ? 'partial' : 'no');
 
         $sophPrescribed = $route['sophistication'];
-        $sophMatch = $declaredSoph !== '' ? ($declaredSoph === $sophPrescribed ? 'yes' : 'no') : 'partial';
+        $sophMatch = $declaredSoph !== '' ? ($declaredSoph === YesNo::format($sophPrescribed)) : 'partial';
 
         // Sophistication mechanism/unique_mechanism REQUIRES a named mechanism.
         $needsMechanismName = in_array($sophPrescribed, ['mechanism', 'unique_mechanism'], true)
@@ -67,7 +68,7 @@ class VslAwarenessAlignmentAuditor
         return [
             'vsl_id' => $asset->id,
             'awareness_declared' => $awarenessDeclared ? $declaredAwareness : null,
-            'awareness_match' => $awarenessDeclared ? 'yes' : 'no',
+            'awareness_match' => YesNo::format($awarenessDeclared),
             'lead_type_used' => $leadUsed,
             'lead_type_prescribed' => $leadPrescribed,
             'lead_match' => $leadMatch,

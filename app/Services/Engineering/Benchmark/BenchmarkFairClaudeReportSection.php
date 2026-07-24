@@ -23,6 +23,7 @@ use App\Services\Engineering\EngineeringWorkspaceService;
 use App\Services\Engineering\EngineeringReleaseGateAlertService;
 use App\Services\Engineering\EngineeringBenchmarkInput;
 use App\Services\Engineering\EngineeringStringListNormalizer;
+use App\Support\YesNo;
 
 class BenchmarkFairClaudeReportSection
 {
@@ -1064,8 +1065,8 @@ class BenchmarkFairClaudeReportSection
             '## Result Integrity',
             '',
             '- Status: `'.$this->primitives->markdownInline((string) ($integrity['status'] ?? 'unknown')).'`',
-            '- Score admitted: `'.($integrity['score_admitted'] ?? false ? 'true' : 'false').'`',
-            '- Claim winner admitted: `'.($integrity['claim_winner_admitted'] ?? false ? 'true' : 'false').'`',
+            '- Score admitted: `'.($integrity['score_admitted'] ?? YesNo::trueFalse(false)).'`',
+            '- Claim winner admitted: `'.($integrity['claim_winner_admitted'] ?? YesNo::trueFalse(false)).'`',
             '- Winner for claim: `'.$this->primitives->markdownInline((string) ($integrity['winner_for_claim'] ?? 'none')).'`',
             '- Provisional leader: `'.$this->primitives->markdownInline((string) ($integrity['provisional_leader'] ?? 'none')).'`',
             '- Operator note: '.$this->primitives->markdownText((string) ($integrity['operator_headline'] ?? '')),
@@ -1073,9 +1074,9 @@ class BenchmarkFairClaudeReportSection
             '## Experiment Validity',
             '',
             '- Status: `'.$this->primitives->markdownInline((string) ($experimentValidity['status'] ?? 'unknown')).'`',
-            '- Non-evaluated variables cannot decide winner: `'.(data_get($experimentValidity, 'external_variable_policy.non_evaluated_variables_cannot_decide_winner') ? 'true' : 'false').'`',
-            '- Non-evaluated variables can only block comparability: `'.(data_get($experimentValidity, 'external_variable_policy.non_evaluated_variables_can_only_block_comparability') ? 'true' : 'false').'`',
-            '- No provider-specific case filtering: `'.(data_get($experimentValidity, 'ab_test_validity_model.no_provider_specific_case_filtering') ? 'true' : 'false').'`',
+            '- Non-evaluated variables cannot decide winner: `'.(data_getYesNo::trueFalse($experimentValidity, 'external_variable_policy.non_evaluated_variables_cannot_decide_winner')).'`',
+            '- Non-evaluated variables can only block comparability: `'.(data_getYesNo::trueFalse($experimentValidity, 'external_variable_policy.non_evaluated_variables_can_only_block_comparability')).'`',
+            '- No provider-specific case filtering: `'.(data_getYesNo::trueFalse($experimentValidity, 'ab_test_validity_model.no_provider_specific_case_filtering')).'`',
             '- Observed confounders: `'.$this->primitives->markdownInline(implode(', ', (array) data_get($experimentValidity, 'observed.observed_confounders', [])) ?: 'none').'`',
             '- Operator summary: '.$this->primitives->markdownText((string) ($experimentValidity['operator_summary'] ?? '')),
             '',
@@ -1107,16 +1108,16 @@ class BenchmarkFairClaudeReportSection
             '| Atlas model | `'.$this->primitives->markdownInline((string) ($protocol['atlas_model_lock'] ?? '-')).'` |',
             '| Baseline provider | `'.$this->primitives->markdownInline((string) ($protocol['baseline_provider_lock'] ?? '-')).'` |',
             '| Baseline model | `'.$this->primitives->markdownInline((string) ($protocol['baseline_model_lock'] ?? '-')).'` |',
-            '| Fallback disabled | `'.($protocol['fallback_disabled'] ?? false ? 'true' : 'false').'` |',
-            '| Atlas Decide disabled | `'.($protocol['atlas_decide_disabled'] ?? false ? 'true' : 'false').'` |',
+            '| Fallback disabled | `'.($protocol['fallback_disabled'] ?? YesNo::trueFalse(false)).'` |',
+            '| Atlas Decide disabled | `'.($protocol['atlas_decide_disabled'] ?? YesNo::trueFalse(false)).'` |',
             '',
             '## Auditability',
             '',
             '| Evidence | Value |',
             '| --- | ---: |',
-            '| Ready for claim | `'.($claim['ready_for_claim'] ?? false ? 'true' : 'false').'` |',
-            '| Baseline executed | `'.($auditability['baseline_executed'] ?? false ? 'true' : 'false').'` |',
-            '| Replay verified | `'.($auditability['replay_verified'] ?? false ? 'true' : 'false').'` |',
+            '| Ready for claim | `'.($claim['ready_for_claim'] ?? YesNo::trueFalse(false)).'` |',
+            '| Baseline executed | `'.($auditability['baseline_executed'] ?? YesNo::trueFalse(false)).'` |',
+            '| Replay verified | `'.($auditability['replay_verified'] ?? YesNo::trueFalse(false)).'` |',
             '| Replay packets | '.$this->primitives->markdownNumber($audit['replay_packet_count'] ?? null).' |',
             '| Artifact integrity failures | '.$this->primitives->markdownNumber($audit['artifact_integrity_failed_count'] ?? null).' |',
             '| Manifest hashes | '.$this->primitives->markdownNumber($auditability['manifest_hash_count'] ?? null).' |',

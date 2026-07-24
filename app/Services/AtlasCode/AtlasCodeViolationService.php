@@ -7,6 +7,7 @@ namespace App\Services\AtlasCode;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /** C24 · five-rule scanner with a pure facts-in / violations-out core. */
 final class AtlasCodeViolationService
@@ -157,7 +158,7 @@ final class AtlasCodeViolationService
             'worktrees' => $worktrees,
             'allowed_worktree_roots' => [$path],
             'obra_return_deadline_days' => 3,
-            'now' => gmdate('c'),
+            'now' => UtcIsoTimestamp::now(),
         ];
         $result = $this->scan($facts);
 

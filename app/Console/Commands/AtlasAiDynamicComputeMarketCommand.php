@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketReportService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 class AtlasAiDynamicComputeMarketCommand extends Command
 {
@@ -76,8 +77,8 @@ class AtlasAiDynamicComputeMarketCommand extends Command
         $this->components->twoColumnDetail('Reason', (string) ($market['recommendation_reason'] ?? 'unknown'));
         $this->components->twoColumnDetail('Confidence', (string) ($market['confidence'] ?? 'unknown'));
         $this->components->twoColumnDetail('Risk', (string) ($market['risk'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Changes provider', data_get($market, 'routing_control.changes_provider') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('AP-99 available', data_get($market, 'ap99.available') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Changes provider', data_getYesNo::format($market, 'routing_control.changes_provider'));
+        $this->components->twoColumnDetail('AP-99 available', data_getYesNo::format($market, 'ap99.available'));
 
         $candidate = data_get($market, 'benchmark_candidate');
         if (is_array($candidate)) {

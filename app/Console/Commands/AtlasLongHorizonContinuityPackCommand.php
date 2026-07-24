@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\LongHorizon\LongHorizonContinuityPackEmitterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 final class AtlasLongHorizonContinuityPackCommand extends Command
 {
@@ -57,7 +58,7 @@ final class AtlasLongHorizonContinuityPackCommand extends Command
         }
 
         $this->components->twoColumnDetail('Continuity pack', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', (bool) ($payload['certified'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Certified', (bool) YesNo::format($payload['certified'] ?? false));
         $this->components->twoColumnDetail('Pack', (string) data_get($payload, 'continuation_pack.uuid', 'n/a'));
         $this->components->twoColumnDetail('Replay', (string) data_get($payload, 'replay_manifest.replay_status', 'n/a'));
         $this->components->twoColumnDetail('Certification', (string) data_get($payload, 'certification.status', 'n/a'));

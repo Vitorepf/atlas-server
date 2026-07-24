@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ACOS Excellence VOL-01 — read-only operational volume check for WDG-01 / EVI-01.
@@ -38,7 +39,7 @@ final class AtlasOperationalVolumeCheckCommand extends Command
             ));
         } else {
             $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? '?'));
-            $this->components->twoColumnDetail('alert', ($payload['alert'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('alert', YesNo::format($payload['alert'] ?? false));
             $this->components->twoColumnDetail('dev_count', (string) data_get($payload, 'windows.dev.count', 0));
             $this->components->twoColumnDetail('forge_count', (string) data_get($payload, 'windows.forge.count', 0));
         }

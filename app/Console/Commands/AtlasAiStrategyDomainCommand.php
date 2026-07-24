@@ -14,6 +14,7 @@ use App\Services\Ai\Strategy\StrategyReadinessService;
 use App\Services\Ai\Strategy\StrategyRuntimeService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiStrategyDomainCommand extends Command
 {
@@ -83,7 +84,7 @@ class AtlasAiStrategyDomainCommand extends Command
         $payload = $service->report();
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
             $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
         });
@@ -178,7 +179,7 @@ class AtlasAiStrategyDomainCommand extends Command
             $this->components->twoColumnDetail('memo_status', (string) $payload['memo_status']);
             $this->components->twoColumnDetail(
                 'evidence_attached',
-                ($payload['evidence']['attached'] ?? false) ? 'true' : 'false',
+                YesNo::trueFalse($payload['evidence']['attached'] ?? false),
             );
         });
 

@@ -10,10 +10,12 @@ rescan: "FINDINGS-RESCAN-2 multi-agent (8 explore) 2026-07-24"
 unit_proof: "Support+Concerns packages prior green"
 mcp_service_loc: 878
 mcp_catalog_loc: 1099
-next: Wave A cont (YesNo/UtcIso/JSON) | residual stringOption variants | HTML monolog | Workbench catalog
+next: EmitsCanonicalJson residual | HTML monolog | Workbench catalog | Worker completeAttempt | config loop extract
 ```
 
 ## Progress summary
+
+Wave A mass adoption: YesNo format+trueFalse, UtcIsoTimestamp::now, thin shell inlines (Clamp01/MemoryLimit/GitWorkspace). Package proof Support unit 9 tests green.
 
 Reuse/standardize wave landed helpers+traits; **rescan #2** shows residual is mostly **under-adoption** + monstruos de orquestração/catalog, not missing helper invention.
 

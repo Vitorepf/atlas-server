@@ -7,6 +7,7 @@ use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggr
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
 {
@@ -129,8 +130,8 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
         ));
         $this->line(sprintf(
             'benchmark_not_run=%s rivals_compared=%s',
-            ($report['claim_policy']['benchmark_not_run'] ?? true) ? 'true' : 'false',
-            ($report['claim_policy']['rivals_compared'] ?? false) ? 'true' : 'false',
+            YesNo::trueFalse($report['claim_policy']['benchmark_not_run'] ?? true),
+            YesNo::trueFalse($report['claim_policy']['rivals_compared'] ?? false),
         ));
         if (isset($report['reason'])) {
             $this->line('reason: '.(string) $report['reason']);

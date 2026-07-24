@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasCodeEnterpriseCertifyCommand extends Command
 {
@@ -48,7 +49,7 @@ class AtlasCodeEnterpriseCertifyCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Code Enterprise</>', (string) $report['schema_version']);
         $this->components->twoColumnDetail('Status', (string) $report['atlas_code_enterprise_status']);
         $this->components->twoColumnDetail('Obra', (string) data_get($report, 'inputs.obra_id', '-'));
-        $this->components->twoColumnDetail('External provider call', $report['external_provider_call'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('External provider call', YesNo::format($report['external_provider_call']));
 
         foreach ((array) ($report['stages'] ?? []) as $stage) {
             if (! is_array($stage)) {

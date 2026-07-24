@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiAutonomousEngineeringCommand extends Command
 {
@@ -44,7 +45,7 @@ class AtlasAiAutonomousEngineeringCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Autonomous Engineering OS</>', $action);
         $this->components->twoColumnDetail('Status', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Writes', ($payload['writes'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes'] ?? false));
 
         return $this->exitCodeFor($payload);
     }

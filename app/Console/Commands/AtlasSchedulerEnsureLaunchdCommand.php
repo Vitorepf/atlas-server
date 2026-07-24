@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use Illuminate\Console\Command;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Self-healing launchd probe (EVI-02). Runs via scheduler. Checks more than
@@ -177,7 +178,7 @@ class AtlasSchedulerEnsureLaunchdCommand extends Command
         file_put_contents($statePath, json_encode([
             'err_log_offset' => $size,
             'err_log_fatal_blocks' => $total,
-            'updated_at' => gmdate('c'),
+            'updated_at' => UtcIsoTimestamp::now(),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n", LOCK_EX);
 
         return ['new_blocks' => $new, 'total_blocks' => $total];

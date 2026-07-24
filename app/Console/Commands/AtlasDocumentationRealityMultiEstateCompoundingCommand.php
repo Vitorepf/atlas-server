@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasDocumentationRealityMultiEstateCompoundingService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * L2-O3 (first increment) — read-only cross-estate immunity propagation PROPOSER.
@@ -53,8 +54,8 @@ final class AtlasDocumentationRealityMultiEstateCompoundingCommand extends Comma
         $this->components->twoColumnDetail('source data class', (string) data_get($payload, 'source_data_class', ''));
         $this->components->twoColumnDetail('cross-estate allowed', $crossAllowed ? 'yes (abstract pattern only)' : 'NO (stays local)');
         $this->components->twoColumnDetail('blocked reason', (string) (data_get($payload, 'blocked_reason') ?: '—'));
-        $this->components->twoColumnDetail('sensitive/secret/cyber never cross', data_get($payload, 'sovereignty.sensitive_secret_cyber_never_cross') ? 'true' : 'false');
-        $this->components->twoColumnDetail('auto-propagates', data_get($payload, 'sovereignty.auto_propagates') ? 'true' : 'false');
+        $this->components->twoColumnDetail('sensitive/secret/cyber never cross', data_getYesNo::trueFalse($payload, 'sovereignty.sensitive_secret_cyber_never_cross'));
+        $this->components->twoColumnDetail('auto-propagates', data_getYesNo::trueFalse($payload, 'sovereignty.auto_propagates'));
         $this->components->twoColumnDetail('writes / transmits', 'false / false');
 
         if ($crossAllowed) {

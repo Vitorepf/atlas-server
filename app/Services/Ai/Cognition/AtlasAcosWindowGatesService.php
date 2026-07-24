@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition;
 use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * D (Obra #18/#19) — the LIVE-WINDOW gate panel (instrumentation, not a new gate).
@@ -93,7 +94,7 @@ final class AtlasAcosWindowGatesService
     {
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_GENERATED_AT => UtcIsoTimestamp::now(),
             self::FIELD_LIVE_DIMENSIONS => $this->liveDimensions(),
             self::FIELD_WINDOW_RECEIPTS => $this->windowReceipts(),
             self::FIELD_NOTE => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',

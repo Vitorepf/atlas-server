@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Retires repeated-give-back quarantined task-serving packets.
@@ -110,7 +111,7 @@ class AtlasTaskRetireCommand extends Command
         }
 
         $this->line('');
-        $this->line('  <fg=cyan>TASK-SERVING RETIRE</>  dry_run='.($dryRun ? 'yes' : 'no'));
+        $this->line('  <fg=cyan>TASK-SERVING RETIRE</>  dry_run='.(YesNo::format($dryRun)));
         $this->line('  inspected='.$result['inspected_blocked'].'  doomed='.$result['doomed_count'].'  retired='.$result['retired_count'].'  failed='.$result['failed_count'].'  skipped='.$result['skipped_count']);
         foreach (array_slice($retired, 0, 30) as $item) {
             $this->line('    - '.($item['action'] ?? '?').'  '.($item['task_packet_id'] ?? '?'));

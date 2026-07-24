@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
 use App\Services\Ai\Kernel\Pipeline\PipelineInput;
 use App\Services\Ai\Kernel\Pipeline\ScaffoldAtlasKernelPipeline;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiPipelineCommand extends Command
 {
@@ -61,7 +62,7 @@ class AtlasAiPipelineCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Kernel Pipeline</>', (string) ($payload['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('Pipeline', (string) ($pipelinePayload['pipeline_id'] ?? '-'));
-        $this->components->twoColumnDetail('Dry run', data_get($pipelinePayload, 'dry_run', true) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', data_getYesNo::format($pipelinePayload, 'dry_run', true));
         $this->components->twoColumnDetail('Provider execution', data_get($pipelinePayload, 'provider_execution_attempted', false) ? 'attempted' : 'disabled');
         $this->components->twoColumnDetail('Compliance', ($compliance['ok'] ?? false) ? 'ok' : 'failed');
         $this->components->twoColumnDetail('Ledger event', (string) data_get($payload, 'ledger_event.event_id', 'not recorded'));

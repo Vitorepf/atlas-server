@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeForgeUxOrchestratorService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Code Forge Human-First UX Orchestrator CLI.
@@ -56,10 +57,10 @@ final class AtlasCodeForgeUxOrchestratorCommand extends Command
         $this->components->twoColumnDetail('Human status', (string) ($payload['human_status_label'] ?? '—'));
         $this->components->twoColumnDetail('Primary action', (string) ($payload['primary_action_label'] ?? '—'));
         $this->components->twoColumnDetail('Primary kind', (string) ($payload['primary_action_kind'] ?? '—'));
-        $this->components->twoColumnDetail('Primary enabled', $payload['primary_action_enabled'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Primary enabled', YesNo::format($payload['primary_action_enabled']));
         $this->components->twoColumnDetail('Next safe step', (string) ($payload['next_safe_step'] ?? '—'));
-        $this->components->twoColumnDetail('External provider call', $payload['external_provider_call'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Completion claim promoted', $payload['completion_claim_promoted'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('External provider call', YesNo::format($payload['external_provider_call']));
+        $this->components->twoColumnDetail('Completion claim promoted', YesNo::format($payload['completion_claim_promoted']));
         $this->components->twoColumnDetail('Progress', (string) ($payload['progress_percent'] ?? 0).'%');
 
         $blockers = is_array($payload['blockers'] ?? null) ? $payload['blockers'] : [];

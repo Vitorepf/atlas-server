@@ -124,7 +124,7 @@ final class AtlasLoopHeavyWorkPanelService
         $scores = [];
 
         if (($lev = $this->floatOrNull($ev['refactor_leverage'] ?? null)) !== null) {
-            $scores['leverage'] = round($this->clamp01($lev) * 100.0, 4);
+            $scores['leverage'] = round(Clamp01::of($lev) * 100.0, 4);
         }
         if (($cx = $this->intOrNull($ev['cyclomatic_total'] ?? null)) !== null) {
             $scores['debt'] = round(min(1.0, $cx / self::DEBT_SATURATION) * 100.0, 4);
@@ -132,7 +132,7 @@ final class AtlasLoopHeavyWorkPanelService
         if (($fe = $this->floatOrNull($ev['failure_evidence'] ?? null)) !== null) {
             // ABSOLUTE-pain floor (must-fix): the normalized [0,1] failure signal is scaled so a tiny
             // top-failure does not read as max pain; real recurrent pain still reaches the top band.
-            $scores['failure_evidence'] = round($this->clamp01($fe) * 100.0, 4);
+            $scores['failure_evidence'] = round(Clamp01::of($fe) * 100.0, 4);
         }
 
         return [$scores, count($scores)];
@@ -168,10 +168,6 @@ final class AtlasLoopHeavyWorkPanelService
         return $n % 2 === 1 ? $values[$mid] : ($values[$mid - 1] + $values[$mid]) / 2.0;
     }
 
-    private function clamp01(float $v): float
-    {
-        return Clamp01::of($v);
-    }
 
     private function floatOrNull(mixed $v): ?float
     {

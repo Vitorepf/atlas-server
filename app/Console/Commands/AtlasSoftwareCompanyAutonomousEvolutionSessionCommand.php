@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityBootstrapService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Command
 {
@@ -166,9 +167,9 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'Anti-fake proof',
             sprintf(
                 'direct_provider_driver_allowed=%s · full_owner_flow_required=%s · robust_contract_required=%s',
-                $antiFake['direct_provider_driver_allowed'] ? 'true' : 'false',
-                $antiFake['requires_full_atlas_forge_owner_flow'] ? 'true' : 'false',
-                $antiFake['robust_contract_required'] ? 'true' : 'false',
+                YesNo::trueFalse($antiFake['direct_provider_driver_allowed']),
+                YesNo::trueFalse($antiFake['requires_full_atlas_forge_owner_flow']),
+                YesNo::trueFalse($antiFake['robust_contract_required']),
             ),
         );
 
@@ -181,7 +182,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
                 (string) data_get($cycle, 'selected_finding.title', ''),
                 (string) ($cycle['branch_ref'] ?? ''),
                 (string) ($cycle['inbox_item_id'] ?? ''),
-                ((bool) ($cycle['merge_performed'] ?? false)) ? 'yes' : 'no',
+                YesNo::format((bool) ($cycle['merge_performed'] ?? false)),
             ));
 
             // When a cycle blocks because the full Atlas Forge owner-flow is not

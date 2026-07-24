@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Domain\StrategicDecisionReviewService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiStrategicDecisionCommand extends Command
 {
@@ -60,7 +61,7 @@ class AtlasAiStrategicDecisionCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Strategic Decision</>', (string) $packet['title']);
         $this->components->twoColumnDetail('Mode', (string) $packet['mode']);
         $this->components->twoColumnDetail('Impact', (string) data_get($packet, 'decision_frame.impact'));
-        $this->components->twoColumnDetail('Cool-down required', (bool) data_get($packet, 'cooldown.required') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Cool-down required', (bool) data_getYesNo::format($packet, 'cooldown.required'));
 
         $this->table(
             ['gate', 'status', 'reason'],

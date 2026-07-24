@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder;
 use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
 use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AAEOS GOD/SOTA control-plane cycle surface.
@@ -62,7 +63,7 @@ class AtlasAaeosCycleCommand extends Command
         $this->components->twoColumnDetail('admission', (string) data_get($receipt, 'admission.verdict', ''));
         $this->components->twoColumnDetail('difficulty', (string) data_get($receipt, 'difficulty.label', ''));
         $this->components->twoColumnDetail('evidence', (string) ($receipt['evidence_status'] ?? ''));
-        $this->components->twoColumnDetail('elite_same_bar', data_get($receipt, 'elite_same_bar') ? 'true' : 'false');
+        $this->components->twoColumnDetail('elite_same_bar', data_getYesNo::trueFalse($receipt, 'elite_same_bar'));
 
         $path = data_get($receipt, 'dispatch.operate_path', []);
         if (is_array($path) && $path !== []) {

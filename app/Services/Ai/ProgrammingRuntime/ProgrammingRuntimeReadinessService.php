@@ -4,6 +4,7 @@ namespace App\Services\Ai\ProgrammingRuntime;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
+use App\Support\YesNo;
 
 /**
  * Honest readiness/certification for the Atlas AI Programming Runtime.
@@ -363,9 +364,9 @@ class ProgrammingRuntimeReadinessService
                 sprintf(
                     'Expected files: %s (exists=%s), %s (exists=%s).',
                     $signals['gate_class'],
-                    $gateClassExists ? 'true' : 'false',
+                    YesNo::trueFalse($gateClassExists),
                     $signals['result_class'],
-                    $resultClassExists ? 'true' : 'false',
+                    YesNo::trueFalse($resultClassExists),
                 ),
                 'implement MandatoryRagGate + MandatoryRagGateResult per atlas-programming-superiority-contracts.md Schema 6 (fail-closed with STATUS_BLOCKED)',
                 array_values(array_filter([

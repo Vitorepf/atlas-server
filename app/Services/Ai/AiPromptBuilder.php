@@ -17,6 +17,7 @@ use App\Services\Ai\ValueObjects\AiPrompt;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AiPromptBuilder
 {
@@ -183,7 +184,7 @@ TXT,
             '- Context pack hash: '.(string) ($runtime['context_pack_hash'] ?? 'missing'),
             '- Must-know ledger hash: '.(string) ($runtime['must_know_ledger_hash'] ?? 'missing'),
             '- Provider handoff hash: '.(string) data_get($handoff, 'context_pack_hash', 'missing'),
-            '- Execution allowed: '.((bool) data_get($handoff, 'execution_allowed', false) ? 'yes' : 'no'),
+            '- Execution allowed: '.((bool) data_getYesNo::format($handoff, 'execution_allowed', false)),
         ];
 
         if ($readFirst !== []) {
@@ -874,7 +875,7 @@ TXT;
         return collect($values)
             ->map(function (mixed $value, string|int $key): string {
                 if (is_bool($value)) {
-                    $value = $value ? 'true' : 'false';
+                    $value = YesNo::trueFalse($value);
                 } elseif (is_array($value)) {
                     $value = implode(', ', array_map(fn (mixed $item): string => (string) $item, $value));
                 } elseif (! is_scalar($value)) {

@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Forge Runtime Dispatch CLI.
@@ -69,9 +70,9 @@ final class AtlasForgeRuntimeDispatchCommand extends Command
         $this->components->twoColumnDetail('Decision source', (string) ($plan['decision_source'] ?? '—'));
         $this->components->twoColumnDetail('Role', (string) ($plan['role'] ?? '—'));
         $this->components->twoColumnDetail('Provider/Model', sprintf('%s / %s', (string) ($plan['provider'] ?? '—'), (string) ($plan['model'] ?? '—')));
-        $this->components->twoColumnDetail('Runtime dispatch allowed', $plan['runtime_dispatch_allowed'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('External provider call', $plan['external_provider_call'] ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Completion claim promoted', $plan['completion_claim_promoted'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Runtime dispatch allowed', YesNo::format($plan['runtime_dispatch_allowed']));
+        $this->components->twoColumnDetail('External provider call', YesNo::format($plan['external_provider_call']));
+        $this->components->twoColumnDetail('Completion claim promoted', YesNo::format($plan['completion_claim_promoted']));
         $this->components->twoColumnDetail('Next action', (string) ($plan['next_action'] ?? '—'));
 
         $childId = (string) ($plan['child_decision_receipt_id'] ?? '');

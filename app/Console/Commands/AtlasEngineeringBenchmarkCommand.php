@@ -8,6 +8,7 @@ use App\Services\Engineering\EngineeringBenchmarkService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 class AtlasEngineeringBenchmarkCommand extends Command
 {
@@ -254,7 +255,7 @@ class AtlasEngineeringBenchmarkCommand extends Command
             collect((array) ($payload['results'] ?? []))
                 ->map(fn (array $result): array => [
                     $result['case_code'] ?? $result['case_id'] ?? '-',
-                    ($result['passed'] ?? false) ? 'yes' : 'no',
+                    YesNo::format($result['passed'] ?? false),
                     $result['decision'] ?? '-',
                     $result['score'] ?? '-',
                     $result['failure_summary'] ?? '',

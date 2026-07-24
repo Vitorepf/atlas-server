@@ -3,6 +3,7 @@
 namespace App\Services\Semantic;
 
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class FrontmatterParser
 {
@@ -172,7 +173,7 @@ class FrontmatterParser
             return '';
         }
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return YesNo::trueFalse($value);
         }
         if (is_numeric($value)) {
             return (string) $value;

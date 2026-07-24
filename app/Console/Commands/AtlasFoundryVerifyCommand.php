@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Foundry\FoundryEvidenceVerifierService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Foundry AP-A · evidence verify.
@@ -59,7 +60,7 @@ class AtlasFoundryVerifyCommand extends Command
             $this->components->twoColumnDetail('Anchors verified', (string) ($result['anchor_count'] ?? 0));
             $this->components->twoColumnDetail('Confirmed', (string) ($result['confirmed_count'] ?? 0));
             $this->components->twoColumnDetail('Refuted', (string) ($result['refuted_count'] ?? 0));
-            $this->components->twoColumnDetail('All confirmed', ($result['all_confirmed'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('All confirmed', YesNo::format($result['all_confirmed'] ?? false));
             $this->components->twoColumnDetail('Verification hash', (string) ($result['verification_hash'] ?? ''));
         }
 

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use App\Support\YesNo;
 
 final class AtlasCompactionCertifyCommand extends Command
 {
@@ -39,7 +40,7 @@ final class AtlasCompactionCertifyCommand extends Command
             ) ?: '{}');
         } else {
             $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('certified', ((bool) $payload['certified']) ? 'true' : 'false');
+            $this->components->twoColumnDetail('certified', YesNo::trueFalse((bool) $payload['certified']));
             foreach ((array) ($payload['blocking'] ?? []) as $blocker) {
                 $this->components->twoColumnDetail('blocking', (string) $blocker);
             }

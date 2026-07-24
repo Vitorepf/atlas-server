@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Night Shift · Area Focus Loop · Operational Orchestrator CLI (AP-722).
@@ -45,7 +46,7 @@ class AtlasNightShiftAreaFocusOperateCommand extends Command
                 return;
             }
             $cert = $p['operational_certification'] ?? [];
-            $this->components->twoColumnDetail('Certification', (string) ($cert['status'] ?? '?').' (operational='.(($cert['operational'] ?? false) ? 'yes' : 'no').')');
+            $this->components->twoColumnDetail('Certification', (string) ($cert['status'] ?? '?').' (operational='.(YesNo::format($cert['operational'] ?? false)).')');
             foreach (($p['stage_status'] ?? []) as $stage => $st) {
                 $this->components->twoColumnDetail('  stage · '.$stage, (string) $st);
             }
@@ -58,7 +59,7 @@ class AtlasNightShiftAreaFocusOperateCommand extends Command
                 (int) ($counts['blocked_work_orders'] ?? 0),
                 (int) ($counts['inbox_item_count'] ?? 0),
             ));
-            $this->components->twoColumnDetail('Morning inbox ready', ($p['morning_inbox_ready'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Morning inbox ready', YesNo::format($p['morning_inbox_ready'] ?? false));
             foreach (($cert['failing_checks'] ?? []) as $fail) {
                 $this->warn('  failing check: '.(string) $fail);
             }

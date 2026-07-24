@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasRetrievalFeedbackLoopCommand extends Command
 {
@@ -75,7 +76,7 @@ final class AtlasRetrievalFeedbackLoopCommand extends Command
         $this->components->twoColumnDetail('ROI', (string) data_get($payload, 'context_roi.roi_score', 'unknown'));
         $this->components->twoColumnDetail('Context policy', (string) data_get($payload, 'next_context_policy.recommended_action', 'unknown'));
         $this->components->twoColumnDetail('Learning candidate', (string) data_get($payload, 'learning_candidate.status', 'unknown'));
-        $this->components->twoColumnDetail('Persisted', data_get($payload, 'persistence.persisted') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Persisted', data_getYesNo::format($payload, 'persistence.persisted'));
 
         return self::SUCCESS;
     }

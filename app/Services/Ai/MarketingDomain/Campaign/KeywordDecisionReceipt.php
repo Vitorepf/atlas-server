@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\MarketingDomain\Campaign;
 
+use App\Support\YesNo;
+
 /**
  * KeywordDecisionReceipt (L12 — governança/proveniência) — turns a keyword decision into an AUDITABLE,
  * REPRODUCIBLE record: the salient inputs, the verdict, the canonical laws (L0 KeywordKnowledgeCore) the
@@ -100,7 +102,7 @@ class KeywordDecisionReceipt
             return '{'.implode(',', $parts).'}';
         }
         if (is_bool($v)) {
-            return $v ? 'true' : 'false';
+            return YesNo::trueFalse($v);
         }
 
         return (string) ($v ?? 'null');

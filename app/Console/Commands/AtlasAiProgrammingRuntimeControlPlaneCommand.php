@@ -6,6 +6,7 @@ use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPlaneCanon;
 use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPlaneService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiProgrammingRuntimeControlPlaneCommand extends Command
 {
@@ -45,8 +46,8 @@ class AtlasAiProgrammingRuntimeControlPlaneCommand extends Command
         ));
         $this->line(sprintf(
             'benchmark_status.not_run=%s rivals_compared=%s',
-            ($payload['benchmark_status']['not_run'] ?? true) ? 'true' : 'false',
-            ($payload['benchmark_status']['rivals_compared'] ?? false) ? 'true' : 'false',
+            YesNo::trueFalse($payload['benchmark_status']['not_run'] ?? true),
+            YesNo::trueFalse($payload['benchmark_status']['rivals_compared'] ?? false),
         ));
 
         $missions = (array) ($payload['active_missions'] ?? []);

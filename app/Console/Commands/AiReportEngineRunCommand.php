@@ -8,6 +8,7 @@ use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\YesNo;
 
 class AiReportEngineRunCommand extends Command
 {
@@ -143,7 +144,7 @@ class AiReportEngineRunCommand extends Command
             return ($payload['ok'] ?? false) ? self::SUCCESS : self::FAILURE;
         }
 
-        $this->line('ok='.(($payload['ok'] ?? false) ? 'true' : 'false').' mode='.($payload['mode'] ?? '-'));
+        $this->line('ok='.(YesNo::trueFalse($payload['ok'] ?? false)).' mode='.($payload['mode'] ?? '-'));
 
         return ($payload['ok'] ?? false) ? self::SUCCESS : self::FAILURE;
     }

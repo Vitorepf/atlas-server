@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition\AcosProgram;
 
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * MULTN17-06 — vision thesis lifecycle: TTL, death criterion archival, active-set for reorder.
@@ -107,7 +108,7 @@ final class EvidenceVisionThesisLifecycle
         array $leads = [],
         ?string $now = null,
     ): array {
-        $nowTs = strtotime($now ?? gmdate('c')) ?: time();
+        $nowTs = strtotime($now ?? UtcIsoTimestamp::now()) ?: time();
         $archived = [];
 
         foreach (self::$active as $thesisId => $thesis) {

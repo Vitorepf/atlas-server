@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAurgTemporalCommand extends Command
 {
@@ -48,7 +49,7 @@ class AtlasAurgTemporalCommand extends Command
         $this->line('[atlas:aurg:temporal] action='.$payload['action']);
         if ($payload['action'] === 'timeline') {
             $tl = $payload['timeline'];
-            $this->line('ticks='.$tl['tick_count'].' chain_intact='.($tl['chain_intact'] ? 'yes' : 'no'));
+            $this->line('ticks='.$tl['tick_count'].' chain_intact='.(YesNo::format($tl['chain_intact'])));
         }
 
         return 0;

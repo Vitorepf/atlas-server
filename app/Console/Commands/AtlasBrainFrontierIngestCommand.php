@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGovernedFrontierFetcher;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResearchSourceRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use App\Support\UtcIsoTimestamp;
 
 final class AtlasBrainFrontierIngestCommand extends Command
 {
@@ -22,7 +23,7 @@ final class AtlasBrainFrontierIngestCommand extends Command
     {
         $scope = trim((string) ($this->option('scope') ?: config('atlas.brain.default_scope', 'autonomous')));
         $limit = max(0, (int) $this->option('limit'));
-        $capturedAt = trim((string) ($this->option('captured-at') ?: gmdate('c')));
+        $capturedAt = trim((string) ($this->option('captured-at') ?: UtcIsoTimestamp::now()));
         $dryRun = (bool) $this->option('dry-run');
         $fetch = (bool) $this->option('fetch');
 

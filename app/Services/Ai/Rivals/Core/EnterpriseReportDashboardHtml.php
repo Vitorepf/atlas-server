@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Support\YesNo;
+
 /**
  * Relatório de CAPACIDADES (não pipeline theater).
  * UI em pt-BR. Eixos: inteligência, custo/task, tokens, velocidade, uplift Atlas.
@@ -579,7 +581,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const COV = MC.coverage || null;
   if (COV && document.getElementById('coveragePanel')) {
     const rows = (COV.map||[]).map(d => `
-      <div class="covrow ${d.covered?'yes':'no'}">
+      <div class="covrow ${d.YesNo::format(covered)}">
         <span class="covmark">${d.covered?'✓':'—'}</span>
         <span class="covdom">${d.domain}${d.dormant?` <span class="covdorm">${d.dormant} parados</span>`:''}</span>
         <span class="covnote">${d.note}</span>

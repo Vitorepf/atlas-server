@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Support\YesNo;
+
 /**
  * Projeções humanas (Markdown + HTML com gráficos SVG) do enterprise report canônico.
  * JSON permanece a fonte de verdade; HTML/MD nunca alteram claim_allowed.
@@ -223,10 +225,10 @@ final class EnterpriseReportPresenter
             $coverage = (array) ($row['delivery_coverage'] ?? []);
             $md .= '### '.$guide['title']."\n\n";
             $md .= '- **Status:** `'.$row['status'].'`'
-                .' · pipeline_valid='.(($row['pipeline_valid'] ?? false) ? 'true' : 'false')
-                .' · internal_claim='.(($row['internal_claim_allowed'] ?? false) ? 'true' : 'false')
-                .' · events_complete='.(($row['events_complete'] ?? false) ? 'true' : 'false')
-                .' · is_atlas_fact='.(($row['is_atlas_fact'] ?? false) ? 'true' : 'false')."\n";
+                .' · pipeline_valid='.(YesNo::trueFalse($row['pipeline_valid'] ?? false))
+                .' · internal_claim='.(YesNo::trueFalse($row['internal_claim_allowed'] ?? false))
+                .' · events_complete='.(YesNo::trueFalse($row['events_complete'] ?? false))
+                .' · is_atlas_fact='.(YesNo::trueFalse($row['is_atlas_fact'] ?? false))."\n";
             if (is_array($row['axes'] ?? null)) {
                 $ax = $row['axes'];
                 $md .= '- **Eixos:** pipeline='.($ax['pipeline']['status'] ?? '?')
@@ -330,14 +332,14 @@ final class EnterpriseReportPresenter
         $md .= '- **dissections_present / total:** '
             .($completeness['dissections_present'] ?? 0).' / '.($completeness['dissections_total'] ?? 0)."\n";
         $md .= '- **absolute_measured_reality_claim:** '
-            .((($completeness['absolute_measured_reality_claim'] ?? false) ? 'true' : 'false'))."\n";
+            .((YesNo::trueFalse($completeness['absolute_measured_reality_claim'] ?? false)))."\n";
         $md .= '- **Facets obrigatórias:** `'
             .implode('`, `', (array) (($dissect['epistemic_contract']['required_facets'] ?? []) ?: []))."`\n\n";
         foreach ((array) ($dissect['models'] ?? []) as $model) {
             $md .= '### `'.($model['model_id'] ?? '').'@'.($model['runtime'] ?? '')."`\n\n";
-            $md .= '- **present:** '.((($model['present'] ?? false) ? 'true' : 'false'))
+            $md .= '- **present:** '.((YesNo::trueFalse($model['present'] ?? false)))
                 .' · **completeness:** '.($model['completeness_ratio'] ?? 0)
-                .' · **dissection_complete:** '.((($model['dissection_complete'] ?? false) ? 'true' : 'false'))."\n";
+                .' · **dissection_complete:** '.((YesNo::trueFalse($model['dissection_complete'] ?? false)))."\n";
             $md .= '- **reality:** '.($model['reality_statement'] ?? '')."\n";
             $sum = (array) ($model['summary'] ?? []);
             $md .= '- **summary:** intel='.$this->fmtPct($sum['intelligence_mean_itt'] ?? null)

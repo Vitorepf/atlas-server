@@ -8,6 +8,7 @@ use App\Services\Ai\PersonalDevelopment\AtlasPersonalDevelopmentOrchestrator;
 use App\Services\Ai\PersonalDevelopment\PersonalDevelopmentFlowCatalog;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiPersonalDevelopmentDomainCommand extends Command
 {
@@ -77,7 +78,7 @@ class AtlasAiPersonalDevelopmentDomainCommand extends Command
 
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('supported_flows', (string) $payload['supported_flow_count']);
         });
 
@@ -112,7 +113,7 @@ class AtlasAiPersonalDevelopmentDomainCommand extends Command
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('status', (string) $payload['status']);
             $this->components->twoColumnDetail('flow', (string) $payload['flow']);
-            $this->components->twoColumnDetail('approval_required', $payload['approval_required'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('approval_required', YesNo::trueFalse($payload['approval_required']));
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;

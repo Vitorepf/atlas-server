@@ -9,6 +9,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Certifica o runtime real do Atlas Forge ponta-a-ponta.
@@ -52,7 +53,7 @@ class AtlasForgeRuntimeCertifyCommand extends Command
         $this->components->twoColumnDetail('Forge core', (string) $report['forge_core_status']);
         $this->components->twoColumnDetail('External Rivals', (string) $report['external_rivals_status']);
         $this->components->twoColumnDetail('E2E command', (string) $report['e2e_command']);
-        $this->components->twoColumnDetail('Obra provided', data_get($report, 'inputs.obra_provided') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Obra provided', data_getYesNo::format($report, 'inputs.obra_provided'));
 
         $stages = is_array($report['stages'] ?? null) ? $report['stages'] : [];
         foreach ($stages as $stage) {

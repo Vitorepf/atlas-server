@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasVerifiedEvolutionCommand extends Command
 {
@@ -53,7 +54,7 @@ final class AtlasVerifiedEvolutionCommand extends Command
 
         $this->components->twoColumnDetail('Atlas Verified Evolution', (string) $payload['status']);
         $this->components->twoColumnDetail('Action', (string) ($payload['action'] ?? $action));
-        $this->components->twoColumnDetail('Writes', $payload['writes'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes']));
         $this->components->twoColumnDetail('Hash', (string) $payload['certification_hash']);
 
         return $this->exitCode($payload);

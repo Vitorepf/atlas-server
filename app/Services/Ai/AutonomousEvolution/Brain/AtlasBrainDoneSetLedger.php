@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Per-scope done-set ledger for the external brain — the append-only memory of which targets the brain has
@@ -39,7 +40,7 @@ final class AtlasBrainDoneSetLedger
     {
         AppendOnlyJsonlStore::append($this->path(), [
             'schema' => self::CYCLE_SCHEMA,
-            'recorded_at' => gmdate('c'),
+            'recorded_at' => UtcIsoTimestamp::now(),
             'snapshot_id' => (string) ($cycleRow['snapshot_id'] ?? ''),
             'status' => (string) ($cycleRow['status'] ?? ''),
             'produced' => (bool) ($cycleRow['produced'] ?? false),

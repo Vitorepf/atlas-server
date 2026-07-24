@@ -7,6 +7,7 @@ use App\Models\AtlasToolRun;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringBenchmarkService;
 use Throwable;
+use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
 
 class ProgrammingRivalsReadinessService
 {
@@ -930,7 +931,7 @@ class ProgrammingRivalsReadinessService
      */
     private function currentWorkspacePreflight(string $workspace): array
     {
-        $git = $this->gitWorkspaceState($workspace);
+        $git = GitWorkspaceStateReader::read($workspace);
         $ready = (bool) ($git['is_git'] ?? false) && (bool) ($git['clean'] ?? false);
 
         return [
@@ -960,9 +961,5 @@ class ProgrammingRivalsReadinessService
      * @return array<string,mixed>
      */
 
-    private function gitWorkspaceState(string $workspace): array
-    {
-        return \App\Services\Ai\Programming\Support\GitWorkspaceStateReader::read($workspace);
-    }
 
 }

@@ -6,6 +6,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AAEOS Phase Handoff Service — emits and validates `atlas.aaeos.phase.v1`
@@ -230,7 +231,7 @@ final class AaeosPhaseHandoffService
         }
         $this->assertSignatureRequired($phaseOut, $autonomyLevel, $operatorSignature);
 
-        $startedAt = $startedAt ?? gmdate('c');
+        $startedAt = $startedAt ?? UtcIsoTimestamp::now();
         if ($nextPhase === null && $phaseOut !== self::PHASE_LEARNING) {
             $nextPhase = $this->canonicalNextPhase($phaseOut);
         }
@@ -333,8 +334,8 @@ final class AaeosPhaseHandoffService
             self::FIELD_GATES => [self::FIELD_REQUIRED => [], self::FIELD_PASSED => [], self::FIELD_BLOCKED => []],
             self::FIELD_BLOCKERS => [],
             self::FIELD_OPERATOR_SIGNATURE => null,
-            self::FIELD_STARTED_AT => gmdate('c'),
-            self::FIELD_ENDED_AT => gmdate('c'),
+            self::FIELD_STARTED_AT => UtcIsoTimestamp::now(),
+            self::FIELD_ENDED_AT => UtcIsoTimestamp::now(),
             self::FIELD_NEXT_PHASE => $this->canonicalNextPhase($phase),
             self::FIELD_SKIP_REASON => $receiptId.': '.$reason,
             self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,

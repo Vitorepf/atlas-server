@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction\Support;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * S3.F4 — the EVIDENCE / RECEIPT LOG of the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP.
@@ -244,7 +245,7 @@ final class AtlasSelfImprovementReceiptLog
             // fall through to a plain UTC stamp
         }
 
-        return gmdate('c');
+        return UtcIsoTimestamp::now();
     }
 
     private function cfg(string $key, mixed $default): mixed

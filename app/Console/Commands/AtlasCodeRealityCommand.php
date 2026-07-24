@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Output\OutputInterface;
+use App\Support\YesNo;
 
 final class AtlasCodeRealityCommand extends Command
 {
@@ -54,7 +55,7 @@ final class AtlasCodeRealityCommand extends Command
 
         $this->components->twoColumnDetail('Atlas Code Reality', (string) $payload['status']);
         $this->components->twoColumnDetail('Action', (string) ($payload['action'] ?? $action));
-        $this->components->twoColumnDetail('Writes', $payload['writes'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes']));
         if (isset($payload['classification'])) {
             $this->components->twoColumnDetail('Classification', (string) $payload['classification']);
         }

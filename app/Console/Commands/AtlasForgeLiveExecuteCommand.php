@@ -9,6 +9,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas Forge Live Execution E2E v1.
@@ -57,7 +58,7 @@ class AtlasForgeLiveExecuteCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Forge Live Execution</>', (string) $report['schema_version']);
         $this->components->twoColumnDetail('Status', (string) $report['forge_live_execution_status']);
         $this->components->twoColumnDetail('E2E command', (string) $report['e2e_command']);
-        $this->components->twoColumnDetail('External provider call', $report['external_provider_call'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('External provider call', YesNo::format($report['external_provider_call']));
         $this->components->twoColumnDetail('Sandbox mode', (string) data_get($report, 'sandbox.mode', '-'));
         $this->components->twoColumnDetail('Sandbox provisioning', (string) data_get($report, 'sandbox.provisioning_mode', '-'));
         $this->components->twoColumnDetail('Ledger events', (string) count((array) ($report['ledger_event_ids'] ?? [])));

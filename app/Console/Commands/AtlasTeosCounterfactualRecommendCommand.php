@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasTeosCounterfactualRecommendCommand extends Command
 {
@@ -34,7 +35,7 @@ class AtlasTeosCounterfactualRecommendCommand extends Command
             return 0;
         }
         $this->line('[atlas:teos:counterfactual:recommend]');
-        $this->line('best_branch='.($rec['best_branch_id'] ?? 'none').' confidence='.$rec['confidence'].' actionable='.($rec['actionable'] ? 'yes' : 'no'));
+        $this->line('best_branch='.($rec['best_branch_id'] ?? 'none').' confidence='.$rec['confidence'].' actionable='.(YesNo::format($rec['actionable'])));
         $this->line('improvement='.$rec['improvement_delta']);
 
         return 0;

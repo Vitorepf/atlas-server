@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\AtlasRepoVerifiedDeliveryService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Operator entrypoint for a REAL code delivery — a provider turns a
@@ -71,7 +72,7 @@ class AtlasEngineeringDeliverCommand extends Command
                 (string) ($envelope['status'] ?? 'unknown'),
                 (string) ($envelope['provider'] ?? '?'),
                 (string) ($envelope['target_file'] ?? '?'),
-                ($envelope['certified'] ?? false) ? 'yes' : 'no',
+                YesNo::format($envelope['certified'] ?? false),
             ));
             $syntax = $envelope['syntax_check'] ?? null;
             if (is_array($syntax)) {

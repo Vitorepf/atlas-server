@@ -8,6 +8,7 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionToolGapBridgeService;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
+use App\Support\YesNo;
 
 /**
  * L5-4 · Bridge recurrent capability gaps from the Loop loss-observer into the
@@ -67,7 +68,7 @@ final class AtlasSelfConstructionToolGapBridgeCommand extends Command
                     (int) ($p['occurrences'] ?? 0),
                     (string) ($p['proposal_id'] ?? ''),
                     (string) ($p['service_class'] ?? ''),
-                    ($p['requires_human_approval'] ?? true) ? 'true' : 'false',
+                    YesNo::trueFalse($p['requires_human_approval'] ?? true),
                 ));
             }
         }

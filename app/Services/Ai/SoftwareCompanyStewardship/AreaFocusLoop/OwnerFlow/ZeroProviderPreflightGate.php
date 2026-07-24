@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ChangeSurfaceBreadthScorer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * FASE 2 — zero-provider pre-flight admission gate.
@@ -188,7 +189,7 @@ final class ZeroProviderPreflightGate
             'change_surface_breadth' => (new ChangeSurfaceBreadthScorer)->score($allowedFiles),
             'operator_authorized' => $authorized,
             'deps_unsatisfied' => $depsUnsatisfied,
-            'evaluated_at' => gmdate('c'),
+            'evaluated_at' => UtcIsoTimestamp::now(),
         ];
     }
 

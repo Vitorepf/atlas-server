@@ -4,6 +4,7 @@ namespace App\Services\Ai\Rivals\Core;
 
 use App\Services\Ai\Rivals\Support\EventsLifecycleContract;
 use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Support\YesNo;
 
 /**
  * Flight-recorder aggregate for one run — facts only, no provider spend.
@@ -199,8 +200,8 @@ final class RunAutopsy
         $md = "# Rivals autopsy `{$autopsy['run_id']}`\n\n";
         $md .= '- suite: '.($autopsy['suite_id'] ?? '?')."\n";
         $md .= '- state: '.($autopsy['state'] ?? '?')."\n";
-        $md .= '- events_complete: '.(($autopsy['events']['complete'] ?? false) ? 'true' : 'false')."\n";
-        $md .= '- is_atlas_fact: '.(($autopsy['trust']['is_atlas_fact'] ?? false) ? 'true' : 'false')."\n";
+        $md .= '- events_complete: '.(YesNo::trueFalse($autopsy['events']['complete'] ?? false))."\n";
+        $md .= '- is_atlas_fact: '.(YesNo::trueFalse($autopsy['trust']['is_atlas_fact'] ?? false))."\n";
         $md .= '- claim blockers: '.implode(', ', (array) ($autopsy['adjudication']['internal_claim_blockers'] ?? []))."\n";
         $md .= '- trust blockers: '.implode(', ', (array) ($autopsy['trust']['blockers'] ?? []))."\n";
         $md .= '- failure_classes: '.json_encode($autopsy['receipts']['failure_classes'] ?? [])."\n";

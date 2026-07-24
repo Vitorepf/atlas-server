@@ -6,6 +6,7 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiSelfImproveCommand extends Command
 {
@@ -109,7 +110,7 @@ class AtlasAiSelfImproveCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Self-Improvement</>', (string) ($payload['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('Flow', (string) data_get($payload, 'plan.flow', '-'));
         $this->components->twoColumnDetail('Run', (string) ($runtime['run_id'] ?? '-'));
-        $this->components->twoColumnDetail('Dry run', ($runtime['dry_run'] ?? true) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', YesNo::format($runtime['dry_run'] ?? true));
         if (($runtime['filters'] ?? []) !== []) {
             $this->components->twoColumnDetail('Filters', json_encode($runtime['filters'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         }
@@ -200,14 +201,14 @@ class AtlasAiSelfImproveCommand extends Command
         $this->components->twoColumnDetail('Health', (string) data_get($payload, 'health.status', 'unknown'));
         $this->components->twoColumnDetail('Time', (string) $payload['time']);
         $this->components->twoColumnDetail('Flows', (string) $payload['count']);
-        $this->components->twoColumnDetail('Defaulted', ($payload['defaulted'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Schedulable', ($payload['schedulable'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Defaulted', YesNo::format($payload['defaulted'] ?? false));
+        $this->components->twoColumnDetail('Schedulable', YesNo::format($payload['schedulable'] ?? false));
         $this->components->twoColumnDetail('Scheduler registration', (string) data_get($payload, 'scheduler_registration.status', 'unknown'));
         $this->components->twoColumnDetail('Registered commands', (string) data_get($payload, 'scheduler_registration.registered_command_count', 0));
         if (data_get($payload, 'scheduler_registration.skipped_reason') !== null) {
             $this->components->twoColumnDetail('Skipped reason', (string) data_get($payload, 'scheduler_registration.skipped_reason'));
         }
-        $this->components->twoColumnDetail('Emit proposals', ($payload['emit'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Emit proposals', YesNo::format($payload['emit'] ?? false));
 
         if (($payload['invalid_flows'] ?? []) !== []) {
             $this->components->warn('Invalid configured flows: '.implode(', ', $payload['invalid_flows']));
@@ -240,18 +241,18 @@ class AtlasAiSelfImproveCommand extends Command
         }
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Self-Improvement Schedule Health</>', (string) data_get($payload, 'health.status', 'unknown'));
-        $this->components->twoColumnDetail('Enabled', ($payload['enabled'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Enabled', YesNo::format($payload['enabled'] ?? false));
         $this->components->twoColumnDetail('Time', (string) $payload['time']);
         $this->components->twoColumnDetail('Flows', (string) $payload['flow_count']);
         $this->components->twoColumnDetail('Invalid flows', (string) $payload['invalid_flow_count']);
-        $this->components->twoColumnDetail('Defaulted', ($payload['defaulted'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Schedulable', ($payload['schedulable'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Defaulted', YesNo::format($payload['defaulted'] ?? false));
+        $this->components->twoColumnDetail('Schedulable', YesNo::format($payload['schedulable'] ?? false));
         $this->components->twoColumnDetail('Scheduler registration', (string) data_get($payload, 'scheduler_registration.status', 'unknown'));
         $this->components->twoColumnDetail('Registered commands', (string) data_get($payload, 'scheduler_registration.registered_command_count', 0));
         if (data_get($payload, 'scheduler_registration.skipped_reason') !== null) {
             $this->components->twoColumnDetail('Skipped reason', (string) data_get($payload, 'scheduler_registration.skipped_reason'));
         }
-        $this->components->twoColumnDetail('Emit proposals', ($payload['emit'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Emit proposals', YesNo::format($payload['emit'] ?? false));
 
         foreach ((array) data_get($payload, 'health.actions', []) as $action) {
             $this->line('- '.$action);

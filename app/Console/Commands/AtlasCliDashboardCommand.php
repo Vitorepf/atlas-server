@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cli\AtlasCliDashboardService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasCliDashboardCommand extends Command
 {
@@ -118,7 +119,7 @@ class AtlasCliDashboardCommand extends Command
 
         $this->section('Runtime');
         $this->components->twoColumnDetail('Permission default', (string) $runtime['default_permission']);
-        $this->components->twoColumnDetail('Danger allowed', ((bool) $runtime['danger_allowed']) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Danger allowed', YesNo::format((bool) $runtime['danger_allowed']));
         $this->components->twoColumnDetail('Allowed roots', $this->join($runtime['allowed_roots'] ?? []));
 
         $this->section('Workspace');

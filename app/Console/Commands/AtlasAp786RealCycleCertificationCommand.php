@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AP-786 real cycle certification + replay CLI.
@@ -84,7 +85,7 @@ final class AtlasAp786RealCycleCertificationCommand extends Command
 
         $this->components->twoColumnDetail('AP-786 cycle certification', (string) ($payload['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('Session', (string) ($payload['session_id'] ?? ''));
-        $this->components->twoColumnDetail('Replayable', ((bool) ($payload['session_replayable_from_jsonl'] ?? false)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Replayable', YesNo::format((bool) ($payload['session_replayable_from_jsonl'] ?? false)));
         $audit = (array) ($payload['three_cycle_audit'] ?? []);
         $this->components->twoColumnDetail(
             'Real cycles',

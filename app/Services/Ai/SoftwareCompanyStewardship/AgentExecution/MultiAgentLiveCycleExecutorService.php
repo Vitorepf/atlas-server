@@ -12,6 +12,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AP-801 · Multi-Agent Live Cycle Executor.
@@ -97,7 +98,7 @@ final class MultiAgentLiveCycleExecutorService
         $areaId = trim((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
         $sessionId = trim((string) ($input['session_id'] ?? ''));
-        $cycleId = trim((string) ($input['cycle_id'] ?? '')) ?: ('malc_'.substr(MissionCanonicalHash::sha256([$areaId, $focus, $sessionId, gmdate('c')]), 0, 14));
+        $cycleId = trim((string) ($input['cycle_id'] ?? '')) ?: ('malc_'.substr(MissionCanonicalHash::sha256([$areaId, $focus, $sessionId, UtcIsoTimestamp::now()]), 0, 14));
         $scopeProfile = strtolower(trim((string) ($input['scope_profile'] ?? 'balanced'))) ?: 'balanced';
         $executionReady = (bool) ($input['execute'] ?? false);
         $mode = $executionReady

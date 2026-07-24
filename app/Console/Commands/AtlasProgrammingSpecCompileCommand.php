@@ -7,6 +7,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Compile (and optionally critique + attach) a draft spec for a work item
@@ -70,7 +71,7 @@ class AtlasProgrammingSpecCompileCommand extends Command
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Spec compiled</>', $workItem->code);
             $this->components->twoColumnDetail('Critic status', (string) ($critique['status'] ?? 'n/a'));
             $this->components->twoColumnDetail('Blocking issues', (string) count($blockingIssues));
-            $this->components->twoColumnDetail('Attached', isset($payload['attach']) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Attached', issetYesNo::format($payload['attach']));
         }
 
         if ((bool) $this->option('strict') && $blockingIssues !== []) {

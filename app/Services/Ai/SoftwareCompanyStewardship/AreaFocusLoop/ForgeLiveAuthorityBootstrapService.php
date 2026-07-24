@@ -11,6 +11,7 @@ use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AP-789 · Forge Live Decide + AWIS Authority Bootstrap.
@@ -656,7 +657,7 @@ final class ForgeLiveAuthorityBootstrapService
                 'direct_provider_driver_used' => false,
                 'awis_readiness_required_for_mutative_execution' => true,
             ],
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
         ];
     }
 

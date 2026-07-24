@@ -11,6 +11,7 @@ use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
 use App\Services\Ai\Finance\StrategyLoop\MarketDataCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use App\Support\UtcIsoTimestamp;
 
 final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
 {
@@ -106,7 +107,7 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
             $completed[] = [
                 'selected' => $selection['meta'],
                 'search_exit_code' => $exit,
-                'completed_at' => gmdate('c'),
+                'completed_at' => UtcIsoTimestamp::now(),
             ];
             $payload = [
                 'schema_version' => 'atlas.finance.strategy_campaign_runner.v1',

@@ -11,6 +11,7 @@ use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasMemoryPrivacyCommand extends Command
 {
@@ -106,7 +107,7 @@ class AtlasMemoryPrivacyCommand extends Command
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Memory Privacy</>', (string) ($memory['id'] ?? '-'));
             $this->table(['field', 'value'], [
                 ['privacy', (string) ($memory['privacy_class'] ?? '-')],
-                ['external_ai_allowed', ((bool) ($memory['external_ai_allowed'] ?? false)) ? 'yes' : 'no'],
+                ['external_ai_allowed', YesNo::format((bool) ($memory['external_ai_allowed'] ?? false))],
                 ['redaction', (string) ($memory['redaction_status'] ?? '-')],
                 ['summary', Str::limit((string) ($memory['redacted_summary'] ?? $memory['summary'] ?? ''), 120)],
             ]);
@@ -122,9 +123,9 @@ class AtlasMemoryPrivacyCommand extends Command
             ['memory', 'changed', 'privacy', 'external_ai', 'redaction'],
             collect((array) ($scan['entries'] ?? []))->map(fn (array $row): array => [
                 $row['memory_entry_id'] ?? '-',
-                ((bool) ($row['changed'] ?? false)) ? 'yes' : 'no',
+                YesNo::format((bool) ($row['changed'] ?? false)),
                 data_get($row, 'after.privacy_class', '-'),
-                data_get($row, 'after.external_ai_allowed') ? 'yes' : 'no',
+                data_getYesNo::format($row, 'after.external_ai_allowed'),
                 data_get($row, 'after.redaction_status', '-'),
             ])->all(),
         );

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * Turns a raw search ledger into a scientific verdict. A null is not "nothing";
  * it is a research conclusion with strength, caveats, and next action.
@@ -107,7 +109,7 @@ final class StrategyCampaignReporter
 
         return [
             'schema_version' => 'atlas.finance.strategy_campaign_report.v1',
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'campaign_id' => $context['campaign_id'] ?? null,
             'symbol' => $context['symbol'] ?? null,
             'interval' => $context['interval'] ?? null,

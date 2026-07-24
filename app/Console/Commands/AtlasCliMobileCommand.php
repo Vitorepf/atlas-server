@@ -16,6 +16,7 @@ use App\Services\AuditLogService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasCliMobileCommand extends Command
 {
@@ -89,7 +90,7 @@ class AtlasCliMobileCommand extends Command
             $row['id'],
             $row['device_label'],
             $row['platform'],
-            $row['has_push_token'] ? 'yes' : 'no',
+            YesNo::format($row['has_push_token']),
             $row['last_seen_at'] ?? '-',
             $row['revoked_at'] ?? '-',
         ])->all());

@@ -2,7 +2,7 @@
 
 | area_id | status | notes |
 |---|---|---|
-| reuse | partial | helpers exist; **under-adoption** (YesNo ~306 residual, UtcIso ~85, percentile shells) |
+| reuse | partial | Wave A: YesNo/UtcIso mass adopted; shells inlined; EmitsCanonicalJson residual |
 | standardize | partial | naming honesty map in RESCAN-2; dual SC/aeos fronts open |
 | honesty | partial | loop CLI dead; speech/docs residual; Evolution/Aaeos collisions open |
 | operate_vs_legacy | partial | loop config still huge; Autonomos master alias incomplete |

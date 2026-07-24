@@ -6,6 +6,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Atlas Mission Control Cockpit Service — Phase 14 surface.
@@ -172,7 +173,7 @@ final class AtlasMissionControlCockpitService
             self::FIELD_OUTCOME_CAUSALITY => $this->outcomeCausalityFor($blockers, $gateReport),
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED => $signatureRequired,
             self::FIELD_PROVIDER_SAFE => true,
-            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_GENERATED_AT => UtcIsoTimestamp::now(),
         ];
         if ($queueHealth !== null) {
             $payload[self::FIELD_QUEUE_HEALTH] = $queueHealth;

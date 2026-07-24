@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Lineage\AtlasRollbackCascadeExecutor;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ASI-11 — cascade rollback executor CLI.
@@ -61,7 +62,7 @@ final class AtlasRollbackCascadeCommand extends Command
             $decisionId,
             $state,
             (int) ($result['reversed_count'] ?? 0),
-            $dryRun ? 'true' : 'false',
+            YesNo::trueFalse($dryRun),
         ));
 
         return self::SUCCESS;

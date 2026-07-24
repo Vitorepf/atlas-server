@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainGuardService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AOBG N2.F2 — `atlas:aobg:guard`: the SENTINEL's PreToolUse surface.
@@ -83,7 +84,7 @@ class AtlasAobgGuardCommand extends Command
             (string) ($verdict['path'] ?? ''),
             (string) ($verdict['workspace'] ?? ''),
             (string) ($verdict['decision'] ?? 'allow'),
-            ($verdict['block_enabled'] ?? false) ? 'yes' : 'no',
+            YesNo::format($verdict['block_enabled'] ?? false),
             (int) ($counts['reasons'] ?? 0),
             (int) ($counts['decisions'] ?? 0),
             (int) ($counts['duplicates'] ?? 0),

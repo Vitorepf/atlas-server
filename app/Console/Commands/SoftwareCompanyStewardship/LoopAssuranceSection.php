@@ -29,6 +29,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificatio
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TenCycleReadinessGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelopeService;
+use App\Support\YesNo;
 
 trait LoopAssuranceSection
 {
@@ -243,7 +244,7 @@ trait LoopAssuranceSection
             $gates = is_array($p['gates'] ?? null) ? $p['gates'] : [];
             $candidate = is_array($p['candidate'] ?? null) ? $p['candidate'] : [];
             $this->components->twoColumnDetail('Loop Preflight Firewall', (string) ($p['status'] ?? 'unknown'));
-            $this->components->twoColumnDetail('Provider allowed', ((bool) ($p['provider_allowed'] ?? false)) ? 'true' : 'false');
+            $this->components->twoColumnDetail('Provider allowed', YesNo::trueFalse((bool) ($p['provider_allowed'] ?? false)));
             $this->components->twoColumnDetail('Block status', (string) ($p['block_status'] ?? 'null'));
             $this->components->twoColumnDetail('Merge target', (string) ($p['merge_target'] ?? ''));
             $this->components->twoColumnDetail('Candidate finding', (string) ($candidate['finding_id'] ?? ''));
@@ -282,7 +283,7 @@ trait LoopAssuranceSection
             $this->components->twoColumnDetail('Chaos', (string) data_get($composed, 'chaos.status', ''));
             $this->components->twoColumnDetail('Resource', (string) data_get($composed, 'resource.status', ''));
             $this->components->twoColumnDetail('Critical Violations', (string) ($invariant['critical_violations'] ?? 0));
-            $this->components->twoColumnDetail('Blocks Long-Run', ((bool) ($p['blocks_long_run_readiness'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Blocks Long-Run', YesNo::format((bool) ($p['blocks_long_run_readiness'] ?? false)));
             $this->components->twoColumnDetail('Report Hash', (string) ($p['report_hash'] ?? ''));
         });
 
@@ -307,7 +308,7 @@ trait LoopAssuranceSection
             $this->components->twoColumnDetail('Faults', (string) ($p['fault_count'] ?? 0));
             $this->components->twoColumnDetail('Handled safely', (string) ($p['handled_safely_count'] ?? 0));
             $this->components->twoColumnDetail('False success', (string) count((array) ($p['false_success'] ?? [])));
-            $this->components->twoColumnDetail('Coverage complete', ((bool) data_get($p, 'profile_coverage.complete', false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Coverage complete', YesNo::format((bool) data_get($p, 'profile_coverage.complete', false)));
             $this->components->twoColumnDetail('Gates 24h', ((bool) ($p['gates_24h'] ?? false)) ? 'pass' : 'blocked');
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });
@@ -332,9 +333,9 @@ trait LoopAssuranceSection
             $this->components->twoColumnDetail('Status (band)', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Quality score (0..1)', (string) ($p['quality_score'] ?? 0));
             $this->components->twoColumnDetail('Quality floor', (string) ($p['floor'] ?? 0));
-            $this->components->twoColumnDetail('Meets quality floor', ((bool) ($p['meets_quality_floor'] ?? false)) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Counts as leap (salto)', ((bool) ($p['counts_as_leap'] ?? false)) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Real productive merge', ((bool) ($p['real_productive_merge'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Meets quality floor', YesNo::format((bool) ($p['meets_quality_floor'] ?? false)));
+            $this->components->twoColumnDetail('Counts as leap (salto)', YesNo::format((bool) ($p['counts_as_leap'] ?? false)));
+            $this->components->twoColumnDetail('Real productive merge', YesNo::format((bool) ($p['real_productive_merge'] ?? false)));
             $this->components->twoColumnDetail('Value summary', (string) ($p['value_summary'] ?? ''));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });
@@ -562,7 +563,7 @@ trait LoopAssuranceSection
             $this->components->twoColumnDetail('LHL-09 Backlog Depth Governor', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Depth', (string) ($p['depth'] ?? ($p['backlog_depth'] ?? 0)));
             $this->components->twoColumnDetail('Floor', (string) ($p['floor'] ?? 0));
-            $this->components->twoColumnDetail('Meets floor', ((bool) ($p['meets_floor'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Meets floor', YesNo::format((bool) ($p['meets_floor'] ?? false)));
             $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });
@@ -605,7 +606,7 @@ trait LoopAssuranceSection
 
         $this->emit($payload, function (array $p): void {
             $this->components->twoColumnDetail('LHL-12 Quality Drift Detector', (string) ($p['status'] ?? 'unknown'));
-            $this->components->twoColumnDetail('Drift detected', ((bool) ($p['drift_detected'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Drift detected', YesNo::format((bool) ($p['drift_detected'] ?? false)));
             $this->components->twoColumnDetail('Window', (string) ($p['window'] ?? ($p['window_size'] ?? 0)));
             $this->components->twoColumnDetail('Trend', (string) ($p['trend'] ?? ''));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
@@ -628,8 +629,8 @@ trait LoopAssuranceSection
         $this->emit($payload, function (array $p): void {
             $this->components->twoColumnDetail('LHL-13 Always-On Supervisor', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Liveness', (string) ($p['liveness'] ?? ($p['liveness_status'] ?? '')));
-            $this->components->twoColumnDetail('Stalled', ((bool) ($p['stalled'] ?? false)) ? 'yes' : 'no');
-            $this->components->twoColumnDetail('Restart needed', ((bool) ($p['restart_needed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Stalled', YesNo::format((bool) ($p['stalled'] ?? false)));
+            $this->components->twoColumnDetail('Restart needed', YesNo::format((bool) ($p['restart_needed'] ?? false)));
             $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });
@@ -699,7 +700,7 @@ trait LoopAssuranceSection
             $this->components->twoColumnDetail('LHL-17 Disaster Recovery Preflight', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Scenario', (string) ($p['scenario'] ?? ''));
             $this->components->twoColumnDetail('Checks', (string) count((array) ($p['checks'] ?? [])));
-            $this->components->twoColumnDetail('Recoverable', ((bool) ($p['recoverable'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Recoverable', YesNo::format((bool) ($p['recoverable'] ?? false)));
             $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });
@@ -722,7 +723,7 @@ trait LoopAssuranceSection
         $this->emit($payload, function (array $p): void {
             $this->components->twoColumnDetail('LHL-18 Process Isolation Status', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Horizon', (string) ($p['horizon'] ?? ''));
-            $this->components->twoColumnDetail('Isolated', ((bool) ($p['isolated'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Isolated', YesNo::format((bool) ($p['isolated'] ?? false)));
             $this->components->twoColumnDetail('Locks', (string) count((array) ($p['locks'] ?? [])));
             $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
         });

@@ -11,6 +11,7 @@ use App\Services\Ai\Hermes\HermesCapabilityRegistry;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Operator + automation surface for the Hermes Capability Registry keystone.
@@ -204,7 +205,7 @@ class AtlasHermesCapabilitiesCommand extends Command
         $this->components->twoColumnDetail('schema', (string) ($manifest['schema_version'] ?? ''));
         $this->components->twoColumnDetail('hermes version', (string) ($manifest['hermes_version'] ?? '[unknown]'));
         $this->components->twoColumnDetail('probe status', (string) ($manifest['probe_status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('binary present', ($manifest['binary_present'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('binary present', YesNo::format($manifest['binary_present'] ?? false));
         $this->components->twoColumnDetail('entries', (string) count($entries));
         $this->components->twoColumnDetail('written', $registryReceipt !== null ? 'yes' : 'no (read-only)');
 
@@ -233,8 +234,8 @@ class AtlasHermesCapabilitiesCommand extends Command
                     (string) ($entry['capability_class'] ?? ''),
                     Str::limit((string) ($entry['capability_key'] ?? ''), 32),
                     (string) ($entry['hermes_token'] ?? '—'),
-                    ($entry['supported'] ?? false) ? 'yes' : 'no',
-                    ($entry['requires_config'] ?? false) ? 'yes' : 'no',
+                    YesNo::format($entry['supported'] ?? false),
+                    YesNo::format($entry['requires_config'] ?? false),
                 ])
                 ->all(),
         );
@@ -259,7 +260,7 @@ class AtlasHermesCapabilitiesCommand extends Command
                     (string) ($entry['capability_class'] ?? ''),
                     Str::limit((string) ($entry['capability_key'] ?? ''), 40),
                     (string) ($entry['hermes_token'] ?? '—'),
-                    ($entry['supported'] ?? false) ? 'yes' : 'no',
+                    YesNo::format($entry['supported'] ?? false),
                 ])
                 ->all(),
         );

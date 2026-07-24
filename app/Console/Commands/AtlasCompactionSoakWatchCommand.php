@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasCompactionSoakWatchCommand extends Command
 {
@@ -22,7 +23,7 @@ final class AtlasCompactionSoakWatchCommand extends Command
             $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } else {
             $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
-            $this->components->twoColumnDetail('ready_to_enforce', ((bool) ($payload['ready_to_enforce'] ?? false)) ? 'true' : 'false');
+            $this->components->twoColumnDetail('ready_to_enforce', YesNo::trueFalse((bool) ($payload['ready_to_enforce'] ?? false)));
             $this->components->twoColumnDetail('compaction_count', (string) data_get($payload, 'window.compaction_count', 0));
         }
 

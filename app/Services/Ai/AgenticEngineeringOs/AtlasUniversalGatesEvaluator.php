@@ -29,6 +29,7 @@ use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AAEOS/AEOS universal gates façade (TRI-HYGIENE slim).
@@ -113,7 +114,7 @@ final class AtlasUniversalGatesEvaluator
             'outcome' => $outcome,
             'pass_rate' => $required === [] ? 0.0 : round((count($passed) + count($exception)) / count($required), 4),
             'provider_safe' => true,
-            'evaluated_at' => gmdate('c'),
+            'evaluated_at' => UtcIsoTimestamp::now(),
         ];
         $report['report_hash'] = 'sha256:'.hash('sha256', json_encode([
             $report['intent_id'],

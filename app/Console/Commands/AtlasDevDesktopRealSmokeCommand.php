@@ -15,6 +15,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Throwable;
+use App\Support\YesNo;
 
 final class AtlasDevDesktopRealSmokeCommand extends Command
 {
@@ -278,7 +279,7 @@ PHP);
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
         } else {
             $this->components->twoColumnDetail('Atlas Dev Desktop real smoke', (string) ($payload['status'] ?? 'unknown'));
-            $this->components->twoColumnDetail('External provider call', ($payload['external_provider_call'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('External provider call', YesNo::format($payload['external_provider_call'] ?? false));
             if (isset($payload['run_id'])) {
                 $this->components->twoColumnDetail('Run ID', (string) $payload['run_id']);
             }

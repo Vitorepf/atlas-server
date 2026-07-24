@@ -9,6 +9,7 @@ use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Atlas Self-Improvement Before/After Delta Scorecard CLI.
@@ -84,6 +85,6 @@ final class AtlasSelfImprovementBeforeAfterCommand extends Command
         $this->components->twoColumnDetail('schema_version', (string) ($payload['schema_version'] ?? '—'));
         $this->components->twoColumnDetail('recommendation', (string) ($payload['recommendation'] ?? '—'));
         $this->components->twoColumnDetail('weighted_delta', (string) ($payload['weighted_delta'] ?? '—'));
-        $this->components->twoColumnDetail('hard_regression', $payload['hard_regression_detected'] ? 'yes' : 'no');
+        $this->components->twoColumnDetail('hard_regression', YesNo::format($payload['hard_regression_detected']));
     }
 }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\LongHorizon\AtlasTeosRuntimeSmokeService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasTeosRuntimeSmokeCommand extends Command
 {
@@ -30,7 +31,7 @@ final class AtlasTeosRuntimeSmokeCommand extends Command
         } else {
             $this->line('<info>Atlas TEOS Runtime Smoke</info>');
             $this->line('Status: <comment>'.($payload['status'] ?? 'unknown').'</comment>');
-            $this->line('Writes: <comment>'.(($payload['writes'] ?? false) ? 'yes' : 'no').'</comment>');
+            $this->line('Writes: <comment>'.(YesNo::format($payload['writes'] ?? false)).'</comment>');
             $this->line('Smoke hash: <comment>'.($payload['smoke_hash'] ?? 'missing').'</comment>');
             $this->line('Final certification: <comment>'.data_get($payload, 'final_certification.status', 'n/a').'</comment>');
         }

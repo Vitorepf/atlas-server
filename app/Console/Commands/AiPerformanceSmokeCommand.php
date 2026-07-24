@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
+use App\Support\YesNo;
 
 class AiPerformanceSmokeCommand extends Command
 {
@@ -182,7 +183,7 @@ class AiPerformanceSmokeCommand extends Command
             return $exitCode;
         }
 
-        $this->line('ok='.(($payload['ok'] ?? false) ? 'true' : 'false').' date='.($payload['report_date'] ?? '-').' timezone='.($payload['timezone'] ?? '-'));
+        $this->line('ok='.(YesNo::trueFalse($payload['ok'] ?? false)).' date='.($payload['report_date'] ?? '-').' timezone='.($payload['timezone'] ?? '-'));
         foreach ((array) ($payload['warnings'] ?? []) as $warning) {
             $this->warn('warning='.$warning);
         }

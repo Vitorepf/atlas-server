@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Engineering\AtlasDocumentationRealityCompletenessService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * ADRS RUNTIME COMPLETENESS — read-only, honest, DISAMBIGUATED completeness check.
@@ -82,7 +83,7 @@ class AtlasDocumentationRealityCompletenessCommand extends Command
         // Verdict — never claims the asymptote, never folds grounded in.
         $this->newLine();
         $verdict = (array) ($payload['verdict'] ?? []);
-        $this->components->twoColumnDetail('<options=bold>VERDICT runtime_complete</>', ($verdict['runtime_complete'] ?? false) ? 'true' : 'false');
+        $this->components->twoColumnDetail('<options=bold>VERDICT runtime_complete</>', YesNo::trueFalse($verdict['runtime_complete'] ?? false));
         $this->components->twoColumnDetail('verdict claims asymptote', ($verdict['claims_asymptote'] ?? true) ? 'TRUE (BUG)' : 'false');
         $this->components->twoColumnDetail('verdict folds grounded into completeness', ($verdict['folds_grounded_into_completeness'] ?? true) ? 'TRUE (BUG)' : 'false');
         $this->line('  '.(string) ($verdict['statement'] ?? ''));

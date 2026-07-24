@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * ACOS Excellence ROL-01 — read-only rollback trigger check for EVI-01 / WDG-01.
@@ -40,7 +41,7 @@ final class AtlasAcosRollbackTriggerCheckCommand extends Command
             ));
         } else {
             $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? '?'));
-            $this->components->twoColumnDetail('alert', ($payload['alert'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('alert', YesNo::format($payload['alert'] ?? false));
             $this->components->twoColumnDetail('flip_count', (string) ($payload['flip_count'] ?? 0));
             $this->components->twoColumnDetail('alerts', (string) count($payload['alerts'] ?? []));
         }

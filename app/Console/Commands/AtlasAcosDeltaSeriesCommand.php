@@ -13,6 +13,7 @@ use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * L3-14 / EVI-09 — série temporal append-only do ACOS (ex campanha Fable).
@@ -370,7 +371,7 @@ class AtlasAcosDeltaSeriesCommand extends Command
     private function stringify(mixed $value): string
     {
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return YesNo::trueFalse($value);
         }
         if (is_array($value)) {
             return (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasRetrievalPrivacyTrustLayerService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasRetrievalPrivacyTrustLayerCommand extends Command
 {
@@ -38,7 +39,7 @@ final class AtlasRetrievalPrivacyTrustLayerCommand extends Command
         $this->components->twoColumnDetail('Atlas Retrieval Privacy Trust', (string) $payload['schema_version']);
         $this->components->twoColumnDetail('Status', (string) $payload['status']);
         $this->components->twoColumnDetail('Classification', (string) data_get($payload, 'provider_gate.classification', 'unknown'));
-        $this->components->twoColumnDetail('Provider allowed', data_get($payload, 'provider_gate.provider_allowed') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Provider allowed', data_getYesNo::format($payload, 'provider_gate.provider_allowed'));
         $this->components->twoColumnDetail('Redactions', (string) data_get($payload, 'redaction_receipt.redaction_count', 0));
 
         return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;

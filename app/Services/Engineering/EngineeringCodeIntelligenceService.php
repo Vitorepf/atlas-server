@@ -253,16 +253,12 @@ class EngineeringCodeIntelligenceService
             return;
         }
 
-        if ($this->memoryLimitToBytes($current) < 1024 * 1024 * 1024) {
+        if (MemoryLimitBytes::parse($current) < 1024 * 1024 * 1024) {
             ini_set('memory_limit', '1024M');
         }
     }
 
 
-    private function memoryLimitToBytes(string $value): int
-    {
-        return MemoryLimitBytes::parse($value);
-    }
 
 
     /**

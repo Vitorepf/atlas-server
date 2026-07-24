@@ -11,6 +11,7 @@ use App\Services\Ai\Finance\StrategyLoop\Strategy\MeanReversionStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\MomentumStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\StrategyRunner;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendBreakoutStrategy;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Dry adversarial audit for the strategy campaign platform.
@@ -51,7 +52,7 @@ final class StrategyLoopAdversarialAudit
 
         return [
             'schema_version' => 'atlas.finance.strategy_loop_adversarial_audit.v1',
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'status' => $passed ? 'pass' : 'fail',
             'score' => [
                 'passed' => count(array_filter($checks, static fn (array $check): bool => (bool) $check['passed'])),

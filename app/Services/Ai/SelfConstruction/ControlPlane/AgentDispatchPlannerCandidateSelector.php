@@ -131,9 +131,9 @@ final class AgentDispatchPlannerCandidateSelector
         $scored = [];
         foreach ($candidateTasks as $task) {
             $id              = $this->scalarString($task['task_packet_id'] ?? '');
-            $valueDensity    = $this->clamp01((float) ($task['value_density']    ?? 0.5));
-            $implementability = $this->clamp01((float) ($task['implementability'] ?? 0.5));
-            $freshness       = $this->clamp01((float) ($task['freshness']        ?? 0.5));
+            $valueDensity    = Clamp01::of((float) ($task['value_density']    ?? 0.5));
+            $implementability = Clamp01::of((float) ($task['implementability'] ?? 0.5));
+            $freshness       = Clamp01::of((float) ($task['freshness']        ?? 0.5));
             $requiredCaps    = (array) ($task['required_capabilities'] ?? []);
             $workerFit       = $workerCapabilities === [] || $requiredCaps === []
                 ? 0.5
@@ -182,10 +182,6 @@ final class AgentDispatchPlannerCandidateSelector
         ];
     }
 
-    private function clamp01(float $v): float
-    {
-        return Clamp01::of($v);
-    }
 
     /**
      * @return list<array<string, mixed>>

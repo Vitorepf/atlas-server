@@ -14,6 +14,7 @@ use App\Services\Ai\RouterRuntime\RouterRuntimeReadinessService;
 use App\Services\Ai\RouterRuntime\RuntimeDispatchService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiRouterRuntimeCommand extends Command
 {
@@ -84,7 +85,7 @@ class AtlasAiRouterRuntimeCommand extends Command
         $payload = $readiness->report();
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
             $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
             foreach ($payload['checks'] as $check) {

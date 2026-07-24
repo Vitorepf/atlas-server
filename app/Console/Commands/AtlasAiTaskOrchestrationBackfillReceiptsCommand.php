@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\YesNo;
 
 class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
 {
@@ -214,7 +215,7 @@ class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
         $report = (array) ($payload['task_orchestration_backfill'] ?? []);
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Task Receipt Backfill</>', (string) ($payload['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('Hours', (string) ($payload['hours'] ?? '-'));
-        $this->components->twoColumnDetail('Dry run', ((bool) ($report['dry_run'] ?? true)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Dry run', YesNo::format((bool) ($report['dry_run'] ?? true)));
         $this->components->twoColumnDetail('Events', (string) ($report['event_count'] ?? 0));
         $this->components->twoColumnDetail('Repairs', (string) ($report['repair_count'] ?? 0));
 

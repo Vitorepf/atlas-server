@@ -11,6 +11,7 @@ use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 use RuntimeException;
+use App\Support\YesNo;
 
 /**
  * Relatório empresarial consolidado Fase A — sempre 10 suites, nunca claim agregado.
@@ -538,10 +539,10 @@ class EnterpriseReportBuilder
                 $row['delivery']['uplift_family'] ?? null,
                 ($cov['native_observed'] ?? 0).'/'.($cov['native_expected'] ?? 0),
                 ($cov['report_observed'] ?? 0).'/'.($cov['report_expected'] ?? 0),
-                ($row['pipeline_valid'] ?? false) ? 'true' : 'false',
-                ($row['internal_claim_allowed'] ?? false) ? 'true' : 'false',
-                ($row['events_complete'] ?? false) ? 'true' : 'false',
-                ($row['is_atlas_fact'] ?? false) ? 'true' : 'false',
+                YesNo::trueFalse($row['pipeline_valid'] ?? false),
+                YesNo::trueFalse($row['internal_claim_allowed'] ?? false),
+                YesNo::trueFalse($row['events_complete'] ?? false),
+                YesNo::trueFalse($row['is_atlas_fact'] ?? false),
                 $axes['measurement']['status'] ?? '',
                 implode('|', (array) ($row['missing_fields'] ?? [])),
                 implode('|', (array) ($row['case_ids'] ?? [])),

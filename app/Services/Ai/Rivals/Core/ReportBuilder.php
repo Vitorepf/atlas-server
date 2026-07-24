@@ -5,6 +5,7 @@ namespace App\Services\Ai\Rivals\Core;
 use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
+use App\Support\YesNo;
 
 /**
  * Report multi-eixo por task_type × arm. Sem best overall / média global.
@@ -510,14 +511,14 @@ class ReportBuilder
         if (! ($report['internal_claim_allowed'] ?? false)) {
             $md .= "NOT READY FOR PRODUCTION CLAIM\n\n";
         }
-        $md .= 'pipeline_valid: '.(($report['pipeline_valid'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'pipeline_valid: '.(YesNo::trueFalse($report['pipeline_valid'] ?? false))."\n";
         $md .= 'claim_tier: '.($report['claim_tier'] ?? ClaimTier::HARNESS)."\n";
-        $md .= 'internal_claim_allowed: '.(($report['internal_claim_allowed'] ?? false) ? 'true' : 'false')."\n";
-        $md .= 'public_claim_allowed: '.(($report['public_claim_allowed'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'internal_claim_allowed: '.(YesNo::trueFalse($report['internal_claim_allowed'] ?? false))."\n";
+        $md .= 'public_claim_allowed: '.(YesNo::trueFalse($report['public_claim_allowed'] ?? false))."\n";
         $md .= 'report_hash: '.($report['report_hash'] ?? 'missing')."\n";
-        $md .= 'statistical_adequacy: '.(($report['statistical_analysis']['adequate'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'statistical_adequacy: '.(YesNo::trueFalse($report['statistical_analysis']['adequate'] ?? false))."\n";
         $md .= 'difficulty_band: '.($report['difficulty_band'] ?? 'uncalibrated')."\n";
-        $md .= 'claim_allowed: '.($report['claim_allowed'] ? 'true' : 'false')."\n";
+        $md .= 'claim_allowed: '.(YesNo::trueFalse($report['claim_allowed']))."\n";
         if (($report['not_ready_reasons'] ?? []) !== []) {
             $md .= "not_ready_reasons:\n".implode("\n", array_map(
                 fn ($b) => '- '.$b,
@@ -534,7 +535,7 @@ class ReportBuilder
 
         $stats = (array) ($report['statistical_analysis'] ?? []);
         $md .= "\n## Statistical analysis\n\n";
-        $md .= '- adequate: '.(($stats['adequate'] ?? false) ? 'true' : 'false')."\n";
+        $md .= '- adequate: '.(YesNo::trueFalse($stats['adequate'] ?? false))."\n";
         if (($stats['blockers'] ?? []) !== []) {
             $md .= '- blockers: '.implode(', ', (array) $stats['blockers'])."\n";
         }
@@ -545,7 +546,7 @@ class ReportBuilder
         if (is_array($report['uplift'] ?? null)) {
             $uplift = $report['uplift'];
             $md .= "\n## Uplift\n\n";
-            $md .= '- uplift_supported: '.(($uplift['uplift_supported'] ?? false) ? 'true' : 'false')."\n";
+            $md .= '- uplift_supported: '.(YesNo::trueFalse($uplift['uplift_supported'] ?? false))."\n";
             $md .= '- uplift_kind: '.($uplift['uplift_kind'] ?? 'n/a')."\n";
             $md .= '- model_id: '.($uplift['model_id'] ?? 'n/a')."\n";
             if (($uplift['claim_blockers'] ?? []) !== []) {
@@ -628,9 +629,9 @@ class ReportBuilder
             fputcsv($handle, [
                 $report['run_id'],
                 $report['claim_tier'],
-                ($report['pipeline_valid'] ?? false) ? 'true' : 'false',
-                ($report['internal_claim_allowed'] ?? false) ? 'true' : 'false',
-                ($report['public_claim_allowed'] ?? false) ? 'true' : 'false',
+                YesNo::trueFalse($report['pipeline_valid'] ?? false),
+                YesNo::trueFalse($report['internal_claim_allowed'] ?? false),
+                YesNo::trueFalse($report['public_claim_allowed'] ?? false),
                 $row['task_type'],
                 $row['arm_id'],
                 $row['planned_attempts'],

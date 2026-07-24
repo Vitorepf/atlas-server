@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Append-only store for {@see AtlasBrainCycleCapsule} records — one JSONL per scope slug under
@@ -36,7 +37,7 @@ final class AtlasBrainCycleCapsuleLedger
         if ($capsule === null) {
             return null;
         }
-        AppendOnlyJsonlStore::append($this->path(), ['recorded_at' => gmdate('c')] + $capsule);
+        AppendOnlyJsonlStore::append($this->path(), ['recorded_at' => UtcIsoTimestamp::now()] + $capsule);
 
         return $capsule;
     }

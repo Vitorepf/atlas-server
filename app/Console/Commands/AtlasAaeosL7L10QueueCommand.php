@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\L7L10QueueConsumer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use App\Support\YesNo;
 
 /**
  * Governed L7-L10 queue consumer CLI (operator mandate, 2026-06-01).
@@ -98,7 +99,7 @@ final class AtlasAaeosL7L10QueueCommand extends Command
             $this->components->twoColumnDetail('  '.$level, (string) $count);
         }
         $this->components->twoColumnDetail('Total', (string) ($payload['total'] ?? 0));
-        $this->components->twoColumnDetail('Matches expected', ((bool) ($payload['matches_expected'] ?? false)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Matches expected', YesNo::format((bool) ($payload['matches_expected'] ?? false)));
         foreach (array_slice((array) ($payload['bad'] ?? []), 0, 10) as $bad) {
             $this->warn('  bad: '.(string) $bad);
         }

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryReadinessManifest;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasEngineeringQualityFoundryReadinessCommand extends Command
 {
@@ -33,7 +34,7 @@ final class AtlasEngineeringQualityFoundryReadinessCommand extends Command
 
         $this->line('[atlas:engineering:quality-foundry-readiness] status='.$payload['status']);
         $this->line('  open_items='.$payload['summary']['open_items']);
-        $this->line('  completion_allowed='.($payload['completion_allowed'] ? 'true' : 'false'));
+        $this->line('  completion_allowed='.(YesNo::trueFalse($payload['completion_allowed'])));
 
         return self::SUCCESS;
     }

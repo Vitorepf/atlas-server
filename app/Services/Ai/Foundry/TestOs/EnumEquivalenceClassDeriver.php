@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Foundry\TestOs;
 
 use InvalidArgumentException;
+use App\Support\YesNo;
 
 final class EnumEquivalenceClassDeriver
 {
@@ -107,7 +108,7 @@ final class EnumEquivalenceClassDeriver
         }
 
         if (is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return YesNo::trueFalse($value);
         }
 
         if ($value === null) {

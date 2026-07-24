@@ -8,6 +8,7 @@ use App\Services\Ai\Scheduling\ScheduleParser;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\YesNo;
 
 class AtlasAiLongRunningWorkDeclareBaselineCommand extends Command
 {
@@ -262,9 +263,9 @@ TXT;
         }
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Long-Running Baseline</>', (string) ($payload['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Writes', ($payload['writes'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Dispatches jobs', ($payload['dispatches_jobs'] ?? false) ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Enabled', data_get($payload, 'baseline_schedule.enabled') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes'] ?? false));
+        $this->components->twoColumnDetail('Dispatches jobs', YesNo::format($payload['dispatches_jobs'] ?? false));
+        $this->components->twoColumnDetail('Enabled', data_getYesNo::format($payload, 'baseline_schedule.enabled'));
         $this->components->twoColumnDetail('Schedule', (string) data_get($payload, 'baseline_schedule.schedule', self::SCHEDULE));
 
         return $exitCode;

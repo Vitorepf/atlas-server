@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Architecture\AtlasQualitativeLevelsReadModel;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiQualitativeLevelsCommand extends Command
 {
@@ -34,7 +35,7 @@ class AtlasAiQualitativeLevelsCommand extends Command
         $this->components->twoColumnDetail('Label', (string) $report['current_level_label']);
         $this->components->twoColumnDetail('Next level', (string) $report['next_level']);
         $this->components->twoColumnDetail('Evidence events', (string) data_get($report, 'evidence.evidence_ledger.event_count', 0));
-        $this->components->twoColumnDetail('Read model only', ((bool) data_get($report, 'rules.read_model_only')) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Read model only', YesNo::format((bool) data_get($report, 'rules.read_model_only')));
 
         $this->table(
             ['gate', 'status', 'reason'],

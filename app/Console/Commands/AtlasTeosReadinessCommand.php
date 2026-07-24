@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\LongHorizon\AtlasTeosReadinessCertificationService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Atlas TEOS readiness CLI.
@@ -64,9 +65,9 @@ final class AtlasTeosReadinessCommand extends Command
         $this->line('Status: <comment>'.($payload['status'] ?? 'unknown').'</comment>');
         $this->line('External claim: <comment>'.($payload['external_claim_status'] ?? 'unknown').'</comment>');
         $this->line('Provider calls made: <comment>'
-            .((bool) ($payload['provider_calls_made'] ?? true) ? 'true' : 'false').'</comment>');
+            .((bool) YesNo::trueFalse($payload['provider_calls_made'] ?? true)).'</comment>');
         $this->line('Atlas Decide topology modified: <comment>'
-            .((bool) ($payload['atlas_decide_topology_modified'] ?? true) ? 'true' : 'false').'</comment>');
+            .((bool) YesNo::trueFalse($payload['atlas_decide_topology_modified'] ?? true)).'</comment>');
         $this->line('Summary: '.json_encode($payload['summary'] ?? [], JSON_UNESCAPED_SLASHES));
         $this->newLine();
         foreach ((array) ($payload['checks'] ?? []) as $check) {

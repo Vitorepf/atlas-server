@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFligh
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightStepValidator;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Operator-facing FACT surface over the AAEL in-flight subsystem.
@@ -141,7 +142,7 @@ final class AtlasAaelInFlightCommand extends Command
             return 'null';
         }
         if (is_bool($v)) {
-            return $v ? 'true' : 'false';
+            return YesNo::trueFalse($v);
         }
 
         return is_scalar($v) ? (string) $v : (string) json_encode($v, JSON_UNESCAPED_SLASHES);

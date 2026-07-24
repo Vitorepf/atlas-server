@@ -97,6 +97,7 @@ use Throwable;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Provider call result composition + provider budget limits.
@@ -206,7 +207,7 @@ final class ProviderResultSupport
                     'index' => max(1, $index),
                     'output_hash' => hash('sha256', $output),
                     'combined_output' => $output,
-                    'recorded_at' => gmdate('c'),
+                    'recorded_at' => UtcIsoTimestamp::now(),
                 ])['path'];
             }
         };

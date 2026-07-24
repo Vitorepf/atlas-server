@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * Persistent holdout registry. Campaign-local files are not enough: the same
  * sealed slice can be re-opened by many campaigns and silently stop being fresh.
@@ -34,7 +36,7 @@ final class HoldoutRegistry
             return $existing + $record;
         }
 
-        $now = gmdate('c');
+        $now = UtcIsoTimestamp::now();
         $stored = $record + [
             'reuse_count' => 0,
             'status' => (string) ($record['role'] ?? '') === 'confirmation'
@@ -63,7 +65,7 @@ final class HoldoutRegistry
         $reuseCount = max(0, (int) ($holdout['reuse_count'] ?? 0)) + 1;
         $holdout['reuse_count'] = $reuseCount;
         $holdout['max_reuse'] = $maxReuse;
-        $holdout['last_used_at'] = gmdate('c');
+        $holdout['last_used_at'] = UtcIsoTimestamp::now();
         $holdout['status'] = $reuseCount >= $maxReuse
             ? StrategyCampaignStore::HOLDOUT_EXHAUSTED
             : StrategyCampaignStore::HOLDOUT_ACTIVE;
@@ -75,7 +77,7 @@ final class HoldoutRegistry
         $holdout['last_event'] = $event;
 
         $registry['holdouts'][$holdoutId] = $holdout;
-        $registry['updated_at'] = gmdate('c');
+        $registry['updated_at'] = UtcIsoTimestamp::now();
         $this->save($registry);
     }
 
@@ -120,8 +122,8 @@ final class HoldoutRegistry
         if (! is_file($this->path)) {
             return [
                 'schema_version' => 'atlas.finance.holdout_registry.v1',
-                'created_at' => gmdate('c'),
-                'updated_at' => gmdate('c'),
+                'created_at' => UtcIsoTimestamp::now(),
+                'updated_at' => UtcIsoTimestamp::now(),
                 'holdouts' => [],
             ];
         }

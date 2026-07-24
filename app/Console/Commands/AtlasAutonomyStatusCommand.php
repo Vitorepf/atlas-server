@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Obra #14 H3.2 — read-only autonomy tier status per registered area + chain readiness.
@@ -42,10 +43,10 @@ class AtlasAutonomyStatusCommand extends Command
         $r = $payload['readiness'];
         $this->components->twoColumnDetail('Chain readiness', sprintf(
             'implemented=%s audited=%s tier=%d operator_signed=%s',
-            $r['implemented'] ? 'yes' : 'no',
-            $r['audited'] ? 'yes' : 'no',
+            YesNo::format($r['implemented']),
+            YesNo::format($r['audited']),
             $r['tier'],
-            $r['operator_signed'] ? 'yes' : 'no',
+            YesNo::format($r['operator_signed']),
         ));
 
         return self::SUCCESS;

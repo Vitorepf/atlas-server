@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\Spine\AaeosEngineeringSpine;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Read-only AAEOS scorecard for GOD/SOTA certification.
@@ -41,7 +42,7 @@ final class AaeosScorecardProjector
 
         return [
             'schema' => self::SCHEMA,
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'org' => $this->org->project(),
             'spine_sample' => $this->spine->contractForMode(AaeosExecutorMode::AUTONOMOS),
             'quarantine_production_imports' => $quarantineImports,

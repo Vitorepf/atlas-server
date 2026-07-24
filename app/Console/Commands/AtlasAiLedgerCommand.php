@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Evidence\KernelLedgerEnvelopeReportService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiLedgerCommand extends Command
 {
@@ -113,7 +114,7 @@ class AtlasAiLedgerCommand extends Command
                     $event['status'] ?? '-',
                     $event['strategy'] ?? '-',
                     $event['failure_domain'] ?? '-',
-                    ($event['repair_executed'] ?? false) ? 'yes' : 'no',
+                    YesNo::format($event['repair_executed'] ?? false),
                     $event['occurred_at'] ?? '-',
                 ])
                 ->all();

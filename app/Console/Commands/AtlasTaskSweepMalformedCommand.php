@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Maintenance front door for old malformed task-serving backlog. It uses the same packet-quality inspector as
@@ -43,7 +44,7 @@ class AtlasTaskSweepMalformedCommand extends Command
 
         $this->line('');
         $this->line('  <fg=cyan>TASK-SERVING MALFORMED SWEEP</>');
-        $this->line('  dry_run='.($result['dry_run'] ? 'yes' : 'no').'  inspected='.$result['inspected_claimable'].'  blocked='.$result['blocked_count'].'  would_block='.$result['would_block_count']);
+        $this->line('  dry_run='.(YesNo::format($result['dry_run'])).'  inspected='.$result['inspected_claimable'].'  blocked='.$result['blocked_count'].'  would_block='.$result['would_block_count']);
         $items = array_slice((array) ($result['dry_run'] ? $result['would_block'] : $result['blocked']), 0, 25);
         foreach ($items as $item) {
             $this->line('    - '.$item['task_packet_id'].' ['.implode(',', (array) ($item['blocking_deficiencies'] ?? [])).']');

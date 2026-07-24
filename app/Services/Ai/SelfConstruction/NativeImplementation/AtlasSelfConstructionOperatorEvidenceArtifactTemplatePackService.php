@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
  * never signs, never calls providers.
  */
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Support\YesNo;
 
 final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
 {
@@ -641,8 +642,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
             '- **status**: `'.((string) data_get($bundle, 'status', '')).'`',
             '- **artifact_count**: `'.((string) data_get($bundle, 'artifact_count', 0)).'`',
             '- **recommended_directory**: `'.((string) data_get($bundle, 'recommended_directory', '')).'`',
-            '- **can_write_files_from_template_pack**: `'.(((bool) data_get($bundle, 'can_write_files_from_template_pack', false)) ? 'true' : 'false').'`',
-            '- **can_persist_from_template_pack**: `'.(((bool) data_get($bundle, 'can_persist_from_template_pack', false)) ? 'true' : 'false').'`',
+            '- **can_write_files_from_template_pack**: `'.(YesNo::trueFalse((bool) data_get($bundle, 'can_write_files_from_template_pack', false))).'`',
+            '- **can_persist_from_template_pack**: `'.(YesNo::trueFalse((bool) data_get($bundle, 'can_persist_from_template_pack', false))).'`',
             '',
             '## Artifact Sequence',
             '',
@@ -688,8 +689,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **submission_preflight_status**: `'.((string) data_get($bundle, 'submission_preflight_status', '')).'`';
         $lines[] = '- **submission_preflight_hash**: `'.((string) data_get($bundle, 'submission_preflight_hash', '')).'`';
         $lines[] = '- **next_required_submission**: `'.((string) data_get($bundle, 'next_required_submission', '')).'`';
-        $lines[] = '- **operator_must_follow_order**: `'.(((bool) data_get($bundle, 'operator_must_follow_order', false)) ? 'true' : 'false').'`';
-        $lines[] = '- **parallel_submission_allowed**: `'.(((bool) data_get($bundle, 'parallel_submission_allowed', false)) ? 'true' : 'false').'`';
+        $lines[] = '- **operator_must_follow_order**: `'.(YesNo::trueFalse((bool) data_get($bundle, 'operator_must_follow_order', false))).'`';
+        $lines[] = '- **parallel_submission_allowed**: `'.(YesNo::trueFalse((bool) data_get($bundle, 'parallel_submission_allowed', false))).'`';
         $lines[] = '- **final_success_predicate**: `'.((string) data_get($bundle, 'final_success_predicate', '')).'`';
         $lines[] = '';
         $lines[] = '## Completion Audit Blocker Summary';
@@ -716,7 +717,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **schema_version**: `'.((string) data_get($bundle, 'operator_next_action.schema_version', '')).'`';
         $lines[] = '- **current_step**: `'.((string) data_get($bundle, 'operator_next_action.current_step', '')).'`';
         $lines[] = '- **next_required_submission**: `'.((string) data_get($bundle, 'operator_next_action.next_required_submission', '')).'`';
-        $lines[] = '- **can_run_automatically**: `'.(((bool) data_get($bundle, 'operator_next_action.can_run_automatically', false)) ? 'true' : 'false').'`';
+        $lines[] = '- **can_run_automatically**: `'.(YesNo::trueFalse((bool) data_get($bundle, 'operator_next_action.can_run_automatically', false))).'`';
         $lines[] = '- **why_not_automatic**: `'.((string) data_get($bundle, 'operator_next_action.why_not_automatic', '')).'`';
         $lines[] = '- **operator_next_action_hash**: `'.((string) data_get($bundle, 'operator_next_action.operator_next_action_hash', '')).'`';
         $lines[] = '';
@@ -747,8 +748,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **current_blocker_count**: `'.((string) data_get($bundle, 'operator_handoff_packet.current_blocker_count', 0)).'`';
         $lines[] = '- **handoff_packet_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.handoff_packet_hash', '')).'`';
         $lines[] = '- **resumption_checkpoint_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.resumption_checkpoint_hash', '')).'`';
-        $lines[] = '- **can_resume_without_chat_history**: `'.((bool) data_get($bundle, 'operator_handoff_packet.can_resume_without_chat_history', false) ? 'true' : 'false').'`';
-        $lines[] = '- **requires_fresh_preflight_before_persist**: `'.((bool) data_get($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist', false) ? 'true' : 'false').'`';
+        $lines[] = '- **can_resume_without_chat_history**: `'.((bool) data_getYesNo::trueFalse($bundle, 'operator_handoff_packet.can_resume_without_chat_history', false)).'`';
+        $lines[] = '- **requires_fresh_preflight_before_persist**: `'.((bool) data_getYesNo::trueFalse($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist', false)).'`';
         $lines[] = '';
         $lines[] = '**Required operator inputs for current step**';
         foreach ((array) data_get($bundle, 'operator_handoff_packet.required_operator_inputs', []) as $input) {
@@ -791,7 +792,7 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         foreach ((array) data_get($bundle, 'operator_execution_plan.ordered_command_queue', []) as $step) {
             $lines[] = '### `'.((string) data_get($step, 'id', '')).'`';
             $lines[] = '- **status**: `'.((string) data_get($step, 'status', '')).'`';
-            $lines[] = '- **ready**: `'.(((bool) data_get($step, 'ready', false)) ? 'true' : 'false').'`';
+            $lines[] = '- **ready**: `'.(YesNo::trueFalse((bool) data_get($step, 'ready', false))).'`';
             $lines[] = '- **required_before**: `'.implode('`, `', (array) data_get($step, 'required_before', [])).'`';
             $lines[] = '- **evidence_hash**: `'.((string) data_get($step, 'evidence_hash', '')).'`';
             $lines[] = '- **blocks_completion_criteria**: `'.implode('`, `', (array) data_get($step, 'blocks_completion_criteria', [])).'`';

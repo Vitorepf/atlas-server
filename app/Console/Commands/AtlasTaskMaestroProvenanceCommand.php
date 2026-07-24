@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProven
 use App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceVerifier;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasTaskMaestroProvenanceCommand extends Command
 {
@@ -77,7 +78,7 @@ final class AtlasTaskMaestroProvenanceCommand extends Command
         if ($this->option('json')) {
             $this->line((string) json_encode($verdict, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } else {
-            $this->info('ok='.($verdict['ok'] ? 'true' : 'false').' reason_code='.$verdict['reason_code']
+            $this->info('ok='.(YesNo::trueFalse($verdict['ok'])).' reason_code='.$verdict['reason_code']
                 .(isset($verdict['broken_link_id']) ? ' broken_link_id='.$verdict['broken_link_id'] : ''));
         }
 

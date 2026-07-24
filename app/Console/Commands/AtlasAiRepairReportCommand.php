@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Evidence\AtlasLedgerReplayService;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiRepairReportCommand extends Command
 {
@@ -67,7 +68,7 @@ class AtlasAiRepairReportCommand extends Command
         $this->components->twoColumnDetail('Completed', (string) ($repair['completed_count'] ?? 0));
         $this->components->twoColumnDetail('Latest status', (string) ($repair['latest_status'] ?? '-'));
         $this->components->twoColumnDetail('Latest strategy', (string) ($repair['latest_strategy'] ?? '-'));
-        $this->components->twoColumnDetail('Needs human review', ($repair['requires_human_review'] ?? false) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Needs human review', YesNo::format($repair['requires_human_review'] ?? false));
         $this->components->twoColumnDetail('Review signal', (string) data_get($repair, 'review_signal.status', 'unknown'));
         $this->components->twoColumnDetail('Review severity', (string) data_get($repair, 'review_signal.severity', 'unknown'));
         $this->components->twoColumnDetail('Recommended action', (string) data_get($repair, 'review_signal.recommended_action', 'none'));

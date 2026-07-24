@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Reality\AtlasRealityGraphStatusService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * AURG Phase-2 / F4 — the brain's health surface (Salto 1, "AURG vivo").
@@ -34,7 +35,7 @@ class AtlasAurgStatusCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info('AURG status (F4) — enabled='.($report['enabled'] ? 'yes' : 'no'));
+        $this->info('AURG status (F4) — enabled='.(YesNo::format($report['enabled'])));
 
         $store = (array) $report['store'];
         if (! (bool) ($store['available'] ?? false)) {
@@ -67,7 +68,7 @@ class AtlasAurgStatusCommand extends Command
         $growth = (array) $temporal['growth'];
         $vsPrevious = $growth['vs_previous_snapshot'];
         $this->line(is_array($vsPrevious)
-            ? '    growth_vs_previous: nodes '.$this->signed((int) $vsPrevious['nodes_delta']).' edges '.$this->signed((int) $vsPrevious['edges_delta']).' hash_changed='.($vsPrevious['snapshot_hash_changed'] ? 'yes' : 'no')
+            ? '    growth_vs_previous: nodes '.$this->signed((int) $vsPrevious['nodes_delta']).' edges '.$this->signed((int) $vsPrevious['edges_delta']).' hash_changed='.(YesNo::format($vsPrevious['snapshot_hash_changed']))
             : '    growth_vs_previous: n/a (need two full-sync snapshot ticks)');
         $liveVsLast = $growth['live_vs_last_snapshot'];
         if (is_array($liveVsLast)) {

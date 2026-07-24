@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Atlas Code -> Forge Live Execution bridge.
@@ -1269,7 +1270,7 @@ final class AtlasCodeForgeExecutionController extends Controller
             'test_run' => sprintf(
                 'test exit %s | passed %s',
                 (string) data_get($stage, 'result.exit_code', 'unknown'),
-                data_get($stage, 'result.passed') ? 'true' : 'false',
+                data_getYesNo::trueFalse($stage, 'result.passed'),
             ),
             'stage_receipts' => sprintf(
                 'receipts %d',

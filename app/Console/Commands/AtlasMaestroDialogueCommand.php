@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\ProposalRefusa
 use App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\ProposedPacketShape;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * The single operator entry point to the Quaternity dialogue-to-packet pipeline. Three actions:
@@ -214,7 +215,7 @@ final class AtlasMaestroDialogueCommand extends Command
         // schema-perfect YAML. Sorted scalar lines + cortex citations as `file:line`.
         $proposal = is_array($bundle->proposal) ? $bundle->proposal : $bundle->proposal->toArray();
         ksort($proposal);
-        $lines = ['shape_id: '.$bundle->shapeId, 'proposal_hash: '.$bundle->proposalHash, 'stale: '.($bundle->stale ? 'true' : 'false')];
+        $lines = ['shape_id: '.$bundle->shapeId, 'proposal_hash: '.$bundle->proposalHash, 'stale: '.(YesNo::trueFalse($bundle->stale))];
         foreach ($proposal as $key => $value) {
             $lines[] = $key.': '.(is_scalar($value) ? (string) $value : json_encode($value, JSON_UNESCAPED_SLASHES));
         }

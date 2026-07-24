@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Engineering\AtlasAutonomousChangeOrchestratorService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasAutonomousChangeOrchestratorCommand extends Command
 {
@@ -48,7 +49,7 @@ final class AtlasAutonomousChangeOrchestratorCommand extends Command
 
         $this->components->twoColumnDetail('Autonomous Change Orchestrator', (string) $payload['status']);
         $this->components->twoColumnDetail('Target', (string) ($payload['target'] ?? ''));
-        $this->components->twoColumnDetail('Mutation Authorized', data_get($payload, 'orchestrator.mutation_authorized') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Mutation Authorized', data_getYesNo::format($payload, 'orchestrator.mutation_authorized'));
         $this->components->twoColumnDetail('Hash', (string) ($payload['orchestration_hash'] ?? ''));
 
         return $this->exitCode($payload);

@@ -233,17 +233,13 @@ class AiInteractionController extends Controller
             return;
         }
 
-        if ($this->memoryLimitToBytes($current) >= 512 * 1024 * 1024) {
+        if (MemoryLimitBytes::parse($current) >= 512 * 1024 * 1024) {
             return;
         }
 
         @ini_set('memory_limit', '512M');
     }
 
-    private function memoryLimitToBytes(string $value): int
-    {
-        return MemoryLimitBytes::parse($value);
-    }
 
     /**
      * @param  array<string,mixed>  $payload

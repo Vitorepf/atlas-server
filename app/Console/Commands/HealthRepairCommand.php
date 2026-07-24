@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\HealthSnapshot;
 use App\Models\PassiveSignal;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class HealthRepairCommand extends Command
 {
@@ -42,7 +43,7 @@ class HealthRepairCommand extends Command
             ->count();
 
         $this->info('Health repair audit');
-        $this->line('apply: '.($apply ? 'yes' : 'no'));
+        $this->line('apply: '.(YesNo::format($apply)));
         $this->line("legacy heart_rate_bpm active rows: {$legacyHeartRate}");
         $this->line("legacy vo2max unit rows: {$legacyVo2Units}");
         $this->line("snapshots in {$days}d window: {$snapshotWindowCount}");

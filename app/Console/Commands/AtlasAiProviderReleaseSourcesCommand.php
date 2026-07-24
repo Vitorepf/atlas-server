@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiProviderReleaseSourcesCommand extends Command
 {
@@ -33,8 +34,8 @@ class AtlasAiProviderReleaseSourcesCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Provider Release Sources</>', $payload['status']);
         $this->components->twoColumnDetail('Mode', $payload['mode']);
         $this->components->twoColumnDetail('Authority', $payload['authority']);
-        $this->components->twoColumnDetail('Network fetching', data_get($payload, 'guardrails.network_fetching_enabled') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Routing changes', data_get($payload, 'guardrails.changes_routing') ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Network fetching', data_getYesNo::format($payload, 'guardrails.network_fetching_enabled'));
+        $this->components->twoColumnDetail('Routing changes', data_getYesNo::format($payload, 'guardrails.changes_routing'));
 
         if (isset($payload['candidate'])) {
             $this->components->twoColumnDetail('Candidate', data_get($payload, 'candidate.status'));

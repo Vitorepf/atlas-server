@@ -7,6 +7,7 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * Read-only timeline view of a programming work item: snapshot + gate runs +
@@ -54,7 +55,7 @@ class AtlasProgrammingStatusCommand extends Command
         $this->table(
             ['gate', 'status', 'blocking', 'reason', 'created'],
             array_map(static fn (array $r): array => [
-                $r['gate_name'], $r['status'], $r['blocking'] ? 'yes' : 'no',
+                $r['gate_name'], $r['status'], YesNo::format($r['blocking']),
                 (string) ($r['reason'] ?? ''), $r['created_at'],
             ], $payload['gate_runs']),
         );

@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
+use App\Support\YesNo;
 
 /**
  * AOBG N4.F3 + N4.F4 — `atlas:organism:status`: the OPERATOR REVIEW SURFACE for the organism
@@ -112,7 +113,7 @@ class AtlasOrganismStatusCommand extends Command
                     '      metric=%s value=%s passed=%s  method=%s',
                     (string) ($validation['metric'] ?? '?'),
                     $validation['value'] === null ? 'null' : (string) ($validation['value'] ?? 'null'),
-                    ($validation['passed'] ?? false) ? 'yes' : 'no',
+                    YesNo::format($validation['passed'] ?? false),
                     (string) ($validation['method'] ?? ''),
                 ));
             }

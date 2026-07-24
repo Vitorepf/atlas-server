@@ -8,6 +8,7 @@ use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 final class AtlasCognitionVerifyClaimsCommand extends Command
 {
@@ -102,7 +103,7 @@ final class AtlasCognitionVerifyClaimsCommand extends Command
             'scorecard_hash' => (string) ($report['scorecard_hash'] ?? ''),
             'partial_facets' => $partials,
             'partial_facet_count' => count($partials),
-            'updated_at' => gmdate('c'),
+            'updated_at' => UtcIsoTimestamp::now(),
             'note' => 'Doc stamp mirror only; runtime scorecard is authoritative.',
         ];
     }

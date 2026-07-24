@@ -82,6 +82,7 @@ use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use App\Services\Ai\VerifiedContextExecution\AtlasVerifiedContextExecutionLoopService;
 use ReflectionClass;
 use Throwable;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * Atlas Cognition Operating System — runtime scorecard.
@@ -549,7 +550,7 @@ class AtlasCognitionScoreCardService
         $score = $this->aggregateScore($rows);
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_GENERATED_AT => UtcIsoTimestamp::now(),
             self::FIELD_SUBSYSTEM_COUNT => count($rows),
             self::FIELD_SCORED_SUBSYSTEM_COUNT => count(array_filter(
                 $rows,
@@ -593,7 +594,7 @@ class AtlasCognitionScoreCardService
 
         return [
             self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => $v3[self::FIELD_GENERATED_AT] ?? gmdate('c'),
+            self::FIELD_GENERATED_AT => $v3[self::FIELD_GENERATED_AT] ?? UtcIsoTimestamp::now(),
             self::FIELD_MODULE_COUNT => $v3[self::FIELD_V4][self::FIELD_MODULE_COUNT] ?? 0,
             self::FIELD_MODULES => $v3[self::FIELD_V4][self::FIELD_MODULES] ?? [],
             self::FIELD_CONSUMER_MODULE_COUNT => $v3[self::FIELD_V4][self::FIELD_CONSUMER_MODULE_COUNT] ?? 0,

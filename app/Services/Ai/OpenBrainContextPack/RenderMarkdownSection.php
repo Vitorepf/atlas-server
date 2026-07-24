@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDialecticTensionService;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\YesNo;
 
 /**
  * GOD-DEBULK split of {@see \App\Services\Ai\AtlasOpenBrainContextPackService}.
@@ -108,7 +109,7 @@ final class RenderMarkdownSection
             (string) ($policy['status'] ?? 'inactive'),
             implode(',', $this->support->stringList($policy['actions'] ?? [])) ?: 'keep_current_pack',
             AiValueNormalizer::finiteFloatOrNull($policy['initial_context_budget_multiplier'] ?? null) ?? 1.0,
-            (bool) ($policy['applied_to_initial_budget'] ?? false) ? 'yes' : 'no',
+            (bool) YesNo::format($policy['applied_to_initial_budget'] ?? false),
         );
         $handles = $this->support->stringList($policy['on_demand_handles'] ?? []);
         if ($handles !== []) {
@@ -356,7 +357,7 @@ final class RenderMarkdownSection
             $lines[] = sprintf(
                 '- operator_policy: %s (separate_from_evidence=%s)',
                 (string) data_get($epistemicEvidence, 'operator_policy.mode', 'report_only'),
-                data_get($epistemicEvidence, 'operator_policy.separate_from_evidence', true) ? 'true' : 'false',
+                data_getYesNo::trueFalse($epistemicEvidence, 'operator_policy.separate_from_evidence', true),
             );
             $lines[] = sprintf(
                 '- CONTRAEVIDÊNCIA: %s',

@@ -9,6 +9,7 @@ use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * AAEOS Deferred Phase Dispatcher (AP-799 wiring slice).
@@ -96,7 +97,7 @@ final class AaeosDeferredPhaseDispatcherService
                 self::FIELD_OUTCOME_CAUSALITY => $this->observeCausality($env),
                 // Observe-only severity reduction (same gate as cockpit).
                 self::FIELD_BLOCKER_SIGNAL => $this->observeBlockerSignal($env),
-                self::FIELD_ENQUEUED_AT => gmdate('c'),
+                self::FIELD_ENQUEUED_AT => UtcIsoTimestamp::now(),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if ($line !== false) {

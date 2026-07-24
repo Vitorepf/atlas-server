@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\Process\Process;
+use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
 
 class EngineeringBenchmarkController extends Controller
 {
@@ -172,8 +173,8 @@ class EngineeringBenchmarkController extends Controller
         $minimumRelease = 6;
         $workspaceExists = $workspace !== '' && is_dir($workspace);
         $baselineWorkspaceExists = $baselineWorkspace !== '' && is_dir($baselineWorkspace);
-        $workspaceGit = $workspaceExists ? $this->gitWorkspaceState($workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $workspace === '' ? 'missing' : 'missing_or_unreadable'];
-        $baselineGit = $baselineWorkspaceExists ? $this->gitWorkspaceState($baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $baselineWorkspace === '' ? 'missing' : 'missing_or_unreadable'];
+        $workspaceGit = $workspaceExists ? GitWorkspaceStateReader::read($workspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $workspace === '' ? 'missing' : 'missing_or_unreadable'];
+        $baselineGit = $baselineWorkspaceExists ? GitWorkspaceStateReader::read($baselineWorkspace) : ['is_git' => false, 'clean' => null, 'dirty_files' => [], 'status' => $baselineWorkspace === '' ? 'missing' : 'missing_or_unreadable'];
         $baselineSeparate = $workspaceExists
             && $baselineWorkspaceExists
             && realpath($workspace) !== realpath($baselineWorkspace);
@@ -388,10 +389,6 @@ class EngineeringBenchmarkController extends Controller
     /**
      * @return array{is_git:bool,clean:?bool,dirty_files:array<int,string>,status:string}
      */
-    private function gitWorkspaceState(string $workspace): array
-    {
-        return \App\Services\Ai\Programming\Support\GitWorkspaceStateReader::readBenchmarkShape($workspace);
-    }
 
     private function suiteHasHistoricalInvalidFairBattery(AtlasEngineeringBenchmarkSuite $suite): bool
     {

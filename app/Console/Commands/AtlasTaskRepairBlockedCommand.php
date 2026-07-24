@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\E2E\AtlasSelfConstructionSelfHealingQueueRepairPlan;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Repairs blocked task-serving packets instead of letting "blocked" become a graveyard. The first repair class
@@ -71,7 +72,7 @@ class AtlasTaskRepairBlockedCommand extends Command
         }
 
         $this->line('');
-        $this->line('  <fg=cyan>TASK-SERVING BLOCKED REPAIR</>  dry_run='.($dryRun ? 'yes' : 'no'));
+        $this->line('  <fg=cyan>TASK-SERVING BLOCKED REPAIR</>  dry_run='.(YesNo::format($dryRun)));
         $this->line('  [forbidden-self-target] inspected='.$forbidden['inspected_blocked'].'  repairable='.$forbidden['repairable_count'].'  repaired='.$forbidden['repaired_count'].'  retired='.$forbidden['retired_count'].'  unrepairable='.$forbidden['unrepairable_count']);
         $this->line('  [scope-repair-doomed]   inspected='.$scope['inspected_blocked'].'  reopened='.$scope['reopened_count'].'  retired='.$scope['retired_count'].'  planned='.$scope['planned_count'].'  unrepairable='.$scope['unrepairable_count']);
         foreach (array_slice((array) ($dryRun ? $scope['plan'] : array_merge($scope['reopened'], $scope['retired'])), 0, 30) as $item) {

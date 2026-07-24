@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\Kernel\ProgrammingAdapterSmokeService;
 use App\Services\Ai\Programming\Kernel\ProgrammingControlPlaneProjection;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\YesNo;
 
 class AtlasAiProgrammingAdapterCommand extends Command
 {
@@ -57,7 +58,7 @@ class AtlasAiProgrammingAdapterCommand extends Command
         $payload = $readiness->report();
         $this->emit($payload, function () use ($payload): void {
             $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
+            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
             $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
             $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
         });
@@ -94,7 +95,7 @@ class AtlasAiProgrammingAdapterCommand extends Command
             $this->components->twoColumnDetail('dev_to_forge_escalations', (string) $payload['programming']['dev_to_forge_escalations']);
             $this->components->twoColumnDetail('evidence_pack_count', (string) $payload['programming']['evidence_pack_count']);
             foreach ($payload['bridges'] as $key => $value) {
-                $this->components->twoColumnDetail('bridge:'.$key, $value ? 'true' : 'false');
+                $this->components->twoColumnDetail('bridge:'.$key, YesNo::trueFalse($value));
             }
         });
 

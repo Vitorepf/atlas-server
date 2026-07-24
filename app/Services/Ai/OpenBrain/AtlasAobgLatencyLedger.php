@@ -143,7 +143,7 @@ final class AtlasAobgLatencyLedger
         return [
             'schema_version' => 'atlas.aobg.latency_report.v1',
             'status' => $this->sampleCount($reports) > 0 ? 'ok' : 'empty',
-            'generated_at' => gmdate('c'),
+            'generated_at' => UtcIsoTimestamp::now(),
             'window_1d' => $this->windowReport($windowSummary),
             'ops' => $windowSummary['ops'],
             'trend' => $this->trendReport($reports),

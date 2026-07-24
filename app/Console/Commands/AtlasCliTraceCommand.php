@@ -8,6 +8,7 @@ use App\Models\AiTrace;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 class AtlasCliTraceCommand extends Command
 {
@@ -113,7 +114,7 @@ class AtlasCliTraceCommand extends Command
                 $event['tool'],
                 $event['risk'],
                 $event['permission_status'],
-                (bool) data_get($event, 'output_summary.ok') ? 'yes' : 'no',
+                (bool) data_getYesNo::format($event, 'output_summary.ok'),
                 $event['duration_ms'],
                 implode(', ', (array) ($event['changed_files'] ?? [])),
             ])->all());

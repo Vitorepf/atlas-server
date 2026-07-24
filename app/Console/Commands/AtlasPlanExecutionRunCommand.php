@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanD
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceCycleExecutor;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 /**
  * Pilar 1 · Plan Execution · DRIVE a build-plan to completion.
@@ -120,7 +121,7 @@ class AtlasPlanExecutionRunCommand extends Command
             $this->components->twoColumnDetail('Status', strtoupper($status !== '' ? $status : 'unknown'));
             $this->components->twoColumnDetail('Completion', ($result['delivered_count'] ?? 0).'/'.($result['total_slices'] ?? 0).' ('.($result['completion_pct'] ?? 0).'%)');
             $this->components->twoColumnDetail('Cycles run', (string) ($result['cycles_run'] ?? 0));
-            $this->components->twoColumnDetail('Simulated', ($result['simulated'] ?? false) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Simulated', YesNo::format($result['simulated'] ?? false));
             foreach ((array) ($result['blockers'] ?? []) as $blocker) {
                 $this->line('  blocker: '.(string) $blocker);
             }

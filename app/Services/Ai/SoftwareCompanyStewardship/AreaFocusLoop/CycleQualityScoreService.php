@@ -222,7 +222,7 @@ final class CycleQualityScoreService
         // absence_of_filler is the inverse of the filler/recovery flags, but an
         // explicit seam (if supplied) wins.
         $absenceOfFiller = array_key_exists('absence_of_filler', $cycle)
-            ? $this->clamp01($cycle['absence_of_filler'])
+            ? Clamp01::fromMixed($cycle['absence_of_filler'])
             : ($isFiller ? 0.0 : 1.0);
 
         return [
@@ -247,7 +247,7 @@ final class CycleQualityScoreService
             return 0.0;
         }
 
-        return $this->round($this->clamp01($cycle[$key]));
+        return $this->round(Clamp01::fromMixed($cycle[$key]));
     }
 
     /**
@@ -261,7 +261,7 @@ final class CycleQualityScoreService
     private function churnScore(array $cycle): float
     {
         if (array_key_exists('code_churn', $cycle)) {
-            return $this->round($this->clamp01($cycle['code_churn']));
+            return $this->round(Clamp01::fromMixed($cycle['code_churn']));
         }
         if (! array_key_exists('code_churn_files', $cycle)) {
             return 0.0;
@@ -298,7 +298,7 @@ final class CycleQualityScoreService
         $axes = [];
         foreach (self::IMPACT_AXES as $axis) {
             $axes[$axis] = array_key_exists($axis, $impactInput)
-                ? $this->round($this->clamp01($impactInput[$axis]))
+                ? $this->round(Clamp01::fromMixed($impactInput[$axis]))
                 : 0.0;
         }
 
@@ -383,19 +383,15 @@ final class CycleQualityScoreService
     {
         $cycle = $this->cycleInput($input);
         if (array_key_exists('floor', $input)) {
-            return $this->clamp01($input['floor']);
+            return Clamp01::fromMixed($input['floor']);
         }
         if (array_key_exists('floor', $cycle)) {
-            return $this->clamp01($cycle['floor']);
+            return Clamp01::fromMixed($cycle['floor']);
         }
 
         return self::DEFAULT_FLOOR;
     }
 
-    private function clamp01(mixed $value): float
-    {
-        return Clamp01::fromMixed($value);
-    }
 
     /** Round to 4 decimals so the weighted sum is deterministic across platforms. */
     private function round(float $value): float

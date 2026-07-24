@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\Kernel\Architecture\AtlasStructureMotherAuditReadModel;
 use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 class AtlasAiStructureMotherAuditCommand extends Command
 {
@@ -34,7 +35,7 @@ class AtlasAiStructureMotherAuditCommand extends Command
 
         $report = $payload['structure_mother_audit'];
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Structure Mother Audit</>', (string) $report['status']);
-        $this->components->twoColumnDetail('Complete', ((bool) $report['complete']) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Complete', YesNo::format((bool) $report['complete']));
         $this->components->twoColumnDetail('Ready modules', (string) data_get($report, 'summary.ready_count', 0));
         $this->components->twoColumnDetail('Attention modules', (string) data_get($report, 'summary.attention_count', 0));
         $this->components->twoColumnDetail('Blocked modules', (string) data_get($report, 'summary.blocked_count', 0));

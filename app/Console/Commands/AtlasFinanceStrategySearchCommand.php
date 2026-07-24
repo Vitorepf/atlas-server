@@ -34,6 +34,7 @@ use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendPullbackStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\VolumeBreakoutStrategy;
 use App\Services\Ai\Finance\StrategyLoop\TradingHonestyGate;
 use Illuminate\Console\Command;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * THE TRADING SEARCH LOOP (fast engine). Param optimization is what an optimizer does, not a
@@ -354,7 +355,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
                 $bestDsr = (float) $dsr;
             }
             $campaign->appendHoldoutEvent([
-                'at' => gmdate('c'),
+                'at' => UtcIsoTimestamp::now(),
                 'campaign_id' => $campaign->campaignId,
                 'round' => $round,
                 'holdout_id' => $campaign->campaign['holdout']['holdout_id'] ?? null,
@@ -365,7 +366,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             ]);
             if ((bool) ($res['confirmation_holdout_used'] ?? false)) {
                 $campaign->appendHoldoutEvent([
-                    'at' => gmdate('c'),
+                    'at' => UtcIsoTimestamp::now(),
                     'campaign_id' => $campaign->campaignId,
                     'round' => $round,
                     'holdout_id' => $campaign->campaign['confirmation_holdout']['holdout_id'] ?? null,
@@ -1541,7 +1542,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'worker_id' => $workerId,
             'pid' => getmypid(),
             'round' => $round,
-            'at' => gmdate('c'),
+            'at' => UtcIsoTimestamp::now(),
             'symbol' => $symbol,
             'interval' => $interval,
             'timeframe_profile' => $campaign->campaign['timeframe_profile'] ?? null,
@@ -1699,7 +1700,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
     {
         $primaryHonestyReport = $res['scenario_verdict']['report'] ?? $res['campaign_verdict']['report'] ?? $res['report'];
         $payload = [
-            'created_at' => gmdate('c'),
+            'created_at' => UtcIsoTimestamp::now(),
             'flow' => 'finance.strategy_evolution',
             'engine' => 'in_process_search',
             'classification' => 'sensitive',

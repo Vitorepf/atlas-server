@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Support\YesNo;
+
 /**
  * Loop Per-Lane Provider Routing with Circuit Breaker (AP-804 / LHL-17).
  *
@@ -627,7 +629,7 @@ final class LoopProviderRoutingService
         }
 
         if (is_bool($data)) {
-            return $data ? 'true' : 'false';
+            return YesNo::trueFalse($data);
         }
 
         if (is_null($data)) {

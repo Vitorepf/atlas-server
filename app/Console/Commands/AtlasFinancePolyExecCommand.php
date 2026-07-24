@@ -26,6 +26,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Support\YesNo;
 
 /**
  * Polymarket sum-of-legs shadow/sim executor. Live mode is a dormant seam and
@@ -583,7 +584,7 @@ final class AtlasFinancePolyExecCommand extends Command
         $cycleReports = [];
 
         $this->info(sprintf('[poly-exec] monitor=%s mode=sim cycles=%d interval=%ds max_candidates=%d slow_cycle>%ds market_read_timeout=%ds candidate_budget=%ds max_signal_age=%ds scan_before_cycle=%s (real books, no signing/minting)',
-            $sessionId, $cycles, $interval, $maxCandidates, $slowCycleSeconds, $marketReadTimeout, $candidateTimeBudget, $maxSignalAgeSeconds, $scanBeforeCycle ? 'yes' : 'no'));
+            $sessionId, $cycles, $interval, $maxCandidates, $slowCycleSeconds, $marketReadTimeout, $candidateTimeBudget, $maxSignalAgeSeconds, YesNo::format($scanBeforeCycle)));
         $this->line('[poly-exec] monitor audit log: '.$logPath);
         $this->appendMonitorLog($logPath, [
             'event' => 'start',
@@ -623,7 +624,7 @@ final class AtlasFinancePolyExecCommand extends Command
                     (int) ($scanReport['shortlisted'] ?? 0),
                     (int) ($scanReport['verified'] ?? 0),
                     (int) ($scanReport['signals'] ?? 0),
-                    ((bool) ($scanReport['budget_exhausted'] ?? false)) ? 'yes' : 'no',
+                    YesNo::format((bool) ($scanReport['budget_exhausted'] ?? false)),
                     (int) ($scanReport['skipped_too_many_legs'] ?? 0),
                     (float) ($scanReport['duration_seconds'] ?? 0.0),
                     ($scanReport['skipped'] ?? false) ? ' SKIPPED: '.(string) ($scanReport['skip_reason'] ?? 'unknown') : ''

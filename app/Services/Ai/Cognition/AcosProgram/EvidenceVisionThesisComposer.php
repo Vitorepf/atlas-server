@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition\AcosProgram;
 
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\UtcIsoTimestamp;
 
 /**
  * MULTN17-06 — persistent vision theses derived from evidence (originate against the thesis).
@@ -137,7 +138,7 @@ final class EvidenceVisionThesisComposer
             return self::emptyResult(self::STATUS_FLAG_DISABLED);
         }
 
-        $bornAt = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_BORN_AT] ?? null) ?? gmdate('c');
+        $bornAt = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_BORN_AT] ?? null) ?? UtcIsoTimestamp::now();
         $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_TTL_DAYS] ?? null) ?? self::DEFAULT_TTL_DAYS));
         $forbidden = self::forbiddenStrings($context);
         $theses = [];

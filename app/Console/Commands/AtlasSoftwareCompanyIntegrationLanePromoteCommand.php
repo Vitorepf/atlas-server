@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLanePromotionService;
 use Illuminate\Console\Command;
+use App\Support\YesNo;
 
 final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
 {
@@ -53,7 +54,7 @@ final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
         $this->components->twoColumnDetail('Promotion', (string) ($payload['promotion_id'] ?? ''));
         $this->components->twoColumnDetail('Lane', (string) ($payload['lane_ref'] ?? ''));
         $this->components->twoColumnDetail('Base', (string) ($payload['base_ref'] ?? ''));
-        $this->components->twoColumnDetail('Promoted', ((bool) ($payload['promoted'] ?? false)) ? 'yes' : 'no');
+        $this->components->twoColumnDetail('Promoted', YesNo::format((bool) ($payload['promoted'] ?? false)));
         $this->components->twoColumnDetail('Lease', (string) ($payload['lease_status'] ?? ''));
         $this->components->twoColumnDetail('Governance', (string) ($payload['governance_status'] ?? ''));
 

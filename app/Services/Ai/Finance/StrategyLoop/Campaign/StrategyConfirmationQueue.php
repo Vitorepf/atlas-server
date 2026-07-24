@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Support\UtcIsoTimestamp;
+
 /**
  * Sequential confirmation queue for near-certified champions.
  *
@@ -60,7 +62,7 @@ final class StrategyConfirmationQueue
             'schema_version' => 'atlas.finance.strategy_confirmation_queue_item.v1',
             'request_id' => substr(StrategyCampaignStore::hash([$request, $campaignId]), 0, 16),
             'status' => 'pending',
-            'created_at' => gmdate('c'),
+            'created_at' => UtcIsoTimestamp::now(),
             'source_campaign_id' => $sourceCampaign,
             'source_round' => $request['source_round'] ?? null,
             'symbol' => $symbol,
@@ -85,7 +87,7 @@ final class StrategyConfirmationQueue
         ];
 
         $queue['items'][] = $item;
-        $queue['updated_at'] = gmdate('c');
+        $queue['updated_at'] = UtcIsoTimestamp::now();
         $this->save($queue);
 
         return $item;
@@ -121,8 +123,8 @@ final class StrategyConfirmationQueue
                 continue;
             }
             $queue['items'][$index]['status'] = 'claimed';
-            $queue['items'][$index]['claimed_at'] = gmdate('c');
-            $queue['updated_at'] = gmdate('c');
+            $queue['items'][$index]['claimed_at'] = UtcIsoTimestamp::now();
+            $queue['updated_at'] = UtcIsoTimestamp::now();
             $this->save($queue);
 
             return $queue['items'][$index];
@@ -137,8 +139,8 @@ final class StrategyConfirmationQueue
         if (! is_file($this->path)) {
             return [
                 'schema_version' => 'atlas.finance.strategy_confirmation_queue.v1',
-                'created_at' => gmdate('c'),
-                'updated_at' => gmdate('c'),
+                'created_at' => UtcIsoTimestamp::now(),
+                'updated_at' => UtcIsoTimestamp::now(),
                 'parallelism_policy' => 'one_active_strategy_search_loop',
                 'items' => [],
             ];
