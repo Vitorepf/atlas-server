@@ -33,15 +33,21 @@ final class EngineeringFinalCertifier
         $persistedValid = $candidates->count() === 21 && $rows->count() === 21;
         foreach ($expectedRoles as $role) {
             $row = $rows->get($role);
+            $receiptDomain = (string) data_get($row?->receipt, 'owner_domain', '');
             $ownerDomain = match ($role) {
                 'qa_testing' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN,
                 'architecture' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
                 'data' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN,
                 'appsec_privacy' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_APPSEC_PRIVACY_OWNER_DOMAIN,
-                'performance_resilience' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
-                'backend' => data_get($row?->receipt, 'owner_domain') === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN
-                    ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
-                'frontend', 'mobile' => AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($role),
+                'performance_resilience' => $receiptDomain === EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN
+                    ? EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN
+                    : AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
+                'backend' => $receiptDomain === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN
+                    ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN
+                    : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+                'frontend', 'mobile' => $receiptDomain === EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN
+                    ? EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN
+                    : AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($role),
                 default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
             };
             if (! $row instanceof AiEngineeringCompanyRoleRun

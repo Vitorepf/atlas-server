@@ -314,8 +314,28 @@ class AtlasRealEngineeringCompanyRuntimeService
                 }
             }
             if (in_array($role, ['frontend', 'mobile'], true)) {
+                // If matrix already N/A'd above we never get here. If surface owner
+                // path still yields N/A (or matrix appears mid-path), never call
+                // issueMutativeRoleDisposition on a mismatched owner receipt.
                 $surfaceRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt($engagement, $cycle, $case, $role);
                 $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                if ($disposition->status === 'not_applicable') {
+                    $dispositions[$role] = $disposition;
+                    // Prefer already-persisted owner row when it is N/A; else absence row.
+                    if (($surfaceRun->status ?? '') !== 'not_applicable') {
+                        $this->persistMutativeDisposition(
+                            $engagement,
+                            $cycle,
+                            $case,
+                            $disposition,
+                            EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+                            'v1',
+                        );
+                    }
+                    $dispositions[$role] = $disposition;
+
+                    continue;
+                }
                 app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($surfaceRun, $case, []);
                 $dispositions[$role] = $disposition;
 
@@ -324,6 +344,21 @@ class AtlasRealEngineeringCompanyRuntimeService
             if ($role === 'performance_resilience') {
                 $performanceRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidatePerformanceOwnerReceipt($engagement, $cycle, $case);
                 $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                if ($disposition->status === 'not_applicable') {
+                    if (($performanceRun->status ?? '') !== 'not_applicable') {
+                        $this->persistMutativeDisposition(
+                            $engagement,
+                            $cycle,
+                            $case,
+                            $disposition,
+                            EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+                            'v1',
+                        );
+                    }
+                    $dispositions[$role] = $disposition;
+
+                    continue;
+                }
                 app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($performanceRun, $case, []);
                 $dispositions[$role] = $disposition;
 
