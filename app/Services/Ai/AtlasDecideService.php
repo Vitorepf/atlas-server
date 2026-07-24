@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Provider\ProviderCatalog;
+
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\Decide\DecideProviderNormalization;
 use App\Services\Ai\Decide\ForgeTopologySection;
@@ -28,7 +30,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 {
     use DecideProviderNormalization;
 
-    private const PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
+    // Invocation inventory: ProviderCatalog::invocationProviders()
 
     private const COUNCIL_PROVIDER = 'claude_codex';
 
@@ -162,7 +164,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return $this->automaticDefaultProvider($options, $defaultProvider);
         }
 
-        return in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'hermes_cli';
+        return in_array($defaultProvider, ProviderCatalog::invocationProviders(), true) ? $defaultProvider : 'hermes_cli';
     }
 
     /**
@@ -188,7 +190,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return 'gemini_cli';
         }
 
-        return in_array($fallbackProvider, self::PROVIDERS, true) ? $fallbackProvider : 'hermes_cli';
+        return in_array($fallbackProvider, ProviderCatalog::invocationProviders(), true) ? $fallbackProvider : 'hermes_cli';
     }
 
     /**
@@ -268,7 +270,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
             if ($manualProvider === 'claude_codex') {
                 $selectedProvider = 'claude_codex';
-            } elseif (in_array($manualProvider, self::PROVIDERS, true)) {
+            } elseif (in_array($manualProvider, ProviderCatalog::invocationProviders(), true)) {
                 $selectedProvider = $manualProvider;
             } elseif ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
                 $selectedProvider = $this->policies->fallbackProvider($policy, $candidateProvider, programmingLike: true);
@@ -1396,7 +1398,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return $value;
         }
 
-        return in_array($value, self::PROVIDERS, true) ? $value : null;
+        return in_array($value, ProviderCatalog::invocationProviders(), true) ? $value : null;
     }
 
     private function providerOrAuto(mixed $value): ?string
