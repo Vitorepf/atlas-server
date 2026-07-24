@@ -145,6 +145,7 @@ class ProgrammingExecutionRequest
             'no_provider' => (bool) ($this->data['no_provider'] ?? false),
             'keep_workspace' => (bool) ($this->data['keep_workspace'] ?? false),
             'apply_isolated_patch' => (bool) ($this->data['apply_isolated_patch'] ?? true),
+            'resume' => is_string($this->data['resume'] ?? null) ? trim((string) $this->data['resume']) : null,
             'agent_behavior_contract' => $this->agentBehaviorContract(),
         ];
     }
