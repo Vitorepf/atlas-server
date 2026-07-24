@@ -5,27 +5,20 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 45+
-unit_proof: "122 tests green (Support + CLI concerns + new helpers)"
+full_pass_commits: 50+
+unit_proof: "Support+Concerns 29 tests green; broader 122 earlier"
 mcp_service_loc: 878
-next: PipelineRunExecutor leave Http | HTML monolog split | remaining cast stringOption | OneShotTick registry | ProviderCatalog | config split
+next: PipelineRunExecutor Http exit | HTML monolog | remaining specialized stringOption | ProviderCatalog | config split | OneShotTick
 ```
 
-## Landed themes
+## Progress summary
 
-- **reuse**: 15+ Support/* helpers + CLI Concerns mass adoption (~55 stringOption)
-- **density**: OpenBrainMcpToolCatalog extract; CodexReviewMerge later-cycle trait
-- **honesty**: BriefGrounding, SuiteRedTriage; loop ACDE legacy docs
-- **operate_vs_legacy**: loop config comments
+Massive reuse/standardize wave on main: Support utilities, CLI Concerns (stringOption adoption 80+ commands), MCP ToolCatalog density, CodexReviewMerge later-cycle, CanonicalValue/Clamp01/ArrayPercentile/etc., honesty renames, loop legacy docs.
 
 ## Residual DEBT
 
-PipelineRunExecutor under Http; EnterpriseReport HTML render god; Readiness OneShotTick forest; AiWorker completeAttempt; AutonomousEvolutionSession runCycle; config/atlas.php physical split; ProviderCatalog; 13399 file receipts.
+See DEBTS.md. Not claiming zero bugs corpus-wide. Continuous queue continues.
 
 ## Floors blocked
 
 RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list.
-
-## Honesty
-
-Not claiming corpus-wide zero defects. Continuous package-green full-pass hygiene.
