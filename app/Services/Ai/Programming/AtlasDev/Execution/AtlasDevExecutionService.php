@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Execution;
 
+use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 
 final class AtlasDevExecutionService implements DevPlanRunFacade
@@ -52,12 +53,12 @@ final class AtlasDevExecutionService implements DevPlanRunFacade
                 'blockers' => $plan->result->routing->blockers,
                 'suggested_flow' => $plan->result->routing->suggestedFlow(),
             ];
-            $handoff['idempotency_key'] = \App\Services\Ai\EngineeringKernel\CanonicalKernelPayload::hash([
+            $handoff['idempotency_key'] = CanonicalKernelPayload::hash([
                 'schema' => 'atlas.dev.forge_handoff.v1',
                 'intent_hash' => $run->intent->intentHash,
                 'plan_hash' => $plan->planHash,
             ]);
-            $handoff['handoff_hash'] = \App\Services\Ai\EngineeringKernel\CanonicalKernelPayload::hash([
+            $handoff['handoff_hash'] = CanonicalKernelPayload::hash([
                 'run_hash' => $run->runHash,
                 'plan_hash' => $plan->planHash,
                 'handoff' => $handoff,

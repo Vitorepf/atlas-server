@@ -6,17 +6,17 @@ namespace App\Services\Ai\Programming\Forge\Execution;
 
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeLongHorizonState;
-use App\Models\AiForgeWorkPacket;
-use App\Services\Ai\Programming\Forge\ForgeIntakeService;
-use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
-use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
-use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
-use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
-use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
-use App\Services\Ai\Programming\Forge\AtlasForgeProviderLifecycleAdapter;
-use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\Programming\Forge\AtlasForgeProviderLifecycleAdapter;
+use App\Services\Ai\Programming\Forge\ForgeIntakeService;
+use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
+use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
+use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -71,7 +71,6 @@ final class ForgeObraRuntime
                     $commissioning->marketDecisionHash,
                 );
             }
-
 
             $intake = $this->intakes->intakeFromPrompt($commissioning->prompt, [
                 'workspace_slug' => basename(rtrim($commissioning->workspace, '/')), 'risk_band' => self::riskBand($commissioning->riskClass),
@@ -398,7 +397,7 @@ final class ForgeObraRuntime
     {
         return app()->bound(ForgeProviderLifecyclePort::class)
             ? app(ForgeProviderLifecyclePort::class)
-            : new AtlasForgeProviderLifecycleAdapter(app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class));
+            : new AtlasForgeProviderLifecycleAdapter(app(AtlasForgeProviderInvocationDriverRouter::class));
     }
 
     /**

@@ -6,11 +6,11 @@ namespace App\Services\Ai\Programming\AtlasDev\SeniorLoop;
 
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
+use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine;
+use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationSignalsInput;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\GenericArtifactPersister;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
-use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine;
-use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationSignalsInput;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairAttemptLimits;
@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
+use App\Services\AtlasCode\DevToForgePromotionService;
 
 final class SeniorEngineerLoopExecutor
 {
@@ -133,24 +134,24 @@ final class SeniorEngineerLoopExecutor
             // the capsule + ledger were already persisted.
             try {
                 $escalationDecision = $this->escalationEngine->decide(
-                input: new EscalationSignalsInput(
-                    riskLevel: $plan->compactSdd->riskLevel,
-                    fileCount: count($failureCapsule->changedFiles),
-                    layersTouched: 1,
-                    riskKeywords: [],
-                    sameSignatureTwice: ($run->providerCallSummary['repair_abort_reason'] ?? null) === 'same_signature_twice'
-                        || in_array(FailureCapsuleBuilder::SIGNAL_SAME_SIGNATURE_TWICE, $failureCapsule->escalationSignalDelta, true),
-                    diffGrew: in_array(FailureCapsuleBuilder::SIGNAL_DIFF_GROWTH, $failureCapsule->escalationSignalDelta, true),
-                    testCoverageGap: false,
-                    priorFailureInArea: false,
-                    contextRequiredChars: null,
-                    threadMessages: null,
-                    priorFailureCount: max(0, (int) ($run->providerCallSummary['repair_attempts'] ?? 0)),
-                    loopEscalationSignalDelta: $failureCapsule->escalationSignalDelta,
-                ),
-                runId: $plan->envelope->runId,
-                taskContractHash: $plan->taskContract->taskContractHash,
-                triggeredAtIso: now()->toIso8601String(),
+                    input: new EscalationSignalsInput(
+                        riskLevel: $plan->compactSdd->riskLevel,
+                        fileCount: count($failureCapsule->changedFiles),
+                        layersTouched: 1,
+                        riskKeywords: [],
+                        sameSignatureTwice: ($run->providerCallSummary['repair_abort_reason'] ?? null) === 'same_signature_twice'
+                            || in_array(FailureCapsuleBuilder::SIGNAL_SAME_SIGNATURE_TWICE, $failureCapsule->escalationSignalDelta, true),
+                        diffGrew: in_array(FailureCapsuleBuilder::SIGNAL_DIFF_GROWTH, $failureCapsule->escalationSignalDelta, true),
+                        testCoverageGap: false,
+                        priorFailureInArea: false,
+                        contextRequiredChars: null,
+                        threadMessages: null,
+                        priorFailureCount: max(0, (int) ($run->providerCallSummary['repair_attempts'] ?? 0)),
+                        loopEscalationSignalDelta: $failureCapsule->escalationSignalDelta,
+                    ),
+                    runId: $plan->envelope->runId,
+                    taskContractHash: $plan->taskContract->taskContractHash,
+                    triggeredAtIso: now()->toIso8601String(),
                 );
                 if ($escalationDecision !== null) {
                     // Own fail-open: a persist failure must not throw the
@@ -171,7 +172,7 @@ final class SeniorEngineerLoopExecutor
                     // hiccup must not erase the already-persisted decision
                     // from run_summary.
                     try {
-                        app(\App\Services\AtlasCode\DevToForgePromotionService::class)->candidateFromRunEscalation(
+                        app(DevToForgePromotionService::class)->candidateFromRunEscalation(
                             $escalationDecision,
                             $plan->envelope->normalizedIntent,
                             $plan->envelope->workspace,

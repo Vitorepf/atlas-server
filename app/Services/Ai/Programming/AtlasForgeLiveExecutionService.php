@@ -10,6 +10,7 @@ use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -308,7 +309,7 @@ class AtlasForgeLiveExecutionService
         $composeStatus = 'skipped';
         try {
             $input = 'Forge Live Execution obra='.$obraId.' plan='.$planId;
-            $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($input, [
+            $task = AiTaskRequest::fromInput($input, [
                 'agent_slug' => 'forge',
                 'provider' => 'local',
                 'source_type' => 'forge_live',
@@ -895,5 +896,4 @@ class AtlasForgeLiveExecutionService
 
         return $result;
     }
-
 }
