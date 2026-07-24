@@ -2,21 +2,22 @@
 
 | area_id | status | notes |
 |---|---|---|
-| reuse | strong | Wave A helpers; ProviderCatalog; CanonicalValue; CLI traits |
-| density | strong | Serving report thin; OneShotTick envelope; Aaeos table; LedgerReplay families→Support; Decide stages |
-| architecture | partial | config loop; ASP aliases; routes splits (code/cartography/stewardship/OI/patamar4); PRE open |
-| gates | partial | package proofs green (55-test round: Ledger+Decide+Serving) |
-| anti_goodhart | done | careful multi-arg peels; restored botched LedgerReplay once |
+| reuse | strong | stringOption variants complete; LoadsNamedJsonOption; ProviderCatalog; Wave A helpers |
+| density | strong | Serving report ~23L; LedgerReplay families→Support; Decide stages+executionGraph; OneShotTick envelope |
+| architecture | partial | routes splits expanded; PRE leave Http staged (R103); config loop done |
+| surface_std | strong | CLI option traits complete for known variants |
+| gates | partial | combined package proof this wave green |
+| anti_goodhart | done | careful multi-arg peels; PRE not rushed |
 
-## Latest evaluator round proofs
+## Proofs (this continuous segment)
 
-| item | proof |
+| batch | proof |
 |---|---|
-| Decide operationalDecision stages | 39 unit green |
-| Decide executionGraph strategies | 39 unit green |
-| LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green each step |
-| Combined package round | **55 tests / 428 asserts OK** |
+| Decide operationalDecision + executionGraph | 39 unit green |
+| LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
+| stringOption variants + LoadsNamedJson | 3+2 unit green |
+| Combined package | see goal-wave-combined-proof.log |
 
 ## Residual
 
-voice/mobile route splits · PRE leave Http · floors · remaining stringOption variants
+PRE leave Http (R103) · voice/mobile routes · floors · AppServiceProvider further domain SPs
