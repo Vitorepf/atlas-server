@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\MemoryEntrySafetySummary;
 use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 use App\Models\AtlasMemoryEntry;
@@ -247,12 +248,6 @@ class AtlasMemoryPrivacyCommand extends Command
      * @return array<string,string>
      */
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function memoryInput(): MemoryQueryInput
     {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Memory\AtlasVerbatimMemoryService;
@@ -361,12 +362,6 @@ class AtlasMemoryVerbatimCommand extends Command
         return $values[0] ?? null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function memoryInput(): MemoryQueryInput
     {

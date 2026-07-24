@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\AtlasMemoryReviewQueueService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
@@ -96,10 +97,4 @@ class AtlasMemoryReviewQueueCommand extends Command
         ];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

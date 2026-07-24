@@ -884,48 +884,7 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
      */
     private function gitWorkspaceState(string $workspace): array
     {
-        $inside = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $workspace);
-        $inside->setTimeout(5);
-        $inside->run();
-
-        if (! $inside->isSuccessful() || trim($inside->getOutput()) !== 'true') {
-            return [
-                'is_git' => false,
-                'clean' => null,
-                'dirty_files' => [],
-                'status' => 'not_git_workspace',
-            ];
-        }
-
-        $status = new Process(['git', 'status', '--porcelain'], $workspace);
-        $status->setTimeout(10);
-        $status->run();
-
-        if (! $status->isSuccessful()) {
-            return [
-                'is_git' => true,
-                'clean' => null,
-                'dirty_files' => [],
-                'status' => 'git_status_unavailable',
-            ];
-        }
-
-        $dirtyFiles = collect(explode("\n", trim($status->getOutput())))
-            ->filter(fn (string $line): bool => trim($line) !== '')
-            ->map(function (string $line): string {
-                $path = preg_replace('/^..\s*/', '', $line);
-
-                return trim(is_string($path) && $path !== '' ? $path : $line);
-            })
-            ->values()
-            ->all();
-
-        return [
-            'is_git' => true,
-            'clean' => $dirtyFiles === [],
-            'dirty_files' => $dirtyFiles,
-            'status' => $dirtyFiles === [] ? 'clean' : 'dirty',
-        ];
+        return \App\Services\Ai\Programming\Support\GitWorkspaceStateReader::readBenchmarkShape($workspace);
     }
 
     private function replay(EngineeringBenchmarkService $benchmarks): int

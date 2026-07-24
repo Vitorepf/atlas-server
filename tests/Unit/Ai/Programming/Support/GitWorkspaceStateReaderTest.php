@@ -36,7 +36,6 @@ final class GitWorkspaceStateReaderTest extends TestCase
 
     public function test_repo_root_reports_git_workspace(): void
     {
-        // tests/Unit/Ai/Programming/Support → 5 levels up = repo root
         $root = realpath(dirname(__DIR__, 5));
         $this->assertNotFalse($root);
         $this->assertDirectoryExists($root.'/.git');
@@ -49,5 +48,14 @@ final class GitWorkspaceStateReaderTest extends TestCase
         $this->assertContains($state['status'], ['clean', 'dirty', 'git_status_unavailable']);
         $this->assertIsInt($state['dirty_count']);
         $this->assertIsArray($state['dirty_files_sample']);
+    }
+
+    public function test_benchmark_shape_for_missing_workspace(): void
+    {
+        $state = GitWorkspaceStateReader::readBenchmarkShape('/tmp/atlas-bench-missing-'.uniqid('', true));
+        $this->assertFalse($state['is_git']);
+        $this->assertNull($state['clean']);
+        $this->assertSame([], $state['dirty_files']);
+        $this->assertSame('not_git_workspace', $state['status']);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\MemoryEntrySafetySummary;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
@@ -141,11 +142,5 @@ class AtlasMemoryListCommand extends Command
         return MemoryEntrySafetySummary::forEntry($entry);
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
 }

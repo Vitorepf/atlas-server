@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
@@ -95,12 +96,6 @@ class AtlasMemoryGovernanceCommand extends Command
         ];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function memoryInput(): MemoryQueryInput
     {

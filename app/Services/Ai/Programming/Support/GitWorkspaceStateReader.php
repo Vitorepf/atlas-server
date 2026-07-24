@@ -23,7 +23,18 @@ use Symfony\Component\Process\Process;
  */
 final class GitWorkspaceStateReader
 {
-    public static function read(string $workspace): array
+    /**
+     * @param  int  $maxDirtySample  Max dirty paths in dirty_files_sample; 0 = unlimited
+     * @return array{
+     *   is_git: bool,
+     *   clean: bool,
+     *   status: string,
+     *   dirty_count: int,
+     *   dirty_files_sample: list<string>,
+     *   dirty_files_truncated?: bool
+     * }
+     */
+    public static function read(string $workspace, int $maxDirtySample = 20): array
     {
         if (! is_dir($workspace)) {
             return [
@@ -72,13 +83,43 @@ final class GitWorkspaceStateReader
             })
             ->values();
 
+        $count = $dirtyFiles->count();
+        $sample = $maxDirtySample <= 0
+            ? $dirtyFiles->all()
+            : $dirtyFiles->take($maxDirtySample)->all();
+
         return [
             'is_git' => true,
-            'clean' => $dirtyFiles->isEmpty(),
-            'status' => $dirtyFiles->isEmpty() ? 'clean' : 'dirty',
-            'dirty_count' => $dirtyFiles->count(),
-            'dirty_files_sample' => $dirtyFiles->take(20)->all(),
-            'dirty_files_truncated' => $dirtyFiles->count() > 20,
+            'clean' => $count === 0,
+            'status' => $count === 0 ? 'clean' : 'dirty',
+            'dirty_count' => $count,
+            'dirty_files_sample' => $sample,
+            'dirty_files_truncated' => $maxDirtySample > 0 && $count > $maxDirtySample,
+        ];
+    }
+
+    /**
+     * Benchmark fair CLI/controller shape (legacy keys).
+     *
+     * @return array{is_git: bool, clean: bool|null, dirty_files: list<string>, status: string}
+     */
+    public static function readBenchmarkShape(string $workspace): array
+    {
+        $state = self::read($workspace, 0);
+        if (! $state['is_git']) {
+            return [
+                'is_git' => false,
+                'clean' => null,
+                'dirty_files' => [],
+                'status' => $state['status'] === 'workspace_missing' ? 'not_git_workspace' : $state['status'],
+            ];
+        }
+
+        return [
+            'is_git' => true,
+            'clean' => $state['clean'],
+            'dirty_files' => $state['dirty_files_sample'],
+            'status' => $state['status'],
         ];
     }
 }

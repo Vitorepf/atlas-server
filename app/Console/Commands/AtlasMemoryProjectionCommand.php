@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use Illuminate\Console\Command;

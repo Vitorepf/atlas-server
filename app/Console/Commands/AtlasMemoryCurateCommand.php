@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use App\Services\Ai\Memory\AtlasMemoryUsageService;
@@ -142,10 +143,4 @@ class AtlasMemoryCurateCommand extends Command
         return $summary !== null ? mb_substr($summary, 0, 240) : null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

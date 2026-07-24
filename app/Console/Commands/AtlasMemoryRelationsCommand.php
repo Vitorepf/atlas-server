@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
@@ -286,12 +287,6 @@ class AtlasMemoryRelationsCommand extends Command
      * @return array<string,string>
      */
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function isKnowledgeRelationType(string $type): bool
     {
