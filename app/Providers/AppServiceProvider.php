@@ -72,7 +72,7 @@ use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
-use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
+
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
@@ -98,23 +98,7 @@ use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
-use App\Services\Ai\Organism\ActuationReceiptStore;
-use App\Services\Ai\Organism\AtlasOrganismActuationGate;
-use App\Services\Ai\Organism\AtlasOrganismMissionService;
-use App\Services\Ai\Organism\AtlasOrganismRegistry;
-use App\Services\Ai\Organism\AtlasOrganismService;
-use App\Services\Ai\Organism\EvidenceLedgerActuationReceiptStore;
-use App\Services\Ai\Organism\Finance\DefaultTradingHonestyJudge;
-use App\Services\Ai\Organism\Finance\FinanceDomainActuator;
-use App\Services\Ai\Organism\Finance\FinanceDomainProposer;
-use App\Services\Ai\Organism\Finance\FinanceDomainValidator;
-use App\Services\Ai\Organism\Marketing\MarketingDomainActuator;
-use App\Services\Ai\Organism\Marketing\MarketingDomainProposer;
-use App\Services\Ai\Organism\Marketing\MarketingDomainValidator;
-use App\Services\Ai\Organism\OpenBrainContextPackAnchor;
-use App\Services\Ai\Organism\OrganismBrainAnchor;
-use App\Services\Ai\Organism\OrganismProposalRecorder;
-use App\Services\Ai\Organism\RealityGraphProposalRecorder;
+
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
@@ -180,28 +164,14 @@ use App\Services\Ai\Telemetry\AiCostEstimator;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
-use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
-use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
-use App\Services\Ai\Vox\Execution\VoxClaudeCliExecutor;
-use App\Services\Ai\Vox\Execution\VoxCodexCliExecutor;
-use App\Services\Ai\Vox\Execution\VoxExecutor;
-use App\Services\Ai\Vox\Execution\VoxExecutorRouter;
-use App\Services\Ai\Vox\Execution\VoxFilesystemEditExecutor;
-use App\Services\Ai\Vox\Execution\VoxNoteCaptureExecutor;
-use App\Services\Ai\Vox\Execution\VoxTerminalProposeExecutor;
-use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
-use App\Services\Ai\Vox\Metrics\VoxMetricsService;
-use App\Services\Ai\Vox\Readiness\VoxReadinessService;
-use App\Services\Ai\Vox\VoxActionOutcomeService;
+
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -375,109 +345,13 @@ class AppServiceProvider extends ServiceProvider
         // which never invokes a delivery). Tests inject a fake delivery directly.
         $this->app->bind(ObraNodeDelivery::class, ProviderObraNodeDelivery::class);
 
-        // AOBG N4 (AOBG organism) — the DOMAIN ACTUATOR ABSTRACTION. PROPOSE-ONLY by
-        // construction: the registry wires each domain's {proposer, validator, actuator}
-        // triplet; the actuate boundary is FINAL in AbstractDomainActuator and only ever
-        // returns 'requires_operator' (no real money/orders/ad-spend/purchase/publish).
-        // The brain anchor + the proposal recorder are bound to the REAL fused brain
-        // (Open-Brain context pack + the AURG reality-graph store, fail-open). Tests
-        // inject fakes for all three. The shipped domain is FINANCE first (sensitive,
-        // on-machine, win-rate-forbidden honest metric). Constructing the registry is
-        // FREE; the deterministic finance proposer spends NOTHING.
-        $this->app->bind(OrganismBrainAnchor::class, OpenBrainContextPackAnchor::class);
-        $this->app->bind(OrganismProposalRecorder::class, RealityGraphProposalRecorder::class);
-
-        // N4.F4 — HARDENED PROPOSE-ONLY BOUNDARY + AUDIT. Every actuate() flows through the
-        // single AtlasOrganismActuationGate: it re-admits the actuator (proves it inherits the
-        // sealed, final, I/O-free act path — never re-declared), invokes it (the only outcome
-        // is requires_operator), strips any executed-action artifact, and writes an append-only,
-        // provider-safe audit RECEIPT to atlas_organism_actuations. Fail-open (a missing store
-        // never throws/skips). Tests inject an in-memory fake receipt store.
-        $this->app->bind(ActuationReceiptStore::class, EvidenceLedgerActuationReceiptStore::class);
-        $this->app->singleton(AtlasOrganismActuationGate::class, function ($app): AtlasOrganismActuationGate {
-            return new AtlasOrganismActuationGate($app->make(ActuationReceiptStore::class));
-        });
-
-        $this->app->singleton(AtlasOrganismRegistry::class, function (): AtlasOrganismRegistry {
-            $registry = new AtlasOrganismRegistry;
-            $registry->register(
-                // F2: the proposer reuses the real strategy-loop backtest generation (default
-                // runner = MeanReversionStrategy, on-machine, no provider); the validator's
-                // FULL-bundle path delegates to the real, sealed TradingHonestyGate (DSR/PBO/
-                // sealed holdout via the Python honest-metrics runtime) through the default
-                // judge — win-rate forbidden, finance stays on-machine, propose-only.
-                new FinanceDomainProposer,
-                new FinanceDomainValidator(new HonestMetrics, new DefaultTradingHonestyJudge),
-                new FinanceDomainActuator,
-            );
-            // F4: a 2nd domain proving the organism is DOMAIN-AGNOSTIC (not finance-special) —
-            // MARKETING (non-finance, low-stakes, non-sensitive): proposes a campaign/content
-            // DRAFT (deterministic, on-machine, no provider/publish), validated by a content-
-            // quality heuristic (vanity engagement metrics forbidden), actuate = requires_operator
-            // (NEVER publishes). Its actuator is admitted by the same propose-only gate.
-            $registry->register(
-                new MarketingDomainProposer,
-                new MarketingDomainValidator,
-                new MarketingDomainActuator,
-            );
-
-            return $registry;
-        });
-
-        // The organism service uses the WIRED actuation gate (with the receipt store) so every
-        // production actuate() writes an audit receipt. The brain anchor + proposal recorder are
-        // resolved from their bindings above. Constructing it is FREE.
-        $this->app->singleton(AtlasOrganismService::class, function ($app): AtlasOrganismService {
-            return new AtlasOrganismService(
-                $app->make(AtlasOrganismRegistry::class),
-                $app->make(OrganismBrainAnchor::class),
-                $app->make(OrganismProposalRecorder::class),
-                new CrossDomainTaxonomyMap,
-                $app->make(AtlasOrganismActuationGate::class),
-            );
-        });
-
-        // AOBG N4.F3 — the CROSS-DOMAIN MISSION SPINE. Reuses the N3 plan-DAG decomposition
-        // (deterministic, cost-free) to break an intent that SPANS domains into nodes, routes
-        // each to a canonical domain, governs each crossing with the ARPTL veto, and proposes+
-        // validates per domain via the organism (propose-only; requires_operator for every
-        // node). Constructing it is FREE; the decomposer/router/mesh spend NOTHING; the
-        // proposers are on-machine/stubbable. Tests build it directly with fakes.
-        $this->app->singleton(AtlasOrganismMissionService::class, function ($app): AtlasOrganismMissionService {
-            return new AtlasOrganismMissionService(
-                $app->make(AtlasOrganismService::class),
-                $app->make(AtlasOrganismRegistry::class),
-            );
-        });
+        // AOBG N4 organism DI peeled to AtlasOrganismServiceProvider (full-pass).
 
         // LoopExecutionDriver binding removed: its sole impl (WorkspaceProviderLoopExecutionDriver)
         // was deleted by cd018c6b3f; the interface has no live impl and only comment-refs remain
         // (GAP-17, ACDE-dead). Restore the impl if the trading/evolution loop is ever revived.
 
-        // Vox V3 confirmation cache: pin the default cache repository so the
-        // service stays on the same store across the (intent → execute)
-        // round-trip. Laravel does not auto-resolve CacheRepository
-        // otherwise, and a per-injection `new Repository()` would lose the
-        // confirmation token between requests.
-        $this->app->singleton(VoxConfirmationService::class, function ($app) {
-            return new VoxConfirmationService($app->make(CacheRepository::class));
-        });
-        $this->app->bind(CacheRepository::class, fn () => Cache::store());
-
-        // Vox readiness probe · the constructor declares `hardening` as
-        // nullable with a `null` default for testability (so unit tests
-        // can instantiate it without an audit service). Laravel's
-        // container honors the default and would inject `null` in
-        // production, leaving the doctor / readiness reporting
-        // "unknown" for the hardening audit forever. Bind explicitly so
-        // the production resolution always carries the audit service.
-        $this->app->singleton(VoxReadinessService::class, function ($app) {
-            return new VoxReadinessService(
-                $app->make(VoxMetricsService::class),
-                $app->make(VoxV3PromotionGateService::class),
-                $app->make(VoxV3HardeningAuditService::class),
-            );
-        });
+        // Vox DI peeled to AtlasVoxServiceProvider (full-pass).
 
         // Atlas Dev runtime keeps a nullable constructor for isolated unit
         // tests, but the production/container-resolved runtime must carry
@@ -958,25 +832,6 @@ class AppServiceProvider extends ServiceProvider
                     // Coverage measurement is best-effort; never a gate.
                 }
             }
-        });
-
-        // Vox V3 governed executors. Order is irrelevant — the router keys
-        // them by `id()`. Each executor self-reports availability so the
-        // controller can advertise an honest health state.
-        $this->app->singleton(VoxExecutorRouter::class, function ($app) {
-            /** @var list<VoxExecutor> $executors */
-            $executors = [
-                $app->make(VoxTerminalProposeExecutor::class),
-                $app->make(VoxNoteCaptureExecutor::class),
-                $app->make(VoxCodexCliExecutor::class),
-                $app->make(VoxClaudeCliExecutor::class),
-                $app->make(VoxFilesystemEditExecutor::class),
-            ];
-
-            return new VoxExecutorRouter(
-                executors: $executors,
-                outcomes: $app->make(VoxActionOutcomeService::class),
-            );
         });
 
         $this->registerLoopSentinels();

@@ -4,15 +4,16 @@
 |---|---|---|
 | reuse | strong | stringOption variants complete; LoadsNamedJsonOption; ProviderCatalog; Wave A helpers |
 | density | strong | Serving report ~23L; LedgerReplay families→Support; Decide stages+executionGraph; OneShotTick envelope |
-| architecture | partial | routes splits expanded; PRE leave Http staged (R103); config loop done |
+| architecture | partial | voice/mobile/vox routes + Organism/Vox SPs; PRE leave Http staged (R103); Swarm residual |
 | surface_std | strong | CLI option traits complete for known variants |
-| gates | partial | combined package proof this wave green |
+| gates | partial | Organism+Vox+mobile 64 tests green this slice |
 | anti_goodhart | done | careful multi-arg peels; PRE not rushed |
 
 ## Proofs (this continuous segment)
 
 | batch | proof |
 |---|---|
+| voice/mobile/vox route split + Organism/Vox ASP | Organism+Vox readiness/confirmation + mobile telemetry filter · 64 tests / 1000 asserts green |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
@@ -20,4 +21,4 @@
 
 ## Residual
 
-PRE leave Http (R103) · voice/mobile routes · floors · AppServiceProvider further domain SPs
+PRE leave Http (R103) · Swarm ASP peel · floors · AppServiceProvider further domain SPs

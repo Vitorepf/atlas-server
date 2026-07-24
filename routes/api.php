@@ -45,11 +45,7 @@ use App\Http\Controllers\AtlasAiSelfImprovementScheduleReportController;
 use App\Http\Controllers\AtlasAiSloController;
 use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiStructureMotherAuditController;
-use App\Http\Controllers\AtlasAiVoiceRealtimeController;
-use App\Http\Controllers\AtlasAiVoxController;
-use App\Http\Controllers\AtlasAiVoxDogfoodController;
-use App\Http\Controllers\AtlasAiVoxMetricsController;
-use App\Http\Controllers\AtlasAiVoxReadinessController;
+
 use App\Http\Controllers\AtlasBlogEditorialController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
@@ -162,13 +158,7 @@ use App\Http\Controllers\EngineeringToolScanController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\HealthSnapshotController;
 use App\Http\Controllers\InboxController;
-use App\Http\Controllers\Mobile\MobileDeviceController;
-use App\Http\Controllers\Mobile\MobileHealthController;
-use App\Http\Controllers\Mobile\MobileInboxController;
-use App\Http\Controllers\Mobile\MobileMacAgentController;
-use App\Http\Controllers\Mobile\MobilePairingController;
-use App\Http\Controllers\Mobile\MobileRecommendationController;
-use App\Http\Controllers\Mobile\MobileThreadController;
+
 use App\Http\Controllers\PassiveSignalController;
 use App\Http\Controllers\ProcrastinationEventController;
 use App\Http\Controllers\RizeWebhookController;
@@ -183,81 +173,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', HealthController::class);
 Route::post('/integrations/rize/webhook', RizeWebhookController::class);
 
-$registerAtlasVoiceRoutes = static function (): void {
-    Route::get('/ai/voice/health', [AtlasAiVoiceRealtimeController::class, 'health']);
-    Route::get('/ai/voice/readiness', [AtlasAiVoiceRealtimeController::class, 'readiness']);
-    Route::get('/ai/voice/eclipse/active', [AtlasAiVoiceRealtimeController::class, 'eclipse']);
-    Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
-    Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
-    Route::get('/ai/voice/runtime/dependencies', [AtlasAiVoiceRealtimeController::class, 'dependencies']);
-    Route::get('/ai/voice/runtime/dependency-install-plan', [AtlasAiVoiceRealtimeController::class, 'dependencyInstallPlan']);
-    Route::get('/ai/voice/runtime/token-issuer-plan', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerPlan']);
-    Route::get('/ai/voice/runtime/token-issuer-smoke', [AtlasAiVoiceRealtimeController::class, 'tokenIssuerSmoke']);
-    Route::get('/ai/voice/runtime/livekit-server-probe', [AtlasAiVoiceRealtimeController::class, 'liveKitServerProbe']);
-    Route::get('/ai/voice/runtime/pre-start-health-checks-smoke', [AtlasAiVoiceRealtimeController::class, 'preStartHealthChecksSmoke']);
-    Route::get('/ai/voice/runtime/certification', [AtlasAiVoiceRealtimeController::class, 'runtimeCertification']);
-    Route::get('/ai/voice/runtime/product-loop-check', [AtlasAiVoiceRealtimeController::class, 'productLoopCheck']);
-    Route::get('/ai/voice/runtime/promotion-review-packet', [AtlasAiVoiceRealtimeController::class, 'promotionReviewPacket']);
-    Route::post('/ai/voice/runtime/events/normalize', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEvent']);
-    Route::post('/ai/voice/runtime/events/normalize-sequence', [AtlasAiVoiceRealtimeController::class, 'normalizeRuntimeEventSequence']);
-    Route::post('/ai/voice/session/start', [AtlasAiVoiceRealtimeController::class, 'start']);
-    Route::post('/ai/voice/session/end', [AtlasAiVoiceRealtimeController::class, 'end']);
-    Route::post('/ai/voice/wake-word', [AtlasAiVoiceRealtimeController::class, 'wakeWord']);
-    Route::post('/ai/voice/turn', [AtlasAiVoiceRealtimeController::class, 'turn']);
-    Route::post('/ai/voice/turn/interrupted', [AtlasAiVoiceRealtimeController::class, 'interrupted']);
-    Route::post('/ai/voice/tts/synthesize', [AtlasAiVoiceRealtimeController::class, 'synthesizeTts']);
-    Route::post('/ai/voice/turn/synthesized', [AtlasAiVoiceRealtimeController::class, 'synthesized']);
-    Route::post('/ai/voice/turn/played', [AtlasAiVoiceRealtimeController::class, 'played']);
-    Route::post('/ai/voice/runtime/failed', [AtlasAiVoiceRealtimeController::class, 'failed']);
-    Route::post('/ai/voice/provider/health-degraded', [AtlasAiVoiceRealtimeController::class, 'providerHealth']);
-};
+// Voice Realtime shared registrar (desktop token + mobile bearer).
+$registerAtlasVoiceRoutes = require __DIR__.'/api/atlas-voice.php';
 
-Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): void {
-    Route::post('/pairing/confirm', [MobilePairingController::class, 'confirm']);
-
-    Route::middleware('atlas.token')->group(function (): void {
-        Route::post('/pairing/initiate', [MobilePairingController::class, 'initiate']);
-    });
-
-    Route::middleware('atlas.mobile.bearer')->group(function () use ($registerAtlasVoiceRoutes): void {
-        Route::get('/health', [MobileHealthController::class, 'show']);
-        Route::post('/telemetry/events', [AiTelemetryController::class, 'store']);
-
-        Route::get('/devices', [MobileDeviceController::class, 'index']);
-        Route::post('/devices/push-token', [MobileDeviceController::class, 'updatePushToken']);
-        Route::post('/devices/notification-preferences', [MobileDeviceController::class, 'updateNotificationPreferences']);
-        Route::delete('/devices/{device}', [MobileDeviceController::class, 'revoke']);
-
-        Route::get('/mac/status', [MobileMacAgentController::class, 'status']);
-        Route::post('/mac/remote-session', [MobileMacAgentController::class, 'startRemoteSession']);
-        Route::post('/mac/remote-session/{session}/stop', [MobileMacAgentController::class, 'stopRemoteSession']);
-        Route::post('/mac/sleep-now', [MobileMacAgentController::class, 'sleepNow']);
-        Route::post('/mac/bootstrap', [MobileMacAgentController::class, 'bootstrap']);
-        Route::post('/mac/caffeinate/cleanup', [MobileMacAgentController::class, 'cleanupCaffeinate']);
-        Route::post('/mac/maintenance-windows', [MobileMacAgentController::class, 'storeMaintenanceWindow']);
-        Route::delete('/mac/maintenance-windows/{window}', [MobileMacAgentController::class, 'deleteMaintenanceWindow']);
-
-        Route::get('/inbox', [MobileInboxController::class, 'index']);
-        Route::get('/inbox/critical-review', [MobileInboxController::class, 'criticalReview']);
-        Route::get('/inbox/{inboxItem}', [MobileInboxController::class, 'show']);
-        Route::post('/inbox/{inboxItem}/read', [MobileInboxController::class, 'markRead']);
-        Route::post('/inbox/{inboxItem}/dismiss', [MobileInboxController::class, 'dismiss']);
-        Route::post('/inbox/{inboxItem}/snooze', [MobileInboxController::class, 'snooze']);
-        Route::post('/inbox/{inboxItem}/respond', [MobileInboxController::class, 'respond']);
-        Route::post('/inbox/{inboxItem}/discuss', [MobileInboxController::class, 'discuss']);
-        Route::post('/inbox/{inboxItem}/discussion-bootstrap/retry', [MobileInboxController::class, 'retryDiscussionBootstrap']);
-
-        Route::get('/ai/recommendations', [MobileRecommendationController::class, 'index']);
-        Route::get('/ai/recommendations/{recommendation}', [MobileRecommendationController::class, 'show']);
-        Route::post('/ai/recommendations/{recommendation}/transition', [MobileRecommendationController::class, 'transition']);
-        Route::get('/atlas/celestial/positions', [AtlasConstelacaoController::class, 'positions']);
-        $registerAtlasVoiceRoutes();
-
-        Route::post('/threads/from-inbox/{inboxItem}', [MobileThreadController::class, 'fromInbox']);
-        Route::post('/threads/{thread}/reply', [MobileThreadController::class, 'reply']);
-        Route::get('/threads/{thread}', [MobileThreadController::class, 'show']);
-    });
-});
+// Mobile Gateway · /v1/mobile (pairing, devices, inbox, mac agent, voice via registrar).
+(require __DIR__.'/api/mobile.php')($registerAtlasVoiceRoutes);
 
 Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -672,47 +592,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
     Route::post('/sync', SyncController::class);
 
-    // Atlas Vox V0 — Mac/Desktop local-first dictation surface (Onda 2).
-    // Boundary: never executes, never persists audio, never calls a provider.
-    // See docs/contracts/vox/ + docs/engineering-knowledge-base/adr/0003-*.
-    Route::get('/ai/vox/health', [AtlasAiVoxController::class, 'health']);
-    Route::post('/ai/vox/intent', [AtlasAiVoxController::class, 'intent']);
-    Route::post('/ai/vox/execute', [AtlasAiVoxController::class, 'execute']);
-
-    // Atlas Vox Wave 7 — read-only metrics + V3 promotion gate (rivals removido no Slice 6 do Rivals 2.0).
-    // No execution, no provider, no audio. Gate only recommends; Vitor
-    // approves V4 manually.
-    Route::get('/ai/vox/metrics', [AtlasAiVoxMetricsController::class, 'metrics']);
-    Route::get('/ai/vox/gate-v3', [AtlasAiVoxMetricsController::class, 'gateV3']);
-    // Wave 7.6 (Claude R) · V3 Certification Pack + human review.
-    // The pack snapshot is a deterministic, hash-verifiable read; review
-    // never flips a feature flag (V4 unlock is a separate future wave).
-    Route::get('/ai/vox/gate-v3/certification-pack', [AtlasAiVoxMetricsController::class, 'certificationPack']);
-    Route::post('/ai/vox/gate-v3/review', [AtlasAiVoxMetricsController::class, 'recordPromotionReview']);
-
-    // Wave 7.6 (Claude T) · V3 hardening audit. Read-only. Independently
-    // re-verifies every V3 safety invariant before any V4 work begins.
-    // Sits next to — not on top of — the certification pack: the pack
-    // declares invariants; the audit *measures* them.
-    Route::get('/ai/vox/audit/v3-hardening', [AtlasAiVoxMetricsController::class, 'v3HardeningAudit']);
-    // Wave 7.8 (Claude V) · single readiness probe. Aggregates 16 checks
-    // (modes, metrics, gate, audit, safety, provider CLIs) into a
-    // status: ready|partial|blocked + capabilities + next_actions. Never
-    // executes a CLI; provider absence becomes a warning, not a block.
-    Route::get('/ai/vox/readiness', [AtlasAiVoxReadinessController::class, 'readiness']);
-
-    // Wave 7.9 (Claude Z) · Dogfood Session Evidence. Distinct from rivals:
-    // dogfood é o diário de uso real ("usei Vox hoje, foi assim"), rivals é
-    // comparação head-to-head. Endpoint NUNCA executa, nunca chama provider,
-    // nunca toca audio. Reporta isolado do gate-v3 (informational only).
-    Route::post('/ai/vox/dogfood/session', [AtlasAiVoxDogfoodController::class, 'recordSession']);
-    Route::get('/ai/vox/dogfood/report', [AtlasAiVoxDogfoodController::class, 'report']);
-    // V6-E · feedback leve (chip "Funcionou bem" / "Marcar como ruim"). Não
-    // muda outcome, só vira regret_flag para alimentar o report.
-    Route::post(
-        '/ai/vox/dogfood/session/{dogfood_session_id}/feedback',
-        [AtlasAiVoxDogfoodController::class, 'submitFeedback'],
-    )->where('dogfood_session_id', '[A-Za-z0-9_\\-]+');
+    // Atlas Vox surface (inside atlas.token group).
+    (require __DIR__.'/api/atlas-vox.php')();
 });
 
 /*

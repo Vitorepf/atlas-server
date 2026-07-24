@@ -5,21 +5,18 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 60+
+full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
+  - routes voice/mobile/vox split (api.php 762→643)
+  - AtlasOrganismServiceProvider ASP peel
+  - AtlasVoxServiceProvider ASP peel (ASP 1067→922)
+  - Decide/LedgerReplay/CLI/routes prior continuous peels
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-  - EmitsCanonicalJson Command mass
-  - EnterpriseReport HTML template peel
-  - CertificationWorkbench map+__call
-  - AiWorker completeAttempt stages
-  - config/atlas_loop_legacy.php
-  - OpenBrainMcpToolDefinitions data peel
-  - LoadsFactsFileOption ExternalBrain
-unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: continuous residual (PRE staged | voice routes | floors)
+unit_proof: Organism+Vox+mobile package 64 tests / 1000 asserts green
+next: continuous residual (Swarm ASP peel | PRE staged | floors)
 ```
 
 ## Progress summary
