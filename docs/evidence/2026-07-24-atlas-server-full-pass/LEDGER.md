@@ -9,6 +9,7 @@ full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
   - ai-platform + ai-runtime routes (api.php →101)
+  - YouTube caption/metadata collaborator peels (ingestion →1248)
   - projects/semantic routes peels
   - AaeosUniversalGatesObserveProjectors catalog (command →1094)
   - AtlasPatamar4 + AtlasMission ASP peels (ASP →523)
@@ -22,8 +23,8 @@ recent:
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: package peels green this wave (routes 1388; Aaeos 4545 asserts; ASP/Patamar 89)
-next: continuous residual (YouTube density | Readiness HubDelegators map | PRE staged | floors)
+unit_proof: YouTube caption/metadata 39 tests/184 asserts; prior peels green
+next: continuous residual (Readiness HubDelegators map | ASP CCR residual | PRE staged | floors)
 ```
 
 ## Progress summary

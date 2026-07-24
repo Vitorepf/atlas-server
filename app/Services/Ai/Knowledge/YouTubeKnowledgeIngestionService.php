@@ -175,7 +175,7 @@ class YouTubeKnowledgeIngestionService
         try {
             $officialMetadata = $this->metadataViaDataApi($url);
             $captionMetadata = $this->metadataViaYtDlp($url) ?: $this->metadataViaWatchPage($url);
-            $metadata = $this->mergeMetadata($officialMetadata, $captionMetadata);
+            $metadata = YouTubeMetadataSupport::mergeMetadata($officialMetadata, $captionMetadata);
         } catch (Throwable $e) {
             return $this->finalizeVideoResult(array_merge($base, [
                 'status' => 'failed',
@@ -192,7 +192,7 @@ class YouTubeKnowledgeIngestionService
             ]));
         }
 
-        $caption = $this->selectCaptionTrack($metadata);
+        $caption = YouTubeCaptionSupport::selectCaptionTrack($metadata);
         if (! $caption) {
             if ($deferAudioFallback && $this->audioFallbackEnabled()) {
                 return $this->queueAudioFallback($base, $url, $metadata, null, 'No manual or automatic captions were exposed for this video.', $startedAt);
@@ -206,7 +206,7 @@ class YouTubeKnowledgeIngestionService
             return $this->finalizeVideoResult(array_merge($base, [
                 'status' => 'caption_unavailable',
                 'reason' => 'No manual or automatic captions were exposed for this video.',
-                'metadata' => $this->publicMetadata($metadata),
+                'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
                 'audio_fallback' => $audioFallback,
                 'ingestion_ms' => $this->elapsedMs($startedAt),
             ]));
@@ -214,8 +214,8 @@ class YouTubeKnowledgeIngestionService
 
         try {
             $captionBody = $this->downloadCaption((string) $caption['url'], (string) ($caption['ext'] ?? ''));
-            $segments = $this->parseCaptionPayload($captionBody, (string) ($caption['ext'] ?? ''));
-            $chunks = $this->chunkSegments($segments);
+            $segments = YouTubeCaptionSupport::parsePayload($captionBody, (string) ($caption['ext'] ?? ''));
+            $chunks = YouTubeCaptionSupport::chunkSegments($segments);
         } catch (Throwable $e) {
             if ($deferAudioFallback && $this->audioFallbackEnabled()) {
                 return $this->queueAudioFallback($base, $url, $metadata, $caption, Str::limit($e->getMessage(), 220, ''), $startedAt);
@@ -229,8 +229,8 @@ class YouTubeKnowledgeIngestionService
             return $this->finalizeVideoResult(array_merge($base, [
                 'status' => 'caption_failed',
                 'reason' => Str::limit($e->getMessage(), 220, ''),
-                'metadata' => $this->publicMetadata($metadata),
-                'caption' => $this->publicCaption($caption),
+                'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
+                'caption' => YouTubeMetadataSupport::publicCaption($caption),
                 'audio_fallback' => $audioFallback,
                 'ingestion_ms' => $this->elapsedMs($startedAt),
             ]));
@@ -249,8 +249,8 @@ class YouTubeKnowledgeIngestionService
             return $this->finalizeVideoResult(array_merge($base, [
                 'status' => 'transcript_empty',
                 'reason' => 'Caption track was available, but did not contain readable transcript text.',
-                'metadata' => $this->publicMetadata($metadata),
-                'caption' => $this->publicCaption($caption),
+                'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
+                'caption' => YouTubeMetadataSupport::publicCaption($caption),
                 'audio_fallback' => $audioFallback,
                 'ingestion_ms' => $this->elapsedMs($startedAt),
             ]));
@@ -258,8 +258,8 @@ class YouTubeKnowledgeIngestionService
 
         return $this->cacheVideoResult(array_merge($base, [
             'status' => 'ready',
-            'metadata' => $this->publicMetadata($metadata),
-            'caption' => $this->publicCaption($caption),
+            'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
+            'caption' => YouTubeMetadataSupport::publicCaption($caption),
             'chunks' => $chunks,
             'segment_count' => count($segments),
             'transcript_chars' => collect($chunks)->sum(fn (array $chunk): int => mb_strlen((string) ($chunk['text'] ?? ''))),
@@ -318,30 +318,9 @@ class YouTubeKnowledgeIngestionService
      */
     public function parseCaptionPayload(string $body, string $ext): array
     {
-        $trimmed = trim($body);
-        if ($trimmed === '') {
-            return [];
-        }
-
-        if (str_starts_with($trimmed, 'WEBVTT')) {
-            return $this->parseVttSegments($trimmed);
-        }
-
-        if ($ext === 'json3' || str_starts_with($trimmed, '{')) {
-            $json = json_decode($trimmed, true);
-            if (! is_array($json)) {
-                return str_starts_with($trimmed, '<') ? $this->parseXmlSegments($trimmed) : [];
-            }
-
-            return $this->parseJson3Segments($json);
-        }
-
-        if (str_starts_with($trimmed, '<')) {
-            return $this->parseXmlSegments($trimmed);
-        }
-
-        return $this->parseVttSegments($trimmed);
+        return YouTubeCaptionSupport::parsePayload($body, $ext);
     }
+
 
     /**
      * @param  array<int,array<string,mixed>>  $segments
@@ -349,56 +328,9 @@ class YouTubeKnowledgeIngestionService
      */
     public function chunkSegments(array $segments): array
     {
-        $chunkSeconds = max(60, (int) config('atlas.youtube.chunk_seconds', 300));
-        $maxChunks = max(1, (int) config('atlas.youtube.max_chunks', 80));
-        $maxChars = max(4000, (int) config('atlas.youtube.max_transcript_chars', 120000));
-        $maxChunkChars = max(1200, (int) config('atlas.youtube.max_chunk_chars', 5000));
-        $chunks = [];
-        $current = null;
-        $totalChars = 0;
-
-        foreach ($segments as $segment) {
-            $text = trim((string) ($segment['text'] ?? ''));
-            if ($text === '') {
-                continue;
-            }
-
-            $start = (float) ($segment['start'] ?? 0);
-            $end = (float) ($segment['end'] ?? $start);
-            $shouldStart = ! is_array($current)
-                || $start >= ((float) $current['start'] + $chunkSeconds)
-                || mb_strlen((string) $current['text']) + mb_strlen($text) + 1 > $maxChunkChars;
-
-            if ($shouldStart) {
-                if (is_array($current)) {
-                    $chunks[] = $this->finalizeChunk($current, count($chunks) + 1);
-                    if (count($chunks) >= $maxChunks || $totalChars >= $maxChars) {
-                        break;
-                    }
-                }
-
-                $current = [
-                    'start' => $start,
-                    'end' => $end,
-                    'text' => $text,
-                ];
-            } else {
-                $current['end'] = max((float) $current['end'], $end);
-                $current['text'] = trim((string) $current['text'].' '.$text);
-            }
-
-            $totalChars += mb_strlen($text);
-            if ($totalChars >= $maxChars) {
-                break;
-            }
-        }
-
-        if (is_array($current) && count($chunks) < $maxChunks) {
-            $chunks[] = $this->finalizeChunk($current, count($chunks) + 1);
-        }
-
-        return $chunks;
+        return YouTubeCaptionSupport::chunkSegments($segments);
     }
+
 
     /**
      * @return array<string,mixed>|null
@@ -490,7 +422,7 @@ class YouTubeKnowledgeIngestionService
 
             $metadata = $stored->metadata ?? [];
             $diagnostics = is_array($stored->diagnostics ?? null) ? $stored->diagnostics : [];
-            $processing = $this->processingDiagnostics(
+            $processing = YouTubeMetadataSupport::processingDiagnostics(
                 $metadata,
                 $stored->last_ingested_at?->getTimestamp() ?? $stored->updated_at?->getTimestamp(),
             );
@@ -560,7 +492,7 @@ class YouTubeKnowledgeIngestionService
     {
         return $this->cacheVideoResult(array_merge($base, [
             'status' => 'ready',
-            'metadata' => $this->publicMetadata($metadata),
+            'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
             'caption' => [
                 'language' => $audioFallback['language'] ?? config('atlas.transcription.language', 'pt'),
                 'name' => 'Whisper audio fallback',
@@ -587,13 +519,13 @@ class YouTubeKnowledgeIngestionService
         $result = array_merge($base, [
             'status' => 'processing',
             'reason' => $reason,
-            'metadata' => $this->publicMetadata($metadata),
-            'caption' => $caption ? $this->publicCaption($caption) : null,
+            'metadata' => YouTubeMetadataSupport::publicMetadata($metadata),
+            'caption' => $caption ? YouTubeMetadataSupport::publicCaption($caption) : null,
             'audio_fallback' => [
                 'status' => 'queued',
                 'reason' => 'Whisper audio fallback is running in background.',
             ],
-            'processing' => $this->processingDiagnostics($this->publicMetadata($metadata)),
+            'processing' => YouTubeMetadataSupport::processingDiagnostics(YouTubeMetadataSupport::publicMetadata($metadata)),
             'ingestion_ms' => $this->elapsedMs($startedAt),
         ]);
 
@@ -719,41 +651,6 @@ class YouTubeKnowledgeIngestionService
      * @param  array<string,mixed>  $metadata
      * @return array<string,mixed>
      */
-    private function processingDiagnostics(array $metadata, ?int $startedAt = null): array
-    {
-        $duration = isset($metadata['duration_seconds'])
-            ? (int) $metadata['duration_seconds']
-            : (isset($metadata['duration']) ? (int) $metadata['duration'] : null);
-        $eta = $this->estimatedAudioFallbackSeconds($duration);
-        $elapsed = $startedAt ? max(0, time() - $startedAt) : 0;
-        $progress = $eta > 0
-            ? min(0.88, round($elapsed / $eta, 2))
-            : null;
-
-        return [
-            'stage' => 'audio_transcription',
-            'status' => 'processing',
-            'progress' => $progress,
-            'elapsed_seconds' => $elapsed,
-            'estimated_total_seconds' => $eta,
-            'estimated_remaining_seconds' => $eta > 0 ? max(30, $eta - $elapsed) : null,
-            'message' => 'Transcrevendo o audio do YouTube em background.',
-            'retry_after_seconds' => 45,
-        ];
-    }
-
-    private function estimatedAudioFallbackSeconds(?int $durationSeconds): ?int
-    {
-        if ($durationSeconds === null || $durationSeconds <= 0) {
-            return null;
-        }
-
-        $ratio = (float) config('atlas.youtube.audio_transcription_realtime_ratio', 0.65);
-        $ratio = min(1.5, max(0.1, $ratio));
-
-        return max(60, (int) ceil($durationSeconds * $ratio) + 45);
-    }
-
     private function storedProcessingIsStale(AiYoutubeIngestion $stored): bool
     {
         $startedAt = $stored->last_ingested_at ?? $stored->updated_at;
@@ -833,7 +730,7 @@ class YouTubeKnowledgeIngestionService
             'view_count' => isset($statistics['viewCount']) ? (int) $statistics['viewCount'] : null,
             'like_count' => isset($statistics['likeCount']) ? (int) $statistics['likeCount'] : null,
             'comment_count' => isset($statistics['commentCount']) ? (int) $statistics['commentCount'] : null,
-            'chapters' => $this->chaptersFromDescription($description),
+            'chapters' => YouTubeMetadataSupport::chaptersFromDescription($description),
             'metadata_source' => 'youtube_data_api',
             'data_api_status' => 'ready',
             'data_api_quota_units' => 1,
@@ -845,26 +742,6 @@ class YouTubeKnowledgeIngestionService
      * @param  array<string,mixed>  $captionSource
      * @return array<string,mixed>
      */
-    private function mergeMetadata(array $official, array $captionSource): array
-    {
-        if ($official === []) {
-            return $captionSource;
-        }
-
-        if ($captionSource === []) {
-            return $official;
-        }
-
-        $merged = array_merge($captionSource, array_filter($official, fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []));
-        $merged['subtitles'] = is_array($captionSource['subtitles'] ?? null) ? $captionSource['subtitles'] : (is_array($official['subtitles'] ?? null) ? $official['subtitles'] : []);
-        $merged['automatic_captions'] = is_array($captionSource['automatic_captions'] ?? null) ? $captionSource['automatic_captions'] : (is_array($official['automatic_captions'] ?? null) ? $official['automatic_captions'] : []);
-        $merged['metadata_source'] = ($official['metadata_source'] ?? null) === 'youtube_data_api'
-            ? 'youtube_data_api+captions'
-            : ($merged['metadata_source'] ?? 'unknown');
-
-        return $merged;
-    }
-
     private function consumeDataApiQuota(int $units): bool
     {
         $limit = max(0, (int) config('atlas.youtube.data_api_daily_unit_limit', 500));
@@ -886,26 +763,6 @@ class YouTubeKnowledgeIngestionService
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function chaptersFromDescription(string $description): array
-    {
-        if (trim($description) === '') {
-            return [];
-        }
-
-        preg_match_all('/(?:^|\n)\s*((?:\d{1,2}:)?\d{1,2}:\d{2})\s+(.+?)(?=\n|$)/u', $description, $matches, PREG_SET_ORDER);
-
-        return collect($matches)
-            ->map(fn (array $match): array => [
-                'start' => YouTubeUrlSupport::secondsFromTimestamp((string) $match[1]),
-                'start_label' => (string) $match[1],
-                'title' => trim((string) $match[2]),
-            ])
-            ->filter(fn (array $chapter): bool => $chapter['title'] !== '')
-            ->take(80)
-            ->values()
-            ->all();
-    }
-
     /**
      * @return array<string,mixed>
      */
@@ -1066,72 +923,10 @@ class YouTubeKnowledgeIngestionService
      * @param  array<string,mixed>  $metadata
      * @return array<string,mixed>|null
      */
-    private function selectCaptionTrack(array $metadata): ?array
-    {
-        $preferred = array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) config('atlas.youtube.preferred_caption_languages', 'pt-BR,pt,en,ja,zh-Hans,zh-Hant,zh')),
-        )));
-        $groups = [
-            'manual' => is_array($metadata['subtitles'] ?? null) ? $metadata['subtitles'] : [],
-            'automatic' => is_array($metadata['automatic_captions'] ?? null) ? $metadata['automatic_captions'] : [],
-        ];
-
-        foreach ($groups as $kind => $tracksByLanguage) {
-            foreach ($preferred as $language) {
-                $track = $this->firstCaptionForLanguage($tracksByLanguage, $language);
-                if ($track) {
-                    return array_merge($track, [
-                        'track_kind' => $kind,
-                        'language' => $track['language'] ?? $language,
-                    ]);
-                }
-            }
-        }
-
-        foreach ($groups as $kind => $tracksByLanguage) {
-            foreach ($tracksByLanguage as $language => $tracks) {
-                if (is_array($tracks) && isset($tracks[0]) && is_array($tracks[0])) {
-                    return array_merge($tracks[0], [
-                        'track_kind' => $kind,
-                        'language' => is_string($language) ? $language : (string) ($tracks[0]['language'] ?? 'und'),
-                    ]);
-                }
-            }
-        }
-
-        return null;
-    }
-
     /**
      * @param  array<string,mixed>  $tracksByLanguage
      * @return array<string,mixed>|null
      */
-    private function firstCaptionForLanguage(array $tracksByLanguage, string $language): ?array
-    {
-        foreach ($tracksByLanguage as $key => $tracks) {
-            if (! is_string($key) || ! is_array($tracks)) {
-                continue;
-            }
-
-            $normalizedKey = Str::of($key)->lower()->replace('_', '-')->value();
-            $normalizedLanguage = Str::of($language)->lower()->replace('_', '-')->value();
-            if ($normalizedKey !== $normalizedLanguage && ! str_starts_with($normalizedKey, $normalizedLanguage.'-')) {
-                continue;
-            }
-
-            foreach ($tracks as $track) {
-                if (is_array($track) && is_string($track['url'] ?? null)) {
-                    $track['language'] ??= $key;
-
-                    return $track;
-                }
-            }
-        }
-
-        return null;
-    }
-
     private function downloadCaption(string $url, string $ext): string
     {
         if ($url === '') {
@@ -1142,7 +937,7 @@ class YouTubeKnowledgeIngestionService
         $sleepMs = max(100, (int) config('atlas.youtube.caption_download_retry_sleep_ms', 700));
         $lastStatus = null;
 
-        foreach ($this->captionDownloadUrls($url, $ext) as $captionUrl) {
+        foreach (YouTubeCaptionSupport::captionDownloadUrls($url, $ext) as $captionUrl) {
             for ($attempt = 1; $attempt <= $attempts; $attempt++) {
                 $response = Http::timeout(max(5, (int) config('atlas.youtube.timeout_seconds', 35)))
                     ->withHeaders([
@@ -1174,31 +969,6 @@ class YouTubeKnowledgeIngestionService
     /**
      * @return array<int,string>
      */
-    private function captionDownloadUrls(string $url, string $ext): array
-    {
-        $formats = match ($ext) {
-            'vtt' => ['vtt', 'json3'],
-            'srv1', 'srv2', 'srv3', 'xml' => [$ext, 'json3', 'vtt'],
-            default => ['json3', 'vtt'],
-        };
-
-        return collect($formats)
-            ->map(fn (string $format): string => $this->captionUrlWithFormat($url, $format))
-            ->prepend($url)
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    private function captionUrlWithFormat(string $url, string $format): string
-    {
-        if (str_contains($url, 'fmt=')) {
-            return (string) preg_replace('/([?&])fmt=[^&]*/', '$1fmt='.$format, $url);
-        }
-
-        return $url.(str_contains($url, '?') ? '&' : '?').'fmt='.$format;
-    }
-
     /**
      * @return array<string,mixed>
      */
@@ -1260,8 +1030,8 @@ class YouTubeKnowledgeIngestionService
                 ];
             }
 
-            $segments = $this->segmentsFromPlainTranscript($text, $duration);
-            $chunks = $this->chunkSegments($segments);
+            $segments = YouTubeCaptionSupport::segmentsFromPlainTranscript($text, $duration);
+            $chunks = YouTubeCaptionSupport::chunkSegments($segments);
             if ($chunks === []) {
                 return [
                     'status' => 'chunk_empty',
@@ -1433,262 +1203,27 @@ class YouTubeKnowledgeIngestionService
      * @param  array<string,mixed>  $json
      * @return array<int,array<string,mixed>>
      */
-    private function parseJson3Segments(array $json): array
-    {
-        $segments = [];
-        foreach ((array) ($json['events'] ?? []) as $event) {
-            if (! is_array($event) || ! is_array($event['segs'] ?? null)) {
-                continue;
-            }
-
-            $text = collect($event['segs'])
-                ->map(fn (mixed $seg): string => is_array($seg) ? (string) ($seg['utf8'] ?? '') : '')
-                ->implode('');
-            $text = $this->normalizeTranscriptText($text);
-            if ($text === '') {
-                continue;
-            }
-
-            $start = ((float) ($event['tStartMs'] ?? 0)) / 1000;
-            $duration = ((float) ($event['dDurationMs'] ?? 0)) / 1000;
-            $segments[] = [
-                'start' => $start,
-                'end' => $start + max(0.1, $duration),
-                'text' => $text,
-            ];
-        }
-
-        return $segments;
-    }
-
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function parseVttSegments(string $body): array
-    {
-        $segments = [];
-        $blocks = preg_split("/\R{2,}/", trim($body)) ?: [];
-        foreach ($blocks as $block) {
-            $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $block) ?: []), fn (string $line): bool => $line !== ''));
-            if ($lines === [] || str_starts_with($lines[0], 'WEBVTT')) {
-                continue;
-            }
-
-            $timingIndex = null;
-            foreach ($lines as $index => $line) {
-                if (str_contains($line, '-->')) {
-                    $timingIndex = $index;
-                    break;
-                }
-            }
-            if ($timingIndex === null) {
-                continue;
-            }
-
-            [$startRaw, $endRaw] = array_map('trim', explode('-->', $lines[$timingIndex], 2));
-            $endRaw = trim((string) preg_replace('/\s+.+$/', '', $endRaw));
-            $text = $this->normalizeTranscriptText(implode(' ', array_slice($lines, $timingIndex + 1)));
-            if ($text === '') {
-                continue;
-            }
-
-            $segments[] = [
-                'start' => YouTubeUrlSupport::secondsFromTimestamp($startRaw),
-                'end' => YouTubeUrlSupport::secondsFromTimestamp($endRaw),
-                'text' => $text,
-            ];
-        }
-
-        return $segments;
-    }
-
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function parseXmlSegments(string $body): array
-    {
-        $previous = libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($body);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-        if (! $xml) {
-            return [];
-        }
-
-        $segments = [];
-        foreach ($xml->xpath('//text') ?: [] as $node) {
-            $attributes = $node->attributes();
-            $start = (float) ($attributes['start'] ?? 0);
-            $duration = (float) ($attributes['dur'] ?? 0);
-            $text = $this->normalizeTranscriptText((string) $node);
-            if ($text === '') {
-                continue;
-            }
-
-            $segments[] = [
-                'start' => $start,
-                'end' => $start + max(0.1, $duration),
-                'text' => $text,
-            ];
-        }
-
-        foreach ($xml->xpath('//p') ?: [] as $node) {
-            $attributes = $node->attributes();
-            $text = $this->normalizeTranscriptText((string) $node);
-            if ($text === '') {
-                continue;
-            }
-
-            $start = isset($attributes['t'])
-                ? ((float) $attributes['t']) / 1000
-                : (isset($attributes['start'])
-                    ? (float) $attributes['start']
-                    : (isset($attributes['begin']) ? YouTubeUrlSupport::secondsFromTimestamp((string) $attributes['begin']) : 0));
-            $end = isset($attributes['d'])
-                ? $start + (((float) $attributes['d']) / 1000)
-                : (isset($attributes['dur'])
-                    ? $start + (float) $attributes['dur']
-                    : (isset($attributes['end']) ? YouTubeUrlSupport::secondsFromTimestamp((string) $attributes['end']) : $start + 0.1));
-
-            $segments[] = [
-                'start' => $start,
-                'end' => max($start + 0.1, $end),
-                'text' => $text,
-            ];
-        }
-
-        return collect($segments)
-            ->sortBy(fn (array $segment): float => (float) ($segment['start'] ?? 0))
-            ->values()
-            ->all();
-    }
-
-    private function normalizeTranscriptText(string $text): string
-    {
-        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = preg_replace('/\s+/u', ' ', $text) ?: '';
-
-        return trim($text);
-    }
-
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function segmentsFromPlainTranscript(string $text, ?int $durationSeconds): array
-    {
-        $parts = preg_split('/(?<=[.!?。！？])\s+/u', trim($text)) ?: [];
-        $parts = array_values(array_filter(array_map('trim', $parts), fn (string $part): bool => $part !== ''));
-        if ($parts === []) {
-            return [];
-        }
-
-        $totalChars = max(1, collect($parts)->sum(fn (string $part): int => mb_strlen($part)));
-        $duration = max(60, $durationSeconds ?: (int) ceil(count($parts) * 8));
-        $segments = [];
-        $cursor = 0.0;
-        $buffer = '';
-
-        foreach ($parts as $part) {
-            $candidate = trim($buffer === '' ? $part : $buffer.' '.$part);
-            if (mb_strlen($candidate) < 700) {
-                $buffer = $candidate;
-
-                continue;
-            }
-
-            $chars = mb_strlen($candidate);
-            $segmentDuration = max(4.0, ($chars / $totalChars) * $duration);
-            $segments[] = [
-                'start' => $cursor,
-                'end' => min($duration, $cursor + $segmentDuration),
-                'text' => $candidate,
-            ];
-            $cursor += $segmentDuration;
-            $buffer = '';
-        }
-
-        if ($buffer !== '') {
-            $chars = mb_strlen($buffer);
-            $segmentDuration = max(4.0, ($chars / $totalChars) * $duration);
-            $segments[] = [
-                'start' => $cursor,
-                'end' => min($duration, $cursor + $segmentDuration),
-                'text' => $buffer,
-            ];
-        }
-
-        return $segments;
-    }
-
     /**
      * @param  array<string,mixed>  $chunk
      * @return array<string,mixed>
      */
-    private function finalizeChunk(array $chunk, int $index): array
-    {
-        return [
-            'index' => $index,
-            'start' => round((float) ($chunk['start'] ?? 0), 2),
-            'end' => round((float) ($chunk['end'] ?? 0), 2),
-            'start_label' => $this->timeLabel((float) ($chunk['start'] ?? 0)),
-            'end_label' => $this->timeLabel((float) ($chunk['end'] ?? 0)),
-            'text' => trim((string) ($chunk['text'] ?? '')),
-        ];
-    }
-
-    private function timeLabel(float $seconds): string
-    {
-        $seconds = max(0, (int) round($seconds));
-        $hours = intdiv($seconds, 3600);
-        $minutes = intdiv($seconds % 3600, 60);
-        $remaining = $seconds % 60;
-
-        return $hours > 0
-            ? sprintf('%d:%02d:%02d', $hours, $minutes, $remaining)
-            : sprintf('%02d:%02d', $minutes, $remaining);
-    }
-
     /**
      * @param  array<string,mixed>  $metadata
      * @return array<string,mixed>
      */
-    private function publicMetadata(array $metadata): array
-    {
-        return [
-            'id' => $metadata['id'] ?? null,
-            'title' => $metadata['title'] ?? null,
-            'channel' => $metadata['channel'] ?? $metadata['uploader'] ?? null,
-            'channel_id' => $metadata['channel_id'] ?? null,
-            'duration_seconds' => isset($metadata['duration']) ? (int) $metadata['duration'] : null,
-            'webpage_url' => $metadata['webpage_url'] ?? $metadata['original_url'] ?? null,
-            'language' => $metadata['language'] ?? null,
-            'published_at' => $metadata['published_at'] ?? $metadata['upload_date'] ?? null,
-            'description_excerpt' => is_string($metadata['description'] ?? null)
-                ? Str::limit(trim((string) $metadata['description']), 1200, '')
-                : null,
-            'chapters' => is_array($metadata['chapters'] ?? null) ? array_slice($metadata['chapters'], 0, 80) : [],
-            'view_count' => isset($metadata['view_count']) ? (int) $metadata['view_count'] : null,
-            'like_count' => isset($metadata['like_count']) ? (int) $metadata['like_count'] : null,
-            'metadata_source' => $metadata['metadata_source'] ?? 'yt_dlp',
-            'data_api_status' => $metadata['data_api_status'] ?? null,
-            'data_api_quota_units' => $metadata['data_api_quota_units'] ?? null,
-        ];
-    }
-
     /**
      * @param  array<string,mixed>  $caption
      * @return array<string,mixed>
      */
-    private function publicCaption(array $caption): array
-    {
-        return [
-            'language' => $caption['language'] ?? null,
-            'name' => $caption['name'] ?? null,
-            'kind' => $caption['track_kind'] ?? $caption['kind'] ?? null,
-            'ext' => $caption['ext'] ?? null,
-        ];
-    }
-
     private function elapsedMs(float $startedAt): int
     {
         return (int) round((microtime(true) - $startedAt) * 1000);
