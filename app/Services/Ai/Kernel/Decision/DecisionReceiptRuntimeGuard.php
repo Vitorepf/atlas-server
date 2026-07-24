@@ -8,6 +8,10 @@ use Carbon\CarbonImmutable;
 class DecisionReceiptRuntimeGuard
 {
     /**
+     * Compatibility lookup for read-only callers. Runtime enforcement uses
+     * violationForJob(), which validates every persisted copy before allowing
+     * this metadata-preferred projection to govern.
+     *
      * @return array<string,mixed>
      */
     public function receiptForJob(AiJob $job): array
@@ -24,13 +28,64 @@ class DecisionReceiptRuntimeGuard
 
     public function violationForJob(AiJob $job, ?string $runtimeProvider = null, ?string $runtimeModel = null): ?DecisionReceiptRuntimeViolation
     {
-        return $this->violationForReceipt(
-            $this->receiptForJob($job),
-            runtimeProvider: $runtimeProvider ?? $this->stringOrNull($job->provider),
-            runtimeModel: $runtimeModel ?? $this->stringOrNull($job->model),
-            runtimeStage: $this->stringOrNull(data_get($job->metadata, 'atlas_decide_stage'))
-                ?? $this->stringOrNull(data_get($job->payload, 'atlas_decide_stage')),
-        );
+        $runtimeProvider ??= $this->stringOrNull($job->provider);
+        $runtimeModel ??= $this->stringOrNull($job->model);
+        $runtimeStage = $this->stringOrNull(data_get($job->metadata, 'atlas_decide_stage'))
+            ?? $this->stringOrNull(data_get($job->payload, 'atlas_decide_stage'));
+        $referenceFingerprint = null;
+        $referenceOrigin = null;
+        $referenceReceipt = [];
+        $deferredExpiryViolation = null;
+
+        foreach ($this->persistedReceiptCopies($job) as $copy) {
+            $receipt = $copy['receipt'];
+            if (! is_array($receipt)) {
+                return $this->transportCopyViolation(
+                    'decision_receipt_transport_copy_invalid',
+                    'DecisionReceipt invalido: copia persistida em '.$copy['origin'].' nao e um transport array.',
+                    [],
+                );
+            }
+
+            $violation = $this->violationForReceipt($receipt, $runtimeProvider, $runtimeModel, $runtimeStage);
+            if ($violation !== null && $violation->errorCode !== 'decision_receipt_expired') {
+                return $violation;
+            }
+
+            // An expired copy still has to prove byte-identical transport
+            // integrity against every persisted sibling before it can become
+            // refresh-eligible. Never let the first expired projection hide a
+            // later unknown, malformed, or contradictory copy.
+            try {
+                $fingerprint = DecisionReceiptHash::hash($receipt);
+            } catch (\Throwable) {
+                return $this->transportCopyViolation(
+                    'decision_receipt_transport_copy_invalid',
+                    'DecisionReceipt invalido: copia persistida em '.$copy['origin'].' nao possui hash canonico.',
+                    $receipt,
+                );
+            }
+
+            $deferredExpiryViolation ??= $violation;
+
+            if ($referenceFingerprint === null) {
+                $referenceFingerprint = $fingerprint;
+                $referenceOrigin = $copy['origin'];
+                $referenceReceipt = $receipt;
+
+                continue;
+            }
+
+            if (! hash_equals($referenceFingerprint, $fingerprint)) {
+                return $this->transportCopyViolation(
+                    'decision_receipt_transport_copy_contradiction',
+                    'DecisionReceipt invalido: copias persistidas divergem entre '.$referenceOrigin.' e '.$copy['origin'].'.',
+                    $referenceReceipt,
+                );
+            }
+        }
+
+        return $deferredExpiryViolation;
     }
 
     /**
@@ -42,6 +97,26 @@ class DecisionReceiptRuntimeGuard
         ?string $runtimeModel = null,
         ?string $runtimeStage = null,
     ): ?DecisionReceiptRuntimeViolation {
+        if ($unknownVersion = $this->unknownTopLevelReceiptVersion($receipt)) {
+            return new DecisionReceiptRuntimeViolation(
+                errorCode: 'decision_receipt_unknown_version',
+                message: 'DecisionReceipt invalido: transport de versao desconhecida presente ('.$unknownVersion.').',
+                receiptId: null,
+                envelopeId: null,
+                expiresAt: null,
+                dryRun: null,
+                schemaVersion: 'atlas.decide.v'.substr($unknownVersion, strlen('receipt_v')),
+            );
+        }
+
+        if ($this->legacyNestedV3TransportPresent($receipt)) {
+            return $this->transportCopyViolation(
+                'decision_receipt_legacy_nested_v3_transport_refused',
+                'DecisionReceipt invalido: transport receipt_v3 legado aninhado em receipt_v2 foi recusado antes do provider.',
+                $receipt,
+            );
+        }
+
         // CANARY/mutative consumers: receipt_v3 present but non-array must never
         // fall through as "no receipt" and reach the provider.
         if (array_key_exists(DecisionReceipt::RECEIPT_V3_KEY, $receipt)
@@ -57,18 +132,18 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
-        $cutover = $this->cutoverEnabled();
         $receiptV2 = data_get($receipt, DecisionReceipt::RECEIPT_V2_KEY);
         if (! is_array($receiptV2)) {
             $receiptV3 = data_get($receipt, DecisionReceipt::RECEIPT_V3_KEY);
 
             return is_array($receiptV3)
-                ? $this->v3OnlyViolation($receiptV3, $cutover)
+                ? $this->v3OnlyViolation($receiptV3)
                 : null;
         }
 
-        // Dual-read: V2 remains governing until CUTOVER. SHADOW: co-present V3
-        // must not contradict V2. CUTOVER: v2-only workers fail closed before effect.
+        // Dual-read: V2 remains the runtime governor. A co-present V3 is a
+        // strict shadow only until an independently bound V3 authority reader
+        // exists; writer-selection config never changes signed-reader semantics.
 
         $receiptId = data_get($receiptV2, 'receipt_id');
         $envelopeId = data_get($receiptV2, 'envelope_id');
@@ -134,8 +209,8 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
-        if (CarbonImmutable::now()->greaterThan($expires)) {
-            return new DecisionReceiptRuntimeViolation(
+        $expiredViolation = CarbonImmutable::now()->greaterThanOrEqualTo($expires)
+            ? new DecisionReceiptRuntimeViolation(
                 errorCode: 'decision_receipt_expired',
                 message: 'DecisionReceipt expirado antes da execucao do provider.',
                 receiptId: $base['receiptId'],
@@ -143,8 +218,8 @@ class DecisionReceiptRuntimeGuard
                 expiresAt: $base['expiresAt'],
                 dryRun: $base['dryRun'],
                 schemaVersion: $base['schemaVersion'],
-            );
-        }
+            )
+            : null;
 
         $hashViolation = $this->hashIntegrityViolation($receiptV2, $base);
         if ($hashViolation instanceof DecisionReceiptRuntimeViolation) {
@@ -162,25 +237,51 @@ class DecisionReceiptRuntimeGuard
             if ($shadowViolation instanceof DecisionReceiptRuntimeViolation) {
                 return $shadowViolation;
             }
-        } elseif ($cutover) {
-            // Mixed-worker block-before-effect: cutover refuses v2-only mutative traffic.
-            return new DecisionReceiptRuntimeViolation(
-                errorCode: 'decision_receipt_cutover_v2_only_refused',
-                message: 'DecisionReceipt cutover: receipt_v2-only worker blocked before effect; companion receipt_v3 required.',
-                receiptId: $base['receiptId'],
-                envelopeId: $base['envelopeId'],
-                expiresAt: $base['expiresAt'],
-                dryRun: $base['dryRun'],
-                schemaVersion: $base['schemaVersion'],
-            );
         }
 
-        return null;
+        // Expiry is intentionally last: a stale transport never masks a hash,
+        // provider, or V2/V3 shadow violation that must not be refreshed.
+        return $expiredViolation;
     }
 
-    private function cutoverEnabled(): bool
+    /**
+     * @return array<int,array{origin:string,receipt:mixed}>
+     */
+    private function persistedReceiptCopies(AiJob $job): array
     {
-        return (bool) config('atlas.ai.decision_receipt_v3_cutover_enabled', false);
+        $copies = [];
+        foreach (['metadata' => $job->metadata, 'payload' => $job->payload] as $origin => $container) {
+            if (is_array($container) && array_key_exists('decision_receipt', $container)) {
+                $copies[] = ['origin' => $origin, 'receipt' => $container['decision_receipt']];
+            }
+        }
+
+        // Trace metadata is another persisted transport copy. Explicitly load
+        // it whenever the job carries a trace foreign key so an unloaded
+        // relation cannot hide an unknown, malformed, or contradictory copy.
+        if (! $job->relationLoaded('trace') && $job->getAttribute('trace_id') !== null) {
+            $job->load('trace');
+        }
+
+        if ($job->relationLoaded('trace')) {
+            $traceMetadata = data_get($job->getRelation('trace'), 'metadata');
+            if (is_array($traceMetadata) && array_key_exists('decision_receipt', $traceMetadata)) {
+                $copies[] = ['origin' => 'trace.metadata', 'receipt' => $traceMetadata['decision_receipt']];
+            }
+        }
+
+        return $copies;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function legacyNestedV3TransportPresent(array $receipt): bool
+    {
+        $receiptV2 = $receipt[DecisionReceipt::RECEIPT_V2_KEY] ?? null;
+        $transport = is_array($receiptV2) ? ($receiptV2['transport'] ?? null) : null;
+
+        return is_array($transport) && array_key_exists(DecisionReceipt::RECEIPT_V3_KEY, $transport);
     }
 
     /**
@@ -216,21 +317,14 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
-        $sharedKeys = [
-            'receipt_id' => $this->stringOrNull(data_get($receiptV2, 'receipt_id')),
-            'envelope_id' => $this->stringOrNull(data_get($receiptV2, 'envelope_id')),
-            'dry_run' => data_get($receiptV2, 'dry_run'),
-            'domain' => $this->stringOrNull(data_get($receiptV2, 'domain')),
-            'flow' => $this->stringOrNull(data_get($receiptV2, 'flow')),
-        ];
-        foreach ($sharedKeys as $key => $v2Value) {
-            if ($v2Value === null && $key !== 'dry_run') {
-                continue;
-            }
-            $v3Value = $key === 'dry_run'
-                ? data_get($receiptV3, 'dry_run')
-                : $this->stringOrNull(data_get($receiptV3, $key));
-            if ($v2Value !== $v3Value) {
+        foreach ([
+            'receipt_id', 'envelope_id', 'issued_at', 'expires_at', 'dry_run',
+            'domain', 'flow', 'risk', 'provider_selection', 'budgets',
+            'required_gates', 'required_evidence', 'repair_policy', 'inputs_hash',
+            'parent_receipt_id', 'chain_hash',
+        ] as $key) {
+            if (array_key_exists($key, $receiptV2)
+                && (! array_key_exists($key, $receiptV3) || $receiptV2[$key] !== $receiptV3[$key])) {
                 return $this->v3Violation(
                     'decision_receipt_v2_v3_shadow_contradiction',
                     'DecisionReceipt shadow veto: receipt_v2 and receipt_v3 disagree on '.$key.'.',
@@ -239,29 +333,17 @@ class DecisionReceiptRuntimeGuard
             }
         }
 
-        $v2Primary = $this->stringOrNull(data_get($receiptV2, 'provider_selection.primary'));
-        $v3Primary = $this->stringOrNull(data_get($receiptV3, 'provider_selection.primary'));
-        $v2Model = $this->stringOrNull(data_get($receiptV2, 'provider_selection.model'));
-        $v3Model = $this->stringOrNull(data_get($receiptV3, 'provider_selection.model'));
-        if (($v2Primary !== null && $v3Primary !== null && $v2Primary !== $v3Primary)
-            || ($v2Model !== null && $v3Model !== null && $v2Model !== $v3Model)) {
-            return $this->v3Violation(
-                'decision_receipt_v2_v3_shadow_contradiction',
-                'DecisionReceipt shadow veto: provider selection diverges between receipt_v2 and receipt_v3.',
-                $base,
-            );
-        }
-
         return null;
     }
 
     /**
-     * V3-only transport: before cutover = non-authoritative; after cutover =
-     * integrity-valid envelopes authorize (mutative cutover).
+     * V3-only transport never crosses into a provider until a reader can bind
+     * its signed authority to independent runtime context, revocation, nonce
+     * and budget state. Writer-selection config is deliberately irrelevant.
      *
      * @param  array<string,mixed>  $receiptV3
      */
-    private function v3OnlyViolation(array $receiptV3, bool $cutover): ?DecisionReceiptRuntimeViolation
+    private function v3OnlyViolation(array $receiptV3): ?DecisionReceiptRuntimeViolation
     {
         $base = $this->baseForReceipt($receiptV3);
         if (($base['schemaVersion'] ?? null) !== DecisionReceipt::SCHEMA_VERSION_V3
@@ -286,41 +368,64 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
-        if ($cutover) {
-            // Mutative cutover: integrity-valid v3-only is authoritative.
-            if ($base['dryRun'] === true) {
-                return $this->v3Violation(
-                    'decision_receipt_dry_run',
-                    'DecisionReceipt de preview/dry-run nao pode ser consumido pelo Data Plane.',
-                    $base,
-                );
-            }
-            if ($base['expiresAt'] !== null) {
-                try {
-                    if (CarbonImmutable::now()->greaterThan(CarbonImmutable::parse($base['expiresAt']))) {
-                        return $this->v3Violation(
-                            'decision_receipt_expired',
-                            'DecisionReceipt expirado antes da execucao do provider.',
-                            $base,
-                        );
-                    }
-                } catch (\Throwable) {
-                    return $this->v3Violation(
-                        'decision_receipt_v3_invalid',
-                        'DecisionReceipt v3 invalido: expires_at nao e uma data valida.',
-                        $base,
-                    );
-                }
-            }
-
-            return null;
+        if ($authorityViolation = $this->liveAuthorityViolation($receiptV3, $base)) {
+            return $authorityViolation;
         }
 
         return $this->v3Violation(
-            'decision_receipt_v3_non_authoritative',
-            'DecisionReceipt v3 foi verificado, mas ainda nao e autoridade de runtime antes do CUTOVER.',
+            'decision_receipt_v3_authority_context_unavailable',
+            'DecisionReceipt v3 autentico exige contexto independente de audience, scope, revogacao, nonce e budget antes do provider.',
             $base,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function unknownTopLevelReceiptVersion(array $receipt): ?string
+    {
+        foreach (array_keys($receipt) as $key) {
+            if (! is_string($key) || preg_match('/^receipt_v\\d+$/', $key) !== 1) {
+                continue;
+            }
+            if (! in_array($key, [DecisionReceipt::RECEIPT_V2_KEY, DecisionReceipt::RECEIPT_V3_KEY], true)) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptV3
+     * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
+     */
+    private function liveAuthorityViolation(array $receiptV3, array $base): ?DecisionReceiptRuntimeViolation
+    {
+        if ($this->stringOrNull(data_get($receiptV3, 'signed_by')) !== 'atlas.decide.v3-cutover'
+            || data_get($receiptV3, 'authority.effect.allowed') !== true) {
+            return $this->v3Violation(
+                'decision_receipt_v3_non_authoritative',
+                'DecisionReceipt v3 nao foi emitido como autoridade mutativa de CUTOVER.',
+                $base,
+            );
+        }
+
+        try {
+            $signatureMatches = DecisionReceiptHash::v3LiveAuthoritySignatureMatches($receiptV3);
+        } catch (\Throwable) {
+            $signatureMatches = false;
+        }
+
+        if (! $signatureMatches) {
+            return $this->v3Violation(
+                'decision_receipt_v3_authority_signature_mismatch',
+                'DecisionReceipt v3 de CUTOVER nao possui assinatura de autoridade valida do servidor.',
+                $base,
+            );
+        }
+
+        return null;
     }
 
     /**
@@ -342,6 +447,27 @@ class DecisionReceiptRuntimeGuard
             'dryRun' => is_bool($dryRun) ? $dryRun : null,
             'schemaVersion' => is_scalar($schemaVersion) ? (string) $schemaVersion : null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $transport
+     */
+    private function transportCopyViolation(string $errorCode, string $message, array $transport): DecisionReceiptRuntimeViolation
+    {
+        $receipt = $transport[DecisionReceipt::RECEIPT_V2_KEY]
+            ?? $transport[DecisionReceipt::RECEIPT_V3_KEY]
+            ?? [];
+        $base = $this->baseForReceipt(is_array($receipt) ? $receipt : []);
+
+        return new DecisionReceiptRuntimeViolation(
+            errorCode: $errorCode,
+            message: $message,
+            receiptId: $base['receiptId'],
+            envelopeId: $base['envelopeId'],
+            expiresAt: $base['expiresAt'],
+            dryRun: $base['dryRun'],
+            schemaVersion: $base['schemaVersion'],
+        );
     }
 
     /**
@@ -463,7 +589,7 @@ class DecisionReceiptRuntimeGuard
     }
 
     /**
-     * @param  array<string,mixed>  $receiptV2
+     * @param  array<string,mixed>  $receipt
      * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
      */
     private function hashIntegrityViolation(array $receiptV2, array $base): ?DecisionReceiptRuntimeViolation
@@ -546,13 +672,13 @@ class DecisionReceiptRuntimeGuard
      * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
      */
     private function providerSelectionViolation(
-        array $receiptV2,
+        array $receipt,
         ?string $runtimeProvider,
         ?string $runtimeModel,
         ?string $runtimeStage,
         array $base,
     ): ?DecisionReceiptRuntimeViolation {
-        $selection = data_get($receiptV2, 'provider_selection');
+        $selection = data_get($receipt, 'provider_selection');
         if (! is_array($selection)) {
             return null;
         }

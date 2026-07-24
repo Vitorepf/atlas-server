@@ -133,25 +133,29 @@ class DecisionReceiptIssuer
      * V2 bytes — only decides whether a companion receipt_v3 envelope is emitted
      * alongside a freshly issued V2 receipt.
      */
-    public function isV3CanarySelected(string $receiptId): bool
+    public function isV3CanarySelected(OperationEnvelope|string $identity): bool
     {
-        // CUTOVER forces companion v3 on every new issuance (writers remain dual-transport;
-        // historical signed V2 bytes are never rewritten).
-        if ((bool) config('atlas.ai.decision_receipt_v3_cutover_enabled', false)) {
-            return true;
+        if (! $identity instanceof OperationEnvelope) {
+            // Compatibility observation for older callers. It intentionally never
+            // hashes caller-controlled receipt_id bytes; actual issuance below
+            // requires a server-minted OperationEnvelope identity.
+            return $this->legacySelectionIsConfigured();
         }
 
-        $percent = max(0, min(100, (int) config('atlas.ai.decision_receipt_v3_canary_percent', 0)));
-        if ($percent <= 0) {
+        $bucket = DecisionReceiptHash::v3CanaryBucketForEnvelope($identity->envelopeId);
+        if ($bucket === null) {
             return false;
         }
-        if ($percent >= 100) {
+
+        // CUTOVER forces the writer only after the server key was successfully
+        // decoded above. A missing/malformed key remains fail-closed.
+        if ($this->cutoverEnabled()) {
             return true;
         }
 
-        $bucket = hexdec(substr(hash('sha256', 'decision_receipt_v3_canary:'.$receiptId), 0, 8)) % 100;
+        $percent = $this->canaryPercent();
 
-        return $bucket < $percent;
+        return $percent > 0 && $bucket < $percent;
     }
 
     /**
@@ -163,12 +167,13 @@ class DecisionReceiptIssuer
      */
     public function issueV3CanaryCompanion(DecisionReceipt $receipt, OperationEnvelope $envelope, array $decision = []): ?array
     {
-        if (! $this->isV3CanarySelected($receipt->receiptId)) {
+        if (! $this->isV3CanarySelected($envelope)) {
             return null;
         }
 
         $v2 = $receipt->toArray();
-        $authority = $this->canaryAuthorityEnvelope($receipt, $envelope, $decision);
+        $liveAuthority = $this->cutoverEnabled();
+        $authority = $this->canaryAuthorityEnvelope($receipt, $envelope, $decision, $liveAuthority);
         $v3 = [
             'receipt_id' => $v2['receipt_id'],
             'envelope_id' => $v2['envelope_id'],
@@ -176,7 +181,7 @@ class DecisionReceiptIssuer
             'issued_at' => $v2['issued_at'],
             'expires_at' => $v2['expires_at'],
             'dry_run' => $v2['dry_run'],
-            'signed_by' => 'atlas.decide.v3-canary',
+            'signed_by' => $liveAuthority ? 'atlas.decide.v3-cutover' : 'atlas.decide.v3-canary',
             'domain' => $v2['domain'],
             'flow' => $v2['flow'],
             'risk' => $v2['risk'],
@@ -190,6 +195,13 @@ class DecisionReceiptIssuer
             'chain_hash' => $v2['chain_hash'],
             'authority' => $authority,
         ];
+        if ($liveAuthority) {
+            $signature = DecisionReceiptHash::v3LiveAuthoritySignature($v3);
+            if (! is_string($signature)) {
+                return null;
+            }
+            $v3['authority_signature'] = $signature;
+        }
         $v3['receipt_hash'] = DecisionReceiptHash::v3FullEnvelopeHash($v3);
 
         return $v3;
@@ -199,7 +211,7 @@ class DecisionReceiptIssuer
      * @param  array<string,mixed>  $decision
      * @return array<string,mixed>
      */
-    private function canaryAuthorityEnvelope(DecisionReceipt $receipt, OperationEnvelope $envelope, array $decision): array
+    private function canaryAuthorityEnvelope(DecisionReceipt $receipt, OperationEnvelope $envelope, array $decision, bool $liveAuthority): array
     {
         $tenantId = $this->string($envelope->operator->tenantId ?? 'tenant-canary') ?: 'tenant-canary';
         $principalId = $this->string($envelope->operator->operatorId ?? 'principal-canary') ?: 'principal-canary';
@@ -217,9 +229,11 @@ class DecisionReceiptIssuer
             $mode = 'dev';
         }
 
+        $authorityState = $liveAuthority ? 'cutover' : 'canary';
+
         return [
-            'authority_id' => 'canary-'.$receipt->receiptId,
-            'issuer_key_id' => 'atlas.decide.v3-canary',
+            'authority_id' => $authorityState.'-'.$receipt->receiptId,
+            'issuer_key_id' => 'atlas.decide.v3-'.$authorityState,
             'lifecycle' => ['status' => 'active', 'revision' => 1],
             'audience' => [
                 'tenant_id' => $tenantId,
@@ -232,10 +246,12 @@ class DecisionReceiptIssuer
             ],
             'effect' => [
                 'class' => 'provider_tool_sandbox_mutation',
-                'allowed' => ! $receipt->dryRun,
+                // A CANARY envelope is deliberately non-mutative. Only an
+                // envelope minted while CUTOVER is enabled receives live effect.
+                'allowed' => $liveAuthority && ! $receipt->dryRun,
             ],
             'budget' => [
-                'budget_id' => 'budget-canary-'.$receipt->receiptId,
+                'budget_id' => 'budget-'.$authorityState.'-'.$receipt->receiptId,
                 'max_effects' => 1,
             ],
             'nonce' => hash('sha256', 'nonce:'.$receipt->receiptId.':'.$receipt->receiptHash),
@@ -245,6 +261,25 @@ class DecisionReceiptIssuer
                 'executor_principal_id' => 'executor-'.$principalId,
             ],
         ];
+    }
+
+    private function legacySelectionIsConfigured(): bool
+    {
+        if (DecisionReceiptHash::v3CanaryBucketForEnvelope('legacy-observation') === null) {
+            return false;
+        }
+
+        return $this->cutoverEnabled() || $this->canaryPercent() >= 100;
+    }
+
+    private function cutoverEnabled(): bool
+    {
+        return (bool) config('atlas.ai.decision_receipt_v3_cutover_enabled', false);
+    }
+
+    private function canaryPercent(): int
+    {
+        return max(0, min(100, (int) config('atlas.ai.decision_receipt_v3_canary_percent', 0)));
     }
 
     private function providerSelection(mixed $selection): DecisionProviderSelection

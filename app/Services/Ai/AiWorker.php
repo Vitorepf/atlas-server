@@ -12,7 +12,6 @@ use App\Services\Ai\Analysis\AiQualityEvaluator;
 use App\Services\Ai\Arena\AiCouncilCoordinator;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\AtlasDecide\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\ConversationOps\AiSessionStateService;
@@ -169,7 +168,6 @@ class AiWorker
         private readonly RepairRequestFactory $repairRequests,
         private readonly ProviderUsagePayload $providerUsage,
         private readonly AtlasFinalResponseSanitizer $finalResponses,
-        private readonly AiDecisionReceiptRefreshService $decisionReceiptRefresh,
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
         private readonly AiPromptBuilder $prompts,
         private readonly PermissionGateService $permissionGates,
@@ -292,36 +290,26 @@ class AiWorker
         $job = $this->certifyProgrammingGatewayContext($job);
         $job = $this->refreshReadyYouTubePrompt($job);
         if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
-            if ($violation->errorCode === 'decision_receipt_expired') {
-                $refreshedJob = $this->decisionReceiptRefresh->refreshExpiredBeforeProviderCall($job);
-                if ($refreshedJob instanceof AiJob) {
-                    $job = $refreshedJob;
-                    $violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model);
-                }
-            }
+            $violationPayload = $violation->toArray();
+            $attempt = $this->createAttempt($job, $workerId, $providerKey);
+            $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
+                'decision_receipt_enforcement' => $violationPayload,
+            ], null, $onStream);
 
-            if ($violation) {
-                $violationPayload = $violation->toArray();
-                $attempt = $this->createAttempt($job, $workerId, $providerKey);
-                $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
+            return $this->completeAttempt($job, $attempt, new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: $violation->errorCode,
+                errorMessage: $violation->message,
+                metadata: [
                     'decision_receipt_enforcement' => $violationPayload,
-                ], null, $onStream);
-
-                return $this->completeAttempt($job, $attempt, new AiProviderResult(
-                    ok: false,
-                    output: '',
-                    command: [],
-                    exitCode: null,
-                    durationMs: 0,
-                    stdout: '',
-                    stderr: '',
-                    errorCode: $violation->errorCode,
-                    errorMessage: $violation->message,
-                    metadata: [
-                        'decision_receipt_enforcement' => $violationPayload,
-                    ],
-                ), $workerId);
-            }
+                ],
+            ), $workerId);
         }
         if ($kernelPipelineViolation = $this->kernelPipelines->violationForJob($job)) {
             $attempt = $this->createAttempt($job, $workerId, $providerKey);
@@ -350,7 +338,6 @@ class AiWorker
             ), $workerId);
         }
         $this->recordAcceptedKernelPipelineRuntimeContract($job);
-        $provider = $this->providers->get($providerKey);
         $this->recordKernelPermissionGate($job, $providerKey, $workerId);
         $permission = $this->permissions->authorizeJob($job, $providerKey);
 
@@ -404,73 +391,41 @@ class AiWorker
                     'policy_contract_enforcement' => $policyViolation,
                 ],
             );
+        } elseif ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
+            // Recheck at the effect boundary: permission, steering and policy
+            // work can consume enough time for an otherwise valid authority to
+            // expire. No provider lookup, ProviderCalled event or run may occur
+            // after this point without a fresh guard result.
+            $violationPayload = $violation->toArray();
+            $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
+                'decision_receipt_enforcement' => $violationPayload,
+            ], null, $onStream);
+
+            $result = new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: $violation->errorCode,
+                errorMessage: $violation->message,
+                metadata: [
+                    'decision_receipt_enforcement' => $violationPayload,
+                ],
+            );
         } else {
-            try {
-                $this->recordTelemetry('provider_call_started', $job, $attempt, [
-                    'event_phase' => 'provider',
-                    'metadata' => [
-                        'worker_id' => $workerId,
-                        'attempt_number' => $attempt->attempt_number,
-                    ],
-                ]);
-                $this->recordLedgerEvent(LedgerEventType::ProviderCalled, $job, $attempt, array_merge(
-                    $this->providerUsage->called($job, $attempt, $this->kernelContextForJob($job)),
-                    [
-                        'prompt_hash' => $attempt->prompt_hash,
-                        'timeout_seconds' => $job->timeout_seconds,
-                        'permission_mode' => $permission->mode,
-                        'permission_allowed' => $permission->allowed,
-                    ],
-                ), $workerId);
-                $firstTokenRecorded = false;
-                $powerSession = $this->macAgent->startSession(
-                    kind: 'ai_job',
-                    reason: "Atlas AI job {$job->id}",
-                    expiresAt: now()->addSeconds(max(60, (int) $job->timeout_seconds) + 300),
-                    source: 'ai_worker',
-                    job: $job,
-                    metadata: [
-                        'worker_id' => $workerId,
-                        'provider' => $providerKey,
-                        'attempt_id' => $attempt->id,
-                    ],
-                );
+            $provider = $this->providers->get($providerKey);
 
-                try {
-                    $result = $this->slo->measure('runtime.execute', function () use ($provider, $job, $attempt, $onStream, &$firstTokenRecorded, $powerSession): AiProviderResult {
-                        // AtlasDecide-routed mesh fan-out (kind='mesh' + operator opted in).
-                        // Returns null when not a mesh route / not opted-in / nothing
-                        // dispatched, so we transparently fall back to the single provider.
-                        $result = $this->meshJobRunner->run($job)
-                            ?? $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
-                                $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
-                                if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
-                                    $firstTokenRecorded = true;
-                                    $this->recordTelemetry('provider_first_token', $job, $attempt, [
-                                        'event_phase' => 'provider',
-                                        'duration_ms' => $this->diffMs($attempt->started_at, now()),
-                                        'metadata' => [
-                                            'stream_event_type' => $event['type'] ?? null,
-                                            'stream_event_name' => $event['name'] ?? null,
-                                            'sequence' => $recorded?->sequence,
-                                        ],
-                                    ]);
-                                }
-                                $event['sequence'] = $recorded?->sequence;
-                                $event['job_id'] = $job->id;
-                                $event['trace_id'] = $job->trace_id;
-                                $event['attempt_id'] = $attempt->id;
-                                $onStream?->__invoke($event);
-                            });
-
-                        return $this->withPowerSessionMetadata($result, (string) $powerSession->id);
-                    }, $this->sloContextForJob($job, $attempt, $workerId));
-                } finally {
-                    $this->macAgent->stopSession($powerSession, 'ai_job_finished');
-                }
-            } catch (\Throwable $exception) {
-                $this->emitStreamEvent($job, $attempt, 'error', 'provider_exception', $exception->getMessage(), [
-                    'error_code' => 'provider_exception',
+            // Provider resolution itself is not the effect, but may consume
+            // time (or block). Revalidate immediately before telemetry,
+            // ProviderCalled and the provider run so an expired receipt cannot
+            // cross that boundary.
+            if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
+                $violationPayload = $violation->toArray();
+                $this->emitStreamEvent($job, $attempt, 'policy', 'decision_receipt_blocked', $violation->message, [
+                    'decision_receipt_enforcement' => $violationPayload,
                 ], null, $onStream);
 
                 $result = new AiProviderResult(
@@ -481,9 +436,93 @@ class AiWorker
                     durationMs: 0,
                     stdout: '',
                     stderr: '',
-                    errorCode: 'provider_exception',
-                    errorMessage: $exception->getMessage(),
+                    errorCode: $violation->errorCode,
+                    errorMessage: $violation->message,
+                    metadata: [
+                        'decision_receipt_enforcement' => $violationPayload,
+                    ],
                 );
+            } else {
+                try {
+                    $this->recordTelemetry('provider_call_started', $job, $attempt, [
+                        'event_phase' => 'provider',
+                        'metadata' => [
+                            'worker_id' => $workerId,
+                            'attempt_number' => $attempt->attempt_number,
+                        ],
+                    ]);
+                    $this->recordLedgerEvent(LedgerEventType::ProviderCalled, $job, $attempt, array_merge(
+                        $this->providerUsage->called($job, $attempt, $this->kernelContextForJob($job)),
+                        [
+                            'prompt_hash' => $attempt->prompt_hash,
+                            'timeout_seconds' => $job->timeout_seconds,
+                            'permission_mode' => $permission->mode,
+                            'permission_allowed' => $permission->allowed,
+                        ],
+                    ), $workerId);
+                    $firstTokenRecorded = false;
+                    $powerSession = $this->macAgent->startSession(
+                        kind: 'ai_job',
+                        reason: "Atlas AI job {$job->id}",
+                        expiresAt: now()->addSeconds(max(60, (int) $job->timeout_seconds) + 300),
+                        source: 'ai_worker',
+                        job: $job,
+                        metadata: [
+                            'worker_id' => $workerId,
+                            'provider' => $providerKey,
+                            'attempt_id' => $attempt->id,
+                        ],
+                    );
+
+                    try {
+                        $result = $this->slo->measure('runtime.execute', function () use ($provider, $job, $attempt, $onStream, &$firstTokenRecorded, $powerSession): AiProviderResult {
+                            // AtlasDecide-routed mesh fan-out (kind='mesh' + operator opted in).
+                            // Returns null when not a mesh route / not opted-in / nothing
+                            // dispatched, so we transparently fall back to the single provider.
+                            $result = $this->meshJobRunner->run($job)
+                                ?? $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
+                                    $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                                    if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
+                                        $firstTokenRecorded = true;
+                                        $this->recordTelemetry('provider_first_token', $job, $attempt, [
+                                            'event_phase' => 'provider',
+                                            'duration_ms' => $this->diffMs($attempt->started_at, now()),
+                                            'metadata' => [
+                                                'stream_event_type' => $event['type'] ?? null,
+                                                'stream_event_name' => $event['name'] ?? null,
+                                                'sequence' => $recorded?->sequence,
+                                            ],
+                                        ]);
+                                    }
+                                    $event['sequence'] = $recorded?->sequence;
+                                    $event['job_id'] = $job->id;
+                                    $event['trace_id'] = $job->trace_id;
+                                    $event['attempt_id'] = $attempt->id;
+                                    $onStream?->__invoke($event);
+                                });
+
+                            return $this->withPowerSessionMetadata($result, (string) $powerSession->id);
+                        }, $this->sloContextForJob($job, $attempt, $workerId));
+                    } finally {
+                        $this->macAgent->stopSession($powerSession, 'ai_job_finished');
+                    }
+                } catch (\Throwable $exception) {
+                    $this->emitStreamEvent($job, $attempt, 'error', 'provider_exception', $exception->getMessage(), [
+                        'error_code' => 'provider_exception',
+                    ], null, $onStream);
+
+                    $result = new AiProviderResult(
+                        ok: false,
+                        output: '',
+                        command: [],
+                        exitCode: null,
+                        durationMs: 0,
+                        stdout: '',
+                        stderr: '',
+                        errorCode: 'provider_exception',
+                        errorMessage: $exception->getMessage(),
+                    );
+                }
             }
         }
 
@@ -1733,8 +1772,14 @@ class AiWorker
             'decision_receipt_v3_invalid',
             'decision_receipt_v3_hash_mismatch',
             'decision_receipt_v3_non_authoritative',
+            'decision_receipt_v3_authority_signature_mismatch',
+            'decision_receipt_v3_authority_context_unavailable',
             'decision_receipt_v2_v3_shadow_contradiction',
+            'decision_receipt_transport_copy_invalid',
+            'decision_receipt_transport_copy_contradiction',
+            'decision_receipt_legacy_nested_v3_transport_refused',
             'decision_receipt_cutover_v2_only_refused',
+            'decision_receipt_unknown_version',
             'permission_denied',
             'policy_violation',
         ], true);

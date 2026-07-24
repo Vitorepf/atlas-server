@@ -12,6 +12,16 @@ use Tests\TestCase;
 
 class DecisionReceiptIssuerTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        config([
+            'atlas.ai.decision_receipt_v3_canary_percent' => 0,
+            'atlas.ai.decision_receipt_v3_cutover_enabled' => false,
+        ]);
+
+        parent::tearDown();
+    }
+
     public function test_issuer_creates_receipt_with_model_selection_policy_and_hashes(): void
     {
         $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'corrija esse bug']);
@@ -220,7 +230,7 @@ class DecisionReceiptIssuerTest extends TestCase
         ]);
         $before = $receipt->toArray();
 
-        $this->assertFalse($issuer->isV3CanarySelected($receipt->receiptId));
+        $this->assertFalse($issuer->isV3CanarySelected($envelope));
         $this->assertNull($issuer->issueV3CanaryCompanion($receipt, $envelope));
         $this->assertSame($before, $receipt->toArray());
     }
@@ -242,7 +252,7 @@ class DecisionReceiptIssuerTest extends TestCase
         $v2Before = $receipt->toArray();
         $v3 = $issuer->issueV3CanaryCompanion($receipt, $envelope);
 
-        $this->assertTrue($issuer->isV3CanarySelected($receipt->receiptId));
+        $this->assertTrue($issuer->isV3CanarySelected($envelope));
         $this->assertIsArray($v3);
         $this->assertSame(DecisionReceipt::SCHEMA_VERSION_V3, $v3['schema_version']);
         $this->assertSame($v2Before['receipt_id'], $v3['receipt_id']);
@@ -258,5 +268,90 @@ class DecisionReceiptIssuerTest extends TestCase
             'receipt_v3' => $v3,
         ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5'));
         CarbonImmutable::setTestNow();
+    }
+
+    public function test_canary_selection_is_bound_to_server_minted_envelope_identity_not_caller_receipt_id(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_canary_percent' => 50]);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'same server envelope']);
+        $first = $issuer->issue($envelope, ['receipt_id' => 'caller-controls-this-id-a']);
+        $second = $issuer->issue($envelope, ['receipt_id' => 'caller-controls-this-id-b']);
+
+        $firstCompanion = $issuer->issueV3CanaryCompanion($first, $envelope);
+        $secondCompanion = $issuer->issueV3CanaryCompanion($second, $envelope);
+
+        $this->assertSame(
+            $firstCompanion !== null,
+            $secondCompanion !== null,
+            'caller-provided receipt_id must not steer canary selection',
+        );
+        $this->assertSame($firstCompanion !== null, $issuer->isV3CanarySelected($envelope));
+    }
+
+    public function test_canary_and_forced_cutover_fail_closed_without_a_decodable_server_key(): void
+    {
+        $originalAppKey = config('app.key');
+        config([
+            'app.key' => 'malformed-app-key',
+            'atlas.ai.decision_receipt_v3_canary_percent' => 100,
+            'atlas.ai.decision_receipt_v3_cutover_enabled' => true,
+        ]);
+
+        try {
+            $issuer = app(DecisionReceiptIssuer::class);
+            $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'fail closed without app key']);
+            $receipt = $issuer->issue($envelope, ['receipt_id' => 'missing-server-key']);
+
+            $this->assertFalse($issuer->isV3CanarySelected($envelope));
+            $this->assertNull($issuer->issueV3CanaryCompanion($receipt, $envelope));
+        } finally {
+            config(['app.key' => $originalAppKey]);
+        }
+    }
+
+    public function test_canary_accepts_a_valid_raw_application_key_as_server_key_material(): void
+    {
+        $originalAppKey = config('app.key');
+        config([
+            'app.key' => str_repeat('k', 32),
+            'atlas.ai.decision_receipt_v3_canary_percent' => 100,
+            'atlas.ai.decision_receipt_v3_cutover_enabled' => true,
+        ]);
+
+        try {
+            $issuer = app(DecisionReceiptIssuer::class);
+            $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'valid raw app key']);
+            $receipt = $issuer->issue($envelope, ['receipt_id' => 'raw-app-key']);
+            $companion = $issuer->issueV3CanaryCompanion($receipt, $envelope);
+
+            $this->assertTrue($issuer->isV3CanarySelected($envelope));
+            $this->assertIsArray($companion);
+            $this->assertTrue(DecisionReceiptHash::v3LiveAuthoritySignatureMatches($companion));
+        } finally {
+            config(['app.key' => $originalAppKey]);
+        }
+    }
+
+    public function test_canary_and_cutover_companions_have_distinct_effect_authority_and_signature(): void
+    {
+        $issuer = app(DecisionReceiptIssuer::class);
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'authority state']);
+        $receipt = $issuer->issue($envelope, ['receipt_id' => 'authority-state-v2']);
+
+        config([
+            'atlas.ai.decision_receipt_v3_canary_percent' => 100,
+            'atlas.ai.decision_receipt_v3_cutover_enabled' => false,
+        ]);
+        $canary = $issuer->issueV3CanaryCompanion($receipt, $envelope);
+        $this->assertSame('atlas.decide.v3-canary', $canary['signed_by'] ?? null);
+        $this->assertFalse((bool) data_get($canary, 'authority.effect.allowed'));
+        $this->assertArrayNotHasKey('authority_signature', $canary);
+
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
+        $cutover = $issuer->issueV3CanaryCompanion($receipt, $envelope);
+        $this->assertSame('atlas.decide.v3-cutover', $cutover['signed_by'] ?? null);
+        $this->assertTrue((bool) data_get($cutover, 'authority.effect.allowed'));
+        $this->assertTrue(DecisionReceiptHash::v3LiveAuthoritySignatureMatches($cutover));
     }
 }

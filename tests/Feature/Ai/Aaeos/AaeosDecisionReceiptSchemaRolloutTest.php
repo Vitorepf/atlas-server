@@ -40,12 +40,14 @@ final class AaeosDecisionReceiptSchemaRolloutTest extends TestCase
         self::assertArrayNotHasKey(DecisionReceipt::RECEIPT_V3_KEY, $v2);
 
         // SHADOW: co-present pair must be identity-aligned and integrity-valid.
-        $v3['receipt_id'] = $v2['receipt_id'];
-        $v3['envelope_id'] = $v2['envelope_id'];
-        $v3['dry_run'] = $v2['dry_run'];
-        $v3['domain'] = $v2['domain'];
-        $v3['flow'] = $v2['flow'];
-        $v3['provider_selection'] = $v2['provider_selection'];
+        foreach ([
+            'receipt_id', 'envelope_id', 'issued_at', 'expires_at', 'dry_run',
+            'domain', 'flow', 'risk', 'provider_selection', 'budgets',
+            'required_gates', 'required_evidence', 'repair_policy', 'inputs_hash',
+            'parent_receipt_id', 'chain_hash',
+        ] as $field) {
+            $v3[$field] = $v2[$field];
+        }
         $v3['receipt_hash'] = DecisionReceiptHash::v3FullEnvelopeHash($v3);
         self::assertNull($guard->violationForReceipt([
             DecisionReceipt::RECEIPT_V2_KEY => $v2,

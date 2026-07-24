@@ -3,11 +3,15 @@
 namespace Tests\Unit\Ai\Kernel;
 
 use App\Models\AiJob;
+use App\Models\AiTrace;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class DecisionReceiptRuntimeGuardTest extends TestCase
@@ -27,15 +31,15 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         $this->assertNull($guard->violationForReceipt(['decision_receipt' => ['receipt_id' => 'legacy']]));
     }
 
-    public function test_blocks_a_cryptographically_valid_v3_only_receipt_during_expand(): void
+    public function test_blocks_a_cryptographically_valid_v3_only_receipt_without_independent_authority_context(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
 
         $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
-            'receipt_v3' => $this->validV3Receipt(),
+            'receipt_v3' => $this->validLiveV3Receipt(),
         ]);
 
-        $this->assertSame('decision_receipt_v3_non_authoritative', $violation?->errorCode);
+        $this->assertSame('decision_receipt_v3_authority_context_unavailable', $violation?->errorCode);
         $this->assertSame('atlas.decide.v3', $violation?->schemaVersion);
     }
 
@@ -51,7 +55,86 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         }
     }
 
-    public function test_cutover_refuses_v2_only_workers_before_effect(): void
+    public function test_fails_closed_for_an_unknown_top_level_receipt_version_even_with_a_valid_v2(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            DecisionReceipt::RECEIPT_V2_KEY => $this->issuedReceipt([
+                'provider_selection' => [
+                    'primary' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'fallbacks' => [],
+                ],
+            ]),
+            'receipt_v4' => ['schema_version' => 'atlas.decide.v4'],
+        ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
+
+        $this->assertSame('decision_receipt_unknown_version', $violation?->errorCode);
+    }
+
+    public function test_cutover_refuses_a_canary_v3_that_lacks_live_authority_signature(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
+        $receipt = $this->validV3Receipt();
+        $receipt['signed_by'] = 'atlas.decide.v3-canary';
+        $receipt['authority']['effect']['allowed'] = false;
+        $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            DecisionReceipt::RECEIPT_V3_KEY => $receipt,
+        ]);
+
+        $this->assertSame('decision_receipt_v3_non_authoritative', $violation?->errorCode);
+    }
+
+    public function test_cutover_refuses_a_live_label_when_the_server_authority_signature_is_rehashed_but_wrong(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
+        $receipt = $this->validLiveV3Receipt();
+        $receipt['authority_signature'] = str_repeat('0', 64);
+        $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            DecisionReceipt::RECEIPT_V3_KEY => $receipt,
+        ]);
+
+        $this->assertSame('decision_receipt_v3_authority_signature_mismatch', $violation?->errorCode);
+    }
+
+    public function test_shadow_vetoes_when_any_duplicated_v2_field_diverges(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $v2 = $this->issuedReceipt([
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+        ]);
+        $v3 = $this->validV3Receipt();
+        foreach ([
+            'receipt_id', 'envelope_id', 'issued_at', 'expires_at', 'dry_run',
+            'domain', 'flow', 'risk', 'provider_selection', 'budgets',
+            'required_gates', 'required_evidence', 'repair_policy', 'inputs_hash',
+            'parent_receipt_id', 'chain_hash',
+        ] as $field) {
+            $v3[$field] = $v2[$field];
+        }
+        $v3['risk'] = 'critical';
+        $v3['receipt_hash'] = $this->independentV3Hash($v3);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            DecisionReceipt::RECEIPT_V2_KEY => $v2,
+            DecisionReceipt::RECEIPT_V3_KEY => $v3,
+        ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
+
+        $this->assertSame('decision_receipt_v2_v3_shadow_contradiction', $violation?->errorCode);
+    }
+
+    public function test_writer_selection_does_not_refuse_a_valid_v2_only_receipt(): void
     {
         config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
@@ -66,20 +149,37 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
             ]),
         ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
 
-        $this->assertSame('decision_receipt_cutover_v2_only_refused', $violation?->errorCode);
+        $this->assertNull($violation);
         config(['atlas.ai.decision_receipt_v3_cutover_enabled' => false]);
     }
 
-    public function test_cutover_allows_integrity_valid_v3_only_as_authority(): void
+    public function test_v3_only_live_receipt_fails_closed_when_authority_context_is_unavailable(): void
     {
         config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
 
         $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
-            'receipt_v3' => $this->validV3Receipt(),
+            'receipt_v3' => $this->validLiveV3Receipt(),
         ]);
 
-        $this->assertNull($violation);
+        $this->assertSame('decision_receipt_v3_authority_context_unavailable', $violation?->errorCode);
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => false]);
+    }
+
+    public function test_writer_selection_toggle_does_not_change_a_v3_only_live_receipt_result(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
+        $receipt = $this->validLiveV3Receipt();
+
+        foreach ([true, false] as $writerCutoverEnabled) {
+            config(['atlas.ai.decision_receipt_v3_cutover_enabled' => $writerCutoverEnabled]);
+            $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+                'receipt_v3' => $receipt,
+            ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
+
+            $this->assertSame('decision_receipt_v3_authority_context_unavailable', $violation?->errorCode);
+        }
+
         config(['atlas.ai.decision_receipt_v3_cutover_enabled' => false]);
     }
 
@@ -130,11 +230,14 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         ]);
         $v3 = $this->validV3Receipt();
         $v3['receipt_id'] = $v2['receipt_id'];
-        $v3['envelope_id'] = $v2['envelope_id'];
-        $v3['dry_run'] = $v2['dry_run'];
-        $v3['domain'] = $v2['domain'];
-        $v3['flow'] = $v2['flow'];
-        $v3['provider_selection'] = $v2['provider_selection'];
+        foreach ([
+            'envelope_id', 'issued_at', 'expires_at', 'dry_run', 'domain',
+            'flow', 'risk', 'provider_selection', 'budgets', 'required_gates',
+            'required_evidence', 'repair_policy', 'inputs_hash',
+            'parent_receipt_id', 'chain_hash',
+        ] as $field) {
+            $v3[$field] = $v2[$field];
+        }
         $v3['receipt_hash'] = $this->independentV3Hash($v3);
 
         $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
@@ -150,11 +253,15 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
         $v2 = $this->issuedReceipt();
         $v3 = $this->validV3Receipt();
+        foreach ([
+            'envelope_id', 'issued_at', 'expires_at', 'dry_run', 'domain',
+            'flow', 'risk', 'provider_selection', 'budgets', 'required_gates',
+            'required_evidence', 'repair_policy', 'inputs_hash',
+            'parent_receipt_id', 'chain_hash',
+        ] as $field) {
+            $v3[$field] = $v2[$field];
+        }
         $v3['receipt_id'] = 'different-receipt-id';
-        $v3['envelope_id'] = $v2['envelope_id'];
-        $v3['dry_run'] = $v2['dry_run'];
-        $v3['domain'] = $v2['domain'];
-        $v3['flow'] = $v2['flow'];
         $v3['receipt_hash'] = $this->independentV3Hash($v3);
 
         $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
@@ -401,6 +508,202 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         );
     }
 
+    public function test_job_copy_validation_vetoes_unknown_or_malformed_payload_transport(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $metadataTransport = ['receipt_v2' => $this->issuedReceipt(['receipt_id' => 'rcpt_metadata_valid'])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $metadataTransport],
+            'payload' => ['decision_receipt' => ['receipt_v4' => ['schema_version' => 'atlas.decide.v4']]],
+        ]);
+
+        $guard = new DecisionReceiptRuntimeGuard;
+        $this->assertSame('decision_receipt_unknown_version', $guard->violationForJob($job)?->errorCode);
+
+        $job->payload = ['decision_receipt' => ['receipt_v3' => 'malformed-copy']];
+        $this->assertSame('decision_receipt_v3_invalid', $guard->violationForJob($job)?->errorCode);
+    }
+
+    public function test_job_copy_validation_vetoes_differing_valid_copies_but_allows_equal_copies(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $metadataTransport = ['receipt_v2' => $this->issuedReceipt(['receipt_id' => 'rcpt_metadata_valid'])];
+        $payloadTransport = ['receipt_v2' => $this->issuedReceipt(['receipt_id' => 'rcpt_payload_valid'])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $metadataTransport],
+            'payload' => ['decision_receipt' => $payloadTransport],
+        ]);
+
+        $guard = new DecisionReceiptRuntimeGuard;
+        $this->assertSame('decision_receipt_transport_copy_contradiction', $guard->violationForJob($job)?->errorCode);
+
+        $job->payload = ['decision_receipt' => $metadataTransport];
+        $this->assertNull($guard->violationForJob($job));
+    }
+
+    public function test_expired_metadata_copy_does_not_mask_an_unknown_or_malformed_payload_transport(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $expiredTransport = ['receipt_v2' => $this->issuedReceipt([
+            'receipt_id' => 'rcpt_expired_metadata_payload',
+            'expires_at' => '2026-05-05T11:59:00Z',
+        ])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $expiredTransport],
+            'payload' => ['decision_receipt' => ['receipt_v4' => ['schema_version' => 'atlas.decide.v4']]],
+        ]);
+
+        $guard = new DecisionReceiptRuntimeGuard;
+        $this->assertSame('decision_receipt_unknown_version', $guard->violationForJob($job)?->errorCode);
+
+        $job->payload = ['decision_receipt' => 'malformed-transport-copy'];
+        $this->assertSame('decision_receipt_transport_copy_invalid', $guard->violationForJob($job)?->errorCode);
+    }
+
+    public function test_expired_metadata_copy_does_not_mask_a_different_v2_payload_transport(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $metadataTransport = ['receipt_v2' => $this->issuedReceipt([
+            'receipt_id' => 'rcpt_expired_metadata_different',
+            'expires_at' => '2026-05-05T11:59:00Z',
+        ])];
+        $payloadTransport = ['receipt_v2' => $this->issuedReceipt([
+            'receipt_id' => 'rcpt_expired_payload_different',
+            'expires_at' => '2026-05-05T11:59:00Z',
+        ])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $metadataTransport],
+            'payload' => ['decision_receipt' => $payloadTransport],
+        ]);
+
+        $this->assertSame(
+            'decision_receipt_transport_copy_contradiction',
+            (new DecisionReceiptRuntimeGuard)->violationForJob($job)?->errorCode,
+        );
+    }
+
+    public function test_expired_job_copy_does_not_mask_an_unknown_trace_transport(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $expiredTransport = ['receipt_v2' => $this->issuedReceipt([
+            'receipt_id' => 'rcpt_expired_trace_unknown',
+            'expires_at' => '2026-05-05T11:59:00Z',
+        ])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $expiredTransport],
+            'payload' => ['decision_receipt' => $expiredTransport],
+        ]);
+        $trace = new AiTrace;
+        $trace->forceFill([
+            'metadata' => ['decision_receipt' => ['receipt_v4' => ['schema_version' => 'atlas.decide.v4']]],
+        ]);
+        $job->setRelation('trace', $trace);
+
+        $this->assertSame('decision_receipt_unknown_version', (new DecisionReceiptRuntimeGuard)->violationForJob($job)?->errorCode);
+    }
+
+    public function test_loaded_trace_copy_is_validated_before_a_governing_job_copy_is_selected(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $transport = ['receipt_v2' => $this->issuedReceipt(['receipt_id' => 'rcpt_trace_valid'])];
+        $job = new AiJob;
+        $job->forceFill([
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'metadata' => ['decision_receipt' => $transport],
+            'payload' => ['decision_receipt' => $transport],
+        ]);
+        $trace = new AiTrace;
+        $trace->forceFill([
+            'metadata' => ['decision_receipt' => ['receipt_v4' => ['schema_version' => 'atlas.decide.v4']]],
+        ]);
+        $job->setRelation('trace', $trace);
+
+        $this->assertSame('decision_receipt_unknown_version', (new DecisionReceiptRuntimeGuard)->violationForJob($job)?->errorCode);
+    }
+
+    public function test_unloaded_trace_copy_is_loaded_and_validated_before_a_governing_job_copy_is_selected(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $transport = ['receipt_v2' => $this->issuedReceipt(['receipt_id' => 'rcpt_unloaded_trace_valid'])];
+        $createdTraceTable = false;
+        if (! Schema::hasTable('ai_traces')) {
+            Schema::create('ai_traces', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('trace_key')->unique();
+                $table->string('source_type')->default('system');
+                $table->string('status')->default('queued');
+                $table->text('operator_input');
+                $table->string('agent_slug');
+                $table->json('metadata')->nullable();
+                $table->timestamps();
+            });
+            $createdTraceTable = true;
+        }
+
+        try {
+            $trace = new AiTrace;
+            $trace->forceFill([
+                'id' => '00000000-0000-4000-8000-000000000777',
+                'trace_key' => 'decision-receipt-unloaded-trace-copy',
+                'source_type' => 'system',
+                'status' => 'queued',
+                'operator_input' => 'validate unloaded decision receipt trace copy',
+                'agent_slug' => 'atlas-test',
+                'metadata' => ['decision_receipt' => ['receipt_v4' => ['schema_version' => 'atlas.decide.v4']]],
+            ])->save();
+
+            $job = new AiJob;
+            $job->forceFill([
+                'trace_id' => $trace->getKey(),
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'metadata' => ['decision_receipt' => $transport],
+                'payload' => ['decision_receipt' => $transport],
+            ]);
+
+            $this->assertFalse($job->relationLoaded('trace'));
+            $this->assertSame('decision_receipt_unknown_version', (new DecisionReceiptRuntimeGuard)->violationForJob($job)?->errorCode);
+            $this->assertTrue($job->relationLoaded('trace'));
+        } finally {
+            if ($createdTraceTable) {
+                Schema::drop('ai_traces');
+            }
+        }
+    }
+
+    public function test_legacy_nested_v3_transport_refuses_before_provider(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $v2 = $this->issuedReceipt(['receipt_id' => 'rcpt_legacy_nested_v3']);
+        $receipt = ['receipt_v2' => $v2];
+        $receipt['receipt_v2']['canary_receipt_v3_attached'] = true;
+        $receipt['receipt_v2']['transport'] = [
+            'receipt_v2' => $v2,
+            'receipt_v3' => $this->validV3Receipt(),
+        ];
+
+        $this->assertSame(
+            'decision_receipt_legacy_nested_v3_transport_refused',
+            (new DecisionReceiptRuntimeGuard)->violationForReceipt($receipt)?->errorCode,
+        );
+    }
+
     /**
      * @param  array<string,mixed>  $decision
      * @return array<string,mixed>
@@ -466,6 +769,18 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
                 ],
             ],
         ];
+        $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
+
+        return $receipt;
+    }
+
+    /** @return array<string,mixed> */
+    private function validLiveV3Receipt(): array
+    {
+        $receipt = $this->validV3Receipt();
+        $receipt['signed_by'] = 'atlas.decide.v3-cutover';
+        $receipt['authority']['effect']['allowed'] = true;
+        $receipt['authority_signature'] = DecisionReceiptHash::v3LiveAuthoritySignature($receipt);
         $receipt['receipt_hash'] = $this->independentV3Hash($receipt);
 
         return $receipt;

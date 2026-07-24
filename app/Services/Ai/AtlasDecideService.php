@@ -32,6 +32,8 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
     private const COUNCIL_PROVIDER = 'claude_codex';
 
+    private const LEGACY_V2_WRITER = '__atlas_decide_legacy_v2_writer';
+
     public function __construct(
         private readonly AtlasAiPolicyService $policies,
         private readonly AiProviderModelResolver $models,
@@ -252,6 +254,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
      */
     public function operationalDecision(array $options, ?string $selectedProvider = null, ?string $selectedModel = null): OperationalDecision
     {
+        $forceLegacyV2Writer = ($options[self::LEGACY_V2_WRITER] ?? false) === true;
         $policy = $this->policies->effectiveProfile($options);
         $manualProvider = $this->manualOverrideProvider($options);
         $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
@@ -322,7 +325,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             selectedProvider: $selectedProvider,
             selectedModel: $selectedModel,
         );
-        $receiptV2 = $this->decisionReceiptV2(
+        $receiptTransport = $this->decisionReceiptV2(
             options: $options,
             policy: $policy,
             plan: $plan,
@@ -333,7 +336,10 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             manualProvider: $manualProvider,
             kernelContracts: $kernelContracts,
             selectionExplanation: $selectionExplanation,
+            forceLegacyV2Writer: $forceLegacyV2Writer,
         );
+        $receiptV2 = $receiptTransport[DecisionReceipt::RECEIPT_V2_KEY];
+        $receiptV3 = $receiptTransport[DecisionReceipt::RECEIPT_V3_KEY] ?? null;
         if ($this->forgeTopology->isForgeContinuumDecision($options, $policy, $plan)) {
             $receiptV2['forge_provider_topology'] = $this->forgeTopology->forgeProviderTopologyFromDecisionReceipt(
                 options: $options,
@@ -349,7 +355,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         }
         $this->recordDecisionReceipt($receiptV2, $options);
 
-        return OperationalDecision::fromArray([
+        $operationalDecision = [
             'schema_version' => 1,
             'decision_id' => $decisionId,
             'policy_profile_id' => $policy['profile_id'] ?? null,
@@ -400,14 +406,19 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             ],
             'receipt_v2' => $receiptV2,
             'kernel_contracts' => $kernelContracts,
-        ]);
+        ];
+        if (is_array($receiptV3)) {
+            $operationalDecision[DecisionReceipt::RECEIPT_V3_KEY] = $receiptV3;
+        }
+
+        return OperationalDecision::fromArray($operationalDecision);
     }
 
     /**
      * @param  array<string,mixed>  $options
      * @param  array<string,mixed>  $policy
      * @param  array<string,mixed>  $plan
-     * @return array<string,mixed>
+     * @return array{receipt_v2:array<string,mixed>,receipt_v3?:array<string,mixed>}
      */
     private function decisionReceiptV2(
         array $options,
@@ -420,6 +431,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         ?string $manualProvider,
         array $kernelContracts,
         array $selectionExplanation,
+        bool $forceLegacyV2Writer,
     ): array {
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $domain = (string) ($policy['domain'] ?? data_get($policy, 'profile_context.domain') ?? 'general');
@@ -519,22 +531,21 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             $selectedProvider,
             $selectedModel,
             $decisionSeed,
+            $forceLegacyV2Writer,
         ): array {
             $receipt = $this->receipts->issue($envelope, $decisionSeed);
             $v2 = $receipt->toArray();
-            // CANARY: optional companion v3 for NEW issuances only. Never rewrites v2.
-            $v3 = $this->receipts->issueV3CanaryCompanion($receipt, $envelope, $decisionSeed);
+            // CANARY/CUTOVER attaches the companion as an immutable top-level
+            // sibling. The V2 byte array is returned exactly as issued.
+            $v3 = $forceLegacyV2Writer
+                ? null
+                : $this->receipts->issueV3CanaryCompanion($receipt, $envelope, $decisionSeed);
+            $transport = [DecisionReceipt::RECEIPT_V2_KEY => $v2];
             if (is_array($v3)) {
-                $v2['canary_receipt_v3_attached'] = true;
-                // Transport dual envelope for consumers that look for receipt_v3 beside receipt_v2.
-                // The historical decide shape still returns the v2 body as the primary array.
-                $v2['transport'] = [
-                    DecisionReceipt::RECEIPT_V2_KEY => $v2,
-                    DecisionReceipt::RECEIPT_V3_KEY => $v3,
-                ];
+                $transport[DecisionReceipt::RECEIPT_V3_KEY] = $v3;
             }
 
-            return $v2;
+            return $transport;
         }, [
             'tenant_id' => $envelope->operator->tenantId,
             'operator_id' => $envelope->operator->operatorId,
@@ -995,12 +1006,23 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
+    public function receiptForTraceLegacyV2(array $options, string $selectedProvider, ?string $model = null): array
+    {
+        $options[self::LEGACY_V2_WRITER] = true;
+
+        return $this->receiptForTrace($options, $selectedProvider, $model);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
     public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
     {
         $decision = $this->operationalDecision($options, $selectedProvider, $model)->toArray();
         $providerSelection = (array) ($decision['provider_selection'] ?? []);
 
-        return [
+        $traceReceipt = [
             'schema_version' => 2,
             'decision_id' => $decision['decision_id'] ?? null,
             'decision_mode' => $decision['decision_mode'] ?? $this->decisionMode($options),
@@ -1031,6 +1053,11 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             'kernel_contracts' => $decision['kernel_contracts'] ?? data_get($decision, 'receipt_v2.metadata.kernel_contracts'),
             'receipt_v2' => $decision['receipt_v2'] ?? null,
         ];
+        if (is_array($decision[DecisionReceipt::RECEIPT_V3_KEY] ?? null)) {
+            $traceReceipt[DecisionReceipt::RECEIPT_V3_KEY] = $decision[DecisionReceipt::RECEIPT_V3_KEY];
+        }
+
+        return $traceReceipt;
     }
 
     /**

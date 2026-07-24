@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\AtlasDecide;
 
+use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
@@ -97,6 +98,42 @@ final class AtlasDecideGatewayDecisionReceiptTest extends TestCase
         $this->assertSame('cost_outcome', data_get($report, 'decision_receipt_replay.events.0.routing_basis'));
         $this->assertContains('kernel_decision:allow', data_get($report, 'decision_receipt_replay.events.0.evidence_refs'));
         $this->assertContains('live_outcome:route-window-1', data_get($report, 'decision_receipt_replay.events.0.evidence_refs'));
+    }
+
+    public function test_trace_transport_uses_a_top_level_v3_sibling_without_mutating_v2_bytes(): void
+    {
+        $decide = app(AtlasDecideService::class);
+        $options = $decide->normalizeOptions([
+            'source_type' => 'manual',
+            'input_text' => 'preserve v2 while exercising v3 transport',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+            ],
+        ]);
+
+        config([
+            'atlas.ai.decision_receipt_v3_canary_percent' => 0,
+            'atlas.ai.decision_receipt_v3_cutover_enabled' => false,
+        ]);
+        $legacy = $decide->receiptForTrace($options, 'codex_cli', 'gpt-5.5');
+
+        config(['atlas.ai.decision_receipt_v3_canary_percent' => 100]);
+        $canary = $decide->receiptForTrace($options, 'codex_cli', 'gpt-5.5');
+        $historicalRefresh = $decide->receiptForTraceLegacyV2($options, 'codex_cli', 'gpt-5.5');
+
+        $this->assertArrayNotHasKey('receipt_v3', $legacy);
+        $this->assertArrayHasKey('receipt_v2', $canary);
+        $this->assertArrayHasKey('receipt_v3', $canary);
+        $this->assertArrayNotHasKey('transport', $canary['receipt_v2']);
+        $this->assertArrayNotHasKey('canary_receipt_v3_attached', $canary['receipt_v2']);
+        $this->assertSame(array_keys($legacy['receipt_v2']), array_keys($canary['receipt_v2']));
+        $this->assertSame($canary['receipt_v2']['receipt_id'], $canary['receipt_v3']['receipt_id']);
+        $this->assertSame($canary['receipt_v2']['envelope_id'], $canary['receipt_v3']['envelope_id']);
+        $this->assertFalse((bool) data_get($canary, 'receipt_v3.authority.effect.allowed'));
+        $this->assertArrayNotHasKey('receipt_v3', $historicalRefresh);
     }
 
     /** @param array<string,mixed>|null $route */

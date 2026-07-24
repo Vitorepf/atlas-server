@@ -1633,9 +1633,9 @@ return [
         // P2b-CANARY: percent of NEW decision issuances that attach a companion receipt_v3
         // envelope. Default 0 = writers remain legacy V2-only. Never rewrites historical V2.
         'decision_receipt_v3_canary_percent' => max(0, min(100, (int) env('ATLAS_AI_DECISION_RECEIPT_V3_CANARY_PERCENT', 0))),
-        // P2b-CUTOVER: when true, mutative cutover is active — v2-only workers fail closed before
-        // provider/effect; valid receipt_v3 becomes authoritative; new issuances force companion v3.
-        // Default false until operator enables. Never rewrites historical signed V2 bytes.
+        // P2b-CUTOVER writer selector: when true, new issuances attach the V3 CUTOVER-shaped
+        // companion. It never changes reader authority: V2 governs a dual transport and V3-only
+        // remains fail-closed until independently bound runtime authority exists. Historical V2 is untouched.
         'decision_receipt_v3_cutover_enabled' => (bool) env('ATLAS_AI_DECISION_RECEIPT_V3_CUTOVER_ENABLED', false),
         'context_note_limit' => (int) env('ATLAS_AI_CONTEXT_NOTE_LIMIT', 5),
         'context_excerpt_chars' => (int) env('ATLAS_AI_CONTEXT_EXCERPT_CHARS', 1200),
