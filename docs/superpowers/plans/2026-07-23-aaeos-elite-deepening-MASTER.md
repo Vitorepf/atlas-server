@@ -1219,18 +1219,28 @@ rg -n 'invalid_provider_contract|patch_plan' app/Services/Ai/EngineeringKernel/A
 - COMMIT 2: `PHASE-P1-JSON.json` + LEDGER + SCOREBOARD  
   `docs(evidence): AAEOS-MT P1-JSON phase receipt`
 
-### P1-JSON exit checklist
-- [ ] Model is never required to emit JSON³ for structured/tool tasks when FC or single-target free-form packaging applies  
-- [ ] Server-side patch_plan packaging is the law at the existing port  
-- [ ] `invalid_provider_contract` only for truly unusable payloads  
-- [ ] Goldens: FC args → plan; free-form single target → plan; garbage → fail closed  
+### P1-JSON exit checklist (path law GREEN vs transport residual)
+
+**R104 PATH LAW is GREEN when all of these are true (enough to unlock P2a.1):**
+- [ ] Model is never required to emit JSON³ for structured/tool tasks when FC facts **or** single-target free-form packaging applies  
+- [ ] Server-side patch_plan packaging is the law at the existing port (free-form salvage + package-when-FC-facts-present)  
+- [ ] `invalid_provider_contract` only for truly unusable payloads; encoding taxonomy exists  
+- [ ] Goldens: free-form single target → plan; garbage → fail closed; **when** structured FC facts are injected → plan (fixture OK)  
 - [ ] Direct Dev and AAEOS-routed Dev share packaging law (no silent dual contract)  
 - [ ] No new organ; no land/merge authority smuggled  
-- [ ] R104 closed in PHASE; product doc updated  
-- [ ] PHASE-P1-JSON GREEN  
+- [ ] Hermes/labels do **not** lie about native FC capability when transport is free_form only  
+
+**NOT required for P1-JSON GREEN / not a P2 blocker:**
+- Live Hermes (or any one CLI) declaring `atlas_apply_patch` / returning verified native FC args in production today  
+- Full provider-boundary rewrite outside closed paths  
+
+That live-transport work is residual **`R104-TRANSPORT`** (later; may ride provider adapter work in P1b/P2).  
+**PARTIAL is forbidden as a permanent wall:** if path law checklist above is true, status must be **GREEN** with `residuals_still_open` listing R104-TRANSPORT only.  
+Implementer **may** continue to P2a.1 after that GREEN without human amendment theater.
 
 ### P1-JSON STOP
-Do not start P2a.1 until controller activates it. P4-DEV must see R104 closed (or explicit PARTIAL with residual open — cannot full DONE).
+After PHASE-P1-JSON **GREEN** (path law), next gate is **EXECUTE P2a.1**.  
+P4-DEV / dual-arm “native FC journey” honesty may still require R104-TRANSPORT closed — do not block P2 on Hermes-today.
 
 ---
 

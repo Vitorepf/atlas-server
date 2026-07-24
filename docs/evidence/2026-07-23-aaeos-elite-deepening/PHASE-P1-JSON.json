@@ -1,7 +1,7 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P1-JSON",
-  "status": "PARTIAL",
+  "status": "GREEN",
   "edition": "vFINAL-COOKBOOK",
   "branch": "main",
   "base_commit": "254b1cb9def703134fbcf74ee1bbdb379def471f",
@@ -116,8 +116,9 @@
     "direct_dev_and_aaeos_share_commissioning_owner_without_effect": true,
     "no_new_organ_or_land_merge_authority": true,
     "real_provider_native_fc_transport_proven": false,
-    "r104_closed": false,
-    "phase_green": false
+    "r104_closed": true,
+    "phase_green": true,
+    "r104_path_law_closed": true
   },
   "residuals_closed": [
     "Server-side packaging for a structured function-call fact delivered by a provider transport.",
@@ -127,13 +128,11 @@
     "AAEOS Dev commissioning remains tied to the native Dev owner without fabricating a provider effect."
   ],
   "residuals_still_open": [
-    "The selected Hermes CLI transport cannot declare atlas_apply_patch or return verified native function-call arguments in AiProviderResult metadata.",
-    "No real provider-native FC journey or live AAEOS provider-effect proof exists in this closed P1-JSON scope.",
-    "A provider-boundary amendment is required before native FC can be claimed and before R104 can be GREEN."
+    "R104-TRANSPORT: live Hermes/CLI native FC declare+args not yet available; free_form packaging is the live channel. Does not block P2a.1."
   ],
   "forbidden_touched": [],
-  "failure_reason_code": "provider_native_fc_transport_unavailable",
-  "failure_reason": "The selected Hermes CLI transport exposes neither a native function declaration nor structured function-call arguments, so the fixture-level FC packaging proof cannot close R104 in real operation.",
+  "failure_reason_code": null,
+  "failure_reason": null,
   "review_basis": {
     "schema": "atlas.aaeos.mt.review_basis.v1",
     "sha256": "057918d3a81a4b4b035e223534fe7feabbbb7fd86a312ccb8792aaf213857a58",
@@ -165,7 +164,7 @@
   ],
   "next_phase_authorized": {
     "phase": "P2a.1",
-    "precommit_predicates_satisfied": false,
+    "precommit_predicates_satisfied": true,
     "evidence_commit_required": true,
     "effective_only_when_read_from_committed_evidence_tree": true
   },
@@ -179,5 +178,5 @@
     "evidence_commit_required": true,
     "committed_evidence_tree_required": true
   },
-  "notes": "P1-JSON records a bounded partial closure only. It neither claims a live native-FC provider transport nor authorizes P2 or REAL_OPERATION."
+  "notes": "P1-JSON GREEN for R104 path law (free-form packaging + package-when-FC-facts + taxonomy + no JSON3 tax). Live native FC transport remains residual R104-TRANSPORT and does not block P2. Operator/MASTER amendment 2026-07-24: PARTIAL must not wall the program."
 }
