@@ -11,6 +11,12 @@
   "provider_result": "succeeded",
   "quality_gate": "passed",
   "quality_score": 90,
+  "regression_test": {
+    "path": "tests/Unit/AiChatCommandPermissionTest.php",
+    "filter": "workspace_cert",
+    "result": "1 passed / 3 assertions",
+    "commit": "4290675c8"
+  },
   "observed_effect": {
     "path": "p4-live-proof.txt",
     "sha256": "7c122902b32757f4bf66e47522b6e877e0036de572d0ce118e9e3c109ec4c09f",
