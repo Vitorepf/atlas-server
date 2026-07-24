@@ -909,6 +909,7 @@ routes/console.php
 
 ```
 tests/Unit/Ai/Aaeos/Control/AaeosOperateDispatchTest.php
+tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php
 tests/Unit/Ai/Aaeos/Control/AaeosNativeDevDispatchContractTest.php
 tests/Unit/Ai/Aaeos/Control/AaeosNativeForgeDispatchContractTest.php
 tests/Unit/Ai/Aaeos/Control/AaeosNativeAutonomosDispatchContractTest.php
