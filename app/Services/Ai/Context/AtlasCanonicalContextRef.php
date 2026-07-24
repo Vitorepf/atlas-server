@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
+use App\Support\CanonicalValue;
 
 /**
  * COM-01 / X-03 — the UNIQUE owner of the AOBG context-ref namespace.
@@ -311,17 +312,7 @@ final class AtlasCanonicalContextRef
 
     private static function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(static fn (mixed $item): mixed => self::canonicalize($item), $value);
-        }
-
-        ksort($value);
-
-        return array_map(static fn (mixed $item): mixed => self::canonicalize($item), $value);
+        return CanonicalValue::canonicalize($value);
     }
 
     private static function normalizeHops(mixed $hops): array

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Services\Ai\RealExecution;
+use App\Support\CanonicalValue;
 
 class RealExecutionHash
 {
@@ -18,19 +19,6 @@ class RealExecutionHash
      */
     private static function canonicalize($value)
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        $isList = array_keys($value) === range(0, count($value) - 1);
-        if (! $isList) {
-            ksort($value);
-        }
-
-        foreach ($value as $key => $item) {
-            $value[$key] = self::canonicalize($item);
-        }
-
-        return $value;
+        return CanonicalValue::canonicalize($value);
     }
 }
