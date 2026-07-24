@@ -1,0 +1,92 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2b-SHADOW",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "8f42af2403d939c767a41f673101b76dd7384042",
+  "implementation_commit": "4d91fbe269f8f51f3390a0b7fd1bea85d7458672",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2b-SHADOW matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN shadow matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2b-SHADOW:27-passed-79-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "error:decision_receipt_v2_v3_shadow_contradiction"
+  ],
+  "exit_checklist": {
+    "shadow_veto_on_tampered_v3": true,
+    "shadow_veto_on_identity_divergence": true,
+    "aligned_pair_passes": true,
+    "v3_only_still_non_authoritative": true,
+    "writers_still_legacy_v2": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "V2/V3 shadow contradiction veto"
+  ],
+  "residuals_still_open": [
+    "P2b-CANARY writer not started",
+    "R-P2A1-PG-LIVE",
+    "R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "d38102c66c2422831ff60ca6b1434a79fdda08838c4ec2080a6cccf3a1065f94",
+    "ledger_content_sha256": "83991b9f72bbf9cf42074259b92e09d9a5c5c9c272e9182bc3cc93d9af6c1066",
+    "scoreboard_content_sha256": "310bd2443984a2d92435c5fe7f73b2a07453c702be3615a1a3423c5b62826297",
+    "sha256": "5f9c458385bcb24f10a216b94ac38a0e3f8e42d2fd1a5314de031e2d5a5ec552"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2b-CANARY",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2b-SHADOW GREEN. Next EXECUTE P2b-CANARY."
+}
