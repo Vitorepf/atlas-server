@@ -537,6 +537,11 @@ Internamente: **0..N** repairs/replans sob o mesmo root.
 
 ---
 
+## 11.5 Self-evolution (Autônomos)
+
+O QoS path law (R106) e o claim 50× (R107) alimentam o **loop noturno**: saturou nível → Autônomos sobe a escola e melhora o Atlas sozinho.
+Canon: `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md`.
+
 ## 12. Uma frase
 
 **Agent QoS = escola de excelência: multi-loop multiplica o modelo ≥50× no frontier atual (Kimi cru vs Atlas); níveis saturados viram sanity; o currículo sobe com o século — nunca “80% = teto do aluno”.**

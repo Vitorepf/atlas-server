@@ -133,6 +133,7 @@ Visão AAEOS era agentica: `docs/evidence/2026-07-22-atlas-server-god-debulk/AAE
 7. ACDE / `atlas:loop:*` = morto; vivo = `atlas:brain:*` / `atlas:task:*`.  
 8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-COOKBOOK**).  
 9. Agent QoS excellence (operador fora do eng loop; tempo secundário; multi-loop Court+Floor+Repair): `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md` (R106 / `EXECUTE P2g-QOS`).
+10. Autônomos self-evolution (night forever): medir frontier → saturou 80–100% → sobe escola → originar melhoria sem pedido — `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md`.
 
 ## Matriz canônica
 

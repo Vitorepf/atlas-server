@@ -33,6 +33,7 @@ maintenance:
   - Ao adicionar case-set Rivals, classificar sanity vs frontier vs horizon.
 related_paths:
   - docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md
+  - docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md
   - docs/engineering-knowledge-base/atlas-rivals-product-v1.md
   - docs/engineering-knowledge-base/atlas-rivals-claims-and-reporting-v1.md
   - docs/engineering-knowledge-base/thesis/rivals-validation.md
@@ -208,6 +209,14 @@ PÉTRO — Anti-Ceiling Fallacy / Curriculum Ladder
 
 ---
 
-## 8. Uma frase
+## 8. Elo com Autônomos (self-evolution)
 
-**Benchmark e N×M são escola sem fim: aprovação sobe de ano; o frontier muda; o Atlas deve multiplicar no livro atual e abrir o próximo — nunca confundir 80% na tabuada com o fim da matemática.**
+Quando um nível satura (80–100% estável), **não** é só “subir o teste no papel”.  
+O sistema vivo deve **originar trabalho** (brain→task→land) para o Atlas **alcançar o novo patamar** — sem o operador pedir.  
+Contrato: `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md` (night → forever).
+
+---
+
+## 9. Uma frase
+
+**Benchmark e N×M são escola sem fim: aprovação sobe de ano; o frontier muda; o Atlas multiplica no livro atual, abre o próximo e o Autônomos implementa a subida — nunca confundir 80% na tabuada com o fim da matemática.**

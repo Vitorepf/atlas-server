@@ -91,6 +91,15 @@ next_actions:
 
 # Atlas Autônomos — o sistema VIVO (cérebro + músculo)
 
+## Self-evolution de qualidade (night / desejo do operador)
+
+Canon: `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md`  
+Curriculum: `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md`  
+
+Autônomos não é só “fazer tasks”: é o músculo do **Atlas que se melhora sozinho** — medir frontier, se 80–100% saturou o nível **subir a escola**, originar melhoria, land, re-medir. Operador fora do eng loop; sensação de produto 10× sem pedido.
+
+
+
 > **⚰️ Correção pétrea:** o "Loop" (`app/Services/Ai/AutonomousEvolution/` raiz, ACDE) **MORREU** — foi
 > o MVP fracassado. O sistema **VIVO** de auto-evolução do Atlas é o **AUTÔNOMOS** descrito aqui.
 > Se um doc antigo (`atlas-evolution-loop-*.md`, `atlas-autonomous-evolution-loop.md`, etc.) apresenta o

@@ -75,3 +75,7 @@ Law: atlas-agent-qos-excellence-ceiling.md §0.4. Path: R106. Channel: R104. Cla
 ## Canon anti-ceiling (all IAs)
 
 `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md` — 80–100% = school level pass; elevate curriculum; never “50× forever impossible”.
+
+## Self-evolution (Autônomos night)
+
+`docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md` — close the loop: measure → promote school → originate real improvement → land → remeasure without operator eng.
