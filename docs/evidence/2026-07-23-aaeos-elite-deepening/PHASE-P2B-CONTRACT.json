@@ -1,0 +1,87 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2b-CONTRACT",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "c553eaafa328ad47c37fa18a8ddd27cc551a1abb",
+  "implementation_commit": "1de06f18ee7ac60c5f0e111bff428133cfa34f3c",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptCutoverContractTest.php"
+  ],
+  "touched_paths": [
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptCutoverContractTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2b-CONTRACT freeze",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosDecisionReceiptCutoverContractTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN contract freeze",
+      "output_fingerprint_or_ref": "controller-verification/P2b-CONTRACT:4-passed-14-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "contract:decision_receipt_v3_cutover_freeze"
+  ],
+  "exit_checklist": {
+    "defaults_frozen": true,
+    "companion_without_v2_rewrite": true,
+    "old_worker_v2_only_drained_under_cutover": true,
+    "r102_modes_explicit": true,
+    "no_signed_byte_rewrite": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "P2b Decision v3 rollout contract freeze"
+  ],
+  "residuals_still_open": [
+    "R-P2A1-PG-LIVE",
+    "R104-TRANSPORT",
+    "operator must enable cutover env for live traffic"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "6e85eeea76a3d378843301c021fb5895f9b8dc5b1187031a09c6cd70aba5dbad",
+    "ledger_content_sha256": "ff54935a59eadb250191c276176623d8a8b4c8e07a30e4c6caab028fb76f1e86",
+    "scoreboard_content_sha256": "24971909a2c031f6117e21fa8a32a039c7a9ae5c62fe14906f1b542d9727bb72",
+    "sha256": "ba7dea556ef586d719ecdd8f6f86b8c2bf61b6346c3789cb09c96a14faf06dd1"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P1b.1",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2b-CONTRACT GREEN. Full P2b Decision v3 ladder closed. Next EXECUTE P1b.1 (effect authority characterization)."
+}
