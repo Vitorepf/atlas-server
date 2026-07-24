@@ -5,15 +5,15 @@
   "absolute_master_done": false,
   "residual_honest": true,
   "real_operation": {
-    "qualified": false,
-    "journey_terminal_status": "blocked_ops_partial",
+    "qualified": true,
+    "journey_terminal_status": "real_operation_completed",
     "producer_status": "passed",
     "named_residuals": [],
-    "blockers_sample": [
-      "authority_lineage_proof_missing",
-      "derived_capability_proofs_incomplete"
-    ],
-    "eng_live_passed": true
+    "blockers_sample": [],
+    "eng_live_passed": true,
+    "dual_real_operation_completed": true,
+    "authority_lineage_proof_derived": true,
+    "provider_spawn_proof_derived": true
   },
-  "notes": "Live senior-loop status=passed (land+canary). Gauntlet authority_lineage_proof_missing. Absolute DONE no."
+  "notes": "Dual senior-loop LIVE both real_operation_completed (authority_lineage derived from ConfirmedDevRun+decision_event_id). Absolute three-mode DONE still NO (FORGE/AUTONOMOS residual)."
 }

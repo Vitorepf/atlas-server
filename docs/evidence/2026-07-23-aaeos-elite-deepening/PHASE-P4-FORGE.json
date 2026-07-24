@@ -1,7 +1,7 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
-  "phase": "FORGE",
-  "status": "GREEN",
+  "phase": "P4-FORGE",
+  "status": "PARTIAL",
   "absolute_master_done": false,
   "residual_honest": true,
   "real_operation": {
@@ -22,8 +22,7 @@
       "residual:blocked",
       "producer_status_not_completed",
       "producer_status:blocked"
-    ],
-    "eng_live_passed": false
+    ]
   },
-  "notes": "Residual-honest P4 phase. Absolute MASTER DONE not claimed."
+  "notes": "Residual-honest PARTIAL \u2014 no fabricated REAL_OPERATION."
 }

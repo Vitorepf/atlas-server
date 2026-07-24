@@ -1,24 +1,25 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
-  "phase": "AUTONOMOS",
-  "status": "GREEN",
+  "phase": "P4-AUTONOMOS",
+  "status": "PARTIAL",
   "absolute_master_done": false,
   "residual_honest": true,
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "producer_status": "queue_scan_limit_exceeded",
+    "producer_status": "invalid_client",
     "named_residuals": [
-      "queue_scan_limit_exceeded"
+      "client_id_required",
+      "invalid_client"
     ],
     "blockers_sample": [
       "provider_spawn_proof_missing",
       "authority_lineage_proof_missing",
-      "residual:queue_scan_limit_exceeded",
+      "residual:client_id_required",
+      "residual:invalid_client",
       "producer_status_not_completed",
-      "producer_status:queue_scan_limit_exceeded"
-    ],
-    "eng_live_passed": false
+      "producer_status:invalid_client"
+    ]
   },
-  "notes": "Residual-honest P4 phase. Absolute MASTER DONE not claimed."
+  "notes": "Residual-honest PARTIAL \u2014 no fabricated REAL_OPERATION."
 }

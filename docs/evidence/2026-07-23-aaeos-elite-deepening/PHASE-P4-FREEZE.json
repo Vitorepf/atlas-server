@@ -1,139 +1,28 @@
 {
-  "schema": "atlas.aaeos.mt.phase_receipt.v1",
-  "phase": "P4-FREEZE",
-  "status": "GREEN",
-  "edition": "vFINAL-COOKBOOK",
-  "branch": "main",
-  "base_commit": "181daae1f9cd44cb55ac708c0f61382286671a9e",
-  "implementation_commit": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9",
-  "dirty_before": [],
-  "staged_before": [],
-  "allowed_paths": [
-    "app/Services/Ai/Aaeos/Control/AaeosP4RealOperationGauntlet.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php",
-    "bin/atlas"
-  ],
-  "touched_paths": [
-    "app/Services/Ai/Aaeos/Control/AaeosP4RealOperationGauntlet.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php",
-    "tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php"
-  ],
-  "deleted_paths": [],
-  "foreign_wip_left_untouched": [
-    "foreign_wip"
-  ],
-  "baseline_failures": [],
-  "new_failures": [],
-  "tests": [
-    {
-      "path": "P4 gauntlet matrix",
-      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosP4RealOperationGauntletTest.php tests/Feature/Ai/Aaeos/AaeosP4CertifierReadOnlyBoundaryTest.php tests/Feature/Ai/Aaeos/AaeosP4RuntimeProfileRejectionTest.php tests/Feature/Ai/Aaeos/AaeosP4NonTerminalExitZeroRejectionTest.php --no-coverage",
-      "red_exit": null,
-      "green_exit": 0,
-      "red_failure_reason": "GREEN P4 matrix",
-      "output_fingerprint_or_ref": "controller-verification/P4:11-passed-35-assertions"
-    }
-  ],
-  "artifact_hashes_or_refs": [
-    "atlas.aaeos.p4.real_operation_gauntlet.v1",
-    "P4-JOURNEY-RECEIPTS.json",
-    "blocked_ops_partial",
-    "phpunit_alone_never_qualifies",
-    "code_sha:1eab1983f6c1"
-  ],
-  "exit_checklist": {
-    "real_entry_point_driven": true,
-    "exit_zero_alone_never_qualifies": true,
-    "durable_pg_preflight_enforced": true,
-    "residual_honesty_when_pg_missing": true,
-    "no_fabricated_real_operation_completed": true,
-    "phase_green": true,
-    "path_core_exit_checklist_all_true": true
-  },
-  "residuals_closed": [
-    "P4 preflight/gates/tests for non-qualification of fake green",
-    "P4 durable PG local provision + least-privilege roles proven (atlas-p4-pg)"
-  ],
-  "residuals_still_open": [
-    "Provider spawn attestation for live journey not available in this environment",
-    "R104-TRANSPORT residual",
-    "R-P2A1-PG-LIVE",
-    "mutative REAL_OPERATION eng journey (non-plan-only COVERED provider) not completed"
-  ],
-  "forbidden_touched": [],
-  "failure_reason_code": null,
-  "failure_reason": null,
-  "real_operation": {
-    "qualified": false,
-    "full_real_operation_done": false
-  },
-  "notes": "P4-FREEZE residual-honest; three modes blocked_ops_partial; absolute DONE=NO",
-  "freeze": {
     "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
-    "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a",
+    "code_sha": "b09c7c6d9ce975d341e6de33541737b1808b35d6",
     "ledger_cutoff": null,
     "modes": {
-      "dev": {
-        "present": true,
-        "journey_terminal_status": "blocked_ops_partial",
-        "real_operation_qualified": false,
-        "receipt_fingerprint": "2a9baca0ebdf2725303a6b0d4ddee8db8c6537e444b0225ebc92d9edd150f665"
-      },
-      "forge": {
-        "present": true,
-        "journey_terminal_status": "blocked_ops_partial",
-        "real_operation_qualified": false,
-        "receipt_fingerprint": "fd0736cea56bb3c2cf939786e9d28598a57188e9856d4bc94daffd24e8633390"
-      },
-      "autonomos": {
-        "present": true,
-        "journey_terminal_status": "blocked_ops_partial",
-        "real_operation_qualified": false,
-        "receipt_fingerprint": "752cc6ca6e71abae19b631e1b1224843be3dde1fdd6a8cf8c3c6b919d0073dc3"
-      }
+        "dev": {
+            "present": true,
+            "journey_terminal_status": "real_operation_completed",
+            "real_operation_qualified": true,
+            "receipt_fingerprint": "a09335fb67168435c47e655824aed48ceec860ff40e41d68a90ae014a0852d1d"
+        },
+        "forge": {
+            "present": true,
+            "journey_terminal_status": "blocked_ops_partial",
+            "real_operation_qualified": false,
+            "receipt_fingerprint": "290eaf7dfee2a0310ddbde1fe9ba7521499fc66ef4cd95e361a2d7681aa73de5"
+        },
+        "autonomos": {
+            "present": true,
+            "journey_terminal_status": "blocked_ops_partial",
+            "real_operation_qualified": false,
+            "receipt_fingerprint": "debaee415397db4790d7593088c3c08f721319bbe80324a794add58e48e44a11"
+        }
     },
     "all_three_modes_bound": true,
     "full_real_operation_done": false,
     "phpunit_alone_never_qualifies": true
-  },
-  "residual_honest": true,
-  "absolute_master_done": false,
-  "review_basis": {
-    "schema": "atlas.aaeos.mt.review_basis.v1",
-    "sha256": "5b6443539012f257948d8337a603e3ec70afbf4756b37797771dc1c816093408",
-    "phase_payload_excludes": [
-      "review_basis",
-      "review_attestation_refs",
-      "next_phase_authorized",
-      "next_phase_authorization_basis"
-    ],
-    "ledger_content_sha256": "f32c3b2e63571cb9bf6159bbb42784ed01d42242dc80fbdd9707e4e8c896f098",
-    "scoreboard_content_sha256": "4bcb12a5ca1c36e9adc72dc888f89bebbe56d02eab509cc58d0d2e1ef831b2c4",
-    "phase_payload_sha256": "b5c2c953e1860dd8d9cc03eaebb403e90025a5bcda45ab8c78407127bd3b0ebc"
-  },
-  "review_attestation_refs": [],
-  "next_phase_authorization_basis": {
-    "serial_predecessor_green": true,
-    "exit_checklist_all_true": true,
-    "tests_green": true,
-    "spec_review_approved": false,
-    "quality_review_approved": false,
-    "review_attestation_refs_valid": false,
-    "evidence_commit_required": true,
-    "committed_evidence_tree_required": true,
-    "absolute_done_authorized": false
-  },
-  "next_phase_authorized": {
-    "phase": "LIVE-UPGRADE-OR-STOP",
-    "precommit_predicates_satisfied": false,
-    "evidence_commit_required": true,
-    "effective_only_when_read_from_committed_evidence_tree": true,
-    "residual_honest_only": true,
-    "absolute_real_operation_not_claimed": true
-  }
 }
