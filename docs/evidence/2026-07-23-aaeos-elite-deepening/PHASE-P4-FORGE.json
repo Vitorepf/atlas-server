@@ -7,11 +7,11 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "producer_status": "blocked",
     "named_residuals": [
-      "obra_required",
-      "evidence_required",
-      "blocked"
+      "forge_live_execute_is_simulate_only_test_double_r84",
+      "provider_spawn_proof_missing",
+      "authority_lineage_proof_missing",
+      "provider_invoke_blocked_missing_dispatch"
     ],
     "blockers_sample": [
       "provider_spawn_proof_missing",
@@ -22,7 +22,9 @@
       "residual:blocked",
       "producer_status_not_completed",
       "producer_status:blocked"
-    ]
+    ],
+    "eng_live_with_obra_fixture": "passed_with_ATLAS_ELITE_STRICT_RETRIEVAL_GATE=0",
+    "external_provider_call": false
   },
-  "notes": "Residual-honest PARTIAL \u2014 no fabricated REAL_OPERATION."
+  "notes": "Forge LIVE fixture path (atlas:forge:live-execute) is EXECUTION_MODE=simulate_only_test_double \u2014 R84 forbids REAL_OPERATION. Real provider path (hermes/minimax/cursor configured) still needs governed dispatch + confirms. Absolute DONE NO."
 }
