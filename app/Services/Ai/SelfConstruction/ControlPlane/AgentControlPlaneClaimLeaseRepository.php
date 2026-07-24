@@ -79,6 +79,10 @@ final class AgentControlPlaneClaimLeaseRepository
 
     public const RECEIPT_LEASE_EXPIRED = 'lease_expired';
 
+    public const RECEIPT_LEASE_REVALIDATED = 'lease_revalidated';
+
+    public const RECEIPT_AUTHORITY_REVOKED = 'authority_revoked';
+
     private readonly float $lockTimeoutSeconds;
 
     public function __construct(
@@ -140,13 +144,20 @@ final class AgentControlPlaneClaimLeaseRepository
                 ]);
             }
 
+            $lineage = $this->normalizeAuthorityLineage($options);
+            if ($lineage === null && $this->authorityLineageRequired($options)) {
+                return $this->envelopeError('authority_lineage_required', $taskPacketId, $agentId);
+            }
+
             $leaseId = 'lease_'.(string) Str::ulid();
             $now = CarbonImmutable::now();
             $lease = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'lease_id' => $leaseId,
+                // P2c: authority fencing token — bound at claim, never reminted on renew.
                 'authority_nonce' => 'authority_'.(string) Str::ulid(),
                 'authority_revoked' => false,
+                'authority_lineage' => $lineage,
                 'task_packet_id' => $taskPacketId,
                 'agent_id' => $agentId,
                 'lease_status' => self::LEASE_STATUS_ACTIVE,
@@ -163,6 +174,8 @@ final class AgentControlPlaneClaimLeaseRepository
                 'read_set' => $readSet,
                 'scope_lock_plan_hash' => (string) ($scopeLock['scope_lock_plan_hash'] ?? ''),
                 'operator_authorisation' => (array) ($options['operator_authorisation'] ?? []),
+                // Client detach is not cancel (P2c): owner may mark detached while lease stays active.
+                'client_detached' => false,
                 'receipts' => [],
                 'history' => [],
                 'runtime_execution_allowed' => false,
@@ -217,14 +230,24 @@ final class AgentControlPlaneClaimLeaseRepository
                     'lease_status' => (string) $lease['lease_status'],
                 ]);
             }
+            // P2c: revocation sticks — renew must not un-revoke or remint authority lineage.
+            if ((bool) ($lease['authority_revoked'] ?? false)) {
+                return $this->envelopeError('authority_revoked', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            $authorityNonceBefore = (string) ($lease['authority_nonce'] ?? '');
+            $lineageBefore = $lease['authority_lineage'] ?? null;
 
             $ttl = max(self::MIN_TTL_SECONDS, min(self::MAX_TTL_SECONDS, $ttlSeconds));
             $now = CarbonImmutable::now();
             $lease['ttl_seconds'] = $ttl;
             $lease['expires_at'] = $now->addSeconds($ttl)->toIso8601String();
             $lease['expires_at_unix'] = $now->getTimestamp() + $ttl;
-            $lease['authority_revoked'] = false;
             $lease['renew_count'] = (int) $lease['renew_count'] + 1;
+            // Never remint fencing token or lineage on renew.
+            $lease['authority_nonce'] = $authorityNonceBefore;
+            $lease['authority_lineage'] = $lineageBefore;
 
             $receipt = $this->buildReceipt(self::RECEIPT_LEASE_RENEWED, [
                 'task_packet_id' => (string) $lease['task_packet_id'],
@@ -295,6 +318,154 @@ final class AgentControlPlaneClaimLeaseRepository
 
             return $this->envelopeOk('lease_released', $lease, ['receipt' => $receipt]);
         });
+    }
+
+    /**
+     * P2c: revalidate at claim/renew/pre-effect boundaries without reminting authority.
+     *
+     * @return array<string, mixed>
+     */
+    public function revalidateForPreEffect(string $leaseId, string $agentId): array
+    {
+        return $this->withLock(function () use ($leaseId, $agentId): array {
+            $this->expireLeasesInternal();
+            $lease = $this->readLeaseFile($leaseId);
+            if ($lease === null) {
+                return $this->envelopeError('lease_not_found', '', $agentId, ['lease_id' => $leaseId]);
+            }
+            if ((string) $lease['agent_id'] !== $agentId) {
+                return $this->envelopeError('not_lease_owner', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            if ((string) $lease['lease_status'] !== self::LEASE_STATUS_ACTIVE) {
+                return $this->envelopeError('lease_not_active', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                    'lease_status' => (string) $lease['lease_status'],
+                ]);
+            }
+            if ((bool) ($lease['authority_revoked'] ?? false)) {
+                return $this->envelopeError('authority_revoked', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            $expiresAt = (int) ($lease['expires_at_unix'] ?? 0);
+            if ($expiresAt > 0 && CarbonImmutable::now()->getTimestamp() >= $expiresAt) {
+                return $this->envelopeError('lease_expired', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            if (! is_array($lease['authority_lineage'] ?? null)
+                || trim((string) data_get($lease, 'authority_lineage.authority_ref')) === ''
+                || preg_match('/^[a-f0-9]{64}$/', (string) data_get($lease, 'authority_lineage.authority_hash')) !== 1
+                || (int) data_get($lease, 'authority_lineage.authority_revision') < 1) {
+                return $this->envelopeError('authority_lineage_invalid', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+
+            $receipt = $this->buildReceipt(self::RECEIPT_LEASE_REVALIDATED, [
+                'task_packet_id' => (string) $lease['task_packet_id'],
+                'agent_id' => $agentId,
+                'lease_id' => $leaseId,
+                'authority_ref' => (string) data_get($lease, 'authority_lineage.authority_ref'),
+                'authority_revision' => (int) data_get($lease, 'authority_lineage.authority_revision'),
+            ]);
+            $lease['receipts'][] = $receipt;
+            $lease['history'][] = [
+                'event' => 'lease_revalidated_pre_effect',
+                'at' => CarbonImmutable::now()->toIso8601String(),
+                'agent_id' => $agentId,
+                'receipt_hash' => $receipt['receipt_hash'],
+            ];
+            $this->writeLeaseFile($lease);
+
+            return $this->envelopeOk('lease_revalidated', $lease, ['receipt' => $receipt]);
+        });
+    }
+
+    /**
+     * P2c: client detach ≠ cancel — lease stays active for crash resume; authority not revoked.
+     *
+     * @return array<string, mixed>
+     */
+    public function markClientDetached(string $leaseId, string $agentId): array
+    {
+        return $this->withLock(function () use ($leaseId, $agentId): array {
+            $lease = $this->readLeaseFile($leaseId);
+            if ($lease === null) {
+                return $this->envelopeError('lease_not_found', '', $agentId, ['lease_id' => $leaseId]);
+            }
+            if ((string) $lease['agent_id'] !== $agentId) {
+                return $this->envelopeError('not_lease_owner', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            if ((string) $lease['lease_status'] !== self::LEASE_STATUS_ACTIVE) {
+                return $this->envelopeError('lease_not_active', (string) $lease['task_packet_id'], $agentId, [
+                    'lease_id' => $leaseId,
+                ]);
+            }
+            $lease['client_detached'] = true;
+            $lease['history'][] = [
+                'event' => 'client_detached',
+                'at' => CarbonImmutable::now()->toIso8601String(),
+                'agent_id' => $agentId,
+            ];
+            $this->writeLeaseFile($lease);
+            $this->updateRegistryEntry($lease);
+
+            return $this->envelopeOk('client_detached', $lease, [
+                'client_detached' => true,
+                'lease_status' => self::LEASE_STATUS_ACTIVE,
+                'authority_revoked' => (bool) ($lease['authority_revoked'] ?? false),
+            ]);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array{authority_ref:string,authority_hash:string,authority_revision:int,bound_at:string}|null
+     */
+    private function normalizeAuthorityLineage(array $options): ?array
+    {
+        $raw = $options['authority_lineage'] ?? null;
+        if (! is_array($raw)) {
+            $ref = trim((string) ($options['authority_ref'] ?? ''));
+            $hash = trim((string) ($options['authority_hash'] ?? ''));
+            $revision = (int) ($options['authority_revision'] ?? 0);
+            if ($ref === '' && $hash === '' && $revision < 1) {
+                return null;
+            }
+            $raw = [
+                'authority_ref' => $ref,
+                'authority_hash' => $hash,
+                'authority_revision' => $revision,
+            ];
+        }
+
+        $ref = trim((string) ($raw['authority_ref'] ?? ''));
+        $hash = strtolower(trim((string) ($raw['authority_hash'] ?? '')));
+        $revision = (int) ($raw['authority_revision'] ?? 0);
+        if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
+            return null;
+        }
+
+        return [
+            'authority_ref' => $ref,
+            'authority_hash' => $hash,
+            'authority_revision' => $revision,
+            'bound_at' => CarbonImmutable::now()->toIso8601String(),
+        ];
+    }
+
+    /** @param  array<string, mixed>  $options */
+    private function authorityLineageRequired(array $options): bool
+    {
+        return (bool) ($options['require_authority_lineage'] ?? false)
+            || array_key_exists('authority_lineage', $options)
+            || array_key_exists('authority_ref', $options)
+            || array_key_exists('authority_hash', $options);
     }
 
     /**
