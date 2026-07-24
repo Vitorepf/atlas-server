@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsRawStringOption;
+
 use App\Support\YesNo;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
@@ -34,6 +36,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasObraRunCommand extends Command
 {
+    use ReadsRawStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:obra:run
@@ -160,12 +164,6 @@ class AtlasObraRunCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $v = $this->option($key);
-
-        return is_string($v) ? $v : null;
-    }
 
     private function yesNo(mixed $v): string
     {

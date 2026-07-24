@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsRawStringOption;
+
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
 use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
 use Illuminate\Console\Command;
@@ -36,6 +38,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasSelfConstructCommand extends Command
 {
+    use ReadsRawStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:self-construct
@@ -209,10 +213,4 @@ class AtlasSelfConstructCommand extends Command
         $this->line('  '.($result['operator_action'] ?? 'review the branches'));
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $v = $this->option($key);
-
-        return is_string($v) ? $v : null;
-    }
 }

@@ -20,7 +20,7 @@
 - [x] EmitsCanonicalJson mass adoption on Command line(json_encode) (~705; residual complex remains)
 - [x] Finish ReadsNonEmptyStringOption trait-equivalent (7 cmds)
 - [x] SelfImprovement resolveJsonOption → ResolvesJsonOptionWithComponentsError (3 cmds)
-- [ ] Remaining behavior-sensitive stringOption (~11: no-trim / keep-untrimmed variants)
+- [x] Remaining stringOption variants → ReadsRawStringOption / Untrimmed / Literal traits (11 cmds)
 - [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
 - [x] Empty Maestro ClosedLoop+Pinning dirs removed
 - [x] ExternalBrain loadFacts → LoadsFactsFileOption (3 cmds)

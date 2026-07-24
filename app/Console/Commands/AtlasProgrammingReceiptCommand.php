@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyUntrimmedStringOption;
+
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
@@ -20,6 +22,8 @@ use Throwable;
  */
 class AtlasProgrammingReceiptCommand extends Command
 {
+    use ReadsNonEmptyUntrimmedStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:programming:receipt
@@ -147,16 +151,6 @@ class AtlasProgrammingReceiptCommand extends Command
         return $decoded;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $value;
-    }
 
     /**
      * @return list<string>

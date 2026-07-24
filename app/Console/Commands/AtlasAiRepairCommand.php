@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyLiteralStringOption;
+
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
@@ -16,6 +18,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasAiRepairCommand extends Command
 {
+    use ReadsNonEmptyLiteralStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:repair
@@ -124,12 +128,6 @@ class AtlasAiRepairCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && $value !== '' ? $value : null;
-    }
 
     /**
      * @return array<int,string>

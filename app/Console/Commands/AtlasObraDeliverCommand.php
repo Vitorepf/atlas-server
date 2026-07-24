@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsRawStringOption;
+
 use App\Support\YesNo;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Obra\AtlasObraExecutor;
@@ -45,6 +47,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasObraDeliverCommand extends Command
 {
+    use ReadsRawStringOption;
+
     use EmitsCanonicalJson;
 
     public const SCHEMA = 'atlas.obra.deliver_command.v1';
@@ -224,12 +228,6 @@ class AtlasObraDeliverCommand extends Command
         return app(DeterministicObraDecomposer::class);
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $v = $this->option($key);
-
-        return is_string($v) ? $v : null;
-    }
 
     private function yesNo(mixed $v): string
     {

@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyUntrimmedStringOption;
+
 use App\Services\Ai\Programming\Sdd\AtlasSddPipeline;
 use App\Services\Ai\Programming\Sdd\Enums\AutonomyLevel;
 use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
@@ -13,6 +15,8 @@ use Throwable;
  */
 class AtlasSddRunCommand extends Command
 {
+    use ReadsNonEmptyUntrimmedStringOption;
+
     protected $signature = 'atlas:sdd:run
         {intent : Plain-text intent}
         {--workspace= : Workspace path bound to the OperationEnvelope}
@@ -68,16 +72,6 @@ class AtlasSddRunCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $value;
-    }
 
     private function parseAutonomy(): ?AutonomyLevel
     {

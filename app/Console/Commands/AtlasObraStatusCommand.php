@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsRawStringOption;
+
 use App\Services\Ai\Obra\AtlasObraService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasObraStatusCommand extends Command
 {
+    use ReadsRawStringOption;
+
     use EmitsCanonicalJson;
 
     public const SCHEMA = 'atlas.obra.status_command.v1';
@@ -160,12 +164,6 @@ class AtlasObraStatusCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $v = $this->option($key);
-
-        return is_string($v) ? $v : null;
-    }
 
     private function positiveIntOption(string $key): ?int
     {

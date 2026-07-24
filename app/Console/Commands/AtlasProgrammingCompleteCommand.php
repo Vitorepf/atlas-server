@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyUntrimmedStringOption;
+
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
@@ -15,6 +17,8 @@ use App\Support\YesNo;
  */
 class AtlasProgrammingCompleteCommand extends Command
 {
+    use ReadsNonEmptyUntrimmedStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:programming:complete
@@ -76,15 +80,5 @@ class AtlasProgrammingCompleteCommand extends Command
         return $allGreen ? self::SUCCESS : self::FAILURE;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $value;
-    }
 
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsRawStringOption;
+
 use App\Support\YesNo;
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use Illuminate\Console\Command;
@@ -26,6 +28,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasMissionDeliverCommand extends Command
 {
+    use ReadsRawStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:mission:deliver
@@ -85,12 +89,6 @@ class AtlasMissionDeliverCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $v = $this->option($key);
-
-        return is_string($v) ? $v : null;
-    }
 
     private function yesNo(mixed $v): string
     {
