@@ -8,9 +8,25 @@ use InvalidArgumentException;
 
 final readonly class EngineeringOutcome
 {
+    public const SCHEMA_V2 = 'atlas.engineering_outcome.v2';
+
+    public const SCHEMA_V3 = 'atlas.engineering_outcome.v3';
+
     public const STATUSES = ['released', 'completed_read_only', 'held', 'blocked', 'refused', 'reverted', 'release_uncertain'];
 
+    /** Statuses that must carry precise failure fields on v3 (never vanity empty strings). */
+    public const ADVERSE_STATUSES = ['held', 'blocked', 'refused', 'reverted', 'release_uncertain'];
+
     public const WINDOWS = ['0h', '24h', '7d', '30d', '90d', '150d'];
+
+    private const V2_FIELDS = [
+        'schema_version', 'run_id', 'delivery_id', 'status', 'correlated_hashes', 'role_dispositions',
+        'evidence_bundle', 'provider_receipt', 'sandbox_receipt', 'release_receipt', 'canary_rollback_receipt',
+        'operator_effort', 'cost', 'tokens', 'elapsed_ms', 'uncertainties', 'observation_schedule',
+        'claim_eligible', 'outcome_hash',
+    ];
+
+    private const V3_EXTRA_FIELDS = ['failure_reason_code', 'failure_reason'];
 
     /** @param array<string,mixed> $correlatedHashes @param array<string,array<string,mixed>> $roleDispositions */
     private function __construct(
@@ -33,19 +49,93 @@ final readonly class EngineeringOutcome
         public array $observationSchedule,
         public bool $claimEligible,
         public string $outcomeHash,
+        public ?string $failureReasonCode = null,
+        public ?string $failureReason = null,
     ) {}
 
-    /** @param array<string,mixed> $data */
+    public static function isAdverseStatus(string $status): bool
+    {
+        return in_array($status, self::ADVERSE_STATUSES, true);
+    }
+
+    /**
+     * Dual-read expand: accept historical v2 (read-only, never backfilled) and v3.
+     * Writers may still emit v2; v3 is the expand surface for precise adverse failure fields.
+     *
+     * @param  array<string,mixed>  $data
+     */
     public static function fromArray(array $data): self
     {
-        $expected = ['schema_version', 'run_id', 'delivery_id', 'status', 'correlated_hashes', 'role_dispositions', 'evidence_bundle', 'provider_receipt', 'sandbox_receipt', 'release_receipt', 'canary_rollback_receipt', 'operator_effort', 'cost', 'tokens', 'elapsed_ms', 'uncertainties', 'observation_schedule', 'claim_eligible', 'outcome_hash'];
-        if (array_diff(array_keys($data), $expected) !== []) {
+        $schema = CanonicalKernelPayload::requireString($data, 'schema_version');
+        if ($schema === self::SCHEMA_V2) {
+            return self::fromV2Array($data);
+        }
+        if ($schema === self::SCHEMA_V3) {
+            return self::fromV3Array($data);
+        }
+
+        throw new InvalidArgumentException('schema_version_invalid');
+    }
+
+    /** @param  array<string,mixed>  $data */
+    private static function fromV2Array(array $data): self
+    {
+        if (array_diff(array_keys($data), self::V2_FIELDS) !== []) {
             throw new InvalidArgumentException('engineering_outcome_unknown_fields');
         }
-        $schema = CanonicalKernelPayload::requireString($data, 'schema_version');
-        if ($schema !== 'atlas.engineering_outcome.v2') {
-            throw new InvalidArgumentException('schema_version_invalid');
+
+        return self::hydrateShared($data, self::SCHEMA_V2, null, null);
+    }
+
+    /** @param  array<string,mixed>  $data */
+    private static function fromV3Array(array $data): self
+    {
+        $allowed = [...self::V2_FIELDS, ...self::V3_EXTRA_FIELDS];
+        if (array_diff(array_keys($data), $allowed) !== []) {
+            throw new InvalidArgumentException('engineering_outcome_unknown_fields');
         }
+
+        $status = CanonicalKernelPayload::requireEnum($data, 'status', self::STATUSES);
+        $code = $data['failure_reason_code'] ?? null;
+        $reason = $data['failure_reason'] ?? null;
+
+        if (self::isAdverseStatus($status)) {
+            if (! is_string($code) || trim($code) === '') {
+                throw new InvalidArgumentException('failure_reason_code_required_for_adverse_outcome');
+            }
+            if (! is_string($reason) || trim($reason) === '') {
+                throw new InvalidArgumentException('failure_reason_required_for_adverse_outcome');
+            }
+            $code = trim($code);
+            $reason = trim($reason);
+        } else {
+            // Non-adverse v3: fields optional; if present must be null or non-empty string (no blank vanity).
+            if ($code !== null) {
+                if (! is_string($code) || trim($code) === '') {
+                    throw new InvalidArgumentException('failure_reason_code_invalid');
+                }
+                $code = trim($code);
+            }
+            if ($reason !== null) {
+                if (! is_string($reason) || trim($reason) === '') {
+                    throw new InvalidArgumentException('failure_reason_invalid');
+                }
+                $reason = trim($reason);
+            }
+        }
+
+        return self::hydrateShared($data, self::SCHEMA_V3, $code, $reason);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private static function hydrateShared(
+        array $data,
+        string $schema,
+        ?string $failureReasonCode,
+        ?string $failureReason,
+    ): self {
         $hashes = CanonicalKernelPayload::requireArray($data, 'correlated_hashes');
         foreach (['order', 'intent', 'spec', 'world', 'baseline', 'diff', 'evidence', 'release'] as $name) {
             CanonicalKernelPayload::requireHash($hashes, $name);
@@ -118,6 +208,10 @@ final readonly class EngineeringOutcome
             'observation_schedule' => $schedule,
             'claim_eligible' => false,
         ];
+        if ($schema === self::SCHEMA_V3) {
+            $normalized['failure_reason_code'] = $failureReasonCode;
+            $normalized['failure_reason'] = $failureReason;
+        }
         $computedHash = CanonicalKernelPayload::hash($normalized);
         if (isset($data['outcome_hash']) && ! hash_equals((string) $data['outcome_hash'], $computedHash)) {
             throw new InvalidArgumentException('outcome_hash_mismatch');
@@ -143,13 +237,15 @@ final readonly class EngineeringOutcome
             observationSchedule: $schedule,
             claimEligible: false,
             outcomeHash: $computedHash,
+            failureReasonCode: $failureReasonCode,
+            failureReason: $failureReason,
         );
     }
 
     /** @return array<string,mixed> */
     public function toArray(): array
     {
-        return [
+        $payload = [
             'schema_version' => $this->schemaVersion,
             'run_id' => $this->runId,
             'delivery_id' => $this->deliveryId,
@@ -170,5 +266,11 @@ final readonly class EngineeringOutcome
             'claim_eligible' => false,
             'outcome_hash' => $this->outcomeHash,
         ];
+        if ($this->schemaVersion === self::SCHEMA_V3) {
+            $payload['failure_reason_code'] = $this->failureReasonCode;
+            $payload['failure_reason'] = $this->failureReason;
+        }
+
+        return $payload;
     }
 }
