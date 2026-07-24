@@ -71,27 +71,48 @@ Uma unidade passa **só se todos** forem verdade (fail-closed):
 
 Para **C_ARCH** (só desenho): EXCELLENCE_PASS = critérios de arquitetura da suite (multi-candidato / trade-off / adversarial) — cru emite 1 desenho; Atlas path max exige §4.4.3 (≥3 + adversarial). Suite deve **pontuar** isso de forma comparável (ver §0.5).
 
-### 0.4 Por que 50× é ambicioso e ainda assim o alvo
+### 0.4 Escada escolar de excelência (correção pétrea — não “teto do modelo”)
+
+**Erro de raciocínio proibido (já cometido e rejeitado pelo operador):**  
+tratar “N_raw = 80% numa suite” como “modelo no teto ⇒ 50× impossível para sempre”.  
+**80% não é teto máximo de inteligência.** É **aprovação num nível escolar**.
+
+Como na escola: criança tira 80% em contar 1–10 → está **aprovada naquele nível** → sobe para 1–100 → multiplicação → frações → equações → juros compostos → …  
+100% num nível = **domínio daquele degrau**, não fim da capacidade — nem da criança, nem do Kimi, nem do Atlas.
+
+**Modelos em 2026 ≠ 2030 ≠ 2040 ≠ 2050.**  
+O instrumento **evolui o currículo**. Não congela um teste que o cru já “passou de ano”.
 
 ```text
-Se N_raw ≈ 2% de EXCELLENCE_PASS em suite dura (obra-prima),
-então M=50 ⇒ N_atlas ≥ 100% na mesma suite.
-
-Se N_raw = 30% (modelo forte em tasks fáceis),
-M=50 seria impossível por cima de 100% — por isso a suite S
-DEVE ser calibrada no regime em que o cru COLAPSA
-(tarefas onde excelência conjuntiva é rara sem multi-loop).
+Nível L_k aprovado (raw e Atlas na barra de promoção)
+    → L_k vira S_sanity / regressão (ambos devem continuar passando)
+    → medir M_excellence no L_{k+1} = S_frontier
+    → quando o cru satura L_{k+1}, promove L_{k+2}
+    → escola sem horizonte de “acabou”
 ```
 
-**Lei de calibragem da suite `S_50`:**
+| Tipo de suite | Papel | Se raw ≥ 80–100% |
+|---|---|---|
+| **S_sanity** | Níveis já dominados; provar que Atlas **não regride** e **também** passa o básico | **Esperado.** Irrelevante para **claim 50×**; **obrigatório** como regressão/paridade |
+| **S_frontier** | Onde se mede `M_excellence` e o alvo ≥50× | Domínio estável do cru = teste **inapropriado** para 50× → **subir de ano**, não “impossível” |
+| **S_horizon** | Próximo livro (próxima década de dificuldade) | Pré-registrado; não confundir com falha do Atlas |
 
-1. Preregistro **antes** de rodar (Rivals preregistration).  
-2. Mix: ≥40% unidades onde raw historical EXCELLENCE_PASS ≤ 5% (hard).  
-3. ≥30% unidades medium; ≤30% easy (sanity que Atlas não regride).  
-4. Mesmo `μ`, mesma seeds/prompts de tarefa, **só o path** muda (cru vs Atlas).  
-5. Simetria de canal: se cru usa FC nativo, Atlas **também** (R104) — senão medição é inválida.  
-6. n mínimo: **≥ 50 unidades** ou power analysis no preregistro; reportar CI.  
-7. Se `N_atlas < N_raw` → `M_excellence < 1` e claim 50× é **proibido** (estado atual em bfcl JSON³ era esse).
+**Matemática sem raciocínio deplorável:**
+
+- Num **nível fixo** saturado, N_raw → 100% ⇒ M(L_k) → ~1. Isso prova **fim daquele degrau**, não limite do modelo.  
+- Claim **≥50×** só em **S_frontier** ainda não dominado pelo cru.  
+- Cru dominou frontier ⇒ **promover escola**, não abandonar o 50×.
+
+**Lei de calibragem do currículo:**
+
+1. Preregistro de cada nível antes de rodar.  
+2. **S_sanity:** níveis promovidos; falha Atlas = regressão grave.  
+3. **S_frontier:** nível atual de medição do 50×.  
+4. Raw ≥ barra de domínio estável no frontier ⇒ frontier vira sanity; abrir L_{k+1}.  
+5. **S_horizon** sempre preparado (2026→2050+).  
+6. Mesmo μ, só o path muda; R104 simetria.  
+7. N_atlas &lt; N_raw em sanity/frontier válido ⇒ M&lt;1; claim 50× proibido.  
+8. **Proibido** dizer “raw 80% ⇒ 50× impossível para sempre”.
 
 ### 0.5 Como o QoS **gera** multiplicação (stack de M)
 

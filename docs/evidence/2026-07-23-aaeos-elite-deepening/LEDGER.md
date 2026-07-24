@@ -1,9 +1,9 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master (CANONICAL sole law):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**Edition:** **vFINAL-COOKBOOK · P0 evidence draft**
-**State:** P0 implementation proof is GREEN in a pre-COMMIT-2 draft. Independent existing-ledger review events, evidence COMMIT 2, and controller committed-tree verification remain pending; no next-slice activation is recorded.
-**P0–P4:** P0 DRAFT_GREEN_PENDING_COMMIT2 · P1a–P4 NOT_STARTED
+**Edition:** **vFINAL-COOKBOOK · P1a evidence receipt**
+**State:** P0 is GREEN after fresh committed-receipt/event revalidation. P1a implementation is GREEN pending this evidence COMMIT 2 and a controller read of its committed tree; no later slice is activated by this draft.
+**P0–P4:** P0 GREEN · P1a GREEN_PENDING_COMMIT2 · P1-JSON–P4 NOT_STARTED
 **Archive v16/C6:** non-normative historical only (not a second master)
 
 ## How any IA uses this
@@ -18,8 +18,8 @@
 
 | Slice | Status | Gate phrase | implementation_commit |
 |---|---|---|---|
-| P0 | DRAFT_GREEN_PENDING_COMMIT2 | `EXECUTE P0` | `4979520f4675e3162952598a1b5c2dfd8784fa58` |
-| P1a | NOT_STARTED | `EXECUTE P1a` | — |
+| P0 | GREEN | `EXECUTE P0` | `4979520f4675e3162952598a1b5c2dfd8784fa58` |
+| P1a | GREEN_PENDING_COMMIT2 | `EXECUTE P1a` | `45890af483bc8448cc10e34c531b34a143c99a96` |
 | P1-JSON | NOT_STARTED | `EXECUTE P1-JSON` (after P1a GREEN) | — |
 | P2g-QOS | NOT_STARTED | `EXECUTE P2g-QOS` (after P2c GREEN) | — |
 | P2a.1+ | NOT_STARTED | see MASTER DAG | — |
@@ -28,7 +28,7 @@
 
 Evidence-commit SHA is reported by the controller after COMMIT 2, outside the committed evidence artifacts; this ledger must not try to contain the SHA of its own commit.
 
-## P0 implementation evidence draft
+## P0 controller revalidation
 
 - BASE: `24165705e65fc45d6314afb26b20cb4694294b47`
 - implementation COMMIT 1: `4979520f4675e3162952598a1b5c2dfd8784fa58`
@@ -37,15 +37,24 @@ Evidence-commit SHA is reported by the controller after COMMIT 2, outside the co
 - dry `run` and `cycle`: exit 0 with `runtime_write_performed=false`, evidence skipped, and no effect claim
 - empty measurement projection/certification: unknown/nonzero status where measurement is absent; no static GOD_SOTA minting
 - `AaeosOperateScorecardProjector` consumer census: zero production consumers before deletion
-- `PHASE-P0.json` is a review draft only. It has no review event refs, evidence-commit SHA, or next-slice activation.
+- committed receipt: `016e02a2c94f39fcdbea6a520d4f61a54f1d31b7`
+- receipt status is GREEN and binds the implementation commit above to two append-only `GATE_EVALUATED` attestations:
+  - specification `01KY92SWJAMJTZ86PY8MDF0TQV`
+  - governance/quality `01KY92SCJ8899G189MBCAF65HC`
+- controller fresh-read confirmed both event payload hashes/integrity, P0 phase, distinct principal hashes, roles, and the receipt basis `6ab8140e14fdc00e791366c61df3e23cc22b9332f96d97f965048aeb99990e0f`.
+- Earlier prose calling this state a draft was a stale textual projection retained by later documentation commits; the historical P0 receipt is not rewritten.
 
-## Pending P0 evidence completion
+## P1a implementation evidence
 
-1. Read-only specification and governance/quality reviews bind existing `GateEvaluated` events to the canonical P0 review basis.
-2. Controller fresh-validates those events and their separation of duties.
-3. Controller creates COMMIT 2, then reads the exact committed evidence tree before deriving any P1a activation.
+- BASE: `28e25ce80a76c7f68c2fcfcbf6ef0c587f2c3106`
+- implementation COMMIT 1: `45890af483bc8448cc10e34c531b34a143c99a96`
+- independent final matrix: 145 tests / 824 assertions / exit 0
+- both review roles approved the final code package after native-claim provenance remediation
+- R33/R34/R35, R43 and the P1a portion of R98 are closed by the receipt draft; provider, worker execution, sandbox, mutation and Decision ACT remain disabled/refused
+- foreign WIP remains outside the implementation commit; the captured post-implementation foreign-status hash is `90dd1146ac1307c76481f4983ae99a978d3d0517de2359d71a0f682ec09c1dbf`
+- `PHASE-P1A.json` remains non-self-referential and points only to COMMIT 1. Review events and controller committed-tree validation remain required before P1-JSON activation.
 
-R33–R35 remain P1a and are not P0 claims.
+R99/R103, authoritative P1b effects, and REAL_OPERATION remain later work and are not P1a claims.
 
 ## Residual R104 (JSON³ — AAEOS law)
 
