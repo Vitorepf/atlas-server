@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrain;
 
+use App\Support\YmdDay;
 use App\Support\UtcIsoTimestamp;
 use App\Support\RoundOrNull;
 use App\Support\ArrayPercentile;
@@ -276,9 +277,7 @@ final class AtlasAobgLatencyLedger
 
     private function normalizeDay(string $day): string
     {
-        $day = trim($day);
-
-        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) === 1 ? $day : gmdate('Y-m-d');
+        return YmdDay::normalize($day);
     }
 
     /** @return list<string> */
