@@ -1,40 +1,25 @@
-# Full-Pass SCOREBOARD (session + rescan #2 execution)
+# Full-Pass SCOREBOARD (continuous goal window)
 
 | area_id | status | notes |
 |---|---|---|
-| reuse | partial | Wave A YesNo/UtcIso mass; shells inlined; LoadsFactsFileOption |
-| standardize | partial | CLI Concerns expanded; dual SC/aeos still open |
-| honesty | partial | loop CLI dead; config loop extracted + honesty header |
-| operate_vs_legacy | partial | atlas_loop_legacy.php; Autonomos master alias still open |
-| density | partial | HTML/Workbench/ToolCatalog/AiWorker/Serving intake |
-| eliminate | pending | empty AcosMax/Cognitive after alias drain |
-| defactor | partial | ownership matrix in RESCAN-2; renames not landed |
-| optimize | pending | hops/I/O measured work deferred |
-| simplify | partial | CanonicalValue partial; Workbench __call |
-| architecture | partial | PRE non-live; config loop split; ProviderCatalog Gateway wired |
+| reuse | partial | Wave A YesNo/UtcIso; CanonicalValue; ProviderCatalog; CLI traits |
+| standardize | partial | dual SC/aeos still open |
+| density | strong | OneShotTick envelope; Serving report thin; Aaeos projectors; Fixture loadFlowFinds; LedgerReplay SLO+repair |
+| architecture | partial | config loop split; ASP alias SP; PRE still open; routes open |
 | surface_std | partial | EmitsCanonicalJson mass; stringOption variants residual |
-| gates | partial | package unit proofs Support/Workbench/ToolCatalog/FactsFile |
-| anti_goodhart | done | real peels + tests; no mass fake deletes |
-| fuse | partial | later-cycle + workbench map; OneShotTick forest open |
-| docs_map | partial | RESCAN-1 + RESCAN-2 + DEBTS/LEDGER live |
-| governance | partial | floors listed |
-| others | pending | continuous queue |
+| gates | partial | package proofs green for peels |
+| anti_goodhart | done | real peels + tests; fixed botched LedgerReplay multi-move |
 
-## Landed this execution window (commits)
+## This evaluator wave (proofs)
 
-| commit theme | proof |
+| batch | proof |
 |---|---|
-| Wave A YesNo/UtcIso + shells | Support unit 9 tests |
-| EmitsCanonicalJson + HTML template | template shell strlen + php -l |
-| Workbench map+__call | 3 unit tests |
-| AiWorker completeAttempt stages | suite mostly green; 1 pre-existing fail |
-| config loop → atlas_loop_legacy | boot config loop_keys=327 |
-| OpenBrain tool definitions data | 1 unit / 65 tools |
-| LoadsFactsFileOption | 2 unit tests |
-| ProviderCatalog SSOT | 3 unit tests |
-| Serving validateReportIntake | 8 unit tests |
-| ResolvesJsonOptionWithComponentsError | 2 unit tests |
+| OneShotTick envelope+catalog | unit + invoker features green |
+| Serving report stages (commit/dry/give_back) | ServingServiceTest 8/8; report ~23L |
+| Aaeos universalGates projectors | unit 4545 asserts table; requires_intent green |
+| LedgerReplay SLO+repair | 22/22 unit green (restored after bad move) |
+| Decide pure helpers + catalog wire | 25 Decide/gateway/catalog tests green |
 
-## Next ranked residual
+## Residual next
 
-Serving report stages · ProviderCatalog · OneShotTick registry · ASP domain SPs · remaining peels · floors
+Decide operationalDecision stages · LedgerReplay inbox/agent careful · routes/api split · floors
