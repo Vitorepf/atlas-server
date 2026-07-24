@@ -27,8 +27,8 @@ recent:
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: YouTube caption/metadata 39 tests/184 asserts; prior peels green
-next: continuous residual (Readiness HubDelegators map | ASP CCR residual | PRE staged | floors)
+unit_proof: continuous peels green (ASP shell 73; Hub 6044; YouTube 39; Provider 68; Aaeos projectors 4545)
+next: continuous residual (OneShotTick factory | ProviderCatalog validation strings | PRE staged | floors)
 ```
 
 ## Progress summary

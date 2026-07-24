@@ -138,4 +138,54 @@ final class YouTubeMetadataSupport
             'retry_after_seconds' => 45,
         ];
     }
+
+    public static function extractInitialPlayerResponse(string $html): array
+    {
+        $needle = 'ytInitialPlayerResponse';
+        $offset = strpos($html, $needle);
+        if ($offset === false) {
+            return [];
+        }
+
+        $start = strpos($html, '{', $offset);
+        if ($start === false) {
+            return [];
+        }
+
+        $depth = 0;
+        $inString = false;
+        $escape = false;
+        $length = strlen($html);
+        for ($i = $start; $i < $length; $i++) {
+            $char = $html[$i];
+            if ($inString) {
+                if ($escape) {
+                    $escape = false;
+                } elseif ($char === '\\') {
+                    $escape = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = true;
+            } elseif ($char === '{') {
+                $depth++;
+            } elseif ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    $json = substr($html, $start, $i - $start + 1);
+                    $decoded = json_decode($json, true);
+
+                    return is_array($decoded) ? $decoded : [];
+                }
+            }
+        }
+
+        return [];
+    }
+
 }

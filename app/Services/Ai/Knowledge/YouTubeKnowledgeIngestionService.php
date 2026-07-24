@@ -824,7 +824,7 @@ class YouTubeKnowledgeIngestionService
             return [];
         }
 
-        $player = $this->extractInitialPlayerResponse($response->body());
+        $player = YouTubeMetadataSupport::extractInitialPlayerResponse($response->body());
         if ($player === []) {
             return [];
         }
@@ -870,63 +870,6 @@ class YouTubeKnowledgeIngestionService
     /**
      * @return array<string,mixed>
      */
-    private function extractInitialPlayerResponse(string $html): array
-    {
-        $needle = 'ytInitialPlayerResponse';
-        $offset = strpos($html, $needle);
-        if ($offset === false) {
-            return [];
-        }
-
-        $start = strpos($html, '{', $offset);
-        if ($start === false) {
-            return [];
-        }
-
-        $depth = 0;
-        $inString = false;
-        $escape = false;
-        $length = strlen($html);
-        for ($i = $start; $i < $length; $i++) {
-            $char = $html[$i];
-            if ($inString) {
-                if ($escape) {
-                    $escape = false;
-                } elseif ($char === '\\') {
-                    $escape = true;
-                } elseif ($char === '"') {
-                    $inString = false;
-                }
-
-                continue;
-            }
-
-            if ($char === '"') {
-                $inString = true;
-            } elseif ($char === '{') {
-                $depth++;
-            } elseif ($char === '}') {
-                $depth--;
-                if ($depth === 0) {
-                    $json = substr($html, $start, $i - $start + 1);
-                    $decoded = json_decode($json, true);
-
-                    return is_array($decoded) ? $decoded : [];
-                }
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * @param  array<string,mixed>  $metadata
-     * @return array<string,mixed>|null
-     */
-    /**
-     * @param  array<string,mixed>  $tracksByLanguage
-     * @return array<string,mixed>|null
-     */
     private function downloadCaption(string $url, string $ext): string
     {
         if ($url === '') {
@@ -966,12 +909,6 @@ class YouTubeKnowledgeIngestionService
         throw new \RuntimeException('Caption download failed with HTTP '.($lastStatus ?? 'unknown').'.');
     }
 
-    /**
-     * @return array<int,string>
-     */
-    /**
-     * @return array<string,mixed>
-     */
     private function transcribeAudioFallback(string $url, array $metadata): array
     {
         if (! $this->audioFallbackEnabled()) {
