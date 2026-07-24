@@ -10,8 +10,9 @@
 | P4 durable roles | **GREEN** | producer/verifier least-privilege |
 | P4 decision seal | **SHIPPED** | MutativeDecisionBinder |
 | P4 exit-0 blocked never qualifies | **SHIPPED** | gauntlet producer_status_not_completed |
-| P4-DEV REAL_OPERATION | **PARTIAL** | court_authority_not_eligible residual named |
+| P4 status/reason → named_residuals | **SHIPPED** | Autonomos queue_scan_limit_exceeded |
+| P4-DEV REAL_OPERATION | **PARTIAL** | court/governor residual named |
 | P4-FORGE REAL_OPERATION | **PARTIAL** | obra_required |
-| P4-AUTONOMOS REAL_OPERATION | **PARTIAL** | workspace_not_ready / blocked |
+| P4-AUTONOMOS REAL_OPERATION | **PARTIAL** | queue_scan_limit_exceeded |
 | Absolute three-mode DONE | **NO** | freeze.full_real_operation_done=false |
 | R104-TRANSPORT | OPEN | residual allowed |

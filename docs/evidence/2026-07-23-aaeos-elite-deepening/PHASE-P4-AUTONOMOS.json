@@ -75,16 +75,23 @@
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
     "reason": "residual_honest_partial",
+    "producer_status": "queue_scan_limit_exceeded",
+    "named_residuals": [
+      "queue_scan_limit_exceeded"
+    ],
     "blockers_sample": [
       "provider_spawn_proof_missing",
       "authority_lineage_proof_missing",
+      "residual:queue_scan_limit_exceeded",
       "producer_status_not_completed",
       "producer_status:queue_scan_limit_exceeded"
     ],
     "structured_residual": {
       "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
       "producer_status": "queue_scan_limit_exceeded",
-      "named_residuals": [],
+      "named_residuals": [
+        "queue_scan_limit_exceeded"
+      ],
       "provider": null,
       "provider_calls": 0,
       "court_authority_eligible": false,
@@ -93,10 +100,9 @@
       "honesty": "residual_honest_partial_not_fabricated"
     },
     "caller_set_capability_flags": "forbidden",
-    "durable_pg_ready": true,
-    "pre_effect_decision_seal": null
+    "durable_pg_ready": true
   },
-  "notes": "P4-AUTONOMOS residual-honest GREEN path-core. journey_terminal_status=blocked_ops_partial; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
+  "notes": "P4-AUTONOMOS residual-honest. producer_status=queue_scan_limit_exceeded; named_residuals=['queue_scan_limit_exceeded']; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {

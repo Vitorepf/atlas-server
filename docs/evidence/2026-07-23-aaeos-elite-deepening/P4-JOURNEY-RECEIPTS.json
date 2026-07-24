@@ -26,6 +26,8 @@
             "authority_lineage_proof_missing",
             "producer_eng_not_released",
             "residual:governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+            "residual:senior_loop_execution_not_passed",
+            "residual:blocked",
             "producer_status_not_completed",
             "producer_status:blocked"
         ],
@@ -33,7 +35,9 @@
             "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
             "producer_status": "blocked",
             "named_residuals": [
-                "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+                "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+                "senior_loop_execution_not_passed",
+                "blocked"
             ],
             "provider": "hermes_cli",
             "provider_calls": 1,
@@ -46,14 +50,16 @@
             "status": "blocked",
             "completed": false,
             "error_codes": [
-                "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+                "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+                "senior_loop_execution_not_passed",
+                "blocked"
             ]
         },
         "provider_spawn_proof": null,
         "authority_lineage_proof": null,
         "operator_task_causal_count": 0,
         "r104_transport_open": true,
-        "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b"
+        "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a"
     },
     "forge": {
         "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.journey",
@@ -65,7 +71,7 @@
         "blocked_status_exit_zero_never_qualifies": true,
         "capability_proof_derived_not_caller_set": true,
         "command": "php artisan atlas:forge:live-execute --json",
-        "stdout_fingerprint": "21032fe1c6be6ee25e31ed5c7805d7171b1fcf7e092ee27dab8b014c81cba461",
+        "stdout_fingerprint": "64c905aaeaba8df6e5d6b58c94b41c7beafb2451d0e910bd5b7af3da4fe3a274",
         "plan_only": false,
         "aaeos_initiated": false,
         "preflight": {
@@ -82,6 +88,8 @@
             "authority_lineage_proof_missing",
             "producer_eng_not_released",
             "residual:obra_required",
+            "residual:evidence_required",
+            "residual:blocked",
             "producer_status_not_completed",
             "producer_status:blocked"
         ],
@@ -89,7 +97,9 @@
             "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
             "producer_status": "blocked",
             "named_residuals": [
-                "obra_required"
+                "obra_required",
+                "evidence_required",
+                "blocked"
             ],
             "provider": null,
             "provider_calls": 0,
@@ -102,14 +112,15 @@
             "status": "blocked",
             "completed": false,
             "error_codes": [
-                "obra_required"
+                "obra_required",
+                "evidence_required"
             ]
         },
         "provider_spawn_proof": null,
         "authority_lineage_proof": null,
         "operator_task_causal_count": 0,
         "r104_transport_open": true,
-        "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b"
+        "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a"
     },
     "autonomos": {
         "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.journey",
@@ -136,13 +147,16 @@
         "blockers": [
             "provider_spawn_proof_missing",
             "authority_lineage_proof_missing",
+            "residual:queue_scan_limit_exceeded",
             "producer_status_not_completed",
             "producer_status:queue_scan_limit_exceeded"
         ],
         "structured_residual": {
             "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
             "producer_status": "queue_scan_limit_exceeded",
-            "named_residuals": [],
+            "named_residuals": [
+                "queue_scan_limit_exceeded"
+            ],
             "provider": null,
             "provider_calls": 0,
             "court_authority_eligible": false,
@@ -153,36 +167,38 @@
         "producer_terminal": {
             "status": "queue_scan_limit_exceeded",
             "completed": false,
-            "error_codes": []
+            "error_codes": [
+                "queue_scan_limit_exceeded"
+            ]
         },
         "provider_spawn_proof": null,
         "authority_lineage_proof": null,
         "operator_task_causal_count": 0,
         "r104_transport_open": true,
-        "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b"
+        "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a"
     },
     "freeze": {
         "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
-        "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b",
+        "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a",
         "ledger_cutoff": null,
         "modes": {
             "dev": {
                 "present": true,
                 "journey_terminal_status": "blocked_ops_partial",
                 "real_operation_qualified": false,
-                "receipt_fingerprint": "5ba2e14f4da4eb493966016711978c3d206b1be45bb0c9af92d6cd09a34d4471"
+                "receipt_fingerprint": "2a9baca0ebdf2725303a6b0d4ddee8db8c6537e444b0225ebc92d9edd150f665"
             },
             "forge": {
                 "present": true,
                 "journey_terminal_status": "blocked_ops_partial",
                 "real_operation_qualified": false,
-                "receipt_fingerprint": "a52cac51869cbfdc5035aedb8b5e4957125c093fcd26e4e01c4edd313bc5ca27"
+                "receipt_fingerprint": "fd0736cea56bb3c2cf939786e9d28598a57188e9856d4bc94daffd24e8633390"
             },
             "autonomos": {
                 "present": true,
                 "journey_terminal_status": "blocked_ops_partial",
                 "real_operation_qualified": false,
-                "receipt_fingerprint": "8c2eb1171b27d7e7c310bbe3a73219d7377bfcd9d0e1bbce9342056835abd841"
+                "receipt_fingerprint": "752cc6ca6e71abae19b631e1b1224843be3dde1fdd6a8cf8c3c6b919d0073dc3"
             }
         },
         "all_three_modes_bound": true,

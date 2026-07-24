@@ -191,10 +191,32 @@ final class AaeosP4RealOperationGauntlet
             ?? data_get($payload, 'journey_terminal_status')
             ?? ''
         )));
-        $errorCodes = array_values(array_filter(array_map(
-            'strval',
-            (array) data_get($payload, 'run_summary.provider_call.error_codes', data_get($payload, 'remaining_blockers', data_get($payload, 'blockers', []))),
-        )));
+        $errorCodes = [];
+        foreach ([
+            data_get($payload, 'run_summary.provider_call.error_codes'),
+            data_get($payload, 'remaining_blockers'),
+            data_get($payload, 'blockers'),
+            // Task-serving / envelope producers surface residual as status+reason.
+            $payload['reason'] ?? null,
+            $payload['status'] ?? null,
+            data_get($payload, 'escalation.reason'),
+            data_get($payload, 'aemor_outcome.reason'),
+        ] as $bucket) {
+            if (is_array($bucket)) {
+                foreach ($bucket as $item) {
+                    $item = trim((string) $item);
+                    if ($item !== '') {
+                        $errorCodes[] = $item;
+                    }
+                }
+            } else {
+                $item = trim((string) $bucket);
+                if ($item !== '') {
+                    $errorCodes[] = $item;
+                }
+            }
+        }
+        $errorCodes = array_values(array_unique($errorCodes));
         $completed = in_array($status, ['passed', 'released', 'completed', 'completed_read_only', 'success', 'real_operation_completed'], true);
 
         return [
@@ -216,21 +238,48 @@ final class AaeosP4RealOperationGauntlet
     {
         $blockers = [];
         $codes = array_values(array_unique(array_map('strval', $errorCodes)));
+        // Always fold envelope status/reason into the candidate set — Autonomos
+        // task-serving returns residual as top-level status/reason with empty blockers.
+        if ($payload !== null) {
+            foreach (['status', 'reason'] as $key) {
+                $v = trim((string) ($payload[$key] ?? ''));
+                if ($v !== '') {
+                    $codes[] = $v;
+                }
+            }
+            foreach (['remaining_blockers', 'blockers'] as $listKey) {
+                foreach ((array) ($payload[$listKey] ?? []) as $item) {
+                    $item = trim((string) $item);
+                    if ($item !== '') {
+                        $codes[] = $item;
+                    }
+                }
+            }
+        }
+        if ($status !== '') {
+            $codes[] = $status;
+        }
+        $codes = array_values(array_unique(array_map(
+            static fn (string $c): string => trim($c),
+            $codes,
+        )));
+
         $named = [];
         foreach ($codes as $code) {
-            $lower = strtolower($code);
-            if (str_contains($lower, 'court_authority_not_eligible')
-                || str_contains($lower, 'verification_not_passed')
-                || str_contains($lower, 'governor_authority_absent')
-                || str_contains($lower, 'pre_effect_decision')
-                || str_contains($lower, 'obra_required')
-                || str_contains($lower, 'workspace_not_ready')
-                || str_contains($lower, 'provider_')) {
+            if ($code === '' || self::isBenignTerminalToken($code)) {
+                continue;
+            }
+            if (self::isNamedResidualCode($code)) {
                 $named[] = $code;
             }
         }
         if ($status === 'blocked' || $status === 'failed') {
             $blockers[] = 'producer_eng_not_released';
+        }
+        // Non-success producer statuses that are not help/unparsed are themselves residuals.
+        if ($named === [] && $status !== '' && ! self::isBenignTerminalToken($status)
+            && ! in_array($status, ['passed', 'released', 'completed', 'completed_read_only', 'success', 'real_operation_completed'], true)) {
+            $named[] = $status;
         }
         if ($named === [] && ($status === 'blocked' || $status === 'failed')) {
             $named[] = 'producer_blocked_without_named_code';
@@ -260,6 +309,48 @@ final class AaeosP4RealOperationGauntlet
                 'honesty' => 'residual_honest_partial_not_fabricated',
             ],
         ];
+    }
+
+    private static function isBenignTerminalToken(string $code): bool
+    {
+        $lower = strtolower(trim($code));
+
+        return in_array($lower, [
+            'ok', 'success', 'passed', 'released', 'completed', 'completed_read_only',
+            'real_operation_completed', 'help_or_plan_surface', 'unparsed', '',
+        ], true);
+    }
+
+    private static function isNamedResidualCode(string $code): bool
+    {
+        $lower = strtolower($code);
+        if (str_contains($lower, 'court_authority_not_eligible')
+            || str_contains($lower, 'verification_not_passed')
+            || str_contains($lower, 'governor_authority_absent')
+            || str_contains($lower, 'pre_effect_decision')
+            || str_contains($lower, 'obra_required')
+            || str_contains($lower, 'workspace_not_ready')
+            || str_contains($lower, 'queue_scan_limit')
+            || str_contains($lower, 'provider_')
+            || str_contains($lower, 'risk:')
+            || str_contains($lower, 'risk_blocked')
+            || str_contains($lower, 'not_ready')
+            || str_contains($lower, 'not_released')
+            || str_contains($lower, 'limit_exceeded')
+            || str_contains($lower, 'refused')
+            || str_contains($lower, 'forbidden')
+            || str_contains($lower, 'missing')
+            || str_contains($lower, 'blocked')) {
+            return true;
+        }
+        // Snake_case residual codes from task-serving / forge envelopes.
+        if (preg_match('/^[a-z][a-z0-9_]{2,80}$/', $lower) === 1
+            && ! self::isBenignTerminalToken($lower)
+            && (str_contains($lower, '_') || str_ends_with($lower, 'ed'))) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

@@ -11,40 +11,31 @@
       "journey_terminal_status": "blocked_ops_partial",
       "real_operation_qualified": false,
       "named_residuals": [
-        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+        "senior_loop_execution_not_passed",
+        "blocked"
       ],
-      "blockers_sample": [
-        "provider_spawn_proof_not_spawned",
-        "authority_lineage_proof_missing",
-        "producer_eng_not_released",
-        "residual:governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
-        "producer_status_not_completed",
-        "producer_status:blocked"
-      ]
+      "producer_status": "blocked"
     },
     "forge": {
       "journey_terminal_status": "blocked_ops_partial",
       "real_operation_qualified": false,
-      "blockers_sample": [
-        "provider_spawn_proof_missing",
-        "authority_lineage_proof_missing",
-        "producer_eng_not_released",
-        "residual:obra_required",
-        "producer_status_not_completed",
-        "producer_status:blocked"
-      ]
+      "named_residuals": [
+        "obra_required",
+        "evidence_required",
+        "blocked"
+      ],
+      "producer_status": "blocked"
     },
     "autonomos": {
       "journey_terminal_status": "blocked_ops_partial",
       "real_operation_qualified": false,
-      "blockers_sample": [
-        "provider_spawn_proof_missing",
-        "authority_lineage_proof_missing",
-        "producer_status_not_completed",
-        "producer_status:queue_scan_limit_exceeded"
-      ]
+      "named_residuals": [
+        "queue_scan_limit_exceeded"
+      ],
+      "producer_status": "queue_scan_limit_exceeded"
     }
   },
   "honesty": "residual_honest_partial_not_fabricated",
-  "updated_at": "2026-07-24T19:51:39.441144+00:00"
+  "updated_at": "2026-07-24T19:57:09.367661+00:00"
 }

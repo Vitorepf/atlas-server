@@ -6,6 +6,7 @@
   "branch": "main",
   "base_commit": "181daae1f9cd44cb55ac708c0f61382286671a9e",
   "implementation_commit": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9",
+  "additional_implementation_commit": "40427b49e",
   "dirty_before": [],
   "staged_before": [],
   "allowed_paths": [
@@ -44,7 +45,8 @@
     "P4-JOURNEY-RECEIPTS.json",
     "blocked_ops_partial",
     "phpunit_alone_never_qualifies",
-    "code_sha:1eab1983f6c1"
+    "code_sha:1eab1983f6c1",
+    "P4-DEV-LIVE-PROVIDER-SMOKE.json"
   ],
   "exit_checklist": {
     "real_entry_point_driven": true,
@@ -61,7 +63,10 @@
     "MutativeDecisionBinder: Dev/Forge mint sealed decision.issued (no fabricated pre_effect ids)",
     "durable PG local provision proven",
     "MutativeDecisionBinder sealed decision.issued",
-    "gauntlet exit-0 blocked never qualifies + structured residual"
+    "gauntlet exit-0 blocked never qualifies + structured residual",
+    "AWIS execution boundary audit now scans extracted HarnessEvidenceSection",
+    "CLI workspace_cert is derived from an allowed AWIS gate",
+    "covered codex_cli provider spawn and isolated file effect smoke"
   ],
   "residuals_still_open": [
     "Quality-court authorityEligible + authorized_merge_action for live fixture journey",
@@ -77,11 +82,19 @@
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
     "reason": "residual_honest_partial",
+    "producer_status": "blocked",
+    "named_residuals": [
+      "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+      "senior_loop_execution_not_passed",
+      "blocked"
+    ],
     "blockers_sample": [
       "provider_spawn_proof_not_spawned",
       "authority_lineage_proof_missing",
       "producer_eng_not_released",
       "residual:governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+      "residual:senior_loop_execution_not_passed",
+      "residual:blocked",
       "producer_status_not_completed",
       "producer_status:blocked"
     ],
@@ -89,7 +102,9 @@
       "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
       "producer_status": "blocked",
       "named_residuals": [
-        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+        "senior_loop_execution_not_passed",
+        "blocked"
       ],
       "provider": "hermes_cli",
       "provider_calls": 1,
@@ -99,10 +114,9 @@
       "honesty": "residual_honest_partial_not_fabricated"
     },
     "caller_set_capability_flags": "forbidden",
-    "durable_pg_ready": true,
-    "pre_effect_decision_seal": true
+    "durable_pg_ready": true
   },
-  "notes": "P4-DEV residual-honest GREEN path-core. journey_terminal_status=blocked_ops_partial; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
+  "notes": "P4-DEV residual-honest. A real codex_cli provider spawn and isolated file effect are proven in P4-DEV-LIVE-PROVIDER-SMOKE.json, but the required Dev SeniorLoop EngineeringOutcome journey still lacks authority-lineage, quality-court, and authorized-merge proof; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {

@@ -142,6 +142,48 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         );
     }
 
+    public function test_autonomos_queue_scan_limit_promotes_status_reason_into_named_residuals(): void
+    {
+        // Mirrors live atlas:task next envelope (status/reason, no blockers array).
+        $stdout = json_encode([
+            'schema' => 'atlas.task_serving.envelope.v1',
+            'status' => 'queue_scan_limit_exceeded',
+            'client_id' => 'aaeos-p4-goal-probe',
+            'task' => null,
+            'reason' => 'queue_scan_limit_exceeded',
+            'candidate_count' => 0,
+            'minimum_claimable_count' => 1,
+            'scan_limit' => 50,
+        ], JSON_THROW_ON_ERROR);
+
+        $terminal = AaeosP4RealOperationGauntlet::deriveProducerTerminalFromStdout($stdout);
+        $this->assertSame('queue_scan_limit_exceeded', $terminal['status']);
+        $this->assertFalse($terminal['completed']);
+        $this->assertContains('queue_scan_limit_exceeded', $terminal['error_codes']);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('autonomos', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:task next --client=aaeos-p4-goal-probe --json',
+        ], [
+            'plan_only' => false,
+            'aaeos_initiated' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+        ]);
+
+        $this->assertFalse($receipt['real_operation_qualified']);
+        $this->assertContains('queue_scan_limit_exceeded', $receipt['structured_residual']['named_residuals']);
+        $this->assertNotEmpty($receipt['structured_residual']['named_residuals']);
+        $blockerJoined = implode(' ', array_map('strval', $receipt['blockers']));
+        $this->assertStringContainsString('queue_scan_limit_exceeded', $blockerJoined);
+        // Must not invent workspace_not_ready when producer said queue_scan_limit_exceeded.
+        $joined = implode(' ', $receipt['structured_residual']['named_residuals']);
+        $this->assertStringNotContainsString('workspace_not_ready', $joined);
+    }
+
     public function test_structured_residual_names_court_gate_from_live_payload(): void
     {
         $livePath = base_path('storage/app/aaeos-p4-mut-dev/senior-loop-bind.json');

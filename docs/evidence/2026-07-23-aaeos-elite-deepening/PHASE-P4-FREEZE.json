@@ -72,29 +72,29 @@
     "qualified": false,
     "full_real_operation_done": false
   },
-  "notes": "P4-FREEZE residual-honest; three modes bound with blocked_ops_partial; absolute DONE=NO",
+  "notes": "P4-FREEZE residual-honest; three modes blocked_ops_partial; absolute DONE=NO",
   "freeze": {
     "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
-    "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b",
+    "code_sha": "40427b49ed238d80a2f4d3e4bf71db2ab6b5ac1a",
     "ledger_cutoff": null,
     "modes": {
       "dev": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "5ba2e14f4da4eb493966016711978c3d206b1be45bb0c9af92d6cd09a34d4471"
+        "receipt_fingerprint": "2a9baca0ebdf2725303a6b0d4ddee8db8c6537e444b0225ebc92d9edd150f665"
       },
       "forge": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "a52cac51869cbfdc5035aedb8b5e4957125c093fcd26e4e01c4edd313bc5ca27"
+        "receipt_fingerprint": "fd0736cea56bb3c2cf939786e9d28598a57188e9856d4bc94daffd24e8633390"
       },
       "autonomos": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "8c2eb1171b27d7e7c310bbe3a73219d7377bfcd9d0e1bbce9342056835abd841"
+        "receipt_fingerprint": "752cc6ca6e71abae19b631e1b1224843be3dde1fdd6a8cf8c3c6b919d0073dc3"
       }
     },
     "all_three_modes_bound": true,

@@ -75,11 +75,19 @@
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
     "reason": "residual_honest_partial",
+    "producer_status": "blocked",
+    "named_residuals": [
+      "obra_required",
+      "evidence_required",
+      "blocked"
+    ],
     "blockers_sample": [
       "provider_spawn_proof_missing",
       "authority_lineage_proof_missing",
       "producer_eng_not_released",
       "residual:obra_required",
+      "residual:evidence_required",
+      "residual:blocked",
       "producer_status_not_completed",
       "producer_status:blocked"
     ],
@@ -87,7 +95,9 @@
       "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
       "producer_status": "blocked",
       "named_residuals": [
-        "obra_required"
+        "obra_required",
+        "evidence_required",
+        "blocked"
       ],
       "provider": null,
       "provider_calls": 0,
@@ -97,10 +107,9 @@
       "honesty": "residual_honest_partial_not_fabricated"
     },
     "caller_set_capability_flags": "forbidden",
-    "durable_pg_ready": true,
-    "pre_effect_decision_seal": null
+    "durable_pg_ready": true
   },
-  "notes": "P4-FORGE residual-honest GREEN path-core. journey_terminal_status=blocked_ops_partial; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
+  "notes": "P4-FORGE residual-honest. producer_status=blocked; named_residuals=['obra_required', 'evidence_required', 'blocked']; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {
