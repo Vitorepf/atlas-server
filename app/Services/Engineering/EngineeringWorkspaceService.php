@@ -102,8 +102,10 @@ class EngineeringWorkspaceService
         $parentProfile = $this->workspaceProfiles->findContainingPath((string) $base['original_workspace']);
         if (Schema::hasTable('atlas_workspace_profiles')) {
             $this->workspaceProfiles->upsertPersistedProfile([
-                'slug' => 'engineering-run-'.$run->id,
-                'name' => 'Engineering run '.$run->id,
+                // Preserve the indexed workspace identity so the generated
+                // worktree can reuse its code/test graph without reindexing.
+                'slug' => (string) ($parentProfile['slug'] ?? 'engineering-run-'.$run->id),
+                'name' => (string) ($parentProfile['name'] ?? 'Engineering run '.$run->id),
                 'kind' => 'isolated',
                 'workspace_path' => $worktreePath,
                 'repo_root' => $worktreePath,
