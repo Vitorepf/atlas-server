@@ -16,6 +16,7 @@ use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\Programming\ProgrammingStageReceiptStore;
 use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringBlueprintService;
@@ -93,6 +94,7 @@ class AtlasCliDevCommand extends Command
         AtlasAiRuntimeSettings $settings,
         FairClaudePolicy $fairClaude,
         AtlasProgrammingOrchestrator $programming,
+        ProgrammingStageReceiptStore $stageReceipts,
     ): int {
         $workspace = $this->workspace();
         $json = (bool) $this->option('json');
@@ -116,6 +118,8 @@ class AtlasCliDevCommand extends Command
         }
 
         $programmingProfile = $forgeRequested ? 'forge' : 'dev';
+        $resumePlanId = trim((string) ($this->option('resume') ?? ''));
+        $previousStageReceipts = $resumePlanId !== '' ? $stageReceipts->timeline($resumePlanId) : [];
         $taskId = $this->taskId();
         $atlasTask = null;
         $engineeringContract = null;
@@ -228,6 +232,7 @@ class AtlasCliDevCommand extends Command
             'max_iterations' => $maxIterations,
             'ai_policy_override' => $aiPolicyOverride,
             'intent' => (bool) $this->option('repair') ? 'repair' : null,
+            'previous_stage_receipts' => $previousStageReceipts,
         ]);
         $devPlan['orchestrator'] = 'AtlasProgrammingOrchestrator';
         $devPlan['programming_profile'] = $programmingProfile;
@@ -313,6 +318,8 @@ class AtlasCliDevCommand extends Command
                 'quality_scan' => $this->stringOption('quality-scan'),
                 'harness_policy' => $this->stringOption('harness-policy'),
                 'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
+                'resume' => $resumePlanId !== '' ? $resumePlanId : null,
+                'previous_stage_receipts' => $previousStageReceipts,
             ], fn (mixed $value): bool => $value !== null);
         }
         if ($fairMode) {
