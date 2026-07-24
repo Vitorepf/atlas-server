@@ -59,6 +59,6 @@ Law: multi-loop excellence; server-resolved depth; no vanity dial; operator out 
 
 ## Residual R107 (M_excellence ≥ 50×)
 
-Target: same model (e.g. Kimi) raw vs Atlas → measured multiplier ≥ 50 on suite S_50.
-Law: `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md` §0.
-Path machine: R106. Channel: R104. Claim: Rivals only — never vanity certify.
+Target: same model (e.g. Kimi) raw vs Atlas → M_excellence ≥ 50 on **S_frontier** (school curriculum).
+S_sanity = levels already mastered (parity/regression). Saturated frontier → promote next level — never “raw 80% = model ceiling”.
+Law: atlas-agent-qos-excellence-ceiling.md §0.4. Path: R106. Channel: R104. Claim: Rivals only.

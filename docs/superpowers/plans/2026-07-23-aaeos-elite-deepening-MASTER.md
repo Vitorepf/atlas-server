@@ -421,7 +421,7 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R104 | JSON³ provider contract: Atlas forces triple-nested patch_plan JSON; native FC unused; `invalid_provider_contract` after model solved N | **P1-JSON** |
 | R105 | Governor merge authority for benchmark/ephemeral workspaces (product P2) | post-R104; separate |
 | R106 | Agent QoS excellence multi-loop not law of path; quality can be skipped or gamed by dials/proxies; architecture vs impl shortcuts | **P2g-QOS** |
-| R107 | No falsifiable claim Atlas multiplies same model ≥50× (e.g. Kimi raw vs Atlas); risk of vanity 50× | **Rivals S_50 + R106 path + R104**; residual measure |
+| R107 | No falsifiable ≥50× claim; risk of vanity OR of treating saturated school-level as model ceiling | **Rivals curriculum S_sanity/S_frontier/S_horizon + R106 + R104** |
 
 
 **Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 + R106 when excellence ceiling claimed (R44→R66). HORIZON only where marked. R105 only if measurement-workspace DONE claimed.
@@ -443,11 +443,11 @@ Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` 
 
 
 
-### 3.4 Residual R107 hard-done (M_excellence ≥ 50×)
+### 3.4 Residual R107 hard-done (M_excellence ≥ 50× — school curriculum, not model ceiling)
 
 | ID | Gap | Owners | Hard done |
 |---|---|---|---|
-| R107 | Claim “Atlas multiplica modelo ≥50×” sem instrumento | Rivals preregistration + dual arm raw vs Atlas; EXCELLENCE_PASS suite `S_50`; R104 channel symmetry; R106 path; no vanity organ | (1) S_50 preregistered; (2) same μ both arms; (3) R104 symmetry; (4) measured M_excellence=N_atlas/max(N_raw,ε) ≥ 50 with n/method; (5) M&lt;50 forbids claim; (6) no certify 50× without Rivals receipt; (7) revalidate after path change |
+| R107 | Claim “Atlas multiplica modelo ≥50×” sem instrumento | Rivals preregistration + dual arm raw vs Atlas; EXCELLENCE_PASS suite `S_50`; R104 channel symmetry; R106 path; no vanity organ | (1) S_sanity + S_frontier preregistered; (2) same μ; (3) R104; (4) M≥50 only on non-saturated S_frontier; (5) raw domain of frontier → promote L_k+1 (school), never “50× forever impossible”; (6) M&lt;50 on valid frontier forbids claim; (7) no certify 50× without Rivals; (8) Atlas S_sanity fail = regression |
 
 
 ### 3.1 Residual hard-done detail (R64–R103)

@@ -111,30 +111,37 @@ M_total ≳ M_channel × M_spec × M_multi × M_judge × M_verify × M_repair ×
 | **M_repair** | 0..N mesmo root até critérios | 1-shot fail = cru |
 | **M_settle** | land só com write-set + canary | mentira de “shipped” |
 
-**Meta de desenho:** com depth=max e R104 GREEN, o produto dos fatores deve **visar** `M_excellence ≥ 50` na suite `S_50`.  
-**Garantia de claim:** só medição — o QoS **estrutura** a máquina de multiplicação; **não** imprime “50×” no certify.
+**Meta de desenho:** depth=max + R104 GREEN ⇒ a máquina de M deve **visar** `M_excellence ≥ 50` no **S_frontier** atual.  
+**Garantia de claim:** só medição no frontier — o QoS **estrutura** a escola; **não** imprime “50×” no certify.  
+**Quando o cru “passa de ano”:** promover currículo; o 50× migra para o **próximo livro**, não morre.
 
 ### 0.6 Gates de claim (quando pode dizer “≥50×”)
 
 | Estado | Pode claim 50×? |
 |---|---|
 | R104 aberto | **NÃO** |
-| Suite S_50 não preregistrada | **NÃO** |
+| S_frontier não preregistrada | **NÃO** |
 | Braços assimétricos | **NÃO** |
-| `M_excellence` medido ≥ 50 com CI que não cruza 50 se policy exigir | **SIM** (R107 GREEN) |
+| S_frontier saturada pelo cru (domínio estável) sem promoção de nível | **NÃO** — teste **inapropriado** para 50×; evoluir escola |
+| `M_excellence` ≥ 50 no S_frontier válido | **SIM** (R107 GREEN) |
 | Só path law R106 GREEN | **NÃO** (lei sem prova) |
 | PHPUnit only | **NÃO** (R84) |
+| S_sanity falhando no Atlas | **NÃO** — regressão; consertar antes de brag |
 
-### 0.7 Exemplo operador (Kimi)
+### 0.7 Exemplo operador (Kimi) — escola, não teto
 
 ```text
-Arm A: Kimi K2.7-FC / K7-class CRU   → N_raw
-Arm B: Kimi K2.7-FC / K7-class ATLAS depth=max → N_atlas
-Suite: S_50 preregistrada (eng excellence conjunctive)
-Claim: M_excellence = N_atlas / max(N_raw, ε) ≥ 50
-```
+Arm A: Kimi CRU
+Arm B: Kimi + Atlas depth=max
 
-Se Kimi cru já passa 80% da suite fácil, **recalibre S_50** (mais hard) — não baixe a barra de EXCELLENCE_PASS.
+S_sanity:   níveis já dominados (1–10) → ambos devem passar (~paridade / sem regressão)
+S_frontier: nível atual (ex. equações de excelência eng) → medir M_excellence ≥ 50
+S_horizon:  próximo livro (2030-class tasks) → preregistrado quando frontier saturar
+
+Se Kimi cru faz 80–100% em S_frontier:
+  → NÃO dizer “50× impossível”
+  → dizer “aprovado neste nível; S_frontier vira S_sanity; abrir L_{k+1}”
+```
 
 ---
 
@@ -370,18 +377,21 @@ Se estes não puderem **falhar** o instrumento, o teto é mentira:
 
 | ID | Gap | Owners | Hard done |
 |---|---|---|---|
-| **R107** | Não existe claim falsificável “Atlas multiplica modelo ≥50×”; risco de vanity | Rivals preregistration + dual arm (raw vs Atlas) + EXCELLENCE_PASS harness; Provider packaging R104; QoS path R106; **sem** novo score organ | (1) suite `S_50` preregistrada; (2) mesmo μ (ex. Kimi K7-class) nos dois braços; (3) simetria de canal (R104); (4) `M_excellence ≥ 50` reportado com n e método; (5) se M&lt;50 claim proibido; (6) certify/cockpit não mostram 50× sem receipt Rivals; (7) re-run após mudança de path revalida |
+| **R107** | Não existe claim falsificável “Atlas multiplica modelo ≥50×”; risco de vanity ou de suite **inapropriada** (nível escolar saturado tratado como teto do modelo) | Rivals + **currículo em escada** S_sanity / S_frontier / S_horizon; dual arm; EXCELLENCE_PASS; R104; R106; **sem** score organ | (1) S_sanity + S_frontier preregistrados; (2) mesmo μ; (3) R104; (4) M≥50 **só** em S_frontier **não saturado** pelo cru; (5) se raw domina frontier → promover nível (escola), não “impossível”; (6) M&lt;50 no frontier válido proíbe claim; (7) certify sem Rivals receipt proibido; (8) Atlas falhar S_sanity = regressão bloqueante |
 
-**R106** = construir a máquina. **R107** = provar o 50×. Ambos necessários para o objetivo do operador.
+**R106** = máquina. **R107** = prova do 50× **no frontier escolar atual**. Ambos + **escola que sobe** com o tempo (2026→2050).
 
-### 4.4.9 Ordem operacional para chegar a M≥50
+### 4.4.9 Ordem operacional para chegar a M≥50 (e manter)
 
 ```text
-1. R104 GREEN     — M_channel ≥ 1 (parar de perder do cru)
-2. R106 / P2g     — stack multi-loop enforçado (máquina de M)
-3. Calibrar S_50  — suite onde cru colapsa em EXCELLENCE_PASS
-4. Rivals dual-arm Kimi cru vs Atlas max
-5. R107           — só então claim ≥50×
+1. R104 GREEN              — M_channel ≥ 1
+2. R106 / P2g              — multi-loop = lei
+3. S_sanity verde nos dois — básico dominado; Atlas não regride
+4. S_frontier preregistrado — nível onde 50× ainda é apropriado
+5. Rivals dual-arm         — Kimi cru vs Kimi+Atlas
+6. R107                    — claim ≥50× se medido no frontier
+7. Se raw satura frontier  — promover L_{k+1} (escola); repetir 4–6
+8. Nunca argumentar “raw 80% = fim da multiplicação”
 ```
 
 ---
@@ -476,20 +486,22 @@ Internamente: **0..N** repairs/replans sob o mesmo root.
 
 ---
 
-## 11. Ordem de valor para o operador (rumo a 50×)
+## 11. Ordem de valor para o operador (rumo a 50× e além)
 
 ```text
-1. R104 (P1-JSON)     — M_channel ≥ 1 (sem isso, 50× é impossível)
+1. R104 (P1-JSON)     — M_channel ≥ 1
 2. P2b + P2c          — authority + repair
 3. P2g-QOS / R106     — máquina multi-loop = lei
-4. Calibrar S_50      — suite hard onde Kimi cru colapsa
-5. Rivals dual-arm    — Kimi cru vs Kimi+Atlas
-6. R107               — claim M_excellence ≥ 50 só medido
-7. P4                 — REAL_OPERATION além da suite
+4. S_sanity           — provar paridade no que já é “1 a 10”
+5. S_frontier         — medir 50× no livro atual (não no livro saturado)
+6. Rivals dual-arm    — Kimi cru vs Kimi+Atlas
+7. R107               — claim ≥50× só medido no frontier apropriado
+8. Promover escola    — quando raw domina frontier (2026→2030→…)
+9. P4                 — REAL_OPERATION além da bateria
 ```
 
 ---
 
 ## 12. Uma frase
 
-**Agent QoS = máquina multi-loop que torna `M_excellence ≥ 50` (ex. Kimi cru vs Atlas) mensurável e atingível — claim só com suite S_50 preregistrada e braços simétricos; nunca vanity.**
+**Agent QoS = escola de excelência: multi-loop multiplica o modelo ≥50× no frontier atual (Kimi cru vs Atlas); níveis saturados viram sanity; o currículo sobe com o século — nunca “80% = teto do aluno”.**
