@@ -12,6 +12,8 @@
 | human_in_engineering_loop authoritative readers gone | DRAFT_GREEN | P0 evidence COMMIT 2 |
 | invalid_mode → repair_required | DRAFT_GREEN | P0 evidence COMMIT 2 |
 | brain args R33 positional | FAIL | P1a |
+| provider response no JSON³ tax (R104) | FAIL | P1-JSON |
+| invalid_provider_contract only when unusable | FAIL | P1-JSON |
 | seed R35 / exit semantics R34 | FAIL | P1a |
 | Decision v3 CUTOVER | FAIL | P2b-CUTOVER |
 | REAL_OPERATION ×3 (out of PHPUnit) | MISSING | P4 |

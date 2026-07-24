@@ -20,6 +20,7 @@
 |---|---|---|---|
 | P0 | DRAFT_GREEN_PENDING_COMMIT2 | `EXECUTE P0` | `4979520f4675e3162952598a1b5c2dfd8784fa58` |
 | P1a | NOT_STARTED | `EXECUTE P1a` | — |
+| P1-JSON | NOT_STARTED | `EXECUTE P1-JSON` (after P1a GREEN) | — |
 | P2a.1+ | NOT_STARTED | see MASTER DAG | — |
 | P1b.* | NOT_STARTED | after P2b-CUTOVER | — |
 | P3* / P4* | NOT_STARTED | see MASTER | — |
@@ -44,3 +45,7 @@ Evidence-commit SHA is reported by the controller after COMMIT 2, outside the co
 3. Controller creates COMMIT 2, then reads the exact committed evidence tree before deriving any P1a activation.
 
 R33–R35 remain P1a and are not P0 claims.
+
+## Residual R104 (JSON³ — AAEOS law)
+
+Product P1 in `atlas-problemas-conhecidos.md` is MASTER residual **R104**, slice **P1-JSON**, receipt **PHASE-P1-JSON.json**. Why AAEOS: provider-government seam / M must not destroy solved N. See MASTER §1.11.
