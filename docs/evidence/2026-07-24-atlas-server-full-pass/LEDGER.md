@@ -5,19 +5,19 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 36+
-unit_proof_targeted: green
+full_pass_commits: 40+
 mcp_service_loc: 878
-next: PipelineRunExecutor Http exit | EnterpriseReport HTML | Readiness peels | ProviderCatalog
+unit_proof: green (targeted Support/OpenBrain/CLI concerns)
+next: PipelineRunExecutor leave Http | HTML monolog | Readiness OneShotTick | ProviderCatalog | config split
 ```
 
-## Continuous progress
+## Progress
 
-Large set of shared Support/* and Commands/Concerns/* helpers; MCP tool catalog density extract; CodexReviewMerge later-cycle trait; honesty renames; loop ACDE legacy comments.
+Reuse/standardize wave continuous: Support/* utilities (Clamp01, CanonicalValue, ArrayPercentile, MemoryLimitBytes, FirstNonEmptyString, DatabaseIdsContaining, StableJson, RoundOrNull, UtcIsoTimestamp, YmdDay, IsNonEmptyString, …), CLI Concerns, MCP ToolCatalog density, CodexReviewMerge later-cycle trait, honesty renames, loop legacy comments.
 
-## Residual DEBT (honest)
+## Residual DEBT
 
-13399 file receipts incomplete. Remaining monstruos listed in DEBTS.md.
+See DEBTS.md. File-by-file 13399 receipts not complete. Not claiming all corpus bugs fixed.
 
 ## Floors blocked
 
