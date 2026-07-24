@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\LoadsFactsJsonOption;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionGiveBackLessonConsolidator;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionCompoundingOutcomeProjection;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionCompoundingVelocityTracker;
@@ -26,6 +27,8 @@ use Throwable;
  */
 final class AtlasSelfConstructionCompoundingCommand extends Command
 {
+    use LoadsFactsJsonOption;
+
     public const EXIT_OK = 0;
 
     public const EXIT_USAGE = 2;
@@ -78,42 +81,6 @@ final class AtlasSelfConstructionCompoundingCommand extends Command
         return self::EXIT_OK;
     }
 
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function loadFacts(): ?array
-    {
-        $path = (string) $this->option('facts');
-        if ($path === '' || ! is_file($path)) {
-            $this->refuseUsage('--facts=<path> is required and must point to an existing JSON file');
-
-            return null;
-        }
-        try {
-            $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable $e) {
-            $this->refuseUsage('facts payload not valid JSON: '.mb_substr($e->getMessage(), 0, 200));
-
-            return null;
-        }
-        if (! is_array($decoded)) {
-            $this->refuseUsage('facts payload root must be a JSON object');
-
-            return null;
-        }
-
-        return $decoded;
-    }
-
-    private function refuseUsage(string $reason): void
-    {
-        if ($this->option('json')) {
-            $this->line((string) json_encode(['status' => 'usage_error', 'reason' => $reason], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-            return;
-        }
-        $this->error($reason);
-    }
 
     /**
      * @param  array<string,mixed>  $payload

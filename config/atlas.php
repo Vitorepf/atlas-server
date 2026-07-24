@@ -1362,6 +1362,7 @@ return [
         // (never main; merge stays the operator's git/PR act). Declared HERE under
         // atlas.ai.loop because AtlasLoopProposalPromotionGate reads this exact
         // path (the runtime atlas.loop block at the root is the campaign engine's).
+        // LEGACY ACDE residual (not live operate). Live Autônomos = brain/task.
         'loop' => [
             'merge_to_source_enabled' => (bool) env('ATLAS_LOOP_MERGE_TO_SOURCE_ENABLED', false),
             // Merge-livre v2 (decisão do operador 11-12/06): propostas certificadas +
@@ -2652,6 +2653,14 @@ return [
     | names a provider in code, so removing any provider (Hermes included) does
     | not break it; the loop falls back to whatever this resolves to (or to the
     | senior-loop's own config default / Atlas Decide when empty).
+    */
+    /*
+    | FULL-PASS HYGIENE (operate-path honesty)
+    | -------------------------------------------------------------------------
+    | This `loop` block is LEGACY ACDE config surface. Daily operate path is
+    | atlas:brain:* / atlas:task:* (Autônomos live). Do NOT treat this key as the
+    | product front door. Keep-list AtlasLoop* classes may still read values here;
+    | never re-enable atlas:loop:* as the live CLI.
     */
     'loop' => [
         // '' (empty) => let the senior-loop / Atlas Decide pick. Set a key to pin.
