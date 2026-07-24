@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrain;
 
+use App\Support\ArrayPercentile;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\AiValueNormalizer;
 use DateTimeImmutable;
@@ -263,21 +264,7 @@ final class AtlasAobgLatencyLedger
     /** @param list<float> $values */
     private function percentile(array $values, float $q): ?float
     {
-        if ($values === []) {
-            return null;
-        }
-        if (count($values) === 1) {
-            return $values[0];
-        }
-
-        $rank = $q * (count($values) - 1);
-        $low = (int) floor($rank);
-        $high = (int) ceil($rank);
-        if ($low === $high) {
-            return $values[$low];
-        }
-
-        return $values[$low] + (($values[$high] - $values[$low]) * ($rank - $low));
+        return ArrayPercentile::ofSorted($values, $q);
     }
 
     private function normalizeTimestamp(?string $ts): string

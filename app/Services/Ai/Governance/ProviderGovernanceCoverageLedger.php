@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Governance;
 
+use App\Support\ArrayPercentile;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
@@ -414,24 +415,7 @@ final class ProviderGovernanceCoverageLedger
      */
     private function percentile(array $values, float $q): ?float
     {
-        if ($values === []) {
-            return null;
-        }
-
-        sort($values);
-        $n = count($values);
-        if ($n === 1) {
-            return $values[0];
-        }
-
-        $rank = $q * ($n - 1);
-        $low = (int) floor($rank);
-        $high = (int) ceil($rank);
-        if ($low === $high) {
-            return $values[$low];
-        }
-
-        return $values[$low] + ($values[$high] - $values[$low]) * ($rank - $low);
+        return ArrayPercentile::ofSorted($values, $q);
     }
 
     /** Clear the ledger to start a fresh measurement window. */
