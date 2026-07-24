@@ -5,12 +5,19 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 50+
-rescan: "FINDINGS-RESCAN-2 multi-agent (8 explore) 2026-07-24"
-unit_proof: "Support+Concerns packages prior green"
-mcp_service_loc: 878
-mcp_catalog_loc: 1099
-next: Serving report stages | ProviderCatalog | OneShotTick registry | AppServiceProvider peel | remaining peels
+full_pass_commits: 60+
+rescan: FINDINGS-RESCAN-2
+recent:
+  - Wave A YesNo/UtcIso/trueFalse mass
+  - EmitsCanonicalJson Command mass
+  - EnterpriseReport HTML template peel
+  - CertificationWorkbench map+__call
+  - AiWorker completeAttempt stages
+  - config/atlas_loop_legacy.php
+  - OpenBrainMcpToolDefinitions data peel
+  - LoadsFactsFileOption ExternalBrain
+unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
+next: Serving report stages | ProviderCatalog | OneShotTick | ASP domain SPs
 ```
 
 ## Progress summary

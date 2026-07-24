@@ -1,33 +1,37 @@
-# Full-Pass SCOREBOARD (session + rescan #2)
+# Full-Pass SCOREBOARD (session + rescan #2 execution)
 
 | area_id | status | notes |
 |---|---|---|
-| reuse | partial | Wave A: YesNo/UtcIso mass adopted; shells inlined; EmitsCanonicalJson residual |
-| standardize | partial | naming honesty map in RESCAN-2; dual SC/aeos fronts open |
-| honesty | partial | loop CLI dead; speech/docs residual; Evolution/Aaeos collisions open |
-| operate_vs_legacy | partial | loop config still huge; Autonomos master alias incomplete |
-| density | partial | MCP tools done; catalog/HTML/Workbench/peels open |
-| eliminate | pending | empty dirs + zero-ref Forge residual |
-| defactor | partial | ownership matrix documented RESCAN-2; renames not landed |
+| reuse | partial | Wave A YesNo/UtcIso mass; shells inlined; LoadsFactsFileOption |
+| standardize | partial | CLI Concerns expanded; dual SC/aeos still open |
+| honesty | partial | loop CLI dead; config loop extracted + honesty header |
+| operate_vs_legacy | partial | atlas_loop_legacy.php; Autonomos master alias still open |
+| density | partial | HTML shell, Workbench map, ToolCatalog data, AiWorker stages |
+| eliminate | pending | empty AcosMax/Cognitive after alias drain |
+| defactor | partial | ownership matrix in RESCAN-2; renames not landed |
 | optimize | pending | hops/I/O measured work deferred |
-| simplify | partial | CanonicalValue etc. partial adopt |
-| architecture | partial | PRE non-live; leave Http + ProviderCatalog + config split open |
-| surface_std | partial | ~60 ReadsNonEmptyStringOption; ~17 stringOption left |
-| gates | partial | package unit proofs for helpers |
-| anti_goodhart | done | real map + no mass fake deletes |
-| fuse | partial | later-cycle trait; OneShotTick/peels still forest |
-| docs_map | partial | RESCAN-1 + **RESCAN-2** + DEBTS/LEDGER |
+| simplify | partial | CanonicalValue partial; Workbench __call |
+| architecture | partial | PRE non-live; config loop split done; ProviderCatalog open |
+| surface_std | partial | EmitsCanonicalJson mass; stringOption variants residual |
+| gates | partial | package unit proofs Support/Workbench/ToolCatalog/FactsFile |
+| anti_goodhart | done | real peels + tests; no mass fake deletes |
+| fuse | partial | later-cycle + workbench map; OneShotTick forest open |
+| docs_map | partial | RESCAN-1 + RESCAN-2 + DEBTS/LEDGER live |
 | governance | partial | floors listed |
-| others | pending | continuous queue Wave A → monstruos |
+| others | pending | continuous queue |
 
-## Rescan #2 scale snapshot
+## Landed this execution window (commits)
 
-| metric | value |
-|---|---:|
-| methods >200 | ~220 |
-| methods >80 | ~3142 |
-| OneShotTick files | 129 |
-| config/atlas.php LOC | 5409 |
-| AppServiceProvider LOC | 1099 |
-| OpenBrain MCP service | 878 |
-| OpenBrain catalog | 1099 |
+| commit theme | proof |
+|---|---|
+| Wave A YesNo/UtcIso + shells | Support unit 9 tests |
+| EmitsCanonicalJson + HTML template | template shell strlen + php -l |
+| Workbench map+__call | 3 unit tests |
+| AiWorker completeAttempt stages | suite mostly green; 1 pre-existing fail |
+| config loop → atlas_loop_legacy | boot config loop_keys=327 |
+| OpenBrain tool definitions data | 1 unit / 65 tools |
+| LoadsFactsFileOption | 2 unit tests |
+
+## Next ranked residual
+
+Serving report stages · ProviderCatalog · OneShotTick registry · ASP domain SPs · remaining peels · floors
