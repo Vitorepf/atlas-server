@@ -4615,6 +4615,13 @@ return [
         // reviewing the call_edges yield stats — edges are INFERRED (0.7), shape-identical
         // to symbol edges, and subject to the same max_edges cap.
         'call_edges_merge' => (bool) env('ATLAS_CODE_GRAPH_CALL_EDGES_MERGE', false),
+
+        // AP-815 P-7: framework-aware edges (route->controller, DI bindings) read from the
+        // LIVE router/container via reflection — runtime wiring NO source parse can recover
+        // (edges are EXTRACTED, shape-identical to symbol edges). The resolver is query-free
+        // (never issues a DB query). Same report/merge split as call_edges, both DEFAULT OFF.
+        'framework_edges' => (bool) env('ATLAS_CODE_GRAPH_FRAMEWORK_EDGES', false),
+        'framework_edges_merge' => (bool) env('ATLAS_CODE_GRAPH_FRAMEWORK_EDGES_MERGE', false),
     ],
 
     /*

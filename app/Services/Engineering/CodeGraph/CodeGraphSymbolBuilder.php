@@ -61,6 +61,15 @@ class CodeGraphSymbolBuilder
             $edges = array_merge($edges, $callEdges['edges']);
         }
 
+        // AP-815 P-7 fusion: framework-aware edges (route->controller, DI bindings) from
+        // the LIVE router/container — runtime wiring no source parse can recover. Distinct
+        // edge types (never overlap call edges), so an independent additive pass. Merge
+        // only when framework_edges_merge is ON; the cap below bounds the combined total.
+        $frameworkEdges = $this->computeFrameworkEdges();
+        if ($frameworkEdges !== null && (bool) config('atlas.code_graph.framework_edges_merge', false)) {
+            $edges = array_merge($edges, $frameworkEdges['edges']);
+        }
+
         $maxEdges = (int) config('atlas.code_graph.max_edges', 200000);
         if ($maxEdges > 0 && count($edges) > $maxEdges) {
             $edges = array_slice($edges, 0, $maxEdges);
@@ -79,7 +88,7 @@ class CodeGraphSymbolBuilder
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
-        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges), $this->callEdgeReceipt($callEdges));
+        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges), $this->callEdgeReceipt($callEdges), $this->frameworkEdgeReceipt($frameworkEdges));
     }
 
     /**
@@ -190,6 +199,59 @@ class CodeGraphSymbolBuilder
 
         return ['call_edges' => array_merge($callEdges['stats'], [
             'merged' => (bool) config('atlas.code_graph.call_edges_merge', false),
+        ])];
+    }
+
+    /**
+     * AP-815 P-7 fusion — framework-aware edges (route->controller, DI bindings) read from
+     * the LIVE framework's authoritative model via {@see CodeGraphFrameworkAwareResolver}:
+     * runtime wiring registered at boot that NO source parse can recover. Runs only when a
+     * framework-edge flag is on; returns null otherwise (byte-identical). The resolver is
+     * query-free (route table + container bindings + reflection; never issues a DB query)
+     * and never throws. Edges already carry the persist shape (from_node_id/to_node_id/
+     * edge_type/metadata), EXTRACTED — so insertEdges + the max_edges cap apply unchanged.
+     *
+     * Eloquent relation edges (all() also supports them) need model-class discovery, which
+     * the symbol read-model lacks (no extends info) — omitted here so the pass stays
+     * bounded to the reliable route + DI core; a later slice can pass discovered models.
+     *
+     * @return array{edges:array<int,array<string,mixed>>, stats:array<string,mixed>}|null
+     */
+    private function computeFrameworkEdges(): ?array
+    {
+        if (! (bool) config('atlas.code_graph.framework_edges', false)
+            && ! (bool) config('atlas.code_graph.framework_edges_merge', false)) {
+            return null;
+        }
+
+        $edges = (new CodeGraphFrameworkAwareResolver)->all();
+        $edges = is_array($edges) ? array_values(array_filter($edges, 'is_array')) : [];
+
+        $byType = [];
+        foreach ($edges as $edge) {
+            $type = (string) ($edge['edge_type'] ?? '?');
+            $byType[$type] = ($byType[$type] ?? 0) + 1;
+        }
+
+        return ['edges' => $edges, 'stats' => ['edges' => count($edges), 'by_type' => $byType]];
+    }
+
+    /**
+     * Format the framework-edge computation for the build receipt (stats + whether merged).
+     * Returns [] when framework edges were not computed (flags off) so the receipt stays
+     * byte-identical.
+     *
+     * @param  array{edges:array<int,array<string,mixed>>, stats:array<string,mixed>}|null  $frameworkEdges
+     * @return array<string,mixed>
+     */
+    private function frameworkEdgeReceipt(?array $frameworkEdges): array
+    {
+        if ($frameworkEdges === null) {
+            return [];
+        }
+
+        return ['framework_edges' => array_merge($frameworkEdges['stats'], [
+            'merged' => (bool) config('atlas.code_graph.framework_edges_merge', false),
         ])];
     }
 
