@@ -62,7 +62,8 @@
 - [x] AppServiceProvider ACOS watchdog → AtlasAcosWatchdogServiceProvider
 - [x] AppServiceProvider Organism domain → AtlasOrganismServiceProvider
 - [x] AppServiceProvider Vox DI → AtlasVoxServiceProvider
-- [ ] AppServiceProvider further domain peels (Swarm/…)
+- [x] AppServiceProvider Swarm DI → AtlasSwarmServiceProvider (ASP 1067→856)
+- [ ] AppServiceProvider further domain peels (Patamar4 probes / mission loop / …)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
 - [x] routes/api/patamar4.php split

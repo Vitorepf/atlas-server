@@ -5,6 +5,7 @@ use App\Providers\AtlasDevServiceProvider;
 use App\Providers\AtlasAcosWatchdogServiceProvider;
 use App\Providers\AtlasLegacyNamespaceAliasServiceProvider;
 use App\Providers\AtlasOrganismServiceProvider;
+use App\Providers\AtlasSwarmServiceProvider;
 use App\Providers\AtlasVoxServiceProvider;
 use App\Providers\ProgrammingGovernanceServiceProvider;
 
@@ -14,6 +15,7 @@ return [
     AtlasAcosWatchdogServiceProvider::class,
     AtlasOrganismServiceProvider::class,
     AtlasVoxServiceProvider::class,
+    AtlasSwarmServiceProvider::class,
     AtlasDevServiceProvider::class,
     ProgrammingGovernanceServiceProvider::class,
 ];

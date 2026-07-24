@@ -8,15 +8,16 @@ execution: in_progress
 full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
+  - AtlasSwarmServiceProvider ASP peel (ASP →856)
   - routes voice/mobile/vox split (api.php 762→643)
   - AtlasOrganismServiceProvider ASP peel
-  - AtlasVoxServiceProvider ASP peel (ASP 1067→922)
+  - AtlasVoxServiceProvider ASP peel
   - Decide/LedgerReplay/CLI/routes prior continuous peels
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: Organism+Vox+mobile package 64 tests / 1000 asserts green
-next: continuous residual (Swarm ASP peel | PRE staged | floors)
+unit_proof: Organism+Vox+mobile 64 + Swarm AtlasDecide 60 tests green
+next: continuous residual (routes core peel | Patamar4 ASP | PRE staged | floors)
 ```
 
 ## Progress summary
