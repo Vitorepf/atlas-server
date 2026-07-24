@@ -75,7 +75,8 @@
 - [x] routes/api arena + code-native + agent-governance + memory-vault (api.php →488; 74 dead imports pruned)
 - [x] routes/api engineering (runs/tools/knowledge/benchmarks + task eng) (api.php →411)
 - [x] routes/api projects-routines + semantic-and-lifestyle (api.php →293)
-- [ ] routes/api.php remaining (ai interactions / providers / jobs / harness core)
+- [x] routes/api ai-platform + ai-runtime (api.php 762→101 thin shell + requires)
+- [ ] routes/api.php residual polish only (inbox/tasks agenda still inline; optional)
 - [x] ProviderCatalog adopt in AiDecisionController + AtlasAiDecideCommand + PlansGatewayDecision
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
