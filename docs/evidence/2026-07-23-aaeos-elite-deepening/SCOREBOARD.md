@@ -21,3 +21,5 @@
 **P0 draft basis:** implementation COMMIT 1 is `4979520f4675e3162952598a1b5c2dfd8784fa58`; the focused P0 suite is 40 tests / 133 assertions / exit 0. This is not a certification, review event, or next-slice activation.
 
 **Promotion rule:** controller-derived serial predecessor GREEN + PHASE GREEN + checklist + tests + implementation COMMIT 1 + valid independent existing-ledger GateEvaluated review events bound to the canonical review basis (PHASE excludes `review_basis`, `review_attestation_refs`, `next_phase_authorized`, `next_phase_authorization_basis`; LEDGER/SCOREBOARD hash exact UTF-8 LF-normalized bytes with zero exclusions) + evidence COMMIT 2. A draft never activates; only the controller reading the exact PHASE from the committed COMMIT 2 tree may re-derive activation. The evidence SHA is reported after COMMIT 2 outside committed evidence artifacts; operator diff review is optional audit, not a technical gate.
+| Agent QoS multi-loop excellence (R106) | FAIL | P2g-QOS |
+| excellence depth server-resolved (no vanity dial) | FAIL | P2g-QOS |

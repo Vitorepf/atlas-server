@@ -29,7 +29,7 @@ EXECUTE P1-JSON
 EXECUTE P1b.1 | EXECUTE P1b.2 | EXECUTE P1b.3
 EXECUTE P2a.1 | EXECUTE P2a.2
 EXECUTE P2b-EXPAND | EXECUTE P2b-SHADOW | EXECUTE P2b-CANARY | EXECUTE P2b-CUTOVER | EXECUTE P2b-CONTRACT
-EXECUTE P2c | EXECUTE P2d | EXECUTE P2e | EXECUTE P2f
+EXECUTE P2c | EXECUTE P2g-QOS | EXECUTE P2d | EXECUTE P2e | EXECUTE P2f
 EXECUTE P3a | EXECUTE P3b
 EXECUTE P4-DEV | EXECUTE P4-FORGE | EXECUTE P4-AUTONOMOS | EXECUTE P4-FREEZE
 Without a controller-activated, predecessor-GREEN phrase → zero production PHP.
@@ -64,7 +64,7 @@ echo "BASE=$BASE"
 
 Under `docs/evidence/2026-07-23-aaeos-elite-deepening/` only:
 
-`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1-JSON.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
+`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1-JSON.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2G-QOS.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
 
 **Forbidden:** any `*receipt*.md`, extra PHASE files, screenshots-as-proof, second ledgers.
 
@@ -238,6 +238,7 @@ P0
  → P2b EXPAND → SHADOW → CANARY → CUTOVER (+ AWIS R102)
  → P1b.1 pre-effect authority replay
  → P2c native lineage / crash durability
+ → P2g-QOS (R106 Agent QoS excellence multi-loop law)
  → P1b.2 native ACT/settlement (+ tool redaction)
  → P1b.3 AAEOS projection only
  → P2d Spine settlement refs
@@ -308,6 +309,25 @@ AAEOS is the **mother block of agentic engineering law** at shared seams — inc
 **Proof anchor:** bfcl 20260721_003602_d3edda73 — kimi FC raw 30/30 vs Atlas 9/30; 7 cases 21/21 deterministic fail.
 
 ---
+
+
+### 1.12 Agent QoS excellence ceiling (R106) — binding
+
+Operator **always out of engineering loop**. Time delay is secondary. Software excellence is primary.
+
+**Agent QoS** = probability of promote-with-proof (structure, correctness, maintainability, verification) — not latency.
+
+When excellence depth is server-resolved **max** (from mandate/risk/L4–L5 — **not** a productive CLI dial `quality_ceiling=max`):
+
+1. Multi-loop is **required**: spec → author → judge → verify → repair 0..N (same root) → land → canary settle.  
+2. Architecture requests and implementation requests are **distinct** (architecture must not MergeActuate).  
+3. author ≠ judge ≠ governor; mechanical Court when same model family (R68).  
+4. review:deep / cockpit = **audit only** (R94).  
+5. Multi-loop on a broken provider channel (R104 open) is **forbidden as a quality claim**.  
+6. M remains falsifiable (R88) — no vanity ceiling score.  
+7. Owners only: Kernel Court/Floor/Repair/Merge/Ledger (see `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md`). **No new organ.**
+
+Full map: that knowledge-base doc. Slice: **P2g-QOS**. Residual: **R106**.
 
 ## 2. Disk truth (re-verify every slice start)
 
@@ -396,9 +416,10 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R52–R103 | see §3.1 hard-done tables | phase exits |
 | R104 | JSON³ provider contract: Atlas forces triple-nested patch_plan JSON; native FC unused; `invalid_provider_contract` after model solved N | **P1-JSON** |
 | R105 | Governor merge authority for benchmark/ephemeral workspaces (product P2) | post-R104; separate |
+| R106 | Agent QoS excellence multi-loop not law of path; quality can be skipped or gamed by dials/proxies; architecture vs impl shortcuts | **P2g-QOS** |
 
 
-**Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 (R44→R66). HORIZON only where marked. R105 only if the program claims measurement-workspace DONE.
+**Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 + R106 when excellence ceiling claimed (R44→R66). HORIZON only where marked. R105 only if measurement-workspace DONE claimed.
 
 ### 3.2 Residual R104 hard-done (JSON³ / provider response contract)
 
@@ -407,6 +428,14 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R104 | Atlas forces model-authored nested `patch_plan` JSON (JSON³ on structured/tool tasks); native FC unused; `invalid_provider_contract` after model already solved N (bfcl kimi raw 30/30 vs Atlas 9/30; 7 cases 21/21 deterministic) | `AgentExecutionProviderPortAdapter`, `KernelRunExecutor`, `EliteExecutorKernel`, `AtlasDecideService` / ProviderLock, `ProviderGovernanceConsult` — **no new organ** | (1) structured/tool-call tasks never require model JSON³; (2) native FC channel when provider supports task class; (3) server packages `patch_plan` from FC args or single-target free-form; (4) `invalid_provider_contract` only when content truly unusable; (5) failure taxonomy separates encoding vs incapacity; (6) goldens: FC→plan, free-form single target→plan, garbage→fail closed; (7) direct Dev and AAEOS-routed Dev same law; (8) no land/merge smuggled |
 
 Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` §P1.
+
+### 3.3 Residual R106 hard-done (Agent QoS excellence)
+
+| ID | Gap | Existing owner reused | Hard done condition |
+|---|---|---|---|
+| R106 | Multi-loop excellence (spec→author→judge→verify→repair→land→settle) is optional/fragmented; dials/proxies can game quality; architecture path can mutate; operator can re-enter as technical reviewer; timeout can promote | `EliteExecutorKernel`, `SovereignSpecFloor`, `VerificationCourtAcceptanceGate`, `SovereignHonestyFloor`, `EngineeringQualityCourt`+`EngineeringRoleRoster`, `RepairOrchestrator`+Forge/TaskServing repair, `QualityFoundryMutationCoverageRunner`/`MutationTestingAdapter`, `AtlasTaskMergeActuator`+canary, `AtlasEvidenceLedger`, `AtlasReviewDeepCommand` (audit-only) — **no new organ**; policy map `atlas-agent-qos-excellence-ceiling.md` | (1) excellence depth is **server-resolved** (raise-only; no productive CLI dial); (2) architecture vs implementation paths distinct fail-closed; (3) implementation max cannot LAND without Court+Floor promote; repair>0 requires regression_lock+replay_proof; (4) same-family author+judge without mechanical Court cannot land; (5) zero routine `human_action_required`/`needs_review` technical exits; (6) timeout/budget → precise terminal, never promote; (7) review:deep/cockpit non-gating; (8) multi-loop quality claim forbidden while R104 open; (9) goldens for multi-loop + mode parity; (10) M still falsifiable (R88) |
+
+
 
 ### 3.1 Residual hard-done detail (R64–R103)
 
@@ -903,6 +932,7 @@ app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerProductionCallbac
 app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php
 app/Console/Commands/AtlasSelfConstructionRuntimeDaemonCommand.php
 routes/console.php
+docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
 ```
 
 ## P1a closed test paths
@@ -1449,6 +1479,106 @@ tests/Feature/Ai/Aaeos/AaeosLedgerJourneyMigrationTest.php
 feat(core): AAEOS-MT P2c native lineage crash durability
 ```
 
+
+
+# SLICE P2g-QOS — Agent excellence multi-loop law (R106)
+
+**Gate:** `EXECUTE P2g-QOS` (requires PHASE-P2C GREEN; culturally requires R104 closed or explicit residual-open honesty)  
+**Receipt:** `PHASE-P2G-QOS.json`  
+**Map:** `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md`  
+**Objective:** make multi-loop excellence **path law** (server-resolved depth, not vanity dial); operator forever out of eng loop; time secondary.  
+**Forbidden:** new organ; productive `quality_ceiling=max` CLI flag; claiming excellence while R104 open; review:deep as eng gate; timeout promote.
+
+## P2g-QOS closed production paths
+
+```
+app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php
+app/Services/Ai/EngineeringKernel/ExecutionOrder.php
+app/Services/Ai/EngineeringKernel/AcceptanceBundle.php
+app/Services/Ai/EngineeringKernel/VerificationCourtAcceptanceGate.php
+app/Services/Ai/EngineeringKernel/SovereignHonestyFloor.php
+app/Services/Ai/EngineeringKernel/EngineeringRoleRoster.php
+app/Services/Ai/EngineeringKernel/EngineeringQualityCourt.php
+app/Services/Ai/EngineeringKernel/EngineeringFinalCertifier.php
+app/Services/Ai/EngineeringKernel/Spec/SovereignSpecFloor.php
+app/Services/Ai/EngineeringKernel/Spec/SpecSourceIndependence.php
+app/Services/Ai/EngineeringKernel/Adapters/AtlasDevGateAdapter.php
+app/Services/Ai/EngineeringKernel/Adapters/AtlasForgeGateAdapter.php
+app/Services/Ai/EngineeringKernel/Adapters/AtlasAutonomosGateAdapter.php
+app/Services/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortAdapter.php
+app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryMutationCoverageRunner.php
+app/Services/Ai/Programming/AtlasDev/Mutation/MutationTestingAdapter.php
+app/Services/Ai/Programming/AtlasDev/Repair/RepairOrchestrator.php
+app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutor.php
+app/Services/Ai/Programming/AtlasDev/Execution/AtlasDevExecutionService.php
+app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php
+app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
+app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+app/Services/Ai/SelfConstruction/Governance/AtlasTaskMergeActuator.php
+app/Services/Ai/SelfConstruction/Governance/AtlasTaskCommitGovernanceChain.php
+app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php
+app/Console/Commands/AtlasReviewDeepCommand.php
+app/Services/Engineering/EngineeringReviewService.php
+app/Console/Commands/AtlasCliCockpitCommand.php
+config/atlas.php
+docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md
+docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md
+```
+
+## P2g-QOS closed test paths
+
+```
+tests/Feature/Ai/Aaeos/AaeosAgentQosMaxMultiLoopTest.php                    # NEW
+tests/Feature/Ai/Aaeos/AaeosAgentQosArchitectureRefuseMutateTest.php         # NEW
+tests/Feature/Ai/Aaeos/AaeosAgentQosTimeoutNeverPromotesTest.php             # NEW
+tests/Feature/Ai/Aaeos/AaeosAgentQosReviewDeepNonGatingTest.php              # NEW
+tests/Unit/Ai/EngineeringKernel/AgentQosServerResolvedDepthTest.php         # NEW
+tests/Unit/Ai/EngineeringKernel/Spec/SovereignSpecFloorTest.php              # EXISTING extend
+tests/Unit/Ai/Programming/AtlasDev/Repair/RepairOrchestratorTest.php         # EXISTING extend
+tests/Feature/Ai/EngineeringKernel/PreLandSeamTest.php                       # EXISTING extend
+tests/Feature/Ai/Aaeos/AaeosSeparationOfDutiesTest.php                       # EXISTING extend
+```
+
+## P2g-QOS ordered steps
+
+### P2g.0 Preflight
+Re-read excellence map doc + §1.12. Confirm R104 status. FOREIGN_WIP untouched.
+
+### P2g.1 RED
+- architecture request with mutate permission without reclass → must fail closed  
+- implementation without FREEZE/criteria → no land  
+- same-family author+judge without mechanical court facts → no promote  
+- timeout/budget exhausted → no `promoted()`  
+- review:deep packet cannot mint EngineeringOutcome pass  
+- no productive CLI option named quality_ceiling that changes promote alone  
+
+### P2g.2 Production (compose only)
+1. Server-resolve excellence depth from Decision/risk/mandate (raise-only).  
+2. Wire architecture vs implementation surface check in EliteExecutorKernel / surface registry consumers.  
+3. Enforce Court+Floor composition for max depth (already VerificationCourtAcceptanceGate — require facts).  
+4. Repair continuum already P2c — bind max depth to require lock/replay after repair.  
+5. Ensure review:deep + cockpit stay non-gating (R94).  
+6. Docs: elite-executors pointer to excellence map.  
+
+### P2g.3 GREEN — suite above, GREEN_EXIT=0  
+
+### P2g.4 Two-commit ritual
+- `feat(core): AAEOS-MT P2g-QOS agent excellence multi-loop law`  
+- `docs(evidence): AAEOS-MT P2g-QOS phase receipt`  
+
+### P2g-QOS exit checklist
+- [ ] No vanity dial; depth server-resolved  
+- [ ] Multi-loop law enforced for max depth  
+- [ ] Architecture cannot land product code  
+- [ ] Timeout never promotes  
+- [ ] Operator technical gates absent  
+- [ ] R106 closed in PHASE; excellence map linked  
+- [ ] No new organ  
+
+### P2g-QOS STOP
+
+---
+
 ## P2d Spine
 **Gate:** `EXECUTE P2d`  
 **Receipt:** `PHASE-P2D.json`  
@@ -1695,7 +1825,7 @@ tests/Feature/Ai/Aaeos/AaeosCertificationInvalidatorMatrixTest.php
 
 Full DONE only if:
 1. All phase receipts GREEN for P0–P4 (Autônomos PARTIAL allowed only if program marked incomplete — not full DONE)  
-2. R33,R34,R35,R38,R40,R43,R46,R51–R104 closed (non-HORIZON; R105 only if claimed)  
+2. R33,R34,R35,R38,R40,R43,R46,R51–R104 and R106 closed when excellence ceiling claimed (non-HORIZON; R105 only if claimed)  
 3. Three-mode REAL_OPERATION  
 4. No second ledger/organ; Quarantine/ACDE clean; scoped main commits  
 5. capability_proof derived not caller-set  
@@ -1756,6 +1886,7 @@ Architecture regressions always:
 | NEW test tags + ledger scope | Closed list marks NEW/EXISTING; ledger read-only in P0 |
 | Operator as technical gate | Optional audit only |
 | JSON³ product P1 (R104) | Slice P1-JSON + §1.11 AAEOS law; PHASE-P1-JSON |
+| Agent QoS excellence (R106) | Doc atlas-agent-qos-excellence-ceiling.md + slice P2g-QOS; no vanity dial |
 | Dual master / v16 dependence | §3.1 normative in this file; archive non-normative |
 | Cycle-10 missing | Explicitly waived as planning cycle unless NEW disk residual |
 

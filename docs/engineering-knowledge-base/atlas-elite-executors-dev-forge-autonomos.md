@@ -118,7 +118,8 @@ Visão AAEOS era agentica: `docs/evidence/2026-07-22-atlas-server-god-debulk/AAE
 5. Os três sobem a **ladder L0–L5**; o modo **não** é teto de dificuldade.  
 6. **Done = evidence/certification**, não narrativa de agente. DONE de honesty ≠ claim “deus/SOTA” sem prova comparativa.  
 7. ACDE / `atlas:loop:*` = morto; vivo = `atlas:brain:*` / `atlas:task:*`.  
-8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-COOKBOOK**).
+8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-COOKBOOK**).  
+9. Agent QoS excellence (operador fora do eng loop; tempo secundário; multi-loop Court+Floor+Repair): `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md` (R106 / `EXECUTE P2g-QOS`).
 
 ## Matriz canônica
 
