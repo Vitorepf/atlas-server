@@ -1,0 +1,96 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P1b.3",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "e037d55abcb8beb723c34333e031f8796e0277ac",
+  "implementation_commit": "3cb1667bfcba5037b3d3b70d1ab9d92c44ac19ed",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php",
+    "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+    "tests/Feature/Ai/Aaeos/AaeosAuthorityLaunderingTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Aaeos/Control/AaeosAdmissionPolicy.php",
+    "app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php",
+    "tests/Feature/Ai/Aaeos/AaeosAuthorityLaunderingTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P1b.3 authority laundering + cycle/scorecard",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosAuthorityLaunderingTest.php tests/Feature/Ai/Aaeos/AtlasAaeosCycleCommandTest.php tests/Unit/Ai/Aaeos/Control/AaeosRunCycleParityTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P1b.3 matrix",
+      "output_fingerprint_or_ref": "controller-verification/P1b3:11-passed-41-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "native_authority_projection.v1",
+    "refused_self_mint",
+    "aaeos_cannot_self_mint_observed_authority"
+  ],
+  "exit_checklist": {
+    "projects_native_refs_only": true,
+    "cannot_self_mint_observed_authority": true,
+    "admission_refuses_mint_flags": true,
+    "scorecard_read_only_projection": true,
+    "cycle_evidence_projection_non_circular": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "AAEOS projection-only law for authority/observation refs",
+    "Anti-laundering for self-minted observed authority"
+  ],
+  "residuals_still_open": [
+    "P2g QoS stack not started",
+    "R-P2A1-PG-LIVE / R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "028891223f29ecd7af589efc332452f42ead17c0a26c83f54872cd38819bebde",
+    "ledger_content_sha256": "869d4b5e315bad0d4e88a6459c4a76b64c11a0a1db704a3700f64416c0354735",
+    "scoreboard_content_sha256": "83a8788526282ec1b84de5bd8b7b3ac42f1cbc76b564763d81ef6266b1756544",
+    "sha256": "3c3eeda1bd1dc49976d3cf55b546a789329215facc44a98fbdf3758da55a1f08"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2g-QOS",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P1b.3 GREEN. P1b complete path-core. Next EXECUTE P2g-QOS (or P2d per residual DAG — MASTER excellence path uses P2g after P2c)."
+}

@@ -1,12 +1,12 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Cursor:** P0…P1b.2 GREEN · **next P1b.3**
+**Cursor:** P0…P1b.3 GREEN · **next P2g-QOS**
 
 | Gate | State | Closes in |
 |---|---|---|
 | P0–P2c | GREEN | prior |
-| P1b.1 pre-effect | GREEN | P1b.1 |
-| P1b.2 native ACT/settlement | **GREEN** | P1b.2 |
-| P1b.3 AAEOS projection | FAIL | **P1b.3 ACTIVE** |
-| P2g / P4 | FAIL/MISSING | later |
+| P1b effect authority | **GREEN** | P1b.1–3 |
+| P2g-QOS multi-loop excellence | FAIL | **P2g-QOS ACTIVE** |
+| P2g-CURR/MEAS/EVOL | FAIL | later |
+| P4 REAL_OPERATION | MISSING | P4 |
 | R104-TRANSPORT / R-P2A1-PG-LIVE | OPEN residual | later |
