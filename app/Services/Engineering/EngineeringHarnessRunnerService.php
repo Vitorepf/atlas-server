@@ -328,6 +328,7 @@ class EngineeringHarnessRunnerService
                 'max_attempts' => $maxAttempts,
                 'critical' => (bool) ($options['critical'] ?? false),
                 'fair_mode' => $fairModeOptions,
+                'resume' => $options['resume'] ?? null,
                 'timeout_seconds' => $options['provider_timeout_seconds'] ?? null,
             ], $workspacePlan, $providerRuntimePlan);
 

@@ -90,6 +90,10 @@ class HarnessProviderSection
 
         $hostCommand[] = '--max-iterations='.(string) ($providerOptions['max_attempts'] ?? 1);
 
+        if (is_string($providerOptions['resume'] ?? null) && trim((string) $providerOptions['resume']) !== '') {
+            $hostCommand[] = '--resume='.trim((string) $providerOptions['resume']);
+        }
+
         if ((bool) ($providerOptions['critical'] ?? false)) {
             $hostCommand[] = '--critical';
         }
