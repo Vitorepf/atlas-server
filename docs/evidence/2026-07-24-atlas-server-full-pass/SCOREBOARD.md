@@ -6,12 +6,12 @@
 | standardize | partial | CLI Concerns expanded; dual SC/aeos still open |
 | honesty | partial | loop CLI dead; config loop extracted + honesty header |
 | operate_vs_legacy | partial | atlas_loop_legacy.php; Autonomos master alias still open |
-| density | partial | HTML shell, Workbench map, ToolCatalog data, AiWorker stages |
+| density | partial | HTML/Workbench/ToolCatalog/AiWorker/Serving intake |
 | eliminate | pending | empty AcosMax/Cognitive after alias drain |
 | defactor | partial | ownership matrix in RESCAN-2; renames not landed |
 | optimize | pending | hops/I/O measured work deferred |
 | simplify | partial | CanonicalValue partial; Workbench __call |
-| architecture | partial | PRE non-live; config loop split done; ProviderCatalog open |
+| architecture | partial | PRE non-live; config loop split; ProviderCatalog Gateway wired |
 | surface_std | partial | EmitsCanonicalJson mass; stringOption variants residual |
 | gates | partial | package unit proofs Support/Workbench/ToolCatalog/FactsFile |
 | anti_goodhart | done | real peels + tests; no mass fake deletes |
@@ -31,6 +31,9 @@
 | config loop → atlas_loop_legacy | boot config loop_keys=327 |
 | OpenBrain tool definitions data | 1 unit / 65 tools |
 | LoadsFactsFileOption | 2 unit tests |
+| ProviderCatalog SSOT | 3 unit tests |
+| Serving validateReportIntake | 8 unit tests |
+| ResolvesJsonOptionWithComponentsError | 2 unit tests |
 
 ## Next ranked residual
 
