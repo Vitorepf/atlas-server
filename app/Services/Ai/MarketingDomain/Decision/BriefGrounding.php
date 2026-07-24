@@ -12,7 +12,7 @@ use App\Models\AiMarketingWinningPattern;
  *
  * Full-pass honesty rename: was BriefGroundingHelper.
  */
-final class BriefGrounding
+class BriefGrounding
 {
     /**
      * @return array<string, mixed>
