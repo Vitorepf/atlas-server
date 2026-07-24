@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** v13
+**Plan:** v14
 **Program:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Measured composite:** null
@@ -55,6 +55,10 @@ No average, 9.x value or checkbox certifies this program.
 | CodeGraph caller-narrow-only sovereignty | FAIL | caller options can widen sovereign actors; R53/R78/R101 |
 | tool artifact redaction bound to persisted bytes | FAIL | attachPath can mark raw referenced bytes redacted; R78/R84/R101 |
 | exact producer/read-only-verifier PostgreSQL profile | MISSING | roles/env/negative privilege contract unproved; R62/R84/R85/R103 |
+| Autônomos land-before-success-report | FAIL | current path can report/resolve before release/canary proof; R56/R78/R83/R98 |
+| Forge Ledger-bound certification and scheduled completeObra | MISSING | supervisor does not drive terminal Obra; textual certification can pass; R57/R62/R66/R84 |
+| Dev same-root 0..N internal repair | FAIL | senior loop executes once and can emit human_action_required; R79/R91/R96 |
+| global freeze and late-event invalidation | MISSING | no single cutoff binds all modes/current head; R75/R80/R84/R90 |
 
 ## Cycle-2 (v8) added hard sub-gates R64–R74
 
@@ -132,6 +136,17 @@ No average, 9.x value or checkbox certifies this program.
 | verifier DB role rejects DML/DDL/Ledger append and has no provider/tool/write capability | MISSING | config/database + certifier + PostgreSQL roles |
 | valid incomparable-event permutations canonicalize identically; causal violation fails | NOT_PROVEN | Ledger journey model/property tests |
 | proof presentation derives an allowed-claim set, not a total-order scalar | NOT_PROVEN | runtime assembler/certifier; R23/R65/R84 |
+
+## Cycle-7 (v14) native-journey convergence — zero new residual IDs
+
+| Gate | State | Existing owner reused |
+|---|---|---|
+| land + independent outcome + release/canary durable before one Autônomos success report | FAIL | native executor/worker/TaskServing/Ledger |
+| Forge supervisor drives full DAG and resolves certification through Ledger | MISSING | Forge supervisor/runtime/state/cycle owners |
+| Dev repair retains one intent/authority/root/budget and never asks routine human action | FAIL | SeniorEngineerLoopExecutor + RepairOrchestrator + ReceiptStorage |
+| producer exits zero only for canonical completed terminal; certifier is read-only second process | FAIL | public/native commands + AtlasAaeosCertifyCommand |
+| scheduler cold-starts from durable facts/known empty queue without `--facts` | MISSING | scheduler manifest + daemon + replenisher + TaskServing |
+| freeze binds all three manifests/cutoff/SHAs/DB/verifier and current replay has no invalidator | MISSING | Ledger projection + certifier + compensation owner |
 
 ## OneShot operator experience
 

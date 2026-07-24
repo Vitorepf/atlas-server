@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v13 — cycle-6 formal/enterprise/buildability convergence; five hard gaps merged into existing residuals, zero new IDs or organs
+> Version: v14 — cycle-7 native-journey convergence; six mode/recovery/freeze invariants merged into existing residuals, zero new IDs or organs
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -611,6 +611,19 @@ Cycle 6 applied thirteen separately labeled lenses: formal state machines, prope
 
 The cycle also requires Decision rollout checkpoints and moves no authority/effect boundary earlier. Zero new Ledger, privacy service, identity store, credential store, incident module or proof metric is authorized.
 
+### 7.11 v14 cycle-7 native-journey convergence — zero new residual IDs
+
+Cycle 7 applied thirteen lenses to full Dev, Forge and Autônomos journeys; direct/routed parity; 0..N repairs; crash cutpoints; PostgreSQL races; authority TOCTOU; budget across restart; real producers/certifier; operator census; scheduler cold-start; and freeze/late invalidation. The anti-duplication judge rejected every R104+ proposal and made six existing-residual strengthenings binding:
+
+- R56/R78/R83/R98: Autônomos persists observer-minted canonical land, independent EngineeringOutcome and release/canary refs before exactly one TaskServing success report/resolve; land-before-report crash reconciles one report, while report-without-proof can never resolve.
+- R57/R62/R66/R75/R79/R80/R83/R84: existing Forge supervisor drives the sealed Obra through tick→Court→repair→dependency-safe milestone→`completeObra`; certification is Ledger-resolved and bound to this commissioning, complete DAG/outcomes, landed SHA and canary.
+- R53/R77–R79/R91/R96/R101: SeniorEngineerLoopExecutor owns one Dev journey; RepairOrchestrator owns 0..N attempts; every attempt retains DevIntent/ConfirmedDevRun, Decision v3 revision and monotonic budget, re-enters Court and never emits routine `human_action_required`.
+- R62/R84/R85/R103: public producers and existing certifier use distinct OS/boot/app/DB identities and privileges; strict terminal result, not exit 0, qualifies; certifier recomputes a fixed cutoff with SELECT-only DB and no provider/tool/workspace/Ledger-write capability.
+- R33–R35/R56/R83/R98/R100: existing scheduled surface consumes the scheduler manifest and cold-starts from durable server facts/known empty queue, replenishes a causally new Brain→Seed→Task root and resumes once across kill without `--facts`, preseed, operator command or AAEOS dependency.
+- R75/R80/R83/R84/R90: global freeze binds tenant/chain cutoff, three mode manifests, code/workspace SHAs, environment/DB identities and verifier result. Later canary failure, revocation, compensation, fork/tamper or artifact drift invalidates the current DONE projection without rewriting historical terminals.
+
+No new scheduler, worker, reporter, repair loop, verifier, freeze store, queue or receipt owner is authorized.
+
 ## 8. Single implementation plan
 
 Every phase begins with branch/status, current hash, dirty ownership, residual revalidation and RED characterization. Every commit is scoped. No phase may absorb the next phase. The production and test path lists below are authorization manifests, not examples: `*`, “if needed” and unnamed native owners are forbidden. If a RED proves that an unlisted path must change, execution stops and this MASTER is amended before that path is edited.
@@ -992,11 +1005,14 @@ P2c — unattended durability:
 - revalidate at origination, claim, renewal and pre-effect boundary;
 - normalize worker retry/repair signals into a TaskServing-owned transition; unknown outcome remains invalid and never silently gives back;
 - make Dev's existing RepairOrchestrator the retry owner through the productive KernelRunExecutor/AtlasDevExecutionService chain; persist prepared/observed attempts in existing ReceiptStorage; SeniorEngineerLoopExecutor owns the journey;
+- eliminate routine `human_action_required`, `needs_review` and operator-next exits: 0..N technical failures route from the exact failure capsule through RepairOrchestrator, back through the same Court, under one DevIntent/ConfirmedDevRun + Decision v3 revision/root/budget until accepted or precisely exhausted;
 - derive remaining retry/tick budget from the canonical signed journey manifest; caller snapshots, new tick ids, handoffs or successor episodes cannot reset consumed burn, and only an authenticated sovereign authority event may add incremental budget;
 - reconcile commit→queue→lease/report and lease-file→derived-registry crash splits before accepting another claim/effect;
 - resume the single running Forge cycle and deterministic provider execution id before selecting another packet;
 - make the existing Forge supervisor drive sealed work through tick→Court→repair/re-review→advanceMilestone→`completeObra`; its signed tick budget applies across restart, and it never asks the operator to continue;
+- resolve the Forge certification ref through Ledger and bind it to this commissioning/root, complete dependency DAG, terminal packet EngineeringOutcomes, landed SHA and canary; generic, foreign, stale or spliced `kind=certification` never completes the Obra;
 - make the existing scheduler manifest consumed by the existing scheduled surface; cold start derives facts from durable native owners, replenishes a bounded empty queue through AtlasTaskBrainReplenisher, resumes one lease/journey after kill, and never requires an operator-supplied `--facts` file;
+- for Autônomos, persist canonical land + independent EngineeringOutcome + release/canary refs before TaskServing receives exactly one success report/resolve. Crash after land reconciles the same report; report-before-proof, missing receipt or failed Court routes repair/give-back and never resolves;
 - harden Forge cycle position and terminal transitions with unique constraint + transaction/lock/CAS;
 - prove one terminal winner and divergent replay conflict.
 - Test paths:
@@ -1016,6 +1032,9 @@ P2c — unattended durability:
   - tests/Unit/Ai/SelfConstruction/AgentControlPlaneClaimLeaseRegistryRebuildTest.php (existing; extend)
   - tests/Feature/Ai/Aaeos/AaeosTaskLeaseCrashRecoveryTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosEffectProtocolCrashCutpointModelTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosAutonomosLandBeforeReportCrashTest.php (NEW)
+  - tests/Feature/Ai/Programming/Forge/ForgeObraCertificationBindingTest.php (NEW)
+  - tests/Feature/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeSchedulerIntegrationTest.php (created in P1a; extend restart/empty-queue proof)
   - tests/Feature/Ai/Aaeos/ForgeWorkPacketExecutionCycleMigrationTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosLedgerJourneyMigrationTest.php (NEW)
 
@@ -1223,6 +1242,7 @@ Every mode requires a completed REAL_OPERATION journey with:
 - journey root event/ref/hash and a correlation id derived from native intent/commissioning/mandate;
 - `journey_terminal_status=real_operation_completed`; blocked_before_effect, failed_after_effect, authority_exhausted and cancelled do not qualify;
 - operator request/action refs with canonical types and hashes, capture_coverage=1.0 and derived OneShot counters; self-reported zeros are ignored;
+- versioned native producer census hash plus set-equality proof over every authenticated operator ingress and Atlas→operator request egress reachable in that mode; missing/unsealed producer makes OneShot unknown;
 - ordered attempt refs `{kind,native_id,parent_ref,event_id,event_hash,outcome,failure_reason}`; engineering/review/repair counters are folds of this sequence and never failure by themselves;
 - receipt_core_hash and ordered journey_manifest_hash;
 - authoritative decision/authorization ref and hash;
@@ -1261,6 +1281,8 @@ P4 execution/test paths:
 
 The three producer journeys run with `APP_ENV` outside testing, a controlled disposable real workspace, durable PostgreSQL, at least one real governed provider spawn causally bound to each root, the real tool/effect path, and canonical Git/artifact observation. Dev is entered through `bin/atlas dev <intent>`, Forge through `bin/atlas forge <intent>`, the routed matrix through `atlas:aaeos:run <intent>`, and Autônomos through the armed scheduler/Brain/daemon without harness-supplied `--facts`. Internal native commands remain observable producer seams but cannot substitute for the public-entry proof. All use strict terminal contracts; exit 0 alone never qualifies.
 
+In the producer profile, plan-only, blocked, partial, unknown, failed, missing-failure-reason and unresolved states exit non-zero intrinsically; no `--strict`/operator flag can turn an invalid run into success. `atlas:aaeos:certify --profile=p4 --journey=<ref> --cutoff=<ledger-head> --evidence-dir=<dir> --json` is the existing read-only verifier target: it never invokes a runtime, provider or effect, never appends Ledger, and fails on absent/nonterminal/stale/same-process evidence.
+
 PHPUnit, SQLite `:memory:`, fixtures, fake providers and simulate-only services may test readers/invalidators but may not create, copy or promote qualifying receipts. A second OS process with a new boot identity, code SHA and read-only PostgreSQL credential runs a strictly read-only certifier against a terminal cutoff/snapshot; it has no provider, tool, workspace-write or Ledger-append capability. Cockpit is optional fail-open presentation and never a verifier. The real command line, environment attestation, workspace base/result SHA, DB/backend/session identity hash, producer PID/boot ref, provider/tool receipt and exit code are recorded.
 
 The exact P4 DB profile is resolved through `ATLAS_P4_PG_PRODUCER_URL` and `ATLAS_P4_PG_VERIFIER_URL` in `config/database.php`; secrets are never copied into receipts. Setup refuses a database outside the `atlas_p4_` prefix, creates distinct PostgreSQL users/application names, migrates with the producer role, grants only required runtime rights, makes Ledger append-only for that role, and enforces `default_transaction_read_only=on` plus SELECT-only for the verifier. Before certification, negative assertions prove verifier DML/DDL/Ledger append fail and that the certifier has no provider/tool/workspace capability. Teardown revokes both ephemeral roles. Missing URLs, same user/session/application identity, excessive grants, skipped assertions or teardown failure keeps P4 incomplete.
@@ -1271,11 +1293,12 @@ P4 exit status is `aaeos_mt_real_journey_verified` only when all three mode jour
 
 Freeze:
 
-- version target contracts;
-- record canonical hashes;
+- append one global freeze event binding authenticated tenant/chain cutoff, code SHA, workspace base/result SHAs, DB snapshot/backend identities, all three mode receipt+manifest hashes, operator-census hashes and verifier boot/role/result;
+- version target contracts and record canonical hashes;
 - archive predecessor receipts as historical;
 - retain zero Quarantine/ACDE imports;
-- set SCOREBOARD from evidence, not prose.
+- recompute current claim through every event after the freeze cutoff: open effect/release uncertainty, canary failure, revocation, compensation/revert, fork/tamper or artifact drift makes current DONE false/stale until re-certified, without rewriting historical terminals;
+- set SCOREBOARD from that current replay, not prose or frozen booleans.
 
 ## 9. Verification and evidence discipline
 
@@ -1365,6 +1388,7 @@ The MT is DONE only if every item below is proven:
 14. `bin/atlas dev`, `bin/atlas forge`, direct Autônomos and routed `atlas:aaeos:run` are each proven in a fresh process to preserve native mode/root/authority/outcome identity; internal commands alone cannot satisfy this.
 15. Forge's existing supervisor reaches `completeObra` without post-seal operator work, and the existing Autônomos scheduler/daemon cold-starts from durable server facts without harness `--facts` or technical next commands.
 16. no legacy adapter/alias/executor/review owner is deleted before complete production/config/reflection/docs consumer parity; no reachable production class/event/status uses OneShot to mean a technical attempt.
+17. the global freeze event matches the current code/artifacts and every Ledger event through the current head has been replayed; no open uncertainty, post-freeze invalidation, compensation or drift leaves a green current DONE projection.
 
 DONE requires both `aaeos_mt_real_journey_verified` and the separate derived fact `operator_experience=oneshot`. The latter describes operator effort only; it never constrains internal attempts or time. DONE does not mean:
 
@@ -1407,7 +1431,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | 4 | v9 | two independent adversarial panels: 13 lens-distinct executable/UX/recovery/security/DB/proof/efficiency/formal/terminal/schema/minimalism/governance passes + anti-dup judge, and a 14-lens anti-accretion/strategic panel + adversary; all owners rechecked on disk | accepted R83–R97: crash/Postgres convergence, real producer vs verifier, versioned rollout, ITT/no-amplification, provider-governance M, memory seam, compensation, P2 DAG, lazy aliases and one optional verification read model; merged operator/state/authority findings into R75–R82; corrected R91/R94 so neither direct Dev nor review UX requires a technical operator verdict | v10 |
 | 5 | v11 | 13 lens-distinct passes: phase executability; OneShot/operator UX; Autônomos topology; Ledger/PostgreSQL; Forge; Dev; authority/security; schema rollout; REAL_OPERATION; routing/ablation; deletion census; efficiency/context anti-Goodhart; terminal/cockpit — plus final anti-dup judge | accepted only R101–R103; merged Ledger/Forge/Autônomos/OneShot/keyring/terminal/provider/budget findings into existing residuals; rejected new scheduler, store, outbox, router, executor, metrics owner and unsafe bulk deletions | v12 |
 | 6 | v12 | 13 lenses: formal state/terminal; property/model; Byzantine independence; failure taxonomy; proof lattice; tenant/workspace isolation; secrets/privacy; supply chain/sandbox; incident recovery; phase DAG; exact PG/live profiles; compatibility/deletion; OneShot/public acceptance — plus anti-dup judge | accepted five hard strengthenings into R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected all proposed R104+ and all new privacy/identity/credential/incident/proof stores | v13 |
-| 7 | current | pending | pending | pending |
+| 7 | v13 | 13 lenses: complete Dev, Forge, Autônomos; direct/routed parity; 0..N repair; crash cutpoints; PostgreSQL races; authority TOCTOU; budget across restart; real producer/certifier; operator census; scheduler cold-start; freeze/late invalidation — plus anti-dup judge | accepted six journey/recovery/freeze strengthenings into existing residuals; rejected every R104+ and any new scheduler/worker/reporter/repair/verifier/freeze store | v14 |
 | 8 | current | pending | pending | pending |
 | 9 | current | pending | pending | pending |
 | 10 | current | pending | pending | pending |
@@ -1426,6 +1450,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | v11 | disclosed cycle-3 completeness correction to thirteen lenses; R98 names the exact shared native Autônomos seam, R99 removes operator-owned execution choreography from the daily CLI, and R100 proves real unrelated progress during H1–H7 reservation. OneShot remains operator experience only; no internal pass/time cap |
 | v12 | cycle-5 executable hardening: R101 forbids ACT before Decision v3/keyring/revocation; R102 closes AWIS mode-identity downgrade; R103 binds public-entry and consumer-complete retirement parity. Forge forward progress, live Autônomos scheduling, Ledger v2 append-only, provider coverage, budget carry-forward and terminal truth deepen existing owners. Zero new runtime organs |
 | v13 | cycle-6 convergence with zero new residual IDs: EngineeringOutcome v3 rollout, tenant-safe Ledger, caller-narrow-only CodeGraph sovereignty, truthful artifact redaction and exact PostgreSQL producer/verifier roles deepen existing owners; formal terminal/permutation/claim-set semantics and serial rollout receipts added |
+| v14 | cycle-7 convergence with zero new residual IDs: Autônomos land-before-report, Forge Ledger-bound certification/forward driver, Dev single-root repair, strict producer/verifier separation, durable scheduler cold-start and globally invalidatable freeze deepen native owners |
 
 ## 14. Handoff
 
