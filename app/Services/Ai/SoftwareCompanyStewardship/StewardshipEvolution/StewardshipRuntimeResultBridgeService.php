@@ -16,9 +16,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeRuntimeRes
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-765 · Evidence / Product Mode runtime result bridge.
@@ -49,6 +46,8 @@ use DateTimeZone;
  */
 final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeResultProjector
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.runtime_result_bridge.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.runtime_result_bridge_record.v1';
@@ -1007,10 +1006,5 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
 
         return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

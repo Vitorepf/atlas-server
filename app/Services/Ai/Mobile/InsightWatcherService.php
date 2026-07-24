@@ -12,9 +12,7 @@ use Illuminate\Support\Collection;
 
 class InsightWatcherService
 {
-    public function __construct(private readonly InsightInboxEmitter $insights)
-    {
-    }
+    public function __construct(private readonly InsightInboxEmitter $insights) {}
 
     /**
      * @return array{ok:bool,run_id:?string,dry_run:bool,candidates:array<int,array<string,mixed>>,emitted_item_ids:array<int,string>,emitted_count:int}

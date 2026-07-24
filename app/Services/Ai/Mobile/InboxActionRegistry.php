@@ -13,6 +13,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
+use App\Services\Ai\SelfConstruction\AtlasTaskLandingReviewPublisher;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
@@ -24,6 +25,8 @@ use Illuminate\Validation\ValidationException;
 
 class InboxActionRegistry
 {
+    use MobileArrayHelper;
+
     private const CODE_ACTIONS = [
         'commit',
         'open_pr',
@@ -576,7 +579,7 @@ class InboxActionRegistry
 
     /**
      * GAP-COCKPIT-01 verdict · post-commit review of a LIVE autonomous landing
-     * (item emitted by {@see \App\Services\Ai\SelfConstruction\AtlasTaskLandingReviewPublisher}).
+     * (item emitted by {@see AtlasTaskLandingReviewPublisher}).
      *
      * The commit already landed on main via the scoped committer, so this verdict NEVER
      * touches git: approve certifies the landing; reject records the operator verdict and
@@ -1678,10 +1681,6 @@ class InboxActionRegistry
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
 
     /**
      * Safely parse a snooze-until timestamp. Defaults to now + 1 hour on invalid/missing.

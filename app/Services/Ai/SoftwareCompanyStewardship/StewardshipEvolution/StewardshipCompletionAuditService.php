@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-763 · Requirement-by-requirement completion audit for the
@@ -21,6 +18,8 @@ use DateTimeZone;
  */
 final class StewardshipCompletionAuditService
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.completion_audit.v1';
 
     public const STATUS_COMPLETE = 'complete';
@@ -390,6 +389,7 @@ final class StewardshipCompletionAuditService
                         'command' => 'php artisan atlas:software-company-stewardship completion-audit --include-execution-certification --json',
                     ],
                 );
+
                 continue;
             }
             $checks[] = $this->liveCycleStageCheck('execution', (string) $stageKey, $execution);
@@ -689,11 +689,6 @@ final class StewardshipCompletionAuditService
         $value = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $value) ?? '');
 
         return trim($value, '_');
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
     /**

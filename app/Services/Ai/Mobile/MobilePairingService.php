@@ -2,10 +2,11 @@
 
 namespace App\Services\Ai\Mobile;
 
+use App\Http\Middleware\AuthenticateMobileDevice;
 use App\Models\AtlasMobileDevice;
 use App\Models\MobilePairingCode;
 use App\Services\AuditLogService;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -13,9 +14,7 @@ class MobilePairingService
 {
     private const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-    public function __construct(private readonly AuditLogService $audit)
-    {
-    }
+    public function __construct(private readonly AuditLogService $audit) {}
 
     /**
      * @return array{code:string,expires_at:string,pairing_id:string}
@@ -153,8 +152,8 @@ class MobilePairingService
             ]);
             // Limpa cache do middleware AuthenticateMobileDevice imediatamente
             // — revogação não pode ter lag de 60s no path de segurança.
-            \Illuminate\Support\Facades\Cache::forget(
-                \App\Http\Middleware\AuthenticateMobileDevice::deviceCacheKey($device->device_token_hash),
+            Cache::forget(
+                AuthenticateMobileDevice::deviceCacheKey($device->device_token_hash),
             );
         }
 

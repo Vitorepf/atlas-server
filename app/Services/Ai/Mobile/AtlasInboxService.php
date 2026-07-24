@@ -3,7 +3,6 @@
 namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
-use App\Models\AtlasMobileDevice;
 use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -14,11 +13,12 @@ use Illuminate\Validation\ValidationException;
 
 class AtlasInboxService
 {
+    use MobileArrayHelper;
+
     public function __construct(
         private readonly AuditLogService $audit,
         private readonly MobilePushService $push,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string,mixed>  $data
@@ -639,11 +639,6 @@ class AtlasInboxService
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function nullableString(mixed $value): ?string
     {
         if (! is_string($value)) {

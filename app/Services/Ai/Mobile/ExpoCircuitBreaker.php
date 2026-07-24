@@ -8,11 +8,10 @@ use Illuminate\Support\Facades\Cache;
 class ExpoCircuitBreaker
 {
     private const STATE_KEY = 'atlas:mobile:expo:circuit:state';
+
     private const FAILURES_KEY = 'atlas:mobile:expo:circuit:failures';
 
-    public function __construct(private readonly AuditLogService $audit)
-    {
-    }
+    public function __construct(private readonly AuditLogService $audit) {}
 
     public function isOpen(): bool
     {

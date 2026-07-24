@@ -11,9 +11,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -29,6 +26,8 @@ use Throwable;
  */
 final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxRuntimeRunner
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_sandbox_runtime_runner.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.owner_sandbox_runtime_run_record.v1';
@@ -1368,10 +1367,5 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
 
         return trim($slug, '_') ?: 'agentic_engineering_os';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

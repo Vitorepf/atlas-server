@@ -20,6 +20,8 @@ use DateTimeZone;
  */
 final class ProductModeOperationalControlsReadModelService
 {
+    use ProductModeStringHelper;
+
     public const SCHEMA = 'atlas.software_company.product_mode_operational_controls.v1';
 
     public const STATUS_READY = 'ready';
@@ -502,12 +504,5 @@ final class ProductModeOperationalControlsReadModelService
             ->format(DateTimeInterface::ATOM);
 
         return $payload;
-    }
-
-    private function nonEmpty(string $value, string $fallback): string
-    {
-        $value = trim($value);
-
-        return $value !== '' ? $value : $fallback;
     }
 }

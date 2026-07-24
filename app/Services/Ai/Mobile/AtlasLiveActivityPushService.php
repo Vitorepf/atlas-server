@@ -151,16 +151,16 @@ final class AtlasLiveActivityPushService
         $activeSessions = $terminal ? max(0, $activeSessions - 1) : max(1, $activeSessions);
 
         $aps = [
-                'timestamp' => now()->getTimestamp(),
-                'event' => $terminal ? 'end' : 'update',
-                // CodingKeys implícitas do AtlasTurnAttributes.ContentState.
-                // Date Codable usa segundos desde 2001-01-01 por padrão.
-                'content-state' => [
-                    'phaseTitle' => $terminal ? $this->terminalTitle($event, $registration) : $this->phaseTitle($event),
-                    'startedAt' => $startedAt->getTimestamp() - self::APPLE_REFERENCE_EPOCH_OFFSET,
-                    'finished' => $terminal,
-                    'activeSessions' => $activeSessions,
-                ],
+            'timestamp' => now()->getTimestamp(),
+            'event' => $terminal ? 'end' : 'update',
+            // CodingKeys implícitas do AtlasTurnAttributes.ContentState.
+            // Date Codable usa segundos desde 2001-01-01 por padrão.
+            'content-state' => [
+                'phaseTitle' => $terminal ? $this->terminalTitle($event, $registration) : $this->phaseTitle($event),
+                'startedAt' => $startedAt->getTimestamp() - self::APPLE_REFERENCE_EPOCH_OFFSET,
+                'finished' => $terminal,
+                'activeSessions' => $activeSessions,
+            ],
         ];
         if ($terminal) {
             // Notificação de conclusão é deliberadamente editorial e genérica:
@@ -338,7 +338,7 @@ final class AtlasLiveActivityPushService
         if (($length & 0x80) === 0) {
             return $length;
         }
-        $bytes = $length & 0x7f;
+        $bytes = $length & 0x7F;
         $length = 0;
         for ($i = 0; $i < $bytes; $i++) {
             $length = ($length << 8) | ord($der[$offset++] ?? "\0");

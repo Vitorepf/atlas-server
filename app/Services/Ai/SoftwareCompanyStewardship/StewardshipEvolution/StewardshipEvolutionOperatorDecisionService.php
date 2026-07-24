@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -22,6 +19,8 @@ use InvalidArgumentException;
  */
 class StewardshipEvolutionOperatorDecisionService
 {
+    use StewardshipEvolutionClock;
+
     public const RECEIPT_SCHEMA = 'atlas.software_company_stewardship.evolution_operator_decision_receipt.v1';
 
     public const DECISION_ACCEPT = 'accept';
@@ -361,10 +360,5 @@ class StewardshipEvolutionOperatorDecisionService
         $areaId = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim((string) $value))) ?? '';
 
         return $areaId !== '' ? $areaId : StewardshipEvolutionReadModelService::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

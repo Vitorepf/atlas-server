@@ -17,9 +17,7 @@ class AutoImprovementProposalScanner
     /** @var array<int,string> */
     private array $extensions = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
 
-    public function __construct(private readonly ProposalInboxEmitter $proposals)
-    {
-    }
+    public function __construct(private readonly ProposalInboxEmitter $proposals) {}
 
     /**
      * @return array{ok:bool,run_id:?string,workspace:string,dry_run:bool,findings:array<int,array<string,mixed>>,emitted_item_ids:array<int,string>,emitted_count:int}

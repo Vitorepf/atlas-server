@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveOperatingService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipPromotionReadinessService;
@@ -21,9 +20,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioSte
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipInboxService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSurfaceService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -42,6 +38,8 @@ use Throwable;
  */
 final class StewardshipLiveCycleCertificationService
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.live_cycle_certification.v1';
 
     public const STATUS_CERTIFIED = 'certified';
@@ -948,10 +946,5 @@ PHP);
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '-', trim($value)) ?: 'default');
 
         return trim($slug, '-') ?: 'default';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

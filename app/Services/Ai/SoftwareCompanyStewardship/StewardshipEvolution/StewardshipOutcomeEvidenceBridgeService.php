@@ -11,6 +11,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwareCompanyService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
@@ -26,7 +27,7 @@ use DateTimeZone;
  * AP-731/AP-738/AP-747 outcomes into durable evidence and Morning Inbox
  * proposals. It does not create a new ledger, inbox, runtime, branch or domain.
  */
-final class StewardshipOutcomeEvidenceBridgeService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector
+final class StewardshipOutcomeEvidenceBridgeService implements StewardshipOutcomeProjector
 {
     public const REPORT_SCHEMA = 'atlas.software_company.stewardship_outcome_bridge.v1';
 

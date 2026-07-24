@@ -12,8 +12,7 @@ class JobResultInboxEmitter
     public function __construct(
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
-    ) {
-    }
+    ) {}
 
     public function emitIfImportant(AiJob $job, ?string $finalStatus = null): ?AiInboxItem
     {

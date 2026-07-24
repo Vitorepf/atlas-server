@@ -9,9 +9,6 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchReviewPacketService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -23,6 +20,8 @@ use Illuminate\Support\Facades\File;
  */
 final class StewardshipFirstLiveBranchProofService
 {
+    use StewardshipEvolutionClock;
+
     public const RECEIPT_SCHEMA = 'atlas.software_company_stewardship.first_live_branch_proof.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.first_live_branch_proof_record.v1';
@@ -301,7 +300,7 @@ final class StewardshipFirstLiveBranchProofService
             ."- area_id: `{$areaId}`\n"
             ."- branch_ref: `{$branchName}`\n"
             ."- base_ref: `{$baseRef}`\n"
-            ."- repo_root_hash: `".hash('sha256', $repoRoot)."`\n"
+            .'- repo_root_hash: `'.hash('sha256', $repoRoot)."`\n"
             ."- claim: real branch, real worktree, real commit, no merge, no push, no deploy.\n";
     }
 
@@ -349,10 +348,5 @@ final class StewardshipFirstLiveBranchProofService
         $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
 
         return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

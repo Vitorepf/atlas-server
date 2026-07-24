@@ -11,9 +11,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoo
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -39,6 +36,8 @@ use Throwable;
  */
 final class DevForgeRuntimeExecutionBridgeService
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.dev_forge_runtime_execution_bridge.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.dev_forge_runtime_execution_bridge_record.v1';
@@ -1169,10 +1168,5 @@ final class DevForgeRuntimeExecutionBridgeService
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
 
         return trim($slug, '_') ?: 'agentic_engineering_os';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

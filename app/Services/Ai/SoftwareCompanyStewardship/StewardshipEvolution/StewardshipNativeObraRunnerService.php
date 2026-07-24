@@ -10,9 +10,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRo
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipRecurringSchedulerService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-764 · Atlas-native Stewardship Obra runner.
@@ -23,6 +20,8 @@ use DateTimeZone;
  */
 final class StewardshipNativeObraRunnerService
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.native_obra_runner.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.native_obra_runner_record.v1';
@@ -520,10 +519,5 @@ final class StewardshipNativeObraRunnerService
         $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value))) ?? '';
 
         return trim($slug, '_') ?: 'default';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

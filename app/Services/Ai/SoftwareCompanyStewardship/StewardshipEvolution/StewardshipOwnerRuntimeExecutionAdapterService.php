@@ -12,9 +12,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRunt
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -28,6 +25,8 @@ use Throwable;
  */
 final class StewardshipOwnerRuntimeExecutionAdapterService implements OwnerRuntimeExecutionAdapter
 {
+    use StewardshipEvolutionClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_execution_adapter.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_execution_record.v1';
@@ -659,10 +658,5 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements OwnerRunti
         $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
 
         return trim($slug, '_') ?: 'agentic_engineering_os';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

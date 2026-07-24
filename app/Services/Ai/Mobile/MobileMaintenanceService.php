@@ -6,16 +6,14 @@ use App\Models\AiContextBundle;
 use App\Models\AiInboxItem;
 use App\Models\MobilePairingCode;
 use App\Models\MobilePushDelivery;
-use App\Services\AuditLogService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class MobileMaintenanceService
 {
-    public function __construct(private readonly AuditLogService $audit)
-    {
-    }
+    public function __construct(private readonly AuditLogService $audit) {}
 
     /**
      * Transiciona items vencidos para `status='expired'`.

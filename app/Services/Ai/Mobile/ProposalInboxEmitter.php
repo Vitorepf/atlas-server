@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class ProposalInboxEmitter
 {
+    use MobileArrayHelper;
+
     public function __construct(
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
@@ -627,11 +629,6 @@ class ProposalInboxEmitter
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function string(mixed $value, string $default): string
     {
         return is_string($value) && trim($value) !== '' ? trim($value) : $default;

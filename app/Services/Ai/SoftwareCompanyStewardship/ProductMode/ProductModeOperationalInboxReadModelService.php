@@ -11,8 +11,8 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSy
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayReadinessService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayStartService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -27,6 +27,8 @@ use Throwable;
  */
 final class ProductModeOperationalInboxReadModelService
 {
+    use ProductModeStringHelper;
+
     public const SCHEMA = 'atlas.software_company.product_mode_operational_inbox.v1';
 
     public const ITEM_SCHEMA = 'atlas.software_company.stewardship_operational_inbox_item.v1';
@@ -1082,12 +1084,5 @@ final class ProductModeOperationalInboxReadModelService
         $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: 'default';
 
         return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function nonEmpty(string $value, string $fallback): string
-    {
-        $value = trim($value);
-
-        return $value !== '' ? $value : $fallback;
     }
 }

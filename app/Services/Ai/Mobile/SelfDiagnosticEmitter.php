@@ -13,8 +13,7 @@ class SelfDiagnosticEmitter
     public function __construct(
         private readonly ContextBundleService $bundles,
         private readonly AtlasInboxService $inbox,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{emitted:bool,item_id:?string,reason:string,metrics:array<string,mixed>}

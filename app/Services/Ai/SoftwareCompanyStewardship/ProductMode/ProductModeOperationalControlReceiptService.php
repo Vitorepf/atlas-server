@@ -18,6 +18,8 @@ use InvalidArgumentException;
  */
 final class ProductModeOperationalControlReceiptService
 {
+    use ProductModeStringHelper;
+
     public const SCHEMA = 'atlas.software_company.product_mode_control_receipts.v1';
 
     public const RECEIPT_SCHEMA = 'atlas.software_company.product_mode_control_receipt.v1';
@@ -469,12 +471,5 @@ final class ProductModeOperationalControlReceiptService
             'touches_secrets' => false,
             'operator_review_required' => true,
         ];
-    }
-
-    private function nonEmpty(string $value, string $fallback): string
-    {
-        $value = trim($value);
-
-        return $value !== '' ? $value : $fallback;
     }
 }
