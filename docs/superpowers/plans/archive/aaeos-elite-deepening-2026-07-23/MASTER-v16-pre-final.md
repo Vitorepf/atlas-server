@@ -1,14 +1,19 @@
-# AAEOS Elite Deepening — MASTER Implementation Plan
+> ⛔ **SUPERSEDED** by `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-EXEC**).
+> Keep this file as **historical residual detail** (full R52–R103 done-text) and pre-fusion body.
+> **Do not implement from this file as law.** In particular: v16 §3 diagram may mention `AaeosRunApplication` — **vFINAL-EXEC forbids that class**; shared use-case is `AaeosCycleRuntime` only.
+
+# AAEOS Elite Deepening — MASTER Implementation Plan (ARCHIVE v16)
 
 > Version: v16 — cycle-9 adversarial security convergence; authority, provenance, resource, filesystem, Ledger and recovery invariants deepened, zero new IDs or organs
 > Date: 2026-07-23
-> State: PLAN_ONLY
-> Implementation: P0–P4 NOT_STARTED
-> Authorization required for code: literal EXECUTE P0
+> State: **SUPERSEDED / HISTORICAL**
+> Implementation: P0–P4 NOT_STARTED (execute only under vFINAL-EXEC)
+> Authorization required for code: literal EXECUTE P0 **against the canonical MASTER**
 > Branch: local main only; scoped commits; never git add -A
 > Evidence: docs/evidence/2026-07-23-aaeos-elite-deepening
 
-This is the only master plan for this program. LEDGER.md and SCOREBOARD.md are its only normative satellites. A line, checkbox, score, test fixture, dry receipt, source wire or commit never promotes a stronger proof level by implication.
+This archive is **not** the program master. Canonical law + satellites:  
+`docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` + LEDGER + SCOREBOARD.
 
 ## 0. Outcome and authority of this document
 
@@ -437,7 +442,7 @@ The multiplier M is falsifiable only as a provenance-bearing vector, never a sco
 | R18 | dispatched_live conflates prepared and mutated | P0 typed effect level |
 | R19 | score lacks provenance/window/denominator | P0 contract |
 | R20 | counter store would duplicate Ledger | PROHIBITED |
-| R21 | run/cycle diverge | P0 AaeosRunApplication |
+| R21 | run/cycle diverge | P0 shared AaeosCycleRuntime only (vFINAL-EXEC: **no** AaeosRunApplication) |
 | R22 | RunCommand lacks dedicated complete test | P0 |
 | R23 | source/mock/dry/real claims mixed | all phases use section 6 |
 | R24 | numeric target/waiver can launder DONE | hard-gate predicate only |
