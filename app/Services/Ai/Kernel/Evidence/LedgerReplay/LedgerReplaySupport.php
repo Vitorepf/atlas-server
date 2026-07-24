@@ -490,4 +490,90 @@ class LedgerReplaySupport
 
         return $worst;
     }
+    public function sloObservationSummary(Collection $observations): array
+    {
+        $statusCounts = $observations->countBy('status')->all();
+        $successCount = $observations->where('success', true)->count();
+        $failureCount = $observations->where('success', false)->count();
+        $worstStatus = $this->worstSloValue($observations->pluck('status')->all(), [
+            'breach' => 4,
+            'warning' => 3,
+            'ok' => 2,
+            'unknown' => 1,
+        ]);
+        $worstSeverity = $this->worstSloValue($observations->pluck('severity')->all(), [
+            'critical' => 5,
+            'high' => 4,
+            'medium' => 3,
+            'low' => 2,
+            'unknown' => 1,
+        ]);
+        $stages = $observations
+            ->groupBy('stage')
+            ->map(fn (Collection $stageObservations): array => $this->sloStageSummary($stageObservations))
+            ->all();
+        $reviewSignal = $this->sloReviewSignal($observations, $worstStatus, $worstSeverity, $failureCount, $stages);
+
+        return [
+            'observation_count' => $observations->count(),
+            'status_counts' => $statusCounts,
+            'success_count' => $successCount,
+            'failure_count' => $failureCount,
+            'worst_status' => $worstStatus,
+            'worst_severity' => $worstSeverity,
+            'dimensions' => $this->dimensionSummary($observations),
+            'stages' => $stages,
+            'review_signal' => $reviewSignal,
+        ];
+    }
+
+    public function sloReviewSignal(Collection $observations, ?string $worstStatus, ?string $worstSeverity, int $failureCount, array $stages): array
+    {
+        $reasons = collect($stages)
+            ->pluck('violations')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($observations->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_slo_observations_in_window'],
+                'recommended_action' => 'wait_for_slo_evidence',
+            ];
+        }
+
+        if ($worstStatus === 'breach' || $failureCount > 0) {
+            return [
+                'status' => 'breach',
+                'severity' => in_array($worstSeverity, ['critical', 'high'], true) ? 'high' : 'medium',
+                'review_required' => true,
+                'reasons' => array_values(array_unique([...$reasons, 'slo_breach_detected'])),
+                'recommended_action' => 'open_reviewable_slo_regression_proposal',
+            ];
+        }
+
+        if ($worstStatus === 'warning') {
+            return [
+                'status' => 'warning',
+                'severity' => in_array($worstSeverity, ['critical', 'high'], true) ? 'medium' : 'low',
+                'review_required' => true,
+                'reasons' => array_values(array_unique([...$reasons, 'slo_warning_detected'])),
+                'recommended_action' => 'open_reviewable_slo_drift_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
 }
