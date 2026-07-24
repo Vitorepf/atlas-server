@@ -735,13 +735,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
 
 // Atlas AI Control Plane (Meta 9) · read-only aggregate snapshots / readiness / blockers
-Route::prefix('atlas/ai/control-plane')->group(function (): void {
-    Route::get('/', [AtlasAiControlPlaneController::class, 'index']);
-    Route::get('/readiness', [AtlasAiControlPlaneController::class, 'readiness']);
-    Route::get('/blockers', [AtlasAiControlPlaneController::class, 'blockers']);
-    Route::get('/next-actions', [AtlasAiControlPlaneController::class, 'nextActions']);
-    Route::get('/missions/{uuid}', [AtlasAiControlPlaneController::class, 'mission']);
-});
+(require __DIR__.'/api/control-plane.php')();
+
 
 // Atlas AI Runtime Readiness & Release Gate · single-call aggregator
 Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::class);
@@ -759,7 +754,8 @@ Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::cla
 // Hermes hook bridge loopback sink — the controller enforces 127.0.0.1 + X-Atlas-Hook-Token (hash_equals)
 // and fails closed (403, no record) on any non-loopback origin or token mismatch. Default-off: no hook is
 // registered unless hook_policy=atlas_adapter, so this endpoint stays dormant until an operator opts in.
-Route::post('/internal/hermes/hooks/{trace}', App\Http\Controllers\HermesHookSinkController::class);
+(require __DIR__.'/api/hermes-hooks.php')();
+
 
 // Operator Intelligence Layer · profile learning, review, context and private projection.
 (require __DIR__.'/api/operator-intelligence.php')();
