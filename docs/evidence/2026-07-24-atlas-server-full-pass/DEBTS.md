@@ -32,7 +32,8 @@
 - [x] OpenBrainMcpToolCatalog::definitions → data file (catalog 25L + definitions 1089L)
 - [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)
 - [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
-- [ ] AtlasTaskServingService::report stage peel (~550L)
+- [x] AtlasTaskServingService::report intake validateReportIntake peel (8 unit tests green)
+- [ ] AtlasTaskServingService::report commit/success path further stages
 - [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
 - [ ] AtlasDecideService pure policy extract (~1722L file)

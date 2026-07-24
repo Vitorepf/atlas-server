@@ -418,14 +418,27 @@ final class AtlasTaskServingService
      * @param  array<string, mixed>  $payload  {outcome?:success|failed|give_back, evidence?:array}
      * @return array<string, mixed>
      */
-    public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
+
+    /**
+     * Switch + id + lease ownership + outcome whitelist for report().
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array{status: 'ok', client_id: string, outcome: string}|array{status: 'blocked', envelope: array<string, mixed>}
+     */
+    private function validateReportIntake(string $clientId, string $taskPacketId, string $leaseId, array $payload): array
     {
         if (! AtlasTaskServingSwitch::enabled()) {
-            return $this->reportEnvelope('disabled', $clientId, ['reason' => 'task_serving_switch_off']);
+            return [
+                'status' => 'blocked',
+                'envelope' => $this->reportEnvelope('disabled', $clientId, ['reason' => 'task_serving_switch_off']),
+            ];
         }
         $clientId = trim($clientId);
         if ($clientId === '' || $taskPacketId === '' || $leaseId === '') {
-            return $this->reportEnvelope('invalid_report', $clientId, ['reason' => 'client_id_task_packet_id_and_lease_id_required']);
+            return [
+                'status' => 'blocked',
+                'envelope' => $this->reportEnvelope('invalid_report', $clientId, ['reason' => 'client_id_task_packet_id_and_lease_id_required']),
+            ];
         }
 
         // AUTHENTICATE the caller against the lease BEFORE any scope read, gate, dry-run, give-back, or scoped
@@ -434,12 +447,15 @@ final class AtlasTaskServingService
         // ids could release another worker's lease, settle its task, or land a commit on shared main — the only
         // downstream owner check (`markResolved`) runs AFTER the commit already landed (finding A1-SC-0133).
         if ($this->ownedActiveLease($clientId, $taskPacketId, $leaseId) === null) {
-            return $this->reportEnvelope('invalid_report', $clientId, [
-                'reason' => 'lease_not_owned',
-                'lease_closed' => false,
-                'task_packet_id' => $taskPacketId,
-                'lease_id' => $leaseId,
-            ]);
+            return [
+                'status' => 'blocked',
+                'envelope' => $this->reportEnvelope('invalid_report', $clientId, [
+                    'reason' => 'lease_not_owned',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                ]),
+            ];
         }
 
         $outcome = (string) ($payload['outcome'] ?? 'success');
@@ -447,14 +463,33 @@ final class AtlasTaskServingService
         // Explicit outcome whitelist: a typo or hostile outcome string must never fall through
         // into the give_back path below — it would silently convert into a give_back loop.
         if (! in_array($outcome, ['success', 'failed', 'give_back'], true)) {
-            return $this->reportEnvelope('invalid_report', $clientId, [
-                'reason' => 'invalid_outcome',
-                'lease_closed' => false,
-                'task_packet_id' => $taskPacketId,
-                'lease_id' => $leaseId,
-                'outcome' => $outcome,
-            ]);
+            return [
+                'status' => 'blocked',
+                'envelope' => $this->reportEnvelope('invalid_report', $clientId, [
+                    'reason' => 'invalid_outcome',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'outcome' => $outcome,
+                ]),
+            ];
         }
+
+        return [
+            'status' => 'ok',
+            'client_id' => $clientId,
+            'outcome' => $outcome,
+        ];
+    }
+
+    public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
+    {
+        $intake = $this->validateReportIntake($clientId, $taskPacketId, $leaseId, $payload);
+        if (($intake['status'] ?? null) === 'blocked') {
+            return $intake['envelope'];
+        }
+        $clientId = $intake['client_id'];
+        $outcome = $intake['outcome'];
 
         // SHARED-MAIN resolve: commit EXACTLY this task's allowed_files (server-truth scope) as the AI's own
         // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
