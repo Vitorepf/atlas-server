@@ -1412,31 +1412,9 @@ class AtlasLedgerReplayService
      */
     private function kernelPipelineEventSummary(Collection $events): array
     {
-        $latest = $events->last();
-        $eventCount = $events->count();
-        $acceptedCount = $events->where('event_type', LedgerEventType::KernelPipelineAccepted->value)->count();
-        $rejectedCount = $events->where('event_type', LedgerEventType::KernelPipelineRejected->value)->count();
-        $health = $this->kernelPipelineHealth($eventCount, $acceptedCount, $rejectedCount);
-        $reviewSignal = $this->kernelPipelineReviewSignal($health, $events->pluck('violations')->flatten()->filter()->countBy()->all());
-
-        return [
-            'kernel_pipeline_event_count' => $eventCount,
-            'accepted_count' => $acceptedCount,
-            'rejected_count' => $rejectedCount,
-            'status_counts' => $events->pluck('status')->filter()->countBy()->all(),
-            'surface_counts' => $events->pluck('surface_id')->filter()->countBy()->all(),
-            'emitter_stage_counts' => $events->pluck('emitter_stage')->filter()->countBy()->all(),
-            'surface_contract_source_counts' => $events->pluck('surface_contract_source')->filter()->countBy()->all(),
-            'flow_counts' => $events->pluck('flow')->filter()->countBy()->all(),
-            'input_mode_counts' => $events->pluck('input_mode')->filter()->countBy()->all(),
-            'violation_counts' => $events->pluck('violations')->flatten()->filter()->countBy()->all(),
-            'latest_status' => is_array($latest) ? ($latest['status'] ?? null) : null,
-            'has_rejections' => $events->contains(fn (array $event): bool => ($event['status'] ?? null) === 'rejected'),
-            'health' => $health,
-            'review_signal' => $reviewSignal,
-            'events' => $events->all(),
-        ];
+        return $this->support->kernelPipelineEventSummary($events);
     }
+
 
     /**
      * @return array{
@@ -1452,38 +1430,9 @@ class AtlasLedgerReplayService
      */
     private function kernelPipelineHealth(int $eventCount, int $acceptedCount, int $rejectedCount): array
     {
-        $warningThreshold = 0.000001;
-        $breachThreshold = 0.05;
-        $rejectionRate = $eventCount > 0 ? round($rejectedCount / $eventCount, 6) : 0.0;
-        $reasons = [];
-
-        if ($eventCount === 0) {
-            $status = 'unknown';
-            $reasons[] = 'no_kernel_pipeline_events_in_window';
-        } elseif ($rejectionRate >= $breachThreshold) {
-            $status = 'breach';
-            $reasons[] = 'kernel_pipeline_rejection_rate_above_breach_threshold';
-        } elseif ($rejectionRate >= $warningThreshold) {
-            $status = 'warning';
-            $reasons[] = 'kernel_pipeline_rejections_detected';
-        } else {
-            $status = 'ok';
-        }
-
-        return [
-            'status' => $status,
-            'rejection_rate' => $rejectionRate,
-            'accepted_count' => $acceptedCount,
-            'rejected_count' => $rejectedCount,
-            'event_count' => $eventCount,
-            'review_required' => in_array($status, ['warning', 'breach'], true),
-            'thresholds' => [
-                'warning_rejection_rate' => $warningThreshold,
-                'breach_rejection_rate' => $breachThreshold,
-            ],
-            'reasons' => $reasons,
-        ];
+        return $this->support->kernelPipelineHealth($eventCount, $acceptedCount, $rejectedCount);
     }
+
 
     /**
      * @param  array<string,mixed>  $health
@@ -1492,40 +1441,9 @@ class AtlasLedgerReplayService
      */
     private function kernelPipelineReviewSignal(array $health, array $violationCounts): array
     {
-        $status = (string) ($health['status'] ?? 'unknown');
-        $reasons = array_values((array) ($health['reasons'] ?? []));
-        if ($violationCounts !== []) {
-            $reasons = array_values(array_unique([...$reasons, ...array_keys($violationCounts)]));
-        }
-
-        if ($status === 'unknown') {
-            return [
-                'status' => 'unknown',
-                'severity' => 'low',
-                'review_required' => false,
-                'reasons' => $reasons === [] ? ['no_kernel_pipeline_events_in_window'] : $reasons,
-                'recommended_action' => 'wait_for_kernel_pipeline_evidence',
-            ];
-        }
-
-        if ($status === 'ok') {
-            return [
-                'status' => 'ok',
-                'severity' => 'none',
-                'review_required' => false,
-                'reasons' => [],
-                'recommended_action' => 'none',
-            ];
-        }
-
-        return [
-            'status' => $status,
-            'severity' => $status === 'breach' ? 'high' : 'medium',
-            'review_required' => true,
-            'reasons' => $reasons === [] ? ['kernel_pipeline_rejections_detected'] : $reasons,
-            'recommended_action' => 'open_reviewable_kernel_pipeline_contract_proposal',
-        ];
+        return $this->support->kernelPipelineReviewSignal($health, $violationCounts);
     }
+
 
     private function tableAvailable(): bool
     {
