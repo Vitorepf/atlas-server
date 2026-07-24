@@ -1,38 +1,43 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master (CANONICAL):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**Edition:** **vFINAL-EXEC** — constitution + v16 executable body (path manifests, tests, residual index, binding DAG)  
+**Edition:** **vFINAL-COOKBOOK** — full implementer script (every slice: paths, steps, recipes, tests, commits, STOP)  
 **State:** PLAN_ONLY  
 **P0–P4:** NOT_STARTED  
-**Next:** operator literal **`EXECUTE P0`** → Codex implements §P0 only → STOP
+**Next:** operator literal **`EXECUTE P0`** → implementer follows MASTER §SLICE P0 only → STOP
+
+## How to use (any IA)
+
+1. Open MASTER.  
+2. Jump to the SLICE named by the EXECUTE phrase.  
+3. Edit only that slice’s closed paths.  
+4. RED → fix → GREEN → PHASE-*.json → update this LEDGER + SCOREBOARD → scoped commit.  
+5. STOP. Do not start the next slice without a new EXECUTE phrase.
 
 ## Phase cursor
 
-| Phase | Status | What implementer does |
+| Slice | Status | Gate phrase |
 |---|---|---|
-| P0 | NOT_STARTED | Honesty / port / admission / measured projection — MASTER §P0 |
-| P1a | NOT_STARTED | brainNextArgs R33–R35 + native dispatch — refuse until PHASE-P0 green |
-| P1b | NOT_STARTED | characterization/refusal until P2a+P2b; then ACT |
-| P2–P4 | NOT_STARTED | MASTER §P2–§P4 + archive v16 residual detail if needed |
+| P0 | NOT_STARTED | `EXECUTE P0` |
+| P1a | NOT_STARTED | `EXECUTE P1a` |
+| P2a.1 | NOT_STARTED | `EXECUTE P2a.1` |
+| P2a.2 | NOT_STARTED | `EXECUTE P2a.2` |
+| P2b-EXPAND…CONTRACT | NOT_STARTED | `EXECUTE P2b-*` |
+| P1b.1–.3 | NOT_STARTED | after P2b-CUTOVER; `EXECUTE P1b.*` |
+| P2c–P2f | NOT_STARTED | DAG order in MASTER |
+| P3a/P3b | NOT_STARTED | `EXECUTE P3a` then `EXECUTE P3b` |
+| P4-DEV/FORGE/AUTONOMOS/FREEZE | NOT_STARTED | `EXECUTE P4-*` |
 
-## Open on disk (copy into PHASE receipt when closed)
+## Open on disk (P0 targets)
 
-- R33 brain scope args (`--scope` invalid; positional required)
-- R34 exit-only success on disabled/dry/error JSON
-- R35 seed invents `--max`
-- `runtime_write_performed` hardcoded true (CycleRuntime:93)
-- certify injects 9.2 / 9.2 / 9.0 fantasy scores
-- authoritative `human_in_engineering_loop` readers/writers
+- `runtime_write_performed` hardcoded true (`AaeosCycleRuntime.php:93`)
+- certify injects 9.2 / 9.2 / 9.0
+- authoritative `human_in_engineering_loop`
 - invalid_mode → `halt_sovereign` (must become `repair_required`)
-- run/cycle parity gaps (shared use-case = `AaeosCycleRuntime` only — **no** `AaeosRunApplication`)
+- run/cycle exit/outcome parity
+- R33 brain `--scope` (P1a — do not fix in P0)
+- R34/R35 seed/exit honesty (P1a)
 
 ## Archive
 
-`docs/superpowers/plans/archive/aaeos-elite-deepening-2026-07-23/`  
-- `MASTER-v16-pre-final.md` — SUPERSEDED body; residual detail reference only  
-- `MASTER-CLAUDE-C6.md` — historical competitor track  
-
-## Aliases (do not implement from)
-
-- `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER-FINAL.md` → points here  
-- `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER-CLAUDE.md` → ARCHIVED  
+`docs/superpowers/plans/archive/aaeos-elite-deepening-2026-07-23/` — SUPERSEDED bodies only.

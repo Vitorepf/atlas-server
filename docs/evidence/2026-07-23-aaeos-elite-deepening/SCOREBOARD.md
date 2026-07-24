@@ -1,8 +1,8 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** vFINAL-EXEC (canonical executable)  
+**Plan:** vFINAL-COOKBOOK  
 **Program:** PLAN_ONLY · P0–P4 NOT_STARTED  
-**Measured composite:** null (honesty: unknown until samples exist)
+**Measured composite:** null  
 
 | Gate | State | Closes in |
 |---|---|---|
@@ -13,6 +13,7 @@
 | invalid_mode → repair_required | FAIL | P0 |
 | brain args R33 positional | FAIL | P1a |
 | seed R35 / exit semantics R34 | FAIL | P1a |
+| Decision v3 CUTOVER | FAIL | P2b-CUTOVER |
 | REAL_OPERATION ×3 (out of PHPUnit) | MISSING | P4 |
 
-**Priority:** `EXECUTE P0` → PHASE-P0 green → `EXECUTE P1a` → …  
+**Priority:** follow MASTER cookbook one EXECUTE slice at a time.

@@ -5,7 +5,7 @@ title: Atlas Elite Executors — Dev · Forge · Autônomos
 status: active
 category: programming
 priority: 100
-summary: "Contrato canônico dos três executores de engenharia elite do Atlas. Mesma barra mundial (L0–L5). Diferença = horizonte/delegação/origem/sovereignty_channel — LOOP_ENGINEERING agentic nos três; humano na soberania (não revisor técnico). NUNCA 'Dev = fast patch' · NUNCA 'Autônomos = qualidade pior'. Alinha MASTER vFINAL-EXEC."
+summary: "Contrato canônico dos três executores de engenharia elite do Atlas. Mesma barra mundial (L0–L5). Diferença = horizonte/delegação/origem/sovereignty_channel — LOOP_ENGINEERING agentic nos três; humano na soberania (não revisor técnico). NUNCA 'Dev = fast patch' · NUNCA 'Autônomos = qualidade pior'. Alinha MASTER vFINAL-COOKBOOK."
 tags:
   - atlas-ai
   - elite-executors
@@ -118,7 +118,7 @@ Visão AAEOS era agentica: `docs/evidence/2026-07-22-atlas-server-god-debulk/AAE
 5. Os três sobem a **ladder L0–L5**; o modo **não** é teto de dificuldade.  
 6. **Done = evidence/certification**, não narrativa de agente. DONE de honesty ≠ claim “deus/SOTA” sem prova comparativa.  
 7. ACDE / `atlas:loop:*` = morto; vivo = `atlas:brain:*` / `atlas:task:*`.  
-8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-EXEC**).
+8. Alinhamento MASTER: `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (**vFINAL-COOKBOOK**).
 
 ## Matriz canônica
 
