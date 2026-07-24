@@ -65,8 +65,10 @@ O build (`CodeGraphSymbolBuilder`) carrega symbols + relations (`dependencies`/`
 ## CORREÇÃO (24/07): o venv EXISTE e o callgraph op está PROVADO com edges reais
 Uma medição anterior minha disse "venv ausente" — **ERRADA, dois erros**: (1) olhei `runtimes/python/.venv` (caminho errado — o invoker usa `RUNTIME_ROOT/.venv` = `runtimes/python/code_graph/.venv`); (2) rodei os checks de importabilidade e o `run_tests.py` com o **python de SISTEMA**, que não enxerga os pacotes isolados do venv. O venv em `runtimes/python/code_graph/.venv` **já existia** (dir nascido 2026-06-08) e está **provisionado**: `tree_sitter_language_pack`, `fastembed`, `igraph`, `leidenalg`, `whisper`, `pypdf`, `fpdf2`, `networkx`, `numpy` (60 pkgs).
 
-**PROVA da fusão viva (rodado com o venv python):**
+**PROVA da fusão viva (rodado com o venv python) — 2 ops expostos:**
 - `callgraph` op → pares reais: manifesto `outer()→inner()→helper()` devolve `[{caller:inner,callee:helper},{caller:outer,callee:inner}]` no schema `atlas.code_graph.callgraph.v1` — exatamente o que `CodeGraphCallResolver::resolveCalls` consome.
+- `typed_callgraph` op → edges type-aware: snippet PHP `App\X\Svc::run(){ $this->step(); }` devolve `{callee_name:step, caller_class:App\X\Svc, caller_method:run, receiver:this}` + `imports_by_file` — o contrato exato de `CodeGraphTypedCallResolver::resolve`.
+- Ambos eram órfãos (construídos+testados, fora do `_OPS`) → agora primitivos callable pelo kernel. Varredura confirma: **nenhum outro módulo do pacote fica órfão** (todos referenciados por `main.py`).
 - `run_tests.py` via venv: **29 pass / 0 fail / 0 skip** (os tree-sitter/embedding/pdf tests rodam de verdade, não dep-skip).
 
 O invoker `pythonBinary()` já prefere esse venv, então os ops pesados rodam com precisão real quando o flag `code_graph_real_edges` está ligado. Os guards de self-skip que adicionei nos 8 test files continuam válidos: quando o suite roda com python de SISTEMA (ou CI sem o venv) ele degrada honesto (dep-skip) em vez de errar. **Falta p/ ativação LIVE completa** (inalterado): `SymbolBuilder` precisa de fonte de conteúdo de arquivo + decisão perf/incremental + o flag `code_graph_real_edges` (operador) — o extractor e o op já estão prontos e provados.
