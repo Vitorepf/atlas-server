@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
+use App\Support\CanonicalValue;
 /**
  * Pure planner — turns an ADMITTED lesson into a bounded, provider-safe FUTURE-context update plan.
  * NEVER writes docs, memory, prompts, or templates directly; only emits a plan + bounded targets.
@@ -281,17 +282,6 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn ($v) => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $k => $v) {
-            $value[$k] = $this->canonicalize($v);
-        }
-
-        return $value;
+        return CanonicalValue::canonicalize($value);
     }
 }

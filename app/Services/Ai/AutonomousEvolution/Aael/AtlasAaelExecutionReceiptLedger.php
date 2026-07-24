@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael;
 
+use App\Support\CanonicalValue;
 use Closure;
 
 /**
@@ -159,17 +160,6 @@ final class AtlasAaelExecutionReceiptLedger
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn ($v) => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $k => $v) {
-            $value[$k] = $this->canonicalize($v);
-        }
-
-        return $value;
+        return CanonicalValue::canonicalize($value);
     }
 }
