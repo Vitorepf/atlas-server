@@ -64,7 +64,7 @@
 - [x] ProviderCatalog adopt in AtlasDecideService invocation list
 - [x] ProviderCatalog adopt in Manager/Forge residual (AiChatModelSection, AtlasCliDevCommand, AiProviderController, AiChatCommand council)
 - [x] ProviderCatalog validation `in:` SSOT (AiDecision/AiThread/MobileThread/StoreAiInteractionRequest)
-- [ ] ProviderCatalog residual (AiChatRepl without minimax — may be intentional surface subset)
+- [x] ProviderCatalog residual AiChatRepl image path (inventory + honest minimax exclude)
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
 - [x] AppServiceProvider ACOS watchdog → AtlasAcosWatchdogServiceProvider
 - [x] AppServiceProvider Organism domain → AtlasOrganismServiceProvider
@@ -80,7 +80,8 @@
 - [x] AppServiceProvider memory/context → AtlasMemoryInfrastructureServiceProvider
 - [x] AppServiceProvider runtime seams (serving/Hermes/fleet/maestro tier) → AtlasRuntimeSeamsServiceProvider
 - [x] AppServiceProvider Obra/Dev runtime → AtlasObraServiceProvider (ASP →73 boot+sentinels shell)
-- [ ] AppServiceProvider residual only: empty wave-19 sentinel body when ON, boot() observer/commands
+- [x] AppServiceProvider residual honesty note for empty wave-19 ON path
+- [ ] AppServiceProvider boot() residual only (observer/commands/harness overlay)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
 - [x] routes/api/patamar4.php split
