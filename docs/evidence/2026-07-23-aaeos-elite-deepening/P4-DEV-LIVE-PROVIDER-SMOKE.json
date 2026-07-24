@@ -1,0 +1,30 @@
+{
+  "schema": "atlas.aaeos.p4.dev.live_provider_smoke.v1",
+  "phase": "P4-DEV",
+  "status": "PROVEN_PROVIDER_SPAWN_ONLY",
+  "branch": "main",
+  "implementation_commit": "40427b49e",
+  "workspace": "isolated clone (not main)",
+  "command": "bin/atlas dev <intent> --workspace=<isolated clone> --provider=codex_cli --permission=write --allow-write --operator --legacy --yes",
+  "provider": "codex_cli",
+  "trace_ref": "019f95b0-e004-7b82-a19f-cf5159e5a6b5",
+  "provider_result": "succeeded",
+  "quality_gate": "passed",
+  "quality_score": 90,
+  "observed_effect": {
+    "path": "p4-live-proof.txt",
+    "sha256": "7c122902b32757f4bf66e47522b6e877e0036de572d0ce118e9e3c109ec4c09f",
+    "content": "P4-LIVE-PROOF"
+  },
+  "durable_pg": {
+    "producer_role": "atlas_p4_producer",
+    "verifier_role": "atlas_p4_verifier",
+    "endpoint": "127.0.0.1:55449",
+    "secrets_redacted": true
+  },
+  "qualification": {
+    "real_operation_completed": false,
+    "reason": "provider spawn and file effect are proven, but this smoke is not the Dev SeniorLoop EngineeringOutcome journey and does not prove authority lineage, quality-court eligibility, or authorized merge",
+    "caller_set_capability_flags": false
+  }
+}

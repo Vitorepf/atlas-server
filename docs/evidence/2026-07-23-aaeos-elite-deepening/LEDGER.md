@@ -23,6 +23,7 @@
 - FORGE: `blocked_ops_partial` — named `['obra_required', 'evidence_required', 'blocked']` / producer_status=`blocked`
 - AUTONOMOS: `blocked_ops_partial` — named `['queue_scan_limit_exceeded']` / producer_status=`queue_scan_limit_exceeded`
 - pre_effect_decision_authority_missing: **closed** on live senior-loop (twice)
+- P4-DEV provider smoke: `codex_cli` real spawn in a certified isolated clone, quality 90/100, observed `p4-live-proof.txt` SHA-256 `7c122902b32757f4bf66e47522b6e877e0036de572d0ce118e9e3c109ec4c09f`; provider/effect proof only, not SeniorLoop qualification.
 
 ## Rule
 Never invent real_operation_completed from plan-only, PHPUnit, or exit-0 blocked.
