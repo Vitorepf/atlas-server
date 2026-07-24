@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfImprovement;
 
 use Carbon\CarbonImmutable;
+use App\Support\CanonicalValue;
 
 class AtlasSelfImprovementScheduleService
 {
@@ -301,19 +302,7 @@ class AtlasSelfImprovementScheduleService
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (! array_is_list($value)) {
-            ksort($value);
-        }
-
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
+        return CanonicalValue::canonicalize($value);
     }
 
     /**

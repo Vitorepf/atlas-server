@@ -160,7 +160,7 @@ class AtlasAiSpecialistFlowRuntimeService
      */
     private function withReceipt(array $contract): array
     {
-        $hashableContract = $this->canonicalize($contract);
+        $hashableContract = CanonicalValue::canonicalize($contract);
         $contractHash = hash('sha256', json_encode($hashableContract, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         $contract['receipt'] = [
@@ -178,9 +178,5 @@ class AtlasAiSpecialistFlowRuntimeService
         return $contract;
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Repair;
 
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Support\CanonicalValue;
 
 final class RepairEvidencePayloadFormatter
 {
@@ -90,18 +91,6 @@ final class RepairEvidencePayloadFormatter
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (! array_is_list($value)) {
-            ksort($value);
-        }
-
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
+        return CanonicalValue::canonicalize($value);
     }
 }
