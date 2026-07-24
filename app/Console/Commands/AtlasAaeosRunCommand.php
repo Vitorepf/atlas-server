@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use App\Services\Ai\Aaeos\Control\AaeosCycleOutcomeRecorder;
 use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
-use App\Services\Ai\Aaeos\Control\AaeosAdmissionVerdict;
 use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
 use Illuminate\Console\Command;
 
 /**
- * Daily AAEOS operate port — intent → mode → admission → live/plan dispatch.
+ * Daily AAEOS operate port — intent-first (P2f).
+ *
+ * Productive technical flags were stripped: --live, --execute-provider,
+ * --run-worker-once, --max-seeds, --scope. Passing them fails closed with
+ * migration guidance. Keep --dry-run for plan-only.
  */
 class AtlasAaeosRunCommand extends Command
 {
@@ -19,41 +23,47 @@ class AtlasAaeosRunCommand extends Command
         {intent? : Free-text engineering objective}
         {--autonomos : Force Autônomos (zero human eng loop)}
         {--mode= : Force mode: dev|forge|autonomos}
-        {--live : World-changing dispatch within caps (brain/seed/session pack)}
         {--dry-run : Plan-only (no live dispatch, no ledger write attempt)}
-        {--max-seeds=0 : Autônomos: max brain seed batch (0 = skip seed)}
-        {--execute-provider : Allow expensive provider paths (still not auto-burn)}
-        {--run-worker-once : Autônomos: also call atlas:task next once}
-        {--scope= : Optional brain scope}
-        {--json : Machine-readable receipt}';
+        {--json : Machine-readable receipt}
+        {--live : REMOVED (P2f) — see migration guidance}
+        {--max-seeds= : REMOVED (P2f) — see migration guidance}
+        {--execute-provider : REMOVED (P2f) — see migration guidance}
+        {--run-worker-once : REMOVED (P2f) — see migration guidance}
+        {--scope= : REMOVED (P2f) — see migration guidance}';
 
-    protected $description = 'AAEOS daily port: program via Dev · Forge · Autônomos (same bar). Prefer this over raw cycle.';
+    protected $description = 'AAEOS daily port (intent-first): Dev · Forge · Autônomos same bar. No productive technical dials.';
+
+    /** @var array<string,string> */
+    private const STRIPPED_FLAG_GUIDANCE = [
+        'live' => 'Use self-construction daemon / atlas:task surfaces for live muscle; daily port is intent-first plan/admission (not a technical live dial).',
+        'execute-provider' => 'Provider spend is not a daily-port dial. Configure runtime spend policy / daemon paths — never atlas:aaeos:run --execute-provider.',
+        'run-worker-once' => 'Worker claim is atlas:task next / runtime daemon — not a OneShot flag on atlas:aaeos:run.',
+        'max-seeds' => 'Brain seed batching is atlas:brain:seed / replenisher — not --max-seeds on the daily port.',
+        'scope' => 'Scope is owned by task packets / authority envelope — not --scope on atlas:aaeos:run.',
+    ];
 
     public function handle(AaeosCycleRuntime $runtime, AaeosCycleOutcomeRecorder $outcomes): int
     {
+        if (($removed = $this->firstStrippedFlagPresent()) !== null) {
+            return $this->failRemovedFlag($removed);
+        }
+
         $intent = (string) ($this->argument('intent') ?: 'aaeos_daily_cycle');
         $dryRun = (bool) $this->option('dry-run');
-        $live = (bool) $this->option('live');
         $autonomos = (bool) $this->option('autonomos');
         $modeOpt = strtolower(trim((string) $this->option('mode')));
 
-        // Default daily: live for session packs / dualcore record; expensive muscle still capped.
-        // dry-run wins over live.
-        if ($dryRun) {
-            $live = false;
-        } elseif (! $this->option('live') && ! $dryRun) {
-            // plan-only metadata + dualcore attempt unless --live; operator opts into world change
-            $live = false;
-        }
-
+        // P2f: daily port never accepts productive technical dispatch dials.
         $hints = [
             'source' => 'atlas_aaeos_run',
             'interactive' => ! $autonomos && $modeOpt !== AaeosExecutorMode::AUTONOMOS,
-            'live_dispatch' => $live,
-            'max_seeds' => (int) $this->option('max-seeds'),
-            'execute_provider' => (bool) $this->option('execute-provider'),
-            'run_worker_once' => (bool) $this->option('run-worker-once'),
-            'scope' => $this->option('scope') ?: null,
+            'live_dispatch' => false,
+            'max_seeds' => 0,
+            'execute_provider' => false,
+            'run_worker_once' => false,
+            'scope' => null,
+            'intent_first_daily_port' => true,
+            'technical_dials_stripped' => true,
         ];
 
         $world = [];
@@ -71,6 +81,7 @@ class AtlasAaeosRunCommand extends Command
         } else {
             $receipt['learning'] = ['status' => 'skipped_dry_run'];
         }
+        $receipt['p2f_technical_dials_stripped'] = true;
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
@@ -78,12 +89,12 @@ class AtlasAaeosRunCommand extends Command
             return $this->exitCode($receipt);
         }
 
-        $this->components->info('AAEOS run');
+        $this->components->info('AAEOS run (intent-first)');
         $this->components->twoColumnDetail('status', (string) ($receipt['status'] ?? ''));
         $this->components->twoColumnDetail('mode', (string) data_get($receipt, 'mode.mode', ''));
         $this->components->twoColumnDetail('difficulty', (string) data_get($receipt, 'difficulty.label', data_get($receipt, 'difficulty.level', '')));
         $this->components->twoColumnDetail('admission', (string) data_get($receipt, 'admission.verdict', ''));
-        $this->components->twoColumnDetail('live_dispatch', ! empty($receipt['live_dispatch']) ? 'true' : 'false');
+        $this->components->twoColumnDetail('live_dispatch', 'false');
         $this->components->twoColumnDetail('world_source', (string) data_get($receipt, 'world.world_source', ''));
         $this->components->twoColumnDetail('queue_depth', (string) data_get($receipt, 'world.queue_depth', '0'));
         $this->components->twoColumnDetail('evidence', (string) ($receipt['evidence_status'] ?? ''));
@@ -109,6 +120,41 @@ class AtlasAaeosRunCommand extends Command
         }
 
         return $this->exitCode($receipt);
+    }
+
+    private function firstStrippedFlagPresent(): ?string
+    {
+        foreach (array_keys(self::STRIPPED_FLAG_GUIDANCE) as $flag) {
+            if ($this->input->hasParameterOption('--'.$flag, true)) {
+                return $flag;
+            }
+        }
+
+        return null;
+    }
+
+    private function failRemovedFlag(string $flag): int
+    {
+        $guidance = self::STRIPPED_FLAG_GUIDANCE[$flag] ?? 'Flag removed in P2f intent-first daily port.';
+        $payload = [
+            'schema' => 'atlas.aaeos.run.removed_flag.v1',
+            'status' => 'blocked',
+            'reason' => 'p2f_technical_flag_removed',
+            'flag' => $flag,
+            'migration_guidance' => $guidance,
+            'allowed_flags' => ['dry-run', 'json', 'mode', 'autonomos'],
+            'removed_flags' => array_keys(self::STRIPPED_FLAG_GUIDANCE),
+        ];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        } else {
+            $this->components->error("atlas:aaeos:run --{$flag} removed (P2f intent-first).");
+            $this->line($guidance);
+            $this->line('Allowed: --dry-run --json --mode --autonomos');
+        }
+
+        return self::FAILURE;
     }
 
     /**

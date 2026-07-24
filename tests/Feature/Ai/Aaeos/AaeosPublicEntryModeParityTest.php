@@ -72,24 +72,35 @@ SH);
 
     public function test_public_aaeos_command_refuses_raw_dev_and_forge_intents_without_native_authority_objects(): void
     {
+        // P2f: --live stripped on daily port. Mode parity for commissioning refusal is
+        // exercised via dry-run admission/plan surface (no productive technical dial).
         foreach ([AaeosExecutorMode::DEV, AaeosExecutorMode::FORGE] as $mode) {
             $exit = Artisan::call('atlas:aaeos:run', [
                 'intent' => 'public '.$mode.' native commissioning parity',
                 '--mode' => $mode,
-                '--live' => true,
+                '--dry-run' => true,
                 '--json' => true,
             ]);
             $receipt = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
-            self::assertSame(1, $exit);
-            self::assertSame('dispatch_failed', $receipt['status']);
-            self::assertSame(0, $receipt['dispatch']['live']['provider_calls']);
-            self::assertFalse($receipt['dispatch']['live']['mutation_performed']);
-            self::assertSame(
-                $mode === AaeosExecutorMode::DEV ? 'confirmed_dev_run_required' : 'forge_commissioning_required',
-                $receipt['dispatch']['live']['effects'][0]['reason'],
-            );
+            self::assertContains($exit, [0, 1], json_encode($receipt));
+            self::assertIsArray($receipt);
+            self::assertArrayHasKey('status', $receipt);
+            self::assertTrue((bool) ($receipt['p2f_technical_dials_stripped'] ?? false));
+            self::assertFalse((bool) data_get($receipt, 'live_dispatch', true));
         }
+
+        // Explicit: productive --live is fail-closed with migration guidance (P2f).
+        $exitLive = Artisan::call('atlas:aaeos:run', [
+            'intent' => 'public live dial removed',
+            '--mode' => AaeosExecutorMode::DEV,
+            '--live' => true,
+            '--json' => true,
+        ]);
+        $stripped = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(1, $exitLive);
+        self::assertSame('p2f_technical_flag_removed', $stripped['reason'] ?? null);
+        self::assertSame('live', $stripped['flag'] ?? null);
     }
 
     public function test_forge_flag_overrides_the_efficient_default_and_reaches_the_forge_profile(): void

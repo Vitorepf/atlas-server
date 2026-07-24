@@ -2,14 +2,6 @@
 
 namespace Tests\Feature\Ai\Aaeos;
 
-use App\Models\AiDualCoreRouteDecision;
-use App\Services\Ai\Aaeos\Control\AaeosCycleRuntime;
-use App\Services\Ai\Aaeos\Control\AaeosExecutorMode;
-use App\Services\Ai\Aaeos\Control\Dispatch\AaeosLiveDispatchGateway;
-use App\Services\Ai\Aaeos\Control\Dispatch\AaeosModeLiveDispatcher;
-use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
-use Mockery;
 use Tests\TestCase;
 
 class AtlasAaeosRunCommandTest extends TestCase
@@ -33,48 +25,60 @@ class AtlasAaeosRunCommandTest extends TestCase
         ])->assertFailed();
     }
 
-    public function test_live_dispatch_failure_exits_non_zero(): void
+    public function test_live_flag_is_stripped_with_migration_guidance(): void
     {
-        $this->app->instance(AaeosCycleRuntime::class, $this->dispatchFailingRuntime());
+        $exit = \Illuminate\Support\Facades\Artisan::call('atlas:aaeos:run', [
+            'intent' => 'p2f live removed',
+            '--live' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(\Illuminate\Support\Facades\Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $exit);
+        $this->assertSame('p2f_technical_flag_removed', $payload['reason'] ?? null);
+        $this->assertSame('live', $payload['flag'] ?? null);
+        $this->assertArrayHasKey('migration_guidance', $payload);
+        $this->assertNotSame('', trim((string) ($payload['migration_guidance'] ?? '')));
+    }
+
+    public function test_execute_provider_and_run_worker_once_are_stripped(): void
+    {
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p2f execute provider removed',
+            '--execute-provider' => true,
+            '--json' => true,
+        ])->assertFailed();
 
         $this->artisan('atlas:aaeos:run', [
-            'intent' => 'p0 run dispatch failure',
-            '--live' => true,
+            'intent' => 'p2f worker once removed',
+            '--run-worker-once' => true,
             '--json' => true,
         ])->assertFailed();
     }
 
-    private function dispatchFailingRuntime(): AaeosCycleRuntime
+    public function test_max_seeds_and_scope_are_stripped(): void
     {
-        $dispatcher = new class implements AaeosModeLiveDispatcher
-        {
-            public function mode(): string
-            {
-                return AaeosExecutorMode::DEV;
-            }
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p2f max seeds removed',
+            '--max-seeds' => 3,
+            '--json' => true,
+        ])->assertFailed();
 
-            public function liveDispatch(array $cyclePlan, array $options = []): array
-            {
-                return [
-                    'status' => 'dispatch_failed',
-                    'effects' => [],
-                    'next_commands' => [],
-                    'provider_calls' => 0,
-                    'error' => 'test_dispatch_failed',
-                ];
-            }
-        };
-        $decision = new AiDualCoreRouteDecision;
-        $decision->setAttribute('id', 1);
-        $decision->setAttribute('uuid', 'test-dualcore-run');
-        $dualCore = Mockery::mock(DualCoreRouteDecisionService::class);
-        $dualCore->shouldReceive('record')->once()->andReturn($decision);
-        $ledger = Mockery::mock(AtlasEvidenceLedger::class);
-        $ledger->shouldReceive('record')->once()->andReturn(null);
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p2f scope removed',
+            '--scope' => 'app/Foo.php',
+            '--json' => true,
+        ])->assertFailed();
+    }
 
-        return new AaeosCycleRuntime(
-            liveGateway: new AaeosLiveDispatchGateway(dev: $dispatcher, dualCore: $dualCore),
-            ledger: $ledger,
-        );
+    public function test_intent_first_dry_run_stamps_p2f_strip_marker(): void
+    {
+        $this->artisan('atlas:aaeos:run', [
+            'intent' => 'p2f intent first',
+            '--dry-run' => true,
+            '--json' => true,
+        ])
+            ->expectsOutputToContain('p2f_technical_dials_stripped')
+            ->assertSuccessful();
     }
 }
