@@ -42,6 +42,8 @@ Regra de leitura: tudo aqui tem PROVA (recibo, commit, medição ao vivo). Sever
 
 **Status:** harness de medição bfcl CONSERTADO por simetria (modelo entrega args em JSON natural; harness empacota deterministicamente no formato do checker, espelho do que a API FC faz pro braço cru) — ver commit `fix(rivals): simetria de braços no bfcl`. **ABERTO no produto:** o contrato geral do `atlas:cli:dev` continua exigindo JSON³ de qualquer tarefa resposta-estruturada; mitigações existentes (fence salvage, repair de nesting, retry ×2, patch sink) reduzem mas não eliminam. Conserto real = deixar o Atlas Decide rotear tarefas de tool-call pelo canal FC nativo do provider, com o kernel empacotando o patch_plan por fora.
 
+**AAEOS ownership (2026-07-24):** este P1 é residual **R104** do programa Elite Deepening — lei da coroa no seam de resposta do provider (M não pode destruir N resolvido). Implementação catalogada como fatia **`EXECUTE P1-JSON`** em `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md` (§1.11 + SLICE P1-JSON + `PHASE-P1-JSON.json`). Não é “cosmético de CLI”; é mother-block de governo de provider.
+
 ## 🔴 P2 — Governor exige autoridade de MERGE para escrever resposta de benchmark (ABERTO, decisão de produto)
 
 **O problema:** o fluxo mutativo do `EliteExecutorKernel` só libera o artefato com `authorized_merge_action` (corte de 22 papéis + `requires_canary_settlement: true`). Em fluxo de MEDIÇÃO (workspace descartável, arquivo de resposta), a autoridade nunca vem → `governor_authority_absent`.

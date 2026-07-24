@@ -25,6 +25,7 @@ AI RULE #0 — DO NOT THINK, FOLLOW
 STANDING-AUTHORIZED SERIAL GATES (literal strings; activate exactly one when its predecessor is GREEN)
 EXECUTE P0
 EXECUTE P1a
+EXECUTE P1-JSON
 EXECUTE P1b.1 | EXECUTE P1b.2 | EXECUTE P1b.3
 EXECUTE P2a.1 | EXECUTE P2a.2
 EXECUTE P2b-EXPAND | EXECUTE P2b-SHADOW | EXECUTE P2b-CANARY | EXECUTE P2b-CUTOVER | EXECUTE P2b-CONTRACT
@@ -63,7 +64,7 @@ echo "BASE=$BASE"
 
 Under `docs/evidence/2026-07-23-aaeos-elite-deepening/` only:
 
-`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
+`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1-JSON.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
 
 **Forbidden:** any `*receipt*.md`, extra PHASE files, screenshots-as-proof, second ledgers.
 
@@ -231,6 +232,7 @@ This standing authorization covers **only** a path mechanically necessary to mee
 ```text
 P0
  → P1a (structural; provider/effect REFUSED)
+ → P1-JSON (provider response contract / anti-JSON³ — R104; still no workspace mutation authority)
  → P2a.1 Ledger v2 + PG roles
  → P2a.2 EngineeringOutcome v3 expand/dual-read/shadow
  → P2b EXPAND → SHADOW → CANARY → CUTOVER (+ AWIS R102)
@@ -245,6 +247,8 @@ P0
  → P3a census → P3b deletion/alignment
  → P4-DEV → P4-FORGE → P4-AUTONOMOS → P4-FREEZE
 ```
+
+**P1-JSON is AAEOS law at the provider-response seam** (see §1.11). It does not authorize land/merge. P4-DEV cannot claim REAL_OPERATION honesty if R104 is open.
 
 Slices that touch `AtlasEvidenceLedger.php` **never** run concurrently.
 
@@ -286,6 +290,23 @@ Standing mandate pre-signed (Ed25519 `HumanDecisionReceiptSigner`). Journey root
 ### 1.10 R64 note (verdict enum)
 Add **one** const `REPAIR_REQUIRED = 'repair_required'` (4th). Do **not** grow a 6-state mini-governor. Invalid/unknown mode → REPAIR_REQUIRED. Irreversible / business_ambiguous (non-dev) / high-severity world still may HALT_SOVEREIGN.
 
+### 1.11 Why the JSON³ provider-contract bug is AAEOS (binding)
+
+AAEOS is the **mother block of agentic engineering law** at shared seams — including **provider government** (R87/R88 M-lever). The product P1 in `atlas-problemas-conhecidos.md` is not a “CLI cosmetics” issue:
+
+| AAEOS duty | How JSON³ violates it |
+|---|---|
+| **M multiplies N** | The model already solved N (tool-call / structured answer); Atlas forces JSON-in-JSON-in-JSON encoding the model was not trained for, then labels `invalid_provider_contract` — **M destroys solved work** |
+| **Same bar Dev/Forge/Autônomos** | All three spawn providers through Kernel / AgentExecutionProviderPort; a Dev-only JSON³ tax means Dev is secretly a worse channel |
+| **Honesty / anti-fabrication** | Failure is format friction, not model incapacity; labeling it model_failure or opaque contract failure is **score/certify fiction** (same family as P0 score lies) |
+| **Thin muscle, central law** | Native FC channel + server-side `patch_plan` packaging is **kernel/provider-port law**, not a new organ and not AAEOS reimplementing the model |
+| **OneShot / operator UX** | Operator sees “Atlas broken on JSON”; reality is the crown’s provider-response law is wrong — this is AAEOS constitution failure at the seam |
+
+**Therefore R104 / slice P1-JSON is in this MASTER.** Out of scope for P1-JSON: full P2 “governor merge authority for benchmark workspaces” (related product P2 in problemas-conhecidos) — track as residual R105 after R104 if still open; do not dilute P1-JSON.
+
+**Canonical product source:** `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` §P1 JSON³.  
+**Proof anchor:** bfcl 20260721_003602_d3edda73 — kimi FC raw 30/30 vs Atlas 9/30; 7 cases 21/21 deterministic fail.
+
 ---
 
 ## 2. Disk truth (re-verify every slice start)
@@ -300,6 +321,7 @@ Add **one** const `REPAIR_REQUIRED = 'repair_required'` (4th). Do **not** grow a
 | brain `--scope` | `AutonomosLiveDispatcher.php:89-96` | P1a R33 |
 | seed invents `--max` | `AutonomosLiveDispatcher.php:55-58` | P1a R35 |
 | Run always records outcomes | `AtlasAaeosRunCommand.php:68` even dry | P0 |
+| JSON³ / invalid_provider_contract on solved N | `AgentExecutionProviderPortAdapter.php` decode/salvage; KernelRunExecutor expects `patch_plan`; SkillMatrix comment | **P1-JSON R104** |
 | Cycle exit only checks halted | `AtlasAaeosCycleCommand.php:47,62` | P0 |
 | RuntimeDaemon service | **MISSING** (extract in P1a R98) | P1a |
 | OperateScorecardProjector | exists; delete after rg=0 | P0 R71 |
@@ -372,8 +394,19 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R50 | external superiority | HORIZON Rivals |
 | R51 | regex irreversibility authority | P0 suspicion; P1b native |
 | R52–R103 | see §3.1 hard-done tables | phase exits |
+| R104 | JSON³ provider contract: Atlas forces triple-nested patch_plan JSON; native FC unused; `invalid_provider_contract` after model solved N | **P1-JSON** |
+| R105 | Governor merge authority for benchmark/ephemeral workspaces (product P2) | post-R104; separate |
 
-**Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R103 (R44→R66). HORIZON only where marked.
+
+**Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 (R44→R66). HORIZON only where marked. R105 only if the program claims measurement-workspace DONE.
+
+### 3.2 Residual R104 hard-done (JSON³ / provider response contract)
+
+| ID | Gap | Existing owner reused | Hard done condition |
+|---|---|---|---|
+| R104 | Atlas forces model-authored nested `patch_plan` JSON (JSON³ on structured/tool tasks); native FC unused; `invalid_provider_contract` after model already solved N (bfcl kimi raw 30/30 vs Atlas 9/30; 7 cases 21/21 deterministic) | `AgentExecutionProviderPortAdapter`, `KernelRunExecutor`, `EliteExecutorKernel`, `AtlasDecideService` / ProviderLock, `ProviderGovernanceConsult` — **no new organ** | (1) structured/tool-call tasks never require model JSON³; (2) native FC channel when provider supports task class; (3) server packages `patch_plan` from FC args or single-target free-form; (4) `invalid_provider_contract` only when content truly unusable; (5) failure taxonomy separates encoding vs incapacity; (6) goldens: FC→plan, free-form single target→plan, garbage→fail closed; (7) direct Dev and AAEOS-routed Dev same law; (8) no land/merge smuggled |
+
+Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` §P1.
 
 ### 3.1 Residual hard-done detail (R64–R103)
 
@@ -967,6 +1000,115 @@ Delete recommended_flow / next_commands / provider_opt_in_noted synthetic workli
 refactor(core): AAEOS-MT P1a native dispatch and brain transport
 ```
 ### P1a STOP
+Controller may activate **`EXECUTE P1-JSON`** only after PHASE-P1A is GREEN (R104 is next serial gate before P2a.1).
+
+---
+
+# SLICE P1-JSON — provider response contract (anti-JSON³ / R104)
+
+**Gate:** `EXECUTE P1-JSON` (requires PHASE-P1A GREEN)  
+**Receipt:** `PHASE-P1-JSON.json`  
+**Objective:** stop M from destroying solved N at the provider-response seam. Models use native FC or free-form when appropriate; **Atlas packages `patch_plan`**, never forces JSON³.  
+**Still forbidden:** workspace land/merge without P1b+P2 authority; new parser organ; claiming REAL_OPERATION.
+
+## Why this slice (one paragraph)
+
+AAEOS owns provider-government law. Product P1 (`atlas-problemas-conhecidos.md`) proved: kimi FC raw 30/30, same model via Atlas 9/30, 7 cases fail 21/21 deterministically on encoding. That is crown law failure, not “model quality”. Closing R104 is required for honest Dev (and therefore for P4-DEV).
+
+## P1-JSON closed production paths
+
+```
+app/Services/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortAdapter.php
+app/Services/Ai/EngineeringKernel/EliteExecutorKernel.php
+app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php
+app/Services/Ai/Programming/AtlasDev/Execution/AtlasDevExecutionService.php
+app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutor.php
+app/Services/Ai/Programming/AtlasDev/Execution/EliteExecutorKernelDevAdapter.php
+app/Services/Ai/AtlasDecideService.php
+app/Services/Ai/Programming/AtlasDev/Schemas/Components/ProviderLock.php
+app/Services/Ai/Governance/ProviderGovernanceConsult.php
+app/Services/Ai/Governance/ProviderGovernanceCoverageLedger.php
+app/Services/Ai/Kernel/Provider/AgentBehaviorContract.php
+app/Services/Ai/Rivals/Core/SkillMatrix.php
+docs/engineering-knowledge-base/atlas-problemas-conhecidos.md
+docs/engineering-knowledge-base/atlas-reality-membrane-business-activation.md
+```
+
+**Scope notes:**
+- Prefer deepen `AgentExecutionProviderPortAdapter` packaging (FC args → patch_plan; free-form single-target salvage already partially exists — make it law, not best-effort last resort).
+- Decide/ProviderLock: route tool-call / structured-response tasks to **native FC** when provider supports it; do not prompt “emit patch_plan JSON only” for those classes.
+- KernelRunExecutor: accept server-packaged patch_plan; do not require model-authored JSON³ envelope.
+- **No** new `Json3FixerService` organ. **No** Quarantine imports.
+- Docs: mark product P1 closed/partial with proof refs when GREEN.
+
+## P1-JSON closed test paths
+
+```
+tests/Unit/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortJsonContractTest.php          # NEW
+tests/Unit/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortNativeFcPackagingTest.php     # NEW
+tests/Feature/Ai/Aaeos/AaeosProviderResponseContractHonestyTest.php                             # NEW
+tests/Feature/Ai/Programming/AtlasDev/AtlasDevProviderContractNoJson3TaxTest.php                 # NEW
+tests/Unit/Ai/SoftwareCompanyStewardship/AgentExecution/AgentExecutionProviderPortServiceTest.php  # EXISTING extend
+tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php                             # EXISTING extend only if packaging touch
+```
+
+## P1-JSON ordered steps
+
+### P1-JSON.0 Preflight
+```bash
+git branch --show-current   # main
+git status --short          # FOREIGN_WIP untouched
+BASE=$(git rev-parse HEAD)
+rg -n 'invalid_provider_contract|patch_plan' app/Services/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortAdapter.php | head
+# re-read atlas-problemas-conhecidos.md §P1
+```
+
+### P1-JSON.1 RED first (must fail on HEAD for the right reason)
+1. **NativeFcPackagingTest:** fixture provider returns tool/function-call style args (single target file contents) **without** model-authored nested patch_plan JSON³ → today ends `invalid_provider_contract` or equivalent; after fix → packaged `patch_plan` with allowed_files+patches.
+2. **NoJson3TaxTest:** prompt/contract path for structured task must not require the model to emit `patch_plan` as triple-nested JSON; assert Decide/port selects FC or free-form packaging channel.
+3. **HonestyTest:** when solution body is present and single-target salvage applies, status is **not** `invalid_provider_contract`; failure_reason taxonomy includes `provider_response_encoding` only for true unusable payloads.
+4. **Garbage still fails:** random non-solution text → fail closed (no false packaging).
+
+### P1-JSON.2 Production recipes (order)
+1. **Taxonomy** — distinguish statuses: `invalid_provider_contract` (unusable) vs packaging success from FC/free-form; never map “model solved + encode failed” to model_failure.
+2. **Server package patch_plan** in `AgentExecutionProviderPortAdapter` (or exact existing helper it already uses for free-form salvage):
+   - Input: FC structured args **or** free-form fence with **one** unambiguous allowed file from authority/claim.
+   - Output: canonical `patch_plan` `{allowed_files, patches[]}` identical shape KernelRunExecutor already consumes.
+3. **Decide / ProviderLock** — for task classes tool-call/structured-response, prefer provider native FC when capability present; do not instruct “reply only with patch_plan JSON object” as sole channel for those classes.
+4. **KernelRunExecutor / Dev chain** — consume packaged plan; no second require of model JSON³.
+5. **Coverage** — ProviderGovernanceConsult still records spawn; packaging is not a bypass of governance.
+6. **Docs** — update `atlas-problemas-conhecidos.md` P1 status when goldens green (partial OK if only Dev path closed and Forge path inventory remains).
+
+### P1-JSON.3 GREEN
+```bash
+/opt/homebrew/bin/php artisan test \
+  tests/Unit/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortJsonContractTest.php \
+  tests/Unit/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortNativeFcPackagingTest.php \
+  tests/Feature/Ai/Aaeos/AaeosProviderResponseContractHonestyTest.php \
+  tests/Feature/Ai/Programming/AtlasDev/AtlasDevProviderContractNoJson3TaxTest.php \
+  tests/Unit/Ai/SoftwareCompanyStewardship/AgentExecution/AgentExecutionProviderPortServiceTest.php \
+  --no-coverage
+# GREEN_EXIT=0 required
+```
+
+### P1-JSON.4 Two-commit ritual
+- COMMIT 1: production + tests only  
+  `feat(core): AAEOS-MT P1-JSON provider response contract anti-json3`
+- COMMIT 2: `PHASE-P1-JSON.json` + LEDGER + SCOREBOARD  
+  `docs(evidence): AAEOS-MT P1-JSON phase receipt`
+
+### P1-JSON exit checklist
+- [ ] Model is never required to emit JSON³ for structured/tool tasks when FC or single-target free-form packaging applies  
+- [ ] Server-side patch_plan packaging is the law at the existing port  
+- [ ] `invalid_provider_contract` only for truly unusable payloads  
+- [ ] Goldens: FC args → plan; free-form single target → plan; garbage → fail closed  
+- [ ] Direct Dev and AAEOS-routed Dev share packaging law (no silent dual contract)  
+- [ ] No new organ; no land/merge authority smuggled  
+- [ ] R104 closed in PHASE; product doc updated  
+- [ ] PHASE-P1-JSON GREEN  
+
+### P1-JSON STOP
+Do not start P2a.1 until controller activates it. P4-DEV must see R104 closed (or explicit PARTIAL with residual open — cannot full DONE).
 
 ---
 
@@ -1552,7 +1694,7 @@ tests/Feature/Ai/Aaeos/AaeosCertificationInvalidatorMatrixTest.php
 
 Full DONE only if:
 1. All phase receipts GREEN for P0–P4 (Autônomos PARTIAL allowed only if program marked incomplete — not full DONE)  
-2. R33,R34,R35,R38,R40,R43,R46,R51–R103 closed (non-HORIZON)  
+2. R33,R34,R35,R38,R40,R43,R46,R51–R104 closed (non-HORIZON; R105 only if claimed)  
 3. Three-mode REAL_OPERATION  
 4. No second ledger/organ; Quarantine/ACDE clean; scoped main commits  
 5. capability_proof derived not caller-set  
@@ -1612,6 +1754,7 @@ Architecture regressions always:
 | Weak P0 proof | Full GREEN list, exit codes, dry OutcomeRecorder test, baseline/new_failures |
 | NEW test tags + ledger scope | Closed list marks NEW/EXISTING; ledger read-only in P0 |
 | Operator as technical gate | Optional audit only |
+| JSON³ product P1 (R104) | Slice P1-JSON + §1.11 AAEOS law; PHASE-P1-JSON |
 | Dual master / v16 dependence | §3.1 normative in this file; archive non-normative |
 | Cycle-10 missing | Explicitly waived as planning cycle unless NEW disk residual |
 
