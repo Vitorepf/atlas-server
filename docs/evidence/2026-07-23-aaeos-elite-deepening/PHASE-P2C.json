@@ -1,0 +1,104 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2c",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "35e4306e5ba16c76f3308ae778c959fef99d293f",
+  "implementation_commit": "cc827647d43a289f8917bfb9b5eb3ce9e2c796b5",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php",
+    "database/migrations/2026_07_23_231000_harden_ai_forge_execution_atomicity.php",
+    "tests/Feature/Ai/Aaeos/AaeosAuthorityLineageResumeTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneClaimLeaseRepository.php",
+    "database/migrations/2026_07_23_231000_harden_ai_forge_execution_atomicity.php",
+    "tests/Feature/Ai/Aaeos/AaeosAuthorityLineageResumeTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "codex_ledger_wip",
+    "foreign_wip"
+  ],
+  "baseline_failures": [
+    {
+      "cmd": "php artisan test --filter=test_claim_conflict_write_set_blocks",
+      "note": "Pre-existing overlap path assertion flake outside P2c lineage paths"
+    }
+  ],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2c authority lineage resume",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosAuthorityLineageResumeTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN lineage matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2c:5-passed-27-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "authority_lineage_bound_at_claim",
+    "no_remint_on_renew",
+    "client_detach_not_cancel",
+    "migration:ai_forge_cycles_packet_position_unique"
+  ],
+  "exit_checklist": {
+    "authority_lineage_bound_packet_to_lease": true,
+    "renew_does_not_remint_nonce_or_lineage": true,
+    "revocation_sticks_on_renew": true,
+    "pre_effect_revalidation": true,
+    "client_detach_not_cancel": true,
+    "forge_cycle_position_unique_migration": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Lease authority lineage durability path-core",
+    "Client detach continues lease without revoke",
+    "Forge cycle position uniqueness migration"
+  ],
+  "residuals_still_open": [
+    "Full Dev RepairOrchestrator / Forge supervisor / Autonomos land-before-report suite may deepen later",
+    "Scheduler cold-start without --facts not expanded this slice",
+    "R-P2A1-PG-LIVE / R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "06f25de068a9786e720a2d92c93dbc95ecc3bea55e6d128a0b0ba9ebdc9fb6dc",
+    "ledger_content_sha256": "93e87458cdde8b79ce3080731f2354232f8c3e0e127ff2bd71db7eb399cb4dc6",
+    "scoreboard_content_sha256": "df1c0b0d20b8ef81444246b786c753ef8c80a85f18d2c04cc5f03dba4af1459b",
+    "sha256": "bbad2022f7dcdb13ef600c160b7c16937a49df892af4d49fdd2e65407b8e174e"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P1b.2",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2c GREEN path-core. Next EXECUTE P1b.2 (native ACT/settlement) per MASTER after P1b.1+P2c."
+}

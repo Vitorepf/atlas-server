@@ -1,23 +1,22 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P2b-CONTRACT GREEN · **P1b.1 GREEN** · **NEXT = EXECUTE P2c**  
+**State:** P0…P1b.1 GREEN · **P2c GREEN** · **NEXT = EXECUTE P1b.2**  
 **Branch:** main only
 
 ## Cursor
 
 | Slice | Status | Next |
 |---|---|---|
-| P0–P2a.2 | GREEN | — |
-| P2b full ladder | GREEN | Decision v3 complete |
-| **P1b.1** | **GREEN** | pre-effect authority replay |
-| **P2c** | **NOT_STARTED — ACTIVE** | **EXECUTE P2c** (unattended durability) |
-| P1b.2 | blocked on P2c (MASTER) | after P2c |
+| P0–P2b-CONTRACT | GREEN | — |
+| P1b.1 | GREEN | pre-effect authority |
+| **P2c** | **GREEN** | unattended durability lineage |
+| **P1b.2** | **NOT_STARTED — ACTIVE** | **EXECUTE P1b.2** native ACT/settlement |
 
 ## Notes
-- Factory requires explicit decision_event_id (no mode-decision-* synthesis)
-- Mutative prepareMutativeCandidate reloads decision from ledger before provider
-- CodeGraph caller opts only narrow trusted/sovereign sets
+- Authority lineage bound at claim; renew does not remint nonce/lineage
+- Revocation sticks; pre-effect revalidation; client detach ≠ cancel
+- Forge unique (work_packet_id, cycle_position) migration landed
 
 ## Rule for implementers
 GREEN phases stay GREEN. Ship next DAG gate. Hard bans: git add -A, new organs, vanity 50×, PHPUnit REAL_OPERATION.
