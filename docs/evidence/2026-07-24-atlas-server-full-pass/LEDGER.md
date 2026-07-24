@@ -17,7 +17,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: Serving report stages | ProviderCatalog | OneShotTick | ASP domain SPs
+next: Fixture run table-drive | OneShotTick registry | Serving commit stages | Decide/Manager ProviderCatalog | LedgerReplay | floors
 ```
 
 ## Progress summary
