@@ -17,6 +17,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Policy\AtlasAiPolicyService;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ProviderLock;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\ValueObjects\OperationalDecision;
@@ -557,7 +558,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
     /**
      * @param  array<string,mixed>  $options
-     * @return array{task_profile:array<string,mixed>,context_strategy:string,execution_strategy:string,execution_graph:array<string,mixed>}
+     * @return array{task_profile:array<string,mixed>,provider_response_contract:array<string,mixed>,context_strategy:string,execution_strategy:string,execution_graph:array<string,mixed>}
      */
     public function decisionPlan(array $options, string $selectedProvider, ?string $selectedModel = null): array
     {
@@ -567,10 +568,31 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
         return [
             'task_profile' => $taskProfile,
+            'provider_response_contract' => self::providerResponseContract(
+                $selectedProvider,
+                $selectedModel,
+                (string) ($taskProfile['task_type'] ?? ''),
+            ),
             'context_strategy' => $contextStrategy,
             'execution_strategy' => $executionStrategy,
             'execution_graph' => $this->executionGraph($options, $selectedProvider, $selectedModel, $taskProfile, $contextStrategy, $executionStrategy),
         ];
+    }
+
+    /**
+     * Atlas Decide selects only a response channel; it never manufactures a
+     * model patch envelope. ProviderLock only promotes native function calling
+     * from an explicit transport capability; a model-name suffix is not a
+     * transport claim, so Dev and AAEOS retain the same free-form fallback.
+     *
+     * @return array{channel:string,name?:string,server_packages_patch_plan:bool}
+     */
+    public static function providerResponseContract(string $provider, ?string $model, string $taskType): array
+    {
+        return (new ProviderLock(
+            provider: $provider,
+            modelFamily: $model ?? '',
+        ))->responseContractFor($taskType);
     }
 
     /**

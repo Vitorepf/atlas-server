@@ -342,8 +342,8 @@ final class EliteExecutorKernel
 
     /**
      * Prompt real do candidato mutativo: goal + conteúdo dos arquivos em escopo
-     * + contrato JSON explícito. O order só carrega spec_hash — sem isto o
-     * provider recebia um sha256 cru e nunca produzia patch_plan válido.
+     * + contrato de resposta explícito. O order só carrega spec_hash — sem isto
+     * o provider recebia um sha256 cru e nunca produzia uma alteração válida.
      */
     private function mutativePrompt(ExecutionOrder $order): string
     {
@@ -361,6 +361,25 @@ final class EliteExecutorKernel
                 break;
             }
             $files .= $chunk;
+        }
+        $responseContract = $this->responseContract($order);
+        if (($responseContract['channel'] ?? null) === 'native_function_call') {
+            $name = preg_replace('/[^A-Za-z0-9_.-]+/', '', (string) ($responseContract['name'] ?? '')) ?: 'atlas_apply_patch';
+
+            return "# Task\n{$goal}\n\n# Files in scope (current content)\n{$files}\n"
+                ."# Native response contract (mandatory)\n"
+                ."Use the native function `{$name}` once with arguments `path`, `mode` (create|modify), and `next` (complete file content). "
+                .'Choose only a file in the authorized scope. Atlas, not the model, packages those arguments into its canonical plan. '
+                .'Do not serialize a patch-plan envelope in response text and do not claim verification.';
+        }
+        if (($responseContract['channel'] ?? null) === 'free_form') {
+            $target = $order->allowedScope[0];
+
+            return "# Task\n{$goal}\n\n# Files in scope (current content)\n{$files}\n"
+                ."# Free-form response contract (mandatory)\n"
+                ."Return the complete resulting contents of `{$target}` in one complete code fence. "
+                .'Atlas packages that single scoped response into its canonical plan. '
+                .'Do not serialize a patch-plan envelope in response text and do not claim verification.';
         }
         $allowedJson = json_encode(array_values($order->allowedScope), JSON_UNESCAPED_SLASHES);
         // Escopo vazio sob rivals isolado: o provider PROPÕE os arquivos (o
@@ -404,6 +423,22 @@ final class EliteExecutorKernel
             .'"next" is the full resulting file content. Do not claim verification.';
     }
 
+    /** @return array<string,mixed> */
+    private function responseContract(ExecutionOrder $order): array
+    {
+        $contract = is_array($order->providerRoute['response_contract'] ?? null)
+            ? $order->providerRoute['response_contract']
+            : [];
+        if (($contract['channel'] ?? null) === 'native_function_call') {
+            return $contract;
+        }
+        if (($contract['channel'] ?? null) === 'free_form' && count($order->allowedScope) === 1) {
+            return $contract;
+        }
+
+        return ['channel' => 'patch_plan_json', 'server_packages_patch_plan' => true];
+    }
+
     public function prepareMutativeCandidate(ExecutionOrder $order): VerifiedMutativeCandidate
     {
         if (($order->toolPermissions['mutate'] ?? false) !== true) {
@@ -424,6 +459,7 @@ final class EliteExecutorKernel
                 'model' => (string) ($order->providerRoute['model'] ?? ''),
                 'prompt' => $basePrompt,
                 'claim' => ['allowed_files' => $order->allowedScope],
+                'response_contract' => $this->responseContract($order),
             ];
             $provider = $port->invoke($request);
             // Repair declarado (1 tentativa) que o port nunca exercia: resposta
@@ -440,9 +476,14 @@ final class EliteExecutorKernel
                 && in_array((string) ($provider['status'] ?? ''), ['invalid_provider_contract', 'invalid_provider_scope', 'invalid_provider_patch'], true)
                 && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
                 $contractAttempts++;
+                $retryInstruction = match ($request['response_contract']['channel'] ?? null) {
+                    'native_function_call' => '. Use the declared native function with valid scoped arguments; do not serialize a JSON patch-plan envelope.',
+                    'free_form' => '. Return one complete code fence for the single authorized file; do not serialize a JSON patch-plan envelope.',
+                    default => '. Reply with ONLY the JSON object, exactly as specified — no prose, no fences.',
+                };
                 $request['prompt'] = $basePrompt
                     ."\n\n# Retry {$contractAttempts}\nYour previous reply was rejected: ".(string) $provider['status']
-                    .'. Reply with ONLY the JSON object, exactly as specified — no prose, no fences.';
+                    .$retryInstruction;
                 $provider = $port->invoke($request);
             }
         } catch (\Throwable $e) {

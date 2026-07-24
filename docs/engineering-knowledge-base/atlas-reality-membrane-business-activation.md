@@ -112,8 +112,11 @@ Regra geral na fronteira camada 2 ↔ camada 3, generalizando `VentureActionClas
   governança **assíncrona** (audita depois, evidence sempre).
 - **Ação cara ou irreversível** (gastar, publicar, assinar, deletar): gate síncrono com
   mandato explícito, spend window e reconciliação.
-- Correção do P1: aceitar resposta livre do provider + normalizador extrator; formato
-  nunca derruba conteúdo correto. Contrato JSON vira preferência, não veto.
+- Correção parcial do P1: para alvo único, aceitar resposta livre do provider +
+  normalizador extrator; formato não derruba esse conteúdo correto. A rota FC nativa
+  ainda requer transporte que declare a função e devolva argumentos estruturados —
+  até essa prova, JSON permanece o fallback explícito para escopo múltiplo, não uma
+  alegação de capability FC.
 
 ### 3. Aprendizado como eixo (não feature)
 Caminho primário do sistema: **outcome → memória → próxima decisão**.
@@ -154,7 +157,9 @@ membrana com mandato (fronteira cara) → outcome reconciliado realimenta memór
 - NÃO criar mais docs de estratégia antes dos specs de conector — a membrana é o gargalo.
 - VentureFoundry primeiro; Holding só com >1 empresa viva.
 - Não confiar no Holding antes do debulk da god-class de 7k linhas + testes.
-- Formato de resposta de provider nunca veta conteúdo correto (P1): normalizar, não rejeitar.
+- Formato de resposta de provider em alvo único não deve vetar conteúdo correto (P1
+  parcial): normalizar, não rejeitar; rota FC nativa permanece residual até prova de
+  transporte real.
 - Toda superfície de negócio nova nasce com feed de dado real ou não nasce.
 
 ## Escopo de Implementação

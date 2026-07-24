@@ -80,6 +80,11 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 'error_message' => $result->errorMessage,
                 'exit_code' => $result->exitCode,
                 'duration_ms' => $result->durationMs,
+                // A resposta textual continua sendo o fallback compatível, mas
+                // function-calls nativos chegam como fatos estruturados do
+                // provider. Preservá-los aqui permite que o Atlas empacote o
+                // patch_plan sem pedir JSON dentro de JSON ao modelo.
+                'metadata' => $result->metadata,
             ];
             // Rivals: o provider_call do fast-path não carrega tokens no path
             // hermes (só o adaptador Sonnet os preenche), e sem tokens TODO
@@ -115,7 +120,29 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         if (($raw['provider'] ?? null) !== $providerKey || ($raw['model'] ?? null) !== $model) {
             return ['status' => 'provider_route_mismatch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
-        $decoded = $this->decodeContract((string) ($raw['output'] ?? ''));
+        $nativeFunction = $this->packageNativeFunctionCall($raw, $request);
+        if (($nativeFunction['status'] ?? null) === 'invalid_provider_scope') {
+            return [
+                'status' => 'invalid_provider_scope',
+                'failure_reason' => 'provider_response_scope',
+                'provider_invoked' => true,
+                'executes_provider' => true,
+                'exhausted' => true,
+            ];
+        }
+        if (($nativeFunction['status'] ?? null) === 'invalid_provider_patch') {
+            return [
+                'status' => 'invalid_provider_patch',
+                'failure_reason' => 'provider_response_patch',
+                'provider_invoked' => true,
+                'executes_provider' => true,
+                'exhausted' => true,
+            ];
+        }
+        $decoded = ($nativeFunction['status'] ?? null) === 'packaged'
+            ? (array) ($nativeFunction['contract'] ?? [])
+            : $this->decodeContract((string) ($raw['output'] ?? ''));
+        $nativePackaged = ($nativeFunction['status'] ?? null) === 'packaged';
         $salvaged = false;
         if ($decoded === null) {
             // Camada 4 (ordem do operador, 20/07): o modelo RESOLVEU mas respondeu
@@ -132,7 +159,20 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 'output_tail' => substr((string) ($raw['output'] ?? ''), -600),
             ]);
 
-            return ['status' => 'invalid_provider_contract', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+            return [
+                'status' => 'invalid_provider_contract',
+                'failure_reason' => 'provider_response_encoding',
+                'provider_invoked' => true,
+                'executes_provider' => true,
+                'exhausted' => true,
+            ];
+        }
+        if ($nativePackaged) {
+            Log::info('provider_contract_packaged_native_function_call', [
+                'provider' => $providerKey,
+                'model' => $model,
+                'target' => $decoded['patch_plan']['patches'][0]['path'] ?? null,
+            ]);
         }
         if ($salvaged) {
             // Nunca em silêncio: a fricção de formato EXISTIU e fica visível no
@@ -159,18 +199,36 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                     && ! str_starts_with($p, '/')
                     && ! str_contains($p, '..'));
             if (! $sane) {
-                return ['status' => 'invalid_provider_scope', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+                return [
+                    'status' => 'invalid_provider_scope',
+                    'failure_reason' => 'provider_response_scope',
+                    'provider_invoked' => true,
+                    'executes_provider' => true,
+                    'exhausted' => true,
+                ];
             }
             $claimAllowed = $patchAllowed;
         }
         if ($claimAllowed === [] || $patchAllowed !== $claimAllowed) {
-            return ['status' => 'invalid_provider_scope', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+            return [
+                'status' => 'invalid_provider_scope',
+                'failure_reason' => 'provider_response_scope',
+                'provider_invoked' => true,
+                'executes_provider' => true,
+                'exhausted' => true,
+            ];
         }
         foreach ((array) ($decoded['patch_plan']['patches'] ?? []) as $patch) {
             if (! is_array($patch) || ! in_array((string) ($patch['path'] ?? ''), $claimAllowed, true)
                 || ! in_array((string) ($patch['mode'] ?? ''), ['create', 'modify'], true)
                 || ! array_key_exists('next', $patch)) {
-                return ['status' => 'invalid_provider_patch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+                return [
+                    'status' => 'invalid_provider_patch',
+                    'failure_reason' => 'provider_response_patch',
+                    'provider_invoked' => true,
+                    'executes_provider' => true,
+                    'exhausted' => true,
+                ];
             }
         }
 
@@ -198,12 +256,131 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             'provider' => $providerKey,
             'patch_plan' => (array) ($decoded['patch_plan'] ?? []),
             'model' => $model,
-            'output_hash' => hash('sha256', (string) ($raw['output'] ?? '')),
+            'output_hash' => $nativePackaged
+                ? hash('sha256', serialize($decoded['patch_plan'] ?? []))
+                : hash('sha256', (string) ($raw['output'] ?? '')),
+            'response_channel' => $nativePackaged
+                ? 'native_function_call'
+                : ($salvaged ? 'free_form' : 'patch_plan_json'),
+            'failure_reason' => null,
             // Fricção de formato existiu e fica visível — salvage tira a perda,
             // não o sinal (relatórios podem contar quantas respostas precisaram
             // de resgate por modelo).
             'contract_salvaged' => $salvaged,
         ];
+    }
+
+    /**
+     * Empacota argumentos de function-call nativo no contrato canônico que o
+     * KernelRunExecutor e o sandbox já consomem. O modelo fornece somente o
+     * argumento estruturado de uma alteração; `patch_plan` é lei do servidor.
+     *
+     * @param  array<string,mixed>  $raw
+     * @param  array<string,mixed>  $request
+     * @return array{status:string,contract?:array<string,mixed>}
+     */
+    private function packageNativeFunctionCall(array $raw, array $request): array
+    {
+        $responseContract = is_array($request['response_contract'] ?? null) ? $request['response_contract'] : [];
+        if (($responseContract['channel'] ?? null) !== 'native_function_call') {
+            return ['status' => 'not_applicable'];
+        }
+
+        $calls = $this->nativeFunctionCalls($raw);
+        if ($calls === []) {
+            return ['status' => 'not_applicable'];
+        }
+        if (count($calls) !== 1) {
+            return ['status' => 'invalid_provider_patch'];
+        }
+        $call = $calls[0];
+        $expectedName = trim((string) ($responseContract['name'] ?? ''));
+        if ($expectedName !== '' && ! hash_equals($expectedName, $call['name'])) {
+            return ['status' => 'invalid_provider_patch'];
+        }
+
+        $arguments = $call['arguments'];
+        $path = $arguments['path'] ?? $arguments['file'] ?? $arguments['target'] ?? null;
+        $next = $arguments['next'] ?? $arguments['content'] ?? $arguments['contents'] ?? $arguments['code'] ?? null;
+        $mode = $arguments['mode'] ?? 'modify';
+        $claimAllowed = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
+
+        if (! is_string($path) || trim($path) === '' || str_starts_with($path, '/') || str_contains($path, '..')
+            || $claimAllowed === [] || ! in_array($path, $claimAllowed, true)) {
+            return ['status' => 'invalid_provider_scope'];
+        }
+        if (! is_string($next) || ! in_array($mode, ['create', 'modify'], true)) {
+            return ['status' => 'invalid_provider_patch'];
+        }
+
+        return [
+            'status' => 'packaged',
+            'contract' => [
+                'patch_plan' => [
+                    'allowed_files' => $claimAllowed,
+                    'patches' => [[
+                        'path' => $path,
+                        'mode' => $mode,
+                        'next' => $next,
+                    ]],
+                ],
+                'packaged_native_function_call' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $raw
+     * @return list<array{name:string,arguments:array<string,mixed>}>
+     */
+    private function nativeFunctionCalls(array $raw): array
+    {
+        $sources = [$raw];
+        if (is_array($raw['metadata'] ?? null)) {
+            $sources[] = $raw['metadata'];
+        }
+        $normalizedCalls = [];
+
+        foreach ($sources as $source) {
+            foreach (['tool_calls', 'function_calls'] as $key) {
+                $rawCalls = $source[$key] ?? null;
+                if (! is_array($rawCalls)) {
+                    continue;
+                }
+                foreach (array_is_list($rawCalls) ? $rawCalls : [$rawCalls] as $call) {
+                    if ($normalized = $this->normalizeNativeFunctionCall($call)) {
+                        $normalizedCalls[] = $normalized;
+                    }
+                }
+            }
+            foreach (['function_call', 'tool_call', 'native_function_call'] as $key) {
+                if ($normalized = $this->normalizeNativeFunctionCall($source[$key] ?? null)) {
+                    $normalizedCalls[] = $normalized;
+                }
+            }
+        }
+
+        return $normalizedCalls;
+    }
+
+    /**
+     * @return array{name:string,arguments:array<string,mixed>}|null
+     */
+    private function normalizeNativeFunctionCall(mixed $call): ?array
+    {
+        if (! is_array($call)) {
+            return null;
+        }
+        $function = is_array($call['function'] ?? null) ? $call['function'] : $call;
+        $name = trim((string) ($function['name'] ?? $call['name'] ?? ''));
+        $arguments = $function['arguments'] ?? $function['args'] ?? $call['arguments'] ?? $call['args'] ?? null;
+        if (is_string($arguments)) {
+            $arguments = json_decode($arguments, true);
+        }
+
+        return $name !== '' && is_array($arguments)
+            ? ['name' => $name, 'arguments' => $arguments]
+            : null;
     }
 
     /**

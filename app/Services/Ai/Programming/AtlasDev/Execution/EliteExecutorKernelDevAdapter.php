@@ -63,6 +63,10 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
             'provider_route' => [
                 'provider' => $plan->result->taskContract->providerLock->provider,
                 'model' => $plan->result->taskContract->providerLock->modelFamily,
+                'response_contract' => $plan->result->taskContract->providerLock->responseContractFor(
+                    $plan->result->compactSdd->taskKind,
+                    $intent->rawGoal,
+                ),
             ],
             'mutate' => $intent->mutate,
             'experiment_ref' => 'atlas-dev/'.$run->runHash,
