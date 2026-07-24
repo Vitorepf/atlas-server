@@ -73,6 +73,10 @@ class HarnessProviderSection
             AtlasPhpBinary::path(),
             base_path('artisan'),
             'atlas:cli:dev',
+            // The nested CLI still validates that an efficient run has a
+            // positional task description. Keep the durable task id for
+            // receipt correlation, but also pass the frozen goal explicitly.
+            $task->goal,
             '--task-id='.$task->id,
             '--workspace='.$workspace,
             '--json',
