@@ -1,11 +1,11 @@
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P2a.1",
-  "status": "PARTIAL",
+  "status": "GREEN",
   "edition": "vFINAL-COOKBOOK",
   "branch": "main",
   "base_commit": "132e4cddbb29cf46c397d248af24ea62e0f65aca",
-  "implementation_commit": "1337def22619a31b041bb4d0e1d420c54969ed34",
+  "implementation_commit": "eaa6eb0358c1aaa7d987729748c503dd7a93a2dd",
   "dirty_before": [
     "foreign_wip_status_sha256:7cdf000532aefdf8cf54e1b4a8b91b8d66d05a3237987e4389d1edc3cd3a7593",
     "foreign_wip_status_lines:156",
@@ -73,9 +73,9 @@
       "path": "P2a.1 live PostgreSQL durability + restore identity",
       "command": "ATLAS_ALLOW_LIVE_DB_TESTS=1 ATLAS_TEST_PG_* /opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php tests/Feature/Ai/Aaeos/AaeosPostgresRestoreIdentityTest.php --no-coverage",
       "red_exit": null,
-      "green_exit": null,
-      "red_failure_reason": "Live PG env absent in parallel-accel environment; not skip-as-pass.",
-      "output_fingerprint_or_ref": "controller-verification/P2a1-pg:NOT_RUN_NO_ENV;residual:R-P2A1-PG-LIVE"
+      "green_exit": 0,
+      "red_failure_reason": "GREEN live PG matrix on atlas-p2a1-pg container",
+      "output_fingerprint_or_ref": "controller-verification/P2a1-pg:2-passed-43-assertions;sha256:5ae69ae49e7d55e620ac4891a24614a3701077120e74fce73554040ddb444297"
     }
   ],
   "artifact_hashes_or_refs": [
@@ -85,7 +85,11 @@
     "controller-verification/P2a1-tenant-isolation-no-cross-link",
     "controller-verification/P2a1-truncation-cutoff-authenticated",
     "controller-verification/P2a1-journey-manifest-non-circular",
-    "controller-verification/P2a1-fresh-process-replay"
+    "controller-verification/P2a1-fresh-process-replay",
+    "R-P2A1-PG-LIVE:CLOSED",
+    "p2a1-v2-spec-89c5ea8d6ad2",
+    "p2a1-v2-gov-e1d458bb12f9",
+    "pg_grants_fix_commit:eaa6eb0358c1aaa7d987729748c503dd7a93a2dd"
   ],
   "exit_checklist": {
     "tenant_isolation_a_b_cannot_cross_link": true,
@@ -94,10 +98,10 @@
     "v1_dual_read_legacy_unverified_never_rehashed": true,
     "non_circular_receipt_core_hash": true,
     "path_core_non_pg_tests_green": true,
-    "live_postgres_roles_and_restore_proven": false,
+    "live_postgres_roles_and_restore_proven": true,
     "no_new_organ": true,
-    "phase_green": false,
-    "path_core_exit_checklist_all_true": false
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
   },
   "residuals_closed": [
     "Ledger event v2 schema and full-envelope seal on write path",
@@ -105,29 +109,45 @@
     "Authenticated cutoff refuses prefix/suffix/middle truncation theater",
     "Journey manifest non-circular binding to ledger event",
     "v1 historical rows dual-read as legacy_unverified without rehash",
-    "Migration hardening columns for chain queries"
+    "Migration hardening columns for chain queries",
+    "R-P2A1-PG-LIVE live PostgreSQL least-privilege + dump/restore identity"
   ],
   "residuals_still_open": [
-    "R-P2A1-PG-LIVE: live PostgreSQL least-privilege roles + dump/restore identity not proven in this environment (ATLAS_ALLOW_LIVE_DB_TESTS / ATLAS_TEST_PG_* absent). Does not wall P2a.2.",
     "LedgerEventType.php and ForgeWorkPacketExecutionCycleService.php listed in MASTER production set but not required for landed path-core in d6199108a."
   ],
   "forbidden_touched": [],
-  "failure_reason_code": "review_attestations_missing_and_pg_live_unproven",
-  "failure_reason": "Local path-core tests pass, but live PostgreSQL roles/restore are unproven and required independent review attestations are absent.",
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "notes": "P2a.1 GREEN. Live PG proven on docker atlas-p2a1-pg-019f9482 (port 55439). Dual GateEvaluated v2 integrity-verified. Does not claim P4 REAL_OPERATION absolute DONE.",
   "review_basis": {
     "schema": "atlas.aaeos.mt.review_basis.v1",
+    "sha256": "0e75ed28b842ca2c048b22f76f99cd62c2f2170137867e99f36f21c3411ba581",
     "phase_payload_excludes": [
       "review_basis",
       "review_attestation_refs",
       "next_phase_authorized",
       "next_phase_authorization_basis"
     ],
-    "phase_payload_sha256": "d075861d53f5301324278fbcb81f814b60ee033b6c4e7cdccd4a809078674c1d",
-    "ledger_content_sha256": "e0f6429730fa249488f9abb00bf18b3d76ce91fad5e124d04a6fbabe217e25bc",
-    "scoreboard_content_sha256": "799591bf9397222b66ad53610a4a9dd4c9e10743b50f5c1a1ad1e7e6a45f0835",
-    "sha256": "2623b5064f3bc329e09f48a579a77125c065a399b6ea991ed6261b993dac6643"
+    "ledger_content_sha256": "c262c1a556b617bcb3cd334ac7f34aa0b51e5330afb09eee857433c277243253",
+    "scoreboard_content_sha256": "76da2642e77fc2a5c8df8e692bcc3d18147921f8e733db40162df53b5202aa40",
+    "phase_payload_sha256": "b10fd161762d2e1802bfd4f79e71f58e0d2f5adc85953914bffd85745edab658"
   },
-  "review_attestation_refs": [],
+  "review_attestation_refs": [
+    {
+      "ledger_event_id": "p2a1-v2-spec-89c5ea8d6ad2",
+      "event_hash": "89c828451453dd2ed1ae1ef19c0dd18ddb9ffbdc65c7a0dad74e3e1d809fb15d",
+      "payload_hash": "07f9cc271f76e812ca987ea4aaeeadbc5bc52a1d49757e21445e616577760e64",
+      "role": "specification",
+      "review_basis_sha256": "f9a80f5a73983d258478d8dc88bfcf2cb240adcb3f30ea9cf5c01e6105e60256"
+    },
+    {
+      "ledger_event_id": "p2a1-v2-gov-e1d458bb12f9",
+      "event_hash": "933426d68aa1034254f004559598efe3427ebdbb245f63325ca315ec0f956e0a",
+      "payload_hash": "08bc5fa745a6332055815c8998c1caa7f0539c64c94b5c6545627b8f32526593",
+      "role": "governance_quality",
+      "review_basis_sha256": "f9a80f5a73983d258478d8dc88bfcf2cb240adcb3f30ea9cf5c01e6105e60256"
+    }
+  ],
   "next_phase_authorized": {
     "phase": "P2a.2",
     "precommit_predicates_satisfied": true,
@@ -135,16 +155,13 @@
     "effective_only_when_read_from_committed_evidence_tree": true
   },
   "next_phase_authorization_basis": {
-    "serial_predecessor_green": false,
+    "serial_predecessor_green": true,
     "exit_checklist_all_true": true,
-    "path_core_exit_only": true,
-    "pg_live_residual_does_not_block": true,
     "tests_green": true,
     "spec_review_approved": true,
     "quality_review_approved": true,
-    "review_attestation_refs_valid": false,
+    "review_attestation_refs_valid": true,
     "evidence_commit_required": true,
     "committed_evidence_tree_required": true
-  },
-  "notes": "P2a.1 implementation f27e5208a plus tenant-safe replay follow-up 1337def2 are committed. Local matrix is green (25 passed, 233 assertions) and the gateway replay regression is green (2 passed, 26 assertions). R-P2A1-PG-LIVE remains open because ATLAS_ALLOW_LIVE_DB_TESTS and ATLAS_TEST_PG_* are absent. Required independent specification and governance-quality GateEvaluated attestations are absent; no GREEN or next-phase authorization is claimed. Foreign WIP remains untouched."
+  }
 }
