@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
-**Current plan:** v12 — executable public surfaces, authority-cutover ordering and consumer-complete retirement parity (R101–R103)
+**Current plan:** v13 — formal/enterprise/buildability convergence with zero new residual IDs
 **State:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Code authorization:** absent; requires literal EXECUTE P0
@@ -21,7 +21,7 @@ v6 correctly separated engineering from sovereignty and rejected Mission Runtime
 - allowed critical authority residuals to become debt while still claiming DONE;
 - used one-shot language as if it could describe one technical attempt.
 
-v7–v12 replace those points with:
+v7–v13 replace those points with:
 
 - native owner chain and existing dispatcher interface;
 - PRE-AUTHORIZE → ACT → POST-ATTEST → SETTLE at concrete effect owners;
@@ -44,6 +44,9 @@ v7–v12 replace those points with:
 - fresh-process proof of the real `atlas dev`, `atlas forge`, direct Autônomos and routed daily entries, not internal producer commands alone;
 - Forge forward progress through the existing supervisor/runtime and Autônomos cold-start from durable server facts; no new scheduler;
 - PostgreSQL append-only Ledger v2 envelope and consumer-complete retirement rather than unsafe bulk deletion.
+- immutable EngineeringOutcome v3 rollout for adverse causes, tenant-safe Ledger reads/chains and exact producer/read-only-verifier PostgreSQL roles;
+- caller-narrow-only CodeGraph sovereignty and artifact redaction bound to transformed persisted bytes;
+- proof facets as conjunctive claim sets, plus explicit nonterminal uncertainty and canonical concurrent-event permutation semantics.
 
 ## OneShot invariant
 
@@ -120,7 +123,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | 3 | v8 | 13 total lens-distinct passes: original 9 plus disclosed supplements for proof/testing, owner-minimalism/human-loop abuse, direct-path deletion census and causal Autônomos progress | original judgment produced R75–R82/v9; supplement judged duplicates against current and accepted only R98–R100 | v9; correction integrated v11 |
 | 4 | v9 | two independent panels: 13 executable/UX/recovery/security/DB/proof/efficiency/formal/terminal/schema/minimalism/governance lenses + judge, and 14 anti-accretion/strategic lenses + adversary | accepted R83–R97; merged operator/state/authority into R75–R82; corrected direct Dev/review so neither asks a technical operator verdict; rejected new stores/outbox/queues/retry owners/compliance organs | v10 |
 | 5 | v11 | 13 lens-distinct passes across phase executability, OneShot UX, native modes, Ledger/PostgreSQL, security, rollout, real proof, routing, deletion, efficiency and terminal/review; final anti-dup judge | accepted only R101–R103; merged all other findings into existing residuals and rejected new scheduler/store/outbox/router/executor/metrics owners | v12 |
-| 6 | current | pending | pending | pending |
+| 6 | v12 | 13 formal/enterprise/buildability lenses plus anti-dup judge | accepted five hard strengthenings into existing R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected every R104+ and any new privacy/identity/credential/incident/proof store | v13 |
 | 7 | current | pending | pending | pending |
 | 8 | current | pending | pending | pending |
 | 9 | current | pending | pending | pending |
@@ -139,6 +142,7 @@ None of the rows above can be debt-laundered into MT DONE.
 | 2026-07-23 | v10 adds R83–R97: crash/restart and Postgres truth, real producer vs verifier, version rollout, ITT/no-amplification, governed provider M, learning/compensation, direct Dev OneShot, ordered P2 and optional unified verification; zero new runtime organs |
 | 2026-07-23 | v11 discloses and closes the cycle-3 lens-count deficit in the plan: exact Autônomos seam, intent-only productive daily CLI and observed unrelated progress under sovereign reservation become R98–R100; no code executed |
 | 2026-07-23 | v12 cycle-5 accepts R101–R103 only: no ACT before Decision v3/keyring/revocation, AWIS mode parity, and public-entry/consumer-complete retirement parity; Ledger/Forge/Autônomos/terminal/provider/budget findings deepen existing owners; no code executed |
+| 2026-07-23 | v13 cycle-6 adds no residual IDs: EngineeringOutcome v3, tenant-safe Ledger, CodeGraph authority narrowing, truthful artifact redaction, exact PostgreSQL roles and serial rollout checkpoints deepen existing residuals; no code executed |
 
 ## Honest next state
 

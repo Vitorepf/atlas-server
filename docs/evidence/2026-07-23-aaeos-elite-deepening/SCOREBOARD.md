@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Plan:** v12
+**Plan:** v13
 **Program:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Measured composite:** null
@@ -50,6 +50,11 @@ No average, 9.x value or checkbox certifies this program.
 | authority cutover ordering | FAIL | P1b ACT currently precedes Decision v3/keyring/revocation; R101 |
 | AWIS native-mode identity parity | FAIL | Autônomos is presented as Dev and unknown can downgrade; R102 |
 | public-entry and consumer-complete retirement parity | FAIL | direct public entries can misroute/require technical action; deletions have live consumers; R103 |
+| EngineeringOutcome v3 adverse-cause rollout | MISSING | exact v2 has no stable failure reason; R55/R85 |
+| tenant-safe Ledger reads/chain/replay | FAIL | predecessor/read queries can omit tenant; R54/R80/R83/R85 |
+| CodeGraph caller-narrow-only sovereignty | FAIL | caller options can widen sovereign actors; R53/R78/R101 |
+| tool artifact redaction bound to persisted bytes | FAIL | attachPath can mark raw referenced bytes redacted; R78/R84/R101 |
+| exact producer/read-only-verifier PostgreSQL profile | MISSING | roles/env/negative privilege contract unproved; R62/R84/R85/R103 |
 
 ## Cycle-2 (v8) added hard sub-gates R64–R74
 
@@ -115,6 +120,18 @@ No average, 9.x value or checkbox certifies this program.
 | Autônomos scheduler cold-starts from durable facts without harness input | MISSING | existing scheduler manifest/R98/TaskServing; merged R56/R78/R98 |
 | Ledger v2 is first-head safe and PostgreSQL append-only | FAIL | AtlasEvidenceLedger + migration; merged R54/R80/R83/R85 |
 | provider coverage uses actual-spawn grain and independent reconciliation | NOT_MEASURED | CoverageLedger + provider-result/EngineeringOutcome; merged R87/R88 |
+
+## Cycle-6 (v13) convergence sub-gates — zero new residual IDs
+
+| Gate | State | Existing owner reused |
+|---|---|---|
+| Outcome v3 dual-read/shadow/canary with v2 bytes unchanged | MISSING | EngineeringOutcome + R55/R85 owners |
+| identical ids in tenant A/B cannot cross-link/read/dedupe/qualify | FAIL | AtlasEvidenceLedger/replay/model + P2a migration |
+| caller cannot add sovereign CodeGraph actor/workspace class | FAIL | CodeGraphWorkspaceAccessPolicy/Privacy + Decision guard |
+| `is_redacted=true` implies transformed stored bytes/hash/preview | FAIL | AtlasToolEvidenceStore + AtlasSecurity + AtlasToolArtifact |
+| verifier DB role rejects DML/DDL/Ledger append and has no provider/tool/write capability | MISSING | config/database + certifier + PostgreSQL roles |
+| valid incomparable-event permutations canonicalize identically; causal violation fails | NOT_PROVEN | Ledger journey model/property tests |
+| proof presentation derives an allowed-claim set, not a total-order scalar | NOT_PROVEN | runtime assembler/certifier; R23/R65/R84 |
 
 ## OneShot operator experience
 

@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v12 — cycle-5 executable-surface, authority-cutover and retirement parity (R101–R103); all other findings merged into existing owners/residuals
+> Version: v13 — cycle-6 formal/enterprise/buildability convergence; five hard gaps merged into existing residuals, zero new IDs or organs
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -123,6 +123,10 @@ Revalidate before every execution slice. The current plan was grounded on these 
 | Autônomos liveness | RuntimeSchedulerManifest is disabled/self-install=false and has no proven productive scheduler consumer; default daemon tick without durable facts stops; TaskServing is fail-closed/default-off | R98 must consume server-observed durable facts and existing scheduling/TaskServing owners; no harness `--facts` may qualify |
 | AWIS identity | mutative classification omits `autonomos`/unknown while TaskServing currently presents Autônomos as `dev` | signed native mode must reach AWIS unchanged; unknown fails closed |
 | Ledger current integrity | first-writer lock can lock no row; event integrity does not recompute the full event hash; runtime DB role can update/delete rows | R54/R80/R83/R85 must prove PostgreSQL append-only and a versioned full-envelope chain |
+| Ledger tenant isolation | predecessor and public read queries are not consistently constrained by authenticated tenant | P2a binds tenant into chain/read/replay/dedupe and proves A/B isolation |
+| EngineeringOutcome schema | exact v2 rejects unknown fields and has no stable `failure_reason`; many readers consume v2 | R55/R85 require immutable v3 expand/dual-read/shadow/canary, never in-place mutation |
+| CodeGraph sovereignty | workspace access policy can merge caller-supplied sovereign actors into the trusted set | caller can only narrow server-issued authority; provider self-add yields zero bytes/calls |
+| Tool artifact redaction | `attachPath` can hash/reference original bytes while hardcoding `is_redacted=true` | only transformed persisted bytes may be labeled redacted/provider-bound |
 | canonical land | Governor/ledger/nonce/lease/fencing/write-set bindings already exist | deepen these owners; do not create CRES owner |
 | Evidence Ledger | canonical owner exists; bounded event-type/window query and full chain verification are incomplete | harden owner, never add a counter store |
 | EngineeringOutcome | already owns cost, tokens, elapsed and operator_effort; adverse cause coverage is incomplete | no AAEOS economy receipt |
@@ -264,12 +268,12 @@ P1b proves workspace mutation and canonical release. It does not claim a univers
 The protocol is a recoverable state relation, not five best-effort calls:
 
 - per effect key, ACT is at-most-once;
-- `ACTED` must eventually become `SETTLED`, `COMPENSATED` or the precise terminal `release_uncertain`; while uncertain, another ACT is forbidden;
+- `ACTED` enters non-qualifying recovery state `effect_uncertain` until it becomes `SETTLED`, `COMPENSATED` or the absorbing adverse terminal `release_uncertain`; while uncertain, another ACT is forbidden. Evidence discovered after an absorbing terminal opens a separate incident/compensation edge and current-claim invalidation; it never rewrites terminal history;
 - authorization consume and revoke/expire serialize on authority revision + effect nonce: revoke wins means zero effect; consume wins means one effect whose settlement remains mandatory;
 - authorization receipt/event plus Git trailer/native durable artifact are the recovery journal; no second outbox or recovery store is created;
 - fresh-process reconciliation may append one missing idempotent settlement for the observed SHA/write-set, but may not create a second commit/effect;
 - journey and repair terminals are single-winner and absorbing; late siblings become evidence only;
-- concurrent events form one acyclic causation DAG and a deterministic topological manifest independent of caller clock or arrival permutation.
+- concurrent events form one acyclic causation DAG: every valid arrival permutation of causally incomparable events yields the identical canonical fold, while any reorder that violates a causality edge fails.
 
 The crash matrix covers every boundary from authorization through provider/tool, sandbox, commit, observation, settlement, queue/lease/report and Forge cycle transition on the real durable backend.
 
@@ -349,15 +353,15 @@ Removed from the target contract:
 
 EngineeringOutcome remains the owner for cost, tokens, elapsed_ms and operator_effort. Unknown capture is unknown, never zero. AAEOS correlates and projects it.
 
-Economy is a vector over the intent-to-treat cohort of all commissioned journeys, not a completion score and not an accepted-only sample:
+Economy is a vector over the intent-to-treat cohort rooted at every authenticated/native origination episode before admission or commissioning (Dev intent, Forge commissioning attempt, Autônomos task origination), not a completion score and not an accepted-only sample:
 
-- accepted_outcomes / commissioned_outcomes, including blocked, timeout, cancelled, failed, rollback, recovery and retry burn;
+- accepted_outcomes / originated_episodes, including pre-commission refusal/abandonment plus blocked, timeout, cancelled, failed, rollback, recovery and retry burn;
 - total operator_active_seconds, tokens, cost and elapsed p50/p95 per commissioned journey, with per-accepted-outcome values only as a secondary view;
 - revert, rework and late-failure rates;
 - sovereign interventions by H-class;
 - capture coverage and unknown/unattributed resource burn.
 
-The cohort is a canonical left join from every commissioning root in the window to outcomes/costs; a root with no EngineeringOutcome remains in the denominator. AAEOS must add zero provider calls, context builds, retries, workers or mutations versus the paired direct native journey. Fan-out consumes the signed root budget, deduplicates identical candidate hashes before provider use and is never rewarded by agent count. Context accounting separates unique base, useful delta, required protocol retransmission, avoidable identical retransmission and unknown capture. Known deterministic blockers must yield zero subsequent provider calls.
+The cohort is a canonical left join from every native origination root in the window through optional commissioning to outcomes/costs; a root with no commission or EngineeringOutcome remains in the denominator. AAEOS must add zero provider calls, context builds, retries, workers or mutations versus a pair bound by intent/spec hash, mode, authority ceiling, provider/model, base SHA, risk/complexity, signed budget and bounded window. Fan-out consumes the signed root budget, deduplicates identical candidate hashes before provider use and is never rewarded by agent count. Context accounting separates unique base, useful causal delta tied to the prior failure/finding, required protocol retransmission, avoidable equivalent retransmission and unknown capture; metadata churn/reordering is no delta. Successor episodes inherit parent lineage and consumed burn; only authenticated sovereign authority may add budget and never erase consumption. Known deterministic blockers yield zero subsequent provider calls.
 
 Segment by mode, risk, complexity and canonical duration regime. Quality and safety gates remain primary. Operator touches are not a quality or autonomy KPI.
 
@@ -391,6 +395,8 @@ The current AtlasAaeosCertify presenter must not print GOD_SOTA from internal nu
 
 P4 requires REAL_OPERATION for a completed journey. It does not constrain internal attempt count or elapsed time. It does not require SUSTAINED or COMPARATIVE and may not claim either.
 
+The rows above are evidence facets, not a total order: DRY_RECEIPT does not imply AUTOMATED_CHARACTERIZED, and SOURCE_WIRED does not imply PLANNED completeness. Runtime owners derive an allowed-claim set from the conjunction of the exact predicates for each facet. Removing a required fact strictly weakens/refuses a claim; duplicating or adding unrelated facts never upgrades it; contradictions veto the presentation label.
+
 Every measured dimension carries:
 
 - status: measured, unknown, not_applicable or blocked;
@@ -403,7 +409,7 @@ Every measured dimension carries:
 
 No default numeric value substitutes for unknown. No composite certifies DONE.
 
-The multiplier M is falsifiable only as a provenance-bearing vector, never a score: `governed_spawn_coverage = governed_provider_spawns / total_provider_spawns` from the existing governance coverage ledger, plus provider-proposal refuse-or-repair counts from canonical outcomes. Empty or incomplete capture is unknown/0 coverage, never 100%. These diagnostics reveal bypass and governance leverage; they cannot compensate for a failed hard gate or reward more provider calls.
+The multiplier M is falsifiable only as a provenance-bearing vector, never a score: `governed_spawn_coverage = governed_provider_spawns / total_provider_spawns` at actual spawn grain, deduped by provider-execution ref, plus provider-proposal refuse-or-repair counts from canonical outcomes. The existing coverage ledger is reconciled against independently emitted provider-result/EngineeringOutcome egress; manager resolution is diagnostic, not the denominator. Empty/incomplete capture, swallowed writes or divergent counts are unknown/0, never 100%. These diagnostics reveal bypass and governance leverage; they cannot compensate for a failed hard gate or reward more provider calls.
 
 ## 7. Residual ledger
 
@@ -591,11 +597,25 @@ Cycle-5 merge requirements are binding even without new IDs:
 
 No cycle-5 survivor creates a fourth executor, new scheduler, new Ledger, outbox, authority store, metrics store or terminal surface.
 
+### 7.10 v13 cycle-6 convergence — zero new residual IDs
+
+Cycle 6 applied thirteen separately labeled lenses: formal state machines, property/model checking, Byzantine independence, failure taxonomy, proof lattice, tenant/workspace isolation, secrets/privacy, supply-chain/sandbox, incident recovery, phase DAG, exact execution profiles, compatibility/deletion and OneShot/public acceptance. The anti-duplication judge found five real blockers but rejected R104+: each has the same owner, phase and done condition as an existing residual.
+
+- R55+R85: `EngineeringOutcome` becomes immutable v3 with stable `failure_reason_code` plus precise detail for every adverse status; v2 remains historical/read-only; producer/consumer census and expand→dual-read/shadow→canary→contract are mandatory.
+- R54+R80+R83+R85: authenticated tenant constrains chain key, predecessor, event-id/scope/correlation/latest/outcome queries and replay; same identifiers across tenants never link, read, dedupe or qualify.
+- R53+R78+R101: CodeGraph actor/workspace privacy comes from signed server authority/config; caller options can only intersect/narrow, never append sovereign actors.
+- R78+R84+R101: tool `attachPath` labels redacted only when the persisted referenced bytes were actually transformed by AtlasSecurity; raw/untransformable artifacts are refused or explicitly non-provider-bound/non-qualifying.
+- R62+R84+R85+R103: exact non-test PostgreSQL producer and independently authenticated read-only verifier roles, commands, environment variables and negative privilege tests are phase gates; missing profile fails rather than skips.
+- R75/R80/R83/R96: `effect_uncertain` is a non-qualifying recovery state, or `release_uncertain` is an absorbing adverse terminal whose later discovery opens a new incident/compensation edge; terminal history is never rewritten. Valid permutations of causally incomparable events canonicalize identically; causality-violating reorder fails.
+- R23/R65/R84: proof is an allowed-claim set derived from conjunctive predicates, not a misleading total-order scalar; removing any required fact weakens/refuses and unrelated duplication never upgrades.
+
+The cycle also requires Decision rollout checkpoints and moves no authority/effect boundary earlier. Zero new Ledger, privacy service, identity store, credential store, incident module or proof metric is authorized.
+
 ## 8. Single implementation plan
 
 Every phase begins with branch/status, current hash, dirty ownership, residual revalidation and RED characterization. Every commit is scoped. No phase may absorb the next phase. The production and test path lists below are authorization manifests, not examples: `*`, “if needed” and unnamed native owners are forbidden. If a RED proves that an unlisted path must change, execution stops and this MASTER is amended before that path is edited.
 
-Evidence writes are also closed-manifest: every slice may update only this MASTER, LEDGER, SCOREBOARD and its exact generated receipt under `docs/evidence/2026-07-23-aaeos-elite-deepening/`: `PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A.json`, `PHASE-P2B.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json` and the four P4 receipts already listed. Creating any other evidence artifact requires a MASTER amendment. These generated receipts are evidence, never normative satellites.
+Evidence writes are also closed-manifest: every slice may update only this MASTER, LEDGER, SCOREBOARD and its exact generated receipt under `docs/evidence/2026-07-23-aaeos-elite-deepening/`: `PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json` and the four P4 receipts already listed. Creating any other evidence artifact requires a MASTER amendment. These generated receipts are evidence, never normative satellites.
 
 ### P0 — truth before capability
 
@@ -748,8 +768,10 @@ Slice P1b.1 — authoritative pre-effect replay:
 - app/Services/Ai/Kernel/Decision/DecisionReceiptHash.php
 - app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php
 - app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php
+- app/Services/Engineering/CodeGraph/CodeGraphWorkspaceAccessPolicy.php
+- app/Services/Engineering/CodeGraph/CodeGraphWorkspacePrivacy.php
 
-Exit: a caller-authored order cannot cause provider, sandbox, tool or mutation until the referenced authoritative decision is reloaded and bound. Dev and Forge must supply the real decision event/ref from their typed commissioning lineage; `EngineeringModeExecutionOrderFactory` may not synthesize `*-decision-*` fallbacks.
+Exit: a caller-authored order cannot cause context, provider, sandbox, tool or mutation until the referenced authoritative decision is reloaded and bound. Dev, Forge and Autônomos supply the real decision event/ref from typed native lineage; `EngineeringModeExecutionOrderFactory` may not synthesize `*-decision-*` fallbacks. CodeGraph principal/workspace/privacy comes only from signed server authority and configured policy; caller `trusted/sovereign` options may intersect/narrow but never append, and foreign/unknown identity yields zero sensitive bytes and zero downstream provider call.
 
 Slice P1b.2 — native code actuator:
 
@@ -767,6 +789,9 @@ Slice P1b.2 — native code actuator:
 - app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunner.php
 - app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycle.php
 - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyService.php
+- app/Services/Ai/Runtime/AiToolProcessRunner.php
+- app/Services/Tools/AtlasToolEvidenceStore.php
+- app/Models/AtlasToolArtifact.php
 - app/Support/AtlasSecurity.php
 
 Exit:
@@ -780,6 +805,7 @@ Exit:
 - landed and settlement events bind order, decision, lease/fencing, candidate, write-set and outcome;
 - mismatch receives zero claim credit and triggers the existing rollback/settlement path;
 - external effects remain unsupported and blocked.
+- `attachPath` may set `is_redacted=true` only for a canonical in-root, symlink-safe redacted copy whose stored hash/size/preview bind the transformed bytes; raw or untransformable artifacts are refused or explicitly unredacted, non-provider-bound and non-qualifying.
 - provider coverage records actual spawn grain, is reconciled with independently emitted provider-result/EngineeringOutcome egress, and becomes `unknown` on write loss or mismatch; manager resolution is diagnostic, never a spawn denominator.
 
 Slice P1b.3 — AAEOS projection:
@@ -819,6 +845,9 @@ Test paths:
 - tests/Unit/Ai/Governance/ProviderGovernanceCoverageLedgerTest.php (existing; extend)
 - tests/Unit/Ai/Governance/ProviderGovernanceConsultTest.php (existing; extend)
 - tests/Unit/Ai/Cognition/AcosProgram/Multx05GovernanceConsultSkipCounterTest.php (existing; extend)
+- tests/Unit/CodeGraph/CodeGraphWorkspaceAccessPolicyTest.php (existing; extend caller-widening negatives)
+- tests/Feature/Tools/AtlasToolEvidenceStoreArtifactRedactionTest.php (NEW)
+- tests/Feature/Ai/Runtime/AiToolProcessRunnerAuthorityBoundaryTest.php (NEW)
 
 No AaeosActionEffectClassifier, SovereigntyPort, generic action registry or second ledger may be created.
 
@@ -832,6 +861,7 @@ P2a — evidence/outcome integrity:
   - app/Models/AtlasLedgerEvent.php
   - app/Services/Ai/Kernel/Evidence/LedgerEventType.php
   - app/Services/Ai/EngineeringKernel/EngineeringOutcome.php
+  - config/database.php (guarded P2/P4 producer and read-only verifier connections only)
   - app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
   - database/migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php (NEW; must run before every dependent P2 migration)
@@ -842,8 +872,10 @@ P2a — evidence/outcome integrity:
 - emit `atlas.ledger_event.v2` for new rows with a canonical full-envelope hash basis covering tenant/principal/receipt/trace/emitter/schema/time/position/predecessor/payload; v1 bytes remain dual-readable `legacy_unverified` and are never updated, rehashed or resigned;
 - serialize even the empty-chain first append with an existing PostgreSQL transaction/advisory lock and unique `(tenant_id, chain_key_hash, chain_position)`; install a PostgreSQL runtime-role guard that refuses `UPDATE`/`DELETE` after the migration/backfill window, without a head table or outbox;
 - bind every EngineeringOutcome status to authority;
-- require failure_reason for adverse terminal outcomes;
+- expand `atlas.engineering_outcome.v3` before any adverse writer cutover; require stable `failure_reason_code` plus precise `failure_reason` for adverse terminal outcomes; v2 bytes remain historical/read-only and are never inferred/backfilled;
+- complete the EngineeringOutcome producer/consumer census, dual-read/shadow/canary/rollback/contract rollout before contracting v2 writers;
 - preserve precise causes through Forge and AAEOS.
+- require authenticated tenant at every append and read; constrain predecessor, eventById, scope, correlation, latest, outcome lookup, replay and dedupe by tenant, and prove identical A/B identifiers cannot cross-link or satisfy proof;
 - Test paths:
   - tests/Unit/Ai/Kernel/EvidenceLedgerTest.php (existing; extend)
   - tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php (existing; extend)
@@ -851,9 +883,13 @@ P2a — evidence/outcome integrity:
   - tests/Feature/Ai/Aaeos/AaeosFreshProcessJourneyReplayTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php (NEW; guarded real PostgreSQL profile; missing required `ATLAS_TEST_PG_*` fails the phase instead of skipping)
   - tests/Feature/Ai/Aaeos/AaeosCanonicalP2SchemaUpgradeTest.php (NEW; fresh + pre-P2 snapshot + mixed-version + rollback matrix)
+  - tests/Feature/Ai/Aaeos/AaeosLedgerTenantIsolationTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosEngineeringOutcomeSchemaRolloutTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosJourneyStateMachinePropertyTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosJourneyManifestDagPropertyTest.php (NEW)
   - tests/Unit/Ai/EngineeringKernel/EngineeringOutcomeAdverseReasonTest.php (NEW)
+
+P2a.1 runs Ledger v2/tenant/role expansion and P2a.2 runs EngineeringOutcome v3 expand→dual-read→shadow before its canary writer. The required PostgreSQL contract command uses `ATLAS_ALLOW_LIVE_DB_TESTS=1` plus `ATLAS_TEST_PG_HOST`, `ATLAS_TEST_PG_PORT`, `ATLAS_TEST_PG_DATABASE`, `ATLAS_TEST_PG_USERNAME`, `ATLAS_TEST_PG_PASSWORD`; database must match the guarded `atlas_test_` prefix. Missing variables, SQLite, skipped tests, zero tests or a non-PostgreSQL backend fails the phase. Setup/migrate/test/teardown commands and queried backend/user/application identities are recorded in PHASE-P2A1; no secret value is recorded.
 
 P2b — independence and sovereignty receipts:
 
@@ -884,7 +920,6 @@ P2b — independence and sovereignty receipts:
   - app/Services/Ai/AiWorker.php
   - app/Http/Resources/AiDecisionResource.php
   - app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php
-  - app/Services/Tools/AtlasToolEvidenceStore.php
   - app/Services/Ai/ExecutionAuthority/AwisExecutionGatePort.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php
   - app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php
@@ -900,6 +935,8 @@ P2b — independence and sovereignty receipts:
 - AWIS receives the signed native mode unchanged; `dev|forge|autonomos` mutative surfaces are explicit, unknown is fail-closed, and TaskServing cannot present Autônomos as Dev or downgrade it to conversation;
 - wire the existing ReceiptReversibilityConsentGate only for true H3/unrecoverable effects;
 - derive scoped ephemeral capabilities mechanically inside an active authority ceiling.
+
+P2b is five serial checkpoints over the same owners: EXPAND, SHADOW, CANARY, CUTOVER and CONTRACT. Each has its exact receipt and scoped commit. P1b.1 may begin only after CUTOVER is green and all active mutative consumers understand/refuse v3 correctly; CONTRACT waits for measured old-worker drain and can occur later, but is mandatory before P4. Rollback changes only writer selection and never rewrites authority bytes.
 - Test paths:
   - tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php (existing; extend)
   - tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php (existing; extend)
@@ -1056,7 +1093,7 @@ P2f — operator-experience truth and removal of technical human loops:
   - tests/Feature/Engineering/EngineeringRunOperatorActionServiceTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosTechnicalOneShotReachabilityCensusTest.php (NEW; reports exact reachable rename/delete amendment; no bulk edit)
 
-Binding execution DAG: P0 → P1a structural parity/refusal-only → P2a Ledger expand → P2b Decision v3/keyring/revocation + R102 AWIS parity → P1b.1 authoritative replay → P2c native lineage/crash/forward-progress durability → P1b.2 native ACT/settlement → P1b.3 AAEOS projection → P2d Spine settlement refs → P2e async continuation (therefore after P2c, so B can actually settle) → P2f complete operator census/technical-loop removal → P3 consumer-proven deletion → P4. Slices sharing AtlasEvidenceLedger or another owner never run concurrently. Each sub-slice is a separate scoped commit and receipt; no mutative provider/tool/sandbox/effect path activates before R101 is closed.
+Binding execution DAG: P0 → P1a structural parity/refusal-only → P2a.1 Ledger v2 tenant-safe expand + PostgreSQL roles → P2a.2 EngineeringOutcome v3 expand/dual-read/shadow → P2b EXPAND→SHADOW→CANARY→CUTOVER for Decision v3/keyring/revocation + R102 AWIS parity → P1b.1 CodeGraph/pre-provider authoritative replay → P2c native lineage/crash/forward-progress durability → P1b.2 tool-artifact redaction + native ACT/settlement → P1b.3 AAEOS projection → P2d Spine settlement refs → P2e async continuation (after P2c, so B can actually settle) → P2f complete operator census/technical-loop removal → P2b CONTRACT after old-worker drain → P3 consumer-proven deletion → P4 exact producer-role journeys → separate verifier-role certification. Slices sharing AtlasEvidenceLedger or another owner never run concurrently. Each checkpoint is a separate scoped commit and receipt; no context/provider/tool/sandbox/effect path activates before its authority/schema/role gate is green.
 
 ### P3 — deletion and canonical alignment
 
@@ -1226,6 +1263,8 @@ The three producer journeys run with `APP_ENV` outside testing, a controlled dis
 
 PHPUnit, SQLite `:memory:`, fixtures, fake providers and simulate-only services may test readers/invalidators but may not create, copy or promote qualifying receipts. A second OS process with a new boot identity, code SHA and read-only PostgreSQL credential runs a strictly read-only certifier against a terminal cutoff/snapshot; it has no provider, tool, workspace-write or Ledger-append capability. Cockpit is optional fail-open presentation and never a verifier. The real command line, environment attestation, workspace base/result SHA, DB/backend/session identity hash, producer PID/boot ref, provider/tool receipt and exit code are recorded.
 
+The exact P4 DB profile is resolved through `ATLAS_P4_PG_PRODUCER_URL` and `ATLAS_P4_PG_VERIFIER_URL` in `config/database.php`; secrets are never copied into receipts. Setup refuses a database outside the `atlas_p4_` prefix, creates distinct PostgreSQL users/application names, migrates with the producer role, grants only required runtime rights, makes Ledger append-only for that role, and enforces `default_transaction_read_only=on` plus SELECT-only for the verifier. Before certification, negative assertions prove verifier DML/DDL/Ledger append fail and that the certifier has no provider/tool/workspace capability. Teardown revokes both ephemeral roles. Missing URLs, same user/session/application identity, excessive grants, skipped assertions or teardown failure keeps P4 incomplete.
+
 The invalidator matrix is not subtract-one only: it also replaces, splices, reorders and replays fixture labels, roots, modes, workspaces, attempt refs, provider/tool refs, environment attestations and stale/same-process receipts. Every mutant returns non-zero with a precise failure_reason and causes zero additional effect.
 
 P4 exit status is `aaeos_mt_real_journey_verified` only when all three mode journeys qualify. The separate derived UX label `operator_experience=oneshot` requires one commissioning episode, complete event capture and zero routine technical request/action; any allowed intent clarification is typed and enumerated, while Autônomos remains strict zero-touch. Sustained and comparative remain `not_claimed` unless their separate evidence actually exists.
@@ -1367,7 +1406,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | 3 | v8 reuse/delete survivors | 13 total lens-distinct passes: original 9 (native Dev, Forge, Autônomos, durability, security/authority, enterprise architecture, SOTA claims, plan logic, OneShot falsification) plus disclosed post-v10 supplements for proof/testing, owner-minimalism/human-loop abuse, direct-path deletion census and causal Autônomos progress | original judgment produced R75–R82/v9; supplement found five current candidates, judged two duplicates and accepted only exact native seam, intent-only daily CLI and observed sovereign continuation progress as R98–R100 | v9; completeness correction integrated in v11 |
 | 4 | v9 | two independent adversarial panels: 13 lens-distinct executable/UX/recovery/security/DB/proof/efficiency/formal/terminal/schema/minimalism/governance passes + anti-dup judge, and a 14-lens anti-accretion/strategic panel + adversary; all owners rechecked on disk | accepted R83–R97: crash/Postgres convergence, real producer vs verifier, versioned rollout, ITT/no-amplification, provider-governance M, memory seam, compensation, P2 DAG, lazy aliases and one optional verification read model; merged operator/state/authority findings into R75–R82; corrected R91/R94 so neither direct Dev nor review UX requires a technical operator verdict | v10 |
 | 5 | v11 | 13 lens-distinct passes: phase executability; OneShot/operator UX; Autônomos topology; Ledger/PostgreSQL; Forge; Dev; authority/security; schema rollout; REAL_OPERATION; routing/ablation; deletion census; efficiency/context anti-Goodhart; terminal/cockpit — plus final anti-dup judge | accepted only R101–R103; merged Ledger/Forge/Autônomos/OneShot/keyring/terminal/provider/budget findings into existing residuals; rejected new scheduler, store, outbox, router, executor, metrics owner and unsafe bulk deletions | v12 |
-| 6 | current | pending | pending | pending |
+| 6 | v12 | 13 lenses: formal state/terminal; property/model; Byzantine independence; failure taxonomy; proof lattice; tenant/workspace isolation; secrets/privacy; supply chain/sandbox; incident recovery; phase DAG; exact PG/live profiles; compatibility/deletion; OneShot/public acceptance — plus anti-dup judge | accepted five hard strengthenings into R53–R55/R62/R78/R80/R83–R85/R101–R103; rejected all proposed R104+ and all new privacy/identity/credential/incident/proof stores | v13 |
 | 7 | current | pending | pending | pending |
 | 8 | current | pending | pending | pending |
 | 9 | current | pending | pending | pending |
@@ -1386,6 +1425,7 @@ The goal requires ten adversarial cycles. A cycle counts only when the current M
 | v10 | cycle-4 R83–R97: crash/concurrency convergence on existing facts; REAL_OPERATION produced outside tests and independently verified; Decision/cycle/Ledger payload version rollout; ITT/no-amplification efficiency; governed provider reach M; fenced learning/compensation; direct Dev OneShot; ordered P2; lazy compatibility; optional unified verification projection; residual dedupe/no-fuse guard. Zero new runtime organs |
 | v11 | disclosed cycle-3 completeness correction to thirteen lenses; R98 names the exact shared native Autônomos seam, R99 removes operator-owned execution choreography from the daily CLI, and R100 proves real unrelated progress during H1–H7 reservation. OneShot remains operator experience only; no internal pass/time cap |
 | v12 | cycle-5 executable hardening: R101 forbids ACT before Decision v3/keyring/revocation; R102 closes AWIS mode-identity downgrade; R103 binds public-entry and consumer-complete retirement parity. Forge forward progress, live Autônomos scheduling, Ledger v2 append-only, provider coverage, budget carry-forward and terminal truth deepen existing owners. Zero new runtime organs |
+| v13 | cycle-6 convergence with zero new residual IDs: EngineeringOutcome v3 rollout, tenant-safe Ledger, caller-narrow-only CodeGraph sovereignty, truthful artifact redaction and exact PostgreSQL producer/verifier roles deepen existing owners; formal terminal/permutation/claim-set semantics and serial rollout receipts added |
 
 ## 14. Handoff
 
