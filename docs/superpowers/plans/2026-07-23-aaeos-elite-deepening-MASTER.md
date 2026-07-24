@@ -1,27 +1,28 @@
 # AAEOS — CANONICAL IMPLEMENTATION COOKBOOK (vFINAL-COOKBOOK)
 
-> **Status:** CANONICAL · PLAN_ONLY · **GO for `EXECUTE P0` after this GO-fix commit**  
-> **Edition:** **vFINAL-COOKBOOK** + **GO-fix** (Codex NO-GO blockers closed: receipt order, single-master, proof, scope halt)  
+> **Status:** CANONICAL · PLAN_ONLY · **P0 remains inactive until the committed document-preflight contract has two independently verifiable approvals and controller gate verification**
+> **Edition:** **vFINAL-COOKBOOK** · timeless document-preflight contract; no approval or implementation outcome is asserted here.
 > **Authority:** sole master. Satellites only: LEDGER.md + SCOREBOARD.md  
 > **Branch:** local `main` only · scoped `git add -- <paths>` · never `git add -A`  
 > **Evidence dir:** `docs/evidence/2026-07-23-aaeos-elite-deepening/`  
 > **Archive:** NON-NORMATIVE historical only (never law). All hard-done R64–R103 live **in this file §3.1**.  
-> **Planning cycles:** cycles 1–9 completed in plan history; **cycle-10 planning is EXPLICITLY WAIVED** unless a NEW residual is discovered on disk during implement (then stop and report — human amends MASTER).  
+> **Standing operator authorization:** this implementation handoff and the operator authorization recorded in `pasted-text-1.txt` pre-authorize every catalogued slice below, but each remains latent until its serial predecessor is GREEN. It waives another planning/cycle-10 round; it does **not** waive any gate, test, proof, or the governed new-path procedure in §0.0.
 
 ```text
 AI RULE #0 — DO NOT THINK, FOLLOW
-1. Read ONLY the slice named by the operator EXECUTE phrase.
+1. Read ONLY the one serial slice activated by the controller from the standing-authorized EXECUTE phrases.
 2. Edit ONLY the closed path list of that slice (authorization = list, not examples).
 3. Preflight WIP → RED → production fixes → GREEN → two-commit ritual (§0) → STOP.
-4. Unlisted path needed: STOP immediately. Report exact path + why. Do NOT edit it.
-   Do NOT amend this MASTER. Do NOT self-expand scope. Wait for operator re-authorization
-   after a human commits a MASTER amendment (new EXECUTE phrase).
+4. Unlisted path needed: STOP immediately. Do not edit it first. The controller must capture
+   mechanical evidence of necessity, make a scoped amendment to this sole MASTER, obtain two
+   independent agentic reviews, and confirm it only serves an existing requirement. Only then
+   may the path be edited; this never authorizes a new architecture, phase, organ, or residual.
 5. Never invent architecture, second ledger, AaeosRunApplication, Mission, WorkGraph,
    SovereigntyPort, ModeExecutor, or extra evidence files (no receipt.md).
 ```
 
 ```text
-OPERATOR GATES (literal strings)
+STANDING-AUTHORIZED SERIAL GATES (literal strings; activate exactly one when its predecessor is GREEN)
 EXECUTE P0
 EXECUTE P1a
 EXECUTE P1b.1 | EXECUTE P1b.2 | EXECUTE P1b.3
@@ -30,7 +31,7 @@ EXECUTE P2b-EXPAND | EXECUTE P2b-SHADOW | EXECUTE P2b-CANARY | EXECUTE P2b-CUTOV
 EXECUTE P2c | EXECUTE P2d | EXECUTE P2e | EXECUTE P2f
 EXECUTE P3a | EXECUTE P3b
 EXECUTE P4-DEV | EXECUTE P4-FORGE | EXECUTE P4-AUTONOMOS | EXECUTE P4-FREEZE
-Without an EXECUTE phrase → zero production PHP.
+Without a controller-activated, predecessor-GREEN phrase → zero production PHP.
 ```
 
 Conflict order: (1) live code + durable evidence (2) this phase's closed paths + exit checklist (3) DONE predicate (4) residual hard-done (5) NOT_PROVEN ≠ PASS.
@@ -54,7 +55,8 @@ echo "BASE=$BASE"
 #   - FOREIGN_WIP → leave untouched; never stash/reset/sweep
 #   - OUT_OF_SCOPE → do not edit
 # If FOREIGN_WIP overlaps a closed path you must change: STOP and report conflict.
-# Optional (when multi-engine): atlas blackboard claim for each path you will edit.
+# In multi-engine work, claim every path before edit. Exactly one active writer may hold a path;
+# a claim conflict HALTS the slice. Reviewers are read-only and never hold a writer claim.
 ```
 
 ### 0.1 Closed evidence artifacts (only these — no receipt.md)
@@ -80,8 +82,34 @@ C) COMMIT 1 — implementation only
 D) Write PHASE-*.json with:
      base_commit = BASE
      implementation_commit = IMPLEMENTATION_COMMIT   # commit of code/tests — NOT this evidence commit
-     evidence_commit = null                          # filled only in LEDGER line after COMMIT 2
    Update LEDGER.md + SCOREBOARD.md (cursor + gates)
+
+D.1) Create `review_basis` and obtain review events before COMMIT 2.
+   `review_basis.schema` is `atlas.aaeos.mt.review_basis.v1`. Its `sha256` is SHA-256 of UTF-8,
+   LF-normalized, recursively key-sorted JSON with no insignificant whitespace, over this ordered
+   object: `{schema, phase_payload, ledger_content_sha256, scoreboard_content_sha256}`. Arrays
+   retain their declared order. `phase_payload` is the canonical PHASE payload excluding exactly
+   `review_basis`, `review_attestation_refs`, `next_phase_authorized`, and
+   `next_phase_authorization_basis`. The two content hashes are SHA-256 of the exact draft
+   LEDGER and SCOREBOARD UTF-8, LF-normalized bytes, with **zero exclusions**. These PHASE
+   exclusions are exhaustive; no PHASE hash includes itself or later review references.
+
+   Each read-only review is an existing append-only `AtlasEvidenceLedger::record` event with
+   `LedgerEventType::GateEvaluated`, producing an `AtlasLedgerEvent` with `event_hash` and
+   `payload_hash`. Its schema/payload records: authenticated-review-runtime-derived reviewer
+   principal hash (never controller input), reviewer role (`specification` or
+   `governance_quality`), review-basis SHA-256, verdict, unresolved Critical/Important count,
+   observation timestamp, and remediation/re-review parent event ref when applicable. PHASE
+   stores only ref facts: `ledger_event_id`, `event_hash`, `payload_hash`, role, and
+   `review_basis_sha256`; it stores no self-hash and no free-form attestation.
+
+   Before COMMIT 2 and again from the committed evidence tree, the controller fresh-reads each
+   event with `eventById`, verifies `eventIntegrityValid`, event/payload hash equality, exact
+   review basis, distinct role/principal/SoD, APPROVED verdict, and zero unresolved
+   Critical/Important findings. A remediation changes the basis and requires a linked
+   re-review parent event for the new basis. Missing ledger/event/identity/verification is
+   `BLOCKED` or `PARTIAL`, never fabricated. Any finding returns to the active slice; no evidence
+   commit or next-slice activation occurs until it is resolved and re-reviewed.
 
 E) COMMIT 2 — evidence only
    git add -- docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-*.json \
@@ -89,12 +117,14 @@ E) COMMIT 2 — evidence only
               docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
    git commit -m "docs(evidence): AAEOS-MT <slice> phase receipt"
    EVIDENCE_COMMIT=$(git rev-parse HEAD)
-   # Optional one-line LEDGER append: evidence_commit=<EVIDENCE_COMMIT>
-   # Do NOT rewrite PHASE.implementation_commit. Do NOT require PHASE to contain EVIDENCE_COMMIT.
+   # Controller reports EVIDENCE_COMMIT after this commit. Do not write it into PHASE,
+   # LEDGER, or SCOREBOARD: none can contain the SHA of the commit that contains itself.
 
-F) STOP — next slice needs a new EXECUTE phrase.
-   Operator human review of diff is OPTIONAL AUDIT only — never a promotion gate.
-   Next slice is authorized when: PHASE status=GREEN + exit_checklist all true + GREEN tests recorded.
+F) STOP — close the slice, produce its receipt, review it, and return control to the Goal
+   controller. STOP never asks for a fresh human authorization for the next already
+   standing-authorized slice. The controller activates it only when the serial predecessor is
+   GREEN, all checklist/tests are green, and independent spec + quality reviews approve.
+   Operator human diff review is OPTIONAL AUDIT only — never a technical promotion gate.
 ```
 
 ### 0.3 Universal PHASE receipt schema (non-circular)
@@ -103,37 +133,85 @@ F) STOP — next slice needs a new EXECUTE phrase.
 {
   "schema": "atlas.aaeos.mt.phase_receipt.v1",
   "phase": "P0",
-  "status": "GREEN|RED|PARTIAL",
+  "status": "GREEN|RED|PARTIAL|BLOCKED",
   "edition": "vFINAL-COOKBOOK",
   "branch": "main",
   "base_commit": "<BASE before any edit>",
-  "implementation_commit": "<COMMIT 1 sha: production+tests only>",
-  "evidence_commit": null,
+  "implementation_commit": "<COMMIT 1 sha: production+tests only, or null if none exists>",
+  "dirty_before": ["<preflight dirty path or empty>"],
+  "staged_before": ["<preflight staged path or empty>"],
   "allowed_paths": ["…exact closed list…"],
   "touched_paths": ["…actually staged in COMMIT 1…"],
   "deleted_paths": ["…or empty array…"],
   "foreign_wip_left_untouched": ["…or empty…"],
   "baseline_failures": [{"cmd":"…","exit":1,"note":"pre-existing / attributed"}],
   "new_failures": [],
-  "tests_red_then_green": [
+  "tests": [
     {
       "path": "tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php",
+      "command": "/opt/homebrew/bin/php artisan test <path> --no-coverage",
       "red_exit": 1,
       "green_exit": 0,
-      "red_failure_reason": "short fingerprint",
-      "green_failure_reason": null
+      "red_failure_reason": "<sanitized precise RED failure reason>",
+      "output_fingerprint_or_ref": "<operator-safe fingerprint/ref for RED and GREEN output>"
     }
   ],
+  "artifact_hashes_or_refs": ["<applicable operator-safe hash/ref or empty>"],
   "exit_checklist": { "shared_cycle_runtime_no_run_application": true },
   "residuals_closed": [],
   "residuals_still_open": [],
-  "forbidden_touched": false,
-  "next_phase_authorized": false,
-  "notes": ""
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "sha256": "<SHA-256 of canonical ordered review basis>",
+    "phase_payload_excludes": ["review_basis", "review_attestation_refs", "next_phase_authorized", "next_phase_authorization_basis"],
+    "ledger_content_sha256": "<SHA-256 of exact draft LEDGER content>",
+    "scoreboard_content_sha256": "<SHA-256 of exact draft SCOREBOARD content>"
+  },
+  "review_attestation_refs": [
+    {
+      "ledger_event_id": "<existing GateEvaluated event id>",
+      "event_hash": "<AtlasLedgerEvent event_hash>",
+      "payload_hash": "<AtlasLedgerEvent payload_hash>",
+      "role": "specification",
+      "review_basis_sha256": "<same review_basis.sha256>"
+    },
+    {
+      "ledger_event_id": "<distinct existing GateEvaluated event id>",
+      "event_hash": "<distinct AtlasLedgerEvent event_hash>",
+      "payload_hash": "<distinct AtlasLedgerEvent payload_hash>",
+      "role": "governance_quality",
+      "review_basis_sha256": "<same review_basis.sha256>"
+    }
+  ],
+  "next_phase_authorized": {
+    "precommit_predicates_satisfied": false,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": false,
+    "exit_checklist_all_true": false,
+    "tests_green": false,
+    "spec_review_approved": false,
+    "quality_review_approved": false,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "operator-safe only"
 }
 ```
 
-**Field law:** `implementation_commit` is the only “head of work” field. There is **no** `head_commit` field (removed — it caused self-reference). `evidence_commit` stays `null` inside PHASE; LEDGER may record the evidence commit SHA after COMMIT 2.
+**Field law:** `implementation_commit` is the only commit SHA inside a PHASE receipt. There is no `head_commit` or `evidence_commit`: either would invite impossible self-reference. The controller reports the evidence-commit SHA only after COMMIT 2, outside the committed evidence artifacts. `next_phase_authorized` records only pre-commit predicates plus the mandatory committed-tree binding; it is never an activation grant in a draft. Only after COMMIT 2 may the controller read this exact PHASE from that committed evidence tree, mechanically re-derive every basis predicate and valid ledger event, and then activate the next slice. There is no third commit and no true-before-commit authorization. `failure_reason_code` and `failure_reason` are precise when `status` is RED, PARTIAL, or BLOCKED; otherwise they are `null`. `review_basis` is the versioned non-circular canonical basis; `review_attestation_refs` are only existing-ledger facts, never self-attestation strings.
+
+**Provider-safe receipt law:** all path arrays are repo-relative and allowlisted by the active slice; `output_fingerprint_or_ref` and artifact entries are hash-only or canonical-redaction refs, never raw output. Apply canonical `AtlasSecurity::redactString` before persistence. Notes/evidence must not contain raw environment values, provider payloads, credentials, secrets, prompts, or unredacted command output.
+
+### 0.3.1 Newly discovered paths (standing authorization, mechanically bounded)
+
+This standing authorization covers **only** a path mechanically necessary to meet an already-listed requirement. It never permits a new architecture, phase, organ, or convenience residual. Before that path is edited, the controller must: (1) STOP the active slice; (2) preserve mechanical necessity evidence (for example an `rg` consumer result, failing test, or command signature) as a redacted hash/ref; (3) create `atlas.aaeos.mt.master_amendment_review_basis.v1`, whose SHA-256 covers the exact UTF-8, LF-normalized MASTER amendment unified diff plus the repo-relative path, existing requirement ID, and mechanical-evidence hash; (4) write two independent, read-only existing `AtlasEvidenceLedger::record` `LedgerEventType::GateEvaluated` events whose payloads use the same authenticated-review-runtime principal hash, reviewer role, amendment-basis SHA, verdict, unresolved Critical/Important count, observation timestamp, and remediation/re-review parent event ref contract as §0.2; and (5) resolve every Critical or Important finding. For each approval, the controller fresh-reads `eventById`, requires `eventIntegrityValid`, verifies event/payload hashes, authenticated principal, distinct role/principal/SoD, exact amendment basis, `APPROVED`, and zero unresolved Critical/Important findings. Opaque approval refs never qualify; a fix changes the amendment basis and requires linked re-review. Separation of duties is mandatory: controller != implementer != specification reviewer != governance/quality reviewer. The amendment commit may contain only that bounded amendment and its GateEvaluated ref facts. The original slice may resume only after it lands. Semantic or architectural expansion requires true sovereign authority and is never covered by this standing authorization. The executing implementer cannot self-amend or self-expand the list.
 
 ### 0.4 Hard bans (every slice)
 
@@ -144,7 +222,7 @@ F) STOP — next slice needs a new EXECUTE phrase.
 - Provider/tool/sandbox/mutation before P1b.2 gate (and never before P2b CUTOVER — R101)  
 - GOD_SOTA / REAL_OPERATION from PHPUnit or static scores  
 - Hardcode `human_in_engineering_loop=false` as identity  
-- Self-amending MASTER / self-expanding closed path lists  
+- Implementer self-amending MASTER / self-expanding closed path lists (the controller-only bounded §0.3.1 process remains required for mechanical paths)
 - Extra evidence files beyond §0.1  
 - Treating operator “review diff” as a required gate
 
@@ -545,9 +623,10 @@ Remove/invert asserts that require inject 9.2 or human_in_loop gate for success.
 
 ```bash
 # Each NEW/extended test must FAIL (non-zero) on HEAD before production edit.
-# Record red_exit + red_failure_reason per path into the future PHASE-P0.json notes/buffer.
+# Record red_exit plus a sanitized per-test red_failure_reason in the future PHASE-P0.json draft.
 /opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosReceiptHonestyTest.php --no-coverage; echo EXIT:$?
 /opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosAdmissionTaxonomyTest.php --no-coverage; echo EXIT:$?
+/opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosLedgerMeasurementReaderTest.php --no-coverage; echo EXIT:$?
 /opt/homebrew/bin/php artisan test tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php --no-coverage; echo EXIT:$?
 # …repeat for every NEW test path; do not proceed to P0.2 until REDs exist and fail for the right reason
 ```
@@ -700,13 +779,14 @@ Optional second **implementation** commit only if measured-reader must split own
 Fill schema §0.3 with:
 - `base_commit` = BASE  
 - `implementation_commit` = IMPLEMENTATION_COMMIT  
-- `evidence_commit` = null  
+- `branch`, `dirty_before`, and `staged_before` from P0.0 preflight
 - `allowed_paths` = full P0 closed production+test lists  
 - `touched_paths` / `deleted_paths` exact  
-- `tests_red_then_green` with red_exit/green_exit/failure_reason  
+- `tests` includes every P0 test with `path`, exact `command`, RED/GREEN exits, sanitized `red_failure_reason`, and hash-only output fingerprint/ref; this includes `AaeosLedgerMeasurementReaderTest`
 - `baseline_failures` / `new_failures`  
+- applicable hash-only/redacted `artifact_hashes_or_refs`, `residuals_closed`, `residuals_still_open`, `forbidden_touched`, and precise `failure_reason_code` / `failure_reason` or `null`
 - `exit_checklist` all true  
-- `next_phase_authorized` = false  
+- draft PHASE receives a v1 canonical `review_basis` plus two independent existing-ledger `GateEvaluated` review-event refs before COMMIT 2; after COMMIT 2 the controller reads that exact committed tree, fresh-validates the events/basis, and only then re-derives effective next-slice activation — never a draft or static implementer declaration
 
 ```bash
 git add -- \
@@ -714,7 +794,7 @@ git add -- \
   docs/evidence/2026-07-23-aaeos-elite-deepening/LEDGER.md \
   docs/evidence/2026-07-23-aaeos-elite-deepening/SCOREBOARD.md
 git commit -m "docs(evidence): AAEOS-MT P0 phase receipt"
-# optional LEDGER one-liner: evidence_commit=$(git rev-parse HEAD)
+# Controller reports the evidence SHA after this commit; do not rewrite committed artifacts.
 ```
 
 ### P0 exit checklist (all true)
@@ -732,12 +812,13 @@ git commit -m "docs(evidence): AAEOS-MT P0 phase receipt"
 - [ ] OperateScorecardProjector deleted or proven still-needed with consumers  
 - [ ] Ledger file either untouched or read-only-only  
 - [ ] PHASE-P0.json uses `implementation_commit` (not self-referential head)  
+- [ ] `AaeosLedgerMeasurementReaderTest` RED and GREEN exits are recorded in PHASE-P0.json
 - [ ] LEDGER P0=GREEN; SCOREBOARD P0 gates flipped  
 - [ ] two commits (impl + evidence); FOREIGN_WIP untouched  
 
 ### P0 STOP
 Do **not** start P1a.  
-**Promotion to P1a** requires only: PHASE-P0 `status=GREEN` + checklist + GREEN_EXIT=0.  
+**Promotion to P1a** is a controller-derived serial decision only after it reads PHASE-P0 from the evidence COMMIT 2 tree: status=GREEN, checklist and all GREEN exits, implementation/evidence commits, and valid independent specification + governance/quality attestations. P1a is already standing-authorized; no new human authorization is required.
 Human diff review = **optional audit**, not a gate.
 
 ---
@@ -1304,7 +1385,7 @@ feat(core): AAEOS-MT P2f operator census and intent-first daily port
 ## P3a census
 **Gate:** `EXECUTE P3a`  
 **Receipt:** `PHASE-P3A.json`  
-Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeRecorder + aliases. **No mass delete.** Report every consumer path in PHASE-P3A; human amends MASTER before P3b may delete.
+Complete consumer census for PipelineRunExecutor family + OrgState + OutcomeRecorder + aliases. **No mass delete.** Report every consumer path in PHASE-P3A. Before P3b may delete a newly discovered path, use the bounded controller-only §0.3.1 amendment with its versioned exact-diff basis and two fresh-verified `GateEvaluated` approvals; implementer self-amend is prohibited.
 
 ## P3b deletion/alignment
 **Gate:** `EXECUTE P3b` only after P3a census paths listed in MASTER amendment  
@@ -1513,27 +1594,27 @@ Architecture regressions always:
 
 ## Codex / any-IA handoff
 
-1. Operator says one EXECUTE phrase.  
-2. Open **this file**, jump to that SLICE.  
+1. Controller activates one standing-authorized EXECUTE phrase only after its serial predecessor is GREEN.
+2. Open **this file**, jump to that one activated SLICE.
 3. Preflight WIP → follow ordered steps only.  
 4. Two-commit ritual (§0.2): implementation then evidence.  
-5. STOP. Operator review is optional audit.
+5. STOP, review the draft evidence, create COMMIT 2, and return control to the controller. Operator review is optional audit.
 
 **Prompt file:** `docs/prompts/atlas-aaeos-mt-EXECUTE-P0-CODEX.md`
 
-### GO-fix record (planning)
+### Document-preflight contract
 
 | Blocker | Fix |
 |---|---|
-| Receipt self-ref `head_commit` | Removed; `implementation_commit` + two-commit ritual |
+| Receipt self-ref `head_commit` / evidence SHA | PHASE has only `implementation_commit`; controller reports evidence SHA after COMMIT 2 |
 | Ghost receipt.md | Closed manifest only PHASE JSON + LEDGER + SCOREBOARD |
-| Self-amend MASTER | STOP + report; human amends; new EXECUTE |
+| Newly discovered path | STOP; mechanical evidence; versioned exact-diff amendment basis; two fresh-verified `GateEvaluated` reviews before edit |
 | Weak P0 proof | Full GREEN list, exit codes, dry OutcomeRecorder test, baseline/new_failures |
 | NEW test tags + ledger scope | Closed list marks NEW/EXISTING; ledger read-only in P0 |
 | Operator as technical gate | Optional audit only |
 | Dual master / v16 dependence | §3.1 normative in this file; archive non-normative |
 | Cycle-10 missing | Explicitly waived as planning cycle unless NEW disk residual |
 
-**Verdict after GO-fix:** ready for operator `EXECUTE P0`.  
-**This is the executable god-SOTA cookbook of record.**  
-**System god-SOTA starts when PHASE receipts are green on disk.**
+**Document-preflight contract:** P0 remains inactive until the committed contract has two independently verifiable existing-ledger review events and the controller verifies all gates. This document asserts neither those approvals nor P0 activation.
+**This remains the sole implementation cookbook of record; it does not itself prove an executable or GOD-SOTA outcome.**
+**Any future GOD-SOTA claim requires qualifying PHASE receipts and the separate required proof, never this plan.**
