@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Support\Clamp01;
 /**
  * HEAVY-WORK DECISION PANEL — "a swarm of agents decides the highest-value next big work."
  *
@@ -169,7 +170,7 @@ final class AtlasLoopHeavyWorkPanelService
 
     private function clamp01(float $v): float
     {
-        return max(0.0, min(1.0, $v));
+        return Clamp01::of($v);
     }
 
     private function floatOrNull(mixed $v): ?float

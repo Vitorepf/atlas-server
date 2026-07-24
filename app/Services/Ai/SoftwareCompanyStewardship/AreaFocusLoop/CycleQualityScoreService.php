@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Support\Clamp01;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiValueNormalizer;
 
@@ -393,11 +394,7 @@ final class CycleQualityScoreService
 
     private function clamp01(mixed $value): float
     {
-        if (is_bool($value)) {
-            return $value ? 1.0 : 0.0;
-        }
-
-        return AiValueNormalizer::clampUnit((float) $value);
+        return Clamp01::fromMixed($value);
     }
 
     /** Round to 4 decimals so the weighted sum is deterministic across platforms. */

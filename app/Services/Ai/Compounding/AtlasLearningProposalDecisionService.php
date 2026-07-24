@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Compounding;
 
+use App\Support\Clamp01;
 use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
@@ -521,6 +522,6 @@ final class AtlasLearningProposalDecisionService
 
     private function clamp01(float $value): float
     {
-        return AiValueNormalizer::clampUnit($value);
+        return Clamp01::of($value);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Support\Clamp01;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiValueNormalizer;
 
@@ -767,7 +768,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
 
     private function clamp01(float $value): float
     {
-        return AiValueNormalizer::clampUnit($value);
+        return Clamp01::of($value);
     }
 
     /**

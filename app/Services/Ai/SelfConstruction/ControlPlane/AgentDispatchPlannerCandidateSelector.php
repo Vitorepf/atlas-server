@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Support\Clamp01;
 use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
@@ -183,7 +184,7 @@ final class AgentDispatchPlannerCandidateSelector
 
     private function clamp01(float $v): float
     {
-        return AiValueNormalizer::clampUnit($v);
+        return Clamp01::of($v);
     }
 
     /**
