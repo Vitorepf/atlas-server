@@ -92,6 +92,10 @@ class CodeGraphSymbolBuilder
         return [
             'health' => (new CodeGraphHealthAuditor)->audit($nodeIds, $edges),
             'integrity' => (new CodeGraphIntegrityHasher)->snapshot($workspaceId, $nodeIds, $edges),
+            // Q-4 edge-level anti-over-claim: report the inferred/over-claimed edge stats
+            // WITHOUT mutating the persisted graph (report-only — the filtered edge set is
+            // intentionally discarded here; a future slice may gate actual filtering).
+            'edge_quality' => (new CodeGraphInferredGuard)->apply($edges)['stats'] ?? [],
         ];
     }
 
