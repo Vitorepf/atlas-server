@@ -6,7 +6,6 @@ use App\Models\AtlasProject;
 use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use Illuminate\Support\Str;
 
 /**
  * GOD-DEBULK D3: Forge Continuum provider-topology family relocated verbatim
@@ -21,6 +20,8 @@ use Illuminate\Support\Str;
  */
 class ForgeTopologySection
 {
+    use DecideProviderNormalization;
+
     private const COUNCIL_PROVIDER = 'claude_codex';
 
     public function __construct(
@@ -322,47 +323,5 @@ class ForgeTopologySection
         $metadata['atlas_forge_provider_topology_history'] = array_slice($history, 0, 25);
 
         $project->forceFill(['metadata' => $metadata])->save();
-    }
-
-    /**
-     * @param  array<string,mixed>  $policy
-     */
-    private function automaticModelSelectionMode(array $policy): string
-    {
-        return ($policy['default_model_policy'] ?? null) === 'best_quality'
-            ? 'auto_best_available'
-            : 'auto_best_allowed';
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     * @param  array<string,mixed>  $payload
-     */
-    private function obraId(array $options, array $payload): ?string
-    {
-        $value = data_get($payload, 'obra_id')
-            ?: data_get($payload, 'forge_workspace.obra_id')
-            ?: data_get($payload, 'work_id')
-            ?: data_get($payload, 'project_id')
-            ?: ($options['source_id'] ?? null);
-
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function cleanString(mixed $value): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : Str::lower(Str::limit($value, 120, ''));
     }
 }

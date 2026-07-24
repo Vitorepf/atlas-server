@@ -2,10 +2,13 @@
 
 namespace App\Services\Ai;
 
-use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\Decide\DecideProviderNormalization;
 use App\Services\Ai\Decide\ForgeTopologySection;
 use App\Services\Ai\Decide\KernelContractSection;
+use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\Hermes\HermesRuntimeRouter;
+use App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
@@ -14,17 +17,15 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Policy\AtlasAiPolicyService;
-use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
-use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 class AtlasDecideService implements ForgeLiveDecideReceiptPort
 {
+    use DecideProviderNormalization;
+
     private const PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     private const COUNCIL_PROVIDER = 'claude_codex';
@@ -43,8 +44,8 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         private readonly AtlasDecideMetaLearningService $metaLearning,
         private readonly KernelContractSection $kernelContracts,
         private readonly ForgeTopologySection $forgeTopology,
-        private readonly \App\Services\Ai\Hermes\HermesRuntimeRouter $hermesRouter,
-        private readonly \App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor $meshAdvisor = new \App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor(),
+        private readonly HermesRuntimeRouter $hermesRouter,
+        private readonly HermesMeshRoutingAdvisor $meshAdvisor = new HermesMeshRoutingAdvisor,
     ) {}
 
     /**
@@ -539,16 +540,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     }
 
     /**
-     * @param  array<string,mixed>  $policy
-     */
-    private function automaticModelSelectionMode(array $policy): string
-    {
-        return ($policy['default_model_policy'] ?? null) === 'best_quality'
-            ? 'auto_best_available'
-            : 'auto_best_allowed';
-    }
-
-    /**
      * @param  array<string,mixed>  $options
      */
     public function isProgrammingLikeTask(array $options): bool
@@ -1016,27 +1007,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     }
 
     /**
-     * @param  array<string,mixed>  $options
-     * @param  array<string,mixed>  $payload
-     */
-    private function obraId(array $options, array $payload): ?string
-    {
-        $value = data_get($payload, 'obra_id')
-            ?: data_get($payload, 'forge_workspace.obra_id')
-            ?: data_get($payload, 'work_id')
-            ?: data_get($payload, 'project_id')
-            ?: ($options['source_id'] ?? null);
-
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    /**
      * @param  array<string,mixed>  $taskProfile
      */
     private function contextStrategy(array $options, string $selectedProvider, array $taskProfile): string
@@ -1436,17 +1406,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         }
 
         return $this->providerOrCouncil($value);
-    }
-
-    private function cleanString(mixed $value): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : Str::lower(Str::limit($value, 120, ''));
     }
 
     /**
