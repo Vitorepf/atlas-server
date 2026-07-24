@@ -6,7 +6,7 @@ use App\Services\Ai\Learning\Failure\BayesianFailureTracker;
 use App\Services\Ai\Learning\Failure\FailureRecurrenceMetricService;
 use App\Services\Ai\Learning\Failure\FailureRepetitionAlerter;
 use App\Services\Ai\Learning\Failure\FailureSignatureRepository;
-use App\Services\Ai\Learning\Failure\SuiteRedTriageHelper;
+use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -30,7 +30,7 @@ class AtlasFailureCommand extends Command
 
     protected $description = 'Classify, inspect and review Atlas cognitive failure signatures.';
 
-    public function __construct(private readonly SuiteRedTriageHelper $triageHelper)
+    public function __construct(private readonly SuiteRedTriage $triageHelper)
     {
         parent::__construct();
     }

@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Learning\Failure\SuiteRedTriageHelper;
+use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 
@@ -28,7 +28,7 @@ class AtlasFailureWeeklyRedSnapshotCommand extends Command
 
     protected $description = 'L5-3 — grava o snapshot semanal do número REAL de testes vermelhos a partir do último relatório real.';
 
-    public function handle(WeeklyRedCountSnapshotStore $store, SuiteRedTriageHelper $triageHelper): int
+    public function handle(WeeklyRedCountSnapshotStore $store, SuiteRedTriage $triageHelper): int
     {
         $scheduleEnabled = (bool) config('atlas.ai.suite_red_snapshot.schedule_enabled', false);
         if (! $scheduleEnabled && ! (bool) $this->option('force')) {
