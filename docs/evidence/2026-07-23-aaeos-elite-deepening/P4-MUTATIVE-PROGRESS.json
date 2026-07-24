@@ -1,68 +1,50 @@
 {
   "schema": "atlas.aaeos.p4.mutative_progress.v1",
-  "branch": "main",
-  "recorded_at": "2026-07-24T19:41:00Z",
   "absolute_master_done": false,
-  "real_operation_qualified": false,
-  "durable_pg": {
-    "ready": true,
-    "container": "atlas-p4-pg",
-    "port": 55449,
-    "roles_contract": "GREEN",
-    "provisioner": "scripts/aaeos-p4-pg-up.sh"
+  "real_operation_qualified_any_mode": false,
+  "freeze_full_real_operation_done": false,
+  "pre_effect_closed": true,
+  "durable_pg_ready": true,
+  "structured_residual_shipped": true,
+  "modes": {
+    "dev": {
+      "journey_terminal_status": "blocked_ops_partial",
+      "real_operation_qualified": false,
+      "named_residuals": [
+        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+      ],
+      "blockers_sample": [
+        "provider_spawn_proof_not_spawned",
+        "authority_lineage_proof_missing",
+        "producer_eng_not_released",
+        "residual:governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+        "producer_status_not_completed",
+        "producer_status:blocked"
+      ]
+    },
+    "forge": {
+      "journey_terminal_status": "blocked_ops_partial",
+      "real_operation_qualified": false,
+      "blockers_sample": [
+        "provider_spawn_proof_missing",
+        "authority_lineage_proof_missing",
+        "producer_eng_not_released",
+        "residual:obra_required",
+        "producer_status_not_completed",
+        "producer_status:blocked"
+      ]
+    },
+    "autonomos": {
+      "journey_terminal_status": "blocked_ops_partial",
+      "real_operation_qualified": false,
+      "blockers_sample": [
+        "provider_spawn_proof_missing",
+        "authority_lineage_proof_missing",
+        "producer_status_not_completed",
+        "producer_status:queue_scan_limit_exceeded"
+      ]
+    }
   },
-  "product_fix": {
-    "title": "MutativeDecisionBinder seals decision.issued before Dev/Forge kernel execute",
-    "files": [
-      "app/Services/Ai/EngineeringKernel/MutativeDecisionBinder.php",
-      "app/Services/Ai/Programming/AtlasDev/Execution/EliteExecutorKernelDevAdapter.php",
-      "app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php",
-      "tests/Unit/Ai/EngineeringKernel/MutativeDecisionBinderTest.php"
-    ],
-    "closed_wall": "pre_effect_decision_authority_missing (fabricated decision_event_id)",
-    "tests_green": [
-      "tests/Unit/Ai/EngineeringKernel/MutativeDecisionBinderTest.php",
-      "tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php"
-    ]
-  },
-  "live_dev_journey": {
-    "entry": "php artisan atlas:dev:senior-loop:run --create-fixture-workspace --json",
-    "plan_only": false,
-    "provider": "hermes_cli",
-    "observed_progression": [
-      "pre_effect decision seal OK (no longer pre_effect_decision_authority_missing)",
-      "provider/sandbox path exercised (provider_calls=1, changed_files in failure capsule)",
-      "governance reached with lease/fencing present",
-      "terminal residual: governor_authority_absent / risk:verification_not_passed (quality court not authorityEligible)"
-    ],
-    "latest_receipt_ref": "storage/app/aaeos-p4-mut-dev/senior-loop-bind.json",
-    "journey_terminal_status": "blocked_ops_partial",
-    "real_operation_completed": false,
-    "diagnosed_residual": "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
-  },
-  "residuals_still_open": [
-    "P4 mutative REAL_OPERATION eng journey (quality-court authorityEligible + authorized_merge_action + COVERED provider spawn proof)",
-    "R104-TRANSPORT",
-    "P4-FORGE live completeObra / AUTONOMOS brain→seed→land or honest blocked"
-  ],
-  "honesty": "Do not invent real_operation_completed. Durable PG proven. Decision mint is real product fix enabling further mutative progress.",
-  "forge": {
-    "entry": "php artisan atlas:forge:live-execute --json",
-    "status": "blocked_ops_partial",
-    "blocker": "obra_required",
-    "external_provider_call": false,
-    "honesty": "fail-closed without --obra — no fabricated REAL_OPERATION"
-  },
-  "autonomos": {
-    "entry": "php artisan atlas:task next --client=aaeos-p4-probe --json",
-    "status": "blocked_ops_partial",
-    "observed_blockers": [
-      "workspace_not_ready"
-    ],
-    "honesty": "direct probe without aaeos_initiated; mutative path not claimed"
-  },
-  "commits": [
-    "bbe23e7cd",
-    "1297ceb48"
-  ]
+  "honesty": "residual_honest_partial_not_fabricated",
+  "updated_at": "2026-07-24T19:51:39.441144+00:00"
 }

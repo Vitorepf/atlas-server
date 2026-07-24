@@ -1,8 +1,9 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P3b GREEN · P2a.1 GREEN · **P4 durable PG PROVEN** · **mutative decision mint shipped** · REAL_OPERATION eng journey still OPEN  
-**Branch:** main only
+**State:** P0…P3b GREEN · P2a.1 GREEN · **P4 durable PG PROVEN** · **decision mint SHIPPED** · **structured residual SHIPPED** · REAL_OPERATION eng journey OPEN (residual-honest)  
+**Branch:** main only  
+**Code SHA (receipts):** `af3cb6207462…`
 
 ## Cursor
 
@@ -10,18 +11,19 @@
 |---|---|---|
 | P0…P3b | GREEN | prior |
 | P2a.1 | GREEN | R-P2A1-PG-LIVE closed |
-| P4 durable PG | **PROVEN** | docker `atlas-p4-pg:55449` + least-privilege roles |
-| P4 mutative decision seal | **SHIPPED** | `MutativeDecisionBinder` — Dev + Forge no longer fabricate decision ids |
-| P4 mutative REAL_OPERATION | OPEN | quality-court authorityEligible + authorized merge + COVERED provider proof |
-| P4-FORGE / AUTONOMOS live | OPEN residual | forge:live-execute fail-closed without --obra; autonomos queue probe next |
-| Absolute DONE | **NOT** | until mutative real_operation_completed |
+| P4 durable PG | **PROVEN** | docker `atlas-p4-pg:55449` |
+| P4 mutative decision seal | **SHIPPED** | MutativeDecisionBinder |
+| P4 structured residual | **SHIPPED** | gauntlet names court/governor; exit-0 blocked never qualifies |
+| P4-DEV REAL_OPERATION | OPEN / PARTIAL | residual `court_authority_not_eligible` + missing COVERED spawn/authority lineage |
+| P4-FORGE | OPEN / PARTIAL | live `obra_required` fail-closed |
+| P4-AUTONOMOS | OPEN / PARTIAL | live `workspace_not_ready` / blocked_ops_partial |
+| Absolute DONE | **NOT** | three-mode real_operation_completed not held |
 
-## Notes
-- Local provisioner: `scripts/aaeos-p4-pg-up.sh` → exports ATLAS_P4_PG_PRODUCER_URL / VERIFIER_URL
-- Live contract: `AaeosP4PostgresDurableRolesTest` GREEN
-- Live mutative entry: `php artisan atlas:dev:senior-loop:run` (non-plan-only) reaches governance; residual now diagnosed as `governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible`
-- Commits: `bbe23e7cd` MutativeDecisionBinder; `1297ceb48` governor residual diagnostics
-- Do not invent mutative REAL_OPERATION from --version, plan-only, or quality-court blocked
+## Observed live residuals (gauntlet-derived)
+- DEV: `blocked_ops_partial` — `producer_status:blocked` + `residual:governor_authority_absent:…|court_authority_not_eligible` + derived proofs incomplete
+- FORGE: `blocked_ops_partial` — `obra_required` path (not fabricated complete)
+- AUTONOMOS: `blocked_ops_partial` — producer not released / workspace gate
+- pre_effect_decision_authority_missing: **closed** on live senior-loop (twice)
 
-## Rule for implementers
-Source `source <(./scripts/aaeos-p4-pg-up.sh --export)` then run live P4 producers. Foreign WIP untouched.
+## Rule
+Never invent real_operation_completed from plan-only, PHPUnit, or exit-0 blocked.

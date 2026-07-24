@@ -70,34 +70,31 @@
   "failure_reason": null,
   "real_operation": {
     "qualified": false,
-    "journey_terminal_status": "blocked_ops_partial",
-    "reason": "durable_pg_proven; mutative_eng_journey_open",
-    "caller_set_capability_flags": "forbidden",
-    "durable_pg_ready": true
+    "full_real_operation_done": false
   },
-  "notes": "P4-FREEZE GREEN residual-honest only. Not absolute MASTER DONE. No fabricated real_operation_completed. Live upgrade requires ATLAS_P4_PG_* + derived proofs. | Local ATLAS_P4_PG_* provisioned via scripts/aaeos-p4-pg-up.sh; durable roles GREEN.",
+  "notes": "P4-FREEZE residual-honest; three modes bound with blocked_ops_partial; absolute DONE=NO",
   "freeze": {
     "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.freeze",
-    "code_sha": "1eab1983f6c178fdf3467e787e9ec3ba8848c2b9",
+    "code_sha": "af3cb62074627de4e8902e5f79ed3eced261388b",
     "ledger_cutoff": null,
     "modes": {
       "dev": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "01384d432cb15c8d882b762d04d45f00db41af735de21361af1dcaa5b06896a3"
+        "receipt_fingerprint": "5ba2e14f4da4eb493966016711978c3d206b1be45bb0c9af92d6cd09a34d4471"
       },
       "forge": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "03eb273e0509e6d8227f2136486c1ef6b14c75fbb2fef5194bed78ddf4d3d3f9"
+        "receipt_fingerprint": "a52cac51869cbfdc5035aedb8b5e4957125c093fcd26e4e01c4edd313bc5ca27"
       },
       "autonomos": {
         "present": true,
         "journey_terminal_status": "blocked_ops_partial",
         "real_operation_qualified": false,
-        "receipt_fingerprint": "336f455cc678390af00241f4668e4df504fbe23f2564f0b0fd621fc14fe500cc"
+        "receipt_fingerprint": "8c2eb1171b27d7e7c310bbe3a73219d7377bfcd9d0e1bbce9342056835abd841"
       }
     },
     "all_three_modes_bound": true,

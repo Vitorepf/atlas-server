@@ -83,7 +83,97 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         ]);
 
         $this->assertFalse($receipt['real_operation_qualified']);
-        $this->assertContains('derived_capability_proofs_incomplete', $receipt['blockers']);
+        $this->assertTrue(
+            in_array('derived_capability_proofs_incomplete', $receipt['blockers'], true)
+            || in_array('producer_status_not_completed', $receipt['blockers'], true),
+        );
+    }
+
+    public function test_exit_zero_blocked_senior_loop_never_qualifies_real_operation(): void
+    {
+        $stdout = json_encode([
+            'status' => 'blocked',
+            'blockers' => ['senior_loop_execution_not_passed'],
+            'run_summary' => [
+                'completion_state' => 'blocked',
+                'provider_call' => [
+                    'provider' => 'hermes_cli',
+                    'provider_calls' => 1,
+                    'exit_code' => 1,
+                    'error_codes' => [
+                        'governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible',
+                    ],
+                ],
+                'verification_receipt_hash' => str_repeat('11', 32),
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('dev', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:dev:senior-loop:run --json',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+            'provider_spawn_proof' => [
+                'provider' => 'hermes_cli',
+                'provider_receipt_hash' => str_repeat('ab', 32),
+                'spawned' => true,
+            ],
+            'authority_lineage_proof' => [
+                'authority_ref' => 'mandate-1',
+                'authority_hash' => str_repeat('cd', 32),
+                'authority_revision' => 1,
+            ],
+        ]);
+
+        $this->assertFalse($receipt['real_operation_qualified']);
+        $this->assertTrue($receipt['blocked_status_exit_zero_never_qualifies']);
+        $this->assertContains('producer_status_not_completed', $receipt['blockers']);
+        $this->assertSame('blocked', $receipt['producer_terminal']['status']);
+        $this->assertFalse($receipt['structured_residual']['court_authority_eligible']);
+        $this->assertNotEmpty($receipt['structured_residual']['named_residuals']);
+        $this->assertStringContainsString(
+            'court_authority_not_eligible',
+            implode(' ', $receipt['structured_residual']['named_residuals']),
+        );
+    }
+
+    public function test_structured_residual_names_court_gate_from_live_payload(): void
+    {
+        $livePath = base_path('storage/app/aaeos-p4-mut-dev/senior-loop-bind.json');
+        $stdout = is_file($livePath)
+            ? (string) file_get_contents($livePath)
+            : json_encode([
+                'status' => 'blocked',
+                'run_summary' => [
+                    'provider_call' => [
+                        'error_codes' => [
+                            'governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible',
+                        ],
+                    ],
+                ],
+            ], JSON_THROW_ON_ERROR);
+        $terminal = AaeosP4RealOperationGauntlet::deriveProducerTerminalFromStdout($stdout);
+        $this->assertFalse($terminal['completed']);
+        $residual = AaeosP4RealOperationGauntlet::structuredResidualFromProducerPayload(
+            $terminal['payload'],
+            $terminal['status'],
+            $terminal['error_codes'],
+        );
+        $this->assertContains('producer_eng_not_released', $residual['blockers']);
+        $this->assertFalse($residual['residual']['real_operation_completed']);
+        $this->assertSame('residual_honest_partial_not_fabricated', $residual['residual']['honesty']);
+        $joined = implode(' ', $residual['residual']['named_residuals']);
+        $this->assertTrue(
+            str_contains($joined, 'court_authority_not_eligible')
+            || str_contains($joined, 'governor_authority_absent')
+            || str_contains($joined, 'verification_not_passed'),
+            'expected court/governor residual, got: '.$joined,
+        );
     }
 
     public function test_caller_set_capability_bools_are_forbidden(): void

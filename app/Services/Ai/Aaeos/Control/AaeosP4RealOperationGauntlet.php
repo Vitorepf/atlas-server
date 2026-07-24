@@ -85,9 +85,22 @@ final class AaeosP4RealOperationGauntlet
             $blockers[] = 'caller_set_capability_flags_forbidden';
         }
 
-        $providerProof = self::deriveProviderSpawnProof($context['provider_spawn_proof'] ?? null);
-        $authorityProof = self::deriveAuthorityLineageProof($context['authority_lineage_proof'] ?? null);
+        $producerTerminal = self::deriveProducerTerminalFromStdout($stdout);
+        $structuredResidual = self::structuredResidualFromProducerPayload(
+            $producerTerminal['payload'],
+            $producerTerminal['status'],
+            $producerTerminal['error_codes'],
+        );
+
+        // Prefer context proofs; otherwise try derive from stdout payload (never invent).
+        $providerProof = self::deriveProviderSpawnProof(
+            $context['provider_spawn_proof'] ?? self::tryDeriveProviderSpawnFromPayload($producerTerminal['payload']),
+        );
+        $authorityProof = self::deriveAuthorityLineageProof(
+            $context['authority_lineage_proof'] ?? self::tryDeriveAuthorityFromPayload($producerTerminal['payload']),
+        );
         $blockers = array_merge($blockers, $providerProof['blockers'], $authorityProof['blockers']);
+        $blockers = array_merge($blockers, $structuredResidual['blockers']);
 
         $hardBlockers = array_values(array_unique($blockers));
         $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
@@ -99,11 +112,17 @@ final class AaeosP4RealOperationGauntlet
             }
         } elseif ($exit !== 0) {
             $hardBlockers[] = 'producer_exit_nonzero';
+        } elseif (! $producerTerminal['completed']) {
+            // Exit 0 with status=blocked must never qualify REAL_OPERATION.
+            $hardBlockers[] = 'producer_status_not_completed';
+            if ($producerTerminal['status'] !== '') {
+                $hardBlockers[] = 'producer_status:'.$producerTerminal['status'];
+            }
         } elseif (! $preflight['durable_pg_ready']) {
             $hardBlockers[] = 'durable_pg_roles_required_for_real_operation';
         } elseif (! $providerProof['ok'] || ! $authorityProof['ok']) {
             $hardBlockers[] = 'derived_capability_proofs_incomplete';
-        } elseif ($hardBlockers === [] && $exit === 0 && $command !== '') {
+        } elseif ($hardBlockers === [] && $exit === 0 && $command !== '' && $producerTerminal['completed']) {
             $terminal = self::STATUS_REAL_OPERATION_COMPLETED;
         } else {
             $hardBlockers[] = 'real_operation_predicates_incomplete';
@@ -118,6 +137,7 @@ final class AaeosP4RealOperationGauntlet
             'real_operation_qualified' => $terminal === self::STATUS_REAL_OPERATION_COMPLETED,
             'exit_code' => $exit,
             'exit_zero_alone_never_qualifies' => true,
+            'blocked_status_exit_zero_never_qualifies' => true,
             'capability_proof_derived_not_caller_set' => true,
             'command' => self::redactSecrets($command),
             'stdout_fingerprint' => hash('sha256', $stdout),
@@ -125,11 +145,219 @@ final class AaeosP4RealOperationGauntlet
             'aaeos_initiated' => $aaeosInitiated,
             'preflight' => $preflight,
             'blockers' => $blockers,
+            'structured_residual' => $structuredResidual['residual'],
+            'producer_terminal' => [
+                'status' => $producerTerminal['status'],
+                'completed' => $producerTerminal['completed'],
+                'error_codes' => $producerTerminal['error_codes'],
+            ],
             'provider_spawn_proof' => $providerProof['proof'],
             'authority_lineage_proof' => $authorityProof['proof'],
             'operator_task_causal_count' => (int) ($context['operator_task_causal_count'] ?? 0),
             'r104_transport_open' => (bool) ($context['r104_transport_open'] ?? true),
             'code_sha' => (string) ($context['code_sha'] ?? ''),
+        ];
+    }
+
+    /**
+     * Parse producer JSON stdout (senior-loop / forge / task next) into terminal truth.
+     * Exit code is NOT used here — blocked journeys often exit 0.
+     *
+     * @return array{status:string,completed:bool,error_codes:list<string>,payload:array<string,mixed>|null}
+     */
+    public static function deriveProducerTerminalFromStdout(string $stdout): array
+    {
+        $trimmed = strtolower(trim($stdout));
+        // Bare terminal tokens used by unit fixtures — never treat help text as completed.
+        if (in_array($trimmed, ['completed', 'released', 'passed', 'success', 'real_operation_completed'], true)) {
+            return ['status' => $trimmed, 'completed' => true, 'error_codes' => [], 'payload' => null];
+        }
+
+        $payload = self::extractJsonObject($stdout);
+        if ($payload === null) {
+            // Non-JSON help/version paths are never eng completion.
+            $lower = strtolower($stdout);
+            if (str_contains($lower, 'usage:') || str_contains($lower, 'options:') || str_contains($lower, 'plan-only')) {
+                return ['status' => 'help_or_plan_surface', 'completed' => false, 'error_codes' => [], 'payload' => null];
+            }
+
+            return ['status' => 'unparsed', 'completed' => false, 'error_codes' => [], 'payload' => null];
+        }
+
+        $status = strtolower(trim((string) (
+            $payload['status']
+            ?? data_get($payload, 'run_summary.completion_state')
+            ?? data_get($payload, 'aemor_outcome.status')
+            ?? data_get($payload, 'journey_terminal_status')
+            ?? ''
+        )));
+        $errorCodes = array_values(array_filter(array_map(
+            'strval',
+            (array) data_get($payload, 'run_summary.provider_call.error_codes', data_get($payload, 'remaining_blockers', data_get($payload, 'blockers', []))),
+        )));
+        $completed = in_array($status, ['passed', 'released', 'completed', 'completed_read_only', 'success', 'real_operation_completed'], true);
+
+        return [
+            'status' => $status,
+            'completed' => $completed,
+            'error_codes' => $errorCodes,
+            'payload' => $payload,
+        ];
+    }
+
+    /**
+     * Named residual for honest PARTIAL when eng REAL_OPERATION cannot complete.
+     *
+     * @param  array<string,mixed>|null  $payload
+     * @param  list<string>  $errorCodes
+     * @return array{blockers:list<string>,residual:array<string,mixed>}
+     */
+    public static function structuredResidualFromProducerPayload(?array $payload, string $status, array $errorCodes): array
+    {
+        $blockers = [];
+        $codes = array_values(array_unique(array_map('strval', $errorCodes)));
+        $named = [];
+        foreach ($codes as $code) {
+            $lower = strtolower($code);
+            if (str_contains($lower, 'court_authority_not_eligible')
+                || str_contains($lower, 'verification_not_passed')
+                || str_contains($lower, 'governor_authority_absent')
+                || str_contains($lower, 'pre_effect_decision')
+                || str_contains($lower, 'obra_required')
+                || str_contains($lower, 'workspace_not_ready')
+                || str_contains($lower, 'provider_')) {
+                $named[] = $code;
+            }
+        }
+        if ($status === 'blocked' || $status === 'failed') {
+            $blockers[] = 'producer_eng_not_released';
+        }
+        if ($named === [] && ($status === 'blocked' || $status === 'failed')) {
+            $named[] = 'producer_blocked_without_named_code';
+        }
+        foreach ($named as $n) {
+            $blockers[] = 'residual:'.$n;
+        }
+
+        $provider = (string) data_get($payload ?? [], 'run_summary.provider_call.provider', data_get($payload ?? [], 'provider', ''));
+        $providerCalls = (int) data_get($payload ?? [], 'run_summary.provider_call.provider_calls', 0);
+
+        return [
+            'blockers' => array_values(array_unique($blockers)),
+            'residual' => [
+                'schema' => self::SCHEMA.'.structured_residual',
+                'producer_status' => $status,
+                'named_residuals' => array_values(array_unique($named)),
+                'provider' => $provider !== '' ? $provider : null,
+                'provider_calls' => $providerCalls,
+                'court_authority_eligible' => in_array($status, ['passed', 'released', 'completed', 'success', 'real_operation_completed'], true)
+                    && ! array_any(
+                        $named,
+                        static fn (string $c): bool => str_contains(strtolower($c), 'court_authority_not_eligible'),
+                    ),
+                'covered_provider_spawn_proven' => false,
+                'real_operation_completed' => false,
+                'honesty' => 'residual_honest_partial_not_fabricated',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private static function extractJsonObject(string $stdout): ?array
+    {
+        $stdout = trim($stdout);
+        if ($stdout === '') {
+            return null;
+        }
+        $start = strpos($stdout, '{');
+        if ($start === false) {
+            return null;
+        }
+        $slice = substr($stdout, $start);
+        try {
+            $decoded = json_decode($slice, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            // Try last balanced-ish object from the end.
+            $end = strrpos($stdout, '}');
+            if ($end === false || $end <= $start) {
+                return null;
+            }
+            try {
+                $decoded = json_decode(substr($stdout, $start, $end - $start + 1), true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $payload
+     * @return array<string,mixed>|null
+     */
+    private static function tryDeriveProviderSpawnFromPayload(?array $payload): ?array
+    {
+        if ($payload === null) {
+            return null;
+        }
+        $provider = trim((string) data_get($payload, 'run_summary.provider_call.provider', ''));
+        $hash = strtolower(trim((string) data_get($payload, 'run_summary.verification_receipt_hash', data_get($payload, 'execution_hash', ''))));
+        $calls = (int) data_get($payload, 'run_summary.provider_call.provider_calls', 0);
+        $errors = (array) data_get($payload, 'run_summary.provider_call.error_codes', []);
+        // Successful COVERED spawn requires calls>0, valid hash, and no governor/court residual errors alone is not enough —
+        // never mark spawned=true when eng status blocked or hash missing.
+        if ($provider === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $calls < 1) {
+            return null;
+        }
+        // Only treat as spawn proof when provider exit was 0 and no residual error codes.
+        $exit = data_get($payload, 'run_summary.provider_call.exit_code');
+        if ($exit !== 0 && $exit !== '0') {
+            return [
+                'provider' => $provider,
+                'provider_receipt_hash' => $hash,
+                'spawned' => false,
+            ];
+        }
+        if ($errors !== []) {
+            return [
+                'provider' => $provider,
+                'provider_receipt_hash' => $hash,
+                'spawned' => false,
+            ];
+        }
+
+        return [
+            'provider' => $provider,
+            'provider_receipt_hash' => $hash,
+            'spawned' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $payload
+     * @return array<string,mixed>|null
+     */
+    private static function tryDeriveAuthorityFromPayload(?array $payload): ?array
+    {
+        if ($payload === null) {
+            return null;
+        }
+        // Only accept explicit authority lineage fields already present in producer payload —
+        // never invent from run_id alone.
+        $ref = trim((string) data_get($payload, 'authority_lineage.authority_ref', data_get($payload, 'authority_ref', '')));
+        $hash = strtolower(trim((string) data_get($payload, 'authority_lineage.authority_hash', data_get($payload, 'authority_hash', ''))));
+        $revision = (int) data_get($payload, 'authority_lineage.authority_revision', data_get($payload, 'authority_revision', 0));
+        if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
+            return null;
+        }
+
+        return [
+            'authority_ref' => $ref,
+            'authority_hash' => $hash,
+            'authority_revision' => $revision,
         ];
     }
 

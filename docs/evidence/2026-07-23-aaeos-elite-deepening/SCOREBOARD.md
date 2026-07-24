@@ -1,13 +1,17 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
-**Cursor:** P4 durable PG **PROVEN** · mutative decision mint **SHIPPED** · REAL_OPERATION still open · absolute DONE = NO
+**Cursor:** residual-honest PARTIAL · absolute DONE = **NO**
 
 | Gate | State | Notes |
 |---|---|---|
 | P0…P3b | GREEN | prior |
 | P2a.1 R-P2A1-PG-LIVE | GREEN/CLOSED | docker atlas-p2a1-pg |
-| P4 ATLAS_P4_PG_* | **PROVISIONED** | docker atlas-p4-pg:55449 |
-| P4 durable roles contract | **GREEN** | producer insert/select; verifier select-only |
-| P4 mutative decision seal | **SHIPPED** | MutativeDecisionBinder (Dev+Forge) |
-| P4 mutative REAL_OPERATION | **FAIL/OPEN** | live residual: governor_authority_absent / quality court |
-| R104-TRANSPORT | OPEN residual | later |
+| P4 ATLAS_P4_PG_* | **PROVISIONED** | atlas-p4-pg:55449 |
+| P4 durable roles | **GREEN** | producer/verifier least-privilege |
+| P4 decision seal | **SHIPPED** | MutativeDecisionBinder |
+| P4 exit-0 blocked never qualifies | **SHIPPED** | gauntlet producer_status_not_completed |
+| P4-DEV REAL_OPERATION | **PARTIAL** | court_authority_not_eligible residual named |
+| P4-FORGE REAL_OPERATION | **PARTIAL** | obra_required |
+| P4-AUTONOMOS REAL_OPERATION | **PARTIAL** | workspace_not_ready / blocked |
+| Absolute three-mode DONE | **NO** | freeze.full_real_operation_done=false |
+| R104-TRANSPORT | OPEN | residual allowed |

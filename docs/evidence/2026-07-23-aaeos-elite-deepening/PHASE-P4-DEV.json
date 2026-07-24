@@ -58,13 +58,17 @@
   "residuals_closed": [
     "P4 preflight/gates/tests for non-qualification of fake green",
     "P4 durable PG local provision + least-privilege roles proven (atlas-p4-pg)",
-    "MutativeDecisionBinder: Dev/Forge mint sealed decision.issued (no fabricated pre_effect ids)"
+    "MutativeDecisionBinder: Dev/Forge mint sealed decision.issued (no fabricated pre_effect ids)",
+    "durable PG local provision proven",
+    "MutativeDecisionBinder sealed decision.issued",
+    "gauntlet exit-0 blocked never qualifies + structured residual"
   ],
   "residuals_still_open": [
     "Quality-court authorityEligible + authorized_merge_action for live fixture journey",
     "Provider spawn attestation for live journey not fully derived for gauntlet",
     "R104-TRANSPORT residual",
-    "mutative REAL_OPERATION eng journey (non-plan-only COVERED provider) not completed"
+    "mutative REAL_OPERATION eng journey (non-plan-only COVERED provider) not completed",
+    "real_operation_completed not achieved"
   ],
   "forbidden_touched": [],
   "failure_reason_code": null,
@@ -72,12 +76,33 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "reason": "decision_mint_shipped; live residual governor_authority_absent/quality_court",
+    "reason": "residual_honest_partial",
+    "blockers_sample": [
+      "provider_spawn_proof_not_spawned",
+      "authority_lineage_proof_missing",
+      "producer_eng_not_released",
+      "residual:governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible",
+      "producer_status_not_completed",
+      "producer_status:blocked"
+    ],
+    "structured_residual": {
+      "schema": "atlas.aaeos.p4.real_operation_gauntlet.v1.structured_residual",
+      "producer_status": "blocked",
+      "named_residuals": [
+        "governor_authority_absent:blocked|risk:verification_not_passed|risk_blocked|court_authority_not_eligible"
+      ],
+      "provider": "hermes_cli",
+      "provider_calls": 1,
+      "court_authority_eligible": false,
+      "covered_provider_spawn_proven": false,
+      "real_operation_completed": false,
+      "honesty": "residual_honest_partial_not_fabricated"
+    },
     "caller_set_capability_flags": "forbidden",
     "durable_pg_ready": true,
     "pre_effect_decision_seal": true
   },
-  "notes": "P4-DEV GREEN residual-honest only. Not absolute MASTER DONE. MutativeDecisionBinder shipped; live senior-loop past pre_effect; terminal residual quality-court/governor. No fabricated real_operation_completed.",
+  "notes": "P4-DEV residual-honest GREEN path-core. journey_terminal_status=blocked_ops_partial; real_operation_qualified=false. Absolute MASTER DONE not claimed.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {
