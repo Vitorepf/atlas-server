@@ -50,8 +50,18 @@ class CodeGraphSymbolBuilder
 
         $resolved = $this->resolveEdges($symbols, $relations);
 
-        $maxEdges = (int) config('atlas.code_graph.max_edges', 200000);
         $edges = $resolved['edges'] ?? [];
+
+        // AP-815 Tier-1 fusion: compute method->method call edges once (flag-gated; null
+        // when off). Merge into the persisted graph ONLY when call_edges_merge is ON —
+        // otherwise report-only (yield stats in the receipt, graph untouched). Call-edge
+        // shape matches the symbol edges exactly, so insertEdges persists them unchanged.
+        $callEdges = $this->computeCallEdges($symbols);
+        if ($callEdges !== null && (bool) config('atlas.code_graph.call_edges_merge', false)) {
+            $edges = array_merge($edges, $callEdges['edges']);
+        }
+
+        $maxEdges = (int) config('atlas.code_graph.max_edges', 200000);
         if ($maxEdges > 0 && count($edges) > $maxEdges) {
             $edges = array_slice($edges, 0, $maxEdges);
         }
@@ -69,7 +79,7 @@ class CodeGraphSymbolBuilder
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
-        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges), $this->callEdgeAudit($symbols, $relations));
+        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges), $this->callEdgeReceipt($callEdges));
     }
 
     /**
@@ -100,33 +110,33 @@ class CodeGraphSymbolBuilder
     }
 
     /**
-     * AP-815 Tier-1 fusion (REPORT-ONLY preview) — run the now-exposed `callgraph`
-     * op over the workspace source and resolve method->method CALL edges via the pure
-     * {@see CodeGraphCallResolver}, reporting the YIELD stats in the build receipt.
-     *
-     * Flag-gated (default OFF): when OFF returns [] so build()'s receipt is byte-identical
-     * to before. When ON it NEVER mutates the persisted graph — it only adds a 'call_edges'
-     * stats key so the operator can see the real yield (edges / resolved / ambiguous) on
-     * their own workspace BEFORE paying the perf cost of merging call edges live. Any
-     * runtime block/failure or unreadable source degrades to a stats note, never breaks build().
+     * AP-815 Tier-1 fusion — compute method->method CALL edges from the workspace source
+     * via the now-live `callgraph` op + the pure {@see CodeGraphCallResolver}. Runs ONLY
+     * when a call-edge flag is on (report OR merge); returns null otherwise so build() does
+     * no extra work and stays byte-identical. Any runtime block/failure or unreadable
+     * source returns a well-formed result with EMPTY edges + a status note — never throws,
+     * never breaks build(). The caller decides whether to merge the edges (call_edges_merge)
+     * or only report their stats (call_edges); the resolved edge shape matches the symbol
+     * edges exactly ({from_node_id,to_node_id,edge_type,metadata}) so insertEdges persists
+     * them unchanged and the CallResolver nodeId scheme collides with the symbol nodes.
      *
      * ponytail: reads every source file once per build — bounded by call_edges_max_files.
-     * The eventual LIVE-merge slice must feed off the incremental reindex (file_hash/mtime),
-     * NOT this full re-read; this pass is an opt-in preview, never the hot path.
+     * The perf-serious path should feed off the incremental reindex (file_hash/mtime), not
+     * this full re-read; this pass is opt-in, gated OFF by default.
      *
      * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
-     * @param  array<int,array{file_path:string,symbol:string,kind:string}>  $relations
-     * @return array<string,mixed>
+     * @return array{edges:array<int,array<string,mixed>>, stats:array<string,mixed>}|null
      */
-    private function callEdgeAudit(array $symbols, array $relations): array
+    private function computeCallEdges(array $symbols): ?array
     {
-        if (! (bool) config('atlas.code_graph.call_edges', false)) {
-            return [];
+        if (! (bool) config('atlas.code_graph.call_edges', false)
+            && ! (bool) config('atlas.code_graph.call_edges_merge', false)) {
+            return null;
         }
 
         $files = $this->loadCallFiles($symbols);
         if ($files === []) {
-            return ['call_edges' => ['files' => 0, 'note' => 'no readable source']];
+            return ['edges' => [], 'stats' => ['files' => 0, 'note' => 'no readable source']];
         }
 
         $input = ['files' => $files];
@@ -134,19 +144,40 @@ class CodeGraphSymbolBuilder
         $result = app(CodeGraphRuntimeInvoker::class)->invoke('callgraph', $input, [], $receipt);
 
         if (($result['status'] ?? null) !== CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
-            return ['call_edges' => ['files' => count($files), 'status' => 'runtime_unavailable']];
+            return ['edges' => [], 'stats' => ['files' => count($files), 'status' => 'runtime_unavailable']];
         }
 
         $calls = $result['artifacts'][0]['result']['calls'] ?? null;
         if (! is_array($calls)) {
-            return ['call_edges' => ['files' => count($files), 'status' => 'malformed_result']];
+            return ['edges' => [], 'stats' => ['files' => count($files), 'status' => 'malformed_result']];
         }
 
         $resolved = (new CodeGraphCallResolver)->resolveCalls($calls, $this->buildMethodIndex($symbols));
 
-        // REPORT-ONLY: the resolved edges are intentionally NOT merged into the persisted
-        // world model — only their stats reach the receipt. Live merge is a separate slice.
-        return ['call_edges' => array_merge(['files' => count($files)], $resolved['stats'] ?? [])];
+        return [
+            'edges' => is_array($resolved['edges'] ?? null) ? $resolved['edges'] : [],
+            'stats' => array_merge(['files' => count($files)], $resolved['stats'] ?? []),
+        ];
+    }
+
+    /**
+     * Format the call-edge computation for the build receipt: a 'call_edges' stats key
+     * (report-only visibility), flagged with whether the edges were actually merged into
+     * the persisted graph. Returns [] when call edges were not computed (flags off) so
+     * the receipt is byte-identical to before this fusion.
+     *
+     * @param  array{edges:array<int,array<string,mixed>>, stats:array<string,mixed>}|null  $callEdges
+     * @return array<string,mixed>
+     */
+    private function callEdgeReceipt(?array $callEdges): array
+    {
+        if ($callEdges === null) {
+            return [];
+        }
+
+        return ['call_edges' => array_merge($callEdges['stats'], [
+            'merged' => (bool) config('atlas.code_graph.call_edges_merge', false),
+        ])];
     }
 
     /**

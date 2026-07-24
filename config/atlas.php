@@ -4604,8 +4604,13 @@ return [
         // perf cost against real yield before the separate live-merge slice is built.
         'call_edges' => (bool) env('ATLAS_CODE_GRAPH_CALL_EDGES', false),
         // Upper bound on source files read per build when call_edges is ON (perf ceiling;
-        // the live-merge slice must use the incremental reindex, not this full re-read).
+        // the perf-serious path must use the incremental reindex, not this full re-read).
         'call_edges_max_files' => (int) env('ATLAS_CODE_GRAPH_CALL_EDGES_MAX_FILES', 5000),
+        // When ON, the resolved method->method call edges are MERGED into the persisted
+        // world model (graph-mutating), not just reported. DEFAULT OFF. Enable only after
+        // reviewing the call_edges yield stats — edges are INFERRED (0.7), shape-identical
+        // to symbol edges, and subject to the same max_edges cap.
+        'call_edges_merge' => (bool) env('ATLAS_CODE_GRAPH_CALL_EDGES_MERGE', false),
     ],
 
     /*
