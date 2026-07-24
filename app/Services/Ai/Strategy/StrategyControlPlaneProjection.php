@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Strategy;
 
+use App\Services\Ai\Support\ControlPlaneStatusSection;
 use App\Models\AiExperimentPlan;
 use App\Models\AiMarketModel;
 use App\Models\AiOpportunity;
@@ -90,38 +91,7 @@ class StrategyControlPlaneProjection
      */
     private function section(string $modelClass, string $statusColumn, int $limit, array $recentColumns): array
     {
-        if (! class_exists($modelClass)) {
-            return ['count' => 0, 'by_status' => [], 'recent' => []];
-        }
-
-        try {
-            $byStatus = $modelClass::query()
-                ->selectRaw("{$statusColumn} as bucket, COUNT(*) as total")
-                ->groupBy($statusColumn)
-                ->pluck('total', 'bucket')
-                ->all();
-
-            $recent = $modelClass::query()
-                ->orderByDesc('created_at')
-                ->limit($limit)
-                ->get()
-                ->map(static function ($row) use ($recentColumns): array {
-                    $out = [];
-                    foreach ($recentColumns as $column) {
-                        $out[$column] = $row->{$column} ?? null;
-                    }
-
-                    return $out;
-                })->all();
-
-            return [
-                'count' => (int) $modelClass::query()->count(),
-                'by_status' => array_map(static fn ($v): int => (int) $v, $byStatus),
-                'recent' => $recent,
-            ];
-        } catch (Throwable) {
-            return ['count' => 0, 'by_status' => [], 'recent' => []];
-        }
+        return ControlPlaneStatusSection::project($modelClass, $statusColumn, $limit, $recentColumns);
     }
 
     private function safeCount(string $modelClass): int
