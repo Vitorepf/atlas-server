@@ -125,6 +125,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
             }
         }
         if ($alreadyApplied) {
+            $observedWriteSet = $this->observedWriteSet($proposal);
             $replayed = [
                 'applied' => true,
                 'replayed' => true,
@@ -132,7 +133,14 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
                 'sandbox_root' => $sandbox,
                 'idempotency_receipt' => $idempotencyReceipt,
                 'diffs' => $proposal['diffs'] ?? [],
+                // P1b.2 R70: observed write-set always wins over claim text.
+                'observed_write_set' => $observedWriteSet,
+                'read_only_claim' => (bool) ($input['read_only'] ?? false),
             ];
+            if (($input['read_only'] ?? false) === true && $observedWriteSet !== []) {
+                $replayed['read_only_claim_false'] = true;
+                $replayed['reason'] = 'read_only_claim_false_observed_write';
+            }
             if (! $this->persistAppliedManifest($sandbox, $key, $input, $proposal, [], $idempotencyReceipt)) {
                 return array_replace($replayed, ['applied' => false, 'reason' => 'reconciliation_uncertain']);
             }
@@ -159,6 +167,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
             return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_apply_failed', 'sandbox_root' => $sandbox, 'apply_receipt' => $apply];
         }
 
+        $observedWriteSet = $this->observedWriteSet($proposal, $apply);
         $result = [
             'applied' => true,
             'replayed' => false,
@@ -167,7 +176,15 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
             'apply_receipt' => $apply,
             'diffs' => $proposal['diffs'] ?? [],
             'idempotency_receipt' => $idempotencyReceipt,
+            // P1b.2 R70: observed write-set always wins over claim text.
+            'observed_write_set' => $observedWriteSet,
+            'read_only_claim' => (bool) ($input['read_only'] ?? false),
         ];
+        if (($input['read_only'] ?? false) === true && $observedWriteSet !== []) {
+            // Claim lied: still report observed writes; never hide mutation.
+            $result['read_only_claim_false'] = true;
+            $result['reason'] = 'read_only_claim_false_observed_write';
+        }
         $persisted = $this->persistAppliedManifest($sandbox, $key, $input, $proposal, $apply, $idempotencyReceipt);
 
         if (! $persisted) {
@@ -175,6 +192,40 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
         }
 
         return $result;
+    }
+
+    /**
+     * R70: derive the write set from what was actually applied, not claim flags.
+     *
+     * @param  array<string,mixed>  $proposal
+     * @param  array<string,mixed>  $apply
+     * @return list<string>
+     */
+    private function observedWriteSet(array $proposal, array $apply = []): array
+    {
+        $paths = [];
+        foreach ((array) ($apply['applied_files'] ?? []) as $file) {
+            if (is_string($file) && trim($file) !== '') {
+                $paths[] = ltrim(trim($file), '/');
+            } elseif (is_array($file) && trim((string) ($file['path'] ?? '')) !== '') {
+                $paths[] = ltrim(trim((string) $file['path']), '/');
+            }
+        }
+        if ($paths === []) {
+            foreach ((array) ($proposal['files'] ?? []) as $file) {
+                if (! is_array($file)) {
+                    continue;
+                }
+                $path = ltrim(trim((string) ($file['path'] ?? '')), '/');
+                if ($path !== '') {
+                    $paths[] = $path;
+                }
+            }
+        }
+        $paths = array_values(array_unique($paths));
+        sort($paths);
+
+        return $paths;
     }
 
     /** @return array<string,mixed>|null */

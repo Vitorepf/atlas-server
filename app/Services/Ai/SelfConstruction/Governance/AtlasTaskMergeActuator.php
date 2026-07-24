@@ -436,6 +436,10 @@ final class AtlasTaskMergeActuator
             'commit_sha' => $sha,
             'files' => $action->files,
             'settlement_event_id' => (string) $settlement->event_id,
+            // P1b.2: LAND bound to AuthorizedMergeAction::nonce (also ledger correlation).
+            'land_nonce' => $action->nonce,
+            'authorization_event_id' => $action->canonicalEventId,
+            'observed_write_set' => array_values($action->files),
         ];
     }
 

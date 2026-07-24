@@ -108,4 +108,19 @@ final readonly class CanarySettlementRequest
     {
         return CanonicalKernelPayload::hash($this->binding());
     }
+
+    /**
+     * P1b.2: SETTLE is bound to canary idempotency hash; LAND uses action.nonce.
+     * Observer-minted settlement must carry both bindings.
+     *
+     * @return array{land_nonce:string,settle_idempotency_hash:string,landed_sha:string}
+     */
+    public function actSettlementBindings(): array
+    {
+        return [
+            'land_nonce' => $this->action->nonce,
+            'settle_idempotency_hash' => $this->idempotencyHash(),
+            'landed_sha' => $this->landedSha,
+        ];
+    }
 }

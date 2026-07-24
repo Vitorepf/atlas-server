@@ -59,6 +59,9 @@ final class ProviderGovernanceCoverageLedger
      */
     public const PATH_CONSULTED = 'consulted';
 
+    /** P1b.2: consult-skip bookkeeping absorbed from GovernanceConsultSkipCounter. */
+    public const PATH_SKIPPED = 'skipped';
+
     public const SURFACE_MANAGER = 'ai_provider_manager';
 
     public const SURFACE_RECOMMENDATION = 'ai_provider_manager_recommendation';
@@ -119,6 +122,36 @@ final class ProviderGovernanceCoverageLedger
     }
 
     /**
+     * P1b.2: dual-write consult skips into the coverage ledger so skip_counter
+     * is not a second unreconciled writer forever.
+     *
+     * @param  array<string,mixed>  $context
+     */
+    public function recordSkipped(string $provider, string $surface, array $context = []): void
+    {
+        $this->record(self::PATH_SKIPPED, $provider, $surface, $context);
+    }
+
+    /**
+     * Ingest one GovernanceConsultSkipCounter row into the coverage ledger.
+     *
+     * @param  array<string,mixed>  $skipRow
+     */
+    public function ingestConsultSkip(array $skipRow): void
+    {
+        $this->recordSkipped(
+            (string) ($skipRow['provider'] ?? 'unknown'),
+            (string) ($skipRow['surface'] ?? 'governance_consult_skip'),
+            [
+                'executor' => (string) ($skipRow['executor'] ?? ''),
+                'reason' => (string) ($skipRow['reason'] ?? ''),
+                'source' => 'governance_consult_skip_counter',
+                'ts' => (string) ($skipRow['ts'] ?? ''),
+            ],
+        );
+    }
+
+    /**
      * @param  array<string,mixed>  $context
      */
     private function record(string $path, string $provider, string $surface, array $context): void
@@ -143,6 +176,7 @@ final class ProviderGovernanceCoverageLedger
                 'covered' => $path === self::PATH_COVERED,
                 // governed = manager-resolved OR consulted-the-shared-seam.
                 'governed' => $path === self::PATH_COVERED || $path === self::PATH_CONSULTED,
+                'skipped' => $path === self::PATH_SKIPPED,
                 'provider' => $provider !== '' ? $provider : 'unknown',
                 'surface' => $surface !== '' ? $surface : 'unknown',
                 'context' => $context,

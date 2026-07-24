@@ -103,6 +103,16 @@ final class GovernanceConsultSkipCounter
                 json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL,
                 FILE_APPEND | LOCK_EX,
             );
+
+            // P1b.2: dual-write into CoverageLedger so skip metrics are not a
+            // second unreconciled writer (skip file remains for replay/report).
+            try {
+                if (function_exists('app')) {
+                    app(ProviderGovernanceCoverageLedger::class)->ingestConsultSkip($row);
+                }
+            } catch (Throwable) {
+                // Fail-open dual-write.
+            }
         } catch (Throwable) {
             // Fail-open: never break runtime for a bookkeeping miss.
         }
