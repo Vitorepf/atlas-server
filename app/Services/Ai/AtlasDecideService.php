@@ -858,18 +858,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return 74;
     }
 
-    private function confidenceBand(int $score, ?string $manualProvider): string
-    {
-        if ($manualProvider !== null) {
-            return 'manual';
-        }
-
-        return match (true) {
-            $score >= 85 => 'high',
-            $score >= 70 => 'medium',
-            default => 'low',
-        };
-    }
 
     /**
      * @param  array<string,mixed>  $options
@@ -1350,22 +1338,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return array_values(array_unique($gates));
     }
 
-    private function qualityGateForTask(string $taskType, bool $programming, bool $hasVisual): string
-    {
-        if ($programming) {
-            return 'tests_or_static_review';
-        }
-
-        if ($hasVisual) {
-            return 'visual_consistency_review';
-        }
-
-        if (in_array($taskType, ['research', 'analysis', 'memory'], true)) {
-            return 'source_grounding_review';
-        }
-
-        return 'response_sanity_check';
-    }
 
     private function contextSource(array $payload, bool $hasVisual, bool $hasFile, int $attachmentCount): string
     {
@@ -1388,40 +1360,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return 'prompt';
     }
 
-    private function isResearchSignal(?string $workflowMode, ?string $routingTask, string $inputLower): bool
-    {
-        return in_array($workflowMode, ['research', 'analysis'], true)
-            || in_array($routingTask, ['research', 'analysis'], true)
-            || str_contains($inputLower, 'pesquisa')
-            || str_contains($inputLower, 'pesquise')
-            || str_contains($inputLower, 'research');
-    }
 
-    private function declaredTaskTypeIsGenericOrProgramming(?string $taskType): bool
-    {
-        return $taskType === null || in_array($taskType, [
-            'chat',
-            'general',
-            'conversation',
-            'completion',
-            'assistant',
-            'default',
-            'unknown',
-            'dev',
-            'debug',
-            'code',
-            'coding',
-            'programming',
-            'quality_repair',
-            'implementation',
-            'implementacao',
-            'implementação',
-            'refactor',
-            'refactoring',
-            'refatoracao',
-            'refatoração',
-        ], true);
-    }
 
     private function manualOverrideProviderFromParts(
         ?string $decisionMode,
@@ -1444,16 +1383,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return $requestedProvider ?: $topLevelProvider;
     }
 
-    private function cleanDecisionMode(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return in_array($value, ['atlas_decide', 'manual_override'], true) ? $value : null;
-    }
 
     private function providerOrCouncil(mixed $value): ?string
     {

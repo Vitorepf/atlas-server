@@ -19,7 +19,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: Decide pure policy peel | LedgerReplay inbox/agent families careful | Serving give_back | floors
+next: Serving give_back peel | Decide operationalDecision stages | floors
 ```
 
 ## Progress summary
