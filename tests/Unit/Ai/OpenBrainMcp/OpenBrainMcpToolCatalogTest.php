@@ -9,14 +9,18 @@ use PHPUnit\Framework\TestCase;
 
 final class OpenBrainMcpToolCatalogTest extends TestCase
 {
-    public function test_definitions_include_primary_open_brain_tools(): void
+    public function test_definitions_are_named_tool_rows(): void
     {
-        $defs = OpenBrainMcpToolCatalog::definitions();
-        $this->assertIsArray($defs);
-        $this->assertGreaterThan(20, count($defs));
-        $names = array_map(static fn (array $tool): string => (string) ($tool['name'] ?? ''), $defs);
+        $tools = OpenBrainMcpToolCatalog::definitions();
+
+        $this->assertCount(65, $tools);
+        $names = array_map(static fn (array $t): string => (string) ($t['name'] ?? ''), $tools);
         $this->assertContains('atlas_memory_recall', $names);
-        $this->assertContains('atlas_open_brain_context_pack', $names);
-        $this->assertContains('atlas_context_expand', $names);
+        $this->assertContains('atlas_context_pack', $names);
+        $this->assertContains('atlas_capabilities', $names);
+        foreach ($tools as $tool) {
+            $this->assertArrayHasKey('name', $tool);
+            $this->assertArrayHasKey('inputSchema', $tool);
+        }
     }
 }

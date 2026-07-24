@@ -28,7 +28,7 @@
 
 - [x] EnterpriseReportDashboardHtml shell → Template class (host ~552L)
 - [x] CertificationWorkbenchDelegators → map+__call (~1985→272L, 219 methods)
-- [ ] OpenBrainMcpToolCatalog::definitions domain split (~1099L)
+- [x] OpenBrainMcpToolCatalog::definitions → data file (catalog 25L + definitions 1089L)
 - [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)
 - [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
 - [ ] AtlasTaskServingService::report stage peel (~550L)

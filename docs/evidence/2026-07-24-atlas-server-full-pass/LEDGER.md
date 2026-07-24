@@ -10,7 +10,7 @@ rescan: "FINDINGS-RESCAN-2 multi-agent (8 explore) 2026-07-24"
 unit_proof: "Support+Concerns packages prior green"
 mcp_service_loc: 878
 mcp_catalog_loc: 1099
-next: Serving report stages | ProviderCatalog | OneShotTick registry | ToolCatalog domain split | AppServiceProvider peel
+next: Serving report stages | ProviderCatalog | OneShotTick registry | AppServiceProvider peel | remaining peels
 ```
 
 ## Progress summary
