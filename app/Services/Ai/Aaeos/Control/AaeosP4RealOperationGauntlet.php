@@ -86,6 +86,19 @@ final class AaeosP4RealOperationGauntlet
         }
 
         $producerTerminal = self::deriveProducerTerminalFromStdout($stdout);
+        $effectHonesty = self::effectHonestyFromPayload($producerTerminal['payload'], $mode);
+        // R84: dry-run / non-executed missions never complete eng for REAL_OPERATION.
+        if ($effectHonesty['blockers'] !== [] && $producerTerminal['completed']) {
+            $producerTerminal['completed'] = false;
+            if ($producerTerminal['status'] === 'passed') {
+                $producerTerminal['status'] = 'blocked';
+            }
+            $producerTerminal['error_codes'] = array_values(array_unique(array_merge(
+                $producerTerminal['error_codes'],
+                $effectHonesty['blockers'],
+            )));
+        }
+
         $structuredResidual = self::structuredResidualFromProducerPayload(
             $producerTerminal['payload'],
             $producerTerminal['status'],
@@ -100,7 +113,7 @@ final class AaeosP4RealOperationGauntlet
             $context['authority_lineage_proof'] ?? self::tryDeriveAuthorityFromPayload($producerTerminal['payload']),
         );
         $blockers = array_merge($blockers, $providerProof['blockers'], $authorityProof['blockers']);
-        $blockers = array_merge($blockers, $structuredResidual['blockers']);
+        $blockers = array_merge($blockers, $structuredResidual['blockers'], $effectHonesty['blockers']);
 
         $hardBlockers = array_values(array_unique($blockers));
         $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
@@ -129,12 +142,23 @@ final class AaeosP4RealOperationGauntlet
         }
 
         $blockers = array_values(array_unique($hardBlockers));
+        $qualified = $terminal === self::STATUS_REAL_OPERATION_COMPLETED;
+
+        // Residual honesty must not contradict journey qualification (skeptic: hardcoded false).
+        $residual = $structuredResidual['residual'];
+        $residual['covered_provider_spawn_proven'] = $providerProof['ok'] && is_array($providerProof['proof'])
+            && ($providerProof['proof']['spawned'] ?? false) === true;
+        $residual['real_operation_completed'] = $qualified;
+        $residual['honesty'] = $qualified
+            ? 'real_operation_completed_derived'
+            : 'residual_honest_partial_not_fabricated';
+        $residual['effect_honesty'] = $effectHonesty['summary'];
 
         return [
             'schema' => self::SCHEMA.'.journey',
             'mode' => $mode,
             'journey_terminal_status' => $terminal,
-            'real_operation_qualified' => $terminal === self::STATUS_REAL_OPERATION_COMPLETED,
+            'real_operation_qualified' => $qualified,
             'exit_code' => $exit,
             'exit_zero_alone_never_qualifies' => true,
             'blocked_status_exit_zero_never_qualifies' => true,
@@ -145,7 +169,7 @@ final class AaeosP4RealOperationGauntlet
             'aaeos_initiated' => $aaeosInitiated,
             'preflight' => $preflight,
             'blockers' => $blockers,
-            'structured_residual' => $structuredResidual['residual'],
+            'structured_residual' => $residual,
             'producer_terminal' => [
                 'status' => $producerTerminal['status'],
                 'completed' => $producerTerminal['completed'],
@@ -197,9 +221,14 @@ final class AaeosP4RealOperationGauntlet
             ?? data_get($payload, 'aemor_outcome.outcome.status')
             ?? ''
         )));
-        // Normalize producer synonyms onto the completed set.
-        if (in_array($status, ['succeeded', 'executed', 'served_and_landed'], true)) {
+        // Normalize producer synonyms onto the completed set ONLY when effect honesty
+        // allows it. Bare "executed" with no_executable_capabilities must not complete.
+        $effect = self::effectHonestyFromPayload($payload, '');
+        if (in_array($status, ['succeeded', 'served_and_landed'], true)) {
             $status = 'passed';
+        }
+        if ($status === 'executed') {
+            $status = $effect['blockers'] === [] ? 'passed' : 'blocked';
         }
         $errorCodes = [];
         foreach ([
@@ -211,9 +240,18 @@ final class AaeosP4RealOperationGauntlet
             $payload['status'] ?? null,
             data_get($payload, 'escalation.reason'),
             data_get($payload, 'aemor_outcome.reason'),
+            data_get($payload, 'orchestrator_event'),
+            data_get($payload, 'result.event'),
         ] as $bucket) {
             if (is_array($bucket)) {
                 foreach ($bucket as $item) {
+                    if (is_array($item)) {
+                        $code = trim((string) ($item['code'] ?? $item['blocker'] ?? ''));
+                        if ($code !== '') {
+                            $errorCodes[] = $code;
+                        }
+                        continue;
+                    }
                     $item = trim((string) $item);
                     if ($item !== '') {
                         $errorCodes[] = $item;
@@ -226,14 +264,162 @@ final class AaeosP4RealOperationGauntlet
                 }
             }
         }
-        $errorCodes = array_values(array_unique($errorCodes));
-        $completed = in_array($status, ['passed', 'released', 'completed', 'completed_read_only', 'success', 'real_operation_completed'], true);
+        $errorCodes = array_values(array_unique(array_merge($errorCodes, $effect['blockers'])));
+        $completed = in_array($status, ['passed', 'released', 'completed', 'completed_read_only', 'success', 'real_operation_completed'], true)
+            && $effect['blockers'] === [];
 
         return [
             'status' => $status,
             'completed' => $completed,
             'error_codes' => $errorCodes,
             'payload' => $payload,
+        ];
+    }
+
+    /**
+     * R84 effect honesty: dry-run / non-executed missions / non-real completion
+     * never qualify REAL_OPERATION even when status tokens look green.
+     *
+     * @param  array<string,mixed>|null  $payload
+     * @return array{blockers:list<string>,summary:array<string,mixed>}
+     */
+    public static function effectHonestyFromPayload(?array $payload, string $mode = ''): array
+    {
+        if ($payload === null) {
+            return [
+                'blockers' => [],
+                'summary' => ['payload_present' => false],
+            ];
+        }
+
+        $blockers = [];
+        $blob = strtolower(json_encode($payload, JSON_UNESCAPED_SLASHES) ?: '');
+
+        $orchestratorEvent = strtolower(trim((string) (
+            $payload['orchestrator_event']
+            ?? data_get($payload, 'result.event', '')
+        )));
+        $commitSha = strtolower(trim((string) (
+            $payload['commit_sha']
+            ?? data_get($payload, 'result.commit_sha', '')
+        )));
+        $filesCommitted = array_values(array_filter(array_map(
+            'strval',
+            (array) ($payload['files_committed'] ?? data_get($payload, 'result.files_committed', [])),
+        )));
+        // Real scoped land: task_resolved + non-empty commit sha + files_committed.
+        // Orchestrator envelopes always stamp completion_real_allowed=false /
+        // non_execution_guarantees about the QUEUE organ itself — those are not
+        // evidence that a worker commit was fake.
+        $realLand = $orchestratorEvent === 'task_resolved'
+            && preg_match('/^[a-f0-9]{7,64}$/', $commitSha) === 1
+            && $filesCommitted !== [];
+
+        if (! $realLand && (str_contains($orchestratorEvent, 'dry_run') || $orchestratorEvent === 'completed_dry_run')) {
+            $blockers[] = 'dry_run_completion_not_real_operation';
+        }
+
+        $completionReal = data_get($payload, 'result.completion_real_allowed', data_get($payload, 'completion_real_allowed'));
+        if (! $realLand && $completionReal === false) {
+            $blockers[] = 'completion_real_not_allowed';
+        }
+
+        $providerCallAllowed = data_get($payload, 'result.provider_call_allowed', data_get($payload, 'provider_call_allowed'));
+        $runtimeExecAllowed = data_get($payload, 'result.runtime_execution_allowed', data_get($payload, 'runtime_execution_allowed'));
+        if (! $realLand && $providerCallAllowed === false && $runtimeExecAllowed === false
+            && (str_contains($blob, 'non_execution_guarantees') || str_contains($blob, 'does_not_call_provider'))) {
+            $blockers[] = 'producer_non_execution_guarantees';
+        }
+
+        $verified = $payload['verified'] ?? null;
+        if (! $realLand && $verified === false && (
+            str_contains($orchestratorEvent, 'dry_run')
+            || ($completionReal === false)
+        )) {
+            $blockers[] = 'producer_not_verified_real';
+        }
+
+        $excerpt = $payload['output_excerpt'] ?? null;
+        $excerptText = '';
+        $excerptChanged = null;
+        $excerptBlockers = [];
+        if (is_string($excerpt)) {
+            $excerptText = strtolower($excerpt);
+            $decoded = json_decode($excerpt, true);
+            if (is_array($decoded)) {
+                $excerpt = $decoded;
+            }
+        }
+        if (is_array($excerpt)) {
+            $excerptText = strtolower(json_encode($excerpt, JSON_UNESCAPED_SLASHES) ?: '');
+            $excerptChanged = $excerpt['changed_files'] ?? null;
+            foreach ((array) ($excerpt['blockers'] ?? []) as $b) {
+                if (is_array($b)) {
+                    $code = trim((string) ($b['code'] ?? ''));
+                    if ($code !== '') {
+                        $excerptBlockers[] = $code;
+                    }
+                } else {
+                    $code = trim((string) $b);
+                    if ($code !== '') {
+                        $excerptBlockers[] = $code;
+                    }
+                }
+            }
+        }
+
+        if (str_contains($excerptText, 'was not executed')
+            || str_contains($excerptText, 'not executed')
+            || str_contains($excerptText, 'no_executable_capabilities')
+            || in_array('no_executable_capabilities', $excerptBlockers, true)) {
+            $blockers[] = 'provider_mission_not_executed';
+        }
+        if (is_array($excerptChanged) && $excerptChanged === []
+            && str_contains($excerptText, 'no executable')) {
+            $blockers[] = 'provider_mission_empty_effect';
+        }
+
+        // Simulate-only forge live-execute path is never REAL_OPERATION.
+        if (($payload['external_provider_call'] ?? null) === false
+            && str_contains((string) ($payload['schema_version'] ?? ''), 'forge_live_execution')) {
+            $blockers[] = 'simulate_only_forge_live_execute';
+        }
+        if (str_contains((string) ($payload['note'] ?? ''), 'sem provider externo')
+            && str_contains((string) ($payload['schema_version'] ?? ''), 'forge_live_execution')) {
+            $blockers[] = 'simulate_only_forge_live_execute';
+        }
+
+        $provenReal = data_get($payload, 'outcome_spine.spine.ai_run_outcome.proven_real')
+            ?? data_get($payload, 'outcome_spine.outcome_contract_v2.verified')
+            ?? data_get($payload, 'aemor_outcome.spine.ai_run_outcome.proven_real');
+        $outcomeStatus = strtolower(trim((string) (
+            data_get($payload, 'outcome_spine.outcome.status')
+            ?? data_get($payload, 'aemor_outcome.outcome.status')
+            ?? ''
+        )));
+        if (! $realLand && $provenReal === false && $outcomeStatus === 'blocked'
+            && (str_contains($orchestratorEvent, 'dry_run') || $completionReal === false)) {
+            $blockers[] = 'outcome_spine_not_proven_real';
+        }
+
+        $blockers = array_values(array_unique($blockers));
+
+        return [
+            'blockers' => $blockers,
+            'summary' => [
+                'payload_present' => true,
+                'mode' => $mode,
+                'orchestrator_event' => $orchestratorEvent !== '' ? $orchestratorEvent : null,
+                'completion_real_allowed' => $completionReal,
+                'provider_call_allowed' => $providerCallAllowed,
+                'runtime_execution_allowed' => $runtimeExecAllowed,
+                'verified' => $verified,
+                'real_land' => $realLand,
+                'commit_sha' => $commitSha !== '' ? $commitSha : null,
+                'files_committed_count' => count($filesCommitted),
+                'excerpt_blocker_codes' => $excerptBlockers,
+                'honest' => $blockers === [],
+            ],
         ];
     }
 
@@ -299,8 +485,9 @@ final class AaeosP4RealOperationGauntlet
         }
 
         $provider = (string) data_get($payload ?? [], 'run_summary.provider_call.provider', data_get($payload ?? [], 'provider', ''));
-        $providerCalls = (int) data_get($payload ?? [], 'run_summary.provider_call.provider_calls', 0);
+        $providerCalls = (int) data_get($payload ?? [], 'run_summary.provider_call.provider_calls', data_get($payload ?? [], 'provider_called') === true ? 1 : 0);
 
+        // Placeholder honesty fields — journeyReceipt overwrites these from derived proofs.
         return [
             'blockers' => array_values(array_unique($blockers)),
             'residual' => [
@@ -328,6 +515,7 @@ final class AaeosP4RealOperationGauntlet
         return in_array($lower, [
             'ok', 'success', 'passed', 'released', 'completed', 'completed_read_only',
             'real_operation_completed', 'executed', 'succeeded', 'served_and_landed',
+            'task_resolved', 'resolved', 'reported',
             'help_or_plan_surface', 'unparsed', '',
         ], true);
     }
@@ -426,9 +614,12 @@ final class AaeosP4RealOperationGauntlet
                 $calls = 1;
                 $exit = $forgeExit;
                 $errors = array_values(array_map('strval', (array) ($payload['blockers'] ?? [])));
-                // executed status with empty blockers is clean spawn residual set.
-                if (strtolower((string) ($payload['status'] ?? '')) === 'executed') {
+                // Only clear blockers when effect honesty accepts the mission as executed.
+                $effect = self::effectHonestyFromPayload($payload, 'forge');
+                if (strtolower((string) ($payload['status'] ?? '')) === 'executed' && $effect['blockers'] === []) {
                     $errors = [];
+                } else {
+                    $errors = array_values(array_unique(array_merge($errors, $effect['blockers'])));
                 }
             }
         }

@@ -288,11 +288,14 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         ], JSON_THROW_ON_ERROR);
 
         $terminal = AaeosP4RealOperationGauntlet::deriveProducerTerminalFromStdout($stdout);
+        // Status token prefers forge_live_execution_status over aemor "recorded".
         $this->assertSame('passed', $terminal['status']);
-        $this->assertTrue($terminal['completed']);
+        // R84: simulate-only live-execute never completes eng for REAL_OPERATION.
+        $this->assertFalse($terminal['completed']);
+        $this->assertContains('simulate_only_forge_live_execute', $terminal['error_codes']);
     }
 
-    public function test_forge_provider_invocation_executed_derives_spawn_and_authority(): void
+    public function test_forge_provider_invocation_executed_with_material_effect_qualifies(): void
     {
         $stdout = json_encode([
             'schema_version' => 'atlas.forge.provider_invocation.v1',
@@ -305,6 +308,12 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
             'decision_receipt_id' => 'decision-forge-live-1',
             'decision_receipt_hash' => str_repeat('cd', 32),
             'blockers' => [],
+            'output_excerpt' => json_encode([
+                'schema_version' => 'atlas.forge.provider_invocation_output.v1',
+                'summary' => 'Provider applied scoped patch and verification passed.',
+                'changed_files' => ['app/Example.php'],
+                'blockers' => [],
+            ], JSON_THROW_ON_ERROR),
         ], JSON_THROW_ON_ERROR);
 
         $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('forge', [
@@ -320,10 +329,99 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         ]);
 
         $this->assertTrue($receipt['real_operation_qualified'], 'blockers='.implode(',', $receipt['blockers']));
+        $this->assertTrue($receipt['structured_residual']['real_operation_completed']);
+        $this->assertTrue($receipt['structured_residual']['covered_provider_spawn_proven']);
+        $this->assertSame('real_operation_completed_derived', $receipt['structured_residual']['honesty']);
         $this->assertNotNull($receipt['provider_spawn_proof']);
         $this->assertSame('hermes_cli', $receipt['provider_spawn_proof']['provider']);
         $this->assertNotNull($receipt['authority_lineage_proof']);
         $this->assertSame('decision-forge-live-1', $receipt['authority_lineage_proof']['authority_ref']);
+    }
+
+    public function test_forge_executed_without_executable_capabilities_never_qualifies(): void
+    {
+        $stdout = json_encode([
+            'schema_version' => 'atlas.forge.provider_invocation.v1',
+            'status' => 'executed',
+            'provider' => 'hermes_cli',
+            'provider_called' => true,
+            'external_provider_call' => true,
+            'exit_code' => 0,
+            'stdout_hash' => str_repeat('ab', 32),
+            'decision_receipt_id' => 'decision-forge-live-1',
+            'decision_receipt_hash' => str_repeat('cd', 32),
+            'blockers' => [],
+            'output_excerpt' => json_encode([
+                'schema_version' => 'atlas.forge.provider_invocation_output.v1',
+                'summary' => 'Provider invocation was not executed. no executable capabilities.',
+                'changed_files' => [],
+                'blockers' => [['code' => 'no_executable_capabilities', 'detail' => 'mission empty']],
+            ], JSON_THROW_ON_ERROR),
+        ], JSON_THROW_ON_ERROR);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('forge', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:forge:provider-invoke --mode=execute --json',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+        ]);
+
+        $this->assertFalse($receipt['real_operation_qualified']);
+        $this->assertFalse($receipt['structured_residual']['real_operation_completed']);
+        $this->assertContains('provider_mission_not_executed', $receipt['blockers']);
+    }
+
+    public function test_autonomos_completed_dry_run_never_qualifies_real_operation(): void
+    {
+        $stdout = json_encode([
+            'schema' => 'atlas.task_serving.report.v1',
+            'status' => 'passed',
+            'outcome' => 'success',
+            'orchestrator_event' => 'completed_dry_run',
+            'verified' => false,
+            'lease_closed' => true,
+            'provider' => 'hermes_cli',
+            'provider_called' => true,
+            'external_provider_call' => true,
+            'exit_code' => 0,
+            'stdout_hash' => str_repeat('ab', 32),
+            'decision_receipt_id' => 'lease-1',
+            'decision_receipt_hash' => str_repeat('cd', 32),
+            'authority_lineage' => [
+                'authority_ref' => 'lease-1',
+                'authority_hash' => str_repeat('cd', 32),
+                'authority_revision' => 1,
+            ],
+            'result' => [
+                'event' => 'completed_dry_run',
+                'completion_real_allowed' => false,
+                'provider_call_allowed' => false,
+                'runtime_execution_allowed' => false,
+                'non_execution_guarantees' => ['task_queue_orchestrator_does_not_call_provider'],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('autonomos', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:task report --json',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+        ]);
+
+        $this->assertFalse($receipt['real_operation_qualified']);
+        $this->assertContains('dry_run_completion_not_real_operation', $receipt['blockers']);
+        $this->assertFalse($receipt['structured_residual']['real_operation_completed']);
+        $this->assertSame('residual_honest_partial_not_fabricated', $receipt['structured_residual']['honesty']);
     }
 
     public function test_senior_loop_payload_authority_lineage_is_derived_not_invented(): void
