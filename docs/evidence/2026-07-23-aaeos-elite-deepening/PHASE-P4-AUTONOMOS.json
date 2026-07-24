@@ -7,19 +7,21 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "producer_status": "invalid_client",
+    "producer_status": "queue_scan_limit_exceeded",
     "named_residuals": [
-      "client_id_required",
-      "invalid_client"
+      "queue_scan_limit_exceeded",
+      "preflight_give_back_feedback_organ_missing",
+      "master_flip_operator_only"
     ],
     "blockers_sample": [
-      "provider_spawn_proof_missing",
-      "authority_lineage_proof_missing",
-      "residual:client_id_required",
-      "residual:invalid_client",
-      "producer_status_not_completed",
-      "producer_status:invalid_client"
-    ]
+      "queue_scan_limit_exceeded",
+      "client_ok_with_aaeos-p4-gauntlet",
+      "preflight_7_of_8"
+    ],
+    "client_id": "aaeos-p4-gauntlet",
+    "candidate_count": 64,
+    "scan_limit": 64,
+    "minimum_claimable_count": 65
   },
-  "notes": "Residual-honest PARTIAL \u2014 no fabricated REAL_OPERATION."
+  "notes": "With --client residual is queue_scan_limit_exceeded (not invalid_client). Preflight 7/8 fail give_back organ. Master flip never machine. Absolute DONE NO."
 }
