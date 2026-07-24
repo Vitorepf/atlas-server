@@ -51,9 +51,8 @@ class DecisionReceiptRuntimeGuard
                 : null;
         }
 
-        // EXPAND dual-read rule: V2 remains the governing receipt while the
-        // V3 transport is introduced. SHADOW/CANARY own contradiction and
-        // writer policy; they must not be smuggled into this phase.
+        // Dual-read: V2 remains the governing runtime receipt. Writers stay on
+        // V2 until CANARY. From SHADOW onward, a co-present V3 must not contradict V2.
 
         $receiptId = data_get($receiptV2, 'receipt_id');
         $envelopeId = data_get($receiptV2, 'envelope_id');
@@ -139,6 +138,86 @@ class DecisionReceiptRuntimeGuard
         $providerViolation = $this->providerSelectionViolation($receiptV2, $runtimeProvider, $runtimeModel, $runtimeStage, $base);
         if ($providerViolation instanceof DecisionReceiptRuntimeViolation) {
             return $providerViolation;
+        }
+
+        $receiptV3 = data_get($receipt, DecisionReceipt::RECEIPT_V3_KEY);
+        if (is_array($receiptV3)) {
+            $shadowViolation = $this->v2V3ShadowContradiction($receiptV2, $receiptV3, $base);
+            if ($shadowViolation instanceof DecisionReceiptRuntimeViolation) {
+                return $shadowViolation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * SHADOW: when both transports are present, V3 must be a coherent shadow of V2.
+     * Any contradiction or invalid V3 envelope vetoes before provider/effect.
+     *
+     * @param  array<string,mixed>  $receiptV2
+     * @param  array<string,mixed>  $receiptV3
+     * @param  array{receiptId:?string,envelopeId:?string,expiresAt:?string,dryRun:?bool,schemaVersion:?string}  $base
+     */
+    private function v2V3ShadowContradiction(array $receiptV2, array $receiptV3, array $base): ?DecisionReceiptRuntimeViolation
+    {
+        $v3Base = $this->baseForReceipt($receiptV3);
+        if (($v3Base['schemaVersion'] ?? null) !== DecisionReceipt::SCHEMA_VERSION_V3
+            || ! $this->v3EnvelopeIsParseable($receiptV3)) {
+            return $this->v3Violation(
+                'decision_receipt_v2_v3_shadow_contradiction',
+                'DecisionReceipt shadow veto: receipt_v3 is present but not a parseable atlas.decide.v3 authority envelope.',
+                $base,
+            );
+        }
+
+        try {
+            $hashMatches = DecisionReceiptHash::v3FullEnvelopeHashMatches($receiptV3);
+        } catch (\Throwable) {
+            $hashMatches = false;
+        }
+        if (! $hashMatches) {
+            return $this->v3Violation(
+                'decision_receipt_v2_v3_shadow_contradiction',
+                'DecisionReceipt shadow veto: receipt_v3 integrity does not match the full authority envelope.',
+                $base,
+            );
+        }
+
+        $sharedKeys = [
+            'receipt_id' => $this->stringOrNull(data_get($receiptV2, 'receipt_id')),
+            'envelope_id' => $this->stringOrNull(data_get($receiptV2, 'envelope_id')),
+            'dry_run' => data_get($receiptV2, 'dry_run'),
+            'domain' => $this->stringOrNull(data_get($receiptV2, 'domain')),
+            'flow' => $this->stringOrNull(data_get($receiptV2, 'flow')),
+        ];
+        foreach ($sharedKeys as $key => $v2Value) {
+            if ($v2Value === null && $key !== 'dry_run') {
+                continue;
+            }
+            $v3Value = $key === 'dry_run'
+                ? data_get($receiptV3, 'dry_run')
+                : $this->stringOrNull(data_get($receiptV3, $key));
+            if ($v2Value !== $v3Value) {
+                return $this->v3Violation(
+                    'decision_receipt_v2_v3_shadow_contradiction',
+                    'DecisionReceipt shadow veto: receipt_v2 and receipt_v3 disagree on '.$key.'.',
+                    $base,
+                );
+            }
+        }
+
+        $v2Primary = $this->stringOrNull(data_get($receiptV2, 'provider_selection.primary'));
+        $v3Primary = $this->stringOrNull(data_get($receiptV3, 'provider_selection.primary'));
+        $v2Model = $this->stringOrNull(data_get($receiptV2, 'provider_selection.model'));
+        $v3Model = $this->stringOrNull(data_get($receiptV3, 'provider_selection.model'));
+        if (($v2Primary !== null && $v3Primary !== null && $v2Primary !== $v3Primary)
+            || ($v2Model !== null && $v3Model !== null && $v2Model !== $v3Model)) {
+            return $this->v3Violation(
+                'decision_receipt_v2_v3_shadow_contradiction',
+                'DecisionReceipt shadow veto: provider selection diverges between receipt_v2 and receipt_v3.',
+                $base,
+            );
         }
 
         return null;

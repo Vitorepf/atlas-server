@@ -60,7 +60,7 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         $this->assertSame('decision_receipt_v3_invalid', $violation?->errorCode);
     }
 
-    public function test_v2_governs_during_expand_when_a_v2_and_v3_receipt_are_both_present(): void
+    public function test_shadow_vetoes_when_co_present_v3_is_tampered(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
         $v3 = $this->validV3Receipt();
@@ -71,7 +71,54 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
             'receipt_v3' => $v3,
         ]);
 
+        $this->assertSame('decision_receipt_v2_v3_shadow_contradiction', $violation?->errorCode);
+    }
+
+    public function test_shadow_allows_aligned_v2_and_v3_pair(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $v2 = $this->issuedReceipt([
+            'provider_selection' => [
+                'primary' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'fallbacks' => [],
+            ],
+        ]);
+        $v3 = $this->validV3Receipt();
+        $v3['receipt_id'] = $v2['receipt_id'];
+        $v3['envelope_id'] = $v2['envelope_id'];
+        $v3['dry_run'] = $v2['dry_run'];
+        $v3['domain'] = $v2['domain'];
+        $v3['flow'] = $v2['flow'];
+        $v3['provider_selection'] = $v2['provider_selection'];
+        $v3['receipt_hash'] = $this->independentV3Hash($v3);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v2' => $v2,
+            'receipt_v3' => $v3,
+        ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
+
         $this->assertNull($violation);
+    }
+
+    public function test_shadow_vetoes_when_shared_identity_diverges(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+        $v2 = $this->issuedReceipt();
+        $v3 = $this->validV3Receipt();
+        $v3['receipt_id'] = 'different-receipt-id';
+        $v3['envelope_id'] = $v2['envelope_id'];
+        $v3['dry_run'] = $v2['dry_run'];
+        $v3['domain'] = $v2['domain'];
+        $v3['flow'] = $v2['flow'];
+        $v3['receipt_hash'] = $this->independentV3Hash($v3);
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v2' => $v2,
+            'receipt_v3' => $v3,
+        ]);
+
+        $this->assertSame('decision_receipt_v2_v3_shadow_contradiction', $violation?->errorCode);
     }
 
     public function test_accepts_valid_live_receipt(): void

@@ -38,10 +38,31 @@ final class AaeosDecisionReceiptSchemaRolloutTest extends TestCase
 
         self::assertSame(DecisionReceipt::SCHEMA_VERSION, $v2['schema_version']);
         self::assertArrayNotHasKey(DecisionReceipt::RECEIPT_V3_KEY, $v2);
+
+        // SHADOW: co-present pair must be identity-aligned and integrity-valid.
+        $v3['receipt_id'] = $v2['receipt_id'];
+        $v3['envelope_id'] = $v2['envelope_id'];
+        $v3['dry_run'] = $v2['dry_run'];
+        $v3['domain'] = $v2['domain'];
+        $v3['flow'] = $v2['flow'];
+        $v3['provider_selection'] = $v2['provider_selection'];
+        $v3['receipt_hash'] = DecisionReceiptHash::v3FullEnvelopeHash($v3);
         self::assertNull($guard->violationForReceipt([
             DecisionReceipt::RECEIPT_V2_KEY => $v2,
             DecisionReceipt::RECEIPT_V3_KEY => $v3,
         ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5'));
+
+        $diverged = $v3;
+        $diverged['receipt_id'] = 'shadow-diverged-id';
+        $diverged['receipt_hash'] = DecisionReceiptHash::v3FullEnvelopeHash($diverged);
+        self::assertSame(
+            'decision_receipt_v2_v3_shadow_contradiction',
+            $guard->violationForReceipt([
+                DecisionReceipt::RECEIPT_V2_KEY => $v2,
+                DecisionReceipt::RECEIPT_V3_KEY => $diverged,
+            ])?->errorCode,
+        );
+
         self::assertSame(
             'decision_receipt_v3_non_authoritative',
             $guard->violationForReceipt([DecisionReceipt::RECEIPT_V3_KEY => $v3])?->errorCode,
