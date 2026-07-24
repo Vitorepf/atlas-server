@@ -17,6 +17,8 @@ use Throwable;
  */
 final class AtlasWeeklyEngineeringReportService
 {
+    use ProgrammingJsonHelper;
+
     public const SCHEMA_VERSION = 'atlas.weekly_engineering_report.v1';
 
     public const DEFAULT_REPORT_PATH = 'app/atlas/evidence/weekly-engineering-report.json';
@@ -252,11 +254,6 @@ final class AtlasWeeklyEngineeringReportService
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function writeJson(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-    }
 
     /**
      * @param  array<string,mixed>  $options

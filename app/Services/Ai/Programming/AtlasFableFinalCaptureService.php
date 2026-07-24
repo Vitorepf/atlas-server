@@ -6,7 +6,6 @@ namespace App\Services\Ai\Programming;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Throwable;
 
@@ -20,6 +19,8 @@ use Throwable;
  */
 final class AtlasFableFinalCaptureService
 {
+    use ProgrammingJsonHelper;
+
     public const SCHEMA_VERSION = 'atlas.fable.l4_14.final_capture.v1';
 
     public const RECEIPT_SCHEMA_VERSION = 'atlas.fable.l4_14.ritual_receipt.v1';
@@ -1115,11 +1116,13 @@ final class AtlasFableFinalCaptureService
             if (str_starts_with((string) $key, '--')) {
                 if ($value === true) {
                     $parts[] = (string) $key;
+
                     continue;
                 }
                 foreach ((array) $value as $optionValue) {
                     $parts[] = (string) $key.'='.(string) $optionValue;
                 }
+
                 continue;
             }
             $parts[] = (string) $value;
@@ -1131,12 +1134,6 @@ final class AtlasFableFinalCaptureService
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function writeJson(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-    }
-
     private function stringOrNull(mixed $value): ?string
     {
         if (! is_string($value)) {

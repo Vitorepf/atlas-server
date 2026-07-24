@@ -34,6 +34,8 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class IntentLadderClassifier
 {
+    use CampaignMathHelper;
+
     /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
     public const LAWS = ['schwartz-awareness', 'text-intent-ceiling'];
 
@@ -346,10 +348,5 @@ class IntentLadderClassifier
         $raw = preg_split('/[^a-z0-9áàâãéêíóôõúç]+/u', mb_strtolower($s)) ?: [];
 
         return array_values(array_filter($raw, fn ($t) => $t !== '' && mb_strlen($t) > 1 && ! in_array($t, self::STOPWORDS, true)));
-    }
-
-    private function clamp01(float $v): float
-    {
-        return max(0.0, min(1.0, $v));
     }
 }

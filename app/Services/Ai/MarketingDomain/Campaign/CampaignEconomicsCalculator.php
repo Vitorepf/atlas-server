@@ -9,6 +9,8 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class CampaignEconomicsCalculator
 {
+    use CampaignMathHelper;
+
     /** Smart Bidding data-volume thresholds (per 30 days), research-directional. */
     public const CONV_FOR_TROAS = 15;
 
@@ -71,10 +73,5 @@ class CampaignEconomicsCalculator
                 'cvr_note' => 'CVR (clique→venda) é a ÚNICA premissa não-determinística — confirmar com dado real assim que houver.',
             ],
         ];
-    }
-
-    private function clamp01(float $v): float
-    {
-        return max(0.0, min(1.0, $v));
     }
 }

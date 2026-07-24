@@ -18,6 +18,8 @@ use App\Models\AiMarketingVslAsset;
  */
 class KeywordQualityIndex
 {
+    use CampaignMathHelper;
+
     /** family → provenance base (post-VSL-exposure ownership = the highest-QS/CVR class). */
     private const FAMILY_BASE = [
         'mechanism_trick' => 100, 'slogan' => 92, 'power_phrase' => 85,
@@ -327,7 +329,7 @@ class KeywordQualityIndex
 
     /**
      * @param  array<string,mixed>  $econ
-     * @return array{0:float,1:bool,2:float}  [headroom, unprofitable, forecast_cpc]
+     * @return array{0:float,1:bool,2:float} [headroom, unprofitable, forecast_cpc]
      */
     private function headroom(float $qsProxy, int $intent, array $econ): array
     {
@@ -454,10 +456,5 @@ class KeywordQualityIndex
         $union = count(array_unique(array_merge($a, $b)));
 
         return $union === 0 ? 0.0 : $inter / $union;
-    }
-
-    private function clamp01(float $v): float
-    {
-        return max(0.0, min(1.0, $v));
     }
 }

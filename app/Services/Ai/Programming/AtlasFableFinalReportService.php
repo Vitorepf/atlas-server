@@ -8,7 +8,6 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\Context\AobgSemanticRetrievalLiftService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Throwable;
 
@@ -21,6 +20,8 @@ use Throwable;
  */
 final class AtlasFableFinalReportService
 {
+    use ProgrammingJsonHelper;
+
     public const SCHEMA_VERSION = 'atlas.fable.l4_13.final_report.v1';
 
     public const PACKET_SCHEMA_VERSION = 'atlas.fable.l4_13.handoff_packet.v1';
@@ -496,11 +497,6 @@ PROMPT;
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function writeJson(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-    }
 
     /**
      * @param  array<string,mixed>  $packet
