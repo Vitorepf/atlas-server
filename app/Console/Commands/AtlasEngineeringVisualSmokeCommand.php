@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Support\JsonFileStore;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Support\AtlasPhpBinary;
@@ -319,17 +320,6 @@ class AtlasEngineeringVisualSmokeCommand extends Command
         return $resolved;
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 
     private function port(string $workspace): int
     {

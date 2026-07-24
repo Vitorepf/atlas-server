@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\EngineeringApiContractService;
 use Illuminate\Console\Command;
 
@@ -74,15 +75,4 @@ class AtlasEngineeringApiContractCommand extends Command
         return $resolved && is_dir($resolved) ? $resolved : $workspace;
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }
