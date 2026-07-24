@@ -74,7 +74,8 @@
 - [x] routes/api voice + mobile + vox splits (api.php 762→643)
 - [x] routes/api arena + code-native + agent-governance + memory-vault (api.php →488; 74 dead imports pruned)
 - [x] routes/api engineering (runs/tools/knowledge/benchmarks + task eng) (api.php →411)
-- [ ] routes/api.php remaining (projects/captures/ai interactions core)
+- [x] routes/api projects-routines + semantic-and-lifestyle (api.php →293)
+- [ ] routes/api.php remaining (ai interactions / providers / jobs / harness core)
 - [x] ProviderCatalog adopt in AiDecisionController + AtlasAiDecideCommand + PlansGatewayDecision
 - [ ] Services→Controllers inversion (Forge cert/fast-path imports)
 - [ ] Residual Forge homes fuse/kill zero-ref
