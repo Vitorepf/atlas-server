@@ -29,7 +29,7 @@ EXECUTE P1-JSON
 EXECUTE P1b.1 | EXECUTE P1b.2 | EXECUTE P1b.3
 EXECUTE P2a.1 | EXECUTE P2a.2
 EXECUTE P2b-EXPAND | EXECUTE P2b-SHADOW | EXECUTE P2b-CANARY | EXECUTE P2b-CUTOVER | EXECUTE P2b-CONTRACT
-EXECUTE P2c | EXECUTE P2g-QOS | EXECUTE P2d | EXECUTE P2e | EXECUTE P2f
+EXECUTE P2c | EXECUTE P2g-QOS | EXECUTE P2g-CURR | EXECUTE P2g-MEAS | EXECUTE P2g-EVOL | EXECUTE P2d | EXECUTE P2e | EXECUTE P2f
 EXECUTE P3a | EXECUTE P3b
 EXECUTE P4-DEV | EXECUTE P4-FORGE | EXECUTE P4-AUTONOMOS | EXECUTE P4-FREEZE
 Without a controller-activated, predecessor-GREEN phrase → zero production PHP.
@@ -64,7 +64,7 @@ echo "BASE=$BASE"
 
 Under `docs/evidence/2026-07-23-aaeos-elite-deepening/` only:
 
-`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1-JSON.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2G-QOS.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
+`PHASE-P0.json`, `PHASE-P1A.json`, `PHASE-P1-JSON.json`, `PHASE-P1B1.json`, `PHASE-P1B2.json`, `PHASE-P1B3.json`, `PHASE-P2A1.json`, `PHASE-P2A2.json`, `PHASE-P2B-EXPAND.json`, `PHASE-P2B-SHADOW.json`, `PHASE-P2B-CANARY.json`, `PHASE-P2B-CUTOVER.json`, `PHASE-P2B-CONTRACT.json`, `PHASE-P2C.json`, `PHASE-P2G-QOS.json`, `PHASE-P2G-CURR.json`, `PHASE-P2G-MEAS.json`, `PHASE-P2G-EVOL.json`, `PHASE-P2D.json`, `PHASE-P2E.json`, `PHASE-P2F.json`, `PHASE-P3A.json`, `PHASE-P3B.json`, `PHASE-P4-DEV.json`, `PHASE-P4-FORGE.json`, `PHASE-P4-AUTONOMOS.json`, `PHASE-P4-FREEZE.json`, plus `LEDGER.md` + `SCOREBOARD.md`.
 
 **Forbidden:** any `*receipt*.md`, extra PHASE files, screenshots-as-proof, second ledgers.
 
@@ -238,7 +238,10 @@ P0
  → P2b EXPAND → SHADOW → CANARY → CUTOVER (+ AWIS R102)
  → P1b.1 pre-effect authority replay
  → P2c native lineage / crash durability
- → P2g-QOS (R106 Agent QoS excellence multi-loop law)
+ → P2g-QOS (R106 multi-loop path law)
+ → P2g-CURR (curriculum S_sanity/S_frontier/S_horizon wiring)
+ → P2g-MEAS (R107 M_excellence ≥50 on non-saturated frontier)
+ → P2g-EVOL (Autônomos self-evolution: promote school → originate → land → remeasure)
  → P1b.2 native ACT/settlement (+ tool redaction)
  → P1b.3 AAEOS projection only
  → P2d Spine settlement refs
@@ -311,27 +314,94 @@ AAEOS is the **mother block of agentic engineering law** at shared seams — inc
 ---
 
 
-### 1.12 Agent QoS excellence ceiling (R106) — binding
+### 1.12 Agent QoS Absolute Program — binding constitution (Codex implements slices P2g-*)
 
-Operator **always out of engineering loop**. Time delay is secondary. Software excellence is primary.
+**Operator telos (pétreo):** Atlas **melhora a própria qualidade sozinho** (night → Autônomos / self-construction). O operador **não** pede cada melhoria; **usa o produto** e sente ordem de grandeza melhor (fluidez, inteligência, qualidade). Tempo secundário. Eng loop **zero** operador.
 
-**Agent QoS** = probability of promote-with-proof (structure, correctness, maintainability, verification) — not latency.
+**Canon knowledge (read before any P2g-* slice):**
+| Doc | Role |
+|---|---|
+| `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md` | QoS path law, M_excellence, class×depth, K-tests, §0–§4.4 |
+| `docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md` | 80–100% = school level; S_sanity/S_frontier/S_horizon; **never** “50× forever impossible” |
+| `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md` | Self-evolution loop: measure → promote school → originate → land → remeasure |
+| `docs/engineering-knowledge-base/atlas-autonomos-live-system.md` | Autônomos vivo (not ACDE dead) |
 
-**Alvo multiplicador (operador):** `M_excellence ≥ 50` no mesmo modelo (ex. Kimi) cru vs Atlas — definição/protocolo em `atlas-agent-qos-excellence-ceiling.md` **§0**; claim só residual **R107** (Rivals), nunca certify inject.
+#### 1.12.1 What Agent QoS is
+Probability of **EXCELLENCE_PASS with proof** (structure, correctness, maintainability, verification) — **not** latency, tokens, or vanity score.
 
-**Teto de desenho (fechado no knowledge doc §4.4):** classes C_ARCH…C_MEAS; depth standard|elevated|max server-resolved; C_ARCH×max ≥3 candidatos + adversarial; kill-tests K1–K10; sem dial vanity.
+#### 1.12.2 Multiplier M_excellence ≥ 50× (R107)
+```text
+M_excellence(μ, S_frontier) = N_atlas(μ, S_frontier) / max(N_raw(μ, S_frontier), ε)
+```
+- Same model μ (e.g. Kimi K7-class) on both arms; channel symmetry (R104).
+- Claim **only** on **non-saturated S_frontier** + Rivals receipt.
+- **Anti-ceiling fallacy:** raw/Atlas at 80–100% on a level ⇒ **promote curriculum**, never “impossible forever”.
+- Separate from spawn M (R88 COVERED/total).
 
-When excellence depth is server-resolved **max** (from mandate/risk/L4–L5 — **not** a productive CLI dial `quality_ceiling=max`):
+#### 1.12.3 Multi-loop stack (R106 path law)
+```text
+Spec FREEZE → Author N → package(R104) → apply → Court+Floor → Repair 0..N (same root)
+  → LAND → canary SETTLE → Outcome → (audit optional)
+```
+Architecture path: **≥3 candidates + ≥1 adversarial** at max depth; **zero** product land.  
+Depth **server-resolved** `standard|elevated|max` (raise-only). **No** CLI dial `quality_ceiling=max`.
 
-1. Multi-loop is **required**: spec → author → judge → verify → repair 0..N (same root) → land → canary settle.  
-2. Architecture requests and implementation requests are **distinct** (architecture must not MergeActuate).  
-3. author ≠ judge ≠ governor; mechanical Court when same model family (R68).  
-4. review:deep / cockpit = **audit only** (R94).  
-5. Multi-loop on a broken provider channel (R104 open) is **forbidden as a quality claim**.  
-6. M remains falsifiable (R88) — no vanity ceiling score.  
-7. Owners only: Kernel Court/Floor/Repair/Merge/Ledger (see `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md`). **No new organ.**
+#### 1.12.4 Curriculum school (Rivals essence)
+| Suite | Role |
+|---|---|
+| S_sanity | Mastered levels — parity/regression; both arms should pass |
+| S_frontier | Measure M_excellence / uplift; claim 50× only here if non-saturated |
+| S_horizon | Next book (2026→2050+); promote when frontier saturates |
 
-Full map: that knowledge-base doc. Slice: **P2g-QOS**. Residual: **R106**.
+Atlas 80% on a mediocre/sanity suite = **useless as final goal** → **raise the level**.
+
+#### 1.12.5 Self-evolution loop (Autônomos night forever)
+```text
+1 MEASURE frontier (raw vs Atlas)
+2 if M<1 → STOP-THE-LINE repair tasks (priority)
+3 if 80–100% saturated level → promote school (sanity←frontier; open L_k+1)
+4 ORIGINATE real improvement work via atlas:brain:* (not proxy cleanup)
+5 MUSCLE atlas:task:* → land under QoS on main
+6 REMEASURE → loop 24/7 without operator eng
+```
+**Dead:** ACDE `atlas:loop:*`. **Live:** brain/task + self-construction daemon.
+
+#### 1.12.6 Best possible QoS evolution (implementation order for Codex)
+```text
+Wave A  P1-JSON (R104)     channel M≥1
+Wave B  P2b + P2c          authority + repair continuum
+Wave C  P2g-QOS (R106)     multi-loop path law
+Wave D  P2g-CURR           curriculum ladder wiring + S_sanity/S_frontier v1
+Wave E  P2g-MEAS (R107)    dual-arm measure; claim gate for ≥50×
+Wave F  P2g-EVOL           self-evolution: promote→originate→land→remeasure
+Wave G  P4 + continuous    REAL_OPERATION; forever school promotion
+```
+
+#### 1.12.7 Absolute stage — missing checklist (honest)
+| # | Capability | Closes in |
+|---|---|---|
+| A1 | R104 GREEN — no JSON³ destroy N | P1-JSON |
+| A2 | Decision v3 + Court facts on accept | P2b + P2g-QOS |
+| A3 | Repair 0..N same root + lock/replay | P2c + P2g-QOS |
+| A4 | Class×depth + C_ARCH≥3 enforced | P2g-QOS |
+| A5 | S_sanity + S_frontier registered + auto-promote rule | P2g-CURR |
+| A6 | Dual-arm same-μ report M_excellence; claim only if ≥50 on valid frontier | P2g-MEAS |
+| A7 | Brain originates quality work from frontier/M&lt;1/saturation signals | P2g-EVOL |
+| A8 | Autônomos 24/7 lands improvements without operator task-causal | P2g-EVOL + P4-AUTONOMOS |
+| A9 | Operator feels product uplift without requesting each change | emergent after A1–A8 |
+| A10 | Negative multiplier stop-the-line → priority repair queue | P2g-EVOL |
+
+**Absolute stage** = A1–A8 GREEN in series. A9 is operator experience, not a vanity certify number.
+
+#### 1.12.8 Residuals
+| ID | Slice |
+|---|---|
+| R104 | P1-JSON |
+| R106 | P2g-QOS |
+| R107 | P2g-MEAS |
+| R108 | P2g-CURR + P2g-EVOL curriculum auto-promote + self-evolution wiring (new; hard-done in §3.5) |
+
+Full knowledge: excellence-ceiling + curriculum-ladder + autonomos-self-evolution-quality-loop.
 
 ## 2. Disk truth (re-verify every slice start)
 
@@ -421,7 +491,8 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R104 | JSON³ provider contract: Atlas forces triple-nested patch_plan JSON; native FC unused; `invalid_provider_contract` after model solved N | **P1-JSON** |
 | R105 | Governor merge authority for benchmark/ephemeral workspaces (product P2) | post-R104; separate |
 | R106 | Agent QoS excellence multi-loop not law of path; quality can be skipped or gamed by dials/proxies; architecture vs impl shortcuts | **P2g-QOS** |
-| R107 | No falsifiable ≥50× claim; risk of vanity OR of treating saturated school-level as model ceiling | **Rivals curriculum S_sanity/S_frontier/S_horizon + R106 + R104** |
+| R107 | No falsifiable ≥50× claim; risk of vanity OR of treating saturated school-level as model ceiling | **P2g-MEAS + Rivals curriculum** |
+| R108 | No closed self-evolution night loop (promote school → originate → land → remeasure) | **P2g-CURR + P2g-EVOL** |
 
 
 **Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 + R106 when excellence ceiling claimed (R44→R66). HORIZON only where marked. R105 only if measurement-workspace DONE claimed.
@@ -559,6 +630,13 @@ No cycle-5 survivor creates a fourth executor, new scheduler, new Ledger, outbox
 
 
 ---
+
+### 3.5 Residual R108 hard-done (curriculum auto-promote + self-evolution)
+
+| ID | Gap | Owners | Hard done |
+|---|---|---|---|
+| R108 | Measuring excellence does not **promote school** nor **originate** Autônomos work to reach next level; operator must still drive improvement | Rivals readiness/case-set metadata; brain:next/seed ambition; TaskServing; RuntimeDaemon; QoS path; **no ACDE**; no new organ if existing brain ambition/seed can emit tasks | (1) frontier domain stable ≥ promotion bar → level becomes S_sanity and L_k+1 frontier opens (receipt); (2) promotion or M&lt;1 emits **real** brain/task work (not proxy); (3) lands under QoS; (4) remeasure scheduled/unattended; (5) operator eng actions remain zero on Autônomos path; (6) negative multiplier → stop-the-line priority queue; (7) PHASE-P2G-CURR + PHASE-P2G-EVOL green |
+
 
 # SLICE CATALOG — FOLLOW EXACTLY
 
@@ -1592,8 +1670,208 @@ Re-read excellence map doc + §1.12. Confirm R104 status. FOREIGN_WIP untouched.
 - [ ] No new organ  
 
 ### P2g-QOS STOP
+Controller may activate **EXECUTE P2g-CURR** only after PHASE-P2G-QOS GREEN (and R104 honesty for quality claims).
 
 ---
+
+# PART — AGENT QOS ABSOLUTE PROGRAM (Codex implementer map)
+
+**Serial gates:** `P2g-QOS` → `P2g-CURR` → `P2g-MEAS` → `P2g-EVOL`  
+**Knowledge pack (mandatory read):** excellence-ceiling.md + curriculum-ladder-anti-ceiling.md + autonomos-self-evolution-quality-loop.md  
+**Forbidden globally:** ACDE revival; vanity dial; claim 50× without frontier measure; proxy self-evolution (LOC/test-count); operator eng in Autônomos path.
+
+```text
+IMPLEMENTATION WAVE (absolute quality)
+  R104 P1-JSON ──channel──► R106 P2g-QOS ──path law──► P2g-CURR ──school──►
+  P2g-MEAS ──50× measure──► P2g-EVOL ──night self-improve──► forever promote L_k
+```
+
+---
+
+# SLICE P2g-CURR — curriculum ladder wiring (R108 partial)
+
+**Gate:** `EXECUTE P2g-CURR` (requires PHASE-P2G-QOS GREEN)  
+**Receipt:** `PHASE-P2G-CURR.json`  
+**Objective:** encode S_sanity / S_frontier / S_horizon in Rivals case-set metadata + promotion rule; forbid saturated-suite 50× claims; document promotion receipt schema.
+
+## Closed production paths
+```
+config/atlas_rivals.php
+app/Services/Ai/Rivals/Core/Preregistration.php
+app/Services/Ai/Rivals/Core/Adjudicator.php
+app/Services/Ai/Rivals/Core/ReportBuilder.php
+app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php
+app/Services/Ai/Rivals/Core/WorldTrialReadiness.php
+app/Console/Commands/AtlasRivalsCommand.php
+docs/engineering-knowledge-base/atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
+docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+docs/engineering-knowledge-base/atlas-rivals-claims-and-reporting-v1.md
+docs/engineering-knowledge-base/atlas-rivals-internal-corpus-v1.md
+```
+
+## Closed tests
+```
+tests/Feature/Ai/Rivals/AaeosRivalsCurriculumLadderMetadataTest.php   # NEW
+tests/Feature/Ai/Rivals/AaeosRivalsSaturatedFrontierBlocks50xClaimTest.php  # NEW
+tests/Unit/Ai/Rivals/RivalsClaimAuthorityCurriculumTest.php           # NEW or extend existing claim tests
+```
+
+## Ordered steps
+1. RED: claim path that treats high score on easy/saturated set as max multiplier → must fail claim_allowed.  
+2. Add case-set (or suite metadata) fields: `curriculum_role ∈ {sanity,frontier,horizon}`, `level_id`, `promotion_bar`, `predecessor_level_id`.  
+3. Adjudicator/Report: M_excellence / uplift **claim** only if curriculum_role=frontier and not marked saturated.  
+4. Promotion helper (pure): if raw domain ≥ promotion_bar stable → emit `curriculum_level_promoted` facts (receipt/ledger event type existing or extend LedgerEventType only if already in closed P2a list — else store rivals JSONL receipt). Prefer **existing** Rivals ledgers over new organs.  
+5. Docs: internal corpus v1 marks at least one S_sanity and one S_frontier set.  
+
+## Exit checklist
+- [ ] Sanity vs frontier metadata exists  
+- [ ] 50×/strong claim blocked on sanity or saturated frontier  
+- [ ] Promotion rule testable (pure function + receipt)  
+- [ ] Anti-ceiling fallacy cannot pass claim gate  
+- [ ] PHASE-P2G-CURR GREEN  
+
+### Commit
+```
+feat(core): AAEOS-MT P2g-CURR rivals curriculum ladder metadata
+docs(evidence): AAEOS-MT P2g-CURR phase receipt
+```
+### P2g-CURR STOP → next EXECUTE P2g-MEAS
+
+---
+
+# SLICE P2g-MEAS — M_excellence ≥ 50× measure (R107)
+
+**Gate:** `EXECUTE P2g-MEAS` (requires PHASE-P2G-CURR GREEN + R104 GREEN for valid channel)  
+**Receipt:** `PHASE-P2G-MEAS.json`  
+**Objective:** dual-arm same-μ runner path + EXCELLENCE_PASS reporting + claim gate for M≥50 on non-saturated frontier only.
+
+## Closed production paths
+```
+app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php
+app/Services/Ai/Rivals/Core/Adjudicator.php
+app/Services/Ai/Rivals/Core/ReportBuilder.php
+app/Services/Ai/Rivals/Core/EvidencePackBuilder.php
+app/Services/Ai/Rivals/Core/ResultLedger.php
+app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php
+app/Services/Ai/EngineeringKernel/Adapters/AgentExecutionProviderPortAdapter.php
+config/atlas_rivals.php
+docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md
+docs/engineering-knowledge-base/thesis/rivals-validation.md
+```
+
+## Closed tests
+```
+tests/Feature/Ai/Rivals/AaeosMExcellenceDualArmReportTest.php     # NEW
+tests/Feature/Ai/Rivals/AaeosMExcellenceClaimGate50xTest.php      # NEW
+tests/Feature/Ai/Rivals/AaeosMExcellenceSaturatedLevelNoClaimTest.php  # NEW
+```
+
+## Ordered steps
+1. RED: missing dual-arm or asymmetric channel still allows “50×” claim → refuse.  
+2. Define report fields: `N_raw`, `N_atlas`, `M_excellence`, `curriculum_level_id`, `frontier_saturated`, `epsilon`.  
+3. EXCELLENCE_PASS conjunctive per excellence-ceiling §0.3 (raw without Court tax; Atlas with Court when mutative).  
+4. Claim authority: M≥50 only if frontier + not saturated + n≥preregistered + R104 symmetry attested.  
+5. Negative M (N_atlas < N_raw) → explicit `multiplier_negative` + stop-the-line signal for P2g-EVOL.  
+
+## Exit checklist
+- [ ] Dual-arm report works for same μ  
+- [ ] Claim 50× impossible without valid frontier measure  
+- [ ] Saturated level cannot claim 50×  
+- [ ] R107 closed or PARTIAL with measured M reported honestly  
+- [ ] PHASE-P2G-MEAS GREEN  
+
+### Commit
+```
+feat(core): AAEOS-MT P2g-MEAS excellence multiplier dual-arm measure
+docs(evidence): AAEOS-MT P2g-MEAS phase receipt
+```
+### P2g-MEAS STOP → next EXECUTE P2g-EVOL
+
+---
+
+# SLICE P2g-EVOL — Autônomos self-evolution quality loop (R108)
+
+**Gate:** `EXECUTE P2g-EVOL` (requires PHASE-P2G-MEAS GREEN for measure signals; P1a daemon extract recommended)  
+**Receipt:** `PHASE-P2G-EVOL.json`  
+**Map:** `docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md`  
+**Objective:** close the night loop — curriculum promotion and/or M&lt;1 **enqueue real Autônomos work** to improve Atlas quality without operator eng; remeasure.
+
+## Closed production paths
+```
+app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemon.php
+app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycle.php
+app/Services/Ai/SelfConstruction/TaskServing/AtlasTaskBrainReplenisher.php
+app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+app/Services/Ai/SelfConstruction/AtlasTaskServingStack.php
+app/Console/Commands/AtlasSelfConstructionRuntimeDaemonCommand.php
+app/Services/Ai/AutonomousEvolution/Brain/
+app/Services/Ai/Aaeos/Control/Dispatch/AutonomosLiveDispatcher.php
+routes/console.php
+docs/engineering-knowledge-base/atlas-autonomos-self-evolution-quality-loop.md
+docs/engineering-knowledge-base/atlas-autonomos-live-system.md
+```
+**Note:** edit only Brain classes that `rg` proves are on the **live** brain:next/seed path (not dead ACDE). If a needed file is outside this list → STOP + MASTER amend §0.3.1.
+
+## Closed tests
+```
+tests/Feature/Ai/Aaeos/AaeosSelfEvolutionFrontierPromoteEnqueuesWorkTest.php   # NEW
+tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNegativeMultiplierStopTheLineTest.php # NEW
+tests/Feature/Ai/Aaeos/AaeosSelfEvolutionNoProxyCleanupTasksTest.php           # NEW
+tests/Feature/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonParityTest.php  # extend
+```
+
+## Ordered steps
+1. RED: frontier saturation or M&lt;1 produces **no** task / only proxy cleanup → fail.  
+2. Wire signal ingress: Rivals/measure receipt → **quality evolution intent** (structured, not free chat).  
+3. On saturation: write curriculum promotion receipt + enqueue brain/seed work whose objective is **next-level excellence** (explicit non-proxy).  
+4. On M&lt;1: stop-the-line priority queue (channel/path repair) before ambition cosmetics.  
+5. Daemon/serving runs existing QoS path (no second quality stack).  
+6. After land: trigger or schedule remeasure (command existing rivals or explicit job — no new organ if schedule can call existing artisan).  
+7. Prove operator task-causal count stays zero on this path.  
+
+## Exit checklist
+- [ ] Saturation → school promote + real work enqueue  
+- [ ] M&lt;1 → stop-the-line repair priority  
+- [ ] No proxy-only evolution tasks  
+- [ ] Land under QoS; remeasure path exists  
+- [ ] R108 closed  
+- [ ] PHASE-P2G-EVOL GREEN  
+
+### Commit
+```
+feat(core): AAEOS-MT P2g-EVOL autonomos self-evolution quality loop
+docs(evidence): AAEOS-MT P2g-EVOL phase receipt
+```
+### P2g-EVOL STOP → resume DAG at P2d (or P4 when measuring REAL_OPERATION)
+
+---
+
+# Agent QoS — Codex one-page implementer card
+
+```text
+READ FIRST:
+  atlas-agent-qos-excellence-ceiling.md
+  atlas-rivals-curriculum-ladder-and-anti-ceiling-fallacy.md
+  atlas-autonomos-self-evolution-quality-loop.md
+
+GATES (serial):
+  EXECUTE P2g-QOS   → multi-loop law (R106)
+  EXECUTE P2g-CURR  → school metadata (R108 partial)
+  EXECUTE P2g-MEAS  → dual-arm M≥50 measure (R107)
+  EXECUTE P2g-EVOL  → night self-improve (R108)
+
+HARD BANS:
+  no quality_ceiling CLI dial
+  no “80% ⇒ 50× forever impossible”
+  no ACDE
+  no new organ if reuse possible
+  no operator eng on Autônomos evolution path
+
+SUCCESS ABSOLUTE:
+  A1–A8 from §1.12.7 GREEN
+  operator can use product without requesting each quality jump
+```
+
 
 ## P2d Spine
 **Gate:** `EXECUTE P2d`  
@@ -1841,7 +2119,7 @@ tests/Feature/Ai/Aaeos/AaeosCertificationInvalidatorMatrixTest.php
 
 Full DONE only if:
 1. All phase receipts GREEN for P0–P4 (Autônomos PARTIAL allowed only if program marked incomplete — not full DONE)  
-2. R33,R34,R35,R38,R40,R43,R46,R51–R104 and R106 closed when excellence ceiling claimed (non-HORIZON; R105 only if claimed)  
+2. R33,R34,R35,R38,R40,R43,R46,R51–R104 closed; R106/R107/R108 closed when Agent QoS absolute / self-evolution / ≥50× claimed (R105 only if measurement-workspace claimed)  
 3. Three-mode REAL_OPERATION  
 4. No second ledger/organ; Quarantine/ACDE clean; scoped main commits  
 5. capability_proof derived not caller-set  
@@ -1902,7 +2180,11 @@ Architecture regressions always:
 | NEW test tags + ledger scope | Closed list marks NEW/EXISTING; ledger read-only in P0 |
 | Operator as technical gate | Optional audit only |
 | JSON³ product P1 (R104) | Slice P1-JSON + §1.11 AAEOS law; PHASE-P1-JSON |
-| Agent QoS excellence (R106) | Doc atlas-agent-qos-excellence-ceiling.md + slice P2g-QOS; no vanity dial |
+| Agent QoS absolute program | §1.12 + P2g-QOS/CURR/MEAS/EVOL; canon QoS+curriculum+self-evolution docs |
+| R106 multi-loop path | P2g-QOS |
+| R107 M≥50 measure | P2g-MEAS; school frontier only |
+| R108 self-evolution night | P2g-CURR + P2g-EVOL |
+| Anti-ceiling fallacy | curriculum-ladder doc; never 80%=supremacy |
 | Dual master / v16 dependence | §3.1 normative in this file; archive non-normative |
 | Cycle-10 missing | Explicitly waived as planning cycle unless NEW disk residual |
 
