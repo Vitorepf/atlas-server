@@ -202,7 +202,10 @@ class AtlasOpenBrainMcpService
      */
     public function tools(): array
     {
-        return OpenBrainMcpToolCatalog::definitions();
+        return array_map(
+            fn (array $tool): array => $this->withSurfaceReviewAnnotation($tool),
+            OpenBrainMcpToolCatalog::definitions(),
+        );
     }
 
     /**

@@ -1093,7 +1093,7 @@ final class OpenBrainMcpToolCatalog
             ],
         ];
 
-        return array_map(fn (array $tool): array => $this->withSurfaceReviewAnnotation($tool), $tools);
+        return $tools;
     }
 
 }
