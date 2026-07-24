@@ -38,6 +38,7 @@ final class CanonicalCommitActuationTest extends TestCase
     {
         parent::setUp();
         (require database_path('migrations/2026_07_09_160000_repair_missing_atlas_ledger_events_table.php'))->up();
+        (require database_path('migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php'))->up();
         $this->repo = sys_get_temp_dir().'/atlas_canonical_commit_'.uniqid('', true);
         mkdir($this->repo, 0775, true);
         $this->git(['init', '-b', 'main']);
