@@ -189,7 +189,7 @@ class AtlasLearningProposalService
             'signal_id' => $signal->signal_id,
             'kind' => $kind,
             'summary' => $summary,
-            'evidence' => $this->canonicalize($evidenceRefs),
+            'evidence' => CanonicalValue::canonicalize($evidenceRefs),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
 
         $proposalId = (string) Str::uuid();
@@ -387,10 +387,6 @@ class AtlasLearningProposalService
         };
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     /**
      * @return array<int|string,mixed>

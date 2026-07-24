@@ -278,7 +278,7 @@ class AtlasSelfImprovementScheduleService
      */
     private function planHash(array $plan): string
     {
-        return hash('sha256', json_encode($this->canonicalize([
+        return hash('sha256', json_encode(CanonicalValue::canonicalize([
             'schema_version' => $plan['schema_version'] ?? null,
             'enabled' => $plan['enabled'] ?? null,
             'schedulable' => $plan['schedulable'] ?? null,
@@ -300,10 +300,6 @@ class AtlasSelfImprovementScheduleService
         ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     /**
      * @param  array<int,array<string,mixed>>  $commands

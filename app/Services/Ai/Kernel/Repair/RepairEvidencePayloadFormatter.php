@@ -86,11 +86,7 @@ final class RepairEvidencePayloadFormatter
      */
     public function stableHash(array $payload): string
     {
-        return hash('sha256', json_encode($this->canonicalize($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode(CanonicalValue::canonicalize($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 }

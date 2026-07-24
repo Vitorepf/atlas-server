@@ -115,7 +115,7 @@ final class SpecialistFlowsRouter
      */
     private function withReceipt(array $contract): array
     {
-        $canon = $this->canonicalize($contract);
+        $canon = CanonicalValue::canonicalize($contract);
         $contractHash = MissionCanonicalHash::sha256($canon);
 
         $contract['receipt'] = [
@@ -135,10 +135,6 @@ final class SpecialistFlowsRouter
         return $contract;
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     private function stringOrNull(mixed $value): ?string
     {

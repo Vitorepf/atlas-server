@@ -786,7 +786,7 @@ class AtlasLearningSignalScanner
      */
     private function hashSignal(array $raw): string
     {
-        $canonical = $this->canonicalize([
+        $canonical = CanonicalValue::canonicalize([
             'source_type' => $raw['source_type'],
             'source_id' => $raw['source_id'] ?? null,
             'mission_id' => $raw['mission_id'] ?? null,
@@ -801,10 +801,6 @@ class AtlasLearningSignalScanner
         return hash('sha256', json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     /**
      * @return array<string,mixed>

@@ -252,7 +252,7 @@ final class AtlasExternalGraphHarnessService
             $this->validateSourceRefs($edge['source_refs'] ?? null, "edge_{$index}", $errors);
         }
 
-        $candidateHash = hash('sha256', json_encode($this->canonicalize($candidate), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $candidateHash = hash('sha256', json_encode(CanonicalValue::canonicalize($candidate), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return [
             'schema_version' => 'atlas.external_graph_candidate.validation.v1',
@@ -783,8 +783,4 @@ final class AtlasExternalGraphHarnessService
         ];
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 }

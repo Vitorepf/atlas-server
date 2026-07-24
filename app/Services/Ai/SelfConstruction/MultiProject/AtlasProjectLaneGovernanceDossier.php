@@ -52,7 +52,7 @@ final class AtlasProjectLaneGovernanceDossier
             }
             if ($data !== []) {
                 $data['section_hash'] = hash('sha256', (string) json_encode(
-                    $this->canonicalize($data),
+                    CanonicalValue::canonicalize($data),
                     JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
                 ));
             } else {
@@ -98,11 +98,7 @@ final class AtlasProjectLaneGovernanceDossier
 
     private function canonicalJson(mixed $value): string
     {
-        return (string) json_encode($this->canonicalize($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return (string) json_encode(CanonicalValue::canonicalize($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 }

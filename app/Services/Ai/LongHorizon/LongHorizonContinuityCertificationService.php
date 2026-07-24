@@ -691,15 +691,11 @@ class LongHorizonContinuityCertificationService
     {
         $canonical = $payload;
         unset($canonical['generated_at'], $canonical['certification_hash']);
-        $canonical = $this->canonicalize($canonical);
+        $canonical = CanonicalValue::canonicalize($canonical);
 
         return 'sha256:'.hash('sha256', json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     /**
      * @param  list<string>  $evidence_refs

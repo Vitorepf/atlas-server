@@ -61,7 +61,7 @@ final class AtlasCanonicalContextRef
     public static function hashed(string $type, mixed $payload): string
     {
         return $type.':'.substr(hash('sha256', (string) json_encode(
-            self::canonicalize($payload),
+            CanonicalValue::canonicalize($payload),
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         )), 0, 32);
     }
@@ -310,10 +310,6 @@ final class AtlasCanonicalContextRef
         ), static fn (string $value): bool => $value !== ''))));
     }
 
-    private static function canonicalize(mixed $value): mixed
-    {
-        return CanonicalValue::canonicalize($value);
-    }
 
     private static function normalizeHops(mixed $hops): array
     {
