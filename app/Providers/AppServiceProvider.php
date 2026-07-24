@@ -11,39 +11,24 @@ use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
 use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
-use App\Services\Ai\AiProviderManager;
-use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
-use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
-use App\Services\Ai\Compression\AtlasCcrStore;
-use App\Services\Ai\Compression\CompressionPipeline;
-use App\Services\Ai\Compression\Compressors\DiffCompressor;
-use App\Services\Ai\Compression\Compressors\LogCompressor;
-use App\Services\Ai\Compression\Compressors\SearchCompressor;
-use App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor;
-use App\Services\Ai\Compression\Compressors\TextCompressor;
-use App\Services\Ai\Compression\ContentRouter;
-use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
-use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
-use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
 use App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Memory\MemoryPairwiseCosineScorer;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
@@ -61,7 +46,6 @@ use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
-use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
@@ -99,13 +83,8 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
-use App\Services\Ai\Telemetry\AiCostEstimator;
-use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
-use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
-use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
-use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
 
@@ -306,134 +285,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Mission / self-construction / ADML peeled to AtlasMissionServiceProvider (full-pass).
 
-        // AP-813 · CCR store (durable, ledger-backed). Singleton so the provider
-        // pipeline AND the atlas_ccr_retrieve MCP tool share one configured instance.
-        $this->app->singleton(AtlasCcrStore::class, function ($app) {
-            $codec = (string) config('atlas.compression_layer.ccr.codec', 'gzip');
-            $ledger = null;
-            try {
-                $ledger = $app->make(AtlasEvidenceLedger::class);
-            } catch (\Throwable $e) {
-                // CCR store degrades to no-ledger; it still persists the blob row.
-            }
-
-            return new AtlasCcrStore($ledger, $codec);
-        });
-
-        // AP-813 · Atlas Compression Layer pipeline (CacheAligner + CCR + content
-        // compressors). Singleton, config-gated (default OFF). The ContentRouter is
-        // populated resiliently: each leaf compressor is registered only if its
-        // class exists AND its per-type flag is on — so the binding resolves cleanly
-        // whether or not every compressor is present, and a broken compressor is
-        // skipped rather than breaking the whole layer.
-        $this->app->singleton(CompressionPipeline::class, function ($app) {
-            $config = (array) config('atlas.compression_layer', []);
-            $ccr = $app->make(AtlasCcrStore::class);
-
-            $enabled = is_array($config['compressors'] ?? null) ? $config['compressors'] : [];
-            $candidates = [
-                'json' => SmartCrusherJsonCompressor::class,
-                'log' => LogCompressor::class,
-                'search' => SearchCompressor::class,
-                'diff' => DiffCompressor::class,
-                'text' => TextCompressor::class,
-            ];
-            $router = new ContentRouter;
-            foreach ($candidates as $type => $class) {
-                if (($enabled[$type] ?? true) === true && class_exists($class)) {
-                    try {
-                        $router->register($app->make($class));
-                    } catch (\Throwable $e) {
-                        // A broken/missing compressor must not break the pipeline.
-                    }
-                }
-            }
-
-            return new CompressionPipeline($router, $ccr, new VolatileTokenRelocator, $config);
-        });
-
-        // AP-814 M-8 cross-domain graph: bind with the mesh EXPLICITLY injected. The
-        // nullable `?AtlasCrossDomainMeshService` ctor param is not auto-resolved by the
-        // container (it passes null), so app()-resolved instances would otherwise get a
-        // mesh-less, edge-sparse graph (no allowed-crossing edges, no ARPTL veto).
-        $this->app->bind(CrossDomainGraphIngestionService::class, function ($app) {
-            $mesh = null;
-            try {
-                $mesh = $app->make(AtlasCrossDomainMeshService::class);
-            } catch (\Throwable $e) {
-                // fail-open: handoff/entity edges still build without the mesh.
-            }
-
-            return new CrossDomainGraphIngestionService(
-                $app->make(CrossDomainTaxonomyMap::class),
-                $mesh,
-            );
-        });
-        $this->app->bind(CrossDomainGraphTraversalService::class, function ($app) {
-            $mesh = null;
-            try {
-                $mesh = $app->make(AtlasCrossDomainMeshService::class);
-            } catch (\Throwable $e) {
-                // fail-open: traversal applies the conservative floor without the mesh.
-            }
-
-            return new CrossDomainGraphTraversalService(
-                $app->make(CrossDomainGraphIngestionService::class),
-                $app->make(CrossDomainTaxonomyMap::class),
-                $mesh,
-            );
-        });
-
-        // Patamar 4 · AiProviderManager consults ADML before provider resolution.
-        // Opt-in setter pattern: when consultation service is wired, callers
-        // can request a learned route via getRecommended(). Existing get()
-        // callers are untouched — zero break.
-        $this->app->resolving(AiProviderManager::class, function ($svc, $app) {
-            if ($svc instanceof AiProviderManager) {
-                try {
-                    $svc->setGatewayConsultation($app->make(AtlasDecideGatewayConsultationService::class));
-                } catch (\Throwable $e) {
-                    // Defensive: consultation service may not be resolvable
-                    // in some test envs; manager stays in default mode.
-                }
-
-                // H1 (response cache) + H4 (per-operation cost guard) wiring.
-                // Opt-in, config-gated (atlas.ai.cache.enabled, default false).
-                // When deps don't resolve, or the flag is off, the manager
-                // returns providers undecorated — zero break on existing
-                // callers and tests.
-                try {
-                    $svc->setCacheDecoration(
-                        $app->make(AiCallCostGuard::class),
-                        $app->make(AtlasRuntimeEfficiencyGovernorService::class),
-                        $app->make(AiCostEstimator::class),
-                        $app->make(AtlasTokenEconomyBudgetPolicyService::class),
-                    );
-                } catch (\Throwable $e) {
-                    // Defensive: any unresolved cache dep leaves the manager in
-                    // its default, undecorated mode.
-                }
-
-                // AP-813 · compression layer decorator wiring. Opt-in, config-gated
-                // (atlas.compression_layer.enabled, default false) and FAIL-OPEN.
-                // When unresolved or off, the manager returns providers undecorated.
-                try {
-                    $svc->setCompressionPipeline($app->make(CompressionPipeline::class));
-                } catch (\Throwable $e) {
-                    // Defensive: compression stays unwired on any resolution failure.
-                }
-
-                // SLICE 1 — governance-coverage meter. Records the COVERED half
-                // (a resolution through this governed manager) so the muscle
-                // bypass rate is a real number. Best-effort; on any failure the
-                // manager stays unmetered (byte-identical).
-                try {
-                    $svc->setCoverageLedger($app->make(ProviderGovernanceCoverageLedger::class));
-                } catch (\Throwable $e) {
-                    // Coverage measurement is best-effort; never a gate.
-                }
-            }
-        });
+        // Compression + cross-domain + provider manager wiring peeled to domain SPs (full-pass).
 
         $this->registerLoopSentinels();
         $this->registerLoopIntentResolverWiring();

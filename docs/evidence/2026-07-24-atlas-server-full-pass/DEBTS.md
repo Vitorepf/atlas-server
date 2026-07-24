@@ -70,7 +70,10 @@
 - [x] AppServiceProvider Swarm DI → AtlasSwarmServiceProvider (ASP 1067→856)
 - [x] AppServiceProvider Patamar4 wiring → AtlasPatamar4ServiceProvider
 - [x] AppServiceProvider Mission/self-construction/ADML → AtlasMissionServiceProvider (ASP →523)
-- [ ] AppServiceProvider further residual (CCR/compression/sentinels/…)
+- [x] AppServiceProvider CCR/compression → AtlasCompressionServiceProvider
+- [x] AppServiceProvider cross-domain graph → AtlasCrossDomainGraphServiceProvider
+- [x] AppServiceProvider AiProviderManager wiring → AtlasProviderManagerWiringServiceProvider (ASP →375)
+- [ ] AppServiceProvider further residual (maestro priority/AAEL/sentinels/stewardship binds)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
 - [x] routes/api/patamar4.php split

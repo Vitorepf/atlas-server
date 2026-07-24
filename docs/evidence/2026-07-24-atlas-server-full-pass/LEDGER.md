@@ -9,6 +9,7 @@ full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
   - ai-platform + ai-runtime routes (api.php →101)
+  - ASP compression/cross-domain/provider wiring peels (ASP →375)
   - Readiness HubDelegators compact forwarders (~8046→6044)
   - YouTube caption/metadata collaborator peels (ingestion →1248)
   - projects/semantic routes peels
