@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Models\AtlasTask;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
@@ -31,6 +32,8 @@ use Symfony\Component\Process\Process;
 
 class AtlasCliDevCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use ResolvesGitProjectRoot;
 
     protected $signature = 'atlas:cli:dev
@@ -1027,12 +1030,6 @@ class AtlasCliDevCommand extends Command
         return app(ComputeEffortPolicy::class)->normalize((string) $value);
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @return array<string,bool>

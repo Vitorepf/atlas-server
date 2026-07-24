@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\AiProviderHealthService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Ai\Cli\AtlasCliDoctorService;
@@ -13,6 +14,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class AtlasCliBootstrapCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:cli:bootstrap
         {--target= : Symlink target. Defaults to ~/.local/bin/atlas}
         {--claude-bin= : Absolute path or command name for Claude Code CLI}
@@ -704,10 +707,4 @@ class AtlasCliBootstrapCommand extends Command
         return implode(' ', $parts);
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

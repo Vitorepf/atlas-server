@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Semantic\AtlasVaultCommandInput;
 use App\Services\Semantic\AtlasVaultManagedNoteService;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AtlasVaultCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     private AtlasVaultCommandInput $vaultInput;
@@ -193,12 +196,6 @@ class AtlasVaultCommand extends Command
         ];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function boolOption(string $key): bool
     {

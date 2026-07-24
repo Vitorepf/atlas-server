@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Autonomy\AtlasAutonomyDemoteWatchdog;
 use App\Services\Ai\Autonomy\AtlasAutonomyLadderRuntimeService;
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAutonomyLadderCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:autonomy:ladder
@@ -106,11 +109,5 @@ class AtlasAutonomyLadderCommand extends Command
         return is_array($decoded) ? $decoded : [];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDebugRootCauseService;
 use Illuminate\Console\Command;
@@ -18,6 +19,8 @@ use Illuminate\Support\Str;
  */
 class AtlasAaeosMaturityCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:aeos:maturity
         {--capability= : Restrict to a single doc id/slug or path substring}
         {--coverage : Report corpus-wide doc<->runtime coverage instead of the per-doc ledger}
@@ -107,10 +110,4 @@ class AtlasAaeosMaturityCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

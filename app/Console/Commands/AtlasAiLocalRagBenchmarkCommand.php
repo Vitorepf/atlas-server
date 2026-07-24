@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
@@ -10,6 +11,8 @@ use Illuminate\Console\Command;
 
 final class AtlasAiLocalRagBenchmarkCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:ai:local-rag-benchmark
         {--record-memory-quality : Persist a Memory Quality snapshot with benchmark metadata}
         {--workspace= : Workspace path for the Memory Quality snapshot}
@@ -1270,10 +1273,4 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         return array_values(array_unique($reasons));
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

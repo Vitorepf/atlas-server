@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Http\Resources\SemanticCurationProposalResource;
 use App\Http\Resources\SemanticNoteResource;
 use App\Models\AtlasMemoryEntry;
@@ -15,6 +15,8 @@ use Illuminate\Validation\Rule;
 
 class SemanticCurationReviewCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:semantic:curation-review
         {proposal : Semantic curation proposal id}
         {--decision=accept : accept, dismiss or postpone}
@@ -171,10 +173,4 @@ class SemanticCurationReviewCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 }

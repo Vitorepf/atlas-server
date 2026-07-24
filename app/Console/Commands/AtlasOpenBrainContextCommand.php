@@ -2,13 +2,15 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\AtlasOpenBrainService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 class AtlasOpenBrainContextCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:open-brain:context
         {objective* : Objective or task input}
         {--workspace= : Workspace path}
@@ -93,10 +95,4 @@ class AtlasOpenBrainContextCommand extends Command
         return $decoded;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 }

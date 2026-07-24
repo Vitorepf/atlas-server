@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiMission;
 use App\Services\Ai\Mission\MissionCertificationService;
@@ -18,6 +19,8 @@ use Throwable;
 
 class AtlasAiMissionFoundationCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:mission-foundation
@@ -421,12 +424,6 @@ class AtlasAiMissionFoundationCommand extends Command
         $human();
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {

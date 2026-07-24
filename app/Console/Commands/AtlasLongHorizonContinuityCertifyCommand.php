@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -29,6 +30,8 @@ use Throwable;
  */
 class AtlasLongHorizonContinuityCertifyCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:long-horizon:continuity-certify
         {--scope-type= : scope_type (mission|work_order|obra|dev_run|dev_session|dev_workstream|forge_run|forge_obra|work_packet|thread|long_horizon)}
         {--scope-id= : scope_id (uuid/slug)}
@@ -91,12 +94,6 @@ class AtlasLongHorizonContinuityCertifyCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @param  array<string,mixed>  $payload

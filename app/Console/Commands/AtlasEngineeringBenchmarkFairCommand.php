@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
@@ -15,6 +16,8 @@ use Symfony\Component\Process\Process;
 
 class AtlasEngineeringBenchmarkFairCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:engineering:benchmark:claude-fair
         {action=run : prepare, run, run-atlas, run-claude-code, report, readiness, runbook, replay, verify or triage-invalid-battery}
         {run? : Benchmark run id for replay}
@@ -965,12 +968,6 @@ class AtlasEngineeringBenchmarkFairCommand extends Command
         return $this->stringOption('suite') ?: 'atlas-core-smoke';
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function intOption(string $name): ?int
     {

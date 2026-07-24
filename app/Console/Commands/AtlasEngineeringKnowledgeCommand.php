@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
@@ -17,6 +17,8 @@ use Illuminate\Support\Str;
 
 class AtlasEngineeringKnowledgeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     private ?EngineeringContextIntelligenceInput $contextInput = null;
@@ -659,12 +661,6 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 
     private function json(): bool
     {

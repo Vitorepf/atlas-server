@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\OperatorProfileItem;
 use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
 use App\Services\Ai\OperatorIntelligence\OperatorProfileFeedbackService;
@@ -10,6 +11,8 @@ use Throwable;
 
 class AtlasOperatorProfileContextCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:operator-profile
         {action=context : context}
         {--operator= : Operator id. Defaults to config default.}
@@ -176,10 +179,4 @@ class AtlasOperatorProfileContextCommand extends Command
         return $this->stringOption('operator') ?? (string) config('atlas_operator_intelligence.default_operator_id', 'default');
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

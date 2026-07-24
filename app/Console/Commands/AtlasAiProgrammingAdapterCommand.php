@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Kernel\ProgrammingAdapterException;
 use App\Services\Ai\Programming\Kernel\ProgrammingAdapterReadinessService;
@@ -12,6 +13,8 @@ use Throwable;
 
 class AtlasAiProgrammingAdapterCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:programming-adapter
@@ -114,12 +117,6 @@ class AtlasAiProgrammingAdapterCommand extends Command
         return $this->renderError('invalid_arguments', "invalid action [{$action}] for atlas:ai:programming-adapter");
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {

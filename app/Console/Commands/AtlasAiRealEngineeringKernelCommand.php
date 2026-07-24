@@ -2,11 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use Illuminate\Console\Command;
 
 class AtlasAiRealEngineeringKernelCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:ai:real-engineering-kernel
         {action=readiness : readiness, run, control-plane, certify, import-external-benchmark}
         {--goal= : Goal text for run}
@@ -76,12 +79,6 @@ class AtlasAiRealEngineeringKernelCommand extends Command
         return is_array($decoded) ? $decoded : [];
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @param  array<string,mixed>  $payload

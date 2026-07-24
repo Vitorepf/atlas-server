@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiToolDefinition;
 use App\Services\Ai\ToolRuntime\ToolCapabilityCatalogService;
@@ -20,6 +21,8 @@ use Throwable;
 
 class AtlasAiToolRuntimeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:tool-runtime
@@ -337,12 +340,6 @@ class AtlasAiToolRuntimeCommand extends Command
         return $this->failWith("invalid action [{$action}] for atlas:ai:tool-runtime");
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {

@@ -2,12 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Cli\AtlasCliDogfoodService;
 use Illuminate\Console\Command;
 
 class AtlasCliDogfoodCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:cli:dogfood
         {action=report : start, record, run, report or reset}
         {--workspace= : Workspace path. Defaults to current directory}
@@ -154,12 +156,6 @@ class AtlasCliDogfoodCommand extends Command
         return is_numeric($value) ? (int) $value : null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 
     private function workspace(): string
     {

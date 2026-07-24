@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AiMemoryDeltaProposer;
@@ -15,6 +15,8 @@ use RuntimeException;
 
 class AtlasCliMemoryCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:cli:memory
         {action=review : review, accept, reject, promote, list, show or propose}
         {delta? : Delta id}
@@ -304,10 +306,4 @@ class AtlasCliMemoryCommand extends Command
         ];
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 }

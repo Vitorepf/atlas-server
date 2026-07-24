@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Finance\Kernel\FinanceControlPlaneProjection;
 use App\Services\Ai\Finance\Kernel\FinanceDomainException;
@@ -13,6 +14,8 @@ use Throwable;
 
 class AtlasAiFinanceDomainCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:finance-domain
@@ -144,12 +147,6 @@ class AtlasAiFinanceDomainCommand extends Command
         return $this->renderError('invalid_arguments', "invalid action [{$action}] for atlas:ai:finance-domain");
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function fixtureRequested(): bool
     {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorProfileItem;
 use App\Services\Ai\OperatorIntelligence\OperatorLearningCandidateService;
@@ -14,6 +15,8 @@ use Throwable;
 
 class AtlasOperatorLearningCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:operator-learning
         {action : capture | review | approve | reject | profile | digest | project | simulate}
         {--operator= : Operator id. Defaults to config default.}
@@ -147,12 +150,6 @@ class AtlasOperatorLearningCommand extends Command
         return $this->stringOption('operator') ?? (string) config('atlas_operator_intelligence.default_operator_id', 'default');
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @param  array<string,mixed>  $payload

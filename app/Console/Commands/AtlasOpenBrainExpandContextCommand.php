@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use Illuminate\Console\Command;
 
 final class AtlasOpenBrainExpandContextCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:open-brain:expand-context
         {handle : Expansion handle such as expand:evidence_replay or recheck:canonical_doc}
         {objective* : Objective or task input}
@@ -47,12 +50,6 @@ final class AtlasOpenBrainExpandContextCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function integerOption(string $key, int $default): int
     {

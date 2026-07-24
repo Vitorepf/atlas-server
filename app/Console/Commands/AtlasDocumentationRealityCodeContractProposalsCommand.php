@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\AtlasDocumentationRealityCodeContractProposerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocumentationRealityCodeContractProposalsCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:documentation-reality-code-contract-proposals
         {--capability= : Restrict to one owner doc (id/slug or path substring)}
         {--json : Emit canonical JSON}';
@@ -82,10 +85,4 @@ class AtlasDocumentationRealityCodeContractProposalsCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

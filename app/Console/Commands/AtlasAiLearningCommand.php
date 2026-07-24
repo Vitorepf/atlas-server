@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Compounding\AtlasLearningSignalScanner;
 use Illuminate\Console\Command;
@@ -28,6 +29,8 @@ use Throwable;
  */
 class AtlasAiLearningCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:ai:learning
         {action : collect | list | review}
         {--hours=24 : Window in hours for collect}
@@ -115,12 +118,6 @@ class AtlasAiLearningCommand extends Command
         return self::FAILURE;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @param  array<string,mixed>  $payload

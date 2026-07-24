@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiDomainManifest;
 use App\Services\Ai\DomainRuntime\DomainCapabilityCatalogService;
@@ -18,6 +19,8 @@ use Throwable;
 
 class AtlasAiDomainRuntimeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:domain-runtime
@@ -293,12 +296,6 @@ class AtlasAiDomainRuntimeCommand extends Command
         return $this->failWith("invalid action [{$action}] for atlas:ai:domain-runtime");
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     /**
      * @return array<mixed>|null

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactAemorBridgeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactShadowExecutionService;
@@ -14,6 +14,8 @@ use Illuminate\Console\Command;
 
 final class AtlasWorkspaceArtifactsCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:workspace-artifacts
         {action=certify : certify|graph|replay|simulate|shadow|workroom|route|diff|replay-point|timeline|outcome|retire|retirement-queue|retirement-apply}
         {--workspace= : Workspace slug, defaults to configured Atlas workspace}
@@ -139,12 +141,6 @@ final class AtlasWorkspaceArtifactsCommand extends Command
         return self::SUCCESS;
     }
 
-    private function stringOption(string $name): ?string
-    {
-        $value = $this->option($name);
-
-        return StringOrNull::trimmed($value);
-    }
 
     /**
      * @param  array<string,mixed>  $report

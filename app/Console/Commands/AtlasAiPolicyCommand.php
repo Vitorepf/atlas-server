@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Policy\ApprovalRequestService;
 use App\Services\Ai\Policy\PermissionGateService;
@@ -14,6 +15,8 @@ use Throwable;
 
 class AtlasAiPolicyCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:policy
@@ -224,12 +227,6 @@ class AtlasAiPolicyCommand extends Command
         $human();
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {

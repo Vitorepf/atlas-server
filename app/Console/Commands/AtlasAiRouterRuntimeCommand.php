@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\RouterRuntime\DecisionReceiptService;
 use App\Services\Ai\RouterRuntime\DomainRouterService;
@@ -16,6 +17,8 @@ use Throwable;
 
 class AtlasAiRouterRuntimeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:router-runtime
@@ -316,12 +319,6 @@ class AtlasAiRouterRuntimeCommand extends Command
         $human();
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {

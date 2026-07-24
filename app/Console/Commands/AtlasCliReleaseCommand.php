@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Cli\AtlasCliDogfoodService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
@@ -11,6 +12,8 @@ use Symfony\Component\Process\Process;
 
 class AtlasCliReleaseCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:cli:release
         {--release-version= : Release version, for example v2.0.0}
         {--channel=stable : stable or beta}
@@ -297,12 +300,6 @@ class AtlasCliReleaseCommand extends Command
         }
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function releaseVersion(): ?string
     {

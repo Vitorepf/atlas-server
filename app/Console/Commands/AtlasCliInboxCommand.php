@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Support\StringOrNull;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Http\Resources\AiInboxItemResource;
 use App\Models\AiInboxItem;
@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class AtlasCliInboxCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:cli:inbox
         {action=list : list, show, review-critical, respond, dismiss or discuss}
         {id? : Inbox item id}
@@ -374,12 +376,6 @@ class AtlasCliInboxCommand extends Command
         return in_array($value, ['debug', 'info', 'warning', 'critical'], true) ? $value : null;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return StringOrNull::trimmed($value);
-    }
 
     private function invalid(string $action): int
     {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\ControlPlane\AtlasControlPlaneBlockerService;
@@ -15,6 +16,8 @@ use Throwable;
 
 class AtlasAiControlPlaneCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:ai:control-plane
@@ -239,12 +242,6 @@ class AtlasAiControlPlaneCommand extends Command
         $human();
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 
     private function json(): bool
     {
