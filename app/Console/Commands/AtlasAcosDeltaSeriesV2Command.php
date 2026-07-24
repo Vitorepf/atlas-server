@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Cognition\Acos\AcosDeltaSeriesJsonl;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Console\Command;
@@ -244,35 +245,12 @@ class AtlasAcosDeltaSeriesV2Command extends Command
      */
     private function appendSnapshot(string $path, array $snapshot): ?array
     {
-        try {
-            $series = $this->readSeries($path);
-            if ($series === null) {
-                return null;
-            }
-
-            $date = (string) ($snapshot['date'] ?? '');
-            $series = array_values(array_filter(
-                $series,
-                static fn (array $row): bool => (string) ($row['date'] ?? '') !== $date,
-            ));
-            $series[] = $snapshot;
-
-            usort($series, static fn (array $a, array $b): int => strcmp((string) ($a['date'] ?? ''), (string) ($b['date'] ?? '')));
-
-            $dir = dirname($path);
-            if (! is_dir($dir) && ! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
-                return null;
-            }
-
-            $lines = array_map(fn (array $row): string => $this->encodeLine($row), $series);
-            if (@file_put_contents($path, implode("\n", $lines)."\n") === false) {
-                return null;
-            }
-
-            return $series;
-        } catch (Throwable) {
-            return null;
-        }
+        return AcosDeltaSeriesJsonl::appendSnapshot(
+            $path,
+            $snapshot,
+            fn (array $row): string => $this->encodeLine($row),
+            fn (string $seriesPath): ?array => $this->readSeries($seriesPath),
+        );
     }
 
     /**
