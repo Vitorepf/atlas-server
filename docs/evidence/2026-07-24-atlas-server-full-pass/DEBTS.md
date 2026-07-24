@@ -75,7 +75,10 @@
 - [x] AppServiceProvider AiProviderManager wiring → AtlasProviderManagerWiringServiceProvider (ASP →375)
 - [x] AppServiceProvider Maestro priority + AAEL → AtlasMaestroPriorityServiceProvider
 - [x] AppServiceProvider stewardship/forge authority binds → AtlasStewardshipBindingsServiceProvider (ASP →273)
-- [ ] AppServiceProvider residual (memory substrate, obra, fleet, sentinels, boot)
+- [x] AppServiceProvider memory/context → AtlasMemoryInfrastructureServiceProvider
+- [x] AppServiceProvider runtime seams (serving/Hermes/fleet/maestro tier) → AtlasRuntimeSeamsServiceProvider
+- [x] AppServiceProvider Obra/Dev runtime → AtlasObraServiceProvider (ASP →73 boot+sentinels shell)
+- [ ] AppServiceProvider residual only: empty wave-19 sentinel body when ON, boot() observer/commands
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
 - [x] routes/api/patamar4.php split

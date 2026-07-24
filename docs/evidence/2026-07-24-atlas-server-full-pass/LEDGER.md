@@ -9,7 +9,8 @@ full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
   - ai-platform + ai-runtime routes (api.php →101)
-  - ASP Maestro/stewardship peels (ASP →273)
+  - ASP memory/runtime/obra peels (ASP →73 shell)
+  - ASP Maestro/stewardship peels
   - ASP compression/cross-domain/provider wiring peels
   - Readiness HubDelegators compact forwarders (~8046→6044)
   - YouTube caption/metadata collaborator peels (ingestion →1248)

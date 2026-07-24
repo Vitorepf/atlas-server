@@ -4,7 +4,7 @@
 |---|---|---|
 | reuse | strong | stringOption variants complete; LoadsNamedJsonOption; ProviderCatalog; Wave A helpers |
 | density | strong | Aaeos projectors catalog; Serving/LedgerReplay/Decide/OneShot peels; routes/ASP density |
-| architecture | strong | routes api.php 762→~90; ASP 1067→273 domain SPs; ProviderCatalog SSOT; PRE staged residual |
+| architecture | strong | routes api.php 762→~90; ASP 1067→73 domain SPs; ProviderCatalog SSOT; PRE staged residual |
 | surface_std | strong | CLI option traits complete for known variants |
 | gates | partial | Organism+Vox+mobile 64 tests green this slice |
 | anti_goodhart | done | careful multi-arg peels; PRE not rushed |
@@ -27,6 +27,7 @@
 | Readiness HubDelegators compact | 16 readiness unit green; hub traits ~8046→6044 LOC |
 | Compression/cross-domain/provider ASP peels | Compression unit 106 green; ASP →375 |
 | Maestro/stewardship ASP peels | Maestro priority 41 unit green; ASP →273 |
+| Memory/runtime/obra ASP peels | TaskServing 17 unit green; ASP →73 shell |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
