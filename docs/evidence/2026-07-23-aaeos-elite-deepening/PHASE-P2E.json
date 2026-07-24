@@ -1,0 +1,104 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2e",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "e1050bfcecd6e76c3c87a963b57e7c5832ed3cd5",
+  "implementation_commit": "6535ead92a47e61dc7a2897e8ae5bb0000c688b5",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosSovereignContinuationCoordinator.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCockpitAttentionPartition.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php",
+    "app/Services/Ai/Kernel/Evidence/LedgerEventType.php",
+    "app/Services/Ai/SelfConstruction/AtlasTaskServingService.php",
+    "tests/Feature/Ai/Aaeos/AaeosSovereignContinuationTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosCockpitAttentionPartitionTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Control/AaeosSovereignContinuationCoordinator.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCockpitAttentionPartition.php",
+    "tests/Feature/Ai/Aaeos/AaeosSovereignContinuationTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosCockpitAttentionPartitionTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2e R100 sovereign continuation + cockpit partition",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosSovereignContinuationTest.php tests/Feature/Ai/Aaeos/AaeosCockpitAttentionPartitionTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2e matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2e:7-passed-45-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "atlas.aaeos.sovereign_continuation.v1",
+    "atlas.aaeos.cockpit_attention_partition.v1",
+    "R100",
+    "resume_exactly_once",
+    "b_settled_before_a_decision"
+  ],
+  "exit_checklist": {
+    "r100_a_waits_b_settles_a_resumes_once": true,
+    "awaiting_sovereign_no_reserved_effect": true,
+    "no_global_halt_while_waiting": true,
+    "resume_exactly_once_under_action_hash": true,
+    "cockpit_partition_sovereign_vs_review": true,
+    "human_accept_cannot_mint_eng_pass": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "R100 two-work-item progress witness path-core",
+    "R81 cockpit attention partition path-core"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual",
+    "R-P2A1-PG-LIVE",
+    "Live TaskServing claim/execute/settle wiring of coordinator (path-core pure)",
+    "P2f operator census / strip technical CLI flags"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "b1c3881bb8ca0f4bf21fcdf50cc894d42f0febe8a5ee57df9c17ae15feba6b69",
+    "ledger_content_sha256": "f0576581d3040539ab9e66229d0309ffc97814323c20511bf2638e38ec61ea05",
+    "scoreboard_content_sha256": "2ca269582ee04ce7e114a16d3dfef5ae94608f1505188ec3c294835b2c26a831",
+    "sha256": "831a01ca84f3e9136a0db2a0883a3685067e5db2c375dedd739b969632b85224"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2f",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2e GREEN path-core R100. Next EXECUTE P2f operator census / strip technical CLI."
+}
