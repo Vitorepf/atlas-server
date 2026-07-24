@@ -116,6 +116,14 @@ final class AaeosPostgresRestoreIdentityTest extends TestCase
         SQL);
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
         (require database_path('migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php'))->up();
+        $setup->unprepared(<<<'SQL'
+            GRANT USAGE ON SCHEMA public TO atlas_p2a1_runtime, atlas_p2a1_verifier;
+            REVOKE ALL ON TABLE atlas_ledger_events FROM PUBLIC;
+            GRANT SELECT, INSERT ON TABLE atlas_ledger_events TO atlas_p2a1_runtime;
+            REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE atlas_ledger_events FROM atlas_p2a1_runtime;
+            GRANT SELECT ON TABLE atlas_ledger_events TO atlas_p2a1_verifier;
+            REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE atlas_ledger_events FROM atlas_p2a1_verifier;
+        SQL);
         DB::purge('atlas_p2_pg_runtime');
         DB::purge('atlas_p2_pg_verifier');
     }
