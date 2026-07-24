@@ -5,6 +5,7 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
@@ -22,6 +23,7 @@ class EngineeringWorkspaceService
 
     public function __construct(
         private readonly EngineeringDockerHarnessService $dockerHarness,
+        private readonly AtlasCodeWorkspaceProfileService $workspaceProfiles,
     ) {}
 
     /**
@@ -91,6 +93,25 @@ class EngineeringWorkspaceService
                 'stderr_excerpt' => Str::limit((string) $process['stderr'], 1200),
             ]);
         }
+
+        // Provider commands re-enter AWIS using the execution path. Register
+        // the clean worktree so fresh-process certification does not resolve
+        // back to the dirty parent workspace.
+        $parentProfile = $this->workspaceProfiles->findContainingPath((string) $base['original_workspace']);
+        $this->workspaceProfiles->upsertPersistedProfile([
+            'slug' => 'engineering-run-'.$run->id,
+            'name' => 'Engineering run '.$run->id,
+            'kind' => 'isolated',
+            'workspace_path' => $worktreePath,
+            'repo_root' => $worktreePath,
+            'production_status' => (string) ($parentProfile['production_status'] ?? 'development'),
+            'docs_status' => (string) ($parentProfile['docs_status'] ?? 'unknown'),
+            'default_risk' => (string) ($parentProfile['default_risk'] ?? 'medium'),
+            'test_commands' => (array) ($parentProfile['test_commands'] ?? []),
+            'critical_areas' => (array) ($parentProfile['critical_areas'] ?? []),
+            'source' => 'engineering_workspace_service',
+            'status' => 'active',
+        ]);
 
         $bootstrap = $this->bootstrapWorktreeArtifacts($worktreePath, (string) $base['original_workspace']);
 
