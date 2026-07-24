@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
+  - AaeosUniversalGatesObserveProjectors catalog (command →1094)
   - AtlasPatamar4 + AtlasMission ASP peels (ASP →523)
   - engineering routes + ProviderCatalog residual (api.php →411)
   - routes arena/code-native/agents/memory-vault

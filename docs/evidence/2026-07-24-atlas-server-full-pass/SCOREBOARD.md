@@ -3,7 +3,7 @@
 | area_id | status | notes |
 |---|---|---|
 | reuse | strong | stringOption variants complete; LoadsNamedJsonOption; ProviderCatalog; Wave A helpers |
-| density | strong | Serving report ~23L; LedgerReplay families→Support; Decide stages+executionGraph; OneShotTick envelope |
+| density | strong | Aaeos projectors catalog; Serving/LedgerReplay/Decide/OneShot peels; routes/ASP density |
 | architecture | partial | routes api.php 762→411; ASP 1067→523 (Organism/Vox/Swarm/Patamar4/Mission SPs); ProviderCatalog SSOT; PRE staged |
 | surface_std | strong | CLI option traits complete for known variants |
 | gates | partial | Organism+Vox+mobile 64 tests green this slice |
@@ -18,6 +18,7 @@
 | arena/code/agents/memory-vault routes | route:list 1388; mobile telemetry 1 green; api.php 643→488 |
 | engineering routes + ProviderCatalog residual | route:list 1388; ProviderCatalog unit 3 green; api.php →411 |
 | Patamar4 + Mission ASP peels | 89 conductor/Patamar4/delivery tests green; ASP →523 |
+| Aaeos observe projectors catalog | 2 tests / 4545 asserts green; command 1851→1094 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
