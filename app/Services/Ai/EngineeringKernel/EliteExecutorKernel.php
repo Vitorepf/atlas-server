@@ -731,6 +731,19 @@ final class EliteExecutorKernel
         $rawAction = $governed['governance']['authorized_merge_action'] ?? null;
         if (! is_array($rawAction)) {
             $actuation = $this->actAuthorizedMutativeCandidate($governed['governance'], $actuator);
+            // Surface admission/court residual so operators see past the generic
+            // governor_authority_absent label (P4 live journeys).
+            if (($actuation['reason'] ?? null) === 'governor_authority_absent') {
+                $gov = $governed['governance'];
+                $detail = array_values(array_filter([
+                    (string) ($gov['decision'] ?? ''),
+                    ...array_map('strval', array_slice((array) ($gov['blockers'] ?? []), 0, 4)),
+                    (($governed['verdict']->authorityEligible ?? false) === true) ? 'court_authority_eligible' : 'court_authority_not_eligible',
+                ], static fn (string $s): bool => $s !== ''));
+                if ($detail !== []) {
+                    $actuation['reason'] = 'governor_authority_absent:'.implode('|', $detail);
+                }
+            }
 
             return [
                 'status' => (string) ($actuation['status'] ?? 'blocked'),
