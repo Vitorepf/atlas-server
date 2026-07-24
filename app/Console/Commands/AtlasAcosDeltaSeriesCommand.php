@@ -225,12 +225,7 @@ class AtlasAcosDeltaSeriesCommand extends Command
      */
     private function appendSnapshot(string $path, array $snapshot): ?array
     {
-        return AcosDeltaSeriesJsonl::appendSnapshot(
-            $path,
-            $snapshot,
-            fn (array $row): string => $this->encodeLine($row),
-            fn (string $seriesPath): ?array => $this->readSeries($seriesPath),
-        );
+        return AcosDeltaSeriesJsonl::appendSnapshot($path, $snapshot);
     }
 
     /**
@@ -238,26 +233,7 @@ class AtlasAcosDeltaSeriesCommand extends Command
      */
     private function readSeries(string $path): ?array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $raw = @file_get_contents($path);
-        if ($raw === false) {
-            return null;
-        }
-        $rows = [];
-        foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return AcosDeltaSeriesJsonl::readSeries($path);
     }
 
     /**
@@ -408,6 +384,6 @@ class AtlasAcosDeltaSeriesCommand extends Command
      */
     private function encodeLine(array $row): string
     {
-        return (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return AcosDeltaSeriesJsonl::encodeLine($row);
     }
 }

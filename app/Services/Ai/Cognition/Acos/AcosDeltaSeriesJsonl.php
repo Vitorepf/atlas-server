@@ -18,8 +18,45 @@ use Throwable;
  */
 final class AcosDeltaSeriesJsonl
 {
-    public static function appendSnapshot(string $path, array $snapshot, callable $encodeLine, callable $readSeries): ?array
+    /**
+     * @return list<array<string, mixed>>|null  null = unreadable (not empty)
+     */
+    public static function readSeries(string $path): ?array
     {
+        if (! is_file($path)) {
+            return [];
+        }
+        $raw = @file_get_contents($path);
+        if ($raw === false) {
+            return null;
+        }
+        $rows = [];
+        foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $decoded = json_decode($line, true);
+            if (is_array($decoded)) {
+                $rows[] = $decoded;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function encodeLine(array $row): string
+    {
+        return (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function appendSnapshot(string $path, array $snapshot, ?callable $encodeLine = null, ?callable $readSeries = null): ?array
+    {
+        $encodeLine ??= static fn (array $row): string => self::encodeLine($row);
+        $readSeries ??= static fn (string $seriesPath): ?array => self::readSeries($seriesPath);
         try {
             $series = $readSeries($path);
             if ($series === null) {

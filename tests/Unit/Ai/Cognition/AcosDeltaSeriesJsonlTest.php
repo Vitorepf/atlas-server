@@ -40,4 +40,16 @@ final class AcosDeltaSeriesJsonlTest extends TestCase
 
         @unlink($path);
     }
+
+    public function test_read_and_encode_roundtrip(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-acos-rt-'.uniqid('', true).'.jsonl';
+        $line = AcosDeltaSeriesJsonl::encodeLine(['date' => '2026-07-02', 'n' => 3]);
+        file_put_contents($path, $line."\n");
+        $series = AcosDeltaSeriesJsonl::readSeries($path);
+        $this->assertIsArray($series);
+        $this->assertCount(1, $series);
+        $this->assertSame(3, $series[0]['n']);
+        @unlink($path);
+    }
 }
