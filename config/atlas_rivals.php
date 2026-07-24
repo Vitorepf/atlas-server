@@ -44,7 +44,44 @@ return [
         // Claims são SEMPRE escopados (task_type, suite, cases, model, runtime,
         // budget, environment, repetitions, judge_config?). Nunca "best overall".
         'scoped_only' => true,
+        // P2g-CURR: strong multiplier / M_excellence claims only on non-saturated frontier.
+        'multiplier_requires_frontier' => true,
+        'block_saturated_frontier_multiplier' => true,
+        'block_sanity_multiplier' => true,
     ],
+
+    // P2g-CURR curriculum ladder (S_sanity / S_frontier / S_horizon). Metadata only —
+    // not a second organ. Promotion is pure policy in RivalsCurriculumLadder.
+    'curriculum' => [
+        'schema' => 'atlas.rivals.curriculum_ladder.v1',
+        'levels' => [
+            [
+                'level_id' => 'L0_sanity_smoke',
+                'curriculum_role' => 'sanity',
+                'promotion_bar' => 0.95,
+                'predecessor_level_id' => null,
+                'next_level_id' => 'L1_frontier_engineering',
+                'description' => 'Regression/parity smoke — never max multiplier claim surface',
+            ],
+            [
+                'level_id' => 'L1_frontier_engineering',
+                'curriculum_role' => 'frontier',
+                'promotion_bar' => 0.90,
+                'predecessor_level_id' => 'L0_sanity_smoke',
+                'next_level_id' => 'L2_horizon_unsolved',
+                'description' => 'Active excellence / multiplier measure surface when not saturated',
+            ],
+            [
+                'level_id' => 'L2_horizon_unsolved',
+                'curriculum_role' => 'horizon',
+                'promotion_bar' => 0.80,
+                'predecessor_level_id' => 'L1_frontier_engineering',
+                'next_level_id' => null,
+                'description' => 'Open research frontier beyond current school level',
+            ],
+        ],
+    ],
+
 
     'runtimes' => ['bare', 'atlas_dev', 'forge', 'loop', 'autonomous'],
 

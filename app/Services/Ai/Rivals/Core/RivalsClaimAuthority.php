@@ -162,6 +162,28 @@ final class RivalsClaimAuthority
         if ((int) ($evidence['exposure']['campaigns'] ?? 0) < 3 || (int) ($evidence['exposure']['attempts'] ?? 0) <= 0) {
             throw new InvalidArgumentException('rivals_claim_exposure_insufficient');
         }
+
+        // P2g-CURR: strong multiplier claims require non-saturated frontier curriculum.
+        $curriculumContext = [
+            'curriculum_role' => $evidence['curriculum_role']
+                ?? data_get($evidence, 'scope.curriculum_role')
+                ?? null,
+            'level_id' => $evidence['level_id'] ?? data_get($evidence, 'scope.level_id') ?? null,
+            'frontier_saturated' => (bool) ($evidence['frontier_saturated']
+                ?? data_get($evidence, 'scope.frontier_saturated')
+                ?? false),
+            'claim_level' => $evidence['claim_level'] ?? null,
+            'm_excellence_claim' => (bool) ($evidence['m_excellence_claim'] ?? false),
+            'm_excellence' => $evidence['m_excellence'] ?? null,
+            'anti_ceiling_argument' => (bool) ($evidence['anti_ceiling_argument'] ?? false),
+            'high_score_on_easy_as_max_multiplier' => (bool) (
+                $evidence['high_score_on_easy_as_max_multiplier'] ?? false
+            ),
+        ];
+        $curriculumBlockers = RivalsCurriculumLadder::claimBlockers($curriculumContext);
+        if ($curriculumBlockers !== []) {
+            throw new InvalidArgumentException('rivals_claim_curriculum:'.implode(',', $curriculumBlockers));
+        }
     }
 
     /** @param array<string,mixed> $claim @return array<string,mixed> */
