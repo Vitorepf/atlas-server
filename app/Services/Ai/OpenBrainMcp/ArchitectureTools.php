@@ -25,6 +25,8 @@ use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
  */
 class ArchitectureTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasAiDomainCatalogService $domainCatalog,
         private readonly AtlasAiArchitectureValidationService $architectureValidation,
@@ -254,14 +256,4 @@ class ArchitectureTools
     // ponytail: string copied verbatim from the façade (which keeps its own pinned
     // copy) — matches the existing per-Tools-class primitive convention.
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

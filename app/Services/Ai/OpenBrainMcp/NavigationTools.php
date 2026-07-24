@@ -25,6 +25,8 @@ use Throwable;
  */
 class NavigationTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasHybridMemoryRetrievalService $recall,
         private readonly EngineeringKnowledgeBaseService $knowledge,
@@ -334,24 +336,4 @@ class NavigationTools
     // ponytail: string/workspace copied verbatim from the façade (which keeps its own
     // pinned copies) — matches the existing per-Tools-class primitive convention.
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function workspace(mixed $workspace): ?string
-    {
-        $workspace = $this->string($workspace) ?: (config('atlas.ai.workdir') ?: null);
-        if ($workspace === null) {
-            return base_path();
-        }
-
-        return realpath($workspace) ?: $workspace;
-    }
 }

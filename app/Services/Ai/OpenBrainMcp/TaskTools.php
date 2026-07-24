@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class TaskTools
 {
+    use OpenBrainMcpToolInput;
+
     /**
      * PART 2 · A7 — MCP `atlas_next_task`: PULL the next task for an opaque client. Thin wrapper over the
      * SAME {@see AtlasTaskServingService} the `atlas:task` CLI uses;
@@ -277,45 +279,11 @@ class TaskTools
         return array_map(fn (mixed $item): mixed => $this->sortKeysRecursive($item), $value);
     }
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
     /**
      * @return array<string,mixed>
      */
-    private function object(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
 
     /**
      * @return array<int,string>
      */
-    private function stringList(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $values,
-        ))));
-    }
-
-    private function workspace(mixed $workspace): ?string
-    {
-        $workspace = $this->string($workspace) ?: (config('atlas.ai.workdir') ?: null);
-        if ($workspace === null) {
-            return base_path();
-        }
-
-        return realpath($workspace) ?: $workspace;
-    }
 }

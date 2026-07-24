@@ -14,6 +14,8 @@ use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
  */
 class ProviderReleaseTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasProviderReleaseIntelligenceService $providerReleaseIntelligence,
         private readonly AtlasProviderReleaseSourceRegistry $providerReleaseSources,
@@ -92,27 +94,7 @@ class ProviderReleaseTools
     // ponytail: string/stringList copied verbatim from the façade (which keeps its
     // own pinned copies). Matches the existing per-Tools-class primitive convention.
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
     /**
      * @return array<int,string>
      */
-    private function stringList(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $values,
-        ))));
-    }
 }

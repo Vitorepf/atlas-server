@@ -20,11 +20,14 @@ use Illuminate\Support\Facades\Schema;
  */
 class WorkspaceTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasOpenBrainWriteBackService $writeBack,
         private readonly AtlasAobgWorkspaceOnboardingService $workspaceOnboarding,
         private readonly AtlasAobgBlackboardService $blackboard,
     ) {}
+
     /**
      * AOBG N1.F2 — the record_outcome WRITE-BACK tool. An external session records WHAT
      * IT DID back into the brain (provider-safe mission/evidence node, never a merge,
@@ -475,37 +478,5 @@ class WorkspaceTools
             'obras' => $rows,
             'generated_at' => now()->toJSON(),
         ];
-    }
-
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function positiveInt(mixed $value): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        $value = (int) $value;
-
-        return $value > 0 ? $value : null;
-    }
-
-    private function workspace(mixed $workspace): ?string
-    {
-        $workspace = $this->string($workspace) ?: (config('atlas.ai.workdir') ?: null);
-        if ($workspace === null) {
-            return base_path();
-        }
-
-        return realpath($workspace) ?: $workspace;
     }
 }

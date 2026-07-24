@@ -16,6 +16,8 @@ use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
  */
 class GraphRagTools
 {
+    use OpenBrainMcpToolInput;
+
     /**
      * AP-813 · retrieve a CCR original by content hash. Read-only,
      * lossless-by-governance. Privacy gate mirrors the bridge-evidence secret-class
@@ -141,16 +143,5 @@ class GraphRagTools
             'result' => $result,
             'generated_at' => now()->toJSON(),
         ];
-    }
-
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
     }
 }

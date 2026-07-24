@@ -20,6 +20,8 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
  */
 class ReportTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasLedgerReplayService $ledgerReplay,
         private readonly ProviderPerformanceProjection $providerPerformance,
@@ -347,25 +349,4 @@ class ReportTools
     // ponytail: string/positiveInt copied verbatim from the façade (which keeps its
     // own pinned copies) — matches the existing per-Tools-class primitive convention.
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function positiveInt(mixed $value): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        $value = (int) $value;
-
-        return $value > 0 ? $value : null;
-    }
 }

@@ -4,8 +4,8 @@ namespace App\Services\Ai\OpenBrainMcp;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
-use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -16,10 +16,13 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class MemoryEntryTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasMemoryPrivacyService $privacy,
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
     /**
      * @param  array<string,mixed>  $arguments
      * @return array<string,mixed>
@@ -217,16 +220,5 @@ class MemoryEntryTools
             'entry' => $payload,
             'generated_at' => now()->toJSON(),
         ];
-    }
-
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
     }
 }

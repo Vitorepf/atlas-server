@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class ContextTools
 {
+    use OpenBrainMcpToolInput;
+
     public function __construct(
         private readonly AtlasHybridMemoryRetrievalService $recall,
         private readonly AtlasOpenBrainContextPackService $contextPack,
@@ -324,53 +326,7 @@ class ContextTools
     // its own pinned copies — architecture scanners token-pin them to the service
     // file). Matches the existing per-Tools-class convention (see MemoryEntryTools).
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function workspace(mixed $workspace): ?string
-    {
-        $workspace = $this->string($workspace) ?: (config('atlas.ai.workdir') ?: null);
-        if ($workspace === null) {
-            return base_path();
-        }
-
-        return realpath($workspace) ?: $workspace;
-    }
-
-    private function positiveInt(mixed $value): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        $value = (int) $value;
-
-        return $value > 0 ? $value : null;
-    }
-
-    private function object(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     /**
      * @return array<int,string>
      */
-    private function stringList(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $values,
-        ))));
-    }
 }

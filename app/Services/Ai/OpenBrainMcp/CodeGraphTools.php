@@ -23,6 +23,8 @@ use Throwable;
  */
 class CodeGraphTools
 {
+    use OpenBrainMcpToolInput;
+
     // ---------------------------------------------------------------------
     // Code graph traversal tools (AP-811). Read-only over the world-model
     // edge/node tables and the read-only WorldModelGraphRanker. No writes,
@@ -630,27 +632,5 @@ class CodeGraphTools
         }
 
         return array_values(array_unique($clean));
-    }
-
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
-
-    private function positiveInt(mixed $value): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        $value = (int) $value;
-
-        return $value > 0 ? $value : null;
     }
 }
