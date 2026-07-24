@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Support\Clamp01;
 
 /**
  * AP-815 · Q-4 — Anti-over-claim guard at the EDGE level for the code graph.
@@ -327,14 +328,7 @@ class CodeGraphInferredGuard
     /** Clamp to [0,1]. */
     private function clamp01(float $value): float
     {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
+        return Clamp01::of($value);
     }
 
     /**

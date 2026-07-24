@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Support\Clamp01;
 
 /**
  * AP-815 · P-9 — Test→code coverage edge parser (runtime-grade precision).
@@ -514,17 +515,7 @@ class CodeGraphCoverageEdgeParser
     /** Clamp to [0,1]; NaN/INF degrade to 0.0 (the over-claim-safe direction). */
     private function clamp01(float $value): float
     {
-        if (is_nan($value) || is_infinite($value)) {
-            return 0.0;
-        }
-        if ($value < 0.0) {
-            return 0.0;
-        }
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
+        return Clamp01::of($value);
     }
 
     /** Round reported floats so stats are stable for assertions and audit. */
