@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Acos;
 
+use App\Support\StableJson;
 use Throwable;
 
 /**
@@ -50,7 +51,7 @@ final class AcosDeltaSeriesJsonl
      */
     public static function encodeLine(array $row): string
     {
-        return (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return StableJson::encodeSoft($row);
     }
 
     public static function appendSnapshot(string $path, array $snapshot, ?callable $encodeLine = null, ?callable $readSeries = null): ?array
