@@ -62,7 +62,8 @@
 - [x] config/atlas.php: loop → atlas_loop_legacy.php (~1704L extracted; atlas.php 5409→3707)
 - [x] ProviderCatalog SSOT for invocation/auto-live/council (Gateway+Routes wired; config overrides optional)
 - [x] ProviderCatalog adopt in AtlasDecideService invocation list
-- [ ] ProviderCatalog adopt in Manager/Forge residual
+- [x] ProviderCatalog adopt in Manager/Forge residual (AiChatModelSection, AtlasCliDevCommand, AiProviderController, AiChatCommand council)
+- [ ] ProviderCatalog residual (validation `in:` strings / MobileThread hard lists / AiChatRepl without minimax)
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
 - [x] AppServiceProvider ACOS watchdog → AtlasAcosWatchdogServiceProvider
 - [x] AppServiceProvider Organism domain → AtlasOrganismServiceProvider

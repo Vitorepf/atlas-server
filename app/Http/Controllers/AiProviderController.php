@@ -12,9 +12,10 @@ use App\Services\Ai\AiProviderHealthService;
 use App\Services\Ai\AiProviderModelResolver;
 use App\Services\Ai\Policy\AiRuntimeBudgetService;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Provider\ProviderCatalog;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AiProviderController extends Controller
@@ -249,7 +250,7 @@ class AiProviderController extends Controller
     private function providerVisibleOnSurface(array $provider): bool
     {
         $providerId = (string) ($provider['provider'] ?? '');
-        $surfaceVisible = in_array($providerId, ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'], true)
+        $surfaceVisible = ProviderCatalog::isInvocationProvider($providerId)
             || Str::endsWith($providerId, '_cli');
 
         return (bool) ($provider['enabled'] ?? true)
@@ -488,7 +489,8 @@ class AiProviderController extends Controller
 
     private function providerKeys()
     {
-        return collect(['claude_cli', 'codex_cli'])
+        return collect(ProviderCatalog::councilProviders())
+            ->merge(ProviderCatalog::invocationProviders())
             ->merge(array_keys((array) config('atlas.ai.providers', [])))
             ->unique()
             ->values();

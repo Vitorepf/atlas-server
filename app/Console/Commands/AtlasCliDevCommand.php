@@ -15,6 +15,7 @@ use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
@@ -1112,11 +1113,11 @@ class AtlasCliDevCommand extends Command
 
     private function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
+        if (! is_string($provider) || ! ProviderCatalog::isInvocationProvider($provider)) {
             return true;
         }
 
-        return (bool) ($settings->providerConfig((string) $provider)['allow_manual'] ?? true);
+        return (bool) ($settings->providerConfig($provider)['allow_manual'] ?? true);
     }
 
     private function manualProviderBlocked(string $provider, bool $json): int
@@ -1165,7 +1166,7 @@ class AtlasCliDevCommand extends Command
      */
     private function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
+        if (! is_string($provider) || ! ProviderCatalog::isInvocationProvider($provider)) {
             return [];
         }
 
@@ -1173,8 +1174,12 @@ class AtlasCliDevCommand extends Command
             return app(FairClaudePolicy::class)->runtimeOverride($modelSelection, $modelOverride);
         }
 
-        $enabledProviders = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli'];
-        if ($provider === 'codex_cli') {
+        // Preserve historical CLI default that keeps codex opt-in unless selected.
+        $enabledProviders = array_values(array_filter(
+            ProviderCatalog::invocationProviders(),
+            static fn (string $key): bool => $key !== 'codex_cli' || $provider === 'codex_cli',
+        ));
+        if ($provider === 'codex_cli' && ! in_array('codex_cli', $enabledProviders, true)) {
             array_unshift($enabledProviders, 'codex_cli');
         }
 

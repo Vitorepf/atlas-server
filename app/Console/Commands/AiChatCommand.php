@@ -35,6 +35,7 @@ use App\Services\Ai\Cli\Repl\ReplMessages;
 use App\Services\Ai\Cli\Repl\ReplRenderer;
 use App\Services\Ai\Cli\Repl\StatusBarFormatter;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
@@ -869,7 +870,7 @@ class AiChatCommand extends Command
 
         if ($provider === 'claude_codex') {
             $payload['execution_policy'] = 'dual_review';
-            $payload['council_providers'] = ['claude_cli', 'codex_cli'];
+            $payload['council_providers'] = ProviderCatalog::councilProviders();
         }
 
         if ($this->programming->shouldDispatchProgrammingExecutor($programmingMessagePlan)) {

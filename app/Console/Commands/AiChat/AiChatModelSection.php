@@ -8,6 +8,7 @@ use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 
@@ -374,11 +375,11 @@ class AiChatModelSection
 
     public function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
+        if (! is_string($provider) || ! ProviderCatalog::isInvocationProvider($provider)) {
             return true;
         }
 
-        return (bool) ($settings->providerConfig((string) $provider)['allow_manual'] ?? true);
+        return (bool) ($settings->providerConfig($provider)['allow_manual'] ?? true);
     }
 
     public function manualProviderBlocked(string $provider): int
@@ -490,7 +491,7 @@ class AiChatModelSection
      */
     public function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
+        if (! is_string($provider) || ! ProviderCatalog::isInvocationProvider($provider)) {
             return [];
         }
 
@@ -498,11 +499,12 @@ class AiChatModelSection
             return app(FairClaudePolicy::class)->runtimeOverride($modelSelection, $modelOverride);
         }
 
+        $inventory = ProviderCatalog::invocationProviders();
         $override = [
             'default_provider' => $provider,
-            'enabled_providers' => ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'],
+            'enabled_providers' => $inventory,
             'disabled_providers' => [],
-            'fallback_order' => array_values(array_unique([$provider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'])),
+            'fallback_order' => array_values(array_unique([$provider, ...$inventory])),
             'allow_council' => false,
             'allow_multistage_graph' => false,
         ];
@@ -589,7 +591,7 @@ class AiChatModelSection
         try {
             $provider = app(AtlasAiRuntimeSettings::class)->defaultProvider();
 
-            return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true) ? $provider : 'hermes_cli';
+            return ProviderCatalog::isInvocationProvider($provider) ? $provider : 'hermes_cli';
         } catch (\InvalidArgumentException) {
             return 'hermes_cli';
         }
