@@ -66,7 +66,10 @@ OPTIONAL_DEPS: dict[str, tuple[str, ...]] = {
     "PIL": ("PIL", "from PIL", "import PIL"),
     "fpdf": ("fpdf",),
     "pypdf": ("pypdf",),
-    "tree_sitter": ("tree_sitter", "treesitter"),
+    # Real heavy dep is the parser bundle; the base `tree_sitter` is not enough.
+    # Substrings include the modules that transitively require it (callgraph /
+    # typed_callgraph tests reference it only indirectly, never by name).
+    "tree_sitter_language_pack": ("tree_sitter", "treesitter", "callgraph"),
     "sentence_transformers": ("sentence_transformers",),
 }
 

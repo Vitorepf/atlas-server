@@ -18,6 +18,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from atlas_code_graph.semantic_edges import semantic_edges  # noqa: E402
 
+# Heavy dep: the fastembed local embedding model. Absent in venv-less runs, where
+# semantic_edges degrades to an empty result — nothing to assert — so self-skip
+# cleanly (exit 0) instead of erroring the suite. Matches leiden/hybrid pattern.
+try:  # pragma: no cover - environment dependent
+    import fastembed  # noqa: F401
+except Exception:  # noqa: BLE001
+    print("dep-skip: fastembed absent; heavy embedding path not exercised")
+    raise SystemExit(0)
+
 
 def _edge_set(result: dict) -> set:
     """Map {(from, to)} for membership assertions."""

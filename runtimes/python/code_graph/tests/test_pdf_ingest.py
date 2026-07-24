@@ -119,6 +119,17 @@ def test_ingest_real_pdf_returns_document_node_with_text() -> None:
         assert "Hello Atlas" in node["label"]
 
 
+# Heavy deps: pypdf (read) + fpdf (build the fixture pdf). Absent in venv-less
+# runs, where the tests cannot exercise the real path — so self-skip cleanly
+# (exit 0) instead of erroring the suite. Matches leiden/hybrid_ranker pattern.
+try:  # pragma: no cover - environment dependent
+    import fpdf  # noqa: F401
+    import pypdf  # noqa: F401
+except Exception:  # noqa: BLE001
+    print("dep-skip: pypdf/fpdf absent; heavy pdf path not exercised")
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -14,6 +14,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from atlas_code_graph.treesitter_extract import extract  # noqa: E402
 
+# Heavy dep: the tree-sitter parser bundle. Absent in venv-less runs, where
+# extract degrades to empty — nothing to assert — so self-skip cleanly (exit 0)
+# instead of erroring the suite. Matches leiden/hybrid_ranker pattern.
+try:  # pragma: no cover - environment dependent
+    import tree_sitter_language_pack  # noqa: F401
+except Exception:  # noqa: BLE001
+    print("dep-skip: tree_sitter_language_pack absent; heavy path not exercised")
+    raise SystemExit(0)
+
 # 5-line snippet, NO leading newline so line numbers are unambiguous:
 #   line 1: import os
 #   line 2: class Foo:

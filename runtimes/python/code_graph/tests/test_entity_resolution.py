@@ -198,6 +198,16 @@ def test_int_ids_coerced() -> None:
     assert all(isinstance(m["id"], str) for m in cluster["members"])
 
 
+# Heavy dep: the fastembed local embedding model. Absent in venv-less runs, where
+# resolve_entities degrades to no-merge — the merge assertions cannot hold — so
+# self-skip cleanly (exit 0) instead of erroring the suite. Matches leiden pattern.
+try:  # pragma: no cover - environment dependent
+    import fastembed  # noqa: F401
+except Exception:  # noqa: BLE001
+    print("dep-skip: fastembed absent; heavy embedding path not exercised")
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
