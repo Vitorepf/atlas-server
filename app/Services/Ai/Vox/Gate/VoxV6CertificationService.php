@@ -10,7 +10,6 @@ use App\Services\Ai\Vox\Gate\Checks\DesktopChecks;
 use App\Services\Ai\Vox\Gate\Checks\SafetyUxChecks;
 use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
-use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 
 /**
@@ -47,11 +46,16 @@ use Carbon\CarbonImmutable;
  */
 final class VoxV6CertificationService
 {
+    use VoxGateStatusHelper;
+
     public const SCHEMA = 'atlas.vox.v6_certification.v1';
+
     public const VERSION = '0.1.0';
 
     public const STATUS_PASS = 'pass';
+
     public const STATUS_WARN = 'warn';
+
     public const STATUS_FAIL = 'fail';
 
     public function __construct(
@@ -215,50 +219,10 @@ final class VoxV6CertificationService
     /**
      * @return array<string,mixed>
      */
-    private function safe(string $checkId, callable $closure): array
-    {
-        try {
-            $body = $closure();
-        } catch (\Throwable $e) {
-            return [
-                'check' => $checkId,
-                'status' => self::STATUS_FAIL,
-                'message' => 'Check explodiu: '.$e->getMessage(),
-                'details' => ['exception_class' => $e::class],
-            ];
-        }
-        $body['check'] = $checkId;
-        $body['status'] ??= self::STATUS_WARN;
-        $body['message'] ??= '';
-        $body['details'] ??= [];
-
-        return $body;
-    }
 
     /**
      * @param  list<array<string,mixed>>  $checks
      */
-    private function aggregateStatus(array $checks): string
-    {
-        $hasFail = false;
-        $hasWarn = false;
-        foreach ($checks as $check) {
-            $status = (string) ($check['status'] ?? self::STATUS_FAIL);
-            if ($status === self::STATUS_FAIL) {
-                $hasFail = true;
-            } elseif ($status === self::STATUS_WARN) {
-                $hasWarn = true;
-            }
-        }
-        if ($hasFail) {
-            return self::STATUS_FAIL;
-        }
-        if ($hasWarn) {
-            return self::STATUS_WARN;
-        }
-
-        return self::STATUS_PASS;
-    }
 
     /**
      * @param  list<array<string,mixed>>  $checks
@@ -360,5 +324,4 @@ final class VoxV6CertificationService
 
         return $actions;
     }
-
-    }
+}

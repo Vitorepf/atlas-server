@@ -35,6 +35,8 @@ use Illuminate\Support\Carbon;
  */
 final class AtlasLearningCandidateGeneralizationService
 {
+    use CompoundingEvidenceHelper;
+
     public const SCHEMA_VERSION = 'atlas.ai.learning_candidate_generalization.v1';
 
     public const DEFAULT_FLOOR = 8;
@@ -247,26 +249,6 @@ final class AtlasLearningCandidateGeneralizationService
     /**
      * @return list<string>
      */
-    private function evidenceRefsOf(AiLearningCandidate $candidate): array
-    {
-        $refs = $candidate->evidence_refs;
-        if (! is_array($refs)) {
-            return [];
-        }
-        $out = [];
-        foreach ($refs as $ref) {
-            if (! is_string($ref)) {
-                continue;
-            }
-            $trim = trim($ref);
-            if ($trim !== '') {
-                $out[] = $trim;
-            }
-        }
-
-        return $out;
-    }
-
     private function signatureKey(string $memoryType, string $primaryCause, string $scope): string
     {
         return $memoryType.'|'.$primaryCause.'|'.$scope;

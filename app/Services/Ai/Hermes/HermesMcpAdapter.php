@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
 class HermesMcpAdapter
 {
     use HermesAdapterReceipt;
+    use HermesKeysHashHelper;
 
     public function __construct(
         private readonly HermesManagedMcpConfigProvisioner $provisioner,
@@ -425,26 +426,6 @@ class HermesMcpAdapter
         }
 
         return hash('sha256', implode(' ', $parts));
-    }
-
-    private function keysHash(mixed $value): ?string
-    {
-        if (! is_array($value) || $value === []) {
-            return null;
-        }
-
-        $keys = array_values(array_filter(array_map(
-            fn (mixed $key): ?string => is_string($key) ? $key : (is_numeric($key) ? (string) $key : null),
-            array_keys($value),
-        )));
-
-        if ($keys === []) {
-            return null;
-        }
-
-        sort($keys);
-
-        return hash('sha256', implode(',', $keys));
     }
 
     private function oauthHash(mixed $value): ?string
