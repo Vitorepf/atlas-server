@@ -421,6 +421,8 @@ class AtlasCliDevCommand extends Command
                 'quality_scan' => $this->stringOption('quality-scan'),
                 'harness_policy' => $this->stringOption('harness-policy'),
                 'apply_isolated_patch' => ! (bool) $this->option('no-apply-isolated-patch'),
+                'resume' => $resumePlanId !== '' ? $resumePlanId : null,
+                'previous_stage_receipts' => $previousStageReceipts,
                 'contract' => is_array($engineeringContract) ? $engineeringContract : [],
                 'policy_contracts' => data_get($devPlan, 'programming_session_plan.policy_contracts')
                     ?: data_get($devPlan, 'programming_session_plan.policy_profile.policy_contracts')
