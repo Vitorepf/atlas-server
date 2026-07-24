@@ -63,7 +63,8 @@
 - [x] ProviderCatalog SSOT for invocation/auto-live/council (Gateway+Routes wired; config overrides optional)
 - [x] ProviderCatalog adopt in AtlasDecideService invocation list
 - [x] ProviderCatalog adopt in Manager/Forge residual (AiChatModelSection, AtlasCliDevCommand, AiProviderController, AiChatCommand council)
-- [ ] ProviderCatalog residual (validation `in:` strings / MobileThread hard lists / AiChatRepl without minimax)
+- [x] ProviderCatalog validation `in:` SSOT (AiDecision/AiThread/MobileThread/StoreAiInteractionRequest)
+- [ ] ProviderCatalog residual (AiChatRepl without minimax — may be intentional surface subset)
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
 - [x] AppServiceProvider ACOS watchdog → AtlasAcosWatchdogServiceProvider
 - [x] AppServiceProvider Organism domain → AtlasOrganismServiceProvider

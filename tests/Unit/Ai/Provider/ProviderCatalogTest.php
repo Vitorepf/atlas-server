@@ -31,4 +31,15 @@ final class ProviderCatalogTest extends TestCase
     {
         $this->assertSame(['claude_cli', 'codex_cli'], ProviderCatalog::councilProviders());
     }
+
+    public function test_invocation_validation_in_rule_includes_inventory_and_extras(): void
+    {
+        $rule = ProviderCatalog::invocationValidationInRule(['claude_codex', 'auto']);
+        $this->assertStringStartsWith('in:', $rule);
+        foreach (ProviderCatalog::invocationProviders() as $provider) {
+            $this->assertStringContainsString($provider, $rule);
+        }
+        $this->assertStringContainsString('claude_codex', $rule);
+        $this->assertStringContainsString('auto', $rule);
+    }
 }

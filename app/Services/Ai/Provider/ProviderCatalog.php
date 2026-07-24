@@ -88,4 +88,16 @@ final class ProviderCatalog
     {
         return in_array($provider, self::autoLiveWorkerProviders(), true);
     }
+
+    /**
+     * Laravel validation `in:` list for invocation providers (+ optional aliases).
+     *
+     * @param  list<string>  $extra
+     */
+    public static function invocationValidationInRule(array $extra = []): string
+    {
+        $keys = array_values(array_unique([...self::invocationProviders(), ...$extra]));
+
+        return 'in:'.implode(',', $keys);
+    }
 }

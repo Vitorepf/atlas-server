@@ -45,7 +45,7 @@ class AiDecisionController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'input_text' => ['required', 'string', 'max:50000'],
-            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,minimax_m27_cli,claude_codex,auto'],
+            'provider' => ['nullable', 'string', ProviderCatalog::invocationValidationInRule(['claude_codex', 'auto'])],
             'model' => ['nullable', 'string', 'max:120'],
             'source_type' => ['nullable', 'string', 'max:80'],
             'agent_slug' => ['nullable', 'string', 'max:80'],

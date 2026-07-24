@@ -16,6 +16,7 @@ use App\Services\Ai\ConversationOps\AiSessionManager;
 use App\Services\Ai\ConversationOps\AiSessionStateService;
 use App\Services\Ai\ConversationOps\AiThreadDeletionService;
 use App\Services\Ai\Surface\AiSurfaceHandoffService;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceConversationFusionService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
@@ -355,7 +356,7 @@ class AiThreadController extends Controller
     public function switchProvider(Request $request, AiThread $thread, AiSessionManager $sessions, AiProviderHandoffService $handoffs): JsonResponse
     {
         $data = $request->validate([
-            'to_provider' => ['required', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,minimax_m27_cli,claude_codex'],
+            'to_provider' => ['required', 'string', ProviderCatalog::invocationValidationInRule(['claude_codex'])],
             'from_provider' => ['nullable', 'string', 'max:80'],
             'reason' => ['nullable', 'string', 'max:120'],
             'metadata' => ['nullable', 'array'],
