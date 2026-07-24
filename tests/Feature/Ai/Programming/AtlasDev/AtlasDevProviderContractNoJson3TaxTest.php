@@ -48,6 +48,7 @@ final class AtlasDevProviderContractNoJson3TaxTest extends TestCase
                 'model' => 'kimi-k2.7-FC',
                 'response_contract' => $responseContract,
             ],
+            'decision_event_id' => 'p1-json-provider-contract-decision',
             'mutate' => true,
         ]);
 
@@ -93,6 +94,7 @@ final class AtlasDevProviderContractNoJson3TaxTest extends TestCase
                 'model' => 'kimi-k2.7',
                 'response_contract' => $responseContract,
             ],
+            'decision_event_id' => 'p1-json-free-form-contract-decision',
             'mutate' => true,
         ]);
 

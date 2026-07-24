@@ -37,15 +37,11 @@ final class QualityFoundryExecutionCoverageEvidenceTest extends TestCase
         $scope = ['app/QualityFoundryCoverageProbe.php'];
         $surfaces = EngineeringExecutionSurfaceRegistry::ids();
         $provider = $this->createMock(ProviderPort::class);
-        $provider->expects(self::exactly(count($surfaces)))->method('invoke')->willReturn([
-            'status' => 'ok',
-            'provider_invoked' => true,
-            'patch_plan' => ['allowed_files' => $scope],
-        ]);
+        // P1b.1: pre-effect authority refuses before provider/sandbox when
+        // decision events are not authoritative ledger facts.
+        $provider->expects(self::never())->method('invoke');
         $sandbox = $this->createMock(HermeticSandboxPort::class);
-        $sandbox->expects(self::exactly(count($surfaces)))->method('execute')->willThrowException(
-            new \RuntimeException('quality_foundry_coverage_probe'),
-        );
+        $sandbox->expects(self::never())->method('execute');
         $this->app->instance(ProviderPort::class, $provider);
         $this->app->instance(HermeticSandboxPort::class, $sandbox);
         $this->app->forgetInstance(EliteExecutorKernel::class);
@@ -78,6 +74,7 @@ final class QualityFoundryExecutionCoverageEvidenceTest extends TestCase
                 ],
                 'operator_contract' => ['presence' => 'confirmed'],
                 'provider_route' => ['provider' => 'fixture', 'model' => 'fixture'],
+                'decision_event_id' => 'quality-foundry-coverage-decision-'.$index,
                 'mutate' => true,
                 'experiment_ref' => 'quality-foundry-coverage',
                 'idempotency_key' => 'quality-foundry:coverage:'.$surface,

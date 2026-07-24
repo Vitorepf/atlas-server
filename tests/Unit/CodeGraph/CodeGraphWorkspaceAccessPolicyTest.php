@@ -117,33 +117,38 @@ class CodeGraphWorkspaceAccessPolicyTest extends TestCase
         $this->assertFalse($policy->allows('OpenAI', 'SENSITIVE')['allowed']);
     }
 
-    public function test_opts_trusted_override_widens_sensitive_only(): void
+    public function test_opts_trusted_may_only_narrow_not_append_identity(): void
     {
         $policy = $this->policy();
 
-        // 'openai' is not trusted by default…
+        // 'openai' is not trusted by default and cannot be appended by caller opts (P1b.1).
         $this->assertFalse($policy->allows('openai', 'sensitive')['allowed']);
-
-        // …but a per-call trusted override lets it read sensitive…
-        $this->assertTrue(
+        $this->assertFalse(
             $policy->allows('openai', 'sensitive', ['trusted' => ['openai']])['allowed'],
-            'Per-call trusted override must widen the sensitive allowlist.'
+            'Per-call trusted opts must not append sovereign/trusted identity beyond config.'
         );
 
-        // …yet that does NOT grant it secret/cyber (those need the sovereign set).
+        // Narrowing to operator still allows operator (intersection with configured trusted).
+        $this->assertTrue(
+            $policy->allows('operator', 'sensitive', ['trusted' => ['operator']])['allowed']
+        );
+        // Narrowing away from operator denies operator for this call.
         $this->assertFalse(
-            $policy->allows('openai', 'secret', ['trusted' => ['openai']])['allowed'],
-            'Trusted override must not leak into the sovereign (secret) tier.'
+            $policy->allows('operator', 'sensitive', ['trusted' => ['atlas-kernel']])['allowed']
         );
     }
 
-    public function test_opts_sovereign_override_widens_secret(): void
+    public function test_opts_sovereign_may_only_narrow_not_append_identity(): void
     {
         $policy = $this->policy();
 
         $this->assertFalse($policy->allows('vault-agent', 'secret')['allowed']);
+        $this->assertFalse(
+            $policy->allows('vault-agent', 'secret', ['sovereign' => ['vault-agent']])['allowed'],
+            'Caller cannot append sovereign identity beyond config (P1b.1).'
+        );
         $this->assertTrue(
-            $policy->allows('vault-agent', 'secret', ['sovereign' => ['vault-agent']])['allowed']
+            $policy->allows('atlas-kernel', 'secret', ['sovereign' => ['atlas-kernel']])['allowed']
         );
     }
 

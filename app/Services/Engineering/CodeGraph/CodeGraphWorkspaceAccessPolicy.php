@@ -22,11 +22,15 @@ use App\Services\Engineering\EngineeringStringListNormalizer;
  *   - 'internal'  → allow ALL actors (internal-but-not-sovereign; readable).
  *   - 'sensitive' → allow only TRUSTED actors
  *                   (config('atlas.code_graph.trusted_actors', [...])
- *                    ∪ $opts['trusted']).
+ *                    ∩ optional $opts['trusted'] when provided).
  *   - 'secret'    → allow only the SOVEREIGN (local/kernel) set
- *   - 'cyber'         (config('atlas.code_graph.sovereign_actors', [...])).
+ *   - 'cyber'         (config('atlas.code_graph.sovereign_actors', [...])
+ *                    ∩ optional $opts['sovereign'] when provided).
  *                   Cyber is sovereign-only because cyber-security material never
  *                   leaves the machine (local-first sovereignty).
+ *
+ * P1b.1: caller options may only NARROW identity sets, never append sovereign
+ * (or trusted) actors beyond the configured allowlist.
  *
  * Anything else — an unknown class, an empty class, or an empty actor — is DENIED.
  * This is fail-closed by construction: a typo or malformed input can only ever
@@ -92,11 +96,10 @@ class CodeGraphWorkspaceAccessPolicy
      * @param  string  $privacyClass  The workspace's privacy class (case-insensitive,
      *                                 trimmed). Unknown/empty → denied (fail-closed).
      * @param  array<string,mixed>  $opts  Optional overrides:
-     *   - 'trusted'   array<int,string>  extra actors allowed at the 'sensitive' tier.
-     *   - 'sovereign' array<int,string>  extra actors allowed at the 'secret'/'cyber' tier.
-     *   Both are MERGED with (never replace) the configured/default sets, so an
-     *   override can only widen a specific call's allowlist, never silently strip
-     *   the kernel out of its own access.
+     *   - 'trusted'   array<int,string>  INTERSECTION filter for the sensitive tier.
+     *   - 'sovereign' array<int,string>  INTERSECTION filter for secret/cyber tier.
+     *   Both may only NARROW the configured/default sets (P1b.1) — never append
+     *   new sovereign identity beyond what config already allows.
      * @return array{allowed:bool,reason:string}
      */
     public function allows(string $actor, string $privacyClass, array $opts = []): array
@@ -148,7 +151,7 @@ class CodeGraphWorkspaceAccessPolicy
             self::DEFAULT_SOVEREIGN_ACTORS,
         );
 
-        return $this->mergeActors($configured, $opts['sovereign'] ?? []);
+        return $this->narrowActors($configured, $opts['sovereign'] ?? null);
     }
 
     /**
@@ -168,9 +171,35 @@ class CodeGraphWorkspaceAccessPolicy
             self::DEFAULT_TRUSTED_ACTORS,
         );
 
-        $merged = $this->mergeActors($configured, $opts['trusted'] ?? []);
+        $narrowed = $this->narrowActors($configured, $opts['trusted'] ?? null);
 
-        return $this->mergeActors($merged, $this->sovereignActors($opts));
+        return $this->mergeActors($narrowed, $this->sovereignActors($opts));
+    }
+
+    /**
+     * Caller options may only narrow: intersection with configured base.
+     * Absent/empty caller filter keeps the full base.
+     *
+     * @param  array<int,string>  $base
+     * @return array<int,string>
+     */
+    private function narrowActors(array $base, mixed $filter): array
+    {
+        if ($filter === null) {
+            return $base;
+        }
+        if (is_string($filter)) {
+            $filter = [$filter];
+        }
+        if (! is_array($filter) || $filter === []) {
+            return $base;
+        }
+        $allowed = $this->normalizeList($filter);
+        if ($allowed === []) {
+            return $base;
+        }
+
+        return array_values(array_intersect($base, $allowed));
     }
 
     /**

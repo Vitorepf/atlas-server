@@ -18,6 +18,7 @@ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
@@ -443,6 +444,11 @@ final class EliteExecutorKernel
     {
         if (($order->toolPermissions['mutate'] ?? false) !== true) {
             return VerifiedMutativeCandidate::blocked($order, ['mutative_permission_required']);
+        }
+        // P1b.1 pre-effect: reload authoritative decision before provider/sandbox/mutation.
+        $preEffect = $this->preEffectDecisionAuthorityBlocker($order);
+        if ($preEffect !== null) {
+            return VerifiedMutativeCandidate::blocked($order, [$preEffect]);
         }
         $guard = new AtlasLoopHarnessGuard;
         foreach ($order->allowedScope as $file) {
@@ -1200,6 +1206,48 @@ final class EliteExecutorKernel
         }
 
         return OutcomeLearningReceipt::fromObservation($observation, (string) ($event->event_hash ?? $event->event_id));
+    }
+
+    /**
+     * P1b.1: before any provider/tool/sandbox/mutation boundary, the decision
+     * event referenced by the order must reload from the trusted ledger with
+     * integrity + authority verification. Caller-authored fake ids fail closed.
+     */
+    private function preEffectDecisionAuthorityBlocker(ExecutionOrder $order): ?string
+    {
+        $eventId = trim((string) ($order->decisionReceipt['decision_event_id'] ?? ''));
+        if ($eventId === '') {
+            return 'pre_effect_decision_event_id_missing';
+        }
+
+        $event = $this->ledger()->eventById($eventId);
+        if ($event === null || ! $this->ledger()->eventIntegrityValid($event)) {
+            return 'pre_effect_decision_authority_missing';
+        }
+        if (! $this->authority()->verifyEvent($event, 'decision')) {
+            return 'pre_effect_decision_authority_invalid';
+        }
+
+        $payload = is_array($event->payload ?? null) ? $event->payload : [];
+        if (($payload['event_name'] ?? null) !== 'decision.issued'
+            && ($event->getAttribute('event_type') ?? null) !== 'decision.issued'
+            && ($payload['event_name'] ?? '') !== '') {
+            // Some ledger rows store type on the model; require decision binding.
+            if (($payload['event_name'] ?? null) !== null && ($payload['event_name'] ?? null) !== 'decision.issued') {
+                return 'pre_effect_decision_event_kind_invalid';
+            }
+        }
+
+        // Optional dual-transport on the order: if present, RuntimeGuard must pass.
+        $transport = $order->decisionReceipt['transport'] ?? null;
+        if (is_array($transport)) {
+            $violation = app(DecisionReceiptRuntimeGuard::class)->violationForReceipt($transport);
+            if ($violation !== null) {
+                return 'pre_effect_decision_transport_blocked:'.$violation->errorCode;
+            }
+        }
+
+        return null;
     }
 
     private function durableReplay(ExecutionOrder $order): ?EngineeringOutcome

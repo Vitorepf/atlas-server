@@ -26,6 +26,13 @@ final class EngineeringModeExecutionOrderFactory
         }
 
         $runHash = (string) ($input['run_hash'] ?? '');
+        // P1b.1: never synthesize mode-decision-* fallbacks. Caller must bind a real decision id.
+        $decisionEventId = trim((string) ($input['decision_event_id']
+            ?? data_get($input, 'decision_receipt.decision_event_id')
+            ?? ''));
+        if ($decisionEventId === '') {
+            throw new InvalidArgumentException('engineering_order_decision_event_id_required');
+        }
         $roles = [];
         $roleEvents = [];
         foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
@@ -49,7 +56,7 @@ final class EngineeringModeExecutionOrderFactory
             'allowed_scope' => array_values(array_map('strval', (array) ($input['allowed_scope'] ?? []))),
             'forbidden_scope' => array_values(array_map('strval', (array) ($input['forbidden_scope'] ?? []))),
             'authority_envelope' => array_merge(['kind' => 'atlas_shared_engineering_mode'], (array) ($input['authority_envelope'] ?? [])),
-            'decision_receipt' => ['decision_event_id' => (string) ($input['decision_event_id'] ?? ($mode.'-decision-'.$runHash))],
+            'decision_receipt' => ['decision_event_id' => $decisionEventId],
             'operator_contract' => array_merge(['presence' => (string) ($input['operator_presence'] ?? 'confirmed')], (array) ($input['operator_contract'] ?? [])),
             'role_roster' => $roles,
             'provider_route' => array_merge(['provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry'], (array) ($input['provider_route'] ?? [])),

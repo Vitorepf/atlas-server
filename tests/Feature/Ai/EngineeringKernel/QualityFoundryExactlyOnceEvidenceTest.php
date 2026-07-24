@@ -35,16 +35,12 @@ final class QualityFoundryExactlyOnceEvidenceTest extends TestCase
     public function test_mutative_kernel_fixture_invokes_provider_and_sandbox_once_then_blocks_without_release(): void
     {
         $scope = ['app/QualityFoundryProbe.php'];
+        // P1b.1: without an authoritative decision ledger event, mutative path
+        // must refuse before provider/sandbox (pre-effect authority replay).
         $provider = $this->createMock(ProviderPort::class);
-        $provider->expects(self::once())->method('invoke')->willReturn([
-            'status' => 'ok',
-            'provider_invoked' => true,
-            'patch_plan' => ['allowed_files' => $scope],
-        ]);
+        $provider->expects(self::never())->method('invoke');
         $sandbox = $this->createMock(HermeticSandboxPort::class);
-        $sandbox->expects(self::once())->method('execute')->willThrowException(
-            new \RuntimeException('quality_foundry_exactly_once_probe'),
-        );
+        $sandbox->expects(self::never())->method('execute');
         $this->app->instance(ProviderPort::class, $provider);
         $this->app->instance(HermeticSandboxPort::class, $sandbox);
         $this->app->forgetInstance(EliteExecutorKernel::class);
@@ -72,6 +68,7 @@ final class QualityFoundryExactlyOnceEvidenceTest extends TestCase
                 ],
                 'operator_contract' => ['presence' => 'confirmed'],
                 'provider_route' => ['provider' => 'fixture', 'model' => 'fixture'],
+                'decision_event_id' => 'quality-foundry-exactly-once-decision',
                 'mutate' => true,
                 'experiment_ref' => 'quality-foundry-exactly-once',
                 'idempotency_key' => 'quality-foundry:exactly-once',
@@ -82,7 +79,11 @@ final class QualityFoundryExactlyOnceEvidenceTest extends TestCase
         self::assertFalse($outcome->claimEligible);
         self::assertSame('not_authorized', $outcome->releaseReceipt['status']);
         self::assertSame('not_applicable', $outcome->canaryRollbackReceipt['status']);
-        self::assertSame('ok', $outcome->providerReceipt['status'] ?? null);
+        self::assertNotSame('ok', $outcome->providerReceipt['status'] ?? null);
+        self::assertTrue(
+            str_contains(json_encode($outcome->toArray(), JSON_THROW_ON_ERROR), 'pre_effect_decision_authority'),
+            'blocked outcome must cite pre-effect decision authority refusal',
+        );
 
         $coverage = AtlasLedgerEvent::query()
             ->where('event_type', EngineeringExecutionCoverage::EVENT_TYPE)
@@ -114,6 +115,7 @@ final class QualityFoundryExactlyOnceEvidenceTest extends TestCase
                 ],
                 'operator_contract' => ['presence' => 'confirmed'],
                 'provider_route' => ['provider' => 'fixture', 'model' => 'fixture'],
+                'decision_event_id' => 'quality-foundry-exactly-once-decision',
                 'mutate' => true,
                 'experiment_ref' => 'quality-foundry-exactly-once',
                 'idempotency_key' => 'quality-foundry:exactly-once',

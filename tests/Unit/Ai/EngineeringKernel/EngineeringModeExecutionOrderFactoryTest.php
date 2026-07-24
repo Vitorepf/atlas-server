@@ -19,6 +19,7 @@ final class EngineeringModeExecutionOrderFactoryTest extends TestCase
             'workspace' => '/tmp/atlas', 'base_commit' => str_repeat('e', 40),
             'allowed_scope' => ['app/Example.php'], 'forbidden_scope' => ['.env'],
             'authority_envelope' => ['authority_hash' => str_repeat('f', 64)],
+            'decision_event_id' => 'authoritative-decision-event-1',
         ];
         $orders = [];
         foreach ([
@@ -42,5 +43,24 @@ final class EngineeringModeExecutionOrderFactoryTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('engineering_order_mode_invalid');
         (new EngineeringModeExecutionOrderFactory)->make(['mode' => 'legacy']);
+    }
+
+    public function test_factory_refuses_to_synthesize_decision_event_id_fallback(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('engineering_order_decision_event_id_required');
+        (new EngineeringModeExecutionOrderFactory)->make([
+            'mode' => 'dev',
+            'risk_class' => 'R1',
+            'work_topology' => 'single',
+            'run_hash' => str_repeat('a', 64),
+            'run_id' => 'run',
+            'delivery_id' => 'delivery',
+            'base_commit' => str_repeat('b', 40),
+            'allowed_scope' => ['app/X.php'],
+            'forbidden_scope' => ['.env'],
+            'authority_envelope' => ['authority_hash' => str_repeat('c', 64)],
+            // intentionally omit decision_event_id
+        ]);
     }
 }
